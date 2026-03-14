@@ -186,6 +186,29 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "EmployeeFaceVideos",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    FilePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    FileSize = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EmployeeFaceVideos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EmployeeFaceVideo_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Pre_Registration",
                 columns: table => new
                 {
@@ -344,7 +367,7 @@ namespace API.Migrations
             migrationBuilder.InsertData(
                 table: "AppUsers",
                 columns: new[] { "UserId", "CreatedAt", "EmployeeId", "FullName", "IsActive", "PasswordHash", "Role", "Username" },
-                values: new object[] { 1, new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "Quản trị viên", true, "$2a$11$PrhXqO.4Z0Cj8lccCWYCq.4QcZfTJnxeUc.TfOwRcOBV7tQfW3p4S", "Admin", "admin" });
+                values: new object[] { 1, new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "Quản trị viên", true, "$2a$11$xELbYg6RNqejwqEdnTUc1eLlHz2NRJ3jAGyerX8P4hZoOgFVLTlLS", "Admin", "admin" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Access_Log_CameraId",
@@ -403,6 +426,11 @@ namespace API.Migrations
                 name: "IX_Employee_PositionId",
                 table: "Employee",
                 column: "PositionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeFaceVideos_EmployeeId",
+                table: "EmployeeFaceVideos",
+                column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
                 name: "UQ__Exceptio__A6278DA348D14177",
@@ -464,6 +492,9 @@ namespace API.Migrations
 
             migrationBuilder.DropTable(
                 name: "CameraPlates");
+
+            migrationBuilder.DropTable(
+                name: "EmployeeFaceVideos");
 
             migrationBuilder.DropTable(
                 name: "Registration_Links");
