@@ -8,21 +8,41 @@ ta đến phần cách chạy luôn
 
 
 
-B1) Đảm bảo đường dẫn dự án sau khi clone phải là C:\\DoAnTotNghiep\\V-Shield
+B1: cài đặt api
 
- 	Nếu không phải thì vào ổ C tạo thư mục DoAnTotNghiep sau đó dán cả cái thư mục V-Shield
+mở cmd tại vị trí V-Shield\\API\\API\\API
 
- 	đã clone về vào đấy.
+chạy 
 
-B2) vào đường dẫn C:\\DoAnTotNghiep\\V-Shield rồi click 2 lần vào tệp taomoitruong.bat để chạy nó
+dotnet ef database drop -f
 
-B3) Tiếp tục ở vị trí bước 2 ta click 2 lần vào tệp run.bat để có thể chạy toàn bộ dự án
+rmdir /s /q "Migrations"
+
+dotnet ef migrations add InitialCreate
+
+dotnet ef database update
+
+dotnet run --launch-profile "https"
 
 
 
-phần mã phòng trường hợp cần chạy thủ công (chỉ có bậc đại đế chân chính mới có thể sử dụng được)
+B2: cài view
+
+mở cmd tại vị trí V-Shield\\View
+
+chạy 
+
+npm install
+
+npm run dev
 
 
+
+B3: cài AI đọc biển 
+
+mở cmd tại vị trí V-Shield\\AI\_Project\\doc\_bien\_gpu
+
+chạy
 
 python -m venv venv
 
@@ -30,15 +50,65 @@ venv\\Scripts\\activate
 
 pip install -r requirements.txt
 
-python lpr\_ipcam.py
+python docbien.py
 
-uvicorn QR\_Dong:app --reload --port 8001
+
+
+B4: cài đọc QR động
+
+mở cmd tại vị trí V-Shield\\AI\_Project\\QR\_Dong
+
+chạy 
+
+python -m venv venv
+
+venv\\Scripts\\activate
+
+pip install -r requirements.txt
+
+python QR\_Dong.py
+
+
+
+B5: cài camera
+
+mở cmd 
+
+chạy
+
+cloudflared tunnel login
+
+cloudflared tunnel create cam-tunnel
+
+cloudflared tunnel route dns cam-tunnel cam.maiai06.site
+
+
+
+chú ý login bằng phamvanthanh2734@gmail.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+phần mã phòng trường hợp cần chạy thủ công (chỉ có bậc đại đế chân chính mới có thể sử dụng được)
+
+
 
 
 
 pip freeze > requirements.txt
-
-lpr\_gpu\\Scripts\\activate
 
 
 
@@ -55,8 +125,6 @@ pip install pyodbc
 pip install flask flask-cors
 
 
-
-dotnet run --launch-profile "https"
 
 cho view
 

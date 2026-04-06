@@ -101,7 +101,7 @@ namespace API.Controllers
             _context.Cameras.Add(camera);
             await _context.SaveChangesAsync();
 
-            camera.UrlView = BuildCameraViewUrl(camera.StreamUrl, camera.CameraId);
+            camera.UrlView = BuildCameraViewUrl(streamUrl, camera.CameraId);
             await _context.SaveChangesAsync();
 
             return Ok(camera);
@@ -190,15 +190,15 @@ namespace API.Controllers
                     var streamName = $"cam{cam.CameraId}";
 
                     yaml.AppendLine($"  {streamName}:");
-                    yaml.AppendLine($"    - {normalizedStreamUrl}");
+                    yaml.AppendLine($"    - {normalizedStreamUrl}#transport=tcp");
                 }
 
-                yaml.AppendLine();
                 yaml.AppendLine("webrtc:");
                 yaml.AppendLine("  listen: \":8555\"");
-                yaml.AppendLine("  candidates:");
-                yaml.AppendLine("    - 127.0.0.1:8555");
-                yaml.AppendLine("api:\r\n  origin: \"*\"");
+                yaml.AppendLine("  ice_servers:");
+                yaml.AppendLine("    - urls:");
+                yaml.AppendLine("        - stun:stun.l.google.com:19302");
+
 
                 // ===== PATH =====
                 var basePath = Directory.GetCurrentDirectory();
@@ -222,13 +222,17 @@ namespace API.Controllers
                     proc.Kill();
                 }
 
-                // ===== START LẠI =====
+                // ===== START GO2RTC =====
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = exePath,
                     WorkingDirectory = go2rtcPath,
                     UseShellExecute = true
                 });
+
+                // ===== 🔥 AUTO CLOUDLFARE =====
+                EnsureCloudflaredConfig();
+                StartCloudflared();
 
                 return Ok(new
                 {
@@ -309,7 +313,8 @@ namespace API.Controllers
             }
 
             var go2RtcPublicBaseUrl = ResolveGo2RtcPublicBaseUrl();
-            return $"{go2RtcPublicBaseUrl}/api/stream.mjpeg?src=cam{cameraId}";
+            return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc";
+            //return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc,mse";
         }
 
         private string BuildDirectWebStreamUrl(string streamUrl)
@@ -324,10 +329,19 @@ namespace API.Controllers
 
         private string ResolveGo2RtcPublicBaseUrl()
         {
-            var configuredGo2RtcBaseUrl = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
-            if (!string.IsNullOrWhiteSpace(configuredGo2RtcBaseUrl))
+            // ưu tiên config
+            var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
+            if (!string.IsNullOrWhiteSpace(configured))
             {
-                return NormalizeBaseUrl(configuredGo2RtcBaseUrl);
+                return NormalizeBaseUrl(configured);
+            }
+
+            // fallback: auto detect nếu có cloudflare host
+            var host = Request.Host.Value;
+
+            if (!string.IsNullOrEmpty(host) && host.Contains("maiai06.site"))
+            {
+                return $"https://{host}";
             }
 
             return $"{ResolvePublicAppBaseUrl()}/go2rtc";
@@ -346,5 +360,80 @@ namespace API.Controllers
 
         private static string NormalizeBaseUrl(string value) =>
             value.Trim().TrimEnd('/');
+
+        private static string GetLocalIPAddress()
+        {
+            var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    // bỏ qua localhost
+                    if (!ip.ToString().StartsWith("127."))
+                    {
+                        return ip.ToString();
+                    }
+                }
+            }
+
+            return "127.0.0.1";
+        }
+        private void EnsureCloudflaredConfig()
+        {
+            var cloudflareDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".cloudflared"
+            );
+
+            if (!Directory.Exists(cloudflareDir))
+                Directory.CreateDirectory(cloudflareDir);
+
+            // 👉 tìm file json tunnel
+            var jsonFile = Directory.GetFiles(cloudflareDir, "*.json")
+                                    .FirstOrDefault();
+
+            if (jsonFile == null)
+            {
+                throw new Exception("Không tìm thấy file tunnel .json (bạn chưa create tunnel)");
+            }
+
+            var configPath = Path.Combine(cloudflareDir, "config.yml");
+
+            var configContent = $@"
+tunnel: cam-tunnel
+credentials-file: {jsonFile.Replace("\\", "/")}
+
+ingress:
+  - hostname: cam.maiai06.site
+    service: http://localhost:1984
+  - service: http_status:404
+";
+
+            System.IO.File.WriteAllText(configPath, configContent);
+        }
+        private void StartCloudflared()
+        {
+            var cloudflareDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".cloudflared"
+            );
+
+            var configPath = Path.Combine(cloudflareDir, "config.yml");
+
+            // kill cũ
+            foreach (var proc in Process.GetProcessesByName("cloudflared"))
+            {
+                proc.Kill();
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "cloudflared",
+                Arguments = $"tunnel --config \"{configPath}\" run cam-tunnel",
+                UseShellExecute = true,
+                CreateNoWindow = true
+            });
+        }
     }
-}
+    }
