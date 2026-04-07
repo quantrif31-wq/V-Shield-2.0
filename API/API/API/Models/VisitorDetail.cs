@@ -22,4 +22,9 @@ public class VisitorDetail
     [ForeignKey("RegistrationId")]
     [InverseProperty("VisitorDetails")]
     public virtual PreRegistration Registration { get; set; } = null!;
+    // QR tĩnh
+    public string? QrSecret { get; set; }
+    public string? QrPayload { get; set; }
+    public DateTime? QrIssuedAt { get; set; }
+    public bool IsQrActive { get; set; } = true;
 }
