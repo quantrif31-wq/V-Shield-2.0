@@ -1,8 +1,8 @@
 streams:
-  cam14:
-    - rtsp://192.168.9.198:1945/#transport=tcp
-  cam15:
-    - rtsp://192.168.137.131:1945/#transport=tcp
+  cam1:
+    - rtsp://127.0.0.1:8554/cam1#transport=tcp
+  cam4:
+    - rtsp://127.0.0.1:8554/cam1#transport=tcp
 webrtc:
   listen: ":8555"
   ice_servers:

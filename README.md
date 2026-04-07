@@ -12,7 +12,7 @@ B1: cài đặt api
 
 mở cmd tại vị trí V-Shield\\API\\API\\API
 
-chạy 
+chạy
 
 dotnet ef database drop -f
 
@@ -30,7 +30,7 @@ B2: cài view
 
 mở cmd tại vị trí V-Shield\\View
 
-chạy 
+chạy
 
 npm install
 
@@ -38,7 +38,7 @@ npm run dev
 
 
 
-B3: cài AI đọc biển 
+B3: cài AI đọc biển
 
 mở cmd tại vị trí V-Shield\\AI\_Project\\doc\_bien\_gpu
 
@@ -58,7 +58,7 @@ B4: cài đọc QR động
 
 mở cmd tại vị trí V-Shield\\AI\_Project\\QR\_Dong
 
-chạy 
+chạy
 
 python -m venv venv
 
@@ -72,7 +72,7 @@ python QR\_Dong.py
 
 B5: cài camera
 
-mở cmd 
+mở cmd
 
 chạy
 
@@ -131,4 +131,12 @@ cho view
 npm install @ffmpeg-installer/ffmpeg
 
 http://localhost:1984
+
+
+
+cho cam
+
+winget install ffmpeg
+
+cam\_gia\_lap.py
 
