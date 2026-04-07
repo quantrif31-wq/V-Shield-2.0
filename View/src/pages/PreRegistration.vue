@@ -198,17 +198,44 @@
                         </div>
 
                         <div v-if="detail.visitors && detail.visitors.length > 0" class="detail-section-bento mt-2">
-                            <h4 class="bento-subtitle">Đoàn khách đi cùng ({{ detail.visitors.length }})</h4>
-                            <div class="pill-list mt-1">
-                                <div v-for="(v, i) in detail.visitors" :key="i" class="visitor-card">
-                                    <div class="avatar mini" :style="{ background: getAvatarColor(getInitials(v.fullName)) }">{{ getInitials(v.fullName) }}</div>
-                                    <div class="v-details">
-                                        <span class="v-name">{{ v.fullName }}</span>
-                                        <span class="v-id">CCCD: {{ v.idCardNumber || '—' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+    <h4 class="bento-subtitle">Đoàn khách đi cùng ({{ detail.visitors.length }})</h4>
+    <div class="pill-list mt-1">
+        <div
+            v-for="(v, i) in detail.visitors"
+            :key="v.visitorId || i"
+            class="visitor-card visitor-card-qr"
+            :ref="el => setQrCardRef(el, i, v.qrCodeData)"
+        >
+            <div class="visitor-left">
+                <div class="avatar mini" :style="{ background: getAvatarColor(getInitials(v.fullName)) }">
+                    {{ getInitials(v.fullName) }}
+                </div>
+                <div class="v-details">
+                    <span class="v-name">{{ v.fullName }}</span>
+                    <span class="v-id">CCCD: {{ v.idCardNumber || '—' }}</span>
+                </div>
+            </div>
+
+            <div class="visitor-right" v-if="v.qrCodeData">
+                <canvas width="120" height="120"></canvas>
+
+                <div class="qr-meta">
+                    <span class="qr-label">QR tĩnh</span>
+                    <code class="qr-text">{{ v.qrCodeData }}</code>
+
+                    <div class="qr-actions">
+                        <button class="btn btn-secondary" @click="downloadVisitorQr(i, v)">
+                            Tải QR
+                        </button>
+                        <button class="btn btn-primary" @click="copyQrText(v.qrCodeData)">
+                            {{ copied ? 'Đã Copy!' : 'Copy mã' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
                         <div v-if="detail.accessLogs && detail.accessLogs.length > 0" class="detail-section-bento mt-2">
                             <h4 class="bento-subtitle">Lịch sử check-in / check-out</h4>
@@ -354,6 +381,8 @@ import { getAll, getDetail, updateStatus, createLink } from '../services/preRegi
 import { getAll as getAllEmployees } from '../services/employeeApi'
 import { API_ORIGIN } from '../config/api'
 
+import QRCode from 'qrcode'
+
 const API_BASE = API_ORIGIN
 
 const registrations = ref([])
@@ -378,7 +407,64 @@ const isCreatingLink = ref(false)
 const copied = ref(false)
 const employees = ref([])
 const totalPages = ref(1)
+const qrCardRefs = ref([])
+const renderQr = async (text, canvas) => {
+    if (!canvas || !text) return
+    try {
+        await QRCode.toCanvas(canvas, text, {
+            width: 120,
+            margin: 2
+        })
+    } catch (e) {
+        console.error('QR error', e)
+    }
+}
 
+const setQrCardRef = (el, index, text) => {
+    if (!el) return
+
+    qrCardRefs.value[index] = el
+
+    const canvas = el.querySelector('canvas')
+    if (canvas && text) {
+        renderQr(text, canvas)
+    }
+}
+
+const safeFileName = (name) => {
+    return String(name || 'visitor')
+        .replace(/[\\/:*?"<>|]+/g, '_')
+        .replace(/\s+/g, '_')
+        .slice(0, 80)
+}
+
+const downloadVisitorQr = (index, visitor) => {
+    const wrapper = qrCardRefs.value[index]
+    const canvas = wrapper?.querySelector('canvas')
+
+    if (!canvas) {
+        alert('Không tìm thấy QR để tải xuống')
+        return
+    }
+
+    const url = canvas.toDataURL('image/png')
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${safeFileName(visitor.fullName)}_QR.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+}
+
+const copyQrText = async (text) => {
+    try {
+        await navigator.clipboard.writeText(text)
+        copied.value = true
+        setTimeout(() => (copied.value = false), 2000)
+    } catch {
+        alert('Không copy được mã QR')
+    }
+}
 // Custom Click Outside Directive
 const vClickOutside = {
   mounted(el, binding) {
@@ -775,5 +861,58 @@ input[type="date"].minimal-select { padding: 8px 14px; }
     .search-box { width: 100%; }
     .mini-grid-info { grid-template-columns: 1fr; }
     .timeline-row { flex-wrap: wrap; }
+}
+.visitor-card-qr {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.visitor-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.visitor-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.qr-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 280px;
+}
+
+.qr-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.qr-text {
+    font-size: 0.72rem;
+    word-break: break-all;
+    white-space: normal;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    border-radius: 8px;
+    color: var(--text-primary);
+}
+
+.qr-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 </style>

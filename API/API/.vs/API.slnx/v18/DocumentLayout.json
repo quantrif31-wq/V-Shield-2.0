@@ -3,6 +3,26 @@
   "WorkspaceRootPath": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|c:\\doantotnghiep\\v-shield\\api\\api\\api\\controllers\\preregistrationcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|solutionrelative:api\\controllers\\preregistrationcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|c:\\doantotnghiep\\v-shield\\api\\api\\api\\models\\visitordetail.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|solutionrelative:api\\models\\visitordetail.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|c:\\doantotnghiep\\v-shield\\api\\api\\api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|solutionrelative:api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|c:\\doantotnghiep\\v-shield\\api\\api\\api\\dtos\\preregistrationdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|solutionrelative:api\\dtos\\preregistrationdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|c:\\doantotnghiep\\v-shield\\api\\api\\api\\services\\staticvisitorqrservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|solutionrelative:api\\services\\staticvisitorqrservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|c:\\doantotnghiep\\v-shield\\api\\api\\api\\controllers\\setcamcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{CBFA08EA-AECE-205F-7B85-326FD0B81BAD}|API\\API.csproj|solutionrelative:api\\controllers\\setcamcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -18,8 +38,73 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 6,
+          "SelectedChildIndex": 1,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Program.cs",
+              "RelativeDocumentMoniker": "API\\Program.cs",
+              "ToolTip": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Program.cs",
+              "RelativeToolTip": "API\\Program.cs",
+              "ViewState": "AgIAACsAAAAAAAAAAAAQwDAAAAAuAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T18:02:18.441Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "PreRegistrationController.cs",
+              "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Controllers\\PreRegistrationController.cs",
+              "RelativeDocumentMoniker": "API\\Controllers\\PreRegistrationController.cs",
+              "ToolTip": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Controllers\\PreRegistrationController.cs",
+              "RelativeToolTip": "API\\Controllers\\PreRegistrationController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAEsBAAAoAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T18:01:23.824Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "PreRegistrationDtos.cs",
+              "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\DTOs\\PreRegistrationDtos.cs",
+              "RelativeDocumentMoniker": "API\\DTOs\\PreRegistrationDtos.cs",
+              "ToolTip": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\DTOs\\PreRegistrationDtos.cs",
+              "RelativeToolTip": "API\\DTOs\\PreRegistrationDtos.cs",
+              "ViewState": "AgIAADYAAAAAAAAAAAAiwDsAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T17:59:34.161Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "StaticVisitorQrService.cs",
+              "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Services\\StaticVisitorQrService.cs",
+              "RelativeDocumentMoniker": "API\\Services\\StaticVisitorQrService.cs",
+              "ToolTip": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Services\\StaticVisitorQrService.cs",
+              "RelativeToolTip": "API\\Services\\StaticVisitorQrService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAMYAAABbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T17:58:22.896Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "VisitorDetail.cs",
+              "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Models\\VisitorDetail.cs",
+              "RelativeDocumentMoniker": "API\\Models\\VisitorDetail.cs",
+              "ToolTip": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Models\\VisitorDetail.cs",
+              "RelativeToolTip": "API\\Models\\VisitorDetail.cs",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAYwBcAAAAvAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T17:56:13.01Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
@@ -46,7 +131,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 5,
               "Title": "SetCamController.cs",
               "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\Controllers\\SetCamController.cs",
               "RelativeDocumentMoniker": "API\\Controllers\\SetCamController.cs",
@@ -59,7 +144,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 6,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\DoAnTotNghiep\\V-Shield\\API\\API\\API\\appsettings.json",
               "RelativeDocumentMoniker": "API\\appsettings.json",

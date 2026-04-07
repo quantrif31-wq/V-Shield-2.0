@@ -53,8 +53,15 @@ public class VisitorInfoDto
 
     /// <summary>Ảnh mặt đăng ký trước — dùng để so sánh khi quét</summary>
     public string? ExpectedFaceImage { get; set; }
+    // QR tĩnh trả về cho Vue render
+    public string? QrCodeData { get; set; }
+    public DateTime? QrIssuedAt { get; set; }
+    public bool IsQrActive { get; set; }
 }
-
+public class VerifyVisitorQrDto
+{
+    public string QrPayload { get; set; } = string.Empty;
+}
 public class UpdateStatusDto
 {
     [Required]

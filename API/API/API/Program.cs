@@ -50,6 +50,7 @@ namespace API
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IVehicleService, VehicleService>();
             builder.Services.AddScoped<ILanCameraDiscoveryService, LanCameraDiscoveryService>();
+            builder.Services.AddScoped<StaticVisitorQrService>();
             builder.Services.AddHttpClient();
             builder.Services.AddSignalR();
             builder.Services.AddControllers();
