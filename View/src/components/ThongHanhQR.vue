@@ -489,8 +489,14 @@ export default {
   const result = await this.doVerifyQr(lane, res.qr)
 
   if (result?.success) {
-    lane.qr.employeeId = result.data.employeeId
-    lane.qr.employeeName = result.data.employeeName
+    if (result?.data?.type === "STATIC") {
+  lane.qr.employeeId = result.data.visitorId   // 👈 dùng visitorId
+  lane.qr.employeeName = result.data.fullName
+}
+else {
+  lane.qr.employeeId = result.data.employeeId
+  lane.qr.employeeName = result.data.employeeName
+}
     lane.qr.alert = false
   } else {
     lane.qr.alert = true
@@ -1057,7 +1063,24 @@ export default {
       qr.verifying = true
 
       try {
-        const result = await verifyDynamicQr(payload, qr.scannerDevice)
+        // 🔥 phân loại QR
+let result = null
+
+if (payload.startsWith("EMP:")) {
+  // QR động
+  result = await verifyDynamicQr(payload, qr.scannerDevice)
+}
+else if (payload.startsWith("VIS:")) {
+  // 🔥 QR tĩnh → vẫn gọi API verify (backend đã handle fallback)
+  result = await verifyDynamicQr(payload, qr.scannerDevice)
+}
+else {
+  return {
+    success: false,
+    message: "QR không đúng định dạng",
+    data: null
+  }
+}
 
         qr.verifyMessage = result?.message || ""
         qr.verifyData = result?.data || null

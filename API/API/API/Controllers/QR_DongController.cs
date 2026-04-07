@@ -1,11 +1,12 @@
-﻿using System.Data;
-using System.Security.Cryptography;
-using System.Text;
-using API.Data;
+﻿using API.Data;
 using API.Models;
 using API.Models.DTOs;
+using API.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace API.Controllers
 {
@@ -15,11 +16,16 @@ namespace API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<QR_DongController> _logger;
+        private readonly StaticVisitorQrService _visitorQrService;
 
-        public QR_DongController(ApplicationDbContext context, ILogger<QR_DongController> logger)
+        public QR_DongController(
+    ApplicationDbContext context,
+    ILogger<QR_DongController> logger,
+    StaticVisitorQrService visitorQrService)
         {
             _context = context;
             _logger = logger;
+            _visitorQrService = visitorQrService;
         }
 
         /// <summary>
@@ -128,15 +134,33 @@ namespace API.Controllers
 
             var parseResult = ParseQrPayload(request.QrPayload);
             if (!parseResult.Success)
-            {
-                await SaveScanLog(null, request.QrPayload, false, parseResult.Message, request.ScannerDevice);
+{
+    // 🔥 fallback sang QR tĩnh
+    var staticResult = await TryVerifyStaticVisitorQr(request);
 
-                return BadRequest(new
-                {
-                    success = false,
-                    message = parseResult.Message
-                });
-            }
+    if (staticResult.Success)
+    {
+        await SaveScanLog(null, request.QrPayload, true,
+            "Xác thực QR tĩnh thành công.", request.ScannerDevice);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Xác thực QR tĩnh thành công.",
+            data = staticResult.Data
+        });
+    }
+
+    await SaveScanLog(null, request.QrPayload, false,
+        $"Dynamic fail: {parseResult.Message} | Static fail: {staticResult.Message}",
+        request.ScannerDevice);
+
+    return BadRequest(new
+    {
+        success = false,
+        message = "QR không hợp lệ (cả động và tĩnh)."
+    });
+}
 
             var employeeId = parseResult.EmployeeId!.Value;
             var payloadCounter = parseResult.Counter!.Value;
@@ -205,11 +229,23 @@ namespace API.Controllers
 
                     await transaction.CommitAsync();
 
-                    return BadRequest(new
+                    // 🔥 fallback QR tĩnh
+                    var staticResult = await TryVerifyStaticVisitorQr(request);
+
+                    if (staticResult.Success)
                     {
-                        success = false,
-                        message = "QR động không hợp lệ."
-                    });
+                        await SaveScanLog(employeeId, request.QrPayload, true,
+                            "Fallback sang QR tĩnh thành công.", request.ScannerDevice);
+
+                        await transaction.CommitAsync();
+
+                        return Ok(new
+                        {
+                            success = true,
+                            message = "Xác thực QR tĩnh thành công.",
+                            data = staticResult.Data
+                        });
+                    }
                 }
 
                 // ĐÃ BỎ CƠ CHẾ:
@@ -452,6 +488,47 @@ namespace API.Controllers
             }
 
             return output.ToArray();
+        }
+        private async Task<(bool Success, string Message, object? Data)> TryVerifyStaticVisitorQr(VerifyDynamicQrRequest request)
+        {
+            try
+            {
+                var ok = _visitorQrService.TryParsePayload(request.QrPayload, out var payload, out var message);
+
+                if (!ok || payload == null)
+                    return (false, message, null);
+
+                var visitor = await _context.VisitorDetails
+    .Include(v => v.Registration)
+    .ThenInclude(r => r!.HostEmployee)
+    .FirstOrDefaultAsync(v =>
+        v.VisitorDetailId == payload.VisitorId &&
+        v.RegistrationId == payload.RegistrationId);
+
+                if (visitor == null)
+                    return (false, "Không tìm thấy visitor", null);
+
+                if (!visitor.IsQrActive)
+                    return (false, "QR đã bị khóa", null);
+
+                var expectedOtp = _visitorQrService.GenerateOtp(visitor.QrSecret);
+
+                if (payload.Otp != expectedOtp)
+                    return (false, "OTP không đúng", null);
+
+                return (true, "OK", new
+                {
+                    type = "STATIC",
+                    visitorId = visitor.VisitorDetailId,
+                    fullName = visitor.FullName,
+                    host = visitor.Registration?.HostEmployee?.FullName
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi verify QR tĩnh");
+                return (false, "Lỗi hệ thống QR tĩnh", null);
+            }
         }
     }
 }
