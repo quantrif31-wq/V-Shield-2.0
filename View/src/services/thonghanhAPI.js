@@ -11,3 +11,7 @@ const api = axios.create({
 export function scanGate(payload) {
   return api.post("/Gate/scan", payload)
 }
+
+export function scanGuest(payload) {
+  return api.post("/Gate/scan-guest", payload)
+}

@@ -238,11 +238,20 @@ public class AccessLogsController : ControllerBase
                 EmployeeId = log.EmployeeId,
                 RegistrationId = log.RegistrationId,
                 ActorName = log.Employee != null
-                    ? log.Employee.FullName
-                    : log.Registration != null && log.Registration.Guest != null
-                        ? log.Registration.Guest.FullName
-                        : "Chưa xác định",
-                ActorType = log.Employee != null ? "Employee" : log.RegistrationId != null ? "Guest" : "Unknown",
+    ? log.Employee.FullName
+    : log.VisitorDetail != null
+        ? log.VisitorDetail.FullName
+        : log.Registration != null && log.Registration.Guest != null
+            ? log.Registration.Guest.FullName
+            : "Chưa xác định",
+
+                ActorType = log.EmployeeId != null
+    ? "Employee"
+    : log.VisitorDetailId != null
+        ? "GuestVisitor"
+        : log.Registration != null && log.Registration.Guest != null
+            ? "Guest"
+            : "Unknown",
                 CapturedLicensePlate = log.CapturedLicensePlate,
                 CapturedFaceImageUrl = log.CapturedFaceImageUrl,
                 ResultStatus = log.ResultStatus,

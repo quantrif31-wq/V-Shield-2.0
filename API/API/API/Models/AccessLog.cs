@@ -73,4 +73,7 @@ public partial class AccessLog
     [ForeignKey("RegistrationId")]
     [InverseProperty("AccessLogs")]
     public virtual PreRegistration? Registration { get; set; }
+    public int? GuestId { get; set; }
+    public int? VisitorDetailId { get; set; }
+    public VisitorDetail? VisitorDetail { get; set; }
 }

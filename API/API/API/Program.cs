@@ -121,7 +121,15 @@ namespace API
                         .AllowCredentials();
                 });
             });
-
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.CustomSchemaIds(type => type.FullName);
+            });
+            builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
             var app = builder.Build();
             EnsureSeedAdmin(app.Services, builder.Configuration);
 

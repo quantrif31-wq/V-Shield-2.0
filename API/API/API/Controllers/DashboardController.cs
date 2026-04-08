@@ -84,7 +84,9 @@ public class DashboardController : ControllerBase
                 GateName = log.Gate != null ? log.Gate.GateName : null,
                 CameraName = log.Camera != null ? log.Camera.CameraName : null,
                 EmployeeName = log.Employee != null ? log.Employee.FullName : null,
-                GuestName = log.Registration != null && log.Registration.Guest != null ? log.Registration.Guest.FullName : null,
+                VisitorName = log.VisitorDetail != null
+    ? log.VisitorDetail.FullName
+    : null,
                 ExceptionReason = log.ExceptionReason != null ? log.ExceptionReason.Description : null
             })
             .ToListAsync();
@@ -125,7 +127,9 @@ public class DashboardController : ControllerBase
             activity.LogId,
             activity.Timestamp,
             activity.Direction,
-            actorName = activity.EmployeeName ?? activity.GuestName ?? "Chưa xác định",
+            actorName = activity.EmployeeName
+    ?? activity.VisitorName
+    ?? "Chưa xác định",
             gateName = activity.GateName ?? "Chưa gán cổng",
             cameraName = activity.CameraName,
             activity.CapturedLicensePlate,
@@ -133,7 +137,9 @@ public class DashboardController : ControllerBase
             activity.IsBypass,
             activity.Note,
             activity.ExceptionReason,
-            actorType = activity.EmployeeName != null ? "Employee" : activity.GuestName != null ? "Guest" : "Unknown"
+            actorType = activity.EmployeeName != null ? "Employee"
+    : activity.VisitorName != null ? "GuestVisitor"
+    : "Unknown"
         });
 
         return Ok(new

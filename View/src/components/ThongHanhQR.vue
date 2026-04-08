@@ -60,7 +60,7 @@
 
           <button
             class="btn btn-confirm"
-            :disabled="lane.loading || !lane.qr.employeeId || !lane.plate.confirmedPlate"
+            :disabled="lane.loading || (!lane.qr.employeeId && !lane.qr.guestId) || !lane.plate.confirmedPlate"
             @click="confirmLane(lane)"
           >
             Xác nhận
@@ -115,8 +115,8 @@
 
         <div class="summary-bar">
           <div class="summary-item">
-            <span class="label">Employee ID</span>
-            <span class="value strong">{{ lane.qr.employeeId || "-----" }}</span>
+            <span class="label">Employee / Guest ID</span>
+           <span class="value strong">{{ lane.qr.employeeId || lane.qr.guestId || "-----" }}</span>
           </div>
 
           <div class="summary-item">
@@ -284,7 +284,7 @@
 import jsQR from "jsqr"
 import * as plateLane1Api from "../services/biensoApi"
 import * as plateLane2Api from "../services/biensoApi"
-import { scanGate } from "../services/thonghanhAPI"
+import { scanGate, scanGuest } from "../services/thonghanhAPI"
 import { verifyDynamicQr } from "../services/dynamicQrVerifyApi"
 import { getCameras } from "../services/setcamAPI"
 import { startQr, resetQr, stopQr, getQrResult, scanQr } from "../services/qr_dAPI"
@@ -314,6 +314,8 @@ function createQrModule(defaultScannerDevice) {
 
     employeeId: "",
     employeeName: "",
+    guestId: "",
+    personType: "",
 
     activeSessionPayload: "",
     activeSessionVerified: false,
@@ -390,23 +392,27 @@ export default {
   cameraSearch: {},
       lanes: [
         {
-          id: "lane1",
-          name: "Làn 1",
-          desc: "QR trên / Biển dưới",
-          loading: false,
-          plateApi: plateLane1Api,
-          qr: createQrModule("WEB_SCANNER_GATE_01"),
-          plate: createPlateModule()
-        },
-        {
-          id: "lane2",
-          name: "Làn 2",
-          desc: "QR trên / Biển dưới",
-          loading: false,
-          plateApi: plateLane2Api,
-          qr: createQrModule("WEB_SCANNER_GATE_02"),
-          plate: createPlateModule()
-        }
+  id: "lane1",
+  name: "Làn 1",
+  desc: "QR trên / Biển dưới",
+  gateId: null,
+  cameraId: null,
+  loading: false,
+  plateApi: plateLane1Api,
+  qr: createQrModule("WEB_SCANNER_GATE_01"),
+  plate: createPlateModule()
+},
+{
+  id: "lane2",
+  name: "Làn 2",
+  desc: "QR trên / Biển dưới",
+  gateId: null,
+  cameraId: null,
+  loading: false,
+  plateApi: plateLane2Api,
+  qr: createQrModule("WEB_SCANNER_GATE_02"),
+  plate: createPlateModule()
+}
       ]
     }
   },
@@ -487,15 +493,21 @@ export default {
   lane.qr.sessionLocked = true
 
   const result = await this.doVerifyQr(lane, res.qr)
-
+const qr = lane.qr
   if (result?.success) {
-    if (result?.data?.type === "STATIC") {
-  lane.qr.employeeId = result.data.visitorId   // 👈 dùng visitorId
-  lane.qr.employeeName = result.data.fullName
-}
-else {
-  lane.qr.employeeId = result.data.employeeId
-  lane.qr.employeeName = result.data.employeeName
+   if (result?.data?.type === "STATIC") {
+  qr.guestId = String(
+  result?.data?.visitorDetailId ||
+  result?.data?.visitorId ||
+  result?.data?.guestId ||
+  ""
+)
+  lane.qr.employeeId = ""
+  lane.qr.employeeName = result.data.fullName || result.data.visitorName || ""
+} else {
+  lane.qr.employeeId = String(result.data.employeeId || "")
+  lane.qr.employeeName = result.data.employeeName || ""
+  lane.qr.guestId = ""
 }
     lane.qr.alert = false
   } else {
@@ -510,11 +522,11 @@ else {
   }, 300)
 },
 
-    isLaneReady(lane) {
+        isLaneReady(lane) {
       return (
         lane.qr.sessionLocked &&
         lane.plate.scanLocked &&
-        !!lane.qr.employeeId &&
+        (!!lane.qr.employeeId || !!lane.qr.guestId) &&
         !!lane.plate.confirmedPlate &&
         !lane.qr.alert
       )
@@ -538,7 +550,7 @@ else {
 
     qrStateClass(qr) {
       if (qr.alert) return "danger-text"
-      if (qr.sessionLocked && qr.employeeId) return "ok-text"
+      if (qr.sessionLocked && (qr.employeeId || qr.guestId)) return "ok-text"
       return "warn-text"
     },
 
@@ -825,6 +837,8 @@ else {
       qr.verifyData = null
       qr.employeeId = ""
       qr.employeeName = ""
+      qr.guestId = ""
+      qr.personType = ""
 
       qr.activeSessionPayload = ""
       qr.activeSessionVerified = false
@@ -1020,8 +1034,22 @@ else {
           qr.sessionLocked = true
           qr.lockedSnapshot = canvas.toDataURL("image/jpeg", 0.92)
           qr.alert = false
-          qr.employeeId = result?.data?.employeeId ? String(result.data.employeeId) : ""
-          qr.employeeName = result?.data?.employeeName || ""
+                    qr.personType = result?.data?.type || ""
+
+          if (qr.personType === "STATIC") {
+  qr.guestId = String(
+    result?.data?.visitorDetailId ||
+    result?.data?.visitorId ||
+    result?.data?.guestId ||
+    ""
+  )
+  qr.employeeId = ""
+  qr.employeeName = result?.data?.fullName || result?.data?.visitorName || ""
+} else {
+            qr.employeeId = result?.data?.employeeId ? String(result.data.employeeId) : ""
+            qr.employeeName = result?.data?.employeeName || ""
+            qr.guestId = ""
+          }
           qr.message = result.message || "QR hợp lệ"
           return
         }
@@ -1030,6 +1058,8 @@ else {
         qr.sessionLocked = false
         qr.employeeId = ""
         qr.employeeName = ""
+        qr.guestId = ""
+        qr.personType = ""
 
         if (message.includes("đã hết hạn") || message.includes("chưa đến hiệu lực")) {
           qr.activeSessionVerifyState = "expired"
@@ -1052,6 +1082,8 @@ else {
         qr.sessionLocked = false
         qr.employeeId = ""
         qr.employeeName = ""
+        qr.guestId = ""
+        qr.personType = ""
         qr.message = qr.verifyMessage
       } finally {
         qr.decodeBusy = false
@@ -1500,49 +1532,65 @@ this.startQrPolling(lane)
   }
 },
 
-    async confirmLane(lane) {
-      const employeeId = Number(lane.qr.employeeId || 0)
-      const licensePlate = String(lane.plate.confirmedPlate || "").trim()
+        async confirmLane(lane) {
+  const licensePlate = String(lane.plate.confirmedPlate || "").trim()
+  const isGuest = !!lane.qr.guestId
+  const employeeId = Number(lane.qr.employeeId || 0)
+  const visitorDetailId = Number(lane.qr.guestId || 0)
 
-      if (!employeeId) {
-        alert(`${lane.name}: chưa có Employee ID`)
-        return
-      }
+  if (!licensePlate) {
+    alert(`${lane.name}: chưa có biển số`)
+    return
+  }
 
-      if (!licensePlate) {
-        alert(`${lane.name}: chưa có biển số`)
-        return
-      }
+  if (!isGuest && !employeeId) {
+    alert(`${lane.name}: chưa có Employee ID`)
+    return
+  }
 
-      try {
-        lane.loading = true
+  if (isGuest && !visitorDetailId) {
+    alert(`${lane.name}: chưa có VisitorDetailId`)
+    return
+  }
 
-        // Vẫn dùng API thông hành cũ, chỉ lấy employeeId từ QR verify
-        const payload = {
-          employeeId,
-          licensePlate
-        }
+  try {
+    lane.loading = true
 
-        const res = await scanGate(payload)
-        const data = res.data
+    const payload = {
+      LicensePlate: licensePlate,
+      GateId: lane.gateId,
+      CameraId: lane.cameraId
+    }
 
-        if (data?.success) {
-          alert(`${lane.name}: ${data.message}`)
-        } else {
-          alert(`${lane.name}: ${data?.message || "Xử lý thất bại"}`)
-        }
-      } catch (error) {
-        const message =
-          error?.response?.data?.message ||
-          error?.message ||
-          "Không gọi được API Gate"
+    if (isGuest) {
+  payload.VisitorDetailId = Number(lane.qr.guestId || 0)
+  payload.QrPayload = lane.qr.qrPayload || lane.qr.activeSessionPayload || ""
+} else {
+      payload.EmployeeId = employeeId
+    }
 
-        alert(`${lane.name}: ${message}`)
-      } finally {
-        lane.loading = false
-      }
-    },
+    const res = isGuest
+      ? await scanGuest(payload)
+      : await scanGate(payload)
 
+    const data = res.data
+
+    if (data?.success) {
+      alert(`${lane.name}: ${data.message}`)
+    } else {
+      alert(`${lane.name}: ${data?.message || "Xử lý thất bại"}`)
+    }
+  } catch (error) {
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Không gọi được API Gate"
+
+    alert(`${lane.name}: ${message}`)
+  } finally {
+    lane.loading = false
+  }
+},
     // ================= CAMERA SEARCH =================
 
 async loadCameraList() {
@@ -1575,6 +1623,7 @@ selectCamera(cam, lane, type) {
     lane.qr.cameraIp = cam.streamUrl
     lane.qr.viewUrl = cam.urlView   // 🔥 thêm
     lane.qr.currentIp = cam.urlView
+    lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-qr'] = cam.cameraName
     this.mountPreview(lane.qr, cam.urlView)
@@ -1584,6 +1633,7 @@ selectCamera(cam, lane, type) {
     lane.plate.cameraIp = cam.streamUrl
     lane.plate.viewUrl = cam.urlView
     lane.plate.currentIp = cam.streamUrl
+    lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-plate'] = cam.cameraName
     this.mountPreview(lane.plate, cam.urlView)

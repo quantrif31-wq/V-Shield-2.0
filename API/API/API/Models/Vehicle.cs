@@ -31,4 +31,6 @@ public partial class Vehicle
     [ForeignKey("VehicleTypeId")]
     [InverseProperty("Vehicles")]
     public virtual VehicleType? VehicleType { get; set; }
+    public int? VisitorDetailId { get; set; }
+    public VisitorDetail? VisitorDetail { get; set; }
 }

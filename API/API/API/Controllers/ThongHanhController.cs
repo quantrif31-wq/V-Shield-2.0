@@ -81,6 +81,7 @@ namespace API.Controllers
                         CameraId = request.CameraId,
                         CapturedLicensePlate = currentVehicle.LicensePlate,
                         EmployeeId = request.EmployeeId,
+                        RegistrationId = null,
                         ResultStatus = "SUCCESS",
                         IsBypass = false,
                         Note = $"Đổi trạng thái xe từ {oldStatus} sang {newStatus}"
@@ -115,8 +116,9 @@ namespace API.Controllers
                         Direction = "IN",
                         GateId = request.GateId,
                         CameraId = request.CameraId,
-                        CapturedLicensePlate = request.LicensePlate,
+                        CapturedLicensePlate = normalizedPlate,
                         EmployeeId = request.EmployeeId,
+                        RegistrationId = null,
                         ResultStatus = "FAILED",
                         IsBypass = false,
                         Note = $"Biển số đang được gửi bởi nhân viên có id là {conflictVehicle.EmployeeId}"
@@ -148,6 +150,7 @@ namespace API.Controllers
                     CameraId = request.CameraId,
                     CapturedLicensePlate = normalizedPlate,
                     EmployeeId = request.EmployeeId,
+                    RegistrationId = null,
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
                     Note = "Thêm mới phương tiện và cho vào bãi với trạng thái IN"
@@ -175,6 +178,113 @@ namespace API.Controllers
                 return StatusCode(500, GateApiResponse.CreateError(
                     "Có lỗi xảy ra khi xử lý dữ liệu.",
                     ex.Message));
+            }
+        }
+        [HttpPost("scan-guest")]
+        public async Task<IActionResult> ScanGuest([FromBody] GateScanRequest request)
+        {
+            if (request == null)
+                return BadRequest("Dữ liệu không hợp lệ.");
+
+            if (request.VisitorDetailId == null && string.IsNullOrWhiteSpace(request.QrPayload))
+                return BadRequest("Phải có VisitorDetailId hoặc QrPayload.");
+
+            VisitorDetail? visitor = null;
+
+            if (request.VisitorDetailId.HasValue)
+            {
+                 visitor = await _context.VisitorDetails
+    .Include(v => v.Registration)
+    .FirstOrDefaultAsync(v =>
+        v.VisitorDetailId == request.VisitorDetailId &&
+        v.IsQrActive &&
+        v.Registration != null &&
+        v.Registration.Status.ToUpper() == "APPROVED");
+            }
+
+            if (visitor == null)
+                return NotFound("Không tìm thấy khách đã được xác nhận trong bảng Visitor_Details.");
+
+            var normalizedPlate = NormalizeLicensePlate(request.LicensePlate);
+            if (string.IsNullOrWhiteSpace(normalizedPlate))
+                return BadRequest("Biển số không hợp lệ.");
+
+            var vehicle = await _context.Vehicles
+    .FirstOrDefaultAsync(v =>
+        v.LicensePlate != null &&
+        v.LicensePlate.Trim()
+            .ToUpper()
+            .Replace(" ", "")
+            .Replace("-", "") == normalizedPlate);
+
+            if (vehicle == null)
+            {
+
+                var newVehicle = new Vehicle
+                {
+                    LicensePlate = normalizedPlate,
+                    EmployeeId = null,
+                    VehicleTypeId = request.VehicleTypeId,
+                    Description = request.Description,
+                    ParkingStatus = "IN"
+                };
+
+                _context.Vehicles.Add(newVehicle);
+
+                _context.AccessLogs.Add(new AccessLog
+                {
+                    Timestamp = DateTime.Now,
+                    Direction = "IN",
+                    GateId = request.GateId,
+                    CameraId = request.CameraId,
+                    CapturedLicensePlate = normalizedPlate,
+                    RegistrationId = visitor.RegistrationId,
+                    VisitorDetailId = visitor.VisitorDetailId,
+                    EmployeeId = null,
+                    ResultStatus = "SUCCESS",
+                    IsBypass = false,
+                    Note = "Thêm mới phương tiện cho khách với trạng thái IN."
+                });
+
+                await _context.SaveChangesAsync();
+
+                return Ok(GateApiResponse.CreateSuccess(
+                    "Phương tiện của khách đã được thêm mới với trạng thái IN.",
+                    new
+                    {
+                        newVehicle.VehicleId,
+                        newVehicle.LicensePlate,
+                        newVehicle.EmployeeId,
+                        newVehicle.VehicleTypeId,
+                        newVehicle.Description,
+                        newVehicle.ParkingStatus
+                    }));
+            }
+            else
+            {
+                var oldStatus = vehicle.ParkingStatus;
+                var newStatus = oldStatus == "IN" ? "OUT" : "IN";
+                vehicle.ParkingStatus = newStatus;
+
+                _context.AccessLogs.Add(new AccessLog
+                {
+                    Timestamp = DateTime.Now,
+                    Direction = newStatus,
+                    GateId = request.GateId,
+                    CameraId = request.CameraId,
+                    CapturedLicensePlate = normalizedPlate,
+                    RegistrationId = visitor.RegistrationId,
+                    VisitorDetailId = visitor.VisitorDetailId,
+                    EmployeeId = null,
+                    ResultStatus = "SUCCESS",
+                    IsBypass = false,
+                    Note = $"Đổi trạng thái xe của khách từ {oldStatus} sang {newStatus}."
+                });
+
+                await _context.SaveChangesAsync();
+
+                return Ok(GateApiResponse.CreateSuccess(
+                    $"Cập nhật trạng thái xe của khách thành công: {oldStatus} -> {newStatus}."));
             }
         }
 
@@ -334,11 +444,14 @@ namespace API.Controllers
     public class GateScanRequest
     {
         public string LicensePlate { get; set; } = string.Empty;
-        public int EmployeeId { get; set; }
+        public int? EmployeeId { get; set; }
         public int? VehicleTypeId { get; set; }
         public string? Description { get; set; }
         public int? GateId { get; set; }
         public int? CameraId { get; set; }
+        public int? GuestId { get; set; }
+        public int? VisitorDetailId { get; set; }
+        public string? QrPayload { get; set; }
     }
 
     public class GateApiResponse
