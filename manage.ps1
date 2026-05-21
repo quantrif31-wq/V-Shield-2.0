@@ -228,8 +228,42 @@ function Uninstall-All {
     (Join-Path $viewDir 'node_modules'),
     (Join-Path $aiRoot 'face_recognition\\venv'),
     (Join-Path $aiRoot 'doc_bien_gpu\\venv'),
+    (Join-Path $aiRoot 'QR_Dong\\venv'),
+    (Join-Path $aiRoot 'AI_An_Ninh\\venv'),
+    (Join-Path $apiDir 'bin'),
+    (Join-Path $apiDir 'obj'),
     (Join-Path $root '.runtime')
   )
+
+  if (Test-CommandExists 'dotnet') {
+    try {
+      Push-Location $apiDir
+      & dotnet ef --version *> $null
+      if ($LASTEXITCODE -eq 0) {
+        Write-Info 'Drop database...'
+        & dotnet restore *> $null
+        if ($LASTEXITCODE -ne 0) {
+          Write-WarnMsg 'Khong the restore project de drop database, bo qua.'
+        } else {
+          $prevNativeErrPref = $PSNativeCommandUseErrorActionPreference
+          $PSNativeCommandUseErrorActionPreference = $false
+          & dotnet ef database drop -f
+          if ($LASTEXITCODE -ne 0) {
+            Write-WarnMsg 'Khong the xoa database, bo qua.'
+          }
+          $PSNativeCommandUseErrorActionPreference = $prevNativeErrPref
+        }
+      } else {
+        Write-WarnMsg 'Khong tim thay dotnet-ef, bo qua buoc xoa database.'
+      }
+      Pop-Location
+    } catch {
+      Write-WarnMsg 'Khong the xoa database, bo qua.'
+      if ((Get-Location).Path -ne $root) { Pop-Location }
+    }
+  } else {
+    Write-WarnMsg 'Khong tim thay dotnet, bo qua buoc xoa database.'
+  }
 
   foreach ($path in $pathsToRemove) {
     if (Test-Path -LiteralPath $path) {
@@ -246,8 +280,7 @@ function Uninstall-All {
     Write-WarnMsg 'dotnet clean that bai, bo qua.'
   }
 
-  Write-Ok 'Da go moi truong runtime/cached dependencies.'
-  Write-WarnMsg 'Database khong bi xoa de tranh mat du lieu. Neu can xoa DB, thuc hien chu dong bang script rieng.'
+  Write-Ok 'Da go sach moi truong da cai (venv, node_modules, runtime, build output, database).'
 }
 
 try {
@@ -258,6 +291,7 @@ try {
     'uninstall' { Uninstall-All; break }
     'status' { Show-Status; break }
   }
+  exit 0
 } catch {
   Write-Host "[ERR ] $($_.Exception.Message)" -ForegroundColor Red
   exit 1
