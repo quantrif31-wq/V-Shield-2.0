@@ -1,40 +1,120 @@
-.vs/
-.dotnet-cli/
-.artifacts/
-.dotnet/
-# ===== Python =====
+# ===============================
+# V-Shield: keep source only
+# ===============================
+
+# ----- OS / Editor -----
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ----- Runtime / logs / temp -----
+.runtime/
+logs/
+*.log
+*.pid
+tmp/
+temp/
+.cache/
+
+# ----- Python env / cache / build -----
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.python-version
 venv/
-lpr_final/
-lpr_gpu/
-Migrations/
-
-# ===== YOLO / Dataset =====
-AI_Project/Vietnam License Plate.v2i.yolov8/
-runs/
-
-# ===== Model files (nếu không muốn push .pt) =====
-
-
-# ===== Build files =====
+.venv/
+env/
+ENV/
+**/venv/
+**/.venv/
+pip-wheel-metadata/
 build/
 dist/
-.tmp-api-build/
-*.exe
-*.pkg
+site/
+*.egg-info/
+.eggs/
+*.whl
 
-# ===== ASP.NET =====
+# ----- Node / frontend build -----
+node_modules/
+dist-ssr/
+.pnpm-store/
+.npm/
+.yarn/
+*.tsbuildinfo
+
+# ----- .NET / C# build -----
+.vs/
+.dotnet/
+.dotnet-cli/
+.artifacts/
 bin/
 obj/
-API/API/API/wwwroot/uploads/faces/
+TestResults/
+
+# ----- Native / packaged outputs -----
+*.exe
+*.dll
+*.lib
+*.so
+*.dylib
+*.a
+*.o
+*.obj
+*.pkg
+*.msi
+
+# ----- Archives / large packaged data -----
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
+*.iso
+
+# ----- ML datasets / training artifacts -----
+runs/
+checkpoints/
+datasets/
+AI_Project/**/runs/
+AI_Project/**/weights/
+AI_Project/**/checkpoints/
+AI_Project/Vietnam License Plate.v2i.yolov8/
+
+# ----- Media and captures not needed for source repo -----
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.webp
+
+# ----- Local secrets / machine-specific config -----
 API/API/API/appsettings.Production.json
+API/API/API/wwwroot/uploads/faces/
 
-# ===== VSCode =====
-.vscode/
-
-.vs/
-*.suo
-
-# ===== Local camera bridge =====
+# ----- Local tools / bridge binaries -----
 AI_Project/cam/go2rtc_win64/
+
+# ----- Office documents -----
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.xls
+*.xlsx
