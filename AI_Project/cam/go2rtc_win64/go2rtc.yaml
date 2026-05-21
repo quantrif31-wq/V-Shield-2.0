@@ -1,0 +1,8 @@
+streams:
+  cam1:
+    - rtsp://192.168.137.152:1945/#transport=tcp
+webrtc:
+  listen: ":8555"
+  ice_servers:
+    - urls:
+        - stun:stun.l.google.com:19302
