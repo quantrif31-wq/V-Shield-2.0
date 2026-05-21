@@ -3,6 +3,8 @@ using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
+using System.Text;
 
 namespace API.Controllers;
 
@@ -12,10 +14,12 @@ namespace API.Controllers;
 public class DeviceManagementController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public DeviceManagementController(ApplicationDbContext context)
+    public DeviceManagementController(ApplicationDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet("overview")]
@@ -105,18 +109,24 @@ public class DeviceManagementController : ControllerBase
         {
             CameraName = request.CameraName.Trim(),
             CameraType = NormalizeOptional(request.CameraType),
-            GateId = request.GateId
+            GateId = request.GateId,
+            StreamUrl = NormalizeOptional(request.StreamUrl)
         };
 
         _context.Cameras.Add(camera);
         await _context.SaveChangesAsync();
+        camera.UrlView = BuildCameraViewUrl(camera.StreamUrl, camera.CameraId);
+        await _context.SaveChangesAsync();
+        await TryReloadGo2RtcAsync();
 
         return CreatedAtAction(nameof(GetCameras), new { id = camera.CameraId }, new
         {
             camera.CameraId,
             camera.CameraName,
             camera.CameraType,
-            camera.GateId
+            camera.GateId,
+            camera.StreamUrl,
+            camera.UrlView
         });
     }
 
@@ -143,15 +153,20 @@ public class DeviceManagementController : ControllerBase
         camera.CameraName = request.CameraName.Trim();
         camera.CameraType = NormalizeOptional(request.CameraType);
         camera.GateId = request.GateId;
+        camera.StreamUrl = NormalizeOptional(request.StreamUrl);
+        camera.UrlView = BuildCameraViewUrl(camera.StreamUrl, camera.CameraId);
 
         await _context.SaveChangesAsync();
+        await TryReloadGo2RtcAsync();
 
         return Ok(new
         {
             camera.CameraId,
             camera.CameraName,
             camera.CameraType,
-            camera.GateId
+            camera.GateId,
+            camera.StreamUrl,
+            camera.UrlView
         });
     }
 
@@ -178,6 +193,7 @@ public class DeviceManagementController : ControllerBase
 
         _context.Cameras.Remove(camera);
         await _context.SaveChangesAsync();
+        await TryReloadGo2RtcAsync();
 
         return NoContent();
     }
@@ -304,6 +320,8 @@ public class DeviceManagementController : ControllerBase
                 CameraId = camera.CameraId,
                 CameraName = camera.CameraName,
                 CameraType = camera.CameraType,
+                StreamUrl = camera.StreamUrl,
+                UrlView = camera.UrlView,
                 GateId = camera.GateId,
                 GateName = camera.Gate != null ? camera.Gate.GateName : null,
                 GateLocation = camera.Gate != null ? camera.Gate.Location : null,
@@ -335,6 +353,7 @@ public class DeviceManagementController : ControllerBase
         public string CameraName { get; set; } = string.Empty;
         public string? CameraType { get; set; }
         public int? GateId { get; set; }
+        public string? StreamUrl { get; set; }
     }
 
     public sealed class UpsertGateRequest
@@ -348,6 +367,8 @@ public class DeviceManagementController : ControllerBase
         public int CameraId { get; set; }
         public string CameraName { get; set; } = string.Empty;
         public string? CameraType { get; set; }
+        public string? StreamUrl { get; set; }
+        public string? UrlView { get; set; }
         public int? GateId { get; set; }
         public string? GateName { get; set; }
         public string? GateLocation { get; set; }
@@ -355,5 +376,137 @@ public class DeviceManagementController : ControllerBase
         public DateTime? LastAccessAt { get; set; }
         public string? LatestPlate { get; set; }
         public DateTime? LatestPlateAt { get; set; }
+    }
+
+    private static string? NormalizeCameraUrl(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static bool IsDirectWebStream(string? streamUrl)
+    {
+        if (string.IsNullOrWhiteSpace(streamUrl))
+        {
+            return false;
+        }
+
+        if (streamUrl.StartsWith("/", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return Uri.TryCreate(streamUrl, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private static bool ShouldProxyViaGo2Rtc(string? streamUrl) =>
+        !string.IsNullOrWhiteSpace(streamUrl) && !IsDirectWebStream(streamUrl);
+
+    private string? BuildCameraViewUrl(string? streamUrl, int cameraId)
+    {
+        var normalizedStreamUrl = NormalizeCameraUrl(streamUrl);
+        if (string.IsNullOrWhiteSpace(normalizedStreamUrl))
+        {
+            return null;
+        }
+
+        if (IsDirectWebStream(normalizedStreamUrl))
+        {
+            return normalizedStreamUrl.StartsWith("/", StringComparison.Ordinal)
+                ? $"{ResolvePublicAppBaseUrl()}{normalizedStreamUrl}"
+                : normalizedStreamUrl;
+        }
+
+        var go2RtcPublicBaseUrl = ResolveGo2RtcPublicBaseUrl();
+        return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc";
+    }
+
+    private string ResolveGo2RtcPublicBaseUrl()
+    {
+        var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return NormalizeBaseUrl(configured);
+        }
+
+        return $"{ResolvePublicAppBaseUrl()}/go2rtc";
+    }
+
+    private string ResolvePublicAppBaseUrl()
+    {
+        var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
+        if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
+        {
+            return NormalizeBaseUrl(configuredFrontendUrl);
+        }
+
+        return NormalizeBaseUrl($"{Request.Scheme}://{Request.Host}");
+    }
+
+    private static string NormalizeBaseUrl(string value) =>
+        value.Trim().TrimEnd('/');
+
+    private async Task TryReloadGo2RtcAsync()
+    {
+        try
+        {
+            var cameras = await _context.Cameras
+                .Where(c => !string.IsNullOrWhiteSpace(c.StreamUrl))
+                .ToListAsync();
+
+            var yaml = new StringBuilder();
+            yaml.AppendLine("streams:");
+
+            foreach (var cam in cameras)
+            {
+                var normalizedStreamUrl = NormalizeCameraUrl(cam.StreamUrl);
+                cam.UrlView = BuildCameraViewUrl(normalizedStreamUrl, cam.CameraId);
+
+                if (!ShouldProxyViaGo2Rtc(normalizedStreamUrl))
+                {
+                    continue;
+                }
+
+                var streamName = $"cam{cam.CameraId}";
+                yaml.AppendLine($"  {streamName}:");
+                yaml.AppendLine($"    - {normalizedStreamUrl}#transport=tcp");
+            }
+
+            yaml.AppendLine("webrtc:");
+            yaml.AppendLine("  listen: \":8555\"");
+            yaml.AppendLine("  ice_servers:");
+            yaml.AppendLine("    - urls:");
+            yaml.AppendLine("        - stun:stun.l.google.com:19302");
+
+            var basePath = Directory.GetCurrentDirectory();
+            var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", "cam", "go2rtc_win64"));
+            var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
+            var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
+
+            if (!Directory.Exists(go2rtcPath) || !System.IO.File.Exists(exePath))
+            {
+                return;
+            }
+
+            await System.IO.File.WriteAllTextAsync(yamlPath, yaml.ToString());
+            await _context.SaveChangesAsync();
+
+            foreach (var proc in Process.GetProcessesByName("go2rtc"))
+            {
+                proc.Kill();
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = exePath,
+                WorkingDirectory = go2rtcPath,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Never block CRUD camera when go2rtc reload fails.
+        }
     }
 }

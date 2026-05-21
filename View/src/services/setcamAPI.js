@@ -54,3 +54,40 @@ export async function stopGo2rtc() {
     const res = await api.post('/SetCam/stop-go2rtc')
     return res.data
 }
+
+// ================= 🔥 PYTHON PROCESSES =================
+
+export async function startPythonQr() {
+    const res = await api.post('/SetCam/start-python-qr')
+    return res.data
+}
+
+export async function stopPythonQr() {
+    const res = await api.post('/SetCam/stop-python-qr')
+    return res.data
+}
+
+export async function startPythonPlate() {
+    const res = await api.post('/SetCam/start-python-plate')
+    return res.data
+}
+
+export async function stopPythonPlate() {
+    const res = await api.post('/SetCam/stop-python-plate')
+    return res.data
+}
+
+export async function startPythonCamGiaLap() {
+    const res = await api.post('/SetCam/start-python-cam-gia-lap')
+    return res.data
+}
+
+export async function stopPythonCamGiaLap() {
+    const res = await api.post('/SetCam/stop-python-cam-gia-lap')
+    return res.data
+}
+
+export async function statusPython() {
+    const res = await api.get('/SetCam/status-python')
+    return res.data
+}

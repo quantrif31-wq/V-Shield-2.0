@@ -1,142 +1,88 @@
-Xin chào tất cả các bạn!
+# V-Shield
 
-Cảm ơn vì đã chú ý đến dự án của chúng tôi
+Huong dan moi theo kieu "mot lenh" de chay tren may Windows moi.
 
-nó để làm gì thì ai cũng biết mà nhỉ?
+## 1) Cai dat va dung he thong
 
-ta đến phần cách chạy luôn
+Chay trong thu muc goc `V-Shield`:
 
+```powershell
+.\manage.ps1 -Action install
+.\manage.ps1 -Action start
+```
 
+Hoac dung file bat:
 
-B1: cài đặt api
+```bat
+install.bat
+start.bat
+```
 
-mở cmd tại vị trí V-Shield\\API\\API\\API
+Trang chinh sau khi start:
+- API: `http://localhost:5107`
+- Frontend: `http://localhost:5173`
+- Health API: `http://localhost:5107/health`
 
-chạy
+### Start 1 click cho production (khuyen dung khi da cai Windows Services)
 
-dotnet ef database drop -f
+```bat
+start-prod.bat
+```
 
-rmdir /s /q "Migrations"
+Script se uu tien `Start-Service` cho cac service `vshield-*`. Neu chua cai service thi se fallback ve `manage.ps1 -Action start`.
 
-dotnet ef migrations add InitialCreate
+## 2) Dung he thong
 
-dotnet ef database update
+```powershell
+.\manage.ps1 -Action stop
+```
 
-dotnet run --launch-profile "https"
+Hoac:
 
+```bat
+stop.bat
+```
 
+Neu dang chay theo service production:
 
-B2: cài view
+```bat
+stop-prod.bat
+```
 
-mở cmd tại vị trí V-Shield\\View
+## 3) Go moi truong runtime/dependency
 
-chạy
+```powershell
+.\manage.ps1 -Action uninstall
+```
 
-npm install
+Hoac:
 
-npm run dev
+```bat
+uninstall.bat
+```
 
+Script uninstall se:
+- Dung process API/Frontend dang chay
+- Xoa `node_modules`, `venv` AI, `.runtime`
+- `dotnet clean`
 
+Luu y:
+- Script khong tu dong xoa database de tranh mat du lieu ngoai y muon.
+- Neu can xoa DB, hay tao script rieng cho tung moi truong.
 
-B3: cài AI đọc biển
+## 4) Cloudflared + go2rtc config
 
-mở cmd tại vị trí V-Shield\\AI\_Project\\doc\_bien\_gpu
+Cau hinh tai `API/API/API/appsettings*.json`:
 
-chạy
+- `Cloudflared:TunnelName`
+- `Cloudflared:PublicHostname`
+- `Cloudflared:TargetService`
+- `AppSettings:Go2RtcPublicBaseUrl`
 
-python -m venv venv
+Khong hardcode domain trong code nua.
 
-venv\\Scripts\\activate
+## 5) Trang thai script
 
-pip install -r requirements.txt
-
-python docbien.py
-
-
-
-B4: cài đọc QR động
-
-mở cmd tại vị trí V-Shield\\AI\_Project\\QR\_Dong
-
-chạy
-
-python -m venv venv
-
-venv\\Scripts\\activate
-
-pip install -r requirements.txt
-
-python QR\_Dong.py
-
-
-
-B5: cài camera
-
-mở cmd
-
-chạy
-
-cloudflared tunnel login
-
-cloudflared tunnel create cam-tunnel
-
-cloudflared tunnel route dns cam-tunnel cam.maiai06.site
-
-
-
-chú ý login bằng phamvanthanh2734@gmail.com
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-phần mã phòng trường hợp cần chạy thủ công (chỉ có bậc đại đế chân chính mới có thể sử dụng được)
-
-
-
-
-
-pip freeze > requirements.txt
-
-
-
-set PORT=5002
-
-python faceid\_single\_read\_lock.py
-
-
-
-pip cache purge
-
-pip install pyodbc
-
-pip install flask flask-cors
-
-
-
-cho view
-
-npm install @ffmpeg-installer/ffmpeg
-
-http://localhost:1984
-
-
-
-cho cam
-
-winget install ffmpeg
-
-cam\_gia\_lap.py
-
+```powershell
+.\manage.ps1 -Action status
+```

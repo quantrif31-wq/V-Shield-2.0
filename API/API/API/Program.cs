@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using System.Diagnostics;
 using System.Text;
+using Microsoft.Data.SqlClient;
 using API.Data;
 using API.Hubs;
 using API.Models;
@@ -51,6 +53,8 @@ namespace API
             builder.Services.AddScoped<IVehicleService, VehicleService>();
             builder.Services.AddScoped<ILanCameraDiscoveryService, LanCameraDiscoveryService>();
             builder.Services.AddScoped<StaticVisitorQrService>();
+            builder.Services.AddSingleton<RuntimeOrchestrator>();
+            builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
             builder.Services.AddHttpClient();
             builder.Services.AddSignalR();
             builder.Services.AddControllers();
@@ -132,6 +136,7 @@ namespace API
     });
             var app = builder.Build();
             EnsureSeedAdmin(app.Services, builder.Configuration);
+            EnsureGo2RtcRunning(app.Services);
 
             if (app.Environment.IsDevelopment())
             {
@@ -147,6 +152,7 @@ namespace API
 
             app.MapControllers();
             app.MapHub<EmployeeStatsHub>("/hubs/employee-stats");
+            app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" }));
 
             app.Run();
         }
@@ -156,7 +162,14 @@ namespace API
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            db.Database.Migrate();
+            try
+            {
+                db.Database.Migrate();
+            }
+            catch (SqlException ex) when (ex.Number == 2714) // object already exists
+            {
+                Console.WriteLine($"[WARN] Bo qua loi migrate do bang da ton tai: {ex.Message}");
+            }
 
             var seedSection = configuration.GetSection("SeedAdmin");
             var adminUsername = (seedSection["Username"] ?? "admin").Trim();
@@ -226,5 +239,58 @@ namespace API
 
         private static string NormalizeUsername(string username) =>
             username.Trim().ToUpperInvariant();
+
+        private static void EnsureGo2RtcRunning(IServiceProvider services)
+        {
+            using var scope = services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+            try
+            {
+                var cameras = db.Cameras.Where(c => !string.IsNullOrWhiteSpace(c.StreamUrl)).ToList();
+                if (!cameras.Any()) return;
+
+                var yaml = new StringBuilder();
+                yaml.AppendLine("streams:");
+                foreach (var cam in cameras)
+                {
+                    var streamUrl = cam.StreamUrl?.Trim();
+                    if (string.IsNullOrWhiteSpace(streamUrl)) continue;
+
+                    var isDirectWeb = streamUrl.StartsWith("/", StringComparison.Ordinal) ||
+                                      (Uri.TryCreate(streamUrl, UriKind.Absolute, out var uri) &&
+                                       (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps));
+                    if (isDirectWeb) continue;
+
+                    yaml.AppendLine($"  cam{cam.CameraId}:");
+                    yaml.AppendLine($"    - {streamUrl}#transport=tcp");
+                }
+                yaml.AppendLine("webrtc:");
+                yaml.AppendLine("  listen: \":8555\"");
+                yaml.AppendLine("  ice_servers:");
+                yaml.AppendLine("    - urls:");
+                yaml.AppendLine("        - stun:stun.l.google.com:19302");
+
+                var basePath = Directory.GetCurrentDirectory();
+                var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", "cam", "go2rtc_win64"));
+                var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
+                var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
+                if (!Directory.Exists(go2rtcPath) || !File.Exists(exePath)) return;
+
+                File.WriteAllText(yamlPath, yaml.ToString());
+                foreach (var proc in Process.GetProcessesByName("go2rtc")) proc.Kill();
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    WorkingDirectory = go2rtcPath,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                // Startup should not crash if go2rtc is unavailable.
+            }
+        }
     }
 }

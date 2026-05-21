@@ -1,281 +1,542 @@
-<template>
+﻿<template>
   <div class="page">
-    <div class="topbar">
-      <div>
+    <div class="topbar" :class="{ compact: topbarCompact }">
+      <div class="topbar-main">
         <h1>V-Shield Gate Monitor</h1>
-        <p>2 làn - QR + Biển số - dùng employeeId từ QR để gọi API thông hành cũ</p>
+        <p v-show="!topbarCompact" class="topbar-desc">
+          2 làn - QR + Biển số - dùng employeeId từ QR để gọi API thông hành cũ
+        </p>
+      </div>
+      <button
+        type="button"
+        class="topbar-toggle"
+        :aria-expanded="!topbarCompact"
+        @click="topbarCompact = !topbarCompact"
+      >
+        {{ topbarCompact ? "Mở rộng mô tả" : "Thu gọn mô tả" }}
+      </button>
+    </div>
+
+    <div class="gate-layout">
+      <div class="cam-wall" aria-label="Bốn luồng camera">
+        <template v-for="lane in lanes" :key="lane.id + '-lane-cams'">
+          <div class="cam-cell">
+            <div class="cam-block cam-block--hero">
+              <div class="cam-head">
+                <div class="cam-head-titles">
+                  <span class="cam-lane-tag">{{ lane.name }}</span>
+                  <span class="cam-kind">QR Camera</span>
+                </div>
+                <span class="mini-status" :class="lane.qr.previewHealthy ? 'ok' : 'wait'">
+                  {{
+                    !lane.qr.previewRunning
+                      ? "Preview OFF"
+                      : lane.qr.lockedSnapshot
+                        ? "Ảnh đã chụp"
+                        : (lane.qr.previewHealthy ? "Preview OK" : "Preview...")
+                  }}
+                </span>
+              </div>
+
+              <div class="cam-preview" :class="`state-${cameraVisualState('qr', lane)}`">
+                <iframe
+                  v-if="lane.qr.previewRunning && lane.qr.directCameraUrl"
+                  :key="lane.qr.directCameraKey"
+                  :src="lane.qr.directCameraUrl"
+                  class="preview-image"
+                  style="border: none;"
+                ></iframe>
+                <div v-else class="cam-off">QR Offline</div>
+                <div class="cam-overlay">
+                  <div
+                    v-if="lane.qr.overlayBox"
+                    class="bbox-box"
+                    :style="boundingStyle(lane.qr.overlayBox)"
+                  ></div>
+                  <div
+                    v-if="lane.qr.overlayText"
+                    class="overlay-tag"
+                    :style="labelStyle(lane.qr.overlayBox)"
+                  >
+                    Mã QR: {{ shortText(lane.qr.overlayText, 72) }}
+                  </div>
+                </div>
+                <div class="cam-preview-toolbar">
+                  <button
+                    type="button"
+                    class="cam-refresh-btn"
+                    :disabled="lane.loading || !lane.qr.cameraIp.trim()"
+                    :aria-label="
+                      lane.loading ? 'Đang xử lý' : lane.qr.cameraRunning ? 'Đọc lại QR' : 'Đọc QR'
+                    "
+                    @click.stop="retryQr(lane)"
+                  >
+                    <svg
+                      v-if="lane.loading"
+                      class="cam-refresh-icon cam-refresh-icon--spin"
+                      viewBox="0 0 24 24"
+                      width="22"
+                      height="22"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-dasharray="44"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    <svg
+                      v-else
+                      class="cam-refresh-icon"
+                      :class="{ 'cam-refresh-icon--rerun': lane.qr.cameraRunning }"
+                      viewBox="0 0 24 24"
+                      width="22"
+                      height="22"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M21 11.5a8.38 8.38 0 0 0-.9-3.8 8.5 8.5 0 0 0-7.6-4.7 8.5 8.5 0 0 0-7.7 4.7M3 12.5a8.38 8.38 0 0 0 .9 3.8 8.5 8.5 0 0 0 7.6 4.7 8.5 8.5 0 0 0 7.7-4.7M21 3v5h-5M3 21v-5h5"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <canvas :ref="el => setQrCanvasRef(lane.id, el)" style="display:none;"></canvas>
+              </div>
+
+              <div class="quick-result">
+                <div class="result-pill" :class="`state-${cameraVisualState('qr', lane)}`">
+                  {{ cameraVisualText("qr", lane) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cam-cell">
+            <div class="cam-block cam-block--hero">
+              <div class="cam-head">
+                <div class="cam-head-titles">
+                  <span class="cam-lane-tag">{{ lane.name }}</span>
+                  <span class="cam-kind">Plate Camera</span>
+                </div>
+                <span class="mini-status" :class="platePreviewStatusClass(lane.plate)">
+                  {{ platePreviewStatusText(lane.plate) }}
+                </span>
+              </div>
+
+              <div class="cam-preview" :class="`state-${cameraVisualState('plate', lane)}`">
+                <iframe
+                  v-if="lane.plate.previewRunning && lane.plate.directCameraUrl"
+                  :key="lane.plate.directCameraKey"
+                  :src="lane.plate.directCameraUrl"
+                  class="preview-image"
+                  style="border: none;"
+                ></iframe>
+                <div v-else class="cam-off">Plate Offline</div>
+                <div class="cam-overlay">
+                  <div
+                    v-if="lane.plate.overlayBox"
+                    class="bbox-box"
+                    :style="boundingStyle(lane.plate.overlayBox)"
+                  ></div>
+                  <div
+                    v-if="lane.plate.overlayText"
+                    class="overlay-tag"
+                    :style="labelStyle(lane.plate.overlayBox)"
+                  >
+                    Biển số: {{ lane.plate.overlayText }}
+                  </div>
+                </div>
+                <div class="cam-preview-toolbar">
+                  <button
+                    type="button"
+                    class="cam-refresh-btn"
+                    :disabled="lane.loading || !lane.plate.cameraIp.trim()"
+                    :aria-label="
+                      lane.loading
+                        ? 'Đang xử lý'
+                        : lane.plate.cameraRunning
+                          ? 'Đọc lại biển số'
+                          : 'Đọc biển số'
+                    "
+                    @click.stop="retryPlate(lane)"
+                  >
+                    <svg
+                      v-if="lane.loading"
+                      class="cam-refresh-icon cam-refresh-icon--spin"
+                      viewBox="0 0 24 24"
+                      width="22"
+                      height="22"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-dasharray="44"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    <svg
+                      v-else
+                      class="cam-refresh-icon"
+                      :class="{ 'cam-refresh-icon--rerun': lane.plate.cameraRunning }"
+                      viewBox="0 0 24 24"
+                      width="22"
+                      height="22"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M21 11.5a8.38 8.38 0 0 0-.9-3.8 8.5 8.5 0 0 0-7.6-4.7 8.5 8.5 0 0 0-7.7 4.7M3 12.5a8.38 8.38 0 0 0 .9 3.8 8.5 8.5 0 0 0 7.6 4.7 8.5 8.5 0 0 0 7.7-4.7M21 3v5h-5M3 21v-5h5"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="quick-result">
+                <div class="result-pill" :class="`state-${cameraVisualState('plate', lane)}`">
+                  {{ cameraVisualText("plate", lane) }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
-    <div class="lane-grid">
-      <section
-        v-for="lane in lanes"
-        :key="lane.id"
-        class="lane-card"
-        :class="{ ready: isLaneReady(lane) }"
-      >
-        <div class="lane-head">
-          <div>
-            <h2>{{ lane.name }}</h2>
-            <p>{{ lane.desc }}</p>
-          </div>
+    <div class="ops-dock" role="toolbar" aria-label="Điều khiển nhanh">
+      <div class="ops-dock-grid">
+        <div class="ops-dock-spacer" aria-hidden="true"></div>
 
-          <div class="lane-final-status" :class="isLaneReady(lane) ? 'ok' : 'wait'">
-            {{ isLaneReady(lane) ? "SẴN SÀNG XÁC NHẬN" : "ĐANG XỬ LÝ" }}
-          </div>
-        </div>
-
-        <div class="lane-actions">
-          <button class="btn btn-preview" :disabled="lane.loading" @click="previewLane(lane)">
-            {{ lane.loading ? "Đang xử lý..." : "Preview" }}
-          </button>
-
-          <button
-            class="btn btn-main"
-            :disabled="lane.loading || !lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()"
-            @click="readAllLane(lane)"
+        <div class="ops-dock-center">
+          <div
+            v-for="lane in lanes"
+            :key="lane.id + '-dock-actions'"
+            class="lane-action-group"
           >
-            {{ lane.loading ? "Đang xử lý..." : laneAnyRunning(lane) ? "Đọc lại cả 2" : "Đọc cả 2" }}
-          </button>
-
-          <button
-            class="btn btn-sub"
-            :disabled="lane.loading || !lane.qr.cameraIp.trim()"
-            @click="retryQr(lane)"
-          >
-            {{ lane.loading ? "Đang xử lý..." : "Đọc lại QR" }}
-          </button>
-
-          <button
-            class="btn btn-sub"
-            :disabled="lane.loading || !lane.plate.cameraIp.trim()"
-            @click="retryPlate(lane)"
-          >
-            {{ lane.loading ? "Đang xử lý..." : "Đọc lại Biển" }}
-          </button>
-
-          <button class="btn btn-off" :disabled="lane.loading" @click="stopLane(lane)">
-            {{ lane.loading ? "Đang xử lý..." : "Tắt" }}
-          </button>
-
-          <button
-            class="btn btn-confirm"
-            :disabled="lane.loading || (!lane.qr.employeeId && !lane.qr.guestId) || !lane.plate.confirmedPlate"
-            @click="confirmLane(lane)"
-          >
-            Xác nhận
-          </button>
-        </div>
-
-        <div class="ip-row">
-          <div class="ip-box">
-            <label>QR Camera URL</label>
-            <div class="search-box">
-  <input
-    v-model="cameraSearch[lane.id + '-qr']"
-    placeholder="Tìm camera QR..."
-    :disabled="lane.loading"
-  />
-
-  <div class="dropdown" v-if="cameraSearch[lane.id + '-qr']">
-    <div
-      v-for="cam in filterCameras(cameraSearch[lane.id + '-qr'])"
-      :key="cam.cameraId"
-      @click="selectCamera(cam, lane, 'qr')"
-      class="dropdown-item"
-    >
-      {{ cam.cameraName }} (ID: {{ cam.cameraId }})
-    </div>
-  </div>
-</div>
-          </div>
-
-          <div class="ip-box">
-            <label>Plate Camera URL</label>
-            <div class="search-box">
-  <input
-    v-model="cameraSearch[lane.id + '-plate']"
-    placeholder="Tìm camera Plate..."
-    :disabled="lane.loading"
-  />
-
-  <div class="dropdown" v-if="cameraSearch[lane.id + '-plate']">
-    <div
-      v-for="cam in filterCameras(cameraSearch[lane.id + '-plate'])"
-      :key="cam.cameraId"
-      @click="selectCamera(cam, lane, 'plate')"
-      class="dropdown-item"
-    >
-      {{ cam.cameraName }} (ID: {{ cam.cameraId }})
-    </div>
-  </div>
-</div>
-          </div>
-        </div>
-
-        <div class="summary-bar">
-          <div class="summary-item">
-            <span class="label">Employee / Guest ID</span>
-           <span class="value strong">{{ lane.qr.employeeId || lane.qr.guestId || "-----" }}</span>
-          </div>
-
-          <div class="summary-item">
-            <span class="label">QR</span>
-            <span class="value" :class="qrStateClass(lane.qr)">
-              {{ qrStateText(lane.qr) }}
-            </span>
-          </div>
-
-          <div class="summary-item">
-            <span class="label">Biển số</span>
-            <span class="value strong plate">{{ lane.plate.confirmedPlate || "-----" }}</span>
-          </div>
-
-          <div class="summary-item">
-            <span class="label">Cảnh báo</span>
-            <span class="value" :class="lane.qr.alert ? 'danger-text' : 'ok-text'">
-              {{ lane.qr.alert ? "MÃ KHÔNG HỢP LỆ" : "BÌNH THƯỜNG" }}
-            </span>
-          </div>
-        </div>
-
-        <div class="camera-stack">
-          <!-- QR -->
-          <div class="cam-block">
-            <div class="cam-head">
-              <span>QR Camera</span>
-              <span class="mini-status" :class="lane.qr.previewHealthy ? 'ok' : 'wait'">
+            <div class="lane-action-title">{{ lane.name }}</div>
+            <div class="lane-action-btns" role="group" :aria-label="`Thao tác ${lane.name}`">
+              <button
+                class="btn btn-dock btn-main"
+                :disabled="lane.loading || !lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()"
+                @click="readAllLane(lane)"
+              >
                 {{
-                  !lane.qr.previewRunning
-                    ? "Preview OFF"
-                    : lane.qr.lockedSnapshot
-                      ? "Ảnh đã chụp"
-                      : (lane.qr.previewHealthy ? "Preview OK" : "Preview...")
+                  lane.loading ? "..." : laneAnyRunning(lane) ? "Đọc lại cả 2" : "Đọc cả 2"
                 }}
-              </span>
-            </div>
+              </button>
 
-            <div class="cam-preview">
-              <iframe
-  v-if="lane.qr.previewRunning && lane.qr.directCameraUrl"
-  :key="lane.qr.directCameraKey"
-  :src="lane.qr.directCameraUrl"
-  class="preview-image"
-  style="border: none;"
-></iframe>
-              <div v-else class="cam-off">QR Offline</div>
-              <canvas :ref="el => setQrCanvasRef(lane.id, el)" style="display:none;"></canvas>
-            </div>
-
-            <div class="quick-result">
-              <div class="result-pill" :class="lane.qr.cameraRunning ? 'ok' : 'off'">
-                {{ lane.qr.cameraRunning ? "RUNNING" : "STOPPED" }}
-              </div>
-              <div class="result-pill" :class="lane.qr.sessionLocked ? 'ok' : 'wait'">
-                {{ lane.qr.sessionLocked ? "LOCKED" : "SCANNING" }}
-              </div>
-              <div class="result-pill" :class="lane.qr.alert ? 'danger' : 'neutral'">
-                {{ lane.qr.alert ? "INVALID" : "NORMAL" }}
-              </div>
-            </div>
-
-            <div class="qr-data-grid">
-              <div class="qr-data-box">
-                <span class="small-label">Payload hiện tại</span>
-                <span class="small-value">{{ shortText(lane.qr.qrPayload) }}</span>
-              </div>
-
-              <div class="qr-data-box">
-                <span class="small-label">Payload đang giữ phiên</span>
-                <span class="small-value">{{ shortText(lane.qr.activeSessionPayload) }}</span>
-              </div>
-
-              <div class="qr-data-box">
-                <span class="small-label">Thông điệp verify</span>
-                <span class="small-value">{{ lane.qr.verifyMessage || "-----" }}</span>
-              </div>
-
-              <div class="qr-data-box">
-                <span class="small-label">Thiết bị quét</span>
-                <span class="small-value">{{ lane.qr.scannerDevice || "-----" }}</span>
-              </div>
-            </div>
-
-            <div class="verify-box" v-if="lane.qr.verifyData || lane.qr.verifyMessage">
-              <div class="verify-message">
-                <b>Kết quả verify:</b> {{ lane.qr.verifyMessage || "-----" }}
-              </div>
-              <div v-if="lane.qr.verifyData" class="verify-data">
-                <div><b>Employee ID:</b> {{ lane.qr.verifyData.employeeId || "-----" }}</div>
-                <div><b>Employee Name:</b> {{ lane.qr.verifyData.employeeName || "-----" }}</div>
-                <div><b>Verified At:</b> {{ formatDate(lane.qr.verifyData.verifiedAtUtc) || "-----" }}</div>
-                <div><b>Counter:</b> {{ lane.qr.verifyData.counter ?? "-----" }}</div>
-                <div><b>Expires:</b> {{ formatDate(lane.qr.verifyData.expiresAtUtc) || "-----" }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- PLATE -->
-          <div class="cam-block">
-            <div class="cam-head">
-              <span>Plate Camera</span>
-              <span class="mini-status" :class="platePreviewStatusClass(lane.plate)">
-                {{ platePreviewStatusText(lane.plate) }}
-              </span>
-            </div>
-
-            <div class="cam-preview">
-              <iframe
-  v-if="lane.plate.previewRunning && lane.plate.directCameraUrl"
-  :key="lane.plate.directCameraKey"
-  :src="lane.plate.directCameraUrl"
-  class="preview-image"
-  style="border: none;"
-></iframe>
-              <div v-else class="cam-off">Plate Offline</div>
-            </div>
-
-            <div class="quick-result">
-              <div class="result-pill" :class="lane.plate.cameraRunning ? 'ok' : 'off'">
-                {{ lane.plate.cameraRunning ? "RUNNING" : "STOPPED" }}
-              </div>
-              <div class="result-pill" :class="lane.plate.scanLocked ? 'ok' : 'wait'">
-                {{ lane.plate.scanLocked ? "LOCKED" : "SCANNING" }}
-              </div>
-              <div class="result-pill neutral">
-                {{ lane.plate.confirmedPlate || "NO PLATE" }}
-              </div>
-            </div>
-
-            <div class="evidence-row">
-              <div class="evidence-box">
-                <img
-                  v-if="lane.plate.lockedPlateCrop"
-                  :src="lane.plate.lockedPlateCrop"
-                  class="evidence-image"
-                  alt="Plate Crop"
-                />
-                <div v-else class="evidence-empty">Plate Crop</div>
-              </div>
-
-              <div class="evidence-box">
-                <img
-                  v-if="lane.plate.lockedSnapshot"
-                  :src="lane.plate.lockedSnapshot"
-                  class="evidence-image"
-                  alt="Plate Snapshot"
-                />
-                <div v-else class="evidence-empty">Plate Snapshot</div>
-              </div>
+              <button
+                class="btn btn-dock btn-confirm"
+                :disabled="
+                  lane.loading ||
+                    (!lane.qr.employeeId && !lane.qr.guestId) ||
+                    !lane.plate.confirmedPlate
+                "
+                @click="confirmLane(lane)"
+              >
+                Xác nhận
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="bottom-note">
-          <span><b>QR Msg:</b> {{ lane.qr.message || "-----" }}</span>
-          <span><b>Plate Msg:</b> {{ lane.plate.message || "-----" }}</span>
+        <div class="ops-dock-side">
+          <button type="button" class="btn-open-drawer" @click="openOpsDrawer">
+            Cài đặt
+          </button>
         </div>
-      </section>
+      </div>
+    </div>
+
+    <div v-show="opsDrawerOpen" class="ops-drawer-root" :aria-hidden="!opsDrawerOpen">
+      <div class="ops-drawer-backdrop" @click="closeOpsDrawer"></div>
+      <aside class="ops-drawer-panel" role="dialog" aria-modal="true" aria-label="Cài đặt cổng" @click.stop>
+        <header class="ops-drawer-head">
+          <h2 class="ops-drawer-title">Cài đặt</h2>
+          <button type="button" class="ops-drawer-close" aria-label="Đóng" @click="closeOpsDrawer">×</button>
+        </header>
+
+        <div class="ops-drawer-tabs" role="tablist">
+          <button
+            v-for="lane in lanes"
+            :key="lane.id + '-drawer-tab'"
+            type="button"
+            class="ops-drawer-tab"
+            :class="{ active: opsActiveLaneId === lane.id }"
+            role="tab"
+            :aria-selected="opsActiveLaneId === lane.id"
+            @click="opsActiveLaneId = lane.id"
+          >
+            {{ lane.name }}
+          </button>
+        </div>
+
+        <div class="ops-drawer-body">
+          <div class="drawer-settings-panel">
+            <h3 class="drawer-settings-title">Dịch vụ Python</h3>
+            <p class="drawer-settings-meta">
+              <span>QR: {{ qrApiBaseLabel }}</span>
+              <span class="drawer-settings-meta-sep">·</span>
+              <span>Biển: {{ plateApiBaseLabel }}</span>
+            </p>
+            <p class="drawer-settings-hint">
+              Bật/tắt backend tương ứng. URL stream lấy theo tab làn đang chọn (QR / Plate). Dịch vụ QR là một
+              process dùng chung cho cả hai làn.
+            </p>
+
+            <div class="settings-toggle-row">
+              <div class="settings-toggle-text">
+                <span class="settings-toggle-name">Python đọc QR</span>
+                <span class="settings-toggle-desc">start/stop endpoint /qr (camera + worker)</span>
+              </div>
+              <button
+                type="button"
+                class="toggle-switch"
+                :class="toggleSwitchClass('python_qr', qrPythonServiceOn)"
+                role="switch"
+                :aria-checked="qrPythonServiceOn"
+                :disabled="runtimeIsBusy('python_qr') || toggleIsPending('python_qr')"
+                @click="onToggleQrPython"
+              >
+                <span class="toggle-switch-knob" aria-hidden="true"></span>
+              </button>
+              <button
+                type="button"
+                class="auto-start-btn"
+                :disabled="runtimeIsBusy('python_qr') || !runtimeEnabled('python_qr')"
+                @click="toggleRuntimeAutoStart('python_qr')"
+              >
+                AutoStart: {{ runtimeAutoStart('python_qr') ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+
+            <div class="settings-toggle-row">
+              <div class="settings-toggle-text">
+                <span class="settings-toggle-name">Python biển số</span>
+                <span class="settings-toggle-desc">API plate (camera on/off)</span>
+              </div>
+              <button
+                type="button"
+                class="toggle-switch"
+                :class="toggleSwitchClass('python_plate', platePythonServiceOn)"
+                role="switch"
+                :aria-checked="platePythonServiceOn"
+                :disabled="runtimeIsBusy('python_plate') || toggleIsPending('python_plate')"
+                @click="onTogglePlatePython"
+              >
+                <span class="toggle-switch-knob" aria-hidden="true"></span>
+              </button>
+              <button
+                type="button"
+                class="auto-start-btn"
+                :disabled="runtimeIsBusy('python_plate') || !runtimeEnabled('python_plate')"
+                @click="toggleRuntimeAutoStart('python_plate')"
+              >
+                AutoStart: {{ runtimeAutoStart('python_plate') ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+
+            <div class="settings-toggle-row">
+              <div class="settings-toggle-text">
+                <span class="settings-toggle-name">Python cam giả lập</span>
+                <span class="settings-toggle-desc">Chạy camera ảo (rtsp stream)</span>
+              </div>
+              <button
+                type="button"
+                class="toggle-switch"
+                :class="toggleSwitchClass('python_cam_gia_lap', camGiaLapServiceOn)"
+                role="switch"
+                :aria-checked="camGiaLapServiceOn"
+                :disabled="runtimeIsBusy('python_cam_gia_lap') || toggleIsPending('python_cam_gia_lap')"
+                @click="onToggleCamGiaLapPython"
+              >
+                <span class="toggle-switch-knob" aria-hidden="true"></span>
+              </button>
+              <button
+                type="button"
+                class="auto-start-btn"
+                :disabled="runtimeIsBusy('python_cam_gia_lap') || !runtimeEnabled('python_cam_gia_lap')"
+                @click="toggleRuntimeAutoStart('python_cam_gia_lap')"
+              >
+                AutoStart: {{ runtimeAutoStart('python_cam_gia_lap') ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+
+            <div class="settings-toggle-row">
+              <div class="settings-toggle-text">
+                <span class="settings-toggle-name">go2rtc stream gateway</span>
+                <span class="settings-toggle-desc">Dich vu stream WebRTC cho camera</span>
+              </div>
+              <button
+                type="button"
+                class="toggle-switch"
+                :class="toggleSwitchClass('go2rtc', runtimeRunning('go2rtc'))"
+                role="switch"
+                :aria-checked="runtimeRunning('go2rtc')"
+                :disabled="runtimeIsBusy('go2rtc') || toggleIsPending('go2rtc')"
+                @click="toggleRuntime('go2rtc')"
+              >
+                <span class="toggle-switch-knob" aria-hidden="true"></span>
+              </button>
+              <button
+                type="button"
+                class="auto-start-btn"
+                :disabled="runtimeIsBusy('go2rtc') || !runtimeEnabled('go2rtc')"
+                @click="toggleRuntimeAutoStart('go2rtc')"
+              >
+                AutoStart: {{ runtimeAutoStart('go2rtc') ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+
+            <div class="settings-toggle-row">
+              <div class="settings-toggle-text">
+                <span class="settings-toggle-name">cloudflared tunnel</span>
+                <span class="settings-toggle-desc">Public tunnel de publish stream</span>
+              </div>
+              <button
+                type="button"
+                class="toggle-switch"
+                :class="toggleSwitchClass('cloudflared', runtimeRunning('cloudflared'))"
+                role="switch"
+                :aria-checked="runtimeRunning('cloudflared')"
+                :disabled="runtimeIsBusy('cloudflared') || toggleIsPending('cloudflared')"
+                @click="toggleRuntime('cloudflared')"
+              >
+                <span class="toggle-switch-knob" aria-hidden="true"></span>
+              </button>
+              <button
+                type="button"
+                class="auto-start-btn"
+                :disabled="runtimeIsBusy('cloudflared') || !runtimeEnabled('cloudflared')"
+                @click="toggleRuntimeAutoStart('cloudflared')"
+              >
+                AutoStart: {{ runtimeAutoStart('cloudflared') ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+          </div>
+
+          <section
+            class="lane-controls lane-controls--drawer"
+            :class="{ ready: isLaneReady(activeOpsLane) }"
+          >
+            <div class="lane-head">
+              <div>
+                <h2>{{ activeOpsLane.name }}</h2>
+                <p>{{ activeOpsLane.desc }}</p>
+              </div>
+
+              <div class="lane-final-status" :class="isLaneReady(activeOpsLane) ? 'ok' : 'wait'">
+                {{ isLaneReady(activeOpsLane) ? "SẴN SÀNG XÁC NHẬN" : "ĐANG XỬ LÝ" }}
+              </div>
+            </div>
+
+            <div class="ip-row">
+              <div class="ip-box">
+                <label>QR Camera URL</label>
+                <div class="search-box">
+                  <input
+                    v-model="cameraSearch[activeOpsLane.id + '-qr']"
+                    placeholder="Tìm camera QR..."
+                    :disabled="activeOpsLane.loading"
+                  />
+
+                  <div class="dropdown" v-if="cameraSearch[activeOpsLane.id + '-qr']">
+                    <div
+                      v-for="cam in filterCameras(cameraSearch[activeOpsLane.id + '-qr'])"
+                      :key="cam.cameraId"
+                      @click="selectCamera(cam, activeOpsLane, 'qr')"
+                      class="dropdown-item"
+                    >
+                      {{ cam.cameraName }} (ID: {{ cam.cameraId }})
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ip-box">
+                <label>Plate Camera URL</label>
+                <div class="search-box">
+                  <input
+                    v-model="cameraSearch[activeOpsLane.id + '-plate']"
+                    placeholder="Tìm camera Plate..."
+                    :disabled="activeOpsLane.loading"
+                  />
+
+                  <div class="dropdown" v-if="cameraSearch[activeOpsLane.id + '-plate']">
+                    <div
+                      v-for="cam in filterCameras(cameraSearch[activeOpsLane.id + '-plate'])"
+                      :key="cam.cameraId"
+                      @click="selectCamera(cam, activeOpsLane, 'plate')"
+                      class="dropdown-item"
+                    >
+                      {{ cam.cameraName }} (ID: {{ cam.cameraId }})
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="summary-bar">
+              <div class="summary-item">
+                <span class="label">Người dùng</span>
+                <span class="value strong">{{ activeOpsLane.qr.employeeId || activeOpsLane.qr.guestId || "-----" }}</span>
+              </div>
+
+              <div class="summary-item">
+                <span class="label">QR</span>
+                <span class="value" :class="qrStateClass(activeOpsLane.qr)">
+                  {{ qrStateText(activeOpsLane.qr) }}
+                </span>
+              </div>
+
+              <div class="summary-item">
+                <span class="label">Biển số</span>
+                <span class="value strong plate">{{
+                  activeOpsLane.plate.confirmedPlate || activeOpsLane.plate.lastRawPlate || "-----"
+                }}</span>
+              </div>
+            </div>
+
+            <div class="drawer-secondary-actions">
+              <button
+                type="button"
+                class="btn btn-drawer-secondary btn-preview"
+                :disabled="activeOpsLane.loading"
+                @click="previewLane(activeOpsLane)"
+              >
+                {{ activeOpsLane.loading ? "Đang xử lý..." : "Preview" }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-drawer-secondary btn-off"
+                :disabled="activeOpsLane.loading"
+                @click="stopLane(activeOpsLane)"
+              >
+                {{ activeOpsLane.loading ? "Đang xử lý..." : "Tắt" }}
+              </button>
+            </div>
+          </section>
+        </div>
+      </aside>
     </div>
   </div>
 </template>
@@ -284,10 +545,13 @@
 import jsQR from "jsqr"
 import * as plateLane1Api from "../services/biensoApi"
 import * as plateLane2Api from "../services/biensoApi"
+import axios from "axios"
 import { scanGate, scanGuest } from "../services/thonghanhAPI"
 import { verifyDynamicQr } from "../services/dynamicQrVerifyApi"
-import { getCameras } from "../services/setcamAPI"
-import { startQr, resetQr, stopQr, getQrResult, scanQr } from "../services/qr_dAPI"
+import { getCameras, startPythonQr, stopPythonQr, startPythonPlate, stopPythonPlate, startPythonCamGiaLap, stopPythonCamGiaLap, statusPython } from "../services/setcamAPI"
+import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRuntimeService } from "../services/runtimeServiceApi"
+import { startQr, resetQr, stopQr, getQrResult, scanQr, QR_API_BASE_URL } from "../services/qr_dAPI"
+import { normalizeCameraUrl } from "../utils/cameraNetwork"
 function createQrModule(defaultScannerDevice) {
   return {
     cameraIp: "",
@@ -303,7 +567,7 @@ function createQrModule(defaultScannerDevice) {
 
     directCameraUrl: "",
     directCameraKey: 0,
-    viewUrl: "", // 🔥 thêm dòng này
+    viewUrl: "", // ðŸ”¥ thÃªm dÃ²ng nÃ y
 
     scannerDevice: defaultScannerDevice,
 
@@ -336,8 +600,13 @@ function createQrModule(defaultScannerDevice) {
     absenceThresholdMs: 1500,
     decodeMaxWidth: 640,
 
+    // Flag set when a backend scan request is active (scan enabled on Python)
+    scanRequested: false,
+
     frameWidth: 0,
     frameHeight: 0,
+    overlayText: "",
+    overlayBox: null,
 
     alert: false,
     sessionLocked: false,
@@ -359,6 +628,7 @@ function createPlateModule() {
     confirmedPlate: "",
     lastRawPlate: "",
     scanLocked: false,
+    scanActive: false,
 
     lockedSnapshot: "",
     lockedPlateCrop: "",
@@ -372,8 +642,10 @@ function createPlateModule() {
 
     directCameraUrl: "",
     directCameraKey: 0,
-    viewUrl: "", // 🔥 thêm dòng này
+    viewUrl: "", // ðŸ”¥ thÃªm dÃ²ng nÃ y
     previewHealthy: false,
+    overlayText: "",
+    overlayBox: null,
 
     resultTimer: null,
     busyResult: false,
@@ -413,12 +685,58 @@ export default {
   qr: createQrModule("WEB_SCANNER_GATE_02"),
   plate: createPlateModule()
 }
-      ]
+      ],
+      opsDrawerOpen: false,
+      opsActiveLaneId: "lane1",
+      topbarCompact: true,
+      settingsQrBusy: false,
+      settingsPlateBusy: false,
+      settingsCamGiaLapBusy: false,
+      camGiaLapServiceOn: false,
+      runtimeServices: [],
+      runtimeBusy: {},
+      uiTogglePending: {}
+    }
+  },
+
+  computed: {
+    runtimeMap() {
+      return this.runtimeServices.reduce((acc, item) => {
+        acc[item.name] = item
+        return acc
+      }, {})
+    },
+
+    activeOpsLane() {
+      return this.lanes.find((l) => l.id === this.opsActiveLaneId) || this.lanes[0]
+    },
+
+    qrPythonServiceOn() {
+      const state = this.runtimeMap.python_qr
+      return state ? !!state.running : this.lanes.some((l) => l.qr.cameraRunning)
+    },
+
+    platePythonServiceOn() {
+      const state = this.runtimeMap.python_plate
+      return state ? !!state.running : this.lanes.some((l) => l.plate.cameraRunning)
+    },
+
+    qrApiBaseLabel() {
+      return QR_API_BASE_URL
+    },
+
+    plateApiBaseLabel() {
+      try {
+        return plateLane1Api.getResolvedPlateApiBaseUrl() || ""
+      } catch {
+        return ""
+      }
     }
   },
 
   async mounted() {
-  await this.loadCameraList() // 🔥 THÊM
+  document.body.classList.add("thonghanh-compact")
+  await this.loadCameraList() // ðŸ”¥ THÃŠM
 
   for (const lane of this.lanes) {
     lane.qr.destroyed = false
@@ -429,6 +747,7 @@ export default {
 },
 
   beforeUnmount() {
+    document.body.classList.remove("thonghanh-compact")
     for (const lane of this.lanes) {
       lane.qr.destroyed = true
       lane.plate.destroyed = true
@@ -442,6 +761,7 @@ export default {
   },
 
   activated() {
+    document.body.classList.add("thonghanh-compact")
     for (const lane of this.lanes) {
       lane.qr.destroyed = false
       lane.plate.destroyed = false
@@ -464,6 +784,7 @@ export default {
   },
 
   deactivated() {
+    document.body.classList.remove("thonghanh-compact")
     for (const lane of this.lanes) {
       this.stopQrLoops(lane)
       this.stopPlateLoop(lane)
@@ -473,6 +794,342 @@ export default {
   methods: {
     setQrCanvasRef(laneId, el) {
       if (el) this.qrCanvasRefs[laneId] = el
+    },
+
+    openOpsDrawer() {
+      this.opsDrawerOpen = true
+      this.$nextTick(() => {
+        this.refreshDrawerServiceState()
+      })
+    },
+
+    closeOpsDrawer() {
+      this.opsDrawerOpen = false
+    },
+
+    async refreshDrawerServiceState() {
+      try {
+        this.runtimeServices = await getRuntimeServices()
+      } catch (e) {
+        console.warn("getRuntimeServices", e)
+      }
+
+      try {
+        const pythonStatus = await statusPython()
+        this.camGiaLapServiceOn = !!(this.runtimeMap.python_cam_gia_lap?.running ?? pythonStatus?.camGiaLap)
+        // NOTE: do NOT set lane.{qr,plate}.cameraRunning directly from python process status.
+        // cameraRunning means the camera capture/session is active; we will rely on per-module
+        // status endpoints (loadStatusPlate / getQrResult) to populate actual cameraRunning.
+      } catch {
+        this.camGiaLapServiceOn = !!this.runtimeMap.python_cam_gia_lap?.running
+        // fallback: do not force cameraRunning here
+      }
+
+      for (const lane of this.lanes) {
+        try {
+          await this.loadStatusPlate(lane)
+        } catch (e) {
+          console.warn("loadStatusPlate", e)
+        }
+      }
+    },
+
+    runtimeState(name) {
+      return this.runtimeMap[name] || null
+    },
+
+    runtimeAutoStart(name) {
+      return !!this.runtimeState(name)?.autoStart
+    },
+
+    runtimeRunning(name) {
+      return !!this.runtimeState(name)?.running
+    },
+
+    runtimeEnabled(name) {
+      const state = this.runtimeState(name)
+      return state ? !!state.enabled : true
+    },
+
+    runtimeIsBusy(name) {
+      return !!this.runtimeBusy[name]
+    },
+
+    toggleIsPending(name) {
+      return !!this.uiTogglePending[name]
+    },
+
+    toggleSwitchClass(name, isOn) {
+      return {
+        on: !!isOn,
+        pending: this.toggleIsPending(name)
+      }
+    },
+
+    setTogglePending(name, value) {
+      this.uiTogglePending = { ...this.uiTogglePending, [name]: !!value }
+    },
+
+    buildQrIdentityOverlay(data = {}) {
+      const personType = String(data?.type || "").toUpperCase()
+      if (personType === "STATIC") {
+        const guestId = String(
+          data?.visitorDetailId ||
+          data?.visitorId ||
+          data?.guestId ||
+          ""
+        ).trim()
+        const fullName = String(data?.fullName || data?.visitorName || "").trim()
+        const parts = []
+        if (guestId) parts.push(`ID: ${guestId}`)
+        if (fullName) parts.push(`TEN: ${fullName}`)
+        return parts.join(" | ")
+      }
+
+      const employeeId = String(data?.employeeId || "").trim()
+      const employeeName = String(data?.employeeName || "").trim()
+      const parts = []
+      if (employeeId) parts.push(`ID: ${employeeId}`)
+      if (employeeName) parts.push(`TEN: ${employeeName}`)
+      return parts.join(" | ")
+    },
+
+    async toggleRuntime(name) {
+      if (this.runtimeIsBusy(name)) return
+      this.setTogglePending(name, true)
+      this.runtimeBusy = { ...this.runtimeBusy, [name]: true }
+      try {
+        const isRunning = this.runtimeRunning(name)
+        if (isRunning) {
+          await stopRuntimeService(name)
+        } else {
+          await startRuntimeService(name)
+        }
+      } catch (e) {
+        console.error("toggleRuntime", name, e)
+        alert(e?.response?.data?.message || e?.message || "Khong the bat/tat runtime service.")
+      } finally {
+        this.runtimeBusy = { ...this.runtimeBusy, [name]: false }
+        this.setTogglePending(name, false)
+        await this.refreshDrawerServiceState()
+      }
+    },
+
+    async toggleRuntimeAutoStart(name) {
+      if (this.runtimeIsBusy(name)) return
+      this.runtimeBusy = { ...this.runtimeBusy, [name]: true }
+      try {
+        await updateRuntimeService(name, { autoStart: !this.runtimeAutoStart(name) })
+      } catch (e) {
+        console.error("toggleRuntimeAutoStart", name, e)
+        alert(e?.response?.data?.message || e?.message || "Khong the cap nhat AutoStart.")
+      } finally {
+        this.runtimeBusy = { ...this.runtimeBusy, [name]: false }
+        await this.refreshDrawerServiceState()
+      }
+    },
+
+    onToggleQrPython() {
+      if (this.settingsQrBusy) return
+      const wantOn = !this.qrPythonServiceOn
+      this.applyQrPythonService(wantOn)
+    },
+
+    onTogglePlatePython() {
+      if (this.settingsPlateBusy) return
+      const wantOn = !this.platePythonServiceOn
+      this.applyPlatePythonService(wantOn)
+    },
+
+    async onToggleCamGiaLapPython() {
+      await this.toggleRuntime("python_cam_gia_lap")
+    },
+
+    async applyQrPythonService(wantOn) {
+      if (this.settingsQrBusy) return
+      this.setTogglePending("python_qr", true)
+
+      if (!wantOn) {
+        this.settingsQrBusy = true
+        try {
+          try {
+            await stopQr()
+          } catch (e) {
+            console.warn("stopQr", e)
+          }
+          
+          try {
+            await stopPythonQr()
+          } catch (e) {
+            console.warn("stopPythonQr", e)
+          }
+
+          for (const lane of this.lanes) {
+            if (lane.qr.resultTimer) {
+              clearInterval(lane.qr.resultTimer)
+              lane.qr.resultTimer = null
+            }
+            this.stopQrLoops(lane)
+            this.hardResetQr(lane.qr)
+            this.resetPreview(lane.qr)
+            lane.qr.cameraRunning = false
+          }
+        } finally {
+          this.settingsQrBusy = false
+          this.setTogglePending("python_qr", false)
+          await this.refreshDrawerServiceState()
+        }
+        return
+      }
+
+      const lane = this.activeOpsLane
+      const ip = String(lane.qr.cameraIp || "").trim()
+      if (!ip) {
+        alert("Chon URL/stream camera QR o tab lan hien tai truoc khi bat dich vu Python.")
+        this.setTogglePending("python_qr", false)
+        return
+      }
+
+      this.settingsQrBusy = true
+      try {
+        // Bat tien trinh Python roi mo camera de preview, chua quet ngay.
+        await startPythonQr()
+        // Cho tien trinh khoi dong
+        await new Promise((r) => setTimeout(r, 2000))
+
+        // Doi QR API san sang roi chi mo camera, reset trang thai de khong tu quet
+        try {
+          const startAt = Date.now()
+          let qrReady = false
+          while (Date.now() - startAt < 8000) {
+            try {
+              await getQrResult()
+              qrReady = true
+              break
+            } catch (e) {
+              await new Promise((r) => setTimeout(r, 500))
+            }
+          }
+
+          if (qrReady) {
+            try {
+              await startQr(ip).catch(() => {})
+              await resetQr().catch(() => {})
+            } catch (e) {
+              // ignore
+            }
+          }
+        } catch (e) {
+          // ignore top-level errors
+        }
+
+        const ln = this.activeOpsLane
+        if (ln.qr.viewUrl && !ln.qr.previewRunning) {
+          this.mountPreview(ln.qr, ln.qr.viewUrl)
+        }
+        ln.qr.scanRequested = false
+        ln.qr.message = "Preview ready (chua quet)"
+      } catch (e) {
+        console.error("applyQrPythonService", e)
+        alert(e?.message || "Khong bat duoc dich vu QR Python.")
+      } finally {
+        this.settingsQrBusy = false
+        this.setTogglePending("python_qr", false)
+        await this.refreshDrawerServiceState()
+      }
+    },
+
+    async applyPlatePythonService(wantOn) {
+      if (this.settingsPlateBusy) return
+      this.setTogglePending("python_plate", true)
+
+      if (!wantOn) {
+        this.settingsPlateBusy = true
+        try {
+          try {
+            await this.lanes[0].plateApi.turnOffCamera()
+          } catch (e) {
+            console.warn("turnOffCamera", e)
+          }
+
+          try {
+            await stopPythonPlate()
+          } catch (e) {
+            console.warn("stopPythonPlate", e)
+          }
+
+          for (const lane of this.lanes) {
+            this.stopPlateLoop(lane)
+            this.hardResetPlate(lane.plate)
+            this.resetPreview(lane.plate)
+            lane.plate.cameraRunning = false
+          }
+        } finally {
+          this.settingsPlateBusy = false
+          this.setTogglePending("python_plate", false)
+          await this.refreshDrawerServiceState()
+        }
+        return
+      }
+
+      const preferredLane = this.activeOpsLane
+      const lane =
+        [preferredLane, ...this.lanes.filter((x) => x.id !== preferredLane.id)].find((ln) =>
+          String(ln?.plate?.currentIp || ln?.plate?.cameraIp || ln?.plate?.viewUrl || "").trim()
+        ) || preferredLane
+
+      const ip = String(lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || "").trim()
+      if (!ip) {
+        alert("Chon URL/stream camera bien so o tab lan hien tai truoc khi bat dich vu Python.")
+        this.setTogglePending("python_plate", false)
+        return
+      }
+
+      this.settingsPlateBusy = true
+      try {
+        // Bat tien trinh Python cho plate va mo camera ngay de co preview,
+        // nhung chua thuc hien quet cho den khi user bam nut Doc.
+        await startPythonPlate()
+        await this.waitForPlateApiReady(45000)
+        await lane.plateApi.turnOnCamera(ip)
+
+        if (lane.plate.viewUrl && !lane.plate.previewRunning) {
+          this.mountPreview(lane.plate, lane.plate.viewUrl)
+        }
+        lane.plate.currentIp = ip
+        lane.plate.cameraRunning = true
+        lane.plate.scanActive = false
+        lane.plate.message = "Preview ready (chua quet)"
+        if (!lane.plate.resultTimer) this.startPlateLoop(lane)
+      } catch (e) {
+        console.error("applyPlatePythonService", e)
+        alert(e?.message || "Khong bat duoc dich vu bien so.")
+      } finally {
+        this.settingsPlateBusy = false
+        this.setTogglePending("python_plate", false)
+        await this.refreshDrawerServiceState()
+      }
+    },
+
+    async waitForPlateApiReady(timeoutMs = 45000) {
+      const startedAt = Date.now()
+      let lastError = null
+
+      while (Date.now() - startedAt < timeoutMs) {
+        try {
+          const base = plateLane1Api.getResolvedPlateApiBaseUrl() || "http://127.0.0.1:5002/api"
+          await axios.get(`${String(base).replace(/\/+$/, "")}/health`, { timeout: 2000 })
+          return
+        } catch (e) {
+          lastError = e
+          await new Promise((r) => setTimeout(r, 1200))
+        }
+      }
+
+      throw new Error(
+        lastError?.message ||
+          "Python bien so khoi dong cham hoac that bai (qua thoi gian cho health)."
+      )
     },
 
     startQrPolling(lane) {
@@ -485,14 +1142,28 @@ export default {
 
     if (!res) return
 
-    // trạng thái
+    // Cáº­p nháº­t tráº¡ng thÃ¡i scanRequested dá»±a trÃªn backend
+    try {
+      lane.qr.scanRequested = !!res.scan_enabled || lane.qr.scanRequested
+    } catch {
+      // ignore
+    }
+
+    // tráº¡ng thÃ¡i
     lane.qr.sessionLocked = res.locked
 
-    if (res.locked && res.qr) {
-  lane.qr.qrPayload = res.qr
+    // Náº¿u backend Ä‘ang quÃ©t nhÆ°ng chÆ°a lock, hiá»ƒn thá»‹ tráº¡ng thÃ¡i quÃ©t
+    if (lane.qr.scanRequested && !lane.qr.sessionLocked) {
+      lane.qr.message = lane.qr.message || "Đang quét QR..."
+    }
+
+        if (res.locked && res.qr) {
+  const servicePayload = String(res.qr || "").trim()
+  if (!servicePayload) return
+  lane.qr.qrPayload = servicePayload
   lane.qr.sessionLocked = true
 
-  const result = await this.doVerifyQr(lane, res.qr)
+  const result = await this.doVerifyQr(lane, servicePayload)
 const qr = lane.qr
   if (result?.success) {
    if (result?.data?.type === "STATIC") {
@@ -509,12 +1180,16 @@ const qr = lane.qr
   lane.qr.employeeName = result.data.employeeName || ""
   lane.qr.guestId = ""
 }
+    const identityOverlay = this.buildQrIdentityOverlay(result?.data)
+    if (identityOverlay) {
+      lane.qr.overlayText = identityOverlay
+    }
     lane.qr.alert = false
   } else {
     lane.qr.alert = true
   }
 
-  return // 🔥 STOP scan
+  return // ðŸ”¥ STOP scan
 }
 
 
@@ -554,6 +1229,132 @@ const qr = lane.qr
       return "warn-text"
     },
 
+    hasInvalidHint(message) {
+      const normalized = String(message || "").toLowerCase()
+      return (
+        normalized.includes("không hợp lệ") ||
+        normalized.includes("thất bại") ||
+        normalized.includes("hết hạn") ||
+        normalized.includes("timeout") ||
+        normalized.includes("quá thời gian")
+      )
+    },
+
+    cameraVisualState(type, lane) {
+      if (type === "qr") {
+        const qr = lane.qr
+        if (!qr.cameraRunning) return "idle"
+        if (qr.alert || this.hasInvalidHint(qr.verifyMessage || qr.message)) return "invalid"
+        if (qr.sessionLocked && (qr.employeeId || qr.guestId)) return "valid"
+        if (qr.scanRequested || qr.activeSessionPayload || qr.verifying || qr.decodeBusy) return "scanning"
+        return "idle"
+      }
+
+      const plate = lane.plate
+      if (!plate.cameraRunning) return "idle"
+      if (this.hasInvalidHint(plate.message)) return "invalid"
+      if (plate.scanLocked && !!plate.confirmedPlate) return "valid"
+      if (plate.scanActive) return "scanning"
+      return "idle"
+    },
+
+    cameraVisualText(type, lane) {
+      const state = this.cameraVisualState(type, lane)
+      if (state === "valid") return "VALID"
+      if (state === "invalid") return "INVALID / TIMEOUT"
+      if (state === "scanning") return "SCANNING"
+      return "IDLE"
+    },
+
+    normalizeBox(raw) {
+      if (!raw || typeof raw !== "object") return null
+      if (Array.isArray(raw)) {
+        if (!raw.length) return null
+        return this.normalizeBox(raw[0])
+      }
+      const toNumericBox = (x, y, width, height) => ({
+        x: Number(x),
+        y: Number(y),
+        width: Number(width),
+        height: Number(height)
+      })
+      const hasFiniteBox = (box) =>
+        Number.isFinite(box.x) &&
+        Number.isFinite(box.y) &&
+        Number.isFinite(box.width) &&
+        Number.isFinite(box.height) &&
+        box.width >= 0 &&
+        box.height >= 0
+
+      const hasNewShape =
+        Number.isFinite(Number(raw.x)) &&
+        Number.isFinite(Number(raw.y)) &&
+        Number.isFinite(Number(raw.width)) &&
+        Number.isFinite(Number(raw.height))
+
+      if (hasNewShape) {
+        const box = toNumericBox(raw.x, raw.y, raw.width, raw.height)
+        if (!hasFiniteBox(box)) return null
+        if (box.x <= 1 && box.y <= 1 && box.width <= 1 && box.height <= 1) {
+          return { ...box, x: box.x * 100, y: box.y * 100, width: box.width * 100, height: box.height * 100, unit: "%" }
+        }
+        if (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100) {
+          return { ...box, unit: "%" }
+        }
+        return { ...box, unit: "px" }
+      }
+
+      const hasLegacyShape =
+        Number.isFinite(Number(raw.x1)) &&
+        Number.isFinite(Number(raw.y1)) &&
+        Number.isFinite(Number(raw.x2)) &&
+        Number.isFinite(Number(raw.y2))
+
+      if (!hasLegacyShape) return null
+
+      const x1 = Number(raw.x1)
+      const y1 = Number(raw.y1)
+      const x2 = Number(raw.x2)
+      const y2 = Number(raw.y2)
+      const legacy = {
+        x: Math.min(x1, x2),
+        y: Math.min(y1, y2),
+        width: Math.abs(x2 - x1),
+        height: Math.abs(y2 - y1)
+      }
+      if (!hasFiniteBox(legacy)) return null
+      return legacy.x <= 100 && legacy.y <= 100 && legacy.width <= 100 && legacy.height <= 100
+        ? { ...legacy, unit: "%" }
+        : { ...legacy, unit: "px" }
+    },
+
+    boundingStyle(box) {
+      if (!box) return {}
+      const unit = box.unit === "px" ? "px" : "%"
+      return {
+        left: `${box.x}${unit}`,
+        top: `${box.y}${unit}`,
+        width: `${box.width}${unit}`,
+        height: `${box.height}${unit}`
+      }
+    },
+
+    labelStyle(box) {
+      const unit = box?.unit === "px" ? "px" : "%"
+      const left = Number(box?.x ?? 1)
+      const top = Number(box?.y ?? 1)
+      if (unit === "px") {
+        return {
+          left: `${Math.max(4, left)}px`,
+          top: `${Math.max(4, top - 22)}px`
+        }
+      }
+      return {
+        left: `${Math.max(1, Math.min(80, left))}%`,
+        top: `${Math.max(1, top - 6)}%`
+      }
+    },
+
     shortText(value, max = 60) {
       const text = String(value || "").trim()
       if (!text) return "-----"
@@ -570,8 +1371,21 @@ const qr = lane.qr
     },
 
     buildDirectCameraUrl(inputUrl) {
-  return String(inputUrl || "").trim()
-},
+      const raw = String(inputUrl || "").trim()
+      if (!raw) return ""
+
+      if (raw.startsWith("data:image/")) return raw
+
+      const normalized = normalizeCameraUrl(raw)
+      if (/^https?:\/\//i.test(normalized) || normalized.startsWith("/")) {
+        return normalized
+      }
+
+      // Prevent relative path fallback to Vue route (causing iframe overlay over content).
+      const base = String(QR_API_BASE_URL || "http://localhost:8001").replace(/\/+$/, "")
+      const path = raw.replace(/^\/+/, "")
+      return `${base}/${path}`
+    },
 
     async attachQrVideoPreview(laneId, qr) {
       await this.$nextTick()
@@ -817,12 +1631,16 @@ const qr = lane.qr
       lane.qr.imgBusy = false
 
       if (lane.qr.decodeBusy || lane.qr.verifying) return
+      // Náº¿u chá»‰ Ä‘ang preview (chÆ°a báº­t cháº¿ Ä‘á»™ quÃ©t trÃªn Python) thÃ¬ khÃ´ng tá»± decode
+      if (!lane.qr.cameraRunning) return
       await this.captureAndDecodeQr(lane)
     },
 
     async onQrVideoPreviewLoaded(lane) {
       lane.qr.previewHealthy = true
       if (lane.qr.decodeBusy || lane.qr.verifying) return
+      // Náº¿u chá»‰ Ä‘ang preview (chÆ°a báº­t cháº¿ Ä‘á»™ quÃ©t trÃªn Python) thÃ¬ khÃ´ng tá»± decode
+      if (!lane.qr.cameraRunning) return
       await this.captureAndDecodeQr(lane)
     },
 
@@ -853,12 +1671,16 @@ const qr = lane.qr
       qr.alert = false
       qr.sessionLocked = false
       qr.lockedSnapshot = ""
+      qr.overlayText = ""
+      qr.overlayBox = null
+      qr.scanRequested = false
     },
 
     clearPlateState(plate) {
       plate.confirmedPlate = ""
       plate.lastRawPlate = ""
       plate.scanLocked = false
+      plate.scanActive = false
       plate.lockedSnapshot = ""
       plate.lockedPlateCrop = ""
       plate.message = ""
@@ -868,6 +1690,8 @@ const qr = lane.qr
       plate.movingFast = false
       plate.lastUpdate = ""
       plate.lastLockedImageSessionId = 0
+      plate.overlayText = ""
+      plate.overlayBox = null
     },
 
     hardResetQr(qr) {
@@ -1006,6 +1830,31 @@ const qr = lane.qr
         if (!decodedText) return
 
         const now = Date.now()
+        const location = code.location || {}
+        const points = [
+          location.topLeftCorner,
+          location.topRightCorner,
+          location.bottomLeftCorner,
+          location.bottomRightCorner
+        ].filter(Boolean)
+
+        if (points.length >= 2) {
+          const xs = points.map((p) => Number(p.x || 0))
+          const ys = points.map((p) => Number(p.y || 0))
+          const minX = Math.max(0, Math.min(...xs))
+          const minY = Math.max(0, Math.min(...ys))
+          const maxX = Math.min(targetWidth, Math.max(...xs))
+          const maxY = Math.min(targetHeight, Math.max(...ys))
+          qr.overlayBox = this.normalizeBox({
+            x: (minX / targetWidth) * 100,
+            y: (minY / targetHeight) * 100,
+            width: ((maxX - minX) / targetWidth) * 100,
+            height: ((maxY - minY) / targetHeight) * 100
+          })
+        } else {
+          qr.overlayBox = null
+        }
+        qr.overlayText = decodedText
 
         qr.qrPayload = decodedText
         qr.manualPayload = decodedText
@@ -1050,7 +1899,11 @@ const qr = lane.qr
             qr.employeeName = result?.data?.employeeName || ""
             qr.guestId = ""
           }
-          qr.message = result.message || "QR hợp lệ"
+          const identityOverlay = this.buildQrIdentityOverlay(result?.data)
+          if (identityOverlay) {
+            qr.overlayText = identityOverlay
+          }
+          qr.message = result.message || "QR hop le"
           return
         }
 
@@ -1061,7 +1914,7 @@ const qr = lane.qr
         qr.guestId = ""
         qr.personType = ""
 
-        if (message.includes("đã hết hạn") || message.includes("chưa đến hiệu lực")) {
+        if (message.includes("ã hết hạn") || message.includes("chưa ến hi!u lực")) {
           qr.activeSessionVerifyState = "expired"
         } else if (message.includes("không hợp lệ")) {
           qr.activeSessionVerifyState = "invalid"
@@ -1095,21 +1948,30 @@ const qr = lane.qr
       qr.verifying = true
 
       try {
-        // 🔥 phân loại QR
+        const safePayload = String(payload || "").trim()
+        if (!safePayload) {
+          return {
+            success: false,
+            message: "QR rong hoac khong doc duoc.",
+            data: null
+          }
+        }
+
+        // ðŸ”¥ phÃ¢n loáº¡i QR
 let result = null
 
-if (payload.startsWith("EMP:")) {
-  // QR động
-  result = await verifyDynamicQr(payload, qr.scannerDevice)
+if (safePayload.startsWith("EMP:")) {
+  // QR Ä‘á»™ng
+  result = await verifyDynamicQr(safePayload, qr.scannerDevice)
 }
-else if (payload.startsWith("VIS:")) {
-  // 🔥 QR tĩnh → vẫn gọi API verify (backend đã handle fallback)
-  result = await verifyDynamicQr(payload, qr.scannerDevice)
+else if (safePayload.startsWith("VIS:")) {
+  // ðŸ”¥ QR tÄ©nh â†’ váº«n gá»i API verify (backend Ä‘Ã£ handle fallback)
+  result = await verifyDynamicQr(safePayload, qr.scannerDevice)
 }
 else {
   return {
     success: false,
-    message: "QR không đúng định dạng",
+    message: "QR khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng",
     data: null
   }
 }
@@ -1259,12 +2121,15 @@ else {
       plate.confirmedPlate = res.confirmed_plate || ""
       plate.lastRawPlate = res.last_raw_plate || ""
       plate.scanLocked = !!res.scan_locked
+      plate.scanActive = !!res.scan_active
       plate.fps = Number(res.fps || 0)
       plate.ocrRunning = !!res.ocr_running
       plate.stableCount = Number(res.stable_count || 0)
       plate.movingFast = !!res.moving_fast
       plate.message = res.message || ""
       plate.lastUpdate = res.last_update || ""
+      plate.overlayText = plate.confirmedPlate || plate.lastRawPlate || ""
+      plate.overlayBox = this.normalizeBox(res.bounding_box || res.bbox || null)
 
       if (!plate.scanLocked) {
         plate.lockedSnapshot = ""
@@ -1289,7 +2154,7 @@ else {
     return
   }
 
-  // 🔥 chống spam click
+  // ðŸ”¥ chá»‘ng spam click
   if (lane.loading) return
 
   try {
@@ -1299,16 +2164,18 @@ else {
     // ===== QR =====
     if (lane.qr.viewUrl) {
       if (lane.qr.previewRunning) {
-        // 🔥 STEP 1: tắt nhẹ
+        // ðŸ”¥ STEP 1: táº¯t nháº¹
         this.resetPreview(lane.qr)
 
-        // 🔥 STEP 2: chờ camera release
+        // ðŸ”¥ STEP 2: chá» camera release
         await new Promise(r => setTimeout(r, 300))
       }
 
-      // 🔥 STEP 3: mở lại
+      // ðŸ”¥ STEP 3: má»Ÿ láº¡i
       this.mountPreview(lane.qr, lane.qr.viewUrl)
       lane.qr.message = "Đã reload preview QR"
+      // quÃ©t Ä‘Ã£ hoÃ n táº¥t â†’ táº¯t flag quÃ©t
+      lane.qr.scanRequested = false
     }
 
     // ===== PLATE =====
@@ -1316,7 +2183,7 @@ else {
       if (lane.plate.previewRunning) {
         this.resetPreview(lane.plate)
 
-        // 🔥 delay cực quan trọng
+        // ðŸ”¥ delay cá»±c quan trá»ng
         await new Promise(r => setTimeout(r, 300))
       }
 
@@ -1345,30 +2212,36 @@ else {
 
         
 
- // 🔥 reset QR trước khi scan
+ // ðŸ”¥ reset QR trÆ°á»›c khi scan
 await resetQr()
 
 await new Promise(r => setTimeout(r, 200))
 
-// 🧠 nếu chưa chạy → start
+// ðŸ§  náº¿u chÆ°a cháº¡y â†’ start
 if (!lane.qr.cameraRunning) {
   await startQr(lane.qr.cameraIp)
   await new Promise(r => setTimeout(r, 800))
 }
 
-// scan mới
+// scan má»›i
 await scanQr()
 
-// 🔥 reset frontend state
+// ðŸ”¥ reset frontend state
 this.clearQrState(lane.qr)
 
-lane.qr.cameraRunning = true
-lane.qr.sessionLocked = false
-lane.qr.message = "Đang scan QR từ Python"
+  lane.qr.cameraRunning = true
+  lane.qr.sessionLocked = false
+  lane.qr.message = "Đang scan QR từ Python"
 
-this.startQrPolling(lane)
+  // Báº¯t Ä‘áº§u vÃ²ng láº·p preview/session khi quÃ©t thá»±c sá»± báº¯t Ä‘áº§u
+  this.startQrPreviewLoop(lane)
+  this.startQrSessionLoop(lane)
+  this.startQrPolling(lane)
 
-        // Plate: giữ nguyên API cũ
+// ÄÃ¡nh dáº¥u yÃªu cáº§u quÃ©t backend Ä‘á»ƒ frontend hiá»ƒn thá»‹ tráº¡ng thÃ¡i SCANNING
+lane.qr.scanRequested = true
+
+        // Plate: giá»¯ nguyÃªn API cÅ©
         if (!lane.plate.cameraRunning) {
           this.stopPlateLoop(lane)
           const resPlate = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
@@ -1379,7 +2252,7 @@ this.startQrPolling(lane)
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(resPlate.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = resPlate.message || "Khởi tạo Plate thành công"
+          lane.plate.message = resPlate.message || "Khxi tạo Plate thành công"
         } else {
           const resPlate = await lane.plateApi.resetCameraState()
           lane.plate.message = resPlate?.message || "Đã reset Plate"
@@ -1410,11 +2283,11 @@ this.startQrPolling(lane)
   try {
     lane.loading = true
 
-    // 🧠 Nếu chưa chạy → mở cam trước
+    // ðŸ§  Náº¿u chÆ°a cháº¡y â†’ má»Ÿ cam trÆ°á»›c
     if (!lane.qr.cameraRunning) {
       await startQr(lane.qr.cameraIp)
 
-      // ⏳ chờ cam mở
+      // â³ chá» cam má»Ÿ
       await new Promise(r => setTimeout(r, 800))
     }
 
@@ -1423,7 +2296,7 @@ this.startQrPolling(lane)
 
     await new Promise(r => setTimeout(r, 200))
 
-    // scan lại
+    // scan láº¡i
     await scanQr()
 
     this.clearQrState(lane.qr)
@@ -1432,8 +2305,14 @@ this.startQrPolling(lane)
     lane.qr.sessionLocked = false
     lane.qr.message = "Đang scan lại QR..."
 
-    // 🔥 đảm bảo polling chạy
+    // ðŸ”¥ Ä‘áº£m báº£o polling cháº¡y
+    // Báº¯t Ä‘áº§u vÃ²ng láº·p preview/session khi quÃ©t thá»±c sá»± báº¯t Ä‘áº§u
+    this.startQrPreviewLoop(lane)
+    this.startQrSessionLoop(lane)
     this.startQrPolling(lane)
+
+    // ÄÃ¡nh dáº¥u yÃªu cáº§u quÃ©t backend Ä‘á»ƒ frontend hiá»ƒn thá»‹ tráº¡ng thÃ¡i SCANNING
+    lane.qr.scanRequested = true
 
   } catch (e) {
     console.error("retryQr error:", e)
@@ -1467,7 +2346,7 @@ this.startQrPolling(lane)
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(res.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = res.message || "Khởi tạo Plate thành công"
+          lane.plate.message = res.message || "Khxi tạo Plate thành công"
         } else {
           const res = await lane.plateApi.resetCameraState()
           lane.plate.message = res?.message || "Đã reset Plate"
@@ -1493,25 +2372,25 @@ this.startQrPolling(lane)
   try {
     lane.loading = true
 
-    // 🔥 1. tắt Python scan
+    // ðŸ”¥ 1. táº¯t Python scan
     try {
       await stopQr()
     } catch (e) {
       console.warn("stopQr warning:", e)
     }
 
-    // 🔥 2. dừng polling QR
+    // ðŸ”¥ 2. dá»«ng polling QR
     if (lane.qr.resultTimer) {
       clearInterval(lane.qr.resultTimer)
       lane.qr.resultTimer = null
     }
 
-    // 🔥 3. reset QR frontend
+    // ðŸ”¥ 3. reset QR frontend
     this.stopQrLoops(lane)
     this.hardResetQr(lane.qr)
     this.resetPreview(lane.qr)
 
-    // ===== PLATE giữ nguyên =====
+    // ===== PLATE giá»¯ nguyÃªn =====
     this.stopPlateLoop(lane)
 
     try {
@@ -1621,7 +2500,7 @@ selectCamera(cam, lane, type) {
 
   if (type === "qr") {
     lane.qr.cameraIp = cam.streamUrl
-    lane.qr.viewUrl = cam.urlView   // 🔥 thêm
+    lane.qr.viewUrl = cam.urlView   // ðŸ”¥ thÃªm
     lane.qr.currentIp = cam.urlView
     lane.cameraId = cam.cameraId
 
@@ -1630,9 +2509,11 @@ selectCamera(cam, lane, type) {
   }
 
   if (type === "plate") {
-    lane.plate.cameraIp = cam.streamUrl
+    const streamValue = String(cam.streamUrl || "").trim()
+    const viewValue = String(cam.urlView || "").trim()
+    lane.plate.cameraIp = streamValue || viewValue
     lane.plate.viewUrl = cam.urlView
-    lane.plate.currentIp = cam.streamUrl
+    lane.plate.currentIp = streamValue || viewValue
     lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-plate'] = cam.cameraName
@@ -1650,54 +2531,361 @@ selectCamera(cam, lane, type) {
 }
 
 .page {
-  min-height: 100vh;
+  height: 100vh;
   background: #f3f6fb;
-  padding: 20px;
-  font-family: Inter, Arial, sans-serif;
+  padding: 6px;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: #0f172a;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar {
-  margin-bottom: 18px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar-main {
+  min-width: 0;
+}
+
+.topbar-toggle {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+}
+
+.topbar-toggle:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.topbar.compact {
+  margin-bottom: 6px;
+}
+
+.topbar.compact h1 {
+  font-size: 22px;
+}
+
+.topbar-desc {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
 }
 
-.topbar p {
-  margin: 6px 0 0;
-  color: #64748b;
-  font-size: 14px;
+.gate-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+  padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  z-index: 3;
 }
 
-.lane-grid {
+.cam-wall {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  position: relative;
+  z-index: 4;
 }
 
-.lane-card {
+.page::before,
+.page::after,
+.gate-layout::before,
+.gate-layout::after,
+.cam-wall::before,
+.cam-wall::after {
+  content: none !important;
+  display: none !important;
+}
+
+.cam-cell {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  position: relative;
+  z-index: 5;
+}
+
+.ops-dock {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  z-index: 40;
+  padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
+  background: rgba(248, 250, 252, 1);
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -12px 32px rgba(15, 23, 42, 0.08);
+  backdrop-filter: none;
+  max-height: 86px;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .ops-dock {
+    left: calc(var(--sidebar-width, 290px) + 12px);
+  }
+}
+
+.ops-dock-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 10px;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.ops-dock-spacer {
+  min-width: 0;
+}
+
+.ops-dock-center {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px 20px;
+  min-width: 0;
+}
+
+.lane-action-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lane-action-title {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.lane-action-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: min(520px, 44vw);
+}
+
+.ops-dock-side {
+  justify-self: end;
+  align-self: center;
+  min-width: 0;
+}
+
+.btn-open-drawer {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #64748b;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-open-drawer:hover {
+  background: #0f172a;
+}
+
+.btn-dock {
+  min-height: 34px;
+  height: auto;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 10px;
+}
+
+.ops-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.ops-drawer-root[aria-hidden="true"] {
+  display: none !important;
+}
+
+.ops-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  pointer-events: auto;
+}
+
+.ops-drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 92vw);
+  max-width: 100%;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  pointer-events: auto;
 }
 
-.lane-card.ready {
-  border-color: #93c5fd;
-  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.12);
+.ops-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.ops-drawer-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.ops-drawer-close {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ops-drawer-close:hover {
+  background: #e2e8f0;
+}
+
+.ops-drawer-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px 0;
+  flex-shrink: 0;
+}
+
+.ops-drawer-tab {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  color: #475569;
+  cursor: pointer;
+}
+
+.ops-drawer-tab.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.ops-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px 22px;
+}
+
+.lane-controls--drawer {
+  display: flex;
+  flex-direction: column;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  gap: 12px;
+}
+
+.lane-controls--drawer.ready {
+  padding: 12px;
+  border-radius: 14px;
+  border: 2px solid #93c5fd;
+  background: #f8fbff;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.1);
+}
+
+.lane-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.lane-controls--drawer .lane-head h2 {
+  font-size: 20px;
+}
+
+.lane-controls--drawer .lane-final-status {
+  font-size: 13px;
+  min-width: 160px;
+  padding: 10px 12px;
+}
+
+.lane-controls--drawer .ip-box label {
+  font-size: 13px;
+}
+
+.lane-controls--drawer .ip-box input {
+  height: 44px;
+  font-size: 15px;
+}
+
+.lane-controls--drawer .summary-item .label {
+  font-size: 12px;
+}
+
+.lane-controls--drawer .summary-item .value {
+  font-size: 15px;
 }
 
 .lane-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .lane-head h2 {
@@ -1734,17 +2922,17 @@ selectCamera(cam, lane, type) {
 .lane-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 6px;
+  margin-bottom: 0;
 }
 
 .btn {
-  height: 40px;
+  height: 30px;
   border: none;
   border-radius: 10px;
   padding: 0 14px;
   color: white;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -1777,8 +2965,8 @@ selectCamera(cam, lane, type) {
 .ip-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 0;
 }
 
 .ip-box label {
@@ -1791,7 +2979,7 @@ selectCamera(cam, lane, type) {
 
 .ip-box input {
   width: 100%;
-  height: 42px;
+  height: 36px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 0 12px;
@@ -1806,16 +2994,16 @@ selectCamera(cam, lane, type) {
 
 .summary-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 0;
 }
 
 .summary-item {
   background: #f8fafc;
   border: 1px solid #e9eef5;
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 6px 8px;
 }
 
 .summary-item .label {
@@ -1827,13 +3015,13 @@ selectCamera(cam, lane, type) {
 
 .summary-item .value {
   display: block;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   word-break: break-word;
 }
 
 .strong {
-  font-size: 20px !important;
+  font-size: 16px !important;
   font-weight: 900 !important;
 }
 
@@ -1854,30 +3042,59 @@ selectCamera(cam, lane, type) {
   color: #b91c1c;
 }
 
-.camera-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 .cam-block {
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 6px;
   background: #fcfdff;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  position: relative;
+  z-index: 6;
+}
+
+.cam-block--hero {
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
 }
 
 .cam-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  font-size: 14px;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
   font-weight: 800;
+  flex-shrink: 0;
+}
+
+.cam-head-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cam-lane-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.cam-kind {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
 .mini-status {
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
@@ -1895,19 +3112,23 @@ selectCamera(cam, lane, type) {
 
 .cam-preview {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  flex: 1;
+  min-height: 0;
   background: #0f172a;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
   position: relative;
+  border: 2px solid #94a3b8;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .preview-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
+  min-height: 0;
 }
 
 .cam-off {
@@ -1917,150 +3138,343 @@ selectCamera(cam, lane, type) {
   color: #cbd5e1;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .quick-result {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .result-pill {
-  padding: 8px 12px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
 }
 
-.result-pill.ok {
+.cam-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cam-preview-toolbar {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.cam-refresh-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 250, 252, 0.35);
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.cam-refresh-btn:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.88);
+  border-color: rgba(248, 250, 252, 0.5);
+}
+
+.cam-refresh-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cam-refresh-icon {
+  display: block;
+}
+
+.cam-refresh-icon--rerun {
+  color: #fde68a;
+}
+
+.cam-refresh-icon--spin {
+  animation: cam-toolbar-spin 0.85s linear infinite;
+}
+
+@keyframes cam-toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.drawer-settings-panel {
+  margin: 0 0 16px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.drawer-settings-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.drawer-settings-meta {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.drawer-settings-meta-sep {
+  margin: 0 6px;
+  color: #94a3b8;
+}
+
+.drawer-settings-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.settings-toggle-row:last-of-type {
+  border-bottom: none;
+}
+
+.settings-toggle-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-toggle-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.settings-toggle-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 50px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid #cbd5e1;
+  background: #e2e8f0;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.toggle-switch.on {
+  background: #22c55e;
+  border-color: #16a34a;
+}
+
+.toggle-switch.pending {
+  background: #facc15;
+  border-color: #eab308;
+}
+
+.toggle-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch.on .toggle-switch-knob {
+  transform: translateX(22px);
+}
+
+.toggle-switch.pending .toggle-switch-knob {
+  background: #fef08a;
+}
+
+.auto-start-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auto-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drawer-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-drawer-secondary {
+  min-height: 42px;
+  height: auto;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-drawer-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bbox-box {
+  position: absolute;
+  border: 2px solid #22c55e;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.overlay-tag {
+  position: absolute;
+  max-width: 88%;
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cam-preview.state-idle {
+  border-color: #94a3b8;
+}
+
+.cam-preview.state-scanning {
+  border-color: #eab308;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.28);
+}
+
+.cam-preview.state-valid {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.24);
+}
+
+.cam-preview.state-invalid {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.result-pill.state-idle {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.result-pill.state-scanning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.result-pill.state-valid {
   background: #dcfce7;
   color: #166534;
 }
 
-.result-pill.wait {
-  background: #fff7ed;
-  color: #c2410c;
-}
-
-.result-pill.danger {
+.result-pill.state-invalid {
   background: #fee2e2;
-  color: #b91c1c;
-}
-
-.result-pill.neutral {
-  background: #e2e8f0;
-  color: #1e293b;
-}
-
-.result-pill.off {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.qr-data-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.qr-data-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.small-label {
-  font-size: 11px;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.small-value {
-  font-size: 13px;
-  color: #0f172a;
-  font-weight: 700;
-  word-break: break-word;
-}
-
-.verify-box {
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-}
-
-.verify-message {
-  margin-bottom: 8px;
-  font-weight: 700;
-}
-
-.verify-data > div {
-  margin-bottom: 4px;
-  font-size: 13px;
-}
-
-.evidence-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.evidence-box {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.evidence-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.evidence-empty {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.bottom-note {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: #475569;
+  color: #991b1b;
 }
 
 @media (max-width: 1200px) {
-  .lane-grid {
-    grid-template-columns: 1fr;
+  .ops-drawer-panel {
+    width: min(400px, 96vw);
   }
 }
 
 @media (max-width: 900px) {
+  .gate-layout {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ops-dock-grid {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .ops-dock-spacer {
+    display: none;
+  }
+
+  .ops-dock-center {
+    order: 1;
+    width: 100%;
+  }
+
+  .ops-dock-side {
+    order: 0;
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .btn-open-drawer {
+    width: 100%;
+  }
+
+  .lane-action-btns {
+    max-width: 100%;
+  }
+
+  .ops-drawer-panel {
+    width: 100%;
+    border-left: none;
+  }
+
   .summary-bar,
-  .ip-row,
-  .evidence-row,
-  .qr-data-grid {
+  .ip-row {
     grid-template-columns: 1fr;
   }
 

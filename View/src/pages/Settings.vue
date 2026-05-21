@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page-container animate-in">
     <header class="page-header">
       <div>
@@ -72,6 +72,11 @@
               </div>
               <router-link to="/monitoring" class="link-btn">Mở trang Giám sát</router-link>
             </div>
+            <div class="camera-summary">
+              <div class="summary-chip"><span>Tổng camera</span><strong>{{ cameraSummary.total }}</strong></div>
+              <div class="summary-chip"><span>Đã cấu hình</span><strong>{{ cameraSummary.configured }}</strong></div>
+              <div class="summary-chip"><span>Đang online</span><strong>{{ cameraSummary.online }}</strong></div>
+            </div>
 
             <div class="toolbar-grid">
               <input v-model="manualCameraName" class="field" placeholder="Tên hiển thị, ví dụ: iPhone cổng phụ" />
@@ -143,16 +148,12 @@
               <div class="form-grid">
                 <div class="input-group">
                   <label>Tên hiển thị trên Giám sát</label>
-                  <input v-model="camera.label" class="field" type="text" placeholder="Ví dụ: iPhone cổng phụ" @blur="persistCameraSettingsOnly" />
+                  <input v-model="camera.label" class="field" type="text" placeholder="Ví dụ: iPhone cổng phụ" @blur="persistCameraSettingsOnly(camera)" />
                 </div>
                 <div class="input-group">
                   <label>URL stream</label>
                   <input v-model="camera.url" class="field mono" type="text" placeholder="http://IP:8081/video" @blur="normalizeCameraCardUrl(camera.id)" />
                   <small class="muted">Web ưu tiên MJPEG/HTTP để xem trực tiếp. RTSP vẫn lưu được nhưng sẽ cần gateway để hiển thị.</small>
-                </div>
-                <div class="input-group">
-                  <label>Vị trí lắp đặt</label>
-                  <input v-model="camera.location" class="field" type="text" @blur="persistCameraSettingsOnly" />
                 </div>
               </div>
 
@@ -203,17 +204,21 @@
 
 <script setup>
 import axios from "axios"
-import { onMounted, onUnmounted, reactive, ref, watch } from "vue"
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import { API_BASE_URL } from "../config/api"
 import {
+  createCamera,
+  deleteCamera,
+  getCameras as getSetCamList,
+  reloadGo2rtc,
+  updateCamera,
+} from "../services/setcamAPI"
+import {
   buildCameraHealthProbeUrl,
-  createDefaultCameraSettings,
   isHttpCameraUrl,
   isRtspCameraUrl,
-  loadCameraNetworkSettings,
   normalizeCameraUrl,
-  saveCameraNetworkSettings,
 } from "../utils/cameraNetwork"
 
 const SYSTEM_SETTINGS_STORAGE_KEY = "vshield-system-settings-v1"
@@ -253,7 +258,7 @@ const notifSettings = reactive({
   afterHours: false,
 })
 
-const cameraSettings = ref(createDefaultCameraSettings())
+const cameraSettings = ref([])
 const manualCameraName = ref("")
 const manualCameraUrl = ref("")
 const manualTargetId = ref("auto")
@@ -267,6 +272,12 @@ const connectMessage = ref("")
 const connectError = ref("")
 const checkingIds = ref([])
 const toast = ref(null)
+const cameraSummary = computed(() => {
+  const total = cameraSettings.value.length
+  const configured = cameraSettings.value.filter((c) => c.url).length
+  const online = cameraSettings.value.filter((c) => c.online).length
+  return { total, configured, online }
+})
 
 let toastTimer = null
 
@@ -291,7 +302,6 @@ const showToast = (message) => {
 }
 
 const loadSystemSettings = () => {
-  cameraSettings.value = loadCameraNetworkSettings()
   const rawValue = localStorage.getItem(SYSTEM_SETTINGS_STORAGE_KEY)
   if (!rawValue) return
 
@@ -316,8 +326,44 @@ const persistSystemSettings = () => {
   )
 }
 
-const persistCameraSettingsOnly = () => {
-  cameraSettings.value = saveCameraNetworkSettings(cameraSettings.value)
+const persistCameraSettingsOnly = async (camera) => {
+  if (!camera?.id) return
+  await updateCamera(camera.id, {
+    cameraName: (camera.label || camera.name || "").trim() || camera.name,
+    gateId: camera.gateId ?? null,
+    cameraType: camera.cameraType ?? null,
+    streamUrl: normalizeCameraUrl(camera.url) || null,
+  })
+  await syncCameraSettingsFromApi()
+}
+
+const syncCameraSettingsFromApi = async () => {
+  try {
+    const apiCameras = await getSetCamList()
+    const list = Array.isArray(apiCameras) ? apiCameras : []
+    cameraSettings.value = list.map((item) => {
+      const id = Number(item?.cameraId || 0)
+      const streamUrl = normalizeCameraUrl(item?.streamUrl || "")
+      const urlView = normalizeCameraUrl(item?.urlView || "")
+      const previewCandidate = isHttpCameraUrl(urlView)
+        ? urlView
+        : (isHttpCameraUrl(streamUrl) ? streamUrl : "")
+      return {
+        id,
+        cameraId: id,
+        name: `CAM-${String(id).padStart(2, "0")}`,
+        label: String(item?.cameraName || "").trim() || `CAM-${String(id).padStart(2, "0")}`,
+        url: streamUrl,
+        previewUrl: previewCandidate,
+        enabled: Boolean(streamUrl || previewCandidate),
+        online: false,
+        gateId: item?.gateId ?? null,
+        cameraType: item?.cameraType ?? null,
+      }
+    })
+  } catch {
+    cameraSettings.value = []
+  }
 }
 
 const probeHttpCameraUrl = async (url, timeoutMs = CAMERA_PROBE_TIMEOUT_MS) => {
@@ -442,35 +488,32 @@ const applyCameraToNetwork = async (payload, preferredId = "auto") => {
   }
 
   const targetId = resolveTargetCameraId(preferredId, normalizedUrl)
-  if (!targetId) {
-    return {
-      ok: false,
-      error: "Mạng lưới camera đã đầy. Hãy chọn một ô cụ thể hoặc xóa bớt camera cũ.",
-    }
+  if (targetId) {
+    const current = cameraSettings.value.find((camera) => camera.id === targetId)
+    await updateCamera(targetId, {
+      cameraName: payload.label?.trim() || current?.label || guessCameraLabel(normalizedUrl),
+      gateId: current?.gateId ?? null,
+      cameraType: current?.cameraType ?? null,
+      streamUrl: normalizedUrl,
+    })
+  } else {
+    await createCamera({
+      cameraName: payload.label?.trim() || guessCameraLabel(normalizedUrl),
+      gateId: null,
+      cameraType: "Network",
+      streamUrl: normalizedUrl,
+    })
   }
 
-  const index = cameraSettings.value.findIndex((camera) => camera.id === targetId)
-  if (index < 0) {
-    return { ok: false, error: "Không tìm thấy ô camera phù hợp." }
-  }
-
-  const current = cameraSettings.value[index]
-  cameraSettings.value[index] = {
-    ...current,
-    label: payload.label?.trim() || current.label || guessCameraLabel(normalizedUrl),
-    url: normalizedUrl,
-    enabled: true,
-    online: false,
-    location: payload.location?.trim() || current.location,
-  }
-
-  persistCameraSettingsOnly()
-  await refreshSingleCameraStatus(targetId)
+  await reloadGo2rtc().catch(() => {})
+  await syncCameraSettingsFromApi()
+  const actualId = targetId || cameraSettings.value[cameraSettings.value.length - 1]?.id
+  if (actualId) await refreshSingleCameraStatus(actualId)
 
   return {
     ok: true,
-    camera: cameraSettings.value[index],
-    message: `Đã nạp ${cameraSettings.value[index].label} vào ${cameraSettings.value[index].name}.`,
+    camera: cameraSettings.value.find((item) => item.id === actualId) || null,
+    message: `Đã nạp ${payload.label?.trim() || guessCameraLabel(normalizedUrl)} vào mạng lưới camera.`,
   }
 }
 
@@ -598,15 +641,16 @@ const normalizeCameraCardUrl = async (cameraId) => {
   const camera = cameraSettings.value.find((item) => item.id === cameraId)
   if (!camera) return
 
-  camera.url = normalizeCameraUrl(camera.url)
-  if (!camera.url) {
-    camera.enabled = false
-    camera.online = false
-    persistCameraSettingsOnly()
-    return
-  }
-
-  persistCameraSettingsOnly()
+  const normalized = normalizeCameraUrl(camera.url)
+  camera.url = normalized
+  await updateCamera(cameraId, {
+    cameraName: camera.label || camera.name,
+    gateId: camera.gateId ?? null,
+    cameraType: camera.cameraType ?? null,
+    streamUrl: normalized || null,
+  })
+  await reloadGo2rtc().catch(() => {})
+  await syncCameraSettingsFromApi()
   await refreshSingleCameraStatus(cameraId)
 }
 
@@ -615,42 +659,48 @@ const handleCameraToggle = async (camera) => {
   if (!camera.url && camera.enabled) {
     camera.enabled = false
     connectError.value = `Hãy nhập URL trước khi bật ${camera.name}.`
-    persistCameraSettingsOnly()
     return
   }
 
   if (!camera.enabled) {
-    camera.online = false
-    persistCameraSettingsOnly()
+    await updateCamera(camera.id, {
+      cameraName: camera.label || camera.name,
+      gateId: camera.gateId ?? null,
+      cameraType: camera.cameraType ?? null,
+      streamUrl: null,
+    })
+    await reloadGo2rtc().catch(() => {})
+    await syncCameraSettingsFromApi()
     return
   }
 
-  persistCameraSettingsOnly()
+  await updateCamera(camera.id, {
+    cameraName: camera.label || camera.name,
+    gateId: camera.gateId ?? null,
+    cameraType: camera.cameraType ?? null,
+    streamUrl: normalizeCameraUrl(camera.url),
+  })
+  await reloadGo2rtc().catch(() => {})
+  await syncCameraSettingsFromApi()
   await refreshSingleCameraStatus(camera.id)
 }
 
 const clearCamera = (cameraId) => {
-  const index = cameraSettings.value.findIndex((camera) => camera.id === cameraId)
-  if (index < 0) return
-
-  const current = cameraSettings.value[index]
-  cameraSettings.value[index] = {
-    ...current,
-    url: "",
-    enabled: false,
-    online: false,
-  }
-
-  persistCameraSettingsOnly()
-  clearConnectState()
-  connectMessage.value = `Đã xóa cấu hình khỏi ${current.name}.`
+  ;(async () => {
+    const current = cameraSettings.value.find((camera) => camera.id === cameraId)
+    if (!current) return
+    await deleteCamera(cameraId)
+    await reloadGo2rtc().catch(() => {})
+    await syncCameraSettingsFromApi()
+    clearConnectState()
+    connectMessage.value = `Đã xóa camera ${current.name}.`
+  })()
 }
 
 const saveSettings = async () => {
   clearDiscoveryState()
   clearConnectState()
   persistSystemSettings()
-  persistCameraSettingsOnly()
   await refreshAllCameraStatuses()
   showToast("Đã lưu cấu hình hệ thống thành công.")
 }
@@ -658,6 +708,7 @@ const saveSettings = async () => {
 onMounted(async () => {
   syncActiveTabFromRoute()
   loadSystemSettings()
+  await syncCameraSettingsFromApi()
   await refreshAllCameraStatuses()
 })
 
@@ -797,6 +848,26 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+}
+.camera-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.summary-chip {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-input);
+  padding: 10px 12px;
+}
+.summary-chip span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+.summary-chip strong {
+  color: var(--text-primary);
+  font-size: 1.1rem;
 }
 
 .section-title {
@@ -1050,7 +1121,8 @@ onUnmounted(() => {
 
 @media (max-width: 1024px) {
   .settings-layout,
-  .camera-grid {
+  .camera-grid,
+  .camera-summary {
     grid-template-columns: 1fr;
   }
 }

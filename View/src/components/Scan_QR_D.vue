@@ -185,14 +185,12 @@
 <script>
 import jsQR from "jsqr"
 import { verifyDynamicQr } from "../services/dynamicQrVerifyApi"
+import { getConfiguredCameras } from "../services/cameraRegistryApi"
 import {
-  getConfiguredCameraSettings,
   isBrowserVideoCameraUrl,
   isHlsCameraUrl,
   isHttpCameraUrl,
   isRtspCameraUrl,
-  resolveCameraPreviewUrl,
-  resolveCameraSourceUrl
 } from "../utils/cameraNetwork"
 
 const QR_CAMERA_SELECTION_STORAGE_KEY = "vshield-qr-selected-camera"
@@ -323,9 +321,9 @@ export default {
     }
   },
 
-  mounted() {
+  async mounted() {
     this.destroyed = false
-    this.loadConfiguredCameras()
+    await this.loadConfiguredCameras()
   },
 
   beforeUnmount() {
@@ -385,12 +383,8 @@ export default {
       return hlsScriptPromise
     },
 
-    loadConfiguredCameras() {
-      const cameras = getConfiguredCameraSettings().map((camera) => ({
-        ...camera,
-        sourceUrl: resolveCameraSourceUrl(camera),
-        browserPreviewUrl: resolveCameraPreviewUrl(camera),
-      }))
+    async loadConfiguredCameras() {
+      const cameras = await getConfiguredCameras()
 
       this.configuredCameras = cameras
 

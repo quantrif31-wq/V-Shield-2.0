@@ -11,8 +11,6 @@
             </div>
         </div>
 
-        <CameraNetworkPanel />
-
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
@@ -136,6 +134,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label>URL stream (RTSP/HTTP)</label>
+                        <input v-model="cameraForm.streamUrl" type="text" placeholder="rtsp://... hoặc http://IP:8081/video" />
+                    </div>
+
+                    <div class="form-group">
                         <label>Gắn vào cổng</label>
                         <select v-model="cameraForm.gateId" class="filter-select">
                             <option value="">Chưa gắn cổng</option>
@@ -190,7 +193,6 @@
 
 <script setup>
 import { onMounted, reactive, ref, computed } from 'vue'
-import CameraNetworkPanel from '../components/CameraNetworkPanel.vue'
 import {
     createCamera,
     createGate,
@@ -243,6 +245,7 @@ const cameraForm = reactive({
     cameraName: '',
     cameraType: '',
     gateId: '',
+    streamUrl: '',
 })
 
 const gateForm = reactive({
@@ -273,6 +276,7 @@ const openCameraModal = (camera = null) => {
     cameraForm.cameraName = camera?.cameraName || ''
     cameraForm.cameraType = camera?.cameraType || ''
     cameraForm.gateId = camera?.gateId || ''
+    cameraForm.streamUrl = camera?.streamUrl || ''
     formError.value = ''
     showCameraModal.value = true
 }
@@ -283,6 +287,7 @@ const closeCameraModal = () => {
     cameraForm.cameraName = ''
     cameraForm.cameraType = ''
     cameraForm.gateId = ''
+    cameraForm.streamUrl = ''
     formError.value = ''
 }
 
@@ -315,6 +320,7 @@ const handleSaveCamera = async () => {
             cameraName: cameraForm.cameraName.trim(),
             cameraType: cameraForm.cameraType || null,
             gateId: cameraForm.gateId || null,
+            streamUrl: String(cameraForm.streamUrl || '').trim() || null,
         }
 
         if (editingCameraId.value) {
@@ -411,6 +417,21 @@ onMounted(fetchOverview)
 .table-sub {
     color: var(--text-muted);
     font-size: 0.82rem;
+}
+.small-inline {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+.mono {
+    font-family: "JetBrains Mono", monospace;
+}
+.table-link {
+    color: var(--accent-primary);
+    font-weight: 700;
+    text-decoration: none;
+}
+.table-link:hover {
+    text-decoration: underline;
 }
 
 .error-card {

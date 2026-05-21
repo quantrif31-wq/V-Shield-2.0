@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import site
 import cv2
@@ -109,7 +109,7 @@ swagger_template = {
     "openapi": "3.0.2",
     "info": {
         "title": "LPR Camera API",
-        "description": "API điều khiển camera, stream, OCR biển số, trạng thái realtime",
+        "description": "API Ä‘iá»u khiá»ƒn camera, stream, OCR biá»ƒn sá»‘, tráº¡ng thÃ¡i realtime",
         "version": "1.0.0"
     },
     "servers": [
@@ -181,6 +181,7 @@ latest_raw_frame = None
 latest_raw_frame_ts = 0.0
 
 scan_locked = False
+scan_active = False
 locked_frame_jpeg = None
 locked_snapshot_b64 = None
 locked_plate_crop_b64 = None
@@ -217,6 +218,7 @@ recognition_state = {
     "moving_fast": False,
     "fps": 0,
     "scan_locked": False,
+    "scan_active": False,
     "locked_snapshot": None,
     "locked_plate_crop": None,
     "last_update": None,
@@ -291,6 +293,7 @@ def get_recognition_snapshot(include_images=True):
             "moving_fast": recognition_state.get("moving_fast", False),
             "fps": recognition_state.get("fps", 0),
             "scan_locked": recognition_state.get("scan_locked", False),
+            "scan_active": recognition_state.get("scan_active", False),
             "locked_snapshot": recognition_state.get("locked_snapshot") if include_images else None,
             "locked_plate_crop": recognition_state.get("locked_plate_crop") if include_images else None,
             "last_update": recognition_state.get("last_update"),
@@ -387,7 +390,7 @@ def reset_recognition_state(reason="Recognition state reset", new_session=True):
     global last_ocr_time, ocr_running
     global plate_votes, confirmed_plate, last_raw_plate
     global latest_jpeg, latest_raw_frame, latest_raw_frame_ts, live_candidates
-    global scan_locked, locked_frame_jpeg, locked_snapshot_b64, locked_plate_crop_b64
+    global scan_locked, scan_active, locked_frame_jpeg, locked_snapshot_b64, locked_plate_crop_b64
     global fps
 
     sid = get_session_id()
@@ -409,6 +412,7 @@ def reset_recognition_state(reason="Recognition state reset", new_session=True):
     live_candidates = []
 
     scan_locked = False
+    scan_active = False
     locked_frame_jpeg = None
     locked_snapshot_b64 = None
     locked_plate_crop_b64 = None
@@ -437,6 +441,7 @@ def reset_recognition_state(reason="Recognition state reset", new_session=True):
         moving_fast=False,
         fps=0,
         scan_locked=False,
+        scan_active=False,
         locked_snapshot=None,
         locked_plate_crop=None,
         message=reason
@@ -584,7 +589,7 @@ def smart_rotate_ocr_candidates(crop):
     return final_candidates[:5]
 
 def lock_scan_result(frame, plate_crop):
-    global scan_locked, locked_frame_jpeg, locked_snapshot_b64, locked_plate_crop_b64
+    global scan_locked, scan_active, locked_frame_jpeg, locked_snapshot_b64, locked_plate_crop_b64
 
     if scan_locked:
         return
@@ -1017,7 +1022,9 @@ def open_camera(ip):
     set_camera_flags(enabled=True, ip=ip, connected=False)
     current_ip = ip
 
+    global scan_active
     reset_recognition_state(reason="Waiting camera worker to connect...", new_session=True)
+    scan_active = False
 
     update_recognition_state(
         success=True,
@@ -1025,6 +1032,7 @@ def open_camera(ip):
         camera_enabled=True,
         camera_connected=False,
         ip=ip,
+        scan_active=False,
         message="Waiting camera worker to connect..."
     )
 
@@ -1077,7 +1085,7 @@ def api_camera_on():
         if not ip:
             return jsonify({
                 "success": False,
-                "message": "Thiếu IP camera"
+                "message": "Thiáº¿u IP camera"
             }), 400
 
         with api_lock:
@@ -1087,21 +1095,21 @@ def api_camera_on():
             return jsonify({
                 "success": True,
                 "session_id": get_session_id(),
-                "message": "Đang kết nối camera",
+                "message": "Äang káº¿t ná»‘i camera",
                 "ip": ip,
                 "stream_url": "/api/camera/stream"
             }), 200
 
         return jsonify({
             "success": False,
-            "message": "Không thể mở camera",
+            "message": "KhÃ´ng thá»ƒ má»Ÿ camera",
             "ip": ip
         }), 500
 
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Lỗi bật camera: {str(e)}"
+            "message": f"Lá»—i báº­t camera: {str(e)}"
         }), 500
 
 @app.route("/api/camera/off", methods=["POST"])
@@ -1127,13 +1135,13 @@ def api_camera_off():
         return jsonify({
             "success": True,
             "session_id": get_session_id(),
-            "message": "Đã tắt camera"
+            "message": "ÄÃ£ táº¯t camera"
         }), 200
 
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Lỗi tắt camera: {str(e)}"
+            "message": f"Lá»—i táº¯t camera: {str(e)}"
         }), 500
 
 @app.route("/api/camera/reset", methods=["POST"])
@@ -1155,9 +1163,11 @@ def api_camera_reset():
     try:
         with api_lock:
             reset_recognition_state(
-                reason="Đã reset trạng thái nhận diện",
+                reason="ÄÃ£ reset tráº¡ng thÃ¡i nháº­n diá»‡n",
                 new_session=False
             )
+            global scan_active
+            scan_active = True
             enabled, ip, connected = get_camera_flags()
             update_recognition_state(
                 success=True,
@@ -1165,19 +1175,20 @@ def api_camera_reset():
                 camera_enabled=enabled,
                 camera_connected=connected,
                 ip=ip,
-                message="Đã reset trạng thái nhận diện"
+                scan_active=True,
+                message="ÄÃ£ reset tráº¡ng thÃ¡i nháº­n diá»‡n"
             )
 
         return jsonify({
             "success": True,
             "session_id": get_session_id(),
-            "message": "Đã reset trạng thái nhận diện"
+            "message": "ÄÃ£ reset tráº¡ng thÃ¡i nháº­n diá»‡n"
         }), 200
 
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Lỗi reset trạng thái: {str(e)}"
+            "message": f"Lá»—i reset tráº¡ng thÃ¡i: {str(e)}"
         }), 500
 
 @app.route("/api/camera/status", methods=["GET"])
@@ -1214,6 +1225,7 @@ def api_camera_status():
             "plate_votes": snapshot["plate_votes"],
             "live_candidates": snapshot["live_candidates"],
             "scan_locked": snapshot["scan_locked"],
+            "scan_active": snapshot["scan_active"],
             "message": snapshot["message"],
             "last_update": snapshot["last_update"],
             "stream_url": "/api/camera/stream" if snapshot["camera_enabled"] else ""
@@ -1221,7 +1233,7 @@ def api_camera_status():
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Lỗi lấy trạng thái camera: {str(e)}"
+            "message": f"Lá»—i láº¥y tráº¡ng thÃ¡i camera: {str(e)}"
         }), 500
 
 @app.route("/api/camera/result", methods=["GET"])
@@ -1245,7 +1257,7 @@ def api_camera_result():
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Lỗi lấy kết quả nhận diện: {str(e)}"
+            "message": f"Lá»—i láº¥y káº¿t quáº£ nháº­n diá»‡n: {str(e)}"
         }), 500
 
 @app.route("/api/camera/locked-images", methods=["GET"])
@@ -1276,7 +1288,7 @@ def api_camera_locked_images():
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": f"Lỗi lấy ảnh lock: {str(e)}"
+            "message": f"Lá»—i láº¥y áº£nh lock: {str(e)}"
         }), 500
 
 @app.route("/api/camera/stream", methods=["GET"])
@@ -1418,12 +1430,12 @@ def main():
     global scan_locked, camera_thread, ocr_thread, api_thread
 
     print("\n===== LPR SINGLE-READ LOCK MODE =====")
-    print("Phím điều khiển:")
-    print("  i = nhập IP webcam")
-    print("  o = mở camera")
-    print("  c = tắt camera")
-    print("  r = reset phiên quét")
-    print("  q = thoát chương trình\n")
+    print("PhÃ­m Ä‘iá»u khiá»ƒn:")
+    print("  i = nháº­p IP webcam")
+    print("  o = má»Ÿ camera")
+    print("  c = táº¯t camera")
+    print("  r = reset phiÃªn quÃ©t")
+    print("  q = thoÃ¡t chÆ°Æ¡ng trÃ¬nh\n")
 
     ocr_thread = threading.Thread(target=ocr_worker, daemon=True)
     ocr_thread.start()
@@ -1491,7 +1503,7 @@ def main():
                     frame_id += 1
                     fps_counter += 1
 
-                if not scan_locked and connected:
+                if scan_active and not scan_locked and connected:
                     detect_interval = 1 if stable_count < STABLE_FRAMES else DETECT_EVERY_N_FRAMES
 
                     if frame_id % detect_interval == 0:
@@ -1628,7 +1640,7 @@ def main():
                         scan_locked=bool(scan_locked),
                         locked_snapshot=locked_snapshot_b64,
                         locked_plate_crop=locked_plate_crop_b64,
-                        message="Scan locked with confirmed result" if scan_locked else "Camera connected"
+                        message="Scan locked with confirmed result" if scan_locked else ("Waiting command to scan" if not scan_active else "Camera connected")
                     )
 
                 display_frame = draw_overlay(frame, moving_fast=moving_fast)

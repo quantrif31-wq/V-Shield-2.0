@@ -177,7 +177,8 @@ def api_reset():
     with lock:
         state["locked"] = False
         state["qr"] = ""
-        state["scan_enabled"] = True
+        # reset ve trang thai preview-only, chi scan khi goi /qr/scan
+        state["scan_enabled"] = False
 
     return {"success": True}
 

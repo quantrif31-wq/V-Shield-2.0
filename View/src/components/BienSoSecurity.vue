@@ -182,11 +182,7 @@ import {
   getCameraResult,
   getLockedImages
 } from "../services/biensoApi"
-import {
-  getConfiguredCameraSettings,
-  resolveCameraPreviewUrl,
-  resolveCameraSourceUrl
-} from "../utils/cameraNetwork"
+import { getConfiguredCameras } from "../services/cameraRegistryApi"
 
 const PLATE_CAMERA_SELECTION_STORAGE_KEY = "vshield-plate-selected-camera"
 
@@ -276,7 +272,7 @@ export default {
 
   async mounted() {
     this.destroyed = false
-    this.loadConfiguredCameras()
+    await this.loadConfiguredCameras()
     await this.loadCurrentStatus()
 
     if (this.cameraRunning) {
@@ -307,12 +303,8 @@ export default {
   },
 
   methods: {
-    loadConfiguredCameras() {
-      const cameras = getConfiguredCameraSettings().map((camera) => ({
-        ...camera,
-        sourceUrl: resolveCameraSourceUrl(camera),
-        browserPreviewUrl: resolveCameraPreviewUrl(camera),
-      }))
+    async loadConfiguredCameras() {
+      const cameras = await getConfiguredCameras()
 
       this.configuredCameras = cameras
 

@@ -7,11 +7,11 @@ from tkinter import *
 from tkinter import ttk
 
 VIDEO_DIR = "video"
-RTSP_URL = "rtsp://127.0.0.1:8554"
+RTSP_URL = "rtsp://127.0.0.1:8556"
 MEDIAMTX_DIR = "mediamtx_v1.17.1_windows_amd64"
 
 # ---------------- CHECK PORT ----------------
-def check_port(port=8554):
+def check_port(port=8556):
     s = socket.socket()
     try:
         s.connect(("127.0.0.1", port))
@@ -40,7 +40,7 @@ class MediaMTX:
 
             # 🔥 đợi server ready thật
             for i in range(10):
-                if check_port(8554):
+                if check_port(8556):
                     print("✅ MediaMTX ready")
                     return
                 time.sleep(1)
@@ -140,6 +140,7 @@ class App:
         Button(btn, text="Start All", command=self.start_all).pack(side=LEFT)
         Button(btn, text="Stop All", command=self.stop_all).pack(side=LEFT)
 
+        self.root.after(1000, self.start_all)
         self.loop()
 
     def load_videos(self):
@@ -149,7 +150,7 @@ class App:
         cams = []
         for i, f in enumerate(files):
             cams.append({
-                "name": f"cam{i+1}",
+                "name": f"virtual{i+1}",
                 "video": os.path.join(VIDEO_DIR, f)
             })
         return cams
@@ -160,7 +161,7 @@ class App:
     def start_all(self):
         self.server.start()
 
-        if not check_port(8554):
+        if not check_port(8556):
             print("❌ Server chưa chạy → không start cam")
             return
 

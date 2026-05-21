@@ -28,8 +28,8 @@ import GuestProfiles from '../pages/GuestProfiles.vue'
 import DeviceManagement from '../pages/DeviceManagement.vue'
 import Biometrics from '../pages/Biometrics.vue'
 import SystemCatalog from '../pages/SystemCatalog.vue'
-
-import SetCam from '../components/SetCam.vue'
+import QrAccessMonitor from '../components/QrAccessMonitor.vue'
+import AccessPermissionManager from '../components/AccessPermissionManager.vue'
 
 const routes = [
     {
@@ -68,7 +68,8 @@ const routes = [
             { path: 'thonghanh', name: 'thonghanh', component: ThongHanh, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'tao_qr_d', name: 'tao_qr_d', component: Tao_QR_D, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
             { path: 'scan_qr_d', name: 'scan_qr_d', component: Scan_QR_D, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'setcam', name: 'setcam', component: SetCam, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+             { path: 'QrAccessMonitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+              { path: 'AccessPermissionManager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'biometrics', name: 'Biometrics', component: Biometrics, meta: { allowedRoles: ['Admin'] } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin'] } },
@@ -90,6 +91,12 @@ const routes = [
                 name: 'UserManagement',
                 component: UserManagement,
                 meta: { requiresAdmin: true, allowedRoles: ['Admin'] },
+            },
+            {
+                path: 'settings',
+                name: 'Settings',
+                component: Settings,
+                meta: { allowedRoles: ['Admin'] },
             },
         ],
     },

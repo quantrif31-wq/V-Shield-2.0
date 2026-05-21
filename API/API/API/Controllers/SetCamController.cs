@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using API.Data;
 using API.Models;
@@ -274,6 +274,161 @@ namespace API.Controllers
             }
         }
 
+        // ================= START/STOP PYTHON PROCESSES =================
+        [HttpPost("start-python-qr")]
+        public IActionResult StartPythonQr()
+        {
+            return StartPythonScript("QR_Dong", "QR_Dong.py");
+        }
+
+        [HttpPost("stop-python-qr")]
+        public IActionResult StopPythonQr()
+        {
+            return StopPythonScript("QR_Dong.py");
+        }
+
+        [HttpPost("start-python-plate")]
+        public IActionResult StartPythonPlate()
+        {
+            return StartPythonScript("doc_bien_gpu", "docbien.py");
+        }
+
+        [HttpPost("stop-python-plate")]
+        public IActionResult StopPythonPlate()
+        {
+            return StopPythonScript("docbien.py");
+        }
+
+        [HttpPost("start-python-cam-gia-lap")]
+        public IActionResult StartPythonCamGiaLap()
+        {
+            return StartPythonScript("cam\\cam_gia_lap", "cam_gia_lap.py");
+        }
+
+        [HttpPost("stop-python-cam-gia-lap")]
+        public IActionResult StopPythonCamGiaLap()
+        {
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName("mediamtx")) proc.Kill();
+                foreach (var proc in Process.GetProcessesByName("ffmpeg")) proc.Kill();
+            }
+            catch { }
+            return StopPythonScript("cam_gia_lap.py");
+        }
+
+        [HttpGet("status-python")]
+        public IActionResult StatusPython()
+        {
+            try
+            {
+                var isQrRunning = IsPythonScriptRunning("QR_Dong.py");
+                var isPlateRunning = IsPythonScriptRunning("docbien.py");
+                var isCamGiaLapRunning = IsPythonScriptRunning("cam_gia_lap.py");
+                
+                return Ok(new { qr = isQrRunning, plate = isPlateRunning, camGiaLap = isCamGiaLapRunning });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        private IActionResult StartPythonScript(string folderName, string scriptName)
+        {
+            try
+            {
+                if (IsPythonScriptRunning(scriptName))
+                {
+                    return Ok($"Đã bật {scriptName} từ trước.");
+                }
+
+                var basePath = Directory.GetCurrentDirectory();
+                var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", folderName));
+                var scriptPath = Path.Combine(projectPath, scriptName);
+                var pythonExe = Path.Combine(projectPath, "venv", "Scripts", "python.exe");
+
+                if (!System.IO.File.Exists(pythonExe))
+                {
+                    pythonExe = "python"; // fallback
+                }
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = pythonExe,
+                    Arguments = $"\"{scriptPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WorkingDirectory = projectPath
+                };
+
+                Process.Start(psi);
+
+                return Ok($"Đã bật {scriptName}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        private IActionResult StopPythonScript(string scriptName)
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "powershell.exe",
+                        Arguments = $"-Command \"Get-WmiObject Win32_Process | Where-Object {{ $_.CommandLine -match '{scriptName}' -and $_.Name -eq 'python.exe' }} | ForEach-Object {{ $_.Terminate() }}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                process.WaitForExit();
+
+                return Ok($"Đã tắt {scriptName}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        private bool IsPythonScriptRunning(string scriptName)
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "powershell.exe",
+                        Arguments = $"-Command \"@(Get-WmiObject Win32_Process | Where-Object {{ $_.CommandLine -match '{scriptName}' -and $_.Name -eq 'python.exe' }}).Count\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true
+                    }
+                };
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                if (int.TryParse(output.Trim(), out int count))
+                {
+                    return count > 0;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+
         private static string? NormalizeCameraUrl(string? value)
         {
             var normalized = value?.Trim();
@@ -400,13 +555,31 @@ namespace API.Controllers
 
             var configPath = Path.Combine(cloudflareDir, "config.yml");
 
+            var tunnelName = _configuration["Cloudflared:TunnelName"]?.Trim();
+            if (string.IsNullOrWhiteSpace(tunnelName))
+            {
+                tunnelName = Path.GetFileNameWithoutExtension(jsonFile);
+            }
+
+            var publicHostname = _configuration["Cloudflared:PublicHostname"]?.Trim();
+            if (string.IsNullOrWhiteSpace(publicHostname))
+            {
+                throw new Exception("Thieu Cloudflared:PublicHostname trong cau hinh.");
+            }
+
+            var targetService = _configuration["Cloudflared:TargetService"]?.Trim();
+            if (string.IsNullOrWhiteSpace(targetService))
+            {
+                targetService = "http://localhost:1984";
+            }
+
             var configContent = $@"
-tunnel: cam-tunnel
+tunnel: {tunnelName}
 credentials-file: {jsonFile.Replace("\\", "/")}
 
 ingress:
-  - hostname: cam.maiai06.site
-    service: http://localhost:1984
+  - hostname: {publicHostname}
+    service: {targetService}
   - service: http_status:404
 ";
 
@@ -430,7 +603,7 @@ ingress:
             Process.Start(new ProcessStartInfo
             {
                 FileName = "cloudflared",
-                Arguments = $"tunnel --config \"{configPath}\" run cam-tunnel",
+                Arguments = $"tunnel --config \"{configPath}\" run",
                 UseShellExecute = true,
                 CreateNoWindow = true
             });

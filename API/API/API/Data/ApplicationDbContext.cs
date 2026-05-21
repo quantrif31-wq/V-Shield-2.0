@@ -47,6 +47,8 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<EmployeeFaceModel> EmployeeFaceModels { get; set; }
     public virtual DbSet<EmployeeDynamicQr> EmployeeDynamicQrs { get; set; }
     public virtual DbSet<DynamicQrScanLog> DynamicQrScanLogs { get; set; }
+    public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
+    public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

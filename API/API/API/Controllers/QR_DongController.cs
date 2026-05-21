@@ -132,7 +132,8 @@ namespace API.Controllers
                 });
             }
 
-            var parseResult = ParseQrPayload(request.QrPayload);
+            var normalizedPayload = (request.QrPayload ?? string.Empty).Trim();
+            var parseResult = ParseQrPayload(normalizedPayload);
             if (!parseResult.Success)
 {
     // 🔥 fallback sang QR tĩnh
@@ -141,7 +142,7 @@ namespace API.Controllers
     if (staticResult.Success)
     {
         await SaveScanLog(null, request.QrPayload, true,
-            "Xác thực QR tĩnh thành công.", request.ScannerDevice);
+        "Xác thực QR tĩnh thành công.", request.ScannerDevice);
 
         return Ok(new
         {
@@ -204,9 +205,10 @@ namespace API.Controllers
 
                 var utcNow = DateTime.UtcNow;
                 var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
+                var counterDelta = Math.Abs(payloadCounter - currentCounter);
 
-                // Chỉ cần QR đang nằm trong đúng time-step hiện tại
-                if (payloadCounter != currentCounter)
+                // Cho phep lech toi da 1 time-step de tranh loi sat bien 30s.
+                if (counterDelta > 1)
                 {
                     await SaveScanLog(employeeId, request.QrPayload, false,
                         "QR đã hết hạn hoặc chưa đến hiệu lực.", request.ScannerDevice);
@@ -220,7 +222,8 @@ namespace API.Controllers
                     });
                 }
 
-                var expectedOtp = GenerateTotp(dynamicQr.SecretKey, currentCounter, dynamicQr.Digits);
+                // OTP duoc sinh theo counter nam trong payload (sau khi da check delta <= 1).
+                var expectedOtp = GenerateTotp(dynamicQr.SecretKey, payloadCounter, dynamicQr.Digits);
 
                 if (!FixedTimeEquals(payloadOtp, expectedOtp))
                 {
