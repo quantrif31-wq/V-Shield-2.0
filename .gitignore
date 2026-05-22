@@ -104,6 +104,12 @@ AI_Project/Vietnam License Plate.v2i.yolov8/
 *.png
 *.webp
 
+# Keep training datasets in AI_Project/test tracked (override image ignores above)
+!AI_Project/test/dataset/
+!AI_Project/test/dataset/**
+!AI_Project/test/Indoor Fire Smoke/
+!AI_Project/test/Indoor Fire Smoke/**
+
 # ----- Local secrets / machine-specific config -----
 API/API/API/appsettings.Production.json
 API/API/API/wwwroot/uploads/faces/
@@ -122,3 +128,7 @@ AI_Project/cam/go2rtc_win64/
 *.pptx
 *.xls
 *.xlsx
+
+# macOS archive metadata
+__MACOSX/
+*.DS_Store
