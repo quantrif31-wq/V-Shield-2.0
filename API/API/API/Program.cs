@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Data.SqlClient;
@@ -49,9 +49,9 @@ namespace API
             builder.Services.AddAuthorization();
 
             builder.Services.AddMemoryCache();
-            builder.Services.AddScoped<IAuthService, AuthService>();
-            builder.Services.AddScoped<IVehicleService, VehicleService>();
-            builder.Services.AddScoped<ILanCameraDiscoveryService, LanCameraDiscoveryService>();
+            builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+            builder.Services.AddScoped<IVehicleManagementService, VehicleManagementService>();
+            builder.Services.AddScoped<ILocalNetworkCameraDiscoveryService, LocalNetworkCameraDiscoveryService>();
             builder.Services.AddScoped<StaticVisitorQrService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
@@ -135,8 +135,8 @@ namespace API
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
             var app = builder.Build();
-            EnsureSeedAdmin(app.Services, builder.Configuration);
-            EnsureGo2RtcRunning(app.Services);
+            EnsureSeedAdminUser(app.Services, builder.Configuration);
+            EnsureGo2RtcProcessRunning(app.Services);
 
             if (app.Environment.IsDevelopment())
             {
@@ -157,7 +157,7 @@ namespace API
             app.Run();
         }
 
-        private static void EnsureSeedAdmin(IServiceProvider services, IConfiguration configuration)
+        private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration)
         {
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -176,7 +176,7 @@ namespace API
             var adminPassword = seedSection["Password"] ?? "Admin@123";
             var adminFullName = seedSection["FullName"] ?? "Quan tri vien";
             var resetPasswordOnStartup = seedSection.GetValue("ResetPasswordOnStartup", false);
-            var normalizedAdminUsername = NormalizeUsername(adminUsername);
+            var normalizedAdminUsername = NormalizeUsernameInvariant(adminUsername);
 
             var adminUser = db.AppUsers.FirstOrDefault(u =>
                 u.Username.Trim().ToUpper() == normalizedAdminUsername);
@@ -237,10 +237,10 @@ namespace API
             }
         }
 
-        private static string NormalizeUsername(string username) =>
+        private static string NormalizeUsernameInvariant(string username) =>
             username.Trim().ToUpperInvariant();
 
-        private static void EnsureGo2RtcRunning(IServiceProvider services)
+        private static void EnsureGo2RtcProcessRunning(IServiceProvider services)
         {
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -273,7 +273,8 @@ namespace API
                 yaml.AppendLine("        - stun:stun.l.google.com:19302");
 
                 var basePath = Directory.GetCurrentDirectory();
-                var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", "cam", "go2rtc_win64"));
+                var aiRootFolderName = config["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
+                var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64"));
                 var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
                 var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
                 if (!Directory.Exists(go2rtcPath) || !File.Exists(exePath)) return;
@@ -294,3 +295,7 @@ namespace API
         }
     }
 }
+
+
+
+

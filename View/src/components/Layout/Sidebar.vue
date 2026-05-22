@@ -92,7 +92,7 @@
                                             :key="res.id"
                                             type="button"
                                             class="dropdown-item"
-                                            @click="handleResultClick(res)"
+                                            @click="handleSearchResultClick(res)"
                                         >
                                             <div class="result-icon">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -118,7 +118,7 @@
                         v-if="!collapsed"
                         type="button"
                         class="nav-label-toggle"
-                        @click="toggleGroup(group.label)"
+                        @click="toggleNavGroup(group.label)"
                     >
                         <span class="nav-label-text">{{ group.label }}</span>
                         <svg
@@ -144,7 +144,7 @@
                             :to="item.path"
                             class="nav-item"
                             :class="{ active: route.path === item.path }"
-                            @click="handleNavClick"
+                            @click="handleSidebarNavClick"
                         >
                             <span class="nav-icon" v-html="item.icon"></span>
                             <transition name="fade">
@@ -165,7 +165,7 @@
                         v-if="!collapsed"
                         type="button"
                         class="nav-label-toggle"
-                        @click="toggleGroup('Thông hành')"
+                        @click="toggleNavGroup('Thông hành')"
                     >
                         <span class="nav-label-text">Thông hành</span>
                         <svg
@@ -191,7 +191,7 @@
                             :to="item.path"
                             class="nav-item"
                             :class="{ active: route.path === item.path }"
-                            @click="handleNavClick"
+                            @click="handleSidebarNavClick"
                         >
                             <span class="nav-icon" v-html="item.icon"></span>
                             <transition name="fade">
@@ -264,14 +264,14 @@ const route = useRoute()
 
 const collapsedGroups = ref({})
 
-const toggleGroup = (label) => {
+const toggleNavGroup = (label) => {
     collapsedGroups.value[label] = !collapsedGroups.value[label]
 }
 
 // Helper: kiểm tra role hiện tại có được phép xem item không
 // Nếu item không có 'roles' → chỉ Admin mới xem được (mặc định hạn chế)
 const userRole = computed(() => authState.user?.role)
-const canSeeItem = (item) => {
+const canAccessNavigationItem = (item) => {
     if (!item.roles) return userRole.value === 'Admin'
     return item.roles.includes(userRole.value)
 }
@@ -410,36 +410,36 @@ const registryItems = ref([
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="5" width="16" height="11" rx="2"/><path d="M17 8h4l2 3v5h-6V8z"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
     },
     {
-        path: '/FaceID',
+        path: '/face-id-security',
         label: 'Face ID',
         hint: 'Nhận diện trực diện',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H6a3 3 0 00-3 3v2"/><path d="M16 3h2a3 3 0 013 3v2"/><path d="M8 21H6a3 3 0 01-3-3v-2"/><path d="M16 21h2a3 3 0 003-3v-2"/><path d="M9 10a3 3 0 016 0v4a3 3 0 01-6 0z"/></svg>',
     },
     {
-        path: '/bienso',
+        path: '/license-plate-security',
         label: 'Nhận diện biển số',
         hint: 'Camera giao thông nội bộ',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h10"/><path d="M7 14h4"/></svg>',
     },
     {
-        path: '/facevideo',
+        path: '/face-video-monitor',
         label: 'Video khuôn mặt',
         hint: 'Đối soát theo video',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="15" height="14" rx="2"/><path d="M18 10l3-2v8l-3-2"/><path d="M8 10a2 2 0 114 0v4a2 2 0 11-4 0z"/></svg>',
     },
     {
-        path: '/thonghanh',
-        label: 'thonghanh',
+        path: '/gate-transit-monitor',
+        label: 'Gate Transit Monitor',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>'
     },
     {
-        path: '/tao_qr_d',
-        label: 'tao_qr_d',
+        path: '/dynamic-qr-generator',
+        label: 'Dynamic QR Generator',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>'
     },
     {
-        path: '/scan_qr_d',
-        label: 'scan_qr_d',
+        path: '/dynamic-qr-scanner',
+        label: 'Dynamic QR Scanner',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>'
     },
 ])
@@ -476,14 +476,14 @@ const visibleGroups = computed(() =>
     navGroups.value
         .map((group) => ({
             ...group,
-            items: group.items.filter((item) => canSeeItem(item)),
+            items: group.items.filter((item) => canAccessNavigationItem(item)),
         }))
         .filter((group) => group.items.length > 0)
 )
 
 const allPassageItems = [
     {
-        path: '/thonghanh',
+        path: '/gate-transit-monitor',
         label: 'Điều phối thông hành',
         hint: 'Face + biển số theo từng làn',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18"/><path d="M6 7v10"/><path d="M18 7v10"/><path d="M9 11h6"/><path d="M9 15h6"/><path d="M12 7v10"/></svg>',
@@ -491,14 +491,14 @@ const allPassageItems = [
         roles: ['Admin', 'BaoVe'],
     },
     {
-        path: '/scan_qr_d',
+        path: '/dynamic-qr-scanner',
         label: 'Quét QR động',
         hint: 'Giải mã và xác thực tại cổng',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h5v5H4z"/><path d="M15 4h5v5h-5z"/><path d="M4 15h5v5H4z"/><path d="M16 16h1"/><path d="M19 16h1"/><path d="M16 19h4"/><path d="M12 7h1"/><path d="M12 12h1"/><path d="M7 12h5"/></svg>',
         roles: ['Admin', 'BaoVe'],
     },
     {
-        path: '/tao_qr_d',
+        path: '/dynamic-qr-generator',
         label: 'Tạo QR động',
         hint: 'Sinh mã QR realtime cho nhân viên',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M15 15h2"/><path d="M19 15v5"/><path d="M14 19h5"/></svg>',
@@ -515,19 +515,19 @@ const allPassageItems = [
 
 const passageItems = computed(() =>
     allPassageItems
-        .filter((item) => item.path !== '/scan_qr_d')
+        .filter((item) => item.path !== '/dynamic-qr-scanner')
         .map((item) =>
-            item.path === '/thonghanh'
+            item.path === '/gate-transit-monitor'
                 ? { ...item, hint: 'QR + biển số theo từng làn' }
                 : item
         )
-        .filter((item) => canSeeItem(item))
+        .filter((item) => canAccessNavigationItem(item))
 )
 
 const navigationGroupCount = computed(() => visibleGroups.value.length + (passageItems.value.length ? 1 : 0))
 
 onMounted(async () => {
-    document.addEventListener('click', handleClickOutside)
+    document.addEventListener('click', handleSearchOutsideClick)
 
     try {
         const employeesRes = await getAllEmployees()
@@ -543,7 +543,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
+    document.removeEventListener('click', handleSearchOutsideClick)
 })
 
 watch(
@@ -563,10 +563,10 @@ const searchResults = ref([])
 const noResultsFound = ref(false)
 const searchContainerRef = ref(null)
 
-let searchTimeout = null
+let quickSearchDebounceTimer = null
 
 const debouncedSearch = () => {
-    if (searchTimeout) clearTimeout(searchTimeout)
+    if (quickSearchDebounceTimer) clearTimeout(quickSearchDebounceTimer)
 
     if (!searchQuery.value.trim()) {
         searchResults.value = []
@@ -580,7 +580,7 @@ const debouncedSearch = () => {
     isSearching.value = true
     noResultsFound.value = false
 
-    searchTimeout = setTimeout(async () => {
+    quickSearchDebounceTimer = setTimeout(async () => {
         try {
             const keyword = searchQuery.value.trim()
             const [employeesRes, guestsRes] = await Promise.all([
@@ -626,7 +626,7 @@ const debouncedSearch = () => {
     }, 320)
 }
 
-const handleResultClick = (result) => {
+const handleSearchResultClick = (result) => {
     if (result.type === 'employee') {
         router.push({ path: '/employees', query: { search: result.name } })
     } else if (result.type === 'guest') {
@@ -642,13 +642,13 @@ const handleResultClick = (result) => {
     }
 }
 
-const handleClickOutside = (event) => {
+const handleSearchOutsideClick = (event) => {
     if (searchContainerRef.value && !searchContainerRef.value.contains(event.target)) {
         showDropdown.value = false
     }
 }
 
-const handleNavClick = () => {
+const handleSidebarNavClick = () => {
     if (props.isMobile) {
         emit('close-mobile')
     }
@@ -1189,3 +1189,7 @@ const handleNavClick = () => {
     }
 }
 </style>
+
+
+
+

@@ -98,7 +98,7 @@
 <script>
 import jsQR from "jsqr";
 import axios from "axios";
-import { getCameras } from "../services/setcamAPI"; // Gọi API lấy cam như bản cũ
+import { getCameras } from "../services/cameraRuntimeApi"; // Gọi API lấy cam như bản cũ
 
 export default {
   name: "QrAccessMonitor",

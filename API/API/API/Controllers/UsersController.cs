@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using API.Data;
 using API.DTOs;
 using API.Models;
@@ -69,7 +69,7 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(username))
             return BadRequest(new { message = "Ten dang nhap khong duoc de trong" });
 
-        var normalizedUsername = NormalizeUsername(username);
+        var normalizedUsername = NormalizeUsernameInvariant(username);
 
         if (await _context.AppUsers.AnyAsync(u => u.Username.Trim().ToUpper() == normalizedUsername))
             return Conflict(new { message = $"Ten dang nhap '{username}' da ton tai" });
@@ -174,6 +174,7 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-    private static string NormalizeUsername(string username) =>
+    private static string NormalizeUsernameInvariant(string username) =>
         username.Trim().ToUpperInvariant();
 }
+

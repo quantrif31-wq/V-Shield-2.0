@@ -112,7 +112,7 @@ import {
 uploadFaceVideo,
 getEmployeeVideos,
 deleteVideo
-} from "../services/videofaceAPI"
+} from "../services/faceVideoApi"
 
 export default {
 
@@ -379,3 +379,4 @@ margin-top:5px;
 }
 
 </style>
+

@@ -112,8 +112,16 @@ export default {
       }
 
       try {
-        // Thay URL thành URL thực tế của backend
-        const res = await axios.post("/api/AccessPermission/set-permission", payload);
+        let res;
+        try {
+          res = await axios.post("/api/access-permissions/set-permission", payload);
+        } catch (error) {
+          if (error?.response?.status === 404) {
+            res = await axios.post("/api/AccessPermission/set-permission", payload);
+          } else {
+            throw error;
+          }
+        }
         if (res.data.success) {
           this.isSuccess = true;
           this.message = res.data.message || "Cập nhật thành công!";

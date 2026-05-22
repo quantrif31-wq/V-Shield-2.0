@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn, hasRole } from '../stores/auth'
 import { authState } from '../stores/auth'
 
@@ -16,12 +16,12 @@ import DepartmentPosition from '../pages/DepartmentPosition.vue'
 import PreRegistration from '../pages/PreRegistration.vue'
 import GuestRegister from '../pages/GuestRegister.vue'
 
-import FaceID from '../components/FaceCamera.vue'
-import bienso from '../components/BienSoSecurity.vue'
+import FaceIdSecurity from '../components/FaceCamera.vue'
+import LicensePlateSecurity from '../components/LicensePlateSecurity.vue'
 import FaceVideo from '../components/FaceVideo.vue'
-import ThongHanh from '../components/ThongHanhQR.vue'
-import Tao_QR_D from '../components/Tao_QR_D.vue'
-import Scan_QR_D from '../components/Scan_QR_D.vue'
+import GatePassageMonitor from '../components/GateTransitMonitor.vue'
+import DynamicQrGenerator from '../components/DynamicQrGenerator.vue'
+import DynamicQrScanner from '../components/DynamicQrScanner.vue'
 import Exceptions from '../pages/Exceptions.vue'
 import RegistrationLinks from '../pages/RegistrationLinks.vue'
 import GuestProfiles from '../pages/GuestProfiles.vue'
@@ -30,6 +30,8 @@ import Biometrics from '../pages/Biometrics.vue'
 import SystemCatalog from '../pages/SystemCatalog.vue'
 import QrAccessMonitor from '../components/QrAccessMonitor.vue'
 import AccessPermissionManager from '../components/AccessPermissionManager.vue'
+
+const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
 const routes = [
     {
@@ -49,9 +51,9 @@ const routes = [
         component: MainLayout,
         meta: { requiresAuth: true },
         children: [
-            { path: '', redirect: to => {
-                const role = authState.user?.role
-                if (role === 'Staff') return { name: 'tao_qr_d' }
+            { path: '', redirect: () => {
+                const currentRole = authState.user?.role
+                if (currentRole === 'Staff') return { name: ROUTE_NAME_DYNAMIC_QR_GENERATOR }
                 return { name: 'Dashboard' }
             }},
             { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
@@ -62,14 +64,14 @@ const routes = [
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },
             { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
-            { path: 'FaceID', name: 'FaceID', component: FaceID, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'bienso', name: 'bienso', component: bienso, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'facevideo', name: 'facevideo', component: FaceVideo, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'thonghanh', name: 'thonghanh', component: ThongHanh, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'tao_qr_d', name: 'tao_qr_d', component: Tao_QR_D, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
-            { path: 'scan_qr_d', name: 'scan_qr_d', component: Scan_QR_D, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-             { path: 'QrAccessMonitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-              { path: 'AccessPermissionManager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'face-video-monitor', name: 'FaceVideoMonitor', component: FaceVideo, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
+            { path: 'dynamic-qr-scanner', name: 'DynamicQrScanner', component: DynamicQrScanner, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'biometrics', name: 'Biometrics', component: Biometrics, meta: { allowedRoles: ['Admin'] } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin'] } },
@@ -109,37 +111,37 @@ const router = createRouter({
 
 // Navigation Guard
 router.beforeEach((to, from, next) => {
-    // Nếu route yêu cầu đăng nhập
-    if (to.matched.some(r => r.meta.requiresAuth)) {
+    // Náº¿u route yÃªu cáº§u Ä‘Äƒng nháº­p
+    if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAuth)) {
         if (!isLoggedIn()) {
             return next({ name: 'Login', query: { redirect: to.fullPath } })
         }
     }
 
-    // Nếu route yêu cầu Admin
-    if (to.matched.some(r => r.meta.requiresAdmin)) {
+    // Náº¿u route yÃªu cáº§u Admin
+    if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAdmin)) {
         if (!hasRole('Admin')) {
-            const role = authState.user?.role
-            if (role === 'Staff') return next({ name: 'tao_qr_d' })
+            const currentRole = authState.user?.role
+            if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
             return next({ name: 'Dashboard' })
         }
     }
 
-    // Kiểm tra allowedRoles
-    const allowedRoles = to.matched.find(r => r.meta.allowedRoles)?.meta.allowedRoles
+    // Kiá»ƒm tra allowedRoles
+    const allowedRoles = to.matched.find(matchedRoute => matchedRoute.meta.allowedRoles)?.meta.allowedRoles
     if (allowedRoles) {
         const currentRole = authState.user?.role
         if (!allowedRoles.includes(currentRole)) {
-            if (currentRole === 'Staff') return next({ name: 'tao_qr_d' })
+            if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
             return next({ name: 'Dashboard' })
         }
     }
 
-    // Nếu đã đăng nhập mà vào trang login → redirect
-    // Nhưng cho phép truy cập trang đăng ký khách (GuestRegister) dù đã đăng nhập
+    // Náº¿u Ä‘Ã£ Ä‘Äƒng nháº­p mÃ  vÃ o trang login â†’ redirect
+    // NhÆ°ng cho phÃ©p truy cáº­p trang Ä‘Äƒng kÃ½ khÃ¡ch (GuestRegister) dÃ¹ Ä‘Ã£ Ä‘Äƒng nháº­p
     if (to.meta.guest && isLoggedIn() && to.name !== 'GuestRegister') {
-        const role = authState.user?.role
-        if (role === 'Staff') return next({ name: 'tao_qr_d' })
+        const currentRole = authState.user?.role
+        if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
         return next({ name: 'Dashboard' })
     }
 
@@ -147,3 +149,4 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
+

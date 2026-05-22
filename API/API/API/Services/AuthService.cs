@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using API.Data;
@@ -8,12 +8,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace API.Services;
 
-public class AuthService : IAuthService
+public class AuthenticationService : IAuthenticationService
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _config;
 
-    public AuthService(ApplicationDbContext context, IConfiguration config)
+    public AuthenticationService(ApplicationDbContext context, IConfiguration config)
     {
         _context = context;
         _config = config;
@@ -31,11 +31,11 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        // Xác minh password bằng BCrypt
+        // XÃ¡c minh password báº±ng BCrypt
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             return null;
 
-        // Tạo JWT token
+        // Táº¡o JWT token
         var jwtSettings = _config.GetSection("JwtSettings");
         var secret = jwtSettings["Secret"]!;
         var issuer = jwtSettings["Issuer"]!;
@@ -78,3 +78,4 @@ public class AuthService : IAuthService
     private static string NormalizeUsername(string? username) =>
         string.IsNullOrWhiteSpace(username) ? string.Empty : username.Trim().ToUpperInvariant();
 }
+

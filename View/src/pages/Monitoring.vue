@@ -90,7 +90,7 @@ import {
   watchEffect
 } from "vue"
 
-import { getCameras } from "../services/setcamAPI"
+import { getCameras } from "../services/cameraRuntimeApi"
 
 // ===== STATE =====
 const cameras = ref([])

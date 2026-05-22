@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +22,7 @@ public class DashboardController : ControllerBase
     {
         var today = DateTime.Today;
         var tomorrow = today.AddDays(1);
-        var weekStart = StartOfWeek(today, DayOfWeek.Monday);
+        var weekStart = GetStartOfWeek(today, DayOfWeek.Monday);
         var weekEnd = weekStart.AddDays(7);
 
         // NOTE: All queries must be awaited sequentially because DbContext is NOT thread-safe.
@@ -103,7 +103,7 @@ public class DashboardController : ControllerBase
 
                 return new
                 {
-                    label = GetWeekdayLabel(day.DayOfWeek),
+                    label = GetVietnameseWeekdayLabel(day.DayOfWeek),
                     date = day,
                     checkIn = dayLogs.Count(log => string.Equals(log.Direction, "IN", StringComparison.OrdinalIgnoreCase)),
                     checkOut = dayLogs.Count(log => string.Equals(log.Direction, "OUT", StringComparison.OrdinalIgnoreCase))
@@ -129,8 +129,8 @@ public class DashboardController : ControllerBase
             activity.Direction,
             actorName = activity.EmployeeName
     ?? activity.VisitorName
-    ?? "Chưa xác định",
-            gateName = activity.GateName ?? "Chưa gán cổng",
+    ?? "ChÆ°a xÃ¡c Ä‘á»‹nh",
+            gateName = activity.GateName ?? "ChÆ°a gÃ¡n cá»•ng",
             cameraName = activity.CameraName,
             activity.CapturedLicensePlate,
             activity.ResultStatus,
@@ -165,13 +165,13 @@ public class DashboardController : ControllerBase
         });
     }
 
-    private static DateTime StartOfWeek(DateTime value, DayOfWeek startOfWeek)
+    private static DateTime GetStartOfWeek(DateTime value, DayOfWeek startOfWeek)
     {
         var diff = (7 + (value.DayOfWeek - startOfWeek)) % 7;
         return value.AddDays(-1 * diff).Date;
     }
 
-    private static string GetWeekdayLabel(DayOfWeek dayOfWeek)
+    private static string GetVietnameseWeekdayLabel(DayOfWeek dayOfWeek)
     {
         return dayOfWeek switch
         {
@@ -185,3 +185,4 @@ public class DashboardController : ControllerBase
         };
     }
 }
+

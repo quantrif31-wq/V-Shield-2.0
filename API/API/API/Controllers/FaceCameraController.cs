@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -13,7 +13,7 @@ public class FaceCameraController : ControllerBase
     public FaceCameraController(IHttpClientFactory httpClientFactory, IConfiguration configuration)
     {
         _httpClientFactory = httpClientFactory;
-        _serviceBaseUrl = ResolveServiceBaseUrl(
+        _serviceBaseUrl = ResolveNormalizedServiceBaseUrl(
             configuration["AiServices:FaceCameraBaseUrl"],
             "http://127.0.0.1:5001/api"
         );
@@ -21,34 +21,34 @@ public class FaceCameraController : ControllerBase
 
     [HttpPost("camera/on")]
     public Task<IActionResult> TurnOnCamera([FromBody] CameraOnRequest request) =>
-        ProxyPostJsonAsync("/camera/on", request);
+        ProxyPostJsonToServiceAsync("/camera/on", request);
 
     [HttpPost("camera/off")]
     public Task<IActionResult> TurnOffCamera() =>
-        ProxyPostAsync("/camera/off");
+        ProxyPostToServiceAsync("/camera/off");
 
     [HttpPost("camera/reset")]
     public Task<IActionResult> ResetCameraState() =>
-        ProxyPostAsync("/camera/reset");
+        ProxyPostToServiceAsync("/camera/reset");
 
     [HttpGet("camera/status")]
     public Task<IActionResult> GetCameraStatus() =>
-        ProxyGetAsync("/camera/status");
+        ProxyGetFromServiceAsync("/camera/status");
 
     [HttpGet("camera/result")]
     public Task<IActionResult> GetCameraResult() =>
-        ProxyGetAsync("/camera/result");
+        ProxyGetFromServiceAsync("/camera/result");
 
     [HttpGet("camera/locked-images")]
     public Task<IActionResult> GetLockedImages() =>
-        ProxyGetAsync("/camera/locked-images");
+        ProxyGetFromServiceAsync("/camera/locked-images");
 
-    private async Task<IActionResult> ProxyGetAsync(string relativePath)
+    private async Task<IActionResult> ProxyGetFromServiceAsync(string relativePath)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
-            var response = await client.GetAsync(BuildServiceUrl(relativePath));
+            var response = await client.GetAsync(BuildServiceEndpointUrl(relativePath));
             var content = await response.Content.ReadAsStringAsync();
 
             return new ContentResult
@@ -64,12 +64,12 @@ public class FaceCameraController : ControllerBase
         }
     }
 
-    private async Task<IActionResult> ProxyPostAsync(string relativePath)
+    private async Task<IActionResult> ProxyPostToServiceAsync(string relativePath)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsync(BuildServiceUrl(relativePath), null);
+            var response = await client.PostAsync(BuildServiceEndpointUrl(relativePath), null);
             var content = await response.Content.ReadAsStringAsync();
 
             return new ContentResult
@@ -85,12 +85,12 @@ public class FaceCameraController : ControllerBase
         }
     }
 
-    private async Task<IActionResult> ProxyPostJsonAsync<TRequest>(string relativePath, TRequest request)
+    private async Task<IActionResult> ProxyPostJsonToServiceAsync<TRequest>(string relativePath, TRequest request)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsJsonAsync(BuildServiceUrl(relativePath), request);
+            var response = await client.PostAsJsonAsync(BuildServiceEndpointUrl(relativePath), request);
             var content = await response.Content.ReadAsStringAsync();
 
             return new ContentResult
@@ -106,9 +106,9 @@ public class FaceCameraController : ControllerBase
         }
     }
 
-    private string BuildServiceUrl(string relativePath) => $"{_serviceBaseUrl}{relativePath}";
+    private string BuildServiceEndpointUrl(string relativePath) => $"{_serviceBaseUrl}{relativePath}";
 
-    private static string ResolveServiceBaseUrl(string? configuredValue, string fallbackValue) =>
+    private static string ResolveNormalizedServiceBaseUrl(string? configuredValue, string fallbackValue) =>
         (configuredValue ?? fallbackValue).Trim().TrimEnd('/');
 
     public sealed class CameraOnRequest
@@ -116,3 +116,4 @@ public class FaceCameraController : ControllerBase
         public string Ip { get; set; } = string.Empty;
     }
 }
+

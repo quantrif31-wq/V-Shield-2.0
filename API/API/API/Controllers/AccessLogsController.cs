@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +33,7 @@ public class AccessLogsController : ControllerBase
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var logsQuery = BuildLogProjectionQuery();
+        var logsQuery = BuildAccessLogProjectionQuery();
 
         if (!string.IsNullOrWhiteSpace(query))
         {
@@ -90,7 +90,7 @@ public class AccessLogsController : ControllerBase
             page,
             pageSize,
             total,
-            items = items.Select(MapLogItem)
+            items = items.Select(MapAccessLogItem)
         });
     }
 
@@ -115,7 +115,7 @@ public class AccessLogsController : ControllerBase
 
         var entries = logs.Count(log => string.Equals(log.Direction, "IN", StringComparison.OrdinalIgnoreCase));
         var exits = logs.Count(log => string.Equals(log.Direction, "OUT", StringComparison.OrdinalIgnoreCase));
-        var exceptions = logs.Count(IsExceptionLog);
+        var exceptions = logs.Count(IsExceptionAccessLog);
         var bypassCount = logs.Count(log => log.IsBypass == true);
         var vehicleInsideCount = await _context.Vehicles.AsNoTracking()
             .CountAsync(vehicle => vehicle.ParkingStatus != null && vehicle.ParkingStatus.ToUpper() == "IN");
@@ -149,7 +149,7 @@ public class AccessLogsController : ControllerBase
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var exceptionsQuery = BuildLogProjectionQuery()
+        var exceptionsQuery = BuildAccessLogProjectionQuery()
             .Where(log =>
                 log.IsBypass == true ||
                 log.ExceptionReasonId != null ||
@@ -193,7 +193,7 @@ public class AccessLogsController : ControllerBase
             {
                 reasonId = group.Key.ExceptionReasonId,
                 reasonCode = group.Key.ExceptionReasonCode ?? "UNCLASSIFIED",
-                reasonDescription = group.Key.ExceptionReasonDescription ?? "Chưa khai báo lý do",
+                reasonDescription = group.Key.ExceptionReasonDescription ?? "ChÆ°a khai bÃ¡o lÃ½ do",
                 count = group.Count()
             })
             .OrderByDescending(item => item.count)
@@ -204,7 +204,7 @@ public class AccessLogsController : ControllerBase
             page,
             pageSize,
             total,
-            items = items.Select(MapLogItem),
+            items = items.Select(MapAccessLogItem),
             summaryByReason
         });
     }
@@ -212,18 +212,18 @@ public class AccessLogsController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetDetail(int id)
     {
-        var item = await BuildLogProjectionQuery()
+        var item = await BuildAccessLogProjectionQuery()
             .FirstOrDefaultAsync(log => log.LogId == id);
 
         if (item == null)
         {
-            return NotFound(new { message = $"Không tìm thấy bản ghi log #{id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y báº£n ghi log #{id}" });
         }
 
-        return Ok(MapLogItem(item));
+        return Ok(MapAccessLogItem(item));
     }
 
-    private IQueryable<AccessLogListItem> BuildLogProjectionQuery()
+    private IQueryable<AccessLogListItem> BuildAccessLogProjectionQuery()
     {
         return _context.AccessLogs.AsNoTracking()
             .Select(log => new AccessLogListItem
@@ -243,7 +243,7 @@ public class AccessLogsController : ControllerBase
         ? log.VisitorDetail.FullName
         : log.Registration != null && log.Registration.Guest != null
             ? log.Registration.Guest.FullName
-            : "Chưa xác định",
+            : "ChÆ°a xÃ¡c Ä‘á»‹nh",
 
                 ActorType = log.EmployeeId != null
     ? "Employee"
@@ -264,7 +264,7 @@ public class AccessLogsController : ControllerBase
             });
     }
 
-    private static object MapLogItem(AccessLogListItem item)
+    private static object MapAccessLogItem(AccessLogListItem item)
     {
         return new
         {
@@ -288,12 +288,12 @@ public class AccessLogsController : ControllerBase
             item.ExceptionReasonDescription,
             item.Note,
             item.EntryLogId,
-            method = GetMethod(item),
-            isException = IsExceptionLog(item)
+            method = GetDetectionMethod(item),
+            isException = IsExceptionAccessLog(item)
         };
     }
 
-    private static bool IsExceptionLog(dynamic log)
+    private static bool IsExceptionAccessLog(dynamic log)
     {
         return log.IsBypass == true ||
                log.ExceptionReasonId != null ||
@@ -301,7 +301,7 @@ public class AccessLogsController : ControllerBase
                 !SuccessfulStatuses.Contains(((string)log.ResultStatus).ToUpper()));
     }
 
-    private static string GetMethod(AccessLogListItem item)
+    private static string GetDetectionMethod(AccessLogListItem item)
     {
         if (item.IsBypass == true)
         {
@@ -350,3 +350,4 @@ public class AccessLogsController : ControllerBase
         public int? EntryLogId { get; set; }
     }
 }
+

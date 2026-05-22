@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.DTOs;
 using API.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -24,45 +24,45 @@ namespace API.Controllers
         {
             if (request == null)
             {
-                return BadRequest(GateApiResponse.CreateError("Dữ liệu gửi lên không hợp lệ."));
+                return BadRequest(GateTransitApiResponse.CreateError("D? li?u g?i l�n kh�ng h?p l?."));
             }
 
             if (request.CameraId <= 0)
             {
-                return BadRequest(GateApiResponse.CreateError("CameraId không hợp lệ."));
+                return BadRequest(GateTransitApiResponse.CreateError("CameraId kh�ng h?p l?."));
             }
 
-            // 1. Kiểm tra Camera & Gate
+            // 1. Ki?m tra Camera & Gate
             var camera = await _context.Cameras.FirstOrDefaultAsync(c => c.CameraId == request.CameraId);
             if (camera == null || camera.GateId == null)
             {
-                return NotFound(GateApiResponse.CreateError("Camera không tồn tại hoặc chưa được gán khu vực (Gate)."));
+                return NotFound(GateTransitApiResponse.CreateError("Camera kh�ng t?n t?i ho?c chua du?c g�n khu v?c (Gate)."));
             }
 
             var gateId = camera.GateId.Value;
 
-            // 2. Bảo mật: Kiểm tra mật khẩu tài khoản
+            // 2. B?o m?t: Ki?m tra m?t kh?u t�i kho?n
             if (request.LoggedInUserId.HasValue && request.LoggedInUserId > 0)
             {
                 if (string.IsNullOrWhiteSpace(request.UserPassword))
                 {
-                    return Unauthorized(GateApiResponse.CreateError("Yêu cầu nhập mật khẩu tài khoản để sử dụng Camera này."));
+                    return Unauthorized(GateTransitApiResponse.CreateError("Y�u c?u nh?p m?t kh?u t�i kho?n d? s? d?ng Camera n�y."));
                 }
 
                 var currentUser = await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == request.LoggedInUserId.Value);
                 if (currentUser == null)
                 {
-                    return Unauthorized(GateApiResponse.CreateError("Không tìm thấy tài khoản thao tác."));
+                    return Unauthorized(GateTransitApiResponse.CreateError("Kh�ng t�m th?y t�i kho?n thao t�c."));
                 }
 
-                // TODO: Đổi thành hàm Verify Hash Mật khẩu của bạn (ví dụ BCrypt.Verify)
+                // TODO: �?i th�nh h�m Verify Hash M?t kh?u c?a b?n (v� d? BCrypt.Verify)
                 if (currentUser.PasswordHash != request.UserPassword)
                 {
-                    return Unauthorized(GateApiResponse.CreateError("Mật khẩu tài khoản không chính xác."));
+                    return Unauthorized(GateTransitApiResponse.CreateError("M?t kh?u t�i kho?n kh�ng ch�nh x�c."));
                 }
             }
 
-            // 3. Xác định danh tính (Bám sát logic Client gửi ID hoặc tự Query bằng Payload)
+            // 3. X�c d?nh danh t�nh (B�m s�t logic Client g?i ID ho?c t? Query b?ng Payload)
             int? targetEmployeeId = request.EmployeeId;
             int? targetVisitorId = request.VisitorDetailId;
 
@@ -79,21 +79,21 @@ namespace API.Controllers
 
             if (targetEmployeeId == null && targetVisitorId == null)
             {
-                return BadRequest(GateApiResponse.CreateError("Không xác định được danh tính từ dữ liệu QR."));
+                return BadRequest(GateTransitApiResponse.CreateError("Kh�ng x�c d?nh du?c danh t�nh t? d? li?u QR."));
             }
 
-            // 4. Transaction & Kiểm tra quyền
+            // 4. Transaction & Ki?m tra quy?n
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 bool hasAccess = false;
-                string userType = targetEmployeeId.HasValue ? "Nhân viên" : "Khách";
+                string userType = targetEmployeeId.HasValue ? "Nh�n vi�n" : "Kh�ch";
 
                 if (targetEmployeeId.HasValue)
                 {
                     var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == targetEmployeeId.Value);
                     if (employee == null)
-                        return NotFound(GateApiResponse.CreateError($"Không tìm thấy nhân viên có id = {targetEmployeeId.Value}."));
+                        return NotFound(GateTransitApiResponse.CreateError($"Kh�ng t�m th?y nh�n vi�n c� id = {targetEmployeeId.Value}."));
 
                     var permission = await _context.EmployeeAccessPermissions
                         .FirstOrDefaultAsync(p => p.EmployeeId == targetEmployeeId.Value && p.GateId == gateId);
@@ -102,7 +102,7 @@ namespace API.Controllers
                 }
                 else if (targetVisitorId.HasValue)
                 {
-                    // Logic yêu cầu khách phải có Status APPROVED
+                    // Logic y�u c?u kh�ch ph?i c� Status APPROVED
                     var visitor = await _context.VisitorDetails
                         .Include(v => v.Registration)
                         .FirstOrDefaultAsync(v =>
@@ -113,7 +113,7 @@ namespace API.Controllers
 
                     if (visitor == null)
                     {
-                        return NotFound(GateApiResponse.CreateError("Không tìm thấy khách đã được xác nhận (hoặc QR không còn hiệu lực)."));
+                        return NotFound(GateTransitApiResponse.CreateError("Kh�ng t�m th?y kh�ch d� du?c x�c nh?n (ho?c QR kh�ng c�n hi?u l?c)."));
                     }
 
                     var permission = await _context.VisitorAccessPermissions
@@ -122,11 +122,11 @@ namespace API.Controllers
                     hasAccess = permission != null && permission.IsAllowed;
                 }
 
-                // 5. Ghi Log (Lưu ý: Để trống biển số, DB vẫn nhận bình thường)
+                // 5. Ghi Log (Luu �: �? tr?ng bi?n s?, DB v?n nh?n b�nh thu?ng)
                 var logStatus = hasAccess ? "SUCCESS" : "FAILED_DENIED";
                 var logNote = hasAccess
-                    ? $"Xác thực QR thành công. {userType} được phép vào khu vực."
-                    : $"Từ chối. {userType} không có quyền truy cập khu vực này.";
+                    ? $"X�c th?c QR th�nh c�ng. {userType} du?c ph�p v�o khu v?c."
+                    : $"T? ch?i. {userType} kh�ng c� quy?n truy c?p khu v?c n�y.";
 
                 var newLog = new AccessLog
                 {
@@ -136,7 +136,7 @@ namespace API.Controllers
                     CameraId = request.CameraId,
                     EmployeeId = targetEmployeeId,
                     VisitorDetailId = targetVisitorId,
-                    CapturedLicensePlate = null, // <- Bỏ trống đúng cấu trúc DB
+                    CapturedLicensePlate = null, // <- B? tr?ng d�ng c?u tr�c DB
                     ResultStatus = logStatus,
                     IsBypass = false,
                     Note = logNote
@@ -146,13 +146,13 @@ namespace API.Controllers
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // 6. Trả kết quả
+                // 6. Tr? k?t qu?
                 if (!hasAccess)
                 {
-                    return StatusCode(403, GateApiResponse.CreateError(logNote, new { LogId = newLog.LogId }));
+                    return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new { LogId = newLog.LogId }));
                 }
 
-                return Ok(GateApiResponse.CreateSuccess(logNote, new
+                return Ok(GateTransitApiResponse.CreateSuccess(logNote, new
                 {
                     LogId = newLog.LogId,
                     EmployeeId = targetEmployeeId,
@@ -164,7 +164,7 @@ namespace API.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return StatusCode(500, GateApiResponse.CreateError("Có lỗi xảy ra khi xử lý dữ liệu.", ex.Message));
+                return StatusCode(500, GateTransitApiResponse.CreateError("C� l?i x?y ra khi x? l� d? li?u.", ex.Message));
             }
         }
     }

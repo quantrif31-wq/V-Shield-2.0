@@ -174,6 +174,9 @@ public sealed class RuntimeOrchestrator
     private string GetConfigFilePath() =>
         Path.Combine(_env.ContentRootPath, ".runtime", "runtime-services.json");
 
+    private string ResolveAiRootFolderName() =>
+        _configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
+
     private static List<RuntimeServiceConfig> GetDefaultConfigs() =>
         new()
         {
@@ -189,7 +192,7 @@ public sealed class RuntimeOrchestrator
         if (IsProcessRunning("go2rtc")) return RuntimeActionResult.Ok("go2rtc da dang chay.");
 
         var basePath = Directory.GetCurrentDirectory();
-        var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", "cam", "go2rtc_win64"));
+        var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", ResolveAiRootFolderName(), "cam", "go2rtc_win64"));
         var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
         if (!File.Exists(exePath)) return RuntimeActionResult.Fail("Khong tim thay go2rtc.exe");
 
@@ -229,7 +232,7 @@ public sealed class RuntimeOrchestrator
         }
 
         var basePath = Directory.GetCurrentDirectory();
-        var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", folderName));
+        var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", ResolveAiRootFolderName(), folderName));
         var scriptPath = Path.Combine(projectPath, scriptName);
         if (!File.Exists(scriptPath)) return RuntimeActionResult.Fail($"Khong tim thay script {scriptPath}");
 

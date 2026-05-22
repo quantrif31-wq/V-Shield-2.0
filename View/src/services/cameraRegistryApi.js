@@ -1,4 +1,4 @@
-import { getCameras } from "./setcamAPI"
+import { getCameras } from "./cameraRuntimeApi"
 import {
   isHttpCameraUrl,
   normalizeCameraUrl,
@@ -38,3 +38,4 @@ export const getConfiguredCameras = async () => {
   const mapped = Array.isArray(apiItems) ? apiItems.map(mapApiCamera) : []
   return dedupeById(mapped.filter((item) => item.enabled))
 }
+

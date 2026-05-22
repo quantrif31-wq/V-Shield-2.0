@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +30,7 @@ public class DeviceManagementController : ControllerBase
         var gateCount = await _context.Gates.AsNoTracking().CountAsync();
         var linkedCameraCount = await _context.Cameras.AsNoTracking().CountAsync(camera => camera.GateId != null);
 
-        var cameras = await BuildCameraQuery()
+        var cameras = await BuildCameraProjectionQuery()
             .OrderBy(camera => camera.CameraName)
             .ToListAsync();
 
@@ -68,7 +68,7 @@ public class DeviceManagementController : ControllerBase
     [HttpGet("cameras")]
     public async Task<IActionResult> GetCameras([FromQuery] string? query = null, [FromQuery] int? gateId = null)
     {
-        var camerasQuery = BuildCameraQuery();
+        var camerasQuery = BuildCameraProjectionQuery();
 
         if (!string.IsNullOrWhiteSpace(query))
         {
@@ -97,27 +97,27 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
         {
-            return BadRequest(new { message = "Tên camera là bắt buộc" });
+            return BadRequest(new { message = "TÃªn camera lÃ  báº¯t buá»™c" });
         }
 
         if (request.GateId.HasValue && !await _context.Gates.AnyAsync(gate => gate.GateId == request.GateId.Value))
         {
-            return BadRequest(new { message = "Cổng được chọn không tồn tại" });
+            return BadRequest(new { message = "Cá»•ng Ä‘Æ°á»£c chá»n khÃ´ng tá»“n táº¡i" });
         }
 
         var camera = new Camera
         {
             CameraName = request.CameraName.Trim(),
-            CameraType = NormalizeOptional(request.CameraType),
+            CameraType = NormalizeOptionalText(request.CameraType),
             GateId = request.GateId,
-            StreamUrl = NormalizeOptional(request.StreamUrl)
+            StreamUrl = NormalizeOptionalText(request.StreamUrl)
         };
 
         _context.Cameras.Add(camera);
         await _context.SaveChangesAsync();
-        camera.UrlView = BuildCameraViewUrl(camera.StreamUrl, camera.CameraId);
+        camera.UrlView = BuildCameraWebViewUrl(camera.StreamUrl, camera.CameraId);
         await _context.SaveChangesAsync();
-        await TryReloadGo2RtcAsync();
+        await TryReloadGo2RtcRuntimeAsync();
 
         return CreatedAtAction(nameof(GetCameras), new { id = camera.CameraId }, new
         {
@@ -136,28 +136,28 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
         {
-            return BadRequest(new { message = "Tên camera là bắt buộc" });
+            return BadRequest(new { message = "TÃªn camera lÃ  báº¯t buá»™c" });
         }
 
         if (request.GateId.HasValue && !await _context.Gates.AnyAsync(gate => gate.GateId == request.GateId.Value))
         {
-            return BadRequest(new { message = "Cổng được chọn không tồn tại" });
+            return BadRequest(new { message = "Cá»•ng Ä‘Æ°á»£c chá»n khÃ´ng tá»“n táº¡i" });
         }
 
         var camera = await _context.Cameras.FindAsync(id);
         if (camera == null)
         {
-            return NotFound(new { message = $"Không tìm thấy camera #{id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y camera #{id}" });
         }
 
         camera.CameraName = request.CameraName.Trim();
-        camera.CameraType = NormalizeOptional(request.CameraType);
+        camera.CameraType = NormalizeOptionalText(request.CameraType);
         camera.GateId = request.GateId;
-        camera.StreamUrl = NormalizeOptional(request.StreamUrl);
-        camera.UrlView = BuildCameraViewUrl(camera.StreamUrl, camera.CameraId);
+        camera.StreamUrl = NormalizeOptionalText(request.StreamUrl);
+        camera.UrlView = BuildCameraWebViewUrl(camera.StreamUrl, camera.CameraId);
 
         await _context.SaveChangesAsync();
-        await TryReloadGo2RtcAsync();
+        await TryReloadGo2RtcRuntimeAsync();
 
         return Ok(new
         {
@@ -180,20 +180,20 @@ public class DeviceManagementController : ControllerBase
 
         if (camera == null)
         {
-            return NotFound(new { message = $"Không tìm thấy camera #{id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y camera #{id}" });
         }
 
         if (camera.AccessLogs.Any())
         {
             return BadRequest(new
             {
-                message = $"Không thể xóa camera đang có {camera.AccessLogs.Count} bản ghi truy cập liên quan"
+                message = $"KhÃ´ng thá»ƒ xÃ³a camera Ä‘ang cÃ³ {camera.AccessLogs.Count} báº£n ghi truy cáº­p liÃªn quan"
             });
         }
 
         _context.Cameras.Remove(camera);
         await _context.SaveChangesAsync();
-        await TryReloadGo2RtcAsync();
+        await TryReloadGo2RtcRuntimeAsync();
 
         return NoContent();
     }
@@ -236,13 +236,13 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
         {
-            return BadRequest(new { message = "Tên cổng là bắt buộc" });
+            return BadRequest(new { message = "TÃªn cá»•ng lÃ  báº¯t buá»™c" });
         }
 
         var gate = new Gate
         {
             GateName = request.GateName.Trim(),
-            Location = NormalizeOptional(request.Location)
+            Location = NormalizeOptionalText(request.Location)
         };
 
         _context.Gates.Add(gate);
@@ -262,17 +262,17 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
         {
-            return BadRequest(new { message = "Tên cổng là bắt buộc" });
+            return BadRequest(new { message = "TÃªn cá»•ng lÃ  báº¯t buá»™c" });
         }
 
         var gate = await _context.Gates.FindAsync(id);
         if (gate == null)
         {
-            return NotFound(new { message = $"Không tìm thấy cổng #{id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y cá»•ng #{id}" });
         }
 
         gate.GateName = request.GateName.Trim();
-        gate.Location = NormalizeOptional(request.Location);
+        gate.Location = NormalizeOptionalText(request.Location);
 
         await _context.SaveChangesAsync();
 
@@ -295,14 +295,14 @@ public class DeviceManagementController : ControllerBase
 
         if (gate == null)
         {
-            return NotFound(new { message = $"Không tìm thấy cổng #{id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y cá»•ng #{id}" });
         }
 
         if (gate.Cameras.Any() || gate.AccessLogs.Any())
         {
             return BadRequest(new
             {
-                message = "Không thể xóa cổng đang được dùng bởi camera hoặc bản ghi ra vào"
+                message = "KhÃ´ng thá»ƒ xÃ³a cá»•ng Ä‘ang Ä‘Æ°á»£c dÃ¹ng bá»Ÿi camera hoáº·c báº£n ghi ra vÃ o"
             });
         }
 
@@ -312,7 +312,7 @@ public class DeviceManagementController : ControllerBase
         return NoContent();
     }
 
-    private IQueryable<CameraListItem> BuildCameraQuery()
+    private IQueryable<CameraListItem> BuildCameraProjectionQuery()
     {
         return _context.Cameras.AsNoTracking()
             .Select(camera => new CameraListItem
@@ -343,7 +343,7 @@ public class DeviceManagementController : ControllerBase
             });
     }
 
-    private static string? NormalizeOptional(string? value)
+    private static string? NormalizeOptionalText(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
@@ -378,13 +378,13 @@ public class DeviceManagementController : ControllerBase
         public DateTime? LatestPlateAt { get; set; }
     }
 
-    private static string? NormalizeCameraUrl(string? value)
+    private static string? NormalizeCameraStreamUrl(string? value)
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private static bool IsDirectWebStream(string? streamUrl)
+    private static bool IsHttpOrRelativeStreamUrl(string? streamUrl)
     {
         if (string.IsNullOrWhiteSpace(streamUrl))
         {
@@ -400,54 +400,54 @@ public class DeviceManagementController : ControllerBase
                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
-    private static bool ShouldProxyViaGo2Rtc(string? streamUrl) =>
-        !string.IsNullOrWhiteSpace(streamUrl) && !IsDirectWebStream(streamUrl);
+    private static bool ShouldProxyStreamViaGo2Rtc(string? streamUrl) =>
+        !string.IsNullOrWhiteSpace(streamUrl) && !IsHttpOrRelativeStreamUrl(streamUrl);
 
-    private string? BuildCameraViewUrl(string? streamUrl, int cameraId)
+    private string? BuildCameraWebViewUrl(string? streamUrl, int cameraId)
     {
-        var normalizedStreamUrl = NormalizeCameraUrl(streamUrl);
+        var normalizedStreamUrl = NormalizeCameraStreamUrl(streamUrl);
         if (string.IsNullOrWhiteSpace(normalizedStreamUrl))
         {
             return null;
         }
 
-        if (IsDirectWebStream(normalizedStreamUrl))
+        if (IsHttpOrRelativeStreamUrl(normalizedStreamUrl))
         {
             return normalizedStreamUrl.StartsWith("/", StringComparison.Ordinal)
-                ? $"{ResolvePublicAppBaseUrl()}{normalizedStreamUrl}"
+                ? $"{ResolvePublicApplicationBaseUrl()}{normalizedStreamUrl}"
                 : normalizedStreamUrl;
         }
 
-        var go2RtcPublicBaseUrl = ResolveGo2RtcPublicBaseUrl();
+        var go2RtcPublicBaseUrl = ResolveGo2RtcPublicBaseEndpoint();
         return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc";
     }
 
-    private string ResolveGo2RtcPublicBaseUrl()
+    private string ResolveGo2RtcPublicBaseEndpoint()
     {
         var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
         if (!string.IsNullOrWhiteSpace(configured))
         {
-            return NormalizeBaseUrl(configured);
+            return NormalizeUrlBase(configured);
         }
 
-        return $"{ResolvePublicAppBaseUrl()}/go2rtc";
+        return $"{ResolvePublicApplicationBaseUrl()}/go2rtc";
     }
 
-    private string ResolvePublicAppBaseUrl()
+    private string ResolvePublicApplicationBaseUrl()
     {
         var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
         if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
         {
-            return NormalizeBaseUrl(configuredFrontendUrl);
+            return NormalizeUrlBase(configuredFrontendUrl);
         }
 
-        return NormalizeBaseUrl($"{Request.Scheme}://{Request.Host}");
+        return NormalizeUrlBase($"{Request.Scheme}://{Request.Host}");
     }
 
-    private static string NormalizeBaseUrl(string value) =>
+    private static string NormalizeUrlBase(string value) =>
         value.Trim().TrimEnd('/');
 
-    private async Task TryReloadGo2RtcAsync()
+    private async Task TryReloadGo2RtcRuntimeAsync()
     {
         try
         {
@@ -460,10 +460,10 @@ public class DeviceManagementController : ControllerBase
 
             foreach (var cam in cameras)
             {
-                var normalizedStreamUrl = NormalizeCameraUrl(cam.StreamUrl);
-                cam.UrlView = BuildCameraViewUrl(normalizedStreamUrl, cam.CameraId);
+                var normalizedStreamUrl = NormalizeCameraStreamUrl(cam.StreamUrl);
+                cam.UrlView = BuildCameraWebViewUrl(normalizedStreamUrl, cam.CameraId);
 
-                if (!ShouldProxyViaGo2Rtc(normalizedStreamUrl))
+                if (!ShouldProxyStreamViaGo2Rtc(normalizedStreamUrl))
                 {
                     continue;
                 }
@@ -480,7 +480,7 @@ public class DeviceManagementController : ControllerBase
             yaml.AppendLine("        - stun:stun.l.google.com:19302");
 
             var basePath = Directory.GetCurrentDirectory();
-            var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "AI_Project", "cam", "go2rtc_win64"));
+            var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", ResolveAiRootFolderName(), "cam", "go2rtc_win64"));
             var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
             var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
 
@@ -509,4 +509,8 @@ public class DeviceManagementController : ControllerBase
             // Never block CRUD camera when go2rtc reload fails.
         }
     }
+
+    private string ResolveAiRootFolderName() =>
+        _configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
 }
+

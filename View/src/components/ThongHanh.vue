@@ -248,18 +248,18 @@
   Ví dụ:
   - Lane 1:
     ../services/faceApiLane1
-    ../services/biensoApiLane1
+    ../services/plateCameraApiLane1
 
   - Lane 2:
     ../services/faceApiLane2
-    ../services/biensoApiLane2
+    ../services/plateCameraApiLane2
 */
 
 import * as faceLane1Api from "../services/faceApi"
-import * as plateLane1Api from "../services/biensoApi"
+import * as plateLane1Api from "../services/plateCameraApi"
 import * as faceLane2Api from "../services/faceApi"
-import * as plateLane2Api from "../services/biensoApi"
-import { scanGate } from "../services/thonghanhAPI"
+import * as plateLane2Api from "../services/plateCameraApi"
+import { scanGate } from "../services/gateTransitApi"
 
 function createFaceModule() {
   return {
@@ -1454,3 +1454,4 @@ export default {
   }
 }
 </style>
+

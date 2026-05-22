@@ -213,7 +213,7 @@ import {
   getCameras as getSetCamList,
   reloadGo2rtc,
   updateCamera,
-} from "../services/setcamAPI"
+} from "../services/cameraRuntimeApi"
 import {
   buildCameraHealthProbeUrl,
   isHttpCameraUrl,
@@ -1147,3 +1147,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

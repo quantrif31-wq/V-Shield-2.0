@@ -1,12 +1,12 @@
-import axios from 'axios'
+﻿import axios from 'axios'
 import { API_BASE_URL } from '../config/api'
 
-const api = axios.create({
+const userApiClient = axios.create({
     baseURL: `${API_BASE_URL}/Users`
 })
 
-// Tự động gắn JWT token
-api.interceptors.request.use((config) => {
+// Tá»± Ä‘á»™ng gáº¯n JWT token
+userApiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem('v_shield_token')
     if (token) {
         config.headers.Authorization = `Bearer ${token}`
@@ -14,7 +14,7 @@ api.interceptors.request.use((config) => {
     return config
 })
 
-api.interceptors.response.use(
+userApiClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response && error.response.status === 401) {
@@ -26,27 +26,28 @@ api.interceptors.response.use(
     }
 )
 
-/** Lấy danh sách tất cả tài khoản (Admin) */
-export const getAll = () => api.get('/')
+/** Láº¥y danh sÃ¡ch táº¥t cáº£ tÃ i khoáº£n (Admin) */
+export const getAll = () => userApiClient.get('/')
 
-/** Lấy chi tiết tài khoản theo ID (Admin) */
-export const getById = (id) => api.get(`/${id}`)
+/** Láº¥y chi tiáº¿t tÃ i khoáº£n theo ID (Admin) */
+export const getById = (id) => userApiClient.get(`/${id}`)
 
 /**
- * Tạo tài khoản mới (Admin)
+ * Táº¡o tÃ i khoáº£n má»›i (Admin)
  * @param {{username, password, fullName, role}} data
  */
-export const create = (data) => api.post('/', data)
+export const create = (data) => userApiClient.post('/', data)
 
 /**
- * Cập nhật tài khoản (Admin)
+ * Cáº­p nháº­t tÃ i khoáº£n (Admin)
  * @param {number} id
  * @param {{fullName?, role?, isActive?, password?}} data
  */
-export const update = (id, data) => api.put(`/${id}`, data)
+export const update = (id, data) => userApiClient.put(`/${id}`, data)
 
 /**
- * Xóa tài khoản (Admin)
+ * XÃ³a tÃ i khoáº£n (Admin)
  * @param {number} id
  */
-export const deleteUser = (id) => api.delete(`/${id}`)
+export const deleteUser = (id) => userApiClient.delete(`/${id}`)
+

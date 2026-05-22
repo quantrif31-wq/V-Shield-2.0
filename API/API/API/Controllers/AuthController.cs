@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using API.Data;
 using API.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -11,16 +11,16 @@ namespace API.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly Services.IAuthService _authService;
+    private readonly Services.IAuthenticationService _authService;
     private readonly ApplicationDbContext _context;
 
-    public AuthController(Services.IAuthService authService, ApplicationDbContext context)
+    public AuthController(Services.IAuthenticationService AuthenticationService, ApplicationDbContext context)
     {
-        _authService = authService;
+        _authService = AuthenticationService;
         _context = context;
     }
 
-    /// <summary>Đăng nhập và nhận JWT token</summary>
+    /// <summary>ÄÄƒng nháº­p vÃ  nháº­n JWT token</summary>
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -31,12 +31,12 @@ public class AuthController : ControllerBase
         var result = await _authService.LoginAsync(request);
 
         if (result == null)
-            return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng" });
+            return Unauthorized(new { message = "TÃªn Ä‘Äƒng nháº­p hoáº·c máº­t kháº©u khÃ´ng Ä‘Ãºng" });
 
         return Ok(result);
     }
 
-    /// <summary>Lấy thông tin người dùng hiện đang đăng nhập</summary>
+    /// <summary>Láº¥y thÃ´ng tin ngÆ°á»i dÃ¹ng hiá»‡n Ä‘ang Ä‘Äƒng nháº­p</summary>
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> GetMe()
@@ -60,3 +60,4 @@ public class AuthController : ControllerBase
         });
     }
 }
+

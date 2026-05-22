@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.DTOs;
 using API.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/access-permissions")]
     [ApiController]
     public class AccessPermissionController : ControllerBase
     {
@@ -23,14 +23,14 @@ namespace API.Controllers
         public async Task<IActionResult> SetPermission([FromBody] SetPermissionRequest request)
         {
             if (request == null)
-                return BadRequest(GateApiResponse.CreateError("Dữ liệu gửi lên không hợp lệ."));
+                return BadRequest(GateTransitApiResponse.CreateError("D? li?u g?i l�n kh�ng h?p l?."));
 
             if (request.EmployeeId == null && request.VisitorDetailId == null)
-                return BadRequest(GateApiResponse.CreateError("Phải cung cấp EmployeeId hoặc VisitorDetailId."));
+                return BadRequest(GateTransitApiResponse.CreateError("Ph?i cung c?p EmployeeId ho?c VisitorDetailId."));
 
             var gateExists = await _context.Gates.AnyAsync(g => g.GateId == request.GateId);
             if (!gateExists)
-                return NotFound(GateApiResponse.CreateError($"Không tìm thấy khu vực (Gate) có id = {request.GateId}."));
+                return NotFound(GateTransitApiResponse.CreateError($"Kh�ng t�m th?y khu v?c (Gate) c� id = {request.GateId}."));
 
             try
             {
@@ -74,12 +74,14 @@ namespace API.Controllers
                 }
 
                 await _context.SaveChangesAsync();
-                return Ok(GateApiResponse.CreateSuccess("Cập nhật quyền truy cập khu vực thành công."));
+                return Ok(GateTransitApiResponse.CreateSuccess("C?p nh?t quy?n truy c?p khu v?c th�nh c�ng."));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, GateApiResponse.CreateError("Có lỗi xảy ra khi cập nhật dữ liệu.", ex.Message));
+                return StatusCode(500, GateTransitApiResponse.CreateError("C� l?i x?y ra khi c?p nh?t d? li?u.", ex.Message));
             }
         }
     }
 }
+
+
