@@ -4,7 +4,7 @@ title Setup V-Shield Environment
 color 0A
 
 set "BASEDIR=%~dp0"
-set "ROOT=%BASEDIR%AI_Project"
+set "ROOT=%BASEDIR%AI_Runtime"
 set "APIROOT=%BASEDIR%API\API\API"
 set "VIEWROOT=%BASEDIR%View"
 set "PY_CMD="
@@ -29,7 +29,7 @@ echo.
 echo Log chi tiet: %LOGFILE%
 echo.
 
-call :requireDir "%ROOT%" "AI_Project" || goto end
+call :requireDir "%ROOT%" "AI_Runtime" || goto end
 call :requireDir "%APIROOT%" "API" || goto end
 call :requireDir "%VIEWROOT%" "View" || goto end
 

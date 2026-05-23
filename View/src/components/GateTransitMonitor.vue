@@ -4,7 +4,7 @@
       <div class="topbar-main">
         <h1>V-Shield Gate Monitor</h1>
         <p v-show="!topbarCompact" class="topbar-desc">
-          2 l�n - QR + Bi?n s? - d�ng employeeId t? QR d? g?i API th�ng h�nh cu
+          2 làn - QR + Biển số - dùng employeeId từ QR để gọi API thông hành cũ
         </p>
       </div>
       <button
@@ -13,7 +13,7 @@
         :aria-expanded="!topbarCompact"
         @click="topbarCompact = !topbarCompact"
       >
-        {{ topbarCompact ? "M? r?ng m� t?" : "Thu g?n m� t?" }}
+        {{ topbarCompact ? "Mở rộng menu" : "Thu gọn menu" }}
       </button>
     </div>
 
@@ -32,7 +32,7 @@
                     !lane.qr.previewRunning
                       ? "Preview OFF"
                       : lane.qr.lockedSnapshot
-                        ? "?nh d� ch?p"
+                        ? "Ảnh đã chụp"
                         : (lane.qr.previewHealthy ? "Preview OK" : "Preview...")
                   }}
                 </span>
@@ -58,7 +58,7 @@
                     class="overlay-tag"
                     :style="labelStyle(lane.qr.overlayBox)"
                   >
-                    M� QR: {{ shortText(lane.qr.overlayText, 72) }}
+                    Mã QR: {{ shortText(lane.qr.overlayText, 72) }}
                   </div>
                 </div>
                 <div class="cam-preview-toolbar">
@@ -67,7 +67,7 @@
                     class="cam-refresh-btn"
                     :disabled="lane.loading || !lane.qr.cameraIp.trim()"
                     :aria-label="
-                      lane.loading ? '�ang x? l�' : lane.qr.cameraRunning ? '�?c l?i QR' : '�?c QR'
+                      lane.loading ? 'Đang xử lý' : lane.qr.cameraRunning ? 'Đọc lại QR' : 'Đọc QR'
                     "
                     @click.stop="retryQr(lane)"
                   >
@@ -153,7 +153,7 @@
                     class="overlay-tag"
                     :style="labelStyle(lane.plate.overlayBox)"
                   >
-                    Bi?n s?: {{ lane.plate.overlayText }}
+                    Biển số: {{ lane.plate.overlayText }}
                   </div>
                 </div>
                 <div class="cam-preview-toolbar">
@@ -163,10 +163,10 @@
                     :disabled="lane.loading || !lane.plate.cameraIp.trim()"
                     :aria-label="
                       lane.loading
-                        ? '�ang x? l�'
+                        ? 'Đang xử lý'
                         : lane.plate.cameraRunning
-                          ? '�?c l?i bi?n s?'
-                          : '�?c bi?n s?'
+                          ? 'Đọc lại biển số'
+                          : 'Đọc biển số'
                     "
                     @click.stop="retryPlate(lane)"
                   >
@@ -222,7 +222,7 @@
       </div>
     </div>
 
-    <div class="ops-dock" role="toolbar" aria-label="�i?u khi?n nhanh">
+    <div class="ops-dock" role="toolbar" aria-label="Điều khiển nhanh">
       <div class="ops-dock-grid">
         <div class="ops-dock-spacer" aria-hidden="true"></div>
 
@@ -233,14 +233,14 @@
             class="lane-action-group"
           >
             <div class="lane-action-title">{{ lane.name }}</div>
-            <div class="lane-action-btns" role="group" :aria-label="`Thao t�c ${lane.name}`">
+            <div class="lane-action-btns" role="group" :aria-label="`Thao tác ${lane.name}`">
               <button
                 class="btn btn-dock btn-main"
                 :disabled="lane.loading || !lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()"
                 @click="readAllLane(lane)"
               >
                 {{
-                  lane.loading ? "..." : laneAnyRunning(lane) ? "�?c l?i c? 2" : "�?c c? 2"
+                  lane.loading ? "..." : laneAnyRunning(lane) ? "Đọc lại cả 2" : "Đọc cả 2"
                 }}
               </button>
 
@@ -253,15 +253,15 @@
                 "
                 @click="confirmLane(lane)"
               >
-                X�c nh?n
+                Xác nhận
               </button>
             </div>
           </div>
         </div>
 
         <div class="ops-dock-side">
-          <button type="button" class="btn-open-drawer" @click="openOpsDrawer">
-            C�i d?t
+            <button type="button" class="btn-open-drawer" @click="openOpsDrawer">
+            Cài đặt
           </button>
         </div>
       </div>
@@ -269,10 +269,10 @@
 
     <div v-show="opsDrawerOpen" class="ops-drawer-root" :aria-hidden="!opsDrawerOpen">
       <div class="ops-drawer-backdrop" @click="closeOpsDrawer"></div>
-      <aside class="ops-drawer-panel" role="dialog" aria-modal="true" aria-label="C�i d?t c?ng" @click.stop>
+      <aside class="ops-drawer-panel" role="dialog" aria-modal="true" aria-label="Cài đặt cổng" @click.stop>
         <header class="ops-drawer-head">
-          <h2 class="ops-drawer-title">C�i d?t</h2>
-          <button type="button" class="ops-drawer-close" aria-label="��ng" @click="closeOpsDrawer">�</button>
+          <h2 class="ops-drawer-title">Cài đặt</h2>
+          <button type="button" class="ops-drawer-close" aria-label="Đóng" @click="closeOpsDrawer">✕</button>
         </header>
 
         <div class="ops-drawer-tabs" role="tablist">
@@ -292,20 +292,20 @@
 
         <div class="ops-drawer-body">
           <div class="drawer-settings-panel">
-            <h3 class="drawer-settings-title">D?ch v? Python</h3>
+            <h3 class="drawer-settings-title">Dịch vụ Python</h3>
             <p class="drawer-settings-meta">
               <span>QR: {{ qrApiBaseLabel }}</span>
-              <span class="drawer-settings-meta-sep">�</span>
-              <span>Bi?n: {{ plateApiBaseLabel }}</span>
+              <span class="drawer-settings-meta-sep">•</span>
+              <span>Biển: {{ plateApiBaseLabel }}</span>
             </p>
             <p class="drawer-settings-hint">
-              B?t/t?t backend tuong ?ng. URL stream l?y theo tab l�n dang ch?n (QR / Plate). D?ch v? QR l� m?t
-              process d�ng chung cho c? hai l�n.
+              Bật/tắt backend tương ứng. URL stream lấy theo tab làn đang chọn (QR / Plate). Dịch vụ QR là một
+              process dùng chung cho cả hai làn.
             </p>
 
             <div class="settings-toggle-row">
               <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Python d?c QR</span>
+                <span class="settings-toggle-name">Python đọc QR</span>
                 <span class="settings-toggle-desc">start/stop endpoint /qr (camera + worker)</span>
               </div>
               <button
@@ -331,7 +331,7 @@
 
             <div class="settings-toggle-row">
               <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Python bi?n s?</span>
+                <span class="settings-toggle-name">Python biển số</span>
                 <span class="settings-toggle-desc">API plate (camera on/off)</span>
               </div>
               <button
@@ -418,7 +418,7 @@
               </div>
 
               <div class="lane-final-status" :class="isLaneReady(activeOpsLane) ? 'ok' : 'wait'">
-                {{ isLaneReady(activeOpsLane) ? "S?N S�NG X�C NH?N" : "�ANG X? L�" }}
+                {{ isLaneReady(activeOpsLane) ? "Sẵn sàng xác nhận" : "Đang xử lý" }}
               </div>
             </div>
 
@@ -428,7 +428,7 @@
                 <div class="search-box">
                   <input
                     v-model="cameraSearch[activeOpsLane.id + '-qr']"
-                    placeholder="T�m camera QR..."
+                    placeholder="Tìm camera QR..."
                     :disabled="activeOpsLane.loading"
                   />
 
@@ -450,7 +450,7 @@
                 <div class="search-box">
                   <input
                     v-model="cameraSearch[activeOpsLane.id + '-plate']"
-                    placeholder="T�m camera Plate..."
+                    placeholder="Tìm camera Plate..."
                     :disabled="activeOpsLane.loading"
                   />
 
@@ -470,7 +470,7 @@
 
             <div class="summary-bar">
               <div class="summary-item">
-                <span class="label">Ngu?i d�ng</span>
+                <span class="label">Người dùng</span>
                 <span class="value strong">{{ activeOpsLane.qr.employeeId || activeOpsLane.qr.guestId || "-----" }}</span>
               </div>
 
@@ -482,7 +482,7 @@
               </div>
 
               <div class="summary-item">
-                <span class="label">Bi?n s?</span>
+                <span class="label">Biển số</span>
                 <span class="value strong plate">{{
                   activeOpsLane.plate.confirmedPlate || activeOpsLane.plate.lastRawPlate || "-----"
                 }}</span>
@@ -490,13 +490,13 @@
             </div>
 
             <div class="drawer-secondary-actions">
-              <button
+                <button
                 type="button"
                 class="btn btn-drawer-secondary btn-preview"
                 :disabled="activeOpsLane.loading"
                 @click="previewLane(activeOpsLane)"
               >
-                {{ activeOpsLane.loading ? "�ang x? l�..." : "Preview" }}
+                {{ activeOpsLane.loading ? "Đang xử lý..." : "Preview" }}
               </button>
               <button
                 type="button"
@@ -504,7 +504,7 @@
                 :disabled="activeOpsLane.loading"
                 @click="stopLane(activeOpsLane)"
               >
-                {{ activeOpsLane.loading ? "�ang x? l�..." : "T?t" }}
+                {{ activeOpsLane.loading ? "Đang xử lý..." : "Tắt" }}
               </button>
             </div>
           </section>
@@ -638,8 +638,8 @@ export default {
       lanes: [
         {
   id: "lane1",
-  name: "L�n 1",
-  desc: "QR tr�n / Bi?n du?i",
+  name: "Làn 1",
+  desc: "QR trên / Biển dưới",
   gateId: null,
   cameraId: null,
   loading: false,
@@ -649,8 +649,8 @@ export default {
 },
 {
   id: "lane2",
-  name: "L�n 2",
-  desc: "QR tr�n / Bi?n du?i",
+  name: "Làn 2",
+  desc: "QR trên / Biển dưới",
   gateId: null,
   cameraId: null,
   loading: false,
@@ -1120,7 +1120,7 @@ export default {
 
     // Nếu backend đang quét nhưng chưa lock, hiển thị trạng thái quét
     if (lane.qr.scanRequested && !lane.qr.sessionLocked) {
-      lane.qr.message = lane.qr.message || "�ang qu�t QR..."
+      lane.qr.message = lane.qr.message || "Đang quét QR..."
     }
 
         if (res.locked && res.qr) {
@@ -1178,15 +1178,15 @@ const qr = lane.qr
     },
 
     qrStateText(qr) {
-      if (!qr.cameraRunning) return "CH?"
-      if (!qr.activeSessionPayload) return "�ANG QU�T"
-      if (qr.activeSessionVerifyState === "waiting") return "�ANG X�C TH?C"
-      if (qr.activeSessionVerifyState === "success") return "�� NH?N DI?N"
-      if (qr.activeSessionVerifyState === "expired") return "H?T H?N"
-      if (qr.activeSessionVerifyState === "invalid") return "KH�NG H?P L?"
-      if (qr.activeSessionVerifyState === "failed") return "TH?T B?I"
-      if (qr.activeSessionVerifyState === "system_error") return "L?I H? TH?NG"
-      return "�ANG X? L�"
+      if (!qr.cameraRunning) return "CHỜ"
+      if (!qr.activeSessionPayload) return "ĐANG QUÉT"
+      if (qr.activeSessionVerifyState === "waiting") return "ĐANG XÁC THỰC"
+      if (qr.activeSessionVerifyState === "success") return "ĐÃ NHẬN DIỆN"
+      if (qr.activeSessionVerifyState === "expired") return "HẾT HẠN"
+      if (qr.activeSessionVerifyState === "invalid") return "KHÔNG HỢP LỆ"
+      if (qr.activeSessionVerifyState === "failed") return "THẤT BẠI"
+      if (qr.activeSessionVerifyState === "system_error") return "LỖI HỆ THỐNG"
+      return "Đang xử lý"
     },
 
     qrStateClass(qr) {
@@ -1198,11 +1198,11 @@ const qr = lane.qr
     hasInvalidHint(message) {
       const normalized = String(message || "").toLowerCase()
       return (
-        normalized.includes("kh�ng h?p l?") ||
-        normalized.includes("th?t b?i") ||
-        normalized.includes("h?t h?n") ||
+        normalized.includes("không hợp lệ") ||
+        normalized.includes("thất bại") ||
+        normalized.includes("hết hạn") ||
         normalized.includes("timeout") ||
-        normalized.includes("qu� th?i gian")
+        normalized.includes("quá thời gian")
       )
     },
 
@@ -1410,7 +1410,7 @@ const qr = lane.qr
       try {
         const Hls = await this.ensureHlsLibrary()
         if (!Hls?.isSupported?.()) {
-          throw new Error("Tr�nh duy?t n�y kh�ng h? tr? HLS.")
+          throw new Error("Trình duyệt này không hỗ trợ HLS.")
         }
 
         qr.hlsInstance = new Hls({
@@ -1537,8 +1537,8 @@ const qr = lane.qr
 
     platePreviewStatusText(plate) {
       if (!plate.previewRunning) return "Preview OFF"
-      if (plate.lockedSnapshot || plate.lockedPlateCrop) return "?nh d� ch?p"
-      return plate.previewHealthy ? "Preview OK" : "Ch? ?nh"
+      if (plate.lockedSnapshot || plate.lockedPlateCrop) return "Ảnh đã chụp"
+      return plate.previewHealthy ? "Preview OK" : "Chờ ảnh"
     },
 
     platePreviewStatusClass(plate) {
@@ -1728,7 +1728,7 @@ const qr = lane.qr
 
       if (diff >= qr.absenceThresholdMs) {
         this.clearQrState(qr)
-        qr.message = "M� d� bi?n m?t kh?i camera, phi�n cu d� t? d?ng k?t th�c. �ang ch? m� m?i."
+        qr.message = "Phiên cũ đã hết hạn; đang chờ mã mới."
         qr.lastUpdate = this.nowText()
       }
     },
@@ -1835,17 +1835,17 @@ const qr = lane.qr
         qr.activeSessionPayload = decodedText
         qr.activeSessionVerified = false
         qr.activeSessionVerifyState = "waiting"
-        qr.activeSessionVerifyMessage = "�� ph�t hi?n m� m?i, dang x�c th?c..."
+        qr.activeSessionVerifyMessage = "Đã phát hiện mã mới, đang xác thực..."
         qr.lastSeenAt = now
         qr.lastUpdate = this.nowText()
-        qr.message = "�ang x�c th?c QR..."
+        qr.message = "Đang xác thực QR..."
 
         const result = await this.doVerifyQr(lane, decodedText)
 
         if (result?.success) {
           qr.activeSessionVerified = true
           qr.activeSessionVerifyState = "success"
-          qr.activeSessionVerifyMessage = result.message || "X�c th?c QR th�nh c�ng."
+          qr.activeSessionVerifyMessage = result.message || "Xác thực QR thành công."
           qr.sessionLocked = true
           qr.lockedSnapshot = canvas.toDataURL("image/jpeg", 0.92)
           qr.alert = false
@@ -1869,7 +1869,7 @@ const qr = lane.qr
           if (identityOverlay) {
             qr.overlayText = identityOverlay
           }
-          qr.message = result.message || "QR hop le"
+          qr.message = result.message || "QR hợp lệ"
           return
         }
 
@@ -1880,21 +1880,21 @@ const qr = lane.qr
         qr.guestId = ""
         qr.personType = ""
 
-        if (message.includes("� h?t h?n") || message.includes("chua ?n hi!u l?c")) {
+        if (message.includes("hết hạn") || message.includes("chưa hiệu lực")) {
           qr.activeSessionVerifyState = "expired"
-        } else if (message.includes("kh�ng h?p l?")) {
+        } else if (message.includes("không hợp lệ")) {
           qr.activeSessionVerifyState = "invalid"
         } else {
           qr.activeSessionVerifyState = "failed"
         }
 
-        qr.activeSessionVerifyMessage = message || "X�c th?c th?t b?i."
-        qr.verifyMessage = message || "X�c th?c th?t b?i."
+        qr.activeSessionVerifyMessage = message || "Xác thực thất bại."
+        qr.verifyMessage = message || "Xác thực thất bại."
         qr.alert = true
         qr.message = qr.verifyMessage
       } catch (e) {
         console.warn("Decode QR frame error:", e)
-        qr.verifyMessage = "Kh�ng d?c du?c frame t? IP camera. Ki?m tra CORS, mixed content ho?c URL stream."
+        qr.verifyMessage = "Không đọc được frame từ IP camera. Kiểm tra CORS, mixed content hoặc URL stream."
         qr.activeSessionVerifyState = "system_error"
         qr.activeSessionVerifyMessage = qr.verifyMessage
         qr.alert = true
@@ -1918,7 +1918,7 @@ const qr = lane.qr
         if (!safePayload) {
           return {
             success: false,
-            message: "QR rong hoac khong doc duoc.",
+            message: "QR rỗng hoặc không đọc được.",
             data: null
           }
         }
@@ -1955,7 +1955,7 @@ else {
         const message =
           error?.response?.data?.message ||
           error?.message ||
-          "X�c th?c th?t b?i."
+          "Xác thực thất bại."
 
         qr.verifyMessage = message
         qr.verifyData = null
@@ -2116,7 +2116,7 @@ else {
 
     async previewLane(lane) {
   if (!lane.qr.cameraIp.trim() && !lane.plate.cameraIp.trim()) {
-    alert("Vui l�ng nh?p �t nh?t 1 URL camera")
+    alert("Vui lòng nhập ít nhất 1 URL camera")
     return
   }
 
@@ -2139,7 +2139,7 @@ else {
 
       // 🔥 STEP 3: mở lại
       this.mountPreview(lane.qr, lane.qr.viewUrl)
-      lane.qr.message = "�� reload preview QR"
+      lane.qr.message = "Đã tải lại preview QR"
       // quét đã hoàn tất → tắt flag quét
       lane.qr.scanRequested = false
     }
@@ -2154,12 +2154,12 @@ else {
       }
 
       this.mountPreview(lane.plate, lane.plate.viewUrl)
-      lane.plate.message = "�� reload preview Plate"
+      lane.plate.message = "Đã tải lại preview Plate"
     }
 
   } catch (e) {
     console.error("previewLane error:", e)
-    alert(e?.message || "L?i m? preview")
+    alert(e?.message || "Lỗi mở preview")
   } finally {
     lane.loading = false
   }
@@ -2167,7 +2167,7 @@ else {
 
     async readAllLane(lane) {
       if (!lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()) {
-        alert("Vui l�ng nh?p d? URL QR v� Plate")
+        alert("Vui lòng nhập đủ URL QR và Plate")
         return
       }
 
@@ -2197,7 +2197,7 @@ this.clearQrState(lane.qr)
 
   lane.qr.cameraRunning = true
   lane.qr.sessionLocked = false
-  lane.qr.message = "�ang scan QR t? Python"
+  lane.qr.message = "Đang quét QR từ Python"
 
   // Bắt đầu vòng lặp preview/session khi quét thực sự bắt đầu
   this.startQrPreviewLoop(lane)
@@ -2212,16 +2212,16 @@ lane.qr.scanRequested = true
           this.stopPlateLoop(lane)
           const resPlate = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
           if (!resPlate?.success) {
-            alert(resPlate?.message || "Kh�ng th? kh?i t?o Plate")
+            alert(resPlate?.message || "Không thể khởi tạo Plate")
             return
           }
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(resPlate.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = resPlate.message || "Khxi t?o Plate th�nh c�ng"
+          lane.plate.message = resPlate.message || "Khởi tạo Plate thành công"
         } else {
           const resPlate = await lane.plateApi.resetCameraState()
-          lane.plate.message = resPlate?.message || "�� reset Plate"
+          lane.plate.message = resPlate?.message || "Đã reset Plate"
 
           const newSessionId = Number(resPlate?.session_id || 0)
           if (newSessionId > 0) {
@@ -2235,14 +2235,14 @@ lane.qr.scanRequested = true
       } catch (e) {
         console.error("readAllLane error:", e)
         alert(e?.message || "L?i d?c c? 2")
-      } finally {
+        } finally {
         lane.loading = false
       }
     },
 
     async retryQr(lane) {
   if (!lane.qr.cameraIp.trim()) {
-    alert("Vui l�ng nh?p URL QR")
+    alert("Vui lòng nhập URL QR")
     return
   }
 
@@ -2269,7 +2269,7 @@ lane.qr.scanRequested = true
 
     lane.qr.cameraRunning = true
     lane.qr.sessionLocked = false
-    lane.qr.message = "�ang scan l?i QR..."
+    lane.qr.message = "Đang quét lại QR..."
 
     // 🔥 đảm bảo polling chạy
     // Bắt đầu vòng lặp preview/session khi quét thực sự bắt đầu
@@ -2280,9 +2280,9 @@ lane.qr.scanRequested = true
     // Đánh dấu yêu cầu quét backend để frontend hiển thị trạng thái SCANNING
     lane.qr.scanRequested = true
 
-  } catch (e) {
+    } catch (e) {
     console.error("retryQr error:", e)
-    alert(e?.message || "L?i d?c l?i QR")
+    alert(e?.message || "Lỗi đọc lại QR")
   } finally {
     lane.loading = false
   }
@@ -2290,7 +2290,7 @@ lane.qr.scanRequested = true
 
     async retryPlate(lane) {
       if (!lane.plate.cameraIp.trim()) {
-        alert("Vui l�ng nh?p URL Plate")
+        alert("Vui lòng nhập URL Plate")
         return
       }
 
@@ -2306,16 +2306,16 @@ lane.qr.scanRequested = true
           this.stopPlateLoop(lane)
           const res = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
           if (!res?.success) {
-            alert(res?.message || "Kh�ng th? kh?i t?o Plate")
+            alert(res?.message || "Không thể khởi tạo Plate")
             return
           }
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(res.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = res.message || "Khxi t?o Plate th�nh c�ng"
+          lane.plate.message = res.message || "Khởi tạo Plate thành công"
         } else {
           const res = await lane.plateApi.resetCameraState()
-          lane.plate.message = res?.message || "�� reset Plate"
+          lane.plate.message = res?.message || "Đã reset Plate"
 
           const newSessionId = Number(res?.session_id || 0)
           if (newSessionId > 0) {
@@ -2328,7 +2328,7 @@ lane.qr.scanRequested = true
         if (!lane.plate.resultTimer) this.startPlateLoop(lane)
       } catch (e) {
         console.error("retryPlate error:", e)
-        alert(e?.message || "L?i d?c l?i bi?n s?")
+        alert(e?.message || "Lỗi đọc lại biển số")
       } finally {
         lane.loading = false
       }
@@ -2361,7 +2361,7 @@ lane.qr.scanRequested = true
 
     try {
       const resPlate = await lane.plateApi.turnOffCamera()
-      lane.plate.message = resPlate?.message || "�� t?t Plate"
+      lane.plate.message = resPlate?.message || "Đã tắt Plate"
     } catch (e) {
       console.warn("turnOff plate warning:", e)
     }
@@ -2369,9 +2369,9 @@ lane.qr.scanRequested = true
     this.hardResetPlate(lane.plate)
     this.resetPreview(lane.plate)
 
-  } catch (e) {
+    } catch (e) {
     console.error("stopLane error:", e)
-    alert(e?.message || "L?i t?t l�n")
+    alert(e?.message || "Lỗi khi tắt")
   } finally {
     lane.loading = false
   }
@@ -2384,17 +2384,17 @@ lane.qr.scanRequested = true
   const visitorDetailId = Number(lane.qr.guestId || 0)
 
   if (!licensePlate) {
-    alert(`${lane.name}: chua c� bi?n s?`)
+    alert(`${lane.name}: chưa có biển số`)
     return
   }
 
   if (!isGuest && !employeeId) {
-    alert(`${lane.name}: chua c� Employee ID`)
+    alert(`${lane.name}: chưa có Employee ID`)
     return
   }
 
   if (isGuest && !visitorDetailId) {
-    alert(`${lane.name}: chua c� VisitorDetailId`)
+    alert(`${lane.name}: chưa có VisitorDetailId`)
     return
   }
 
@@ -2423,13 +2423,13 @@ lane.qr.scanRequested = true
     if (data?.success) {
       alert(`${lane.name}: ${data.message}`)
     } else {
-      alert(`${lane.name}: ${data?.message || "X? l� th?t b?i"}`)
+      alert(`${lane.name}: ${data?.message || "Xử lý thất bại"}`)
     }
   } catch (error) {
     const message =
       error?.response?.data?.message ||
       error?.message ||
-      "Kh�ng g?i du?c API Gate"
+      "Không gọi được API Gate"
 
     alert(`${lane.name}: ${message}`)
   } finally {
@@ -2460,7 +2460,7 @@ filterCameras(keyword) {
 
 selectCamera(cam, lane, type) {
   if (!cam.urlView) {
-    alert("Camera chua c� UrlView. H�y reload go2rtc tru?c")
+    alert("Camera chưa có UrlView. Hãy reload go2rtc trước")
     return
   }
 
