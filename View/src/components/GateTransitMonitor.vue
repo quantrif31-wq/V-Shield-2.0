@@ -354,7 +354,7 @@
                 AutoStart: {{ runtimeAutoStart('python_plate') ? 'ON' : 'OFF' }}
               </button>
             </div>
-`n<div class="settings-toggle-row">
+<div class="settings-toggle-row">
               <div class="settings-toggle-text">
                 <span class="settings-toggle-name">go2rtc stream gateway</span>
                 <span class="settings-toggle-desc">Dich vu stream WebRTC cho camera</span>
@@ -707,7 +707,7 @@ export default {
   },
 
   async mounted() {
-  document.body.classList.add("thonghanh-compact")
+  document.body.classList.add("gate-transit-compact")
   await this.loadCameraList() // 🔥 THÊM
 
   for (const lane of this.lanes) {
@@ -719,7 +719,7 @@ export default {
 },
 
   beforeUnmount() {
-    document.body.classList.remove("thonghanh-compact")
+    document.body.classList.remove("gate-transit-compact")
     for (const lane of this.lanes) {
       lane.qr.destroyed = true
       lane.plate.destroyed = true
@@ -733,7 +733,7 @@ export default {
   },
 
   activated() {
-    document.body.classList.add("thonghanh-compact")
+    document.body.classList.add("gate-transit-compact")
     for (const lane of this.lanes) {
       lane.qr.destroyed = false
       lane.plate.destroyed = false
@@ -756,7 +756,7 @@ export default {
   },
 
   deactivated() {
-    document.body.classList.remove("thonghanh-compact")
+    document.body.classList.remove("gate-transit-compact")
     for (const lane of this.lanes) {
       this.stopQrLoops(lane)
       this.stopPlateLoop(lane)
@@ -3477,6 +3477,7 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
+
 
 
 

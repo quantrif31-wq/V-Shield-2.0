@@ -224,7 +224,7 @@ const routeMeta = {
         title: 'Cài đặt hệ thống',
         description: 'Khu cấu hình mở rộng của ứng dụng.',
     },
-    thonghanh: {
+    GateTransitMonitor: {
         title: 'Điều phối thông hành',
         description: 'Vận hành theo từng làn với face, biển số và xác nhận qua cổng.',
     },
@@ -843,3 +843,4 @@ watch(
     }
 }
 </style>
+
