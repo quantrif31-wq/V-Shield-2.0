@@ -363,11 +363,11 @@
               <button
                 type="button"
                 class="toggle-switch"
-                :class="toggleSwitchClass('python_cam_simulator', camGiaLapServiceOn)"
+                :class="toggleSwitchClass('python_cam_simulator', cameraSimulatorServiceOn)"
                 role="switch"
-                :aria-checked="camGiaLapServiceOn"
+                :aria-checked="cameraSimulatorServiceOn"
                 :disabled="runtimeIsBusy('python_cam_simulator') || toggleIsPending('python_cam_simulator')"
-                @click="onToggleCamGiaLapPython"
+                @click="onToggleCameraSimulatorPython"
               >
                 <span class="toggle-switch-knob" aria-hidden="true"></span>
               </button>
@@ -691,8 +691,8 @@ export default {
       topbarCompact: true,
       settingsQrBusy: false,
       settingsPlateBusy: false,
-      settingsCamGiaLapBusy: false,
-      camGiaLapServiceOn: false,
+      settingsCameraSimulatorBusy: false,
+      cameraSimulatorServiceOn: false,
       runtimeServices: [],
       runtimeBusy: {},
       uiTogglePending: {}
@@ -816,12 +816,12 @@ export default {
 
       try {
         const pythonStatus = await getPythonProcessStatus()
-        this.camGiaLapServiceOn = !!(this.runtimeMap.python_cam_simulator?.running ?? this.runtimeMap.python_cam_gia_lap?.running ?? pythonStatus?.camGiaLap)
+        this.cameraSimulatorServiceOn = !!(this.runtimeMap.python_cam_simulator?.running ?? this.runtimeMap.python_cam_gia_lap?.running ?? pythonStatus?.camSimulator ?? pythonStatus?.camGiaLap)
         // NOTE: do NOT set lane.{qr,plate}.cameraRunning directly from python process status.
         // cameraRunning means the camera capture/session is active; we will rely on per-module
         // status endpoints (loadStatusPlate / getQrScanResult) to populate actual cameraRunning.
       } catch {
-        this.camGiaLapServiceOn = !!(this.runtimeMap.python_cam_simulator?.running ?? this.runtimeMap.python_cam_gia_lap?.running)
+        this.cameraSimulatorServiceOn = !!(this.runtimeMap.python_cam_simulator?.running ?? this.runtimeMap.python_cam_gia_lap?.running)
         // fallback: do not force cameraRunning here
       }
 
@@ -941,7 +941,7 @@ export default {
       this.applyPlatePythonService(wantOn)
     },
 
-    async onToggleCamGiaLapPython() {
+    async onToggleCameraSimulatorPython() {
       await this.toggleRuntime("python_cam_simulator")
     },
 
@@ -3511,6 +3511,7 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
+
 
 
 

@@ -300,14 +300,16 @@ namespace API.Controllers
             return StopPythonWorkerScript("docbien.py");
         }
 
+        [HttpPost("start-python-cam-simulator")]
         [HttpPost("start-python-cam-gia-lap")]
-        public IActionResult StartPythonCamGiaLap()
+        public IActionResult StartPythonCamSimulator()
         {
             return StartPythonWorkerScript("cam\\cam_gia_lap", "cam_gia_lap.py");
         }
 
+        [HttpPost("stop-python-cam-simulator")]
         [HttpPost("stop-python-cam-gia-lap")]
-        public IActionResult StopPythonCamGiaLap()
+        public IActionResult StopPythonCamSimulator()
         {
             try
             {
@@ -325,9 +327,15 @@ namespace API.Controllers
             {
                 var isQrRunning = IsPythonWorkerScriptRunning("QR_Dong.py");
                 var isPlateRunning = IsPythonWorkerScriptRunning("docbien.py");
-                var isCamGiaLapRunning = IsPythonWorkerScriptRunning("cam_gia_lap.py");
+                var isCamSimulatorRunning = IsPythonWorkerScriptRunning("cam_gia_lap.py");
                 
-                return Ok(new { qr = isQrRunning, plate = isPlateRunning, camGiaLap = isCamGiaLapRunning });
+                return Ok(new
+                {
+                    qr = isQrRunning,
+                    plate = isPlateRunning,
+                    camSimulator = isCamSimulatorRunning,
+                    camGiaLap = isCamSimulatorRunning
+                });
             }
             catch (Exception ex)
             {
