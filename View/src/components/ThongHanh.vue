@@ -242,18 +242,6 @@
 </template>
 
 <script>
-/*
-  ĐỔI TÊN FILE SERVICE Ở ĐÂY LÀ XONG
-
-  Ví dụ:
-  - Lane 1:
-    ../services/faceApiLane1
-    ../services/plateCameraApiLane1
-
-  - Lane 2:
-    ../services/faceApiLane2
-    ../services/plateCameraApiLane2
-*/
 
 import * as faceLane1Api from "../services/faceApi"
 import * as plateLane1Api from "../services/plateCameraApi"

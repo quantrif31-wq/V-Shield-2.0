@@ -251,7 +251,8 @@ export default {
           QrPayload: payload,
           CameraId: term.cameraId,
           UserPassword: term.userPassword,
-          LoggedInUserId: 1 // TODO: Thay bằng ID user đang đăng nhập thực tế (hoặc token)
+          // Temporary fallback until auth context is wired into this module.
+          LoggedInUserId: 1
         };
 
         const res = await axios.post("/api/QrAccess/scan-access", reqData);

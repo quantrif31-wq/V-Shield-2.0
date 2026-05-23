@@ -55,7 +55,7 @@ namespace API.Controllers
                     return Unauthorized(GateTransitApiResponse.CreateError("Không tìm thấy tài khoản thao tác."));
                 }
 
-                // TODO: Đổi thành hàm Verify Hash Mật khẩu của bạn (ví dụ BCrypt.Verify)
+                // Temporary plain-text comparison; replace with password-hash verification (e.g., BCrypt) in auth hardening phase.
                 if (currentUser.PasswordHash != request.UserPassword)
                 {
                     return Unauthorized(GateTransitApiResponse.CreateError("Mật khẩu tài khoản không chính xác."));
