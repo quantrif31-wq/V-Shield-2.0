@@ -69,7 +69,7 @@ namespace API.Controllers
 
         // ================= CREATE =================
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] SetCamRequest request)
+        public async Task<IActionResult> Create([FromBody] CameraUpsertRequest request)
         {
             if (request == null)
                 return BadRequest(new { message = "Dữ liệu camera không hợp lệ" });
@@ -109,7 +109,7 @@ namespace API.Controllers
 
         // ================= UPDATE =================
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] SetCamRequest request)
+        public async Task<IActionResult> Update(int id, [FromBody] CameraUpsertRequest request)
         {
             var cam = await _context.Cameras.FindAsync(id);
 

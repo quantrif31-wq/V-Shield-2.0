@@ -210,7 +210,7 @@ import { API_BASE_URL } from "../config/api"
 import {
   createCamera,
   deleteCamera,
-  getCameras as getSetCamList,
+  getCameras as getCameraList,
   reloadGo2rtc,
   updateCamera,
 } from "../services/cameraRuntimeApi"
@@ -339,7 +339,7 @@ const persistCameraSettingsOnly = async (camera) => {
 
 const syncCameraSettingsFromApi = async () => {
   try {
-    const apiCameras = await getSetCamList()
+    const apiCameras = await getCameraList()
     const list = Array.isArray(apiCameras) ? apiCameras : []
     cameraSettings.value = list.map((item) => {
       const id = Number(item?.cameraId || 0)

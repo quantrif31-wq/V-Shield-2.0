@@ -5,6 +5,8 @@ namespace API.Services;
 
 public sealed class RuntimeOrchestrator
 {
+    private const string PythonCamSimulatorServiceName = "python_cam_simulator";
+    private const string LegacyPythonCamSimulatorServiceName = "python_cam_gia_lap";
     private const string ManagedModeLegacy = "legacy_process";
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _env;
@@ -24,14 +26,16 @@ public sealed class RuntimeOrchestrator
 
     public RuntimeServiceState? GetService(string name)
     {
-        var config = LoadConfigs().FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var normalizedName = NormalizeServiceName(name);
+        var config = LoadConfigs().FirstOrDefault(x => x.Name.Equals(normalizedName, StringComparison.OrdinalIgnoreCase));
         return config == null ? null : ToState(config);
     }
 
     public RuntimeServiceState? UpdateConfig(string name, bool? enabled, bool? autoStart)
     {
+        var normalizedName = NormalizeServiceName(name);
         var configs = LoadConfigs();
-        var config = configs.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var config = configs.FirstOrDefault(x => x.Name.Equals(normalizedName, StringComparison.OrdinalIgnoreCase));
         if (config == null) return null;
 
         if (enabled.HasValue) config.Enabled = enabled.Value;
@@ -52,7 +56,8 @@ public sealed class RuntimeOrchestrator
 
     public async Task<RuntimeActionResult> StartAsync(string name)
     {
-        var service = LoadConfigs().FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var normalizedName = NormalizeServiceName(name);
+        var service = LoadConfigs().FirstOrDefault(x => x.Name.Equals(normalizedName, StringComparison.OrdinalIgnoreCase));
         if (service == null) return RuntimeActionResult.Fail($"Khong tim thay service {name}.");
         if (!service.Enabled) return RuntimeActionResult.Fail($"Service {name} dang bi tat (Enabled=false).");
 
@@ -62,7 +67,8 @@ public sealed class RuntimeOrchestrator
             {
                 "python_qr" => StartPythonScript("QR_Dong", "QR_Dong.py"),
                 "python_plate" => StartPythonScript("doc_bien_gpu", "docbien.py"),
-                "python_cam_gia_lap" => StartPythonScript("cam\\cam_gia_lap", "cam_gia_lap.py"),
+                PythonCamSimulatorServiceName => StartPythonScript("cam\\cam_gia_lap", "cam_gia_lap.py"),
+                LegacyPythonCamSimulatorServiceName => StartPythonScript("cam\\cam_gia_lap", "cam_gia_lap.py"),
                 "go2rtc" => StartGo2Rtc(),
                 "cloudflared" => StartCloudflared(),
                 _ => RuntimeActionResult.Fail($"Service {name} chua duoc ho tro.")
@@ -77,13 +83,15 @@ public sealed class RuntimeOrchestrator
 
     public async Task<RuntimeActionResult> StopAsync(string name)
     {
+        var normalizedName = NormalizeServiceName(name);
         try
         {
-            var result = name switch
+            var result = normalizedName switch
             {
                 "python_qr" => StopPythonScript("QR_Dong.py"),
                 "python_plate" => StopPythonScript("docbien.py"),
-                "python_cam_gia_lap" => StopPythonCamGiaLap(),
+                PythonCamSimulatorServiceName => StopPythonCamSimulator(),
+                LegacyPythonCamSimulatorServiceName => StopPythonCamSimulator(),
                 "go2rtc" => KillProcesses("go2rtc"),
                 "cloudflared" => KillProcesses("cloudflared"),
                 _ => RuntimeActionResult.Fail($"Service {name} chua duoc ho tro.")
@@ -102,7 +110,8 @@ public sealed class RuntimeOrchestrator
         {
             "python_qr" => IsPythonScriptRunning("QR_Dong.py"),
             "python_plate" => IsPythonScriptRunning("docbien.py"),
-            "python_cam_gia_lap" => IsPythonScriptRunning("cam_gia_lap.py"),
+            PythonCamSimulatorServiceName => IsPythonScriptRunning("cam_gia_lap.py"),
+            LegacyPythonCamSimulatorServiceName => IsPythonScriptRunning("cam_gia_lap.py"),
             "go2rtc" => IsProcessRunning("go2rtc"),
             "cloudflared" => IsProcessRunning("cloudflared"),
             _ => false
@@ -141,6 +150,29 @@ public sealed class RuntimeOrchestrator
                 {
                     var existing = loaded.FirstOrDefault(x => x.Name.Equals(d.Name, StringComparison.OrdinalIgnoreCase));
                     if (existing == null) loaded.Add(d);
+                }
+
+                var legacyCameraSimulator = loaded.FirstOrDefault(x =>
+                    x.Name.Equals(LegacyPythonCamSimulatorServiceName, StringComparison.OrdinalIgnoreCase));
+                var newCameraSimulator = loaded.FirstOrDefault(x =>
+                    x.Name.Equals(PythonCamSimulatorServiceName, StringComparison.OrdinalIgnoreCase));
+
+                if (legacyCameraSimulator != null)
+                {
+                    if (newCameraSimulator == null)
+                    {
+                        loaded.Add(new RuntimeServiceConfig(
+                            PythonCamSimulatorServiceName,
+                            "Python cam simulator",
+                            legacyCameraSimulator.Enabled,
+                            legacyCameraSimulator.AutoStart,
+                            legacyCameraSimulator.ManagedMode)
+                        {
+                            UpdatedAt = legacyCameraSimulator.UpdatedAt
+                        });
+                    }
+
+                    loaded.Remove(legacyCameraSimulator);
                 }
 
                 SaveConfigs(loaded);
@@ -182,7 +214,7 @@ public sealed class RuntimeOrchestrator
         {
             new RuntimeServiceConfig("python_qr", "Python doc QR", true, false, ManagedModeLegacy),
             new RuntimeServiceConfig("python_plate", "Python doc bien so", true, false, ManagedModeLegacy),
-            new RuntimeServiceConfig("python_cam_gia_lap", "Python cam gia lap", true, false, ManagedModeLegacy),
+            new RuntimeServiceConfig(PythonCamSimulatorServiceName, "Python cam simulator", true, false, ManagedModeLegacy),
             new RuntimeServiceConfig("go2rtc", "Go2RTC", true, true, ManagedModeLegacy),
             new RuntimeServiceConfig("cloudflared", "Cloudflared", true, true, ManagedModeLegacy),
         };
@@ -252,7 +284,7 @@ public sealed class RuntimeOrchestrator
         return RuntimeActionResult.Ok($"Da bat {scriptName}.");
     }
 
-    private RuntimeActionResult StopPythonCamGiaLap()
+    private RuntimeActionResult StopPythonCamSimulator()
     {
         try
         {
@@ -295,6 +327,11 @@ public sealed class RuntimeOrchestrator
 
     private static bool IsProcessRunning(string processName) =>
         Process.GetProcessesByName(processName).Length > 0;
+
+    private static string NormalizeServiceName(string name) =>
+        name.Equals(LegacyPythonCamSimulatorServiceName, StringComparison.OrdinalIgnoreCase)
+            ? PythonCamSimulatorServiceName
+            : name;
 
     private bool IsPythonScriptRunning(string scriptName)
     {
