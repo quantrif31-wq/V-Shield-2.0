@@ -121,6 +121,10 @@ AI_Project/cam/go2rtc_win64/
 !AI_Project/cam/go2rtc_win64/go2rtc.exe
 !AI_Project/cam/go2rtc_win64/go2rtc.yaml
 
+# Allow go2rtc binary and config regardless of folder (explicit exception)
+!**/go2rtc.exe
+!**/go2rtc.yaml
+
 # ----- Office documents -----
 *.doc
 *.docx
