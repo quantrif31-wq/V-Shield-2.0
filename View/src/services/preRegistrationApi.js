@@ -1,12 +1,12 @@
-import axios from 'axios'
+﻿import axios from 'axios'
 import { API_BASE_URL } from '../config/api'
 
-// ── Axios instance cho các endpoint PUBLIC (không cần auth) ──
+// Axios instance cho các endpoint PUBLIC (không cần auth)
 const publicApi = axios.create({
     baseURL: API_BASE_URL
 })
 
-// ── Axios instance cho các endpoint ADMIN (cần auth) ──
+// Axios instance cho các endpoint ADMIN (cần auth)
 const authApi = axios.create({
     baseURL: API_BASE_URL
 })
@@ -31,11 +31,11 @@ authApi.interceptors.response.use(
     }
 )
 
-// ════════════════════════════════════════════════════════
-// PUBLIC — Khách sử dụng (không cần đăng nhập)
-// ════════════════════════════════════════════════════════
+// ========================================================
+// PUBLIC - Khách sử dụng (không cần đăng nhập)
+// ========================================================
 
-/** Validate token đăng ký → trả về tên nhân viên chủ trì & thời hạn */
+/** Validate token đăng ký -> trả về tên nhân viên chủ trì và thời hạn */
 export const validateToken = (token) => {
     return publicApi.get(`/pre-registrations/validate/${token}`)
 }
@@ -45,11 +45,11 @@ export const submitRegistration = (token, data) => {
     return publicApi.post(`/pre-registrations/submit/${token}`, data)
 }
 
-// ════════════════════════════════════════════════════════
-// ADMIN — Yêu cầu đăng nhập
-// ════════════════════════════════════════════════════════
+// ========================================================
+// ADMIN - Yêu cầu đăng nhập
+// ========================================================
 
-/** Lấy danh sách đơn đăng ký (có phân trang & filter) */
+/** Lấy danh sách đơn đăng ký (có phân trang và filter) */
 export const getAll = (params = {}) => {
     return authApi.get('/pre-registrations', { params })
 }
@@ -69,7 +69,7 @@ export const createLink = (data) => {
     return authApi.post('/registration-links', data)
 }
 
-/** Láº¥y danh sÃ¡ch link Ä‘Äƒng kÃ½ */
+/** Lấy danh sách link đăng ký */
 export const getLinks = (params = {}) => {
     return authApi.get('/registration-links', { params })
 }

@@ -5,7 +5,7 @@ const employeeApiClient = axios.create({
     baseURL: `${API_BASE_URL}/Employees`
 })
 
-// Tá»± Ä‘á»™ng gáº¯n JWT token
+// Tự động gắn JWT token
 employeeApiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem('v_shield_token')
     if (token) {
@@ -27,25 +27,25 @@ employeeApiClient.interceptors.response.use(
 )
 
 /**
- * Láº¥y danh sÃ¡ch nhÃ¢n viÃªn (cÃ³ filter)
+ * Lấy danh sách nhân viên (có filter)
  * @param {{search?, departmentId?, positionId?, status?}} params
  */
 export const getAll = (params = {}) => employeeApiClient.get('/', { params })
 
-/** Láº¥y chi tiáº¿t nhÃ¢n viÃªn */
+/** Lấy chi tiết nhân viên */
 export const getById = (id) => employeeApiClient.get(`/${id}`)
 
-/** Táº¡o nhÃ¢n viÃªn má»›i */
+/** Tạo nhân viên mới */
 export const create = (data) => employeeApiClient.post('/', data)
 
-/** Cáº­p nháº­t nhÃ¢n viÃªn */
+/** Cập nhật nhân viên */
 export const update = (id, data) => employeeApiClient.put(`/${id}`, data)
 
-/** XÃ³a nhÃ¢n viÃªn */
+/** Xóa nhân viên */
 export const deleteEmployee = (id) => employeeApiClient.delete(`/${id}`)
 
 /**
- * Upload áº£nh khuÃ´n máº·t
+ * Upload ảnh khuôn mặt
  * @param {number} id
  * @param {File} file
  */
@@ -56,4 +56,3 @@ export const uploadFace = (id, file) => {
         headers: { 'Content-Type': 'multipart/form-data' }
     })
 }
-

@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,30 +17,30 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Nh?n bi?n s? + employeeId.
-        /// - N?u d�ng bi?n s? + d�ng employee d� t?n t?i => toggle IN/OUT.
-        /// - N?u chua c� d�ng c?p d�:
-        ///     + N?u bi?n dang thu?c ngu?i kh�c v� dang IN => fail.
-        ///     + Ngu?c l?i => th�m m?i v?i tr?ng th�i IN.
+        /// Nhận biển số và employeeId.
+        /// - Nếu đúng biển số và đúng employee đã tồn tại => toggle IN/OUT.
+        /// - Nếu chưa có đúng cặp đó:
+        ///     + Nếu biển đang thuộc người khác và đang IN => fail.
+        ///     + Ngược lại => thêm mới với trạng thái IN.
         /// </summary>
         [HttpPost("scan")]
         public async Task<IActionResult> ScanVehicle([FromBody] GateTransitScanRequest request)
         {
             if (request == null)
             {
-                return BadRequest(GateTransitApiResponse.CreateError("D? li?u g?i l�n kh�ng h?p l?."));
+                return BadRequest(GateTransitApiResponse.CreateError("Dữ liệu gửi lên không hợp lệ."));
             }
 
             var normalizedPlate = NormalizeLicensePlate(request.LicensePlate);
 
             if (string.IsNullOrWhiteSpace(normalizedPlate))
             {
-                return BadRequest(GateTransitApiResponse.CreateError("Bi?n s? kh�ng du?c d? tr?ng."));
+                return BadRequest(GateTransitApiResponse.CreateError("Biển số không được để trống."));
             }
 
             if (request.EmployeeId <= 0)
             {
-                return BadRequest(GateTransitApiResponse.CreateError("EmployeeId kh�ng h?p l?."));
+                return BadRequest(GateTransitApiResponse.CreateError("EmployeeId không hợp lệ."));
             }
 
             var employee = await _context.Employees
@@ -48,7 +48,7 @@ namespace API.Controllers
 
             if (employee == null)
             {
-                return NotFound(GateTransitApiResponse.CreateError($"Kh�ng t�m th?y nh�n vi�n c� id = {request.EmployeeId}."));
+                return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {request.EmployeeId}."));
             }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -84,14 +84,14 @@ namespace API.Controllers
                         RegistrationId = null,
                         ResultStatus = "SUCCESS",
                         IsBypass = false,
-                        Note = $"�?i tr?ng th�i xe t? {oldStatus} sang {newStatus}"
+                        Note = $"Đổi trạng thái xe từ {oldStatus} sang {newStatus}"
                     });
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
                     return Ok(GateTransitApiResponse.CreateSuccess(
-                        $"C?p nh?t tr?ng th�i th�nh c�ng: {oldStatus} -> {newStatus}.",
+                        $"Cập nhật trạng thái thành công: {oldStatus} -> {newStatus}.",
                         new
                         {
                             currentVehicle.VehicleId,
@@ -103,7 +103,7 @@ namespace API.Controllers
                         }));
                 }
 
-                // 2. N?u chua c� d�ng c?p d�, ki?m tra bi?n c� dang thu?c ngu?i kh�c v� dang IN kh�ng
+                // 2. Nếu chưa có đúng cặp đó, kiểm tra biển có đang thuộc người khác và đang IN không
                 var conflictVehicle = samePlateVehicles.FirstOrDefault(v =>
                     v.EmployeeId != request.EmployeeId &&
                     NormalizeParkingStatus(v.ParkingStatus) == "IN");
@@ -121,14 +121,14 @@ namespace API.Controllers
                         RegistrationId = null,
                         ResultStatus = "FAILED",
                         IsBypass = false,
-                        Note = $"Bi?n s? dang du?c g?i b?i nh�n vi�n c� id l� {conflictVehicle.EmployeeId}"
+                        Note = $"Biển số đang được giữ bởi nhân viên có id là {conflictVehicle.EmployeeId}"
                     });
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
                     return Conflict(GateTransitApiResponse.CreateError(
-                        $"Bi?n s? dang du?c g?i b?i 1 nh�n vi�n c� id l� {conflictVehicle.EmployeeId}."));
+                        $"Biển số đang được giữ bởi 1 nhân viên có id là {conflictVehicle.EmployeeId}."));
                 }
 
                 var newVehicle = new Vehicle
@@ -153,14 +153,14 @@ namespace API.Controllers
                     RegistrationId = null,
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
-                    Note = "Th�m m?i phuong ti?n v� cho v�o b�i v?i tr?ng th�i IN"
+                    Note = "Thêm mới phương tiện và cho vào bãi với trạng thái IN"
                 });
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
-                    "Chua c� d? li?u tru?c d�. �� th�m m?i phuong ti?n v?i tr?ng th�i IN.",
+                    "Chưa có dữ liệu trước đó. Đã thêm mới phương tiện với trạng thái IN.",
                     new
                     {
                         newVehicle.VehicleId,
@@ -176,7 +176,7 @@ namespace API.Controllers
                 await transaction.RollbackAsync();
 
                 return StatusCode(500, GateTransitApiResponse.CreateError(
-                    "C� l?i x?y ra khi x? l� d? li?u.",
+                    "Có lỗi xảy ra khi xử lý dữ liệu.",
                     ex.Message));
             }
         }
@@ -184,10 +184,10 @@ namespace API.Controllers
         public async Task<IActionResult> ScanGuest([FromBody] GateTransitScanRequest request)
         {
             if (request == null)
-                return BadRequest("D? li?u kh�ng h?p l?.");
+                return BadRequest("Dữ liệu không hợp lệ.");
 
             if (request.VisitorDetailId == null && string.IsNullOrWhiteSpace(request.QrPayload))
-                return BadRequest("Ph?i c� VisitorDetailId ho?c QrPayload.");
+                return BadRequest("Phải có VisitorDetailId hoặc QrPayload.");
 
             VisitorDetail? visitor = null;
 
@@ -203,11 +203,11 @@ namespace API.Controllers
             }
 
             if (visitor == null)
-                return NotFound("Kh�ng t�m th?y kh�ch d� du?c x�c nh?n trong b?ng Visitor_Details.");
+                return NotFound("Không tìm thấy khách đã được xác nhận trong bảng Visitor_Details.");
 
             var normalizedPlate = NormalizeLicensePlate(request.LicensePlate);
             if (string.IsNullOrWhiteSpace(normalizedPlate))
-                return BadRequest("Bi?n s? kh�ng h?p l?.");
+                return BadRequest("Biển số không hợp lệ.");
 
             var vehicle = await _context.Vehicles
     .FirstOrDefaultAsync(v =>
@@ -243,13 +243,13 @@ namespace API.Controllers
                     EmployeeId = null,
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
-                    Note = "Th�m m?i phuong ti?n cho kh�ch v?i tr?ng th�i IN."
+                    Note = "Thêm mới phương tiện cho khách với trạng thái IN."
                 });
 
                 await _context.SaveChangesAsync();
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
-                    "Phuong ti?n c?a kh�ch d� du?c th�m m?i v?i tr?ng th�i IN.",
+                    "Phương tiện của khách đã được thêm mới với trạng thái IN.",
                     new
                     {
                         newVehicle.VehicleId,
@@ -278,13 +278,13 @@ namespace API.Controllers
                     EmployeeId = null,
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
-                    Note = $"�?i tr?ng th�i xe c?a kh�ch t? {oldStatus} sang {newStatus}."
+                    Note = $"Đổi trạng thái xe của khách từ {oldStatus} sang {newStatus}."
                 });
 
                 await _context.SaveChangesAsync();
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
-                    $"C?p nh?t tr?ng th�i xe c?a kh�ch th�nh c�ng: {oldStatus} -> {newStatus}."));
+                    $"Cập nhật trạng thái xe của khách thành công: {oldStatus} -> {newStatus}."));
             }
         }
 
@@ -296,7 +296,7 @@ namespace API.Controllers
 
             if (!employeeExists)
             {
-                return NotFound(GateTransitApiResponse.CreateError($"Kh�ng t�m th?y nh�n vi�n c� id = {employeeId}."));
+                return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {employeeId}."));
             }
 
             var vehicles = await _context.Vehicles
@@ -312,7 +312,7 @@ namespace API.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(GateTransitApiResponse.CreateSuccess("L?y danh s�ch xe th�nh c�ng.", vehicles));
+            return Ok(GateTransitApiResponse.CreateSuccess("Lấy danh sách xe thành công.", vehicles));
         }
 
         [HttpGet("vehicle-by-plate/{licensePlate}")]
@@ -322,7 +322,7 @@ namespace API.Controllers
 
             if (string.IsNullOrWhiteSpace(normalizedPlate))
             {
-                return BadRequest(GateTransitApiResponse.CreateError("Bi?n s? kh�ng h?p l?."));
+                return BadRequest(GateTransitApiResponse.CreateError("Biển số không hợp lệ."));
             }
 
             var vehicles = await _context.Vehicles
@@ -344,10 +344,10 @@ namespace API.Controllers
 
             if (!result.Any())
             {
-                return NotFound(GateTransitApiResponse.CreateError("Kh�ng t�m th?y bi?n s? n�y."));
+                return NotFound(GateTransitApiResponse.CreateError("Không tìm thấy biển số này."));
             }
 
-            return Ok(GateTransitApiResponse.CreateSuccess("L?y th�ng tin xe th�nh c�ng.", result));
+            return Ok(GateTransitApiResponse.CreateSuccess("Lấy thông tin xe thành công.", result));
         }
 
         [HttpGet("logs-by-plate/{licensePlate}")]
@@ -357,7 +357,7 @@ namespace API.Controllers
 
             if (string.IsNullOrWhiteSpace(normalizedPlate))
             {
-                return BadRequest(GateTransitApiResponse.CreateError("Bi?n s? kh�ng h?p l?."));
+                return BadRequest(GateTransitApiResponse.CreateError("Biển số không hợp lệ."));
             }
 
             var logs = await _context.AccessLogs
@@ -382,7 +382,7 @@ namespace API.Controllers
                 })
                 .ToList();
 
-            return Ok(GateTransitApiResponse.CreateSuccess("L?y l?ch s? theo bi?n s? th�nh c�ng.", result));
+            return Ok(GateTransitApiResponse.CreateSuccess("Lấy lịch sử theo biển số thành công.", result));
         }
 
         [HttpGet("logs-by-employee/{employeeId:int}")]
@@ -393,7 +393,7 @@ namespace API.Controllers
 
             if (!employeeExists)
             {
-                return NotFound(GateTransitApiResponse.CreateError($"Kh�ng t�m th?y nh�n vi�n c� id = {employeeId}."));
+                return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {employeeId}."));
             }
 
             var result = await _context.AccessLogs
@@ -414,7 +414,7 @@ namespace API.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(GateTransitApiResponse.CreateSuccess("L?y l?ch s? theo nh�n vi�n th�nh c�ng.", result));
+            return Ok(GateTransitApiResponse.CreateSuccess("Lấy lịch sử theo nhân viên thành công.", result));
         }
 
         private static string NormalizeLicensePlate(string? plate)

@@ -9,19 +9,8 @@ const api = axios.create({
     timeout: 15000,
 })
 
-async function postWithFallback(primaryPath, legacyPath, payload) {
-    try {
-        return await api.post(primaryPath, payload)
-    } catch (error) {
-        if (error?.response?.status === 404) {
-            return api.post(legacyPath, payload)
-        }
-        throw error
-    }
-}
-
 export async function generateDynamicQr(employeeId) {
-    const response = await postWithFallback('/dynamic-qr/generate', '/QR_Dong/generate', {
+    const response = await api.post('/dynamic-qr/generate', {
         employeeId: Number(employeeId),
     })
     return response.data

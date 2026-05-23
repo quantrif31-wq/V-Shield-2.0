@@ -97,12 +97,12 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
         {
-            return BadRequest(new { message = "TÃªn camera lÃ  báº¯t buá»™c" });
+            return BadRequest(new { message = "Tên camera là bắt buộc" });
         }
 
         if (request.GateId.HasValue && !await _context.Gates.AnyAsync(gate => gate.GateId == request.GateId.Value))
         {
-            return BadRequest(new { message = "Cá»•ng Ä‘Æ°á»£c chá»n khÃ´ng tá»“n táº¡i" });
+            return BadRequest(new { message = "Cổng được chọn không tồn tại" });
         }
 
         var camera = new Camera
@@ -136,18 +136,18 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
         {
-            return BadRequest(new { message = "TÃªn camera lÃ  báº¯t buá»™c" });
+            return BadRequest(new { message = "Tên camera là bắt buộc" });
         }
 
         if (request.GateId.HasValue && !await _context.Gates.AnyAsync(gate => gate.GateId == request.GateId.Value))
         {
-            return BadRequest(new { message = "Cá»•ng Ä‘Æ°á»£c chá»n khÃ´ng tá»“n táº¡i" });
+            return BadRequest(new { message = "Cổng được chọn không tồn tại" });
         }
 
         var camera = await _context.Cameras.FindAsync(id);
         if (camera == null)
         {
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y camera #{id}" });
+            return NotFound(new { message = $"Không tìm thấy camera #{id}" });
         }
 
         camera.CameraName = request.CameraName.Trim();
@@ -180,14 +180,14 @@ public class DeviceManagementController : ControllerBase
 
         if (camera == null)
         {
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y camera #{id}" });
+            return NotFound(new { message = $"Không tìm thấy camera #{id}" });
         }
 
         if (camera.AccessLogs.Any())
         {
             return BadRequest(new
             {
-                message = $"KhÃ´ng thá»ƒ xÃ³a camera Ä‘ang cÃ³ {camera.AccessLogs.Count} báº£n ghi truy cáº­p liÃªn quan"
+                message = $"Không thể xóa camera đang có {camera.AccessLogs.Count} bản ghi truy cập liên quan"
             });
         }
 
@@ -236,7 +236,7 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
         {
-            return BadRequest(new { message = "TÃªn cá»•ng lÃ  báº¯t buá»™c" });
+            return BadRequest(new { message = "Tên cổng là bắt buộc" });
         }
 
         var gate = new Gate
@@ -262,13 +262,13 @@ public class DeviceManagementController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
         {
-            return BadRequest(new { message = "TÃªn cá»•ng lÃ  báº¯t buá»™c" });
+            return BadRequest(new { message = "Tên cổng là bắt buộc" });
         }
 
         var gate = await _context.Gates.FindAsync(id);
         if (gate == null)
         {
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y cá»•ng #{id}" });
+            return NotFound(new { message = $"Không tìm thấy cổng #{id}" });
         }
 
         gate.GateName = request.GateName.Trim();
@@ -295,14 +295,14 @@ public class DeviceManagementController : ControllerBase
 
         if (gate == null)
         {
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y cá»•ng #{id}" });
+            return NotFound(new { message = $"Không tìm thấy cổng #{id}" });
         }
 
         if (gate.Cameras.Any() || gate.AccessLogs.Any())
         {
             return BadRequest(new
             {
-                message = "KhÃ´ng thá»ƒ xÃ³a cá»•ng Ä‘ang Ä‘Æ°á»£c dÃ¹ng bá»Ÿi camera hoáº·c báº£n ghi ra vÃ o"
+                message = "Không thể xóa cổng đang được dùng bởi camera hoặc bản ghi ra vào"
             });
         }
 

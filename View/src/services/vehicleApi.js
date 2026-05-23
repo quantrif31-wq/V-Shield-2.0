@@ -5,7 +5,7 @@ const vehicleApiClient = axios.create({
     baseURL: `${API_BASE_URL}/Vehicles`
 })
 
-// Tá»± Ä‘á»™ng gáº¯n JWT token
+// Tự động gắn JWT token
 vehicleApiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem('v_shield_token')
     if (token) {
@@ -26,27 +26,26 @@ vehicleApiClient.interceptors.response.use(
     }
 )
 
-/** Láº¥y danh sÃ¡ch táº¥t cáº£ phÆ°Æ¡ng tiá»‡n */
+/** Lấy danh sách tất cả phương tiện */
 export const getAll = () => vehicleApiClient.get('/')
 
-/** Láº¥y danh má»¥c loáº¡i xe */
+/** Lấy danh mục loại xe */
 export const getTypes = () => vehicleApiClient.get('/types')
 
-/** Láº¥y phÆ°Æ¡ng tiá»‡n theo ID */
+/** Lấy phương tiện theo ID */
 export const getById = (id) => vehicleApiClient.get(`/${id}`)
 
-/** Tra cá»©u phÆ°Æ¡ng tiá»‡n theo biá»ƒn sá»‘ */
+/** Tra cứu phương tiện theo biển số */
 export const getByLicensePlate = (plate) => vehicleApiClient.get(`/license-plate/${plate}`)
 
-/** Láº¥y danh sÃ¡ch phÆ°Æ¡ng tiá»‡n cá»§a má»™t nhÃ¢n viÃªn */
+/** Lấy danh sách phương tiện của một nhân viên */
 export const getByEmployeeId = (employeeId) => vehicleApiClient.get(`/employee/${employeeId}`)
 
-/** ÄÄƒng kÃ½ phÆ°Æ¡ng tiá»‡n má»›i */
+/** Đăng ký phương tiện mới */
 export const create = (data) => vehicleApiClient.post('/', data)
 
-/** Cáº­p nháº­t thÃ´ng tin phÆ°Æ¡ng tiá»‡n */
+/** Cập nhật thông tin phương tiện */
 export const update = (id, data) => vehicleApiClient.put(`/${id}`, data)
 
-/** XÃ³a Ä‘Äƒng kÃ½ phÆ°Æ¡ng tiá»‡n */
+/** Xóa đăng ký phương tiện */
 export const deleteVehicle = (id) => vehicleApiClient.delete(`/${id}`)
-

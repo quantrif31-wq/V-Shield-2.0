@@ -5,7 +5,7 @@ const userApiClient = axios.create({
     baseURL: `${API_BASE_URL}/Users`
 })
 
-// Tá»± Ä‘á»™ng gáº¯n JWT token
+// Tự động gắn JWT token
 userApiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem('v_shield_token')
     if (token) {
@@ -26,28 +26,27 @@ userApiClient.interceptors.response.use(
     }
 )
 
-/** Láº¥y danh sÃ¡ch táº¥t cáº£ tÃ i khoáº£n (Admin) */
+/** Lấy danh sách tất cả tài khoản (Admin) */
 export const getAll = () => userApiClient.get('/')
 
-/** Láº¥y chi tiáº¿t tÃ i khoáº£n theo ID (Admin) */
+/** Lấy chi tiết tài khoản theo ID (Admin) */
 export const getById = (id) => userApiClient.get(`/${id}`)
 
 /**
- * Táº¡o tÃ i khoáº£n má»›i (Admin)
+ * Tạo tài khoản mới (Admin)
  * @param {{username, password, fullName, role}} data
  */
 export const create = (data) => userApiClient.post('/', data)
 
 /**
- * Cáº­p nháº­t tÃ i khoáº£n (Admin)
+ * Cập nhật tài khoản (Admin)
  * @param {number} id
  * @param {{fullName?, role?, isActive?, password?}} data
  */
 export const update = (id, data) => userApiClient.put(`/${id}`, data)
 
 /**
- * XÃ³a tÃ i khoáº£n (Admin)
+ * Xóa tài khoản (Admin)
  * @param {number} id
  */
 export const deleteUser = (id) => userApiClient.delete(`/${id}`)
-

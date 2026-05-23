@@ -193,7 +193,7 @@ public class AccessLogsController : ControllerBase
             {
                 reasonId = group.Key.ExceptionReasonId,
                 reasonCode = group.Key.ExceptionReasonCode ?? "UNCLASSIFIED",
-                reasonDescription = group.Key.ExceptionReasonDescription ?? "ChÆ°a khai bÃ¡o lÃ½ do",
+                reasonDescription = group.Key.ExceptionReasonDescription ?? "Chưa khai báo lý do",
                 count = group.Count()
             })
             .OrderByDescending(item => item.count)
@@ -217,7 +217,7 @@ public class AccessLogsController : ControllerBase
 
         if (item == null)
         {
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y báº£n ghi log #{id}" });
+            return NotFound(new { message = $"Không tìm thấy bản ghi log #{id}" });
         }
 
         return Ok(MapAccessLogItem(item));
@@ -243,7 +243,7 @@ public class AccessLogsController : ControllerBase
         ? log.VisitorDetail.FullName
         : log.Registration != null && log.Registration.Guest != null
             ? log.Registration.Guest.FullName
-            : "ChÆ°a xÃ¡c Ä‘á»‹nh",
+            : "Chưa xác định",
 
                 ActorType = log.EmployeeId != null
     ? "Employee"

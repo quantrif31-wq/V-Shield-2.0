@@ -17,3 +17,10 @@ Status: COMPLETED (Stage 1 + Stage 2 + Stage 3)
 ## Notes
 - Canonical naming is now English-first across active routing and service surfaces.
 - Old bookmarked legacy frontend URLs are intentionally no longer supported after Stage 3.
+
+## Reconciliation Update (2026-05-23)
+- Documentation status above remains valid for completed Stage 1/2/3 targets.
+- Active code review after latest sync identified residual legacy endpoint alias/fallback surfaces outside the original stage scope:
+  - Frontend fallback calls to legacy endpoints in canonical service files.
+  - Backend alias route attributes still present in selected controllers (`api/SetCam`, `api/QR_Dong`, `api/FaceID`).
+- Follow-up execution is tracked by `RENAME_EXECUTION_PLAN_v2_2026-05-23.md` (Batch V -> Z).

@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.Models;
 using API.Models.DTOs;
 using API.Services;
@@ -11,7 +11,6 @@ using System.Text;
 namespace API.Controllers
 {
     [Route("api/dynamic-qr")]
-    [Route("api/QR_Dong")]
     [ApiController]
     public class DynamicQrController : ControllerBase
     {
@@ -30,10 +29,10 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// T?o QR d?ng hi?n t?i cho nhân viên.
-        /// Luu ý b?o m?t:
-        /// - Ch? tr? qrPayload cho FE d? render QR
-        /// - KHÔNG tr? OTP raw ra ngoài ngoài payload QR
+        /// Tạo QR động hiện tại cho nhân viên.
+        /// Lưu ý bảo mật:
+        /// - Chỉ trả qrPayload cho FE để render QR
+        /// - KHÔNG trả OTP raw ra ngoài payload QR
         /// </summary>
         [HttpPost("generate")]
         public async Task<IActionResult> GenerateDynamicQr([FromBody] GenerateDynamicQrRequest request)
@@ -43,7 +42,7 @@ namespace API.Controllers
                 return BadRequest(new
                 {
                     success = false,
-                    message = "EmployeeId không h?p l?."
+                    message = "EmployeeId không hợp lệ."
                 });
             }
 
@@ -55,7 +54,7 @@ namespace API.Controllers
                 return NotFound(new
                 {
                     success = false,
-                    message = "Không tìm th?y nhân viên ho?c nhân viên dang không ho?t d?ng."
+                    message = "Không tìm thấy nhân viên hoặc nhân viên đang không hoạt động."
                 });
             }
 
@@ -83,7 +82,7 @@ namespace API.Controllers
                 return BadRequest(new
                 {
                     success = false,
-                    message = "QR d?ng c?a nhân viên này dang b? vô hi?u hóa."
+                    message = "QR động của nhân viên này đang bị vô hiệu hóa."
                 });
             }
 
@@ -92,13 +91,13 @@ namespace API.Controllers
             var otp = GenerateTotp(dynamicQr.SecretKey, counter, dynamicQr.Digits);
             var expiresAtUtc = GetCounterExpiryUtc(utcNow, dynamicQr.TimeStepSeconds);
 
-            // Payload FE dùng d? render thành QR image
+            // Payload FE dùng để render thành QR image
             var qrPayload = $"EMP:{employee.EmployeeId}|TS:{counter}|OTP:{otp}";
 
             return Ok(new
             {
                 success = true,
-                message = "T?o QR d?ng thành công.",
+                message = "Tạo QR động thành công.",
                 data = new
                 {
                     employeeId = employee.EmployeeId,
@@ -113,13 +112,13 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Verify QR d?ng:
+        /// Verify QR động:
         /// 1. Parse payload
-        /// 2. Tìm secret c?a nhân viên
-        /// 3. Ch? ch?p nh?n dúng counter hi?n t?i
-        /// 4. OTP ph?i kh?p tuy?t d?i
-        /// 5. KHÔNG ch?n quét l?p l?i trong cùng time-step
-        /// => Mi?n còn th?i gian hi?u l?c thì du?c dùng nhi?u l?n
+        /// 2. Tìm secret của nhân viên
+        /// 3. Chỉ chấp nhận đúng counter hiện tại
+        /// 4. OTP phải khớp tuyệt đối
+        /// 5. KHÔNG chặn quét lặp lại trong cùng time-step
+        /// => Miễn còn thời gian hiệu lực thì được dùng nhiều lần
         /// </summary>
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyDynamicQr([FromBody] VerifyDynamicQrRequest request)
@@ -129,7 +128,7 @@ namespace API.Controllers
                 return BadRequest(new
                 {
                     success = false,
-                    message = "QrPayload không du?c d? tr?ng."
+                    message = "QrPayload không được để trống."
                 });
             }
 
@@ -137,18 +136,18 @@ namespace API.Controllers
             var parseResult = ParseQrPayload(normalizedPayload);
             if (!parseResult.Success)
 {
-    // ?? fallback sang QR tinh
+    // fallback sang QR tĩnh
     var staticResult = await TryVerifyStaticVisitorQr(request);
 
     if (staticResult.Success)
     {
         await SaveScanLog(null, request.QrPayload, true,
-        "Xác th?c QR tinh thành công.", request.ScannerDevice);
+        "Xác thực QR tĩnh thành công.", request.ScannerDevice);
 
         return Ok(new
         {
             success = true,
-            message = "Xác th?c QR tinh thành công.",
+            message = "Xác thực QR tĩnh thành công.",
             data = staticResult.Data
         });
     }
@@ -160,7 +159,7 @@ namespace API.Controllers
     return BadRequest(new
     {
         success = false,
-        message = "QR không h?p l? (c? d?ng và tinh)."
+        message = "QR không hợp lệ (cả động và tĩnh)."
     });
 }
 
@@ -179,28 +178,28 @@ namespace API.Controllers
                 if (dynamicQr == null)
                 {
                     await SaveScanLog(employeeId, request.QrPayload, false,
-                        "Không tìm th?y c?u hình QR d?ng trong database.", request.ScannerDevice);
+                        "Không tìm thấy cấu hình QR động trong database.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
 
                     return NotFound(new
                     {
                         success = false,
-                        message = "Không tìm th?y QR d?ng c?a nhân viên trong database."
+                        message = "Không tìm thấy QR động của nhân viên trong database."
                     });
                 }
 
                 if (dynamicQr.Employee == null || dynamicQr.Employee.Status != true)
                 {
                     await SaveScanLog(employeeId, request.QrPayload, false,
-                        "Nhân viên không ho?t d?ng ho?c không t?n t?i.", request.ScannerDevice);
+                        "Nhân viên không hoạt động hoặc không tồn tại.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
 
                     return BadRequest(new
                     {
                         success = false,
-                        message = "Nhân viên không ho?t d?ng ho?c không t?n t?i."
+                        message = "Nhân viên không hoạt động hoặc không tồn tại."
                     });
                 }
 
@@ -208,73 +207,73 @@ namespace API.Controllers
                 var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
                 var counterDelta = Math.Abs(payloadCounter - currentCounter);
 
-                // Cho phep lech toi da 1 time-step de tranh loi sat bien 30s.
+                // Cho phép lệch tối đa 1 time-step để tránh lỗi sát biên 30s.
                 if (counterDelta > 1)
                 {
                     await SaveScanLog(employeeId, request.QrPayload, false,
-                        "QR dã h?t h?n ho?c chua d?n hi?u l?c.", request.ScannerDevice);
+                        "QR đã hết hạn hoặc chưa đến hiệu lực.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
 
                     return BadRequest(new
                     {
                         success = false,
-                        message = "QR dã h?t h?n ho?c chua d?n hi?u l?c."
+                        message = "QR đã hết hạn hoặc chưa đến hiệu lực."
                     });
                 }
 
-                // OTP duoc sinh theo counter nam trong payload (sau khi da check delta <= 1).
+                // OTP được sinh theo counter nằm trong payload (sau khi đã check delta <= 1).
                 var expectedOtp = GenerateTotp(dynamicQr.SecretKey, payloadCounter, dynamicQr.Digits);
 
                 if (!FixedTimeEquals(payloadOtp, expectedOtp))
                 {
                     await SaveScanLog(employeeId, request.QrPayload, false,
-                        "QR d?ng không h?p l?.", request.ScannerDevice);
+                        "QR động không hợp lệ.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
 
-                    // ?? fallback QR tinh
+                    // fallback QR tĩnh
                     var staticResult = await TryVerifyStaticVisitorQr(request);
 
                     if (staticResult.Success)
                     {
                         await SaveScanLog(employeeId, request.QrPayload, true,
-                            "Fallback sang QR tinh thành công.", request.ScannerDevice);
+                            "Fallback sang QR tĩnh thành công.", request.ScannerDevice);
 
                         await transaction.CommitAsync();
 
                         return Ok(new
                         {
                             success = true,
-                            message = "Xác th?c QR tinh thành công.",
+                            message = "Xác thực QR tĩnh thành công.",
                             data = staticResult.Data
                         });
                     }
                 }
 
-                // ÐÃ B? CO CH?:
+                // ĐÃ BỎ CƠ CHẾ:
                 // if (dynamicQr.LastUsedCounter.HasValue && dynamicQr.LastUsedCounter.Value == currentCounter)
                 // {
-                //     return Conflict(... "QR này dã du?c s? d?ng tru?c dó.")
+                //     return Conflict(... "QR này đã được sử dụng trước đó.")
                 // }
 
-                // Có th? v?n c?p nh?t th?i gian verify g?n nh?t d? audit
+                // Có thể vẫn cập nhật thời gian verify gần nhất để audit
                 dynamicQr.UpdatedAt = utcNow;
 
-                // N?u b?n mu?n luu th?ng kê l?n quét g?n nh?t thì m? l?i dòng du?i:
+                // Nếu bạn muốn lưu thống kê lần quét gần nhất thì mở lại dòng dưới:
                 // dynamicQr.LastUsedCounter = currentCounter;
 
                 await _context.SaveChangesAsync();
 
                 await SaveScanLog(employeeId, request.QrPayload, true,
-                    "Xác th?c QR d?ng thành công.", request.ScannerDevice);
+                    "Xác thực QR động thành công.", request.ScannerDevice);
 
                 await transaction.CommitAsync();
 
                 return Ok(new
                 {
                     success = true,
-                    message = "Xác th?c QR d?ng thành công.",
+                    message = "Xác thực QR động thành công.",
                     data = new
                     {
                         employeeId = dynamicQr.EmployeeId,
@@ -289,15 +288,15 @@ namespace API.Controllers
             {
                 await transaction.RollbackAsync();
 
-                _logger.LogError(ex, "L?i khi verify QR d?ng.");
+                _logger.LogError(ex, "Lỗi khi verify QR động.");
 
                 await SaveScanLog(employeeId, request.QrPayload, false,
-                    "L?i h? th?ng khi xác th?c QR.", request.ScannerDevice);
+                    "Lỗi hệ thống khi xác thực QR.", request.ScannerDevice);
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     success = false,
-                    message = "L?i h? th?ng khi xác th?c QR."
+                    message = "Lỗi hệ thống khi xác thực QR."
                 });
             }
         }
@@ -325,7 +324,7 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "L?i khi luu DynamicQrScanLog");
+                _logger.LogError(ex, "Lỗi khi lưu DynamicQrScanLog");
             }
         }
 
@@ -378,39 +377,39 @@ namespace API.Controllers
             {
                 var parts = payload.Split('|', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length != 3)
-                    return (false, null, null, null, "Payload QR không dúng d?nh d?ng.");
+                    return (false, null, null, null, "Payload QR không đúng định dạng.");
 
                 var empPart = parts[0].Split(':');
                 var tsPart = parts[1].Split(':');
                 var otpPart = parts[2].Split(':');
 
                 if (empPart.Length != 2 || tsPart.Length != 2 || otpPart.Length != 2)
-                    return (false, null, null, null, "Payload QR không dúng d?nh d?ng.");
+                    return (false, null, null, null, "Payload QR không đúng định dạng.");
 
                 if (!empPart[0].Equals("EMP", StringComparison.OrdinalIgnoreCase))
-                    return (false, null, null, null, "Thi?u EMP trong payload.");
+                    return (false, null, null, null, "Thiếu EMP trong payload.");
 
                 if (!tsPart[0].Equals("TS", StringComparison.OrdinalIgnoreCase))
-                    return (false, null, null, null, "Thi?u TS trong payload.");
+                    return (false, null, null, null, "Thiếu TS trong payload.");
 
                 if (!otpPart[0].Equals("OTP", StringComparison.OrdinalIgnoreCase))
-                    return (false, null, null, null, "Thi?u OTP trong payload.");
+                    return (false, null, null, null, "Thiếu OTP trong payload.");
 
                 if (!int.TryParse(empPart[1], out var employeeId))
-                    return (false, null, null, null, "EmployeeId không h?p l?.");
+                    return (false, null, null, null, "EmployeeId không hợp lệ.");
 
                 if (!long.TryParse(tsPart[1], out var counter))
-                    return (false, null, null, null, "Counter không h?p l?.");
+                    return (false, null, null, null, "Counter không hợp lệ.");
 
                 var otp = otpPart[1]?.Trim();
                 if (string.IsNullOrWhiteSpace(otp))
-                    return (false, null, null, null, "OTP không h?p l?.");
+                    return (false, null, null, null, "OTP không hợp lệ.");
 
                 return (true, employeeId, counter, otp, "OK");
             }
             catch
             {
-                return (false, null, null, null, "Không th? phân tích payload QR.");
+                return (false, null, null, null, "Không thể phân tích payload QR.");
             }
         }
 
@@ -478,7 +477,7 @@ namespace API.Controllers
             {
                 int val = alphabet.IndexOf(c);
                 if (val < 0)
-                    throw new FormatException("SecretKey Base32 không h?p l?.");
+                    throw new FormatException("SecretKey Base32 không hợp lệ.");
 
                 bitBuffer <<= 5;
                 bitBuffer |= val & 0x1F;
@@ -510,15 +509,15 @@ namespace API.Controllers
         v.RegistrationId == payload.RegistrationId);
 
                 if (visitor == null)
-                    return (false, "Không tìm th?y visitor", null);
+                    return (false, "Không tìm thấy visitor", null);
 
                 if (!visitor.IsQrActive)
-                    return (false, "QR dã b? khóa", null);
+                    return (false, "QR đã bị khóa", null);
 
                 var expectedOtp = _visitorQrService.GenerateOtp(visitor.QrSecret);
 
                 if (payload.Otp != expectedOtp)
-                    return (false, "OTP không dúng", null);
+                    return (false, "OTP không đúng", null);
 
                 return (true, "OK", new
                 {
@@ -530,8 +529,8 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "L?i verify QR tinh");
-                return (false, "L?i h? th?ng QR tinh", null);
+                _logger.LogError(ex, "Lỗi verify QR tĩnh");
+                return (false, "Lỗi hệ thống QR tĩnh", null);
             }
         }
     }

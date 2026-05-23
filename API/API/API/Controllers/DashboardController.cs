@@ -129,8 +129,8 @@ public class DashboardController : ControllerBase
             activity.Direction,
             actorName = activity.EmployeeName
     ?? activity.VisitorName
-    ?? "ChÆ°a xÃ¡c Ä‘á»‹nh",
-            gateName = activity.GateName ?? "ChÆ°a gÃ¡n cá»•ng",
+    ?? "Chưa xác định",
+            gateName = activity.GateName ?? "Chưa gắn cổng",
             cameraName = activity.CameraName,
             activity.CapturedLicensePlate,
             activity.ResultStatus,

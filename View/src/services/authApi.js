@@ -5,7 +5,7 @@ const authApiClient = axios.create({
     baseURL: `${API_BASE_URL}/Auth`
 })
 
-// Tá»± Ä‘á»™ng gáº¯n JWT token vÃ o má»—i request
+// Tự động gắn JWT token vào mỗi request
 authApiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem('v_shield_token')
     if (token) {
@@ -14,7 +14,7 @@ authApiClient.interceptors.request.use((config) => {
     return config
 })
 
-// Tá»± Ä‘á»™ng xá»­ lÃ½ 401 â†’ redirect login
+// Tự động xử lý 401 -> redirect login
 authApiClient.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -31,7 +31,7 @@ authApiClient.interceptors.response.use(
 )
 
 /**
- * ÄÄƒng nháº­p
+ * Đăng nhập
  * @param {string} username
  * @param {string} password
  * @returns {Promise<{token, username, fullName, role, expiresAt}>}
@@ -41,7 +41,7 @@ export const login = (username, password) => {
 }
 
 /**
- * Láº¥y thÃ´ng tin user Ä‘ang Ä‘Äƒng nháº­p
+ * Lấy thông tin user đang đăng nhập
  * @returns {Promise<{userId, username, fullName, role, isActive, createdAt}>}
  */
 export const getMe = () => {

@@ -111,14 +111,14 @@ const router = createRouter({
 
 // Navigation Guard
 router.beforeEach((to, from, next) => {
-    // Náº¿u route yÃªu cáº§u Ä‘Äƒng nháº­p
+    // Nếu route yêu cầu đăng nhập
     if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAuth)) {
         if (!isLoggedIn()) {
             return next({ name: 'Login', query: { redirect: to.fullPath } })
         }
     }
 
-    // Náº¿u route yÃªu cáº§u Admin
+    // Nếu route yêu cầu Admin
     if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAdmin)) {
         if (!hasRole('Admin')) {
             const currentRole = authState.user?.role
@@ -127,7 +127,7 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    // Kiá»ƒm tra allowedRoles
+    // Kiểm tra allowedRoles
     const allowedRoles = to.matched.find(matchedRoute => matchedRoute.meta.allowedRoles)?.meta.allowedRoles
     if (allowedRoles) {
         const currentRole = authState.user?.role
@@ -137,8 +137,8 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    // Náº¿u Ä‘Ã£ Ä‘Äƒng nháº­p mÃ  vÃ o trang login â†’ redirect
-    // NhÆ°ng cho phÃ©p truy cáº­p trang Ä‘Äƒng kÃ½ khÃ¡ch (GuestRegister) dÃ¹ Ä‘Ã£ Ä‘Äƒng nháº­p
+    // Nếu đã đăng nhập mà vào trang login thì redirect
+    // Nhưng cho phép truy cập trang đăng ký khách (GuestRegister) dù đã đăng nhập
     if (to.meta.guest && isLoggedIn() && to.name !== 'GuestRegister') {
         const currentRole = authState.user?.role
         if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })

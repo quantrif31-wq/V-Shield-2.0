@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace API.Controllers;
 
 [Route("api/face-recognition")]
-[Route("api/FaceID")]
 [ApiController]
 public class FaceRecognitionController : ControllerBase
 {

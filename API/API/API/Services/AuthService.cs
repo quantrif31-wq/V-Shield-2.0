@@ -31,11 +31,11 @@ public class AuthenticationService : IAuthenticationService
         if (user == null)
             return null;
 
-        // XÃ¡c minh password báº±ng BCrypt
+        // Xác minh password bằng BCrypt
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             return null;
 
-        // Táº¡o JWT token
+        // Tạo JWT token
         var jwtSettings = _config.GetSection("JwtSettings");
         var secret = jwtSettings["Secret"]!;
         var issuer = jwtSettings["Issuer"]!;

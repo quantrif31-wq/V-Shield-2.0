@@ -31,6 +31,13 @@ Kept canonical English routes as the only active surface for those modules.
 - Remaining `[Route("api/[controller]")]` in other controllers are still their primary active routes (not dual legacy aliases in this hard-cut scope).
 - Nullable warnings in backend remain pre-existing and non-blocking.
 
+## Reconciliation note (2026-05-23)
+- Post-sync source audit found residual alias routes still active in:
+  - `CameraRuntimeController` (`api/SetCam`)
+  - `DynamicQrController` (`api/QR_Dong`)
+  - `FaceRecognitionController` (`api/FaceID`)
+- These are now tracked as pending removal in Batch X under `RENAME_EXECUTION_PLAN_v2_2026-05-23.md`.
+
 ## Risk
 - Runtime risk: Low for migrated frontend (already targets canonical English routes).
 - External clients still calling removed legacy backend aliases may need endpoint update.

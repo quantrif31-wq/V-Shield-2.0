@@ -23,7 +23,7 @@ public class VehiclesController : ControllerBase
     }
 
     // GET: api/vehicles
-    // Láº¥y danh sÃ¡ch táº¥t cáº£ phÆ°Æ¡ng tiá»‡n
+    // Lấy danh sách tất cả phương tiện
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -32,31 +32,31 @@ public class VehiclesController : ControllerBase
     }
 
     // GET: api/vehicles/5
-    // Láº¥y phÆ°Æ¡ng tiá»‡n theo ID
+    // Lấy phương tiện theo ID
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
         var vehicle = await _vehicleService.GetByIdAsync(id);
         if (vehicle == null)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y phÆ°Æ¡ng tiá»‡n vá»›i ID = {id}." });
+            return NotFound(new { message = $"Không tìm thấy phương tiện với ID = {id}." });
 
         return Ok(vehicle);
     }
 
     // GET: api/vehicles/license-plate/51A-12345
-    // Tra cá»©u phÆ°Æ¡ng tiá»‡n theo biá»ƒn sá»‘
+    // Tra cứu phương tiện theo biển số
     [HttpGet("license-plate/{plate}")]
     public async Task<IActionResult> GetByLicensePlate(string plate)
     {
         var vehicle = await _vehicleService.GetByLicensePlateAsync(plate.ToUpper());
         if (vehicle == null)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y phÆ°Æ¡ng tiá»‡n vá»›i biá»ƒn sá»‘ '{plate}'." });
+            return NotFound(new { message = $"Không tìm thấy phương tiện với biển số '{plate}'." });
 
         return Ok(vehicle);
     }
 
     // GET: api/vehicles/employee/10
-    // Láº¥y danh sÃ¡ch phÆ°Æ¡ng tiá»‡n cá»§a má»™t nhÃ¢n viÃªn
+    // Lấy danh sách phương tiện của một nhân viên
     [HttpGet("employee/{employeeId:int}")]
     public async Task<IActionResult> GetByEmployeeId(int employeeId)
     {
@@ -65,7 +65,7 @@ public class VehiclesController : ControllerBase
     }
 
     // POST: api/vehicles
-    // ÄÄƒng kÃ½ phÆ°Æ¡ng tiá»‡n má»›i
+    // Đăng ký phương tiện mới
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateVehicleDto dto)
     {
@@ -88,7 +88,7 @@ public class VehiclesController : ControllerBase
     }
 
     // PUT: api/vehicles/5
-    // Cáº­p nháº­t thÃ´ng tin phÆ°Æ¡ng tiá»‡n
+    // Cập nhật thông tin phương tiện
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateVehicleDto dto)
     {
@@ -99,7 +99,7 @@ public class VehiclesController : ControllerBase
         {
             var updated = await _vehicleService.UpdateAsync(id, dto);
             if (updated == null)
-                return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y phÆ°Æ¡ng tiá»‡n vá»›i ID = {id}." });
+                return NotFound(new { message = $"Không tìm thấy phương tiện với ID = {id}." });
 
             return Ok(updated);
         }
@@ -114,13 +114,13 @@ public class VehiclesController : ControllerBase
     }
 
     // DELETE: api/vehicles/5
-    // XÃ³a Ä‘Äƒng kÃ½ phÆ°Æ¡ng tiá»‡n
+    // Xóa đăng ký phương tiện
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _vehicleService.DeleteAsync(id);
         if (!deleted)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y phÆ°Æ¡ng tiá»‡n vá»›i ID = {id}." });
+            return NotFound(new { message = $"Không tìm thấy phương tiện với ID = {id}." });
 
         return NoContent();
     }

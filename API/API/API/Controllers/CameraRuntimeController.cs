@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using API.Data;
 using API.Models;
@@ -9,7 +9,6 @@ using System.Text;
 namespace API.Controllers
 {
     [Route("api/camera-runtime")]
-    [Route("api/SetCam")]
     [ApiController]
     public class CameraRuntimeController : ControllerBase
     {
@@ -159,7 +158,7 @@ namespace API.Controllers
             return Ok();
         }
 
-        // ================= 🔥 RELOAD GO2RTC =================
+        // ================= RELOAD GO2RTC =================
         [HttpPost("reload-go2rtc")]
         public async Task<IActionResult> ReloadGo2Rtc()
         {
@@ -187,7 +186,7 @@ namespace API.Controllers
                         continue;
                     }
 
-                    // 👉 dùng CameraId để không bị lệch cam
+                    // Dùng CameraId để không bị lệch cam
                     var streamName = $"cam{cam.CameraId}";
 
                     yaml.AppendLine($"  {streamName}:");
@@ -232,7 +231,7 @@ namespace API.Controllers
                     UseShellExecute = true
                 });
 
-                // ===== 🔥 AUTO CLOUDLFARE =====
+                // ===== AUTO CLOUDFLARE =====
                 EnsureCloudflaredTunnelConfig();
                 StartCloudflaredTunnel();
 
@@ -244,7 +243,7 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("🔥 ERROR: " + ex.ToString());
+                Console.WriteLine("ERROR: " + ex.ToString());
 
                 return StatusCode(500, new
                 {
@@ -489,7 +488,7 @@ namespace API.Controllers
 
         private string ResolveGo2RtcPublicBaseUrl()
         {
-            // ưu tiên config
+            // Ưu tiên config
             var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
             if (!string.IsNullOrWhiteSpace(configured))
             {
@@ -549,7 +548,7 @@ namespace API.Controllers
             if (!Directory.Exists(cloudflareDir))
                 Directory.CreateDirectory(cloudflareDir);
 
-            // 👉 tìm file json tunnel
+            // Tìm file json tunnel
             var jsonFile = Directory.GetFiles(cloudflareDir, "*.json")
                                     .FirstOrDefault();
 

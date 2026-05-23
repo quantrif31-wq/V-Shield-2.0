@@ -20,7 +20,7 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
-    /// <summary>ÄÄƒng nháº­p vÃ  nháº­n JWT token</summary>
+    /// <summary>Đăng nhập và nhận JWT token</summary>
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -31,12 +31,12 @@ public class AuthController : ControllerBase
         var result = await _authService.LoginAsync(request);
 
         if (result == null)
-            return Unauthorized(new { message = "TÃªn Ä‘Äƒng nháº­p hoáº·c máº­t kháº©u khÃ´ng Ä‘Ãºng" });
+            return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng" });
 
         return Ok(result);
     }
 
-    /// <summary>Láº¥y thÃ´ng tin ngÆ°á»i dÃ¹ng hiá»‡n Ä‘ang Ä‘Äƒng nháº­p</summary>
+    /// <summary>Lấy thông tin người dùng hiện đang đăng nhập</summary>
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> GetMe()

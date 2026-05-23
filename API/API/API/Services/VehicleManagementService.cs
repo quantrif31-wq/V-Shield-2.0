@@ -43,7 +43,7 @@ public class VehicleManagementService : IVehicleManagementService
     }
 
 
-    // Láº¥y táº¥t cáº£ phÆ°Æ¡ng tiá»‡n
+    // Lấy tất cả phương tiện
     public async Task<IEnumerable<VehicleDto>> GetAllAsync()
     {
         return await _context.Vehicles
@@ -53,7 +53,7 @@ public class VehicleManagementService : IVehicleManagementService
             .ToListAsync();
     }
 
-    // Láº¥y phÆ°Æ¡ng tiá»‡n theo ID
+    // Lấy phương tiện theo ID
     public async Task<VehicleDto?> GetByIdAsync(int vehicleId)
     {
         var vehicle = await _context.Vehicles
@@ -64,7 +64,7 @@ public class VehicleManagementService : IVehicleManagementService
         return vehicle == null ? null : MapToDto(vehicle);
     }
 
-    // Láº¥y phÆ°Æ¡ng tiá»‡n theo mÃ£ nhÃ¢n viÃªn
+    // Lấy phương tiện theo mã nhân viên
     public async Task<IEnumerable<VehicleDto>> GetByEmployeeIdAsync(int employeeId)
     {
         return await _context.Vehicles
@@ -75,7 +75,7 @@ public class VehicleManagementService : IVehicleManagementService
             .ToListAsync();
     }
 
-    // Láº¥y phÆ°Æ¡ng tiá»‡n theo biá»ƒn sá»‘
+    // Lấy phương tiện theo biển số
     public async Task<VehicleDto?> GetByLicensePlateAsync(string licensePlate)
     {
         var vehicle = await _context.Vehicles
@@ -86,30 +86,30 @@ public class VehicleManagementService : IVehicleManagementService
         return vehicle == null ? null : MapToDto(vehicle);
     }
 
-    // Táº¡o má»›i phÆ°Æ¡ng tiá»‡n
+    // Tạo mới phương tiện
     public async Task<VehicleDto> CreateAsync(CreateVehicleDto dto)
     {
         await EnsureDefaultVehicleTypesAsync();
 
-        // Kiá»ƒm tra biá»ƒn sá»‘ Ä‘Ã£ tá»“n táº¡i chÆ°a
+        // Kiểm tra biển số đã tồn tại chưa
         var existing = await _context.Vehicles
             .AnyAsync(v => v.LicensePlate == dto.LicensePlate);
         if (existing)
-            throw new InvalidOperationException($"Biá»ƒn sá»‘ '{dto.LicensePlate}' Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng kÃ½.");
+            throw new InvalidOperationException($"Biển số '{dto.LicensePlate}' đã được đăng ký.");
 
-        // Kiá»ƒm tra nhÃ¢n viÃªn tá»“n táº¡i
+        // Kiểm tra nhân viên tồn tại
         var employeeExists = await _context.Employees
             .AnyAsync(e => e.EmployeeId == dto.EmployeeId);
         if (!employeeExists)
-            throw new KeyNotFoundException($"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn vá»›i ID = {dto.EmployeeId}.");
+            throw new KeyNotFoundException($"Không tìm thấy nhân viên với ID = {dto.EmployeeId}.");
 
-        // Kiá»ƒm tra loáº¡i xe tá»“n táº¡i
+        // Kiểm tra loại xe tồn tại
         if (dto.VehicleTypeId.HasValue)
         {
             var vehicleTypeExists = await _context.VehicleTypes
                 .AnyAsync(vt => vt.VehicleTypeId == dto.VehicleTypeId.Value);
             if (!vehicleTypeExists)
-                throw new KeyNotFoundException($"KhÃ´ng tÃ¬m tháº¥y loáº¡i xe vá»›i ID = {dto.VehicleTypeId}. Vui lÃ²ng kiá»ƒm tra báº£ng VehicleType trong database.");
+                throw new KeyNotFoundException($"Không tìm thấy loại xe với ID = {dto.VehicleTypeId}. Vui lòng kiểm tra bảng VehicleType trong database.");
         }
 
         var vehicle = new Vehicle
@@ -123,14 +123,14 @@ public class VehicleManagementService : IVehicleManagementService
         _context.Vehicles.Add(vehicle);
         await _context.SaveChangesAsync();
 
-        // Reload vá»›i navigation properties
+        // Reload với navigation properties
         await _context.Entry(vehicle).Reference(v => v.Employee).LoadAsync();
         await _context.Entry(vehicle).Reference(v => v.VehicleType).LoadAsync();
 
         return MapToDto(vehicle);
     }
 
-    // Cáº­p nháº­t phÆ°Æ¡ng tiá»‡n
+    // Cập nhật phương tiện
     public async Task<VehicleDto?> UpdateAsync(int vehicleId, UpdateVehicleDto dto)
     {
         await EnsureDefaultVehicleTypesAsync();
@@ -142,35 +142,35 @@ public class VehicleManagementService : IVehicleManagementService
 
         if (vehicle == null) return null;
 
-        // Kiá»ƒm tra biá»ƒn sá»‘ má»›i khÃ´ng trÃ¹ng vá»›i xe khÃ¡c
+        // Kiểm tra biển số mới không trùng với xe khác
         if (!string.IsNullOrWhiteSpace(dto.LicensePlate))
         {
             var duplicatePlate = await _context.Vehicles
                 .AnyAsync(v => v.LicensePlate == dto.LicensePlate && v.VehicleId != vehicleId);
             if (duplicatePlate)
-                throw new InvalidOperationException($"Biá»ƒn sá»‘ '{dto.LicensePlate}' Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng kÃ½ cho xe khÃ¡c.");
+                throw new InvalidOperationException($"Biển số '{dto.LicensePlate}' đã được đăng ký cho xe khác.");
 
             vehicle.LicensePlate = dto.LicensePlate.Trim().ToUpper();
         }
 
-        // Kiá»ƒm tra nhÃ¢n viÃªn má»›i tá»“n táº¡i
+        // Kiểm tra nhân viên mới tồn tại
         if (dto.EmployeeId.HasValue)
         {
             var employeeExists = await _context.Employees
                 .AnyAsync(e => e.EmployeeId == dto.EmployeeId.Value);
             if (!employeeExists)
-                throw new KeyNotFoundException($"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn vá»›i ID = {dto.EmployeeId}.");
+                throw new KeyNotFoundException($"Không tìm thấy nhân viên với ID = {dto.EmployeeId}.");
 
             vehicle.EmployeeId = dto.EmployeeId;
         }
 
-        // Kiá»ƒm tra loáº¡i xe má»›i tá»“n táº¡i
+        // Kiểm tra loại xe mới tồn tại
         if (dto.VehicleTypeId.HasValue)
         {
             var vehicleTypeExists = await _context.VehicleTypes
                 .AnyAsync(vt => vt.VehicleTypeId == dto.VehicleTypeId.Value);
             if (!vehicleTypeExists)
-                throw new KeyNotFoundException($"KhÃ´ng tÃ¬m tháº¥y loáº¡i xe vá»›i ID = {dto.VehicleTypeId}. Vui lÃ²ng kiá»ƒm tra báº£ng VehicleType trong database.");
+                throw new KeyNotFoundException($"Không tìm thấy loại xe với ID = {dto.VehicleTypeId}. Vui lòng kiểm tra bảng VehicleType trong database.");
 
             vehicle.VehicleTypeId = dto.VehicleTypeId;
         }
@@ -187,7 +187,7 @@ public class VehicleManagementService : IVehicleManagementService
         return MapToDto(vehicle);
     }
 
-    // XÃ³a phÆ°Æ¡ng tiá»‡n
+    // Xóa phương tiện
     public async Task<bool> DeleteAsync(int vehicleId)
     {
         var vehicle = await _context.Vehicles.FindAsync(vehicleId);
@@ -200,7 +200,7 @@ public class VehicleManagementService : IVehicleManagementService
 
     private async Task EnsureDefaultVehicleTypesAsync()
     {
-        var defaults = new[] { "Ã” tÃ´", "Xe mÃ¡y", "Xe Ä‘áº¡p", "Xe táº£i" };
+        var defaults = new[] { "Ô tô", "Xe máy", "Xe đạp", "Xe tải" };
         var existingNames = await _context.VehicleTypes
             .Select(vt => vt.TypeName)
             .ToListAsync();
