@@ -354,34 +354,7 @@
                 AutoStart: {{ runtimeAutoStart('python_plate') ? 'ON' : 'OFF' }}
               </button>
             </div>
-
-            <div class="settings-toggle-row">
-              <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Python cam gi? l?p</span>
-                <span class="settings-toggle-desc">Ch?y camera ?o (rtsp stream)</span>
-              </div>
-              <button
-                type="button"
-                class="toggle-switch"
-                :class="toggleSwitchClass('python_cam_simulator', cameraSimulatorServiceOn)"
-                role="switch"
-                :aria-checked="cameraSimulatorServiceOn"
-                :disabled="runtimeIsBusy('python_cam_simulator') || toggleIsPending('python_cam_simulator')"
-                @click="onToggleCameraSimulatorPython"
-              >
-                <span class="toggle-switch-knob" aria-hidden="true"></span>
-              </button>
-              <button
-                type="button"
-                class="auto-start-btn"
-                :disabled="runtimeIsBusy('python_cam_simulator') || !runtimeEnabled('python_cam_simulator')"
-                @click="toggleRuntimeAutoStart('python_cam_simulator')"
-              >
-                AutoStart: {{ runtimeAutoStart('python_cam_simulator') ? 'ON' : 'OFF' }}
-              </button>
-            </div>
-
-            <div class="settings-toggle-row">
+`n<div class="settings-toggle-row">
               <div class="settings-toggle-text">
                 <span class="settings-toggle-name">go2rtc stream gateway</span>
                 <span class="settings-toggle-desc">Dich vu stream WebRTC cho camera</span>
@@ -692,7 +665,6 @@ export default {
       settingsQrBusy: false,
       settingsPlateBusy: false,
       settingsCameraSimulatorBusy: false,
-      cameraSimulatorServiceOn: false,
       runtimeServices: [],
       runtimeBusy: {},
       uiTogglePending: {}
@@ -816,12 +788,10 @@ export default {
 
       try {
         const pythonStatus = await getPythonProcessStatus()
-        this.cameraSimulatorServiceOn = !!(this.runtimeMap.python_cam_simulator?.running ?? this.runtimeMap.python_cam_gia_lap?.running ?? pythonStatus?.camSimulator ?? pythonStatus?.camGiaLap)
         // NOTE: do NOT set lane.{qr,plate}.cameraRunning directly from python process status.
         // cameraRunning means the camera capture/session is active; we will rely on per-module
         // status endpoints (loadStatusPlate / getQrScanResult) to populate actual cameraRunning.
       } catch {
-        this.cameraSimulatorServiceOn = !!(this.runtimeMap.python_cam_simulator?.running ?? this.runtimeMap.python_cam_gia_lap?.running)
         // fallback: do not force cameraRunning here
       }
 
@@ -939,10 +909,6 @@ export default {
       if (this.settingsPlateBusy) return
       const wantOn = !this.platePythonServiceOn
       this.applyPlatePythonService(wantOn)
-    },
-
-    async onToggleCameraSimulatorPython() {
-      await this.toggleRuntime("python_cam_simulator")
     },
 
     async applyQrPythonService(wantOn) {
@@ -3511,6 +3477,7 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
+
 
 
 

@@ -300,26 +300,6 @@ namespace API.Controllers
             return StopPythonWorkerScript("docbien.py");
         }
 
-        [HttpPost("start-python-cam-simulator")]
-        [HttpPost("start-python-cam-gia-lap")]
-        public IActionResult StartPythonCamSimulator()
-        {
-            return StartPythonWorkerScript("cam\\cam_gia_lap", "cam_gia_lap.py");
-        }
-
-        [HttpPost("stop-python-cam-simulator")]
-        [HttpPost("stop-python-cam-gia-lap")]
-        public IActionResult StopPythonCamSimulator()
-        {
-            try
-            {
-                foreach (var proc in Process.GetProcessesByName("mediamtx")) proc.Kill();
-                foreach (var proc in Process.GetProcessesByName("ffmpeg")) proc.Kill();
-            }
-            catch { }
-            return StopPythonWorkerScript("cam_gia_lap.py");
-        }
-
         [HttpGet("status-python")]
         public IActionResult StatusPython()
         {
@@ -327,14 +307,11 @@ namespace API.Controllers
             {
                 var isQrRunning = IsPythonWorkerScriptRunning("QR_Dong.py");
                 var isPlateRunning = IsPythonWorkerScriptRunning("docbien.py");
-                var isCamSimulatorRunning = IsPythonWorkerScriptRunning("cam_gia_lap.py");
                 
                 return Ok(new
                 {
                     qr = isQrRunning,
-                    plate = isPlateRunning,
-                    camSimulator = isCamSimulatorRunning,
-                    camGiaLap = isCamSimulatorRunning
+                    plate = isPlateRunning
                 });
             }
             catch (Exception ex)
