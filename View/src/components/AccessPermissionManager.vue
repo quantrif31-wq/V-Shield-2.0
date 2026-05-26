@@ -1,158 +1,469 @@
 <template>
   <div class="page">
     <div class="topbar">
-      <div>
-        <h1>V-Shield Access Permission</h1>
-        <p>Phân quyền truy cập khu vực cho Nhân viên và Khách</p>
+      <h1>Quan ly quyen vao khu vuc gioi han</h1>
+      <p>Tim theo ten/ID nhan vien, loc theo khu vuc, cap quyen va xoa quyen truc tiep tren bang.</p>
+    </div>
+
+    <section class="panel filters">
+      <div class="field">
+        <label>Tim nhan vien (Ten hoac ID)</label>
+        <div class="combo-box">
+          <input
+            v-model.trim="employeeFilterKeyword"
+            type="text"
+            placeholder="Vi du: Nguyen Van A hoac 12"
+            @focus="showEmployeeFilterDropdown = true"
+            @input="handleEmployeeFilterInput"
+          />
+          <ul v-if="showEmployeeFilterDropdown && employeeFilterOptions.length" class="combo-menu">
+            <li
+              v-for="employee in employeeFilterOptions"
+              :key="employee.employeeId"
+              class="combo-item"
+              @mousedown.prevent="selectEmployeeFilter(employee)"
+            >
+              {{ employee.fullName }} (ID {{ employee.employeeId }})
+            </li>
+          </ul>
+        </div>
       </div>
-    </div>
 
-    <div class="lane-grid" style="grid-template-columns: 1fr; max-width: 600px;">
-      <section class="lane-card">
-        <div class="lane-head">
-          <div>
-            <h2>Cài đặt quyền</h2>
-            <p>Gán quyền vào Gate cho đối tượng tương ứng</p>
-          </div>
+      <div class="field">
+        <label>Loc theo khu vuc duoc phep vao</label>
+        <div class="combo-box">
+          <input
+            v-model.trim="gateFilterKeyword"
+            type="text"
+            placeholder="Go ten hoac ID khu vuc"
+            @focus="showGateFilterDropdown = true"
+            @input="handleGateFilterInput"
+          />
+          <ul v-if="showGateFilterDropdown && gateFilterOptions.length" class="combo-menu">
+            <li class="combo-item" @mousedown.prevent="selectAllGateFilter">Tat ca khu vuc</li>
+            <li
+              v-for="gate in gateFilterOptions"
+              :key="gate.gateId"
+              class="combo-item"
+              @mousedown.prevent="selectGateFilter(gate)"
+            >
+              {{ gate.gateName }} (ID {{ gate.gateId }})
+            </li>
+          </ul>
         </div>
+      </div>
 
-        <div class="ip-row">
-          <div class="ip-box" style="grid-column: span 2;">
-            <label>Loại đối tượng</label>
-            <div style="display: flex; gap: 20px; margin-top: 10px;">
-              <label>
-                <input type="radio" value="employee" v-model="form.targetType" /> Nhân viên
-              </label>
-              <label>
-                <input type="radio" value="visitor" v-model="form.targetType" /> Khách (Visitor)
-              </label>
-            </div>
-          </div>
+      <div class="actions">
+        <button class="btn btn-subtle" :disabled="loading" @click="resetFilters">
+          Dat lai
+        </button>
+      </div>
+    </section>
 
-          <div class="ip-box">
-            <label>{{ form.targetType === 'employee' ? 'Employee ID' : 'Visitor Detail ID' }}</label>
-            <input type="number" v-model.number="form.targetId" placeholder="Nhập ID..." />
-          </div>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Bang phan quyen theo nhan vien</h2>
+        <span>{{ filteredCountLabel }}</span>
+      </div>
 
-          <div class="ip-box">
-            <label>Gate ID (Khu vực)</label>
-            <input type="number" v-model.number="form.gateId" placeholder="Nhập ID Gate..." />
-          </div>
+      <div v-if="errorMessage" class="alert error">{{ errorMessage }}</div>
+      <div v-if="successMessage" class="alert success">{{ successMessage }}</div>
 
-          <div class="ip-box" style="grid-column: span 2;">
-            <label>Quyền truy cập</label>
-            <div style="display: flex; gap: 20px; margin-top: 10px;">
-              <label style="color: #15803d; font-weight: bold;">
-                <input type="radio" :value="true" v-model="form.isAllowed" /> CHO PHÉP (IN)
-              </label>
-              <label style="color: #b91c1c; font-weight: bold;">
-                <input type="radio" :value="false" v-model="form.isAllowed" /> TỪ CHỐI (OUT)
-              </label>
-            </div>
-          </div>
-        </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Nhan vien</th>
+              <th>Phong ban / Chuc vu</th>
+              <th>Khu vuc duoc vao</th>
+              <th>Cap quyen nhanh</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!loading && employees.length === 0">
+              <td colspan="4" class="empty">Khong co du lieu phu hop voi bo loc hien tai.</td>
+            </tr>
 
-        <div class="lane-actions" style="margin-top: 20px;">
-          <button 
-            class="btn btn-main" 
-            style="width: 100%; height: 48px;" 
-            :disabled="loading" 
-            @click="submitPermission"
-          >
-            {{ loading ? "Đang xử lý..." : "LƯU QUYỀN TRUY CẬP" }}
-          </button>
-        </div>
+            <tr v-for="employee in employees" :key="employee.employeeId">
+              <td>
+                <div class="main">{{ employee.fullName }}</div>
+                <div class="sub">ID: {{ employee.employeeId }}</div>
+              </td>
 
-        <div class="bottom-note" v-if="message" :class="isSuccess ? 'ok-text' : 'danger-text'">
-          <b>Kết quả:</b> {{ message }}
-        </div>
-      </section>
-    </div>
+              <td>
+                <div class="main">{{ employee.departmentName || 'Chua gan phong ban' }}</div>
+                <div class="sub">{{ employee.positionName || 'Chua gan chuc vu' }}</div>
+              </td>
+
+              <td>
+                <div v-if="employee.allowedGates?.length" class="chips">
+                  <span v-for="gate in employee.allowedGates" :key="`${employee.employeeId}_${gate.gateId}`" class="chip">
+                    {{ gate.gateName }}
+                    <button
+                      class="chip-remove"
+                      :disabled="loadingRowKey === `${employee.employeeId}_${gate.gateId}`"
+                      @click="revokePermission(employee, gate)"
+                    >
+                      x
+                    </button>
+                  </span>
+                </div>
+                <span v-else class="muted">Chua duoc cap khu vuc nao</span>
+              </td>
+
+              <td>
+                <div class="grant-box">
+                  <div class="combo-box grow">
+                    <input
+                      v-model.trim="rowGateKeyword[employee.employeeId]"
+                      type="text"
+                      placeholder="Tim khu vuc theo ten/ID"
+                      @focus="openRowGateDropdown(employee.employeeId)"
+                      @input="handleRowGateInput(employee)"
+                    />
+                    <ul v-if="rowGateDropdownOpen[employee.employeeId] && getAssignableGatesFiltered(employee).length" class="combo-menu">
+                      <li
+                        v-for="gate in getAssignableGatesFiltered(employee)"
+                        :key="gate.gateId"
+                        class="combo-item"
+                        @mousedown.prevent="selectRowGate(employee, gate)"
+                      >
+                        {{ gate.gateName }} (ID {{ gate.gateId }})
+                      </li>
+                    </ul>
+                  </div>
+                  <button
+                    class="btn btn-main btn-sm"
+                    :disabled="loading || !rowGateSelection[employee.employeeId]"
+                    @click="grantPermission(employee)"
+                  >
+                    Cap quyen
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
-<script>
-// Giả lập import axios, bạn thay bằng đường dẫn axios config của project
-import axios from "axios";
+<script setup>
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import {
+  deleteEmployeeAccessPermission,
+  getEmployeePermissionMatrix,
+  setAccessPermission,
+} from '../services/accessPermissionApi'
 
-export default {
-  name: "AccessPermissionManager",
-  data() {
-    return {
-      loading: false,
-      message: "",
-      isSuccess: false,
-      form: {
-        targetType: "employee", // 'employee' | 'visitor'
-        targetId: null,
-        gateId: null,
-        isAllowed: true
-      }
-    };
-  },
-  methods: {
-    async submitPermission() {
-      if (!this.form.targetId || !this.form.gateId) {
-        alert("Vui lòng nhập đầy đủ ID đối tượng và Gate ID");
-        return;
-      }
+const loading = ref(false)
+const loadingRowKey = ref('')
+const errorMessage = ref('')
+const successMessage = ref('')
+const employees = ref([])
+const gates = ref([])
+const rowGateSelection = reactive({})
+const rowGateKeyword = reactive({})
+const rowGateDropdownOpen = reactive({})
+const gateFilterKeyword = ref('')
+const showGateFilterDropdown = ref(false)
+const employeeFilterKeyword = ref('')
+const showEmployeeFilterDropdown = ref(false)
+let matrixFetchDebounceTimer = null
 
-      this.loading = true;
-      this.message = "";
+const filters = reactive({
+  query: '',
+  gateId: '',
+})
 
-      const payload = {
-        GateId: this.form.gateId,
-        IsAllowed: this.form.isAllowed
-      };
+const filteredCountLabel = computed(() => `Tong nhan vien: ${employees.value.length}`)
+const gateFilterOptions = computed(() => filterGatesByKeyword(gates.value, gateFilterKeyword.value, 5))
+const employeeFilterOptions = computed(() =>
+  filterEmployeesByKeyword(employees.value, employeeFilterKeyword.value, 5)
+)
 
-      if (this.form.targetType === "employee") {
-        payload.EmployeeId = this.form.targetId;
-      } else {
-        payload.VisitorDetailId = this.form.targetId;
-      }
+function normalizeText(input) {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
+    .replace(/\u0110/g, 'd')
+    .toLowerCase()
+    .trim()
+}
 
-      try {
-        let res;
-        try {
-          res = await axios.post("/api/access-permissions/set-permission", payload);
-        } catch (error) {
-          if (error?.response?.status === 404) {
-            res = await axios.post("/api/AccessPermission/set-permission", payload);
-          } else {
-            throw error;
-          }
-        }
-        if (res.data.success) {
-          this.isSuccess = true;
-          this.message = res.data.message || "Cập nhật thành công!";
-        } else {
-          this.isSuccess = false;
-          this.message = res.data.message || "Lỗi cập nhật.";
-        }
-      } catch (err) {
-        this.isSuccess = false;
-        this.message = err.response?.data?.message || err.message || "Không thể kết nối Server.";
-      } finally {
-        this.loading = false;
-      }
-    }
+function normalizeEmployees(rawItems = []) {
+  return rawItems.map((item) => ({
+    employeeId: item.employeeId,
+    fullName: item.fullName || `Nhan vien #${item.employeeId}`,
+    departmentName: item.departmentName || '',
+    positionName: item.positionName || '',
+    allowedGates: Array.isArray(item.allowedGates) ? item.allowedGates : [],
+  }))
+}
+
+function clearMessages() {
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
+function filterGatesByKeyword(source, keyword, limit = 5) {
+  const q = normalizeText(keyword)
+  const all = source || []
+  if (!q) return all.slice(0, limit)
+  return all
+    .filter((gate) =>
+      normalizeText(gate.gateName).includes(q) ||
+      String(gate.gateId).includes(q)
+    )
+    .slice(0, limit)
+}
+
+function filterEmployeesByKeyword(source, keyword, limit = 5) {
+  const q = normalizeText(keyword)
+  const all = source || []
+  if (!q) return all.slice(0, limit)
+  return all
+    .filter((employee) =>
+      normalizeText(employee.fullName).includes(q) ||
+      String(employee.employeeId).includes(q)
+    )
+    .slice(0, limit)
+}
+
+function getAssignableGates(employee) {
+  const assigned = new Set((employee.allowedGates || []).map((gate) => Number(gate.gateId)))
+  return gates.value.filter((gate) => !assigned.has(Number(gate.gateId)))
+}
+
+function getAssignableGatesFiltered(employee) {
+  return filterGatesByKeyword(getAssignableGates(employee), rowGateKeyword[employee.employeeId], 5)
+}
+
+function handleGateFilterInput() {
+  showGateFilterDropdown.value = true
+  filters.gateId = ''
+  scheduleMatrixFetch()
+}
+
+function handleEmployeeFilterInput() {
+  showEmployeeFilterDropdown.value = true
+  filters.query = employeeFilterKeyword.value
+  scheduleMatrixFetch()
+}
+
+function selectEmployeeFilter(employee) {
+  const value = `${employee.fullName} (ID ${employee.employeeId})`
+  employeeFilterKeyword.value = value
+  filters.query = String(employee.employeeId)
+  showEmployeeFilterDropdown.value = false
+  scheduleMatrixFetch(0)
+}
+
+function scheduleMatrixFetch(delay = 220) {
+  if (matrixFetchDebounceTimer) clearTimeout(matrixFetchDebounceTimer)
+  matrixFetchDebounceTimer = setTimeout(() => {
+    fetchMatrix()
+  }, delay)
+}
+
+function selectAllGateFilter() {
+  filters.gateId = ''
+  gateFilterKeyword.value = ''
+  showGateFilterDropdown.value = false
+  scheduleMatrixFetch(0)
+}
+
+function selectGateFilter(gate) {
+  filters.gateId = String(gate.gateId)
+  gateFilterKeyword.value = `${gate.gateName} (ID ${gate.gateId})`
+  showGateFilterDropdown.value = false
+  scheduleMatrixFetch(0)
+}
+
+function openRowGateDropdown(employeeId) {
+  rowGateDropdownOpen[employeeId] = true
+}
+
+function handleRowGateInput(employee) {
+  rowGateSelection[employee.employeeId] = ''
+  rowGateDropdownOpen[employee.employeeId] = true
+}
+
+function selectRowGate(employee, gate) {
+  rowGateSelection[employee.employeeId] = String(gate.gateId)
+  rowGateKeyword[employee.employeeId] = `${gate.gateName} (ID ${gate.gateId})`
+  rowGateDropdownOpen[employee.employeeId] = false
+}
+
+function closeAllComboboxes() {
+  showGateFilterDropdown.value = false
+  showEmployeeFilterDropdown.value = false
+  Object.keys(rowGateDropdownOpen).forEach((key) => {
+    rowGateDropdownOpen[key] = false
+  })
+}
+
+function handleDocumentClick(event) {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.combo-box')) return
+  closeAllComboboxes()
+}
+
+async function fetchMatrix() {
+  loading.value = true
+  clearMessages()
+  try {
+    const params = {}
+    if (filters.query) params.query = filters.query
+    if (filters.gateId) params.gateId = Number(filters.gateId)
+
+    const { data } = await getEmployeePermissionMatrix(params)
+    employees.value = normalizeEmployees(data?.employees || [])
+    gates.value = Array.isArray(data?.gates) ? data.gates : []
+
+    employees.value.forEach((employee) => {
+      if (!rowGateSelection[employee.employeeId]) rowGateSelection[employee.employeeId] = ''
+      if (!rowGateKeyword[employee.employeeId]) rowGateKeyword[employee.employeeId] = ''
+      if (!rowGateDropdownOpen[employee.employeeId]) rowGateDropdownOpen[employee.employeeId] = false
+    })
+  } catch (error) {
+    errorMessage.value = error?.response?.data?.message || 'Khong tai duoc du lieu phan quyen.'
+  } finally {
+    loading.value = false
   }
-};
+}
+
+async function grantPermission(employee) {
+  const selectedGateId = Number(rowGateSelection[employee.employeeId] || 0)
+  if (!selectedGateId) return
+
+  loading.value = true
+  clearMessages()
+  try {
+    await setAccessPermission({
+      EmployeeId: employee.employeeId,
+      GateId: selectedGateId,
+      IsAllowed: true,
+    })
+    successMessage.value = `Da cap quyen cho nhan vien ID ${employee.employeeId}.`
+    await fetchMatrix()
+    rowGateSelection[employee.employeeId] = ''
+    rowGateKeyword[employee.employeeId] = ''
+  } catch (error) {
+    errorMessage.value = error?.response?.data?.message || 'Cap quyen that bai.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function revokePermission(employee, gate) {
+  const rowKey = `${employee.employeeId}_${gate.gateId}`
+  loadingRowKey.value = rowKey
+  clearMessages()
+  try {
+    await deleteEmployeeAccessPermission(employee.employeeId, gate.gateId)
+    successMessage.value = `Da xoa quyen khu vuc cho nhan vien ID ${employee.employeeId}.`
+    await fetchMatrix()
+  } catch (error) {
+    errorMessage.value = error?.response?.data?.message || 'Xoa quyen that bai.'
+  } finally {
+    loadingRowKey.value = ''
+  }
+}
+
+function resetFilters() {
+  filters.query = ''
+  filters.gateId = ''
+  gateFilterKeyword.value = ''
+  employeeFilterKeyword.value = ''
+  scheduleMatrixFetch(0)
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+  fetchMatrix()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+  if (matrixFetchDebounceTimer) clearTimeout(matrixFetchDebounceTimer)
+})
 </script>
 
 <style scoped>
-/* Copy toàn bộ CSS từ Vue gốc của bạn bỏ vào đây. Để gọn mình xin phép rút gọn khối style, bạn có thể copy từ bản gốc */
-.page { min-height: 100vh; background: #f3f6fb; padding: 20px; font-family: Inter, Arial, sans-serif; color: #0f172a; }
+.page { min-height: 100vh; padding: 20px; background: #f3f6fb; color: #0f172a; }
 .topbar h1 { margin: 0; font-size: 28px; font-weight: 800; }
-.lane-grid { display: grid; gap: 18px; }
-.lane-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
-.lane-head h2 { margin: 0; font-size: 22px; font-weight: 800; }
-.btn { height: 40px; border: none; border-radius: 10px; padding: 0 14px; color: white; font-size: 13px; font-weight: 800; cursor: pointer; }
-.btn-main { background: #2563eb; }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.ip-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-.ip-box label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155; }
-.ip-box input { width: 100%; height: 42px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 12px; font-size: 14px; outline: none; }
-.ok-text { color: #15803d; }
-.danger-text { color: #b91c1c; }
+.topbar p { margin: 8px 0 0; color: #475569; }
+.panel { background: #fff; border: 1px solid #dbe3ef; border-radius: 16px; padding: 16px; margin-top: 16px; }
+.filters { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
+.field label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: #334155; }
+.field input { width: 100%; height: 40px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 10px; background: #fff; }
+.actions { display: flex; gap: 8px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.panel-head h2 { margin: 0; font-size: 20px; font-weight: 800; }
+.alert { border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: 14px; }
+.alert.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.alert.success { background: #ecfdf5; color: #166534; border: 1px solid #bbf7d0; }
+.table-wrap { overflow-x: auto; overflow-y: visible; position: relative; }
+.table { width: 100%; border-collapse: collapse; min-width: 980px; }
+.table th, .table td { border-bottom: 1px solid #e2e8f0; padding: 12px 10px; vertical-align: top; overflow: visible; }
+.table th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #64748b; }
+.main { font-weight: 700; }
+.sub { color: #64748b; font-size: 13px; margin-top: 2px; }
+.muted { color: #94a3b8; font-size: 13px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; padding: 4px 8px; border-radius: 999px; font-size: 13px; }
+.chip-remove { border: none; background: transparent; color: #0c4a6e; font-weight: 700; cursor: pointer; }
+.grant-box { display: flex; gap: 8px; align-items: flex-start; }
+.grow { flex: 1; min-width: 260px; }
+.empty { text-align: center; color: #64748b; padding: 20px 0; }
+.btn { height: 40px; border: none; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
+.btn-main { background: #2563eb; color: #fff; }
+.btn-subtle { background: #e2e8f0; color: #0f172a; }
+.btn-sm { height: 38px; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.combo-box { position: relative; }
+.grant-box .combo-box input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #fff;
+}
+.combo-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background-color: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 10px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
+  padding: 4px;
+  margin: 0;
+  list-style: none;
+}
+.combo-item {
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+}
+.combo-item:hover {
+  background: #e2e8f0;
+}
+
+@media (max-width: 1100px) {
+  .filters { grid-template-columns: 1fr; }
+}
 </style>

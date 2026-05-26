@@ -498,6 +498,20 @@ const allPassageItems = [
         roles: ['Admin', 'BaoVe'],
     },
     {
+        path: '/qr-access-monitor',
+        label: 'Quét xác nhận vào cổng',
+        hint: 'Quét QR để xác nhận cho phép vào',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 16h2"/><path d="M18 16h2"/><path d="M14 20h6"/><path d="M9 9l2 2 4-4"/></svg>',
+        roles: ['Admin', 'BaoVe'],
+    },
+    {
+        path: '/access-permission-manager',
+        label: 'Quản lý quyền khu vực giới hạn',
+        hint: 'Phân quyền ra vào theo khu vực',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/><path d="M9 12l2 2 4-4"/></svg>',
+        roles: ['Admin', 'BaoVe'],
+    },
+    {
         path: '/dynamic-qr-generator',
         label: 'Tạo QR động',
         hint: 'Sinh mã QR realtime cho nhân viên',
@@ -515,7 +529,6 @@ const allPassageItems = [
 
 const passageItems = computed(() =>
     allPassageItems
-        .filter((item) => item.path !== '/dynamic-qr-scanner')
         .map((item) =>
             item.path === '/gate-transit-monitor'
                 ? { ...item, hint: 'QR + biển số theo từng làn' }
