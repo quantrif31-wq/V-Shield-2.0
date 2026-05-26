@@ -20,7 +20,7 @@
 
       <div class="qrm-actions">
         <button class="qrm-btn qrm-btn-main" :disabled="term.loading || !term.cameraIp" @click="startScanner(term)">
-          {{ term.loading ? "Dang xu ly..." : (term.previewRunning ? "Quet lai" : "Mo Camera & Quet") }}
+          {{ term.loading ? "Dang xu ly..." : "Quet 1 lan" }}
         </button>
         <button class="qrm-btn qrm-btn-off" :disabled="term.loading || !term.previewRunning" @click="stopScanner(term)">Tat Camera</button>
       </div>
@@ -441,7 +441,7 @@ export default {
         this.ensureNormalPerf(term);
         term.lastDetectedAt = Date.now();
         this.startResultPolling(term);
-        await this.runNextSession(term, 0);
+        await this.runManualScan(term);
       } catch (e) {
         alert(e?.message || "Khong the mo scanner Python.");
       } finally {
@@ -536,38 +536,23 @@ export default {
 
     stopResultResetTimer() {},
 
-    async runNextSession(term, delay) {
-      if (!term.previewRunning) return;
-      const nextDelay = Number.isFinite(delay) ? delay : this.nextSessionDelayMs(term);
-      this.stopSessionTimer(term);
-      term.sessionTimer = setTimeout(async () => {
-        if (!term.previewRunning || term.loading || term.scanSessionActive) return;
-        if (term.holdLocked) {
-          await this.runNextSession(term, 160);
-          return;
-        }
-        term.scanSessionActive = true;
-        term.permissionState = "scanning";
-        term.verifyMessage = "Dang quet QR...";
-
-        try {
-          await resetQrSession();
-          await scanQrOnce();
-        } catch (e) {
-          term.permissionState = "deny";
-          term.verifyMessage = e?.message || "Loi khi bat dau phien quet.";
-          term.scanSessionActive = false;
-          await this.runNextSession(term, 220);
-          return;
-        }
-
-        term.sessionTimer = setTimeout(async () => {
-          if (!term.previewRunning || !term.scanSessionActive) return;
-          term.scanSessionActive = false;
-          term.permissionState = "idle";
-          await this.runNextSession(term);
-        }, SCAN_TIMEOUT_MS);
-      }, nextDelay);
+    async runManualScan(term) {
+      if (!term.previewRunning || term.scanSessionActive) return;
+      term.scanSessionActive = true;
+      term.permissionState = "scanning";
+      term.verifyMessage = "Dang quet QR...";
+      term.holdLocked = false;
+      term.emptyPollStreak = 0;
+      term.holdPayload = "";
+      term.holdStartedAt = 0;
+      try {
+        await resetQrSession();
+        await scanQrOnce();
+      } catch (e) {
+        term.scanSessionActive = false;
+        term.permissionState = "deny";
+        term.verifyMessage = e?.message || "Loi khi bat dau quet.";
+      }
     },
 
     async pullQrResult(term) {
@@ -575,66 +560,7 @@ export default {
         const res = await getQrScanResult();
         if (!res) return;
 
-        if (term.holdLocked) {
-          if (res.locked && res.qr) {
-            const currentPayload = String(res.qr || "").trim();
-            if (currentPayload && currentPayload !== String(term.holdPayload || "")) {
-              term.holdLocked = false;
-              term.emptyPollStreak = 0;
-              term.holdPayload = "";
-              term.holdStartedAt = 0;
-              term.scanSessionActive = false;
-              term.sessionLocked = true;
-              term.qrPayload = currentPayload;
-              term.lastDetectedAt = Date.now();
-              this.ensureNormalPerf(term);
-              term.traceCounter = Number(term.traceCounter || 0) + 1;
-              term.activeTraceId = term.traceCounter;
-              await this.callApiScanAccess(term, term.qrPayload);
-              term.holdLocked = true;
-              term.holdPayload = term.qrPayload;
-              term.holdStartedAt = Date.now();
-              await this.runNextSession(term, 120);
-              return;
-            }
-
-            if (Date.now() - Number(term.holdStartedAt || 0) >= HOLD_MAX_MS) {
-              term.holdLocked = false;
-              term.emptyPollStreak = 0;
-              term.holdPayload = "";
-              term.holdStartedAt = 0;
-              try {
-                await resetQrSession();
-                await scanQrOnce();
-              } catch {
-                // ignore
-              }
-              await this.runNextSession(term, 0);
-              return;
-            }
-
-            term.emptyPollStreak = 0;
-            return;
-          }
-
-          term.emptyPollStreak = Number(term.emptyPollStreak || 0) + 1;
-          if (term.emptyPollStreak >= HOLD_RELEASE_EMPTY_POLLS) {
-            term.holdLocked = false;
-            term.emptyPollStreak = 0;
-            term.holdPayload = "";
-            term.holdStartedAt = 0;
-            term.sessionLocked = false;
-            term.qrPayload = "";
-            term.verifiedId = "";
-            term.verifiedName = "";
-            term.verifiedType = "";
-            term.verifyMessage = "";
-            term.identityLabel = "";
-            term.permissionState = "idle";
-            await this.runNextSession(term, 0);
-          }
-          return;
-        }
+        if (term.holdLocked) return;
 
         if (res.locked && res.qr && term.scanSessionActive) {
           this.stopSessionTimer(term);
@@ -649,7 +575,7 @@ export default {
             term.qrPayload === term.lastPayload &&
             now - Number(term.lastPayloadAt || 0) < DUPLICATE_SUPPRESS_MS
           ) {
-            await this.runNextSession(term);
+            term.scanSessionActive = false;
             return;
           }
           term.lastPayload = term.qrPayload;
@@ -661,7 +587,7 @@ export default {
           term.holdPayload = term.qrPayload;
           term.holdStartedAt = Date.now();
           term.emptyPollStreak = 0;
-          await this.runNextSession(term, 140);
+          term.scanSessionActive = false;
         }
       } catch {
         // keep loop alive
