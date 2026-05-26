@@ -105,12 +105,14 @@
           </div>
           <button
             type="button"
-            class="qrm-toggle"
-            :class="{ on: runtimeRunning('python_qr') }"
+            class="toggle-switch"
+            :class="toggleSwitchClass('python_qr', runtimeRunning('python_qr'))"
+            role="switch"
+            :aria-checked="runtimeRunning('python_qr')"
             :disabled="runtimeIsBusy('python_qr')"
             @click="toggleRuntime('python_qr')"
           >
-            {{ runtimeRunning('python_qr') ? 'ON' : 'OFF' }}
+            <span class="toggle-switch-knob" aria-hidden="true"></span>
           </button>
         </div>
 
@@ -121,12 +123,11 @@
           </div>
           <button
             type="button"
-            class="qrm-toggle"
-            :class="{ on: runtimeAutoStart('python_qr') }"
+            class="auto-start-btn"
             :disabled="runtimeIsBusy('python_qr') || !runtimeEnabled('python_qr')"
             @click="toggleRuntimeAutoStart('python_qr')"
           >
-            {{ runtimeAutoStart('python_qr') ? 'ON' : 'OFF' }}
+            AutoStart: {{ runtimeAutoStart('python_qr') ? 'ON' : 'OFF' }}
           </button>
         </div>
 
@@ -139,10 +140,10 @@
 </template>
 
 <script>
-import jsQR from "jsqr";
 import axios from "axios";
 import { getCameras } from "../services/cameraRuntimeApi";
 import { getRuntimeServices, startRuntimeService, stopRuntimeService, updateRuntimeService } from "../services/runtimeServiceApi";
+import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce } from "../services/dynamicQrScannerApi";
 
 export default {
   name: "QrAccessMonitor",
@@ -168,6 +169,7 @@ export default {
           previewRunning: false,
           previewKey: 0,
           previewTimer: null,
+          resultTimer: null,
           isDecoding: false,
           sessionLocked: false,
           qrPayload: "",
@@ -185,7 +187,9 @@ export default {
   },
 
   beforeUnmount() {
-    this.terminals.forEach((term) => this.stopScanner(term));
+    this.terminals.forEach((term) => {
+      this.stopScanner(term);
+    });
   },
 
   methods: {
@@ -213,6 +217,13 @@ export default {
 
     runtimeIsBusy(name) {
       return !!this.runtimeBusy[name];
+    },
+
+    toggleSwitchClass(name, isOn) {
+      return {
+        on: !!isOn,
+        pending: this.runtimeIsBusy(name)
+      };
     },
 
     async fetchRuntimeServices() {
@@ -286,23 +297,45 @@ export default {
       this.cameraSearch[term.id] = cam.cameraName;
     },
 
-    startScanner(term) {
+    async startScanner(term) {
       if (!term.cameraId || !term.userPassword) {
-        alert("Vui long chon Camera va nhap mat khau tai khoan.");
+        alert("Vui long chon camera va nhap mat khau tai khoan.");
         return;
       }
-      term.previewRunning = true;
-      term.previewKey++;
-      this.clearSession(term);
-      this.startDecodingLoop(term);
+      if (!String(term.cameraIp || "").trim() || !String(term.viewUrl || "").trim()) {
+        alert("Camera chua co URL stream/view. Hay chon lai camera co du RTSP va UrlView.");
+        return;
+      }
+      try {
+        term.loading = true;
+        if (!this.runtimeRunning("python_qr")) {
+          await startRuntimeService("python_qr");
+          await this.fetchRuntimeServices();
+        }
+
+        await startQrScanner(term.cameraIp);
+        await resetQrSession();
+        await scanQrOnce();
+
+        term.previewRunning = true;
+        term.previewKey++;
+        this.clearSession(term);
+        this.startResultPolling(term);
+      } catch (e) {
+        alert(e?.message || "Khong the mo scanner Python. Kiem tra python_qr trong Cai dat va cong API.");
+      } finally {
+        term.loading = false;
+      }
     },
 
-    stopScanner(term) {
+    async stopScanner(term) {
       term.previewRunning = false;
       this.clearSession(term);
-      if (term.previewTimer) {
-        clearInterval(term.previewTimer);
-        term.previewTimer = null;
+      this.stopResultPolling(term);
+      try {
+        await stopQrScanner();
+      } catch (e) {
+        console.warn("stopQrScanner warning:", e);
       }
     },
 
@@ -314,30 +347,35 @@ export default {
       term.alert = false;
     },
 
-    startDecodingLoop(term) {
-      if (term.previewTimer) clearInterval(term.previewTimer);
-
-      term.previewTimer = setInterval(async () => {
-        if (!term.previewRunning || term.sessionLocked || term.isDecoding) return;
-        await this.captureAndDecode(term);
-      }, 500);
+    startResultPolling(term) {
+      this.stopResultPolling(term);
+      term.resultTimer = setInterval(async () => {
+        if (!term.previewRunning || term.loading) return;
+        await this.pullQrResult(term);
+      }, 350);
     },
 
-    async captureAndDecode(term) {
-      term.isDecoding = true;
+    stopResultPolling(term) {
+      if (term.resultTimer) {
+        clearInterval(term.resultTimer);
+        term.resultTimer = null;
+      }
+    },
+
+    async pullQrResult(term) {
       try {
-        const canvas = this.canvasRefs[term.id];
-        if (!canvas) return;
-        const dummyCode = null;
-        if (dummyCode && dummyCode.data) {
+        const res = await getQrScanResult();
+        if (!res) return;
+
+        if (res.locked && res.qr) {
           term.sessionLocked = true;
-          term.qrPayload = dummyCode.data;
+          term.qrPayload = String(res.qr || "");
+          this.stopResultPolling(term);
           await this.callApiScanAccess(term, term.qrPayload);
+          return;
         }
-      } catch {
-        // noop
-      } finally {
-        term.isDecoding = false;
+      } catch (e) {
+        console.warn("getQrScanResult warning:", e?.message || e);
       }
     },
 
@@ -368,6 +406,10 @@ export default {
         term.loading = false;
         setTimeout(() => {
           this.clearSession(term);
+          if (term.previewRunning) {
+            this.startResultPolling(term);
+            scanQrOnce().catch(() => {});
+          }
         }, 3000);
       }
     },
@@ -550,22 +592,59 @@ export default {
   font-size: 13px;
   color: #64748b;
 }
-.qrm-toggle {
-  min-width: 62px;
-  height: 34px;
+.toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 50px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid #cbd5e1;
+  background: #e2e8f0;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.toggle-switch.on {
+  background: #22c55e;
+  border-color: #16a34a;
+}
+.toggle-switch.pending {
+  background: #facc15;
+  border-color: #eab308;
+}
+.toggle-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.toggle-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
+  transition: transform 0.2s ease;
+}
+.toggle-switch.on .toggle-switch-knob {
+  transform: translateX(22px);
+}
+.toggle-switch.pending .toggle-switch-knob {
+  background: #fef08a;
+}
+.auto-start-btn {
+  min-height: 30px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid #cbd5e1;
-  background: #f1f5f9;
+  background: #f8fafc;
   color: #334155;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
 }
-.qrm-toggle.on {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #86efac;
-}
-.qrm-toggle:disabled {
+.auto-start-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
