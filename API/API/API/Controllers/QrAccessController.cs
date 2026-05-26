@@ -32,35 +32,14 @@ namespace API.Controllers
                 return BadRequest(GateTransitApiResponse.CreateError("CameraId không hợp lệ."));
             }
 
-            // 1. Kiểm tra Camera và Gate
-            var camera = await _context.Cameras.FirstOrDefaultAsync(c => c.CameraId == request.CameraId);
-            if (camera == null || camera.GateId == null)
+            var verify = await ValidateCameraAndUserAccess(request);
+            if (!verify.Ok || verify.Camera == null)
             {
-                return NotFound(GateTransitApiResponse.CreateError("Camera không tồn tại hoặc chưa được gán khu vực (Gate)."));
+                return Unauthorized(GateTransitApiResponse.CreateError(verify.Message ?? "Khong the xac thuc thao tac camera."));
             }
 
-            var gateId = camera.GateId.Value;
-
-            // 2. Bảo mật: Kiểm tra mật khẩu tài khoản
-            if (request.LoggedInUserId.HasValue && request.LoggedInUserId > 0)
-            {
-                if (string.IsNullOrWhiteSpace(request.UserPassword))
-                {
-                    return Unauthorized(GateTransitApiResponse.CreateError("Yêu cầu nhập mật khẩu tài khoản để sử dụng Camera này."));
-                }
-
-                var currentUser = await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == request.LoggedInUserId.Value);
-                if (currentUser == null)
-                {
-                    return Unauthorized(GateTransitApiResponse.CreateError("Không tìm thấy tài khoản thao tác."));
-                }
-
-                // Temporary plain-text comparison; replace with password-hash verification (e.g., BCrypt) in auth hardening phase.
-                if (currentUser.PasswordHash != request.UserPassword)
-                {
-                    return Unauthorized(GateTransitApiResponse.CreateError("Mật khẩu tài khoản không chính xác."));
-                }
-            }
+            var camera = verify.Camera;
+            var gateId = camera.GateId!.Value;
 
             // 3. Xác định danh tính (bám sát logic client gửi ID hoặc từ query bằng payload)
             int? targetEmployeeId = request.EmployeeId;
@@ -88,12 +67,14 @@ namespace API.Controllers
             {
                 bool hasAccess = false;
                 string userType = targetEmployeeId.HasValue ? "Nhân viên" : "Khách";
+                string subjectName = "";
 
                 if (targetEmployeeId.HasValue)
                 {
                     var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == targetEmployeeId.Value);
                     if (employee == null)
                         return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {targetEmployeeId.Value}."));
+                    subjectName = employee.FullName ?? "";
 
                     var permission = await _context.EmployeeAccessPermissions
                         .FirstOrDefaultAsync(p => p.EmployeeId == targetEmployeeId.Value && p.GateId == gateId);
@@ -115,6 +96,7 @@ namespace API.Controllers
                     {
                         return NotFound(GateTransitApiResponse.CreateError("Không tìm thấy khách đã được xác nhận (hoặc QR không còn hiệu lực)."));
                     }
+                    subjectName = visitor.FullName ?? "";
 
                     var permission = await _context.VisitorAccessPermissions
                         .FirstOrDefaultAsync(p => p.VisitorDetailId == targetVisitorId.Value && p.GateId == gateId);
@@ -149,7 +131,14 @@ namespace API.Controllers
                 // 6. Trả kết quả
                 if (!hasAccess)
                 {
-                    return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new { LogId = newLog.LogId }));
+                    return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new
+                    {
+                        LogId = newLog.LogId,
+                        EmployeeId = targetEmployeeId,
+                        VisitorDetailId = targetVisitorId,
+                        SubjectName = subjectName,
+                        GateId = gateId
+                    }));
                 }
 
                 return Ok(GateTransitApiResponse.CreateSuccess(logNote, new
@@ -157,6 +146,7 @@ namespace API.Controllers
                     LogId = newLog.LogId,
                     EmployeeId = targetEmployeeId,
                     VisitorDetailId = targetVisitorId,
+                    SubjectName = subjectName,
                     GateId = gateId,
                     Timestamp = newLog.Timestamp
                 }));
@@ -166,6 +156,71 @@ namespace API.Controllers
                 await transaction.RollbackAsync();
                 return StatusCode(500, GateTransitApiResponse.CreateError("Có lỗi xảy ra khi xử lý dữ liệu.", ex.Message));
             }
+        }
+
+        [HttpPost("verify-camera-auth")]
+        public async Task<IActionResult> VerifyCameraAuth([FromBody] QrScanAccessRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(GateTransitApiResponse.CreateError("Du lieu gui len khong hop le."));
+            }
+
+            try
+            {
+                var verify = await ValidateCameraAndUserAccess(request);
+                if (!verify.Ok || verify.Camera == null)
+                {
+                    return Unauthorized(GateTransitApiResponse.CreateError(verify.Message ?? "Khong the xac thuc camera."));
+                }
+
+                return Ok(GateTransitApiResponse.CreateSuccess("Xac thuc camera thanh cong.", new
+                {
+                    cameraId = verify.Camera.CameraId,
+                    gateId = verify.Camera.GateId
+                }));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, GateTransitApiResponse.CreateError("Co loi khi xac thuc camera.", ex.Message));
+            }
+        }
+
+        private async Task<(bool Ok, string? Message, Camera? Camera)> ValidateCameraAndUserAccess(QrScanAccessRequest request)
+        {
+            if (request.CameraId <= 0)
+            {
+                return (false, "CameraId khong hop le.", null);
+            }
+
+            var camera = await _context.Cameras.FirstOrDefaultAsync(c => c.CameraId == request.CameraId);
+            if (camera == null || camera.GateId == null)
+            {
+                return (false, "Camera khong ton tai hoac chua duoc gan Gate.", null);
+            }
+
+            if (!request.LoggedInUserId.HasValue || request.LoggedInUserId.Value <= 0)
+            {
+                return (false, "Thieu LoggedInUserId.", null);
+            }
+
+            if (string.IsNullOrWhiteSpace(request.UserPassword))
+            {
+                return (false, "Yeu cau nhap mat khau tai khoan de su dung camera nay.", null);
+            }
+
+            var currentUser = await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == request.LoggedInUserId.Value);
+            if (currentUser == null)
+            {
+                return (false, "Khong tim thay tai khoan thao tac.", null);
+            }
+
+            if (currentUser.PasswordHash != request.UserPassword)
+            {
+                return (false, "Mat khau tai khoan khong chinh xac.", null);
+            }
+
+            return (true, null, camera);
         }
     }
 }

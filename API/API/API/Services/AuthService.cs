@@ -66,6 +66,7 @@ public class AuthenticationService : IAuthenticationService
 
         return new LoginResponse
         {
+            UserId = user.UserId,
             Token = new JwtSecurityTokenHandler().WriteToken(token),
             Username = user.Username,
             FullName = user.FullName ?? user.Username,

@@ -5,30 +5,24 @@
         <h1>V-Shield QR Walk-in Monitor</h1>
         <p>Kiem soat vao/ra bang QR cho luong di bo.</p>
       </div>
-      <button class="qrm-settings-btn" type="button" @click="showSettings = true">
-        Cai dat
-      </button>
+      <button class="qrm-settings-btn" type="button" @click="showSettings = true">Cai dat</button>
     </div>
 
-    <section v-for="term in terminals" :key="term.id" class="qrm-card" :class="{ ready: term.sessionLocked }">
+    <section v-for="term in terminals" :key="term.id" class="qrm-card">
       <div class="qrm-card-head">
         <div>
           <div class="qrm-kicker">Station</div>
           <h2>{{ term.name }}</h2>
           <p>{{ term.desc }}</p>
         </div>
-        <div class="qrm-status-pill" :class="statusPillClass(term)">
-          {{ statusPillText(term) }}
-        </div>
+        <div class="qrm-status-pill" :class="statusPillClass(term)">{{ statusPillText(term) }}</div>
       </div>
 
       <div class="qrm-actions">
         <button class="qrm-btn qrm-btn-main" :disabled="term.loading || !term.cameraIp" @click="startScanner(term)">
-          {{ term.loading ? "Dang xu ly..." : "Mo Camera & Quet" }}
+          {{ term.loading ? "Dang xu ly..." : (term.previewRunning ? "Quet lai" : "Mo Camera & Quet") }}
         </button>
-        <button class="qrm-btn qrm-btn-off" :disabled="term.loading || !term.previewRunning" @click="stopScanner(term)">
-          Tat Camera
-        </button>
+        <button class="qrm-btn qrm-btn-off" :disabled="term.loading || !term.previewRunning" @click="stopScanner(term)">Tat Camera</button>
       </div>
 
       <div class="qrm-form-grid">
@@ -38,32 +32,18 @@
             <input v-model="cameraSearch[term.id]" placeholder="Tim camera..." :disabled="term.loading" />
             <div class="dropdown" v-if="cameraSearch[term.id]">
               <div
-                v-for="cam in filterCameras(cameraSearch[term.id])"
+                v-for="cam in filterCameras(cameraSearch[term.id]).slice(0, 5)"
                 :key="cam.cameraId"
-                @click="selectCamera(cam, term)"
+                @click="onChooseCamera(cam, term)"
                 class="dropdown-item"
               >
                 {{ cam.cameraName }} (ID: {{ cam.cameraId }})
               </div>
             </div>
           </div>
-        </div>
-        <div class="qrm-field">
-          <label>Mat khau xac thuc doi cam</label>
-          <input type="password" v-model="term.userPassword" placeholder="Nhap pass tai khoan..." :disabled="term.loading" />
-        </div>
-      </div>
-
-      <div class="qrm-summary-grid">
-        <div class="summary-item">
-          <span class="label">ID nguoi dung</span>
-          <span class="value strong">{{ term.verifiedId || "-----" }}</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Trang thai quyen</span>
-          <span class="value" :class="term.alert ? 'danger-text' : 'ok-text'">
-            {{ term.verifyMessage || "DANG CHO" }}
-          </span>
+          <div class="camera-verified" :class="term.cameraVerified ? 'ok' : 'warn'">
+            {{ term.cameraVerified ? 'Camera da xac thuc' : 'Chua xac thuc camera' }}
+          </div>
         </div>
       </div>
 
@@ -72,7 +52,8 @@
           <span>Camera Preview</span>
           <span class="preview-badge">{{ term.previewRunning ? "Preview ON" : "Preview OFF" }}</span>
         </div>
-        <div class="cam-preview">
+
+        <div class="cam-preview" :class="previewStateClass(term)">
           <iframe
             v-if="term.previewRunning && term.viewUrl"
             :key="term.previewKey"
@@ -82,12 +63,15 @@
             :ref="el => setVideoRef(term.id, el)"
           ></iframe>
           <div v-else class="cam-off">QR Offline</div>
-          <canvas :ref="el => setCanvasRef(term.id, el)" style="display:none;"></canvas>
-        </div>
-      </div>
 
-      <div class="bottom-note">
-        <span><b>Payload QR:</b> {{ shortText(term.qrPayload) }}</span>
+          <div v-if="term.identityLabel" class="id-overlay" :class="term.permissionState">
+            {{ term.identityLabel }}
+          </div>
+
+          <div class="scan-overlay" v-if="term.previewRunning && term.permissionState === 'scanning'">
+            Dang quet QR...
+          </div>
+        </div>
       </div>
     </section>
 
@@ -136,6 +120,26 @@
         </button>
       </aside>
     </div>
+
+    <div v-if="authModal.open" class="auth-mask" @click="closeAuthModal">
+      <div class="auth-dialog" @click.stop>
+        <h3>Xac thuc doi camera</h3>
+        <p>{{ authModal.cameraName }} (ID: {{ authModal.cameraId }})</p>
+        <input
+          v-model="authModal.password"
+          type="password"
+          placeholder="Nhap mat khau tai khoan..."
+          @keyup.enter="confirmCameraAuth"
+        />
+        <div class="auth-error" v-if="authModal.error">{{ authModal.error }}</div>
+        <div class="auth-actions">
+          <button type="button" class="qrm-btn qrm-btn-off" :disabled="authModal.loading" @click="closeAuthModal">Huy</button>
+          <button type="button" class="qrm-btn qrm-btn-main" :disabled="authModal.loading" @click="confirmCameraAuth">
+            {{ authModal.loading ? 'Dang kiem tra...' : 'Xac nhan' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -144,6 +148,10 @@ import axios from "axios";
 import { getCameras } from "../services/cameraRuntimeApi";
 import { getRuntimeServices, startRuntimeService, stopRuntimeService, updateRuntimeService } from "../services/runtimeServiceApi";
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce } from "../services/dynamicQrScannerApi";
+import { authState } from "../stores/auth";
+
+const SCAN_TIMEOUT_MS = 6500;
+const NEXT_SCAN_DELAY_MS = 500;
 
 export default {
   name: "QrAccessMonitor",
@@ -151,11 +159,21 @@ export default {
     return {
       cameras: [],
       cameraSearch: {},
-      canvasRefs: {},
       showSettings: false,
       runtimeServices: [],
       runtimeBusy: {},
       runtimeLoading: false,
+      authModal: {
+        open: false,
+        termId: "",
+        cameraId: null,
+        cameraName: "",
+        cameraIp: "",
+        viewUrl: "",
+        password: "",
+        loading: false,
+        error: ""
+      },
       terminals: [
         {
           id: "term1",
@@ -166,16 +184,19 @@ export default {
           viewUrl: "",
           cameraId: null,
           userPassword: "",
+          cameraVerified: false,
           previewRunning: false,
           previewKey: 0,
-          previewTimer: null,
           resultTimer: null,
-          isDecoding: false,
+          sessionTimer: null,
           sessionLocked: false,
+          scanSessionActive: false,
           qrPayload: "",
           verifiedId: "",
+          verifiedName: "",
           verifyMessage: "",
-          alert: false
+          permissionState: "idle",
+          identityLabel: ""
         }
       ]
     };
@@ -193,37 +214,60 @@ export default {
   },
 
   methods: {
-    setCanvasRef(id, el) {
-      if (el) this.canvasRefs[id] = el;
-    },
     setVideoRef() {},
+    getCurrentUserId() {
+      const fromStore = Number(
+        authState?.user?.userId ||
+        authState?.user?.UserId ||
+        authState?.user?.id ||
+        0
+      );
+      if (fromStore > 0) return fromStore;
+
+      try {
+        const raw = localStorage.getItem("v_shield_user");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const fromStorage = Number(parsed?.userId || parsed?.UserId || parsed?.id || 0);
+          if (fromStorage > 0) return fromStorage;
+        }
+      } catch {
+        // ignore and fallback JWT parse
+      }
+
+      try {
+        const token = localStorage.getItem("v_shield_token") || "";
+        const parts = String(token).split(".");
+        if (parts.length !== 3) return 0;
+        const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const normalized = payloadBase64.padEnd(payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4), "=");
+        const json = atob(normalized);
+        const payload = JSON.parse(json);
+        const fromSub = Number(payload?.sub || payload?.nameid || 0);
+        return fromSub > 0 ? fromSub : 0;
+      } catch {
+        return 0;
+      }
+    },
 
     runtimeState(name) {
       return (this.runtimeServices || []).find((item) => item?.name === name) || null;
     },
-
     runtimeRunning(name) {
       return !!this.runtimeState(name)?.running;
     },
-
     runtimeAutoStart(name) {
       return !!this.runtimeState(name)?.autoStart;
     },
-
     runtimeEnabled(name) {
       const state = this.runtimeState(name);
       return state ? state.enabled !== false : false;
     },
-
     runtimeIsBusy(name) {
       return !!this.runtimeBusy[name];
     },
-
     toggleSwitchClass(name, isOn) {
-      return {
-        on: !!isOn,
-        pending: this.runtimeIsBusy(name)
-      };
+      return { on: !!isOn, pending: this.runtimeIsBusy(name) };
     },
 
     async fetchRuntimeServices() {
@@ -241,14 +285,10 @@ export default {
       if (this.runtimeIsBusy(name)) return;
       this.runtimeBusy = { ...this.runtimeBusy, [name]: true };
       try {
-        if (this.runtimeRunning(name)) {
-          await stopRuntimeService(name);
-        } else {
-          await startRuntimeService(name);
-        }
+        if (this.runtimeRunning(name)) await stopRuntimeService(name);
+        else await startRuntimeService(name);
         await this.fetchRuntimeServices();
       } catch (e) {
-        console.error("toggleRuntime error", e);
         alert(e?.response?.data?.message || e?.message || "Khong the bat/tat runtime.");
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false };
@@ -262,7 +302,6 @@ export default {
         await updateRuntimeService(name, { autoStart: !this.runtimeAutoStart(name) });
         await this.fetchRuntimeServices();
       } catch (e) {
-        console.error("toggleRuntimeAutoStart error", e);
         alert(e?.response?.data?.message || e?.message || "Khong the doi AutoStart.");
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false };
@@ -279,33 +318,92 @@ export default {
 
     filterCameras(keyword) {
       if (!keyword) return this.cameras;
-      const key = keyword.toLowerCase();
+      const key = String(keyword || "").toLowerCase();
       return this.cameras.filter((c) =>
         String(c.cameraName || "").toLowerCase().includes(key) ||
-        String(c.cameraId).includes(key)
+        String(c.cameraId || "").includes(key)
       );
     },
 
-    selectCamera(cam, term) {
-      if (!cam.urlView) {
-        alert("Camera chua co UrlView.");
+    onChooseCamera(cam, term) {
+      if (!cam?.urlView || !cam?.streamUrl) {
+        alert("Camera chua co du URL stream/view.");
         return;
       }
-      term.cameraIp = cam.streamUrl;
-      term.viewUrl = cam.urlView;
-      term.cameraId = cam.cameraId;
-      this.cameraSearch[term.id] = cam.cameraName;
+      this.authModal = {
+        open: true,
+        termId: term.id,
+        cameraId: cam.cameraId,
+        cameraName: cam.cameraName || "Camera",
+        cameraIp: cam.streamUrl,
+        viewUrl: cam.urlView,
+        password: "",
+        loading: false,
+        error: ""
+      };
+    },
+
+    closeAuthModal() {
+      if (this.authModal.loading) return;
+      this.authModal.open = false;
+      this.authModal.error = "";
+    },
+
+    async confirmCameraAuth() {
+      if (!this.authModal.open || !this.authModal.termId) return;
+      if (!this.authModal.password.trim()) {
+        this.authModal.error = "Vui long nhap mat khau.";
+        return;
+      }
+
+      const term = this.terminals.find((x) => x.id === this.authModal.termId);
+      if (!term) return;
+
+      const userId = this.getCurrentUserId();
+      if (userId <= 0) {
+        this.authModal.error = "Khong tim thay user dang dang nhap.";
+        return;
+      }
+
+      this.authModal.loading = true;
+      this.authModal.error = "";
+      try {
+        await axios.post("/api/QrAccess/verify-camera-auth", {
+          CameraId: this.authModal.cameraId,
+          UserPassword: this.authModal.password,
+          LoggedInUserId: userId
+        });
+
+        if (term.previewRunning) {
+          await this.stopScanner(term);
+        }
+
+        term.cameraIp = this.authModal.cameraIp;
+        term.viewUrl = this.authModal.viewUrl;
+        term.cameraId = this.authModal.cameraId;
+        term.userPassword = this.authModal.password;
+        term.cameraVerified = true;
+        term.permissionState = "idle";
+        term.identityLabel = "";
+        this.cameraSearch[term.id] = this.authModal.cameraName;
+        this.closeAuthModal();
+      } catch (e) {
+        this.authModal.error = e?.response?.data?.message || e?.message || "Xac thuc that bai.";
+      } finally {
+        this.authModal.loading = false;
+      }
     },
 
     async startScanner(term) {
-      if (!term.cameraId || !term.userPassword) {
-        alert("Vui long chon camera va nhap mat khau tai khoan.");
+      if (!term.cameraId || !term.cameraVerified) {
+        alert("Vui long chon camera va xac thuc mat khau truoc khi mo.");
         return;
       }
       if (!String(term.cameraIp || "").trim() || !String(term.viewUrl || "").trim()) {
-        alert("Camera chua co URL stream/view. Hay chon lai camera co du RTSP va UrlView.");
+        alert("Camera chua co URL stream/view hop le.");
         return;
       }
+
       try {
         term.loading = true;
         if (!this.runtimeRunning("python_qr")) {
@@ -313,16 +411,17 @@ export default {
           await this.fetchRuntimeServices();
         }
 
-        await startQrScanner(term.cameraIp);
-        await resetQrSession();
-        await scanQrOnce();
+        if (!term.previewRunning) {
+          await startQrScanner(term.cameraIp);
+          term.previewRunning = true;
+          term.previewKey += 1;
+        }
 
-        term.previewRunning = true;
-        term.previewKey++;
-        this.clearSession(term);
+        this.clearScanState(term);
         this.startResultPolling(term);
+        await this.runNextSession(term, 0);
       } catch (e) {
-        alert(e?.message || "Khong the mo scanner Python. Kiem tra python_qr trong Cai dat va cong API.");
+        alert(e?.message || "Khong the mo scanner Python.");
       } finally {
         term.loading = false;
       }
@@ -330,8 +429,9 @@ export default {
 
     async stopScanner(term) {
       term.previewRunning = false;
-      this.clearSession(term);
       this.stopResultPolling(term);
+      this.stopSessionTimer(term);
+      this.clearScanState(term);
       try {
         await stopQrScanner();
       } catch (e) {
@@ -339,12 +439,15 @@ export default {
       }
     },
 
-    clearSession(term) {
+    clearScanState(term) {
+      term.scanSessionActive = false;
       term.sessionLocked = false;
       term.qrPayload = "";
       term.verifiedId = "";
+      term.verifiedName = "";
       term.verifyMessage = "";
-      term.alert = false;
+      term.permissionState = "idle";
+      term.identityLabel = "";
     },
 
     startResultPolling(term) {
@@ -352,7 +455,7 @@ export default {
       term.resultTimer = setInterval(async () => {
         if (!term.previewRunning || term.loading) return;
         await this.pullQrResult(term);
-      }, 350);
+      }, 300);
     },
 
     stopResultPolling(term) {
@@ -362,73 +465,122 @@ export default {
       }
     },
 
+    stopSessionTimer(term) {
+      if (term.sessionTimer) {
+        clearTimeout(term.sessionTimer);
+        term.sessionTimer = null;
+      }
+    },
+
+    async runNextSession(term, delay = NEXT_SCAN_DELAY_MS) {
+      if (!term.previewRunning) return;
+      this.stopSessionTimer(term);
+      term.sessionTimer = setTimeout(async () => {
+        if (!term.previewRunning || term.loading || term.scanSessionActive) return;
+        term.scanSessionActive = true;
+        term.permissionState = "scanning";
+        term.verifyMessage = "Dang quet QR...";
+
+        try {
+          await resetQrSession();
+          await scanQrOnce();
+        } catch (e) {
+          term.permissionState = "deny";
+          term.verifyMessage = e?.message || "Loi khi bat dau phien quet.";
+          term.scanSessionActive = false;
+          await this.runNextSession(term, 1000);
+          return;
+        }
+
+        term.sessionTimer = setTimeout(async () => {
+          if (!term.previewRunning || !term.scanSessionActive) return;
+          term.scanSessionActive = false;
+          term.permissionState = "idle";
+          await this.runNextSession(term, NEXT_SCAN_DELAY_MS);
+        }, SCAN_TIMEOUT_MS);
+      }, delay);
+    },
+
     async pullQrResult(term) {
       try {
         const res = await getQrScanResult();
         if (!res) return;
 
-        if (res.locked && res.qr) {
+        if (res.locked && res.qr && term.scanSessionActive) {
+          this.stopSessionTimer(term);
+          term.scanSessionActive = false;
           term.sessionLocked = true;
-          term.qrPayload = String(res.qr || "");
-          this.stopResultPolling(term);
+          term.qrPayload = String(res.qr || "").trim();
           await this.callApiScanAccess(term, term.qrPayload);
-          return;
+          await this.runNextSession(term, NEXT_SCAN_DELAY_MS);
         }
-      } catch (e) {
-        console.warn("getQrScanResult warning:", e?.message || e);
+      } catch {
+        // keep loop alive
       }
     },
 
     async callApiScanAccess(term, payload) {
       term.loading = true;
       try {
+        const userId = this.getCurrentUserId();
         const reqData = {
           QrPayload: payload,
           CameraId: term.cameraId,
           UserPassword: term.userPassword,
-          LoggedInUserId: 1
+          LoggedInUserId: userId > 0 ? userId : null
         };
 
         const res = await axios.post("/api/QrAccess/scan-access", reqData);
+        const data = res?.data?.data || {};
 
-        if (res.data.success) {
-          term.alert = false;
-          term.verifiedId = res.data.data.employeeId || res.data.data.visitorDetailId || "OK";
-          term.verifyMessage = res.data.message;
-        } else {
-          term.alert = true;
-          term.verifyMessage = res.data.message;
-        }
+        term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
+        term.verifiedName = String(data.subjectName || "");
+        term.identityLabel = this.buildIdentityLabel(term.verifiedId, term.verifiedName);
+        term.verifyMessage = res?.data?.message || "Cho phep";
+        term.permissionState = "allow";
       } catch (err) {
-        term.alert = true;
-        term.verifyMessage = err.response?.data?.message || err.message || "Loi ket noi";
+        const status = Number(err?.response?.status || 0);
+        const data = err?.response?.data?.data || {};
+        const message = err?.response?.data?.message || err?.message || "Tu choi";
+
+        term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
+        term.verifiedName = String(data.subjectName || "");
+        term.identityLabel = this.buildIdentityLabel(term.verifiedId, term.verifiedName);
+        term.verifyMessage = status === 401 ? "Mat khau tai khoan khong chinh xac." : message;
+        term.permissionState = "deny";
       } finally {
         term.loading = false;
-        setTimeout(() => {
-          this.clearSession(term);
-          if (term.previewRunning) {
-            this.startResultPolling(term);
-            scanQrOnce().catch(() => {});
-          }
-        }, 3000);
       }
+    },
+
+    buildIdentityLabel(id, name) {
+      const idText = String(id || "").trim();
+      const nameText = String(name || "").trim();
+      if (!idText && !nameText) return "";
+      if (!idText) return nameText;
+      if (!nameText) return `ID ${idText}`;
+      return `ID ${idText} - ${nameText}`;
+    },
+
+    previewStateClass(term) {
+      if (term.permissionState === "allow") return "state-allow";
+      if (term.permissionState === "deny") return "state-deny";
+      return "state-idle";
     },
 
     statusPillText(term) {
       if (!term.previewRunning) return "OFFLINE";
-      if (term.sessionLocked) return term.alert ? "TU CHOI" : "DA CHO QUA";
-      return "DANG QUET MA";
+      if (term.permissionState === "allow") return "CHO PHEP";
+      if (term.permissionState === "deny") return "TU CHOI";
+      if (term.permissionState === "scanning") return "DANG QUET";
+      return "SAN SANG";
     },
 
     statusPillClass(term) {
       if (!term.previewRunning) return "wait";
-      if (term.sessionLocked) return term.alert ? "danger" : "ok";
+      if (term.permissionState === "allow") return "ok";
+      if (term.permissionState === "deny") return "danger";
       return "neutral";
-    },
-
-    shortText(val) {
-      if (!val) return "-----";
-      return val.length > 50 ? val.substring(0, 50) + "..." : val;
     }
   }
 };
@@ -436,32 +588,12 @@ export default {
 
 <style scoped>
 .qrm-page { min-height: calc(100vh - 20px); padding: 16px; }
-.qrm-topbar { margin-top: 6px; margin-bottom: 10px; }
-.qrm-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.qrm-topbar { margin-top: 6px; margin-bottom: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .qrm-topbar h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; }
 .qrm-topbar p { margin: 8px 0 0; color: #64748b; font-size: 16px; }
-.qrm-settings-btn {
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #334155;
-  font-weight: 800;
-  cursor: pointer;
-}
+.qrm-settings-btn { height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-weight: 800; cursor: pointer; }
 
-.qrm-card {
-  width: min(1280px, 100%);
-  margin: 0 auto;
-  background: #ffffff;
-  border: 1px solid #dde6f0;
-  border-radius: 20px;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-}
-.qrm-card.ready { border-color: #9ac8ff; }
-
+.qrm-card { width: min(1280px, 100%); margin: 0 auto; background: #ffffff; border: 1px solid #dde6f0; border-radius: 20px; padding: 16px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
 .qrm-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
 .qrm-kicker { font-size: 12px; font-weight: 800; letter-spacing: .08em; color: #6b7f96; text-transform: uppercase; }
 .qrm-card-head h2 { margin: 4px 0 0; font-size: clamp(24px, 3vw, 32px); font-weight: 900; }
@@ -479,188 +611,89 @@ export default {
 .qrm-btn-off { background: #e57f7f; }
 .qrm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.qrm-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.qrm-form-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
 .qrm-field label { display: block; font-size: 12px; font-weight: 800; margin-bottom: 6px; color: #2e4159; text-transform: uppercase; letter-spacing: .03em; }
-.qrm-field input {
-  width: 100%;
-  height: 44px;
-  border: 1px solid #c5d4e6;
-  border-radius: 12px;
-  padding: 0 12px;
-  font-size: 15px;
-  outline: none;
-  background: #f8fbff;
-}
+.qrm-field input { width: 100%; height: 44px; border: 1px solid #c5d4e6; border-radius: 12px; padding: 0 12px; font-size: 15px; outline: none; background: #f8fbff; }
+.camera-verified { margin-top: 8px; font-size: 12px; font-weight: 800; }
+.camera-verified.ok { color: #15803d; }
+.camera-verified.warn { color: #b45309; }
 
-.qrm-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
-.summary-item { background: #f7fafd; border: 1px solid #e3edf7; border-radius: 12px; padding: 12px; }
-.summary-item .label { display: block; font-size: 11px; color: #728399; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
-.summary-item .value { font-size: 24px; font-weight: 900; }
-.ok-text { color: #15803d; }
-.danger-text { color: #b91c1c; }
-
-.qrm-preview-wrap { max-width: 860px; margin: 0 auto; }
+.qrm-preview-wrap { max-width: 820px; margin: 0 auto; }
 .qrm-preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 800; color: #12233b; }
 .preview-badge { background: #fff7ed; color: #c2410c; border-radius: 999px; padding: 6px 10px; font-size: 12px; }
-.cam-preview {
-  width: 100%;
-  aspect-ratio: 16/10;
-  background: #07163b;
-  border-radius: 14px;
-  border: 2px solid #27497f;
-  overflow: hidden;
-  position: relative;
-}
+.cam-preview { width: 100%; aspect-ratio: 16/10; background: #07163b; border-radius: 14px; border: 2px solid #27497f; overflow: hidden; position: relative; transition: border-color .18s ease, box-shadow .18s ease; }
+.cam-preview.state-allow { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.28) inset; }
+.cam-preview.state-deny { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3) inset; }
+.cam-preview.state-idle { border-color: #27497f; }
 .preview-image { width: 100%; height: 100%; object-fit: contain; display: block; }
 .cam-off { width: 100%; height: 100%; display: flex; color: #d4e2ff; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; }
 
-.search-box { position: relative; }
-.dropdown {
+.id-overlay {
   position: absolute;
-  background: #fff;
-  border: 1px solid #c6d5e8;
+  left: 12px;
+  bottom: 12px;
+  padding: 8px 10px;
   border-radius: 10px;
-  width: 100%;
-  max-height: 220px;
-  overflow-y: auto;
-  z-index: 9999;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.7);
+  max-width: calc(100% - 24px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.id-overlay.allow { background: rgba(22, 163, 74, 0.82); }
+.id-overlay.deny { background: rgba(220, 38, 38, 0.82); }
+
+.scan-overlay {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: rgba(2, 6, 23, 0.7);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.search-box { position: relative; }
+.dropdown { position: absolute; background: #fff; border: 1px solid #c6d5e8; border-radius: 10px; width: 100%; max-height: 220px; overflow-y: auto; z-index: 9999; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12); }
 .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; }
 .dropdown-item:hover { background: #edf4ff; }
 
-.bottom-note {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #f8fbff;
-  border: 1px solid #e2ebf6;
-  font-size: 13px;
-  color: #475569;
-}
+.qrm-drawer-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); z-index: 200; display: flex; justify-content: flex-end; }
+.qrm-drawer { width: min(420px, 92vw); height: 100%; background: #ffffff; box-shadow: -12px 0 30px rgba(15, 23, 42, 0.18); padding: 16px; }
+.qrm-drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.qrm-drawer-head h3 { margin: 0; font-size: 20px; font-weight: 900; }
+.qrm-drawer-close { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 6px 10px; font-weight: 700; cursor: pointer; }
+.qrm-setting-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+.qrm-setting-name { font-weight: 900; color: #0f172a; }
+.qrm-setting-desc { margin-top: 4px; font-size: 13px; color: #64748b; }
 
-.qrm-drawer-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.35);
-  z-index: 200;
-  display: flex;
-  justify-content: flex-end;
-}
-.qrm-drawer {
-  width: min(420px, 92vw);
-  height: 100%;
-  background: #ffffff;
-  box-shadow: -12px 0 30px rgba(15, 23, 42, 0.18);
-  padding: 16px;
-}
-.qrm-drawer-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.qrm-drawer-head h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 900;
-}
-.qrm-drawer-close {
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.qrm-setting-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 10px;
-}
-.qrm-setting-name {
-  font-weight: 900;
-  color: #0f172a;
-}
-.qrm-setting-desc {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #64748b;
-}
-.toggle-switch {
-  position: relative;
-  flex-shrink: 0;
-  width: 50px;
-  height: 28px;
-  border-radius: 999px;
-  border: 2px solid #cbd5e1;
-  background: #e2e8f0;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-.toggle-switch.on {
-  background: #22c55e;
-  border-color: #16a34a;
-}
-.toggle-switch.pending {
-  background: #facc15;
-  border-color: #eab308;
-}
-.toggle-switch:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.toggle-switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
-  transition: transform 0.2s ease;
-}
-.toggle-switch.on .toggle-switch-knob {
-  transform: translateX(22px);
-}
-.toggle-switch.pending .toggle-switch-knob {
-  background: #fef08a;
-}
-.auto-start-btn {
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.auto-start-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.qrm-refresh-btn {
-  width: 100%;
-  height: 40px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  background: #fff;
-  font-weight: 800;
-  cursor: pointer;
-}
+.toggle-switch { position: relative; flex-shrink: 0; width: 50px; height: 28px; border-radius: 999px; border: 2px solid #cbd5e1; background: #e2e8f0; cursor: pointer; padding: 0; transition: background 0.2s ease, border-color 0.2s ease; }
+.toggle-switch.on { background: #22c55e; border-color: #16a34a; }
+.toggle-switch.pending { background: #facc15; border-color: #eab308; }
+.toggle-switch:disabled { opacity: 0.55; cursor: not-allowed; }
+.toggle-switch-knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2); transition: transform 0.2s ease; }
+.toggle-switch.on .toggle-switch-knob { transform: translateX(22px); }
+.toggle-switch.pending .toggle-switch-knob { background: #fef08a; }
+.auto-start-btn { min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 700; cursor: pointer; }
+.auto-start-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.qrm-refresh-btn { width: 100%; height: 40px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font-weight: 800; cursor: pointer; }
+
+.auth-mask { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.45); z-index: 260; display: grid; place-items: center; }
+.auth-dialog { width: min(460px, 92vw); background: #fff; border: 1px solid #dbe5f1; border-radius: 14px; padding: 16px; box-shadow: 0 18px 42px rgba(2, 6, 23, 0.24); }
+.auth-dialog h3 { margin: 0 0 8px; font-size: 22px; }
+.auth-dialog p { margin: 0 0 10px; color: #475569; font-weight: 700; }
+.auth-dialog input { width: 100%; height: 44px; border: 1px solid #c5d4e6; border-radius: 10px; padding: 0 12px; font-size: 15px; }
+.auth-error { margin-top: 8px; color: #b91c1c; font-size: 13px; font-weight: 700; }
+.auth-actions { margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px; }
 
 @media (max-width: 900px) {
-  .qrm-form-grid, .qrm-summary-grid { grid-template-columns: 1fr; }
-  .qrm-status-pill { min-width: 120px; }
   .qrm-topbar { flex-direction: column; align-items: stretch; }
+  .qrm-status-pill { min-width: 120px; }
 }
 </style>

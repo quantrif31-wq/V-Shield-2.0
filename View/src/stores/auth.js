@@ -18,6 +18,7 @@ export async function login(username, password) {
 
     state.token = data.token
     state.user = {
+        userId: data.userId,
         username: data.username,
         fullName: data.fullName,
         role: data.role,
@@ -53,6 +54,7 @@ export async function fetchUser() {
     try {
         const res = await getMe()
         state.user = {
+            userId: res.data.userId,
             username: res.data.username,
             fullName: res.data.fullName,
             role: res.data.role,
