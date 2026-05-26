@@ -151,8 +151,9 @@ import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrO
 import { authState } from "../stores/auth";
 
 const SCAN_TIMEOUT_MS = 6500;
-const RESULT_HOLD_MS = 2200;
 const DUPLICATE_SUPPRESS_MS = 1800;
+const HOLD_RELEASE_EMPTY_POLLS = 4;
+const HOLD_MAX_MS = 2200;
 const IDLE_DOWNGRADE_MS = 25000;
 const NORMAL_POLL_MS = 300;
 const LOW_POLL_MS = 900;
@@ -210,7 +211,11 @@ export default {
           lastPayload: "",
           lastPayloadAt: 0,
           perfMode: "normal",
-          lastDetectedAt: 0
+          lastDetectedAt: 0,
+          holdLocked: false,
+          emptyPollStreak: 0,
+          holdPayload: "",
+          holdStartedAt: 0
         }
       ]
     };
@@ -468,6 +473,10 @@ export default {
       term.permissionState = "idle";
       term.identityLabel = "";
       term.activeTraceId = 0;
+      term.holdLocked = false;
+      term.emptyPollStreak = 0;
+      term.holdPayload = "";
+      term.holdStartedAt = 0;
     },
 
     ensureNormalPerf(term) {
@@ -525,27 +534,7 @@ export default {
       }
     },
 
-    stopResultResetTimer(term) {
-      if (term.resultResetTimer) {
-        clearTimeout(term.resultResetTimer);
-        term.resultResetTimer = null;
-      }
-    },
-
-    scheduleResultReset(term) {
-      this.stopResultResetTimer(term);
-      term.resultResetTimer = setTimeout(() => {
-        if (!term.previewRunning) return;
-        term.sessionLocked = false;
-        term.qrPayload = "";
-        term.verifiedId = "";
-        term.verifiedName = "";
-        term.verifiedType = "";
-        term.verifyMessage = "";
-        term.identityLabel = "";
-        term.permissionState = "idle";
-      }, RESULT_HOLD_MS);
-    },
+    stopResultResetTimer() {},
 
     async runNextSession(term, delay) {
       if (!term.previewRunning) return;
@@ -553,6 +542,10 @@ export default {
       this.stopSessionTimer(term);
       term.sessionTimer = setTimeout(async () => {
         if (!term.previewRunning || term.loading || term.scanSessionActive) return;
+        if (term.holdLocked) {
+          await this.runNextSession(term, 160);
+          return;
+        }
         term.scanSessionActive = true;
         term.permissionState = "scanning";
         term.verifyMessage = "Dang quet QR...";
@@ -582,6 +575,67 @@ export default {
         const res = await getQrScanResult();
         if (!res) return;
 
+        if (term.holdLocked) {
+          if (res.locked && res.qr) {
+            const currentPayload = String(res.qr || "").trim();
+            if (currentPayload && currentPayload !== String(term.holdPayload || "")) {
+              term.holdLocked = false;
+              term.emptyPollStreak = 0;
+              term.holdPayload = "";
+              term.holdStartedAt = 0;
+              term.scanSessionActive = false;
+              term.sessionLocked = true;
+              term.qrPayload = currentPayload;
+              term.lastDetectedAt = Date.now();
+              this.ensureNormalPerf(term);
+              term.traceCounter = Number(term.traceCounter || 0) + 1;
+              term.activeTraceId = term.traceCounter;
+              await this.callApiScanAccess(term, term.qrPayload);
+              term.holdLocked = true;
+              term.holdPayload = term.qrPayload;
+              term.holdStartedAt = Date.now();
+              await this.runNextSession(term, 120);
+              return;
+            }
+
+            if (Date.now() - Number(term.holdStartedAt || 0) >= HOLD_MAX_MS) {
+              term.holdLocked = false;
+              term.emptyPollStreak = 0;
+              term.holdPayload = "";
+              term.holdStartedAt = 0;
+              try {
+                await resetQrSession();
+                await scanQrOnce();
+              } catch {
+                // ignore
+              }
+              await this.runNextSession(term, 0);
+              return;
+            }
+
+            term.emptyPollStreak = 0;
+            return;
+          }
+
+          term.emptyPollStreak = Number(term.emptyPollStreak || 0) + 1;
+          if (term.emptyPollStreak >= HOLD_RELEASE_EMPTY_POLLS) {
+            term.holdLocked = false;
+            term.emptyPollStreak = 0;
+            term.holdPayload = "";
+            term.holdStartedAt = 0;
+            term.sessionLocked = false;
+            term.qrPayload = "";
+            term.verifiedId = "";
+            term.verifiedName = "";
+            term.verifiedType = "";
+            term.verifyMessage = "";
+            term.identityLabel = "";
+            term.permissionState = "idle";
+            await this.runNextSession(term, 0);
+          }
+          return;
+        }
+
         if (res.locked && res.qr && term.scanSessionActive) {
           this.stopSessionTimer(term);
           term.scanSessionActive = false;
@@ -603,7 +657,11 @@ export default {
           term.traceCounter = Number(term.traceCounter || 0) + 1;
           term.activeTraceId = term.traceCounter;
           await this.callApiScanAccess(term, term.qrPayload);
-          await this.runNextSession(term);
+          term.holdLocked = true;
+          term.holdPayload = term.qrPayload;
+          term.holdStartedAt = Date.now();
+          term.emptyPollStreak = 0;
+          await this.runNextSession(term, 140);
         }
       } catch {
         // keep loop alive
@@ -630,7 +688,6 @@ export default {
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = res?.data?.message || "Cho phep";
         term.permissionState = "allow";
-        this.scheduleResultReset(term);
       } catch (err) {
         const status = Number(err?.response?.status || 0);
         const data = err?.response?.data?.data || {};
@@ -642,7 +699,6 @@ export default {
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = status === 401 ? "Mat khau tai khoan khong chinh xac." : message;
         term.permissionState = "deny";
-        this.scheduleResultReset(term);
       } finally {
         term.loading = false;
       }
