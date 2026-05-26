@@ -3,6 +3,7 @@ using API.DTOs;
 using API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using System;
 using System.Threading.Tasks;
 
@@ -47,12 +48,23 @@ namespace API.Controllers
 
             if (targetVisitorId == null && targetEmployeeId == null && !string.IsNullOrWhiteSpace(request.QrPayload))
             {
-                var visitorMatch = await _context.VisitorDetails
-                    .FirstOrDefaultAsync(v => v.QrPayload == request.QrPayload && v.IsQrActive);
+                var normalizedPayload = request.QrPayload.Trim();
 
-                if (visitorMatch != null)
+                var employeeIdFromPayload = TryParseEmployeeIdFromDynamicPayload(normalizedPayload);
+                if (employeeIdFromPayload.HasValue && employeeIdFromPayload.Value > 0)
                 {
-                    targetVisitorId = visitorMatch.VisitorDetailId;
+                    targetEmployeeId = employeeIdFromPayload.Value;
+                }
+
+                if (targetEmployeeId == null)
+                {
+                    var visitorMatch = await _context.VisitorDetails
+                        .FirstOrDefaultAsync(v => v.QrPayload == normalizedPayload && v.IsQrActive);
+
+                    if (visitorMatch != null)
+                    {
+                        targetVisitorId = visitorMatch.VisitorDetailId;
+                    }
                 }
             }
 
@@ -215,12 +227,33 @@ namespace API.Controllers
                 return (false, "Khong tim thay tai khoan thao tac.", null);
             }
 
-            if (currentUser.PasswordHash != request.UserPassword)
+            if (!BCrypt.Net.BCrypt.Verify(request.UserPassword, currentUser.PasswordHash))
             {
                 return (false, "Mat khau tai khoan khong chinh xac.", null);
             }
 
             return (true, null, camera);
+        }
+
+        private static int? TryParseEmployeeIdFromDynamicPayload(string payload)
+        {
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(payload.Trim(), @"(?:^|\|)EMP:(\d+)(?:\||$)", RegexOptions.IgnoreCase);
+            if (!match.Success || match.Groups.Count < 2)
+            {
+                return null;
+            }
+
+            if (int.TryParse(match.Groups[1].Value, out var employeeId) && employeeId > 0)
+            {
+                return employeeId;
+            }
+
+            return null;
         }
     }
 }

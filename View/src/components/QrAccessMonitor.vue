@@ -151,7 +151,13 @@ import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrO
 import { authState } from "../stores/auth";
 
 const SCAN_TIMEOUT_MS = 6500;
-const NEXT_SCAN_DELAY_MS = 500;
+const RESULT_HOLD_MS = 2200;
+const DUPLICATE_SUPPRESS_MS = 1800;
+const IDLE_DOWNGRADE_MS = 25000;
+const NORMAL_POLL_MS = 300;
+const LOW_POLL_MS = 900;
+const NORMAL_SESSION_DELAY_MS = 0;
+const LOW_SESSION_DELAY_MS = 1400;
 
 export default {
   name: "QrAccessMonitor",
@@ -194,9 +200,17 @@ export default {
           qrPayload: "",
           verifiedId: "",
           verifiedName: "",
+          verifiedType: "",
           verifyMessage: "",
           permissionState: "idle",
-          identityLabel: ""
+          identityLabel: "",
+          resultResetTimer: null,
+          traceCounter: 0,
+          activeTraceId: 0,
+          lastPayload: "",
+          lastPayloadAt: 0,
+          perfMode: "normal",
+          lastDetectedAt: 0
         }
       ]
     };
@@ -386,7 +400,8 @@ export default {
         term.permissionState = "idle";
         term.identityLabel = "";
         this.cameraSearch[term.id] = this.authModal.cameraName;
-        this.closeAuthModal();
+        this.authModal.open = false;
+        this.authModal.error = "";
       } catch (e) {
         this.authModal.error = e?.response?.data?.message || e?.message || "Xac thuc that bai.";
       } finally {
@@ -418,6 +433,8 @@ export default {
         }
 
         this.clearScanState(term);
+        this.ensureNormalPerf(term);
+        term.lastDetectedAt = Date.now();
         this.startResultPolling(term);
         await this.runNextSession(term, 0);
       } catch (e) {
@@ -431,6 +448,7 @@ export default {
       term.previewRunning = false;
       this.stopResultPolling(term);
       this.stopSessionTimer(term);
+      this.stopResultResetTimer(term);
       this.clearScanState(term);
       try {
         await stopQrScanner();
@@ -445,17 +463,52 @@ export default {
       term.qrPayload = "";
       term.verifiedId = "";
       term.verifiedName = "";
+      term.verifiedType = "";
       term.verifyMessage = "";
       term.permissionState = "idle";
       term.identityLabel = "";
+      term.activeTraceId = 0;
+    },
+
+    ensureNormalPerf(term) {
+      if (term.perfMode !== "normal") {
+        term.perfMode = "normal";
+        this.startResultPolling(term);
+      }
+    },
+
+    ensureLowPerf(term) {
+      if (term.perfMode !== "low") {
+        term.perfMode = "low";
+        this.startResultPolling(term);
+      }
+    },
+
+    pollIntervalMs(term) {
+      return term.perfMode === "low" ? LOW_POLL_MS : NORMAL_POLL_MS;
+    },
+
+    nextSessionDelayMs(term) {
+      return term.perfMode === "low" ? LOW_SESSION_DELAY_MS : NORMAL_SESSION_DELAY_MS;
+    },
+
+    applyAdaptivePerf(term) {
+      if (!term.previewRunning) return;
+      const lastDetectedAt = Number(term.lastDetectedAt || 0);
+      if (!lastDetectedAt) return;
+      const idleMs = Date.now() - lastDetectedAt;
+      if (idleMs >= IDLE_DOWNGRADE_MS) {
+        this.ensureLowPerf(term);
+      }
     },
 
     startResultPolling(term) {
       this.stopResultPolling(term);
       term.resultTimer = setInterval(async () => {
         if (!term.previewRunning || term.loading) return;
+        this.applyAdaptivePerf(term);
         await this.pullQrResult(term);
-      }, 300);
+      }, this.pollIntervalMs(term));
     },
 
     stopResultPolling(term) {
@@ -472,8 +525,31 @@ export default {
       }
     },
 
-    async runNextSession(term, delay = NEXT_SCAN_DELAY_MS) {
+    stopResultResetTimer(term) {
+      if (term.resultResetTimer) {
+        clearTimeout(term.resultResetTimer);
+        term.resultResetTimer = null;
+      }
+    },
+
+    scheduleResultReset(term) {
+      this.stopResultResetTimer(term);
+      term.resultResetTimer = setTimeout(() => {
+        if (!term.previewRunning) return;
+        term.sessionLocked = false;
+        term.qrPayload = "";
+        term.verifiedId = "";
+        term.verifiedName = "";
+        term.verifiedType = "";
+        term.verifyMessage = "";
+        term.identityLabel = "";
+        term.permissionState = "idle";
+      }, RESULT_HOLD_MS);
+    },
+
+    async runNextSession(term, delay) {
       if (!term.previewRunning) return;
+      const nextDelay = Number.isFinite(delay) ? delay : this.nextSessionDelayMs(term);
       this.stopSessionTimer(term);
       term.sessionTimer = setTimeout(async () => {
         if (!term.previewRunning || term.loading || term.scanSessionActive) return;
@@ -488,7 +564,7 @@ export default {
           term.permissionState = "deny";
           term.verifyMessage = e?.message || "Loi khi bat dau phien quet.";
           term.scanSessionActive = false;
-          await this.runNextSession(term, 1000);
+          await this.runNextSession(term, 220);
           return;
         }
 
@@ -496,9 +572,9 @@ export default {
           if (!term.previewRunning || !term.scanSessionActive) return;
           term.scanSessionActive = false;
           term.permissionState = "idle";
-          await this.runNextSession(term, NEXT_SCAN_DELAY_MS);
+          await this.runNextSession(term);
         }, SCAN_TIMEOUT_MS);
-      }, delay);
+      }, nextDelay);
     },
 
     async pullQrResult(term) {
@@ -511,8 +587,23 @@ export default {
           term.scanSessionActive = false;
           term.sessionLocked = true;
           term.qrPayload = String(res.qr || "").trim();
+          term.lastDetectedAt = Date.now();
+          this.ensureNormalPerf(term);
+          const now = Date.now();
+          if (
+            term.qrPayload &&
+            term.qrPayload === term.lastPayload &&
+            now - Number(term.lastPayloadAt || 0) < DUPLICATE_SUPPRESS_MS
+          ) {
+            await this.runNextSession(term);
+            return;
+          }
+          term.lastPayload = term.qrPayload;
+          term.lastPayloadAt = now;
+          term.traceCounter = Number(term.traceCounter || 0) + 1;
+          term.activeTraceId = term.traceCounter;
           await this.callApiScanAccess(term, term.qrPayload);
-          await this.runNextSession(term, NEXT_SCAN_DELAY_MS);
+          await this.runNextSession(term);
         }
       } catch {
         // keep loop alive
@@ -535,9 +626,11 @@ export default {
 
         term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
         term.verifiedName = String(data.subjectName || "");
-        term.identityLabel = this.buildIdentityLabel(term.verifiedId, term.verifiedName);
+        term.verifiedType = data.employeeId ? "Nhan vien" : "Khach";
+        term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = res?.data?.message || "Cho phep";
         term.permissionState = "allow";
+        this.scheduleResultReset(term);
       } catch (err) {
         const status = Number(err?.response?.status || 0);
         const data = err?.response?.data?.data || {};
@@ -545,21 +638,26 @@ export default {
 
         term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
         term.verifiedName = String(data.subjectName || "");
-        term.identityLabel = this.buildIdentityLabel(term.verifiedId, term.verifiedName);
+        term.verifiedType = data.employeeId ? "Nhan vien" : "Khach";
+        term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = status === 401 ? "Mat khau tai khoan khong chinh xac." : message;
         term.permissionState = "deny";
+        this.scheduleResultReset(term);
       } finally {
         term.loading = false;
       }
     },
 
-    buildIdentityLabel(id, name) {
+    buildIdentityLabel(traceId, type, id, name) {
+      const traceText = Number(traceId || 0) > 0 ? `#${traceId}` : "#-";
+      const typeText = String(type || "").trim();
       const idText = String(id || "").trim();
       const nameText = String(name || "").trim();
-      if (!idText && !nameText) return "";
-      if (!idText) return nameText;
-      if (!nameText) return `ID ${idText}`;
-      return `ID ${idText} - ${nameText}`;
+      if (!typeText && !idText && !nameText) return "";
+      const safeType = typeText || "Doi tuong";
+      const safeId = idText || "N/A";
+      const safeName = nameText || "Chua ro";
+      return `${traceText} | ${safeType} | ID: ${safeId} | Ten: ${safeName}`;
     },
 
     previewStateClass(term) {
