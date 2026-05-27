@@ -43,7 +43,7 @@ public class RegistrationLinkController : ControllerBase
         _context.RegistrationLinks.Add(link);
         await _context.SaveChangesAsync();
 
-        var frontendUrl = (_config["AppSettings:FrontendUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
+        var frontendUrl = ResolvePortalBaseUrl();
 
         return Ok(new CreateLinkResponseDto
         {
@@ -71,7 +71,7 @@ public class RegistrationLinkController : ControllerBase
         }
 
         var now = DateTime.Now;
-        var frontendUrl = (_config["AppSettings:FrontendUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
+        var frontendUrl = ResolvePortalBaseUrl();
 
         var items = await linksQuery
             .OrderByDescending(link => link.CreatedAt)
@@ -90,5 +90,32 @@ public class RegistrationLinkController : ControllerBase
             .ToListAsync();
 
         return Ok(items);
+    }
+
+    private string ResolvePortalBaseUrl()
+    {
+        // 1) Ưu tiên cấu hình riêng cho trang đăng ký khách (nếu có)
+        var guestPortalUrl = (_config["AppSettings:GuestRegistrationPortalUrl"] ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(guestPortalUrl))
+        {
+            return guestPortalUrl.TrimEnd('/');
+        }
+
+        // 2) Ưu tiên Origin thực tế từ request UI đang gọi API (thường là portal chính)
+        var originHeader = Request.Headers["Origin"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(originHeader))
+        {
+            return originHeader.TrimEnd('/');
+        }
+
+        // 3) Fallback cấu hình FrontendUrl (để tương thích cũ)
+        var frontendUrl = (_config["AppSettings:FrontendUrl"] ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(frontendUrl))
+        {
+            return frontendUrl.TrimEnd('/');
+        }
+
+        // 4) Fallback cuối: host hiện tại của API
+        return $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
     }
 }
