@@ -11,3 +11,5 @@ export const updateVisitorDirectoryItem = (visitorDetailId, data) =>
   http.put(`/guest-profiles/visitor-directory/${visitorDetailId}`, data)
 export const deleteVisitorDirectoryItem = (visitorDetailId) =>
   http.delete(`/guest-profiles/visitor-directory/${visitorDetailId}`)
+export const getVisitorAccessLogs = (visitorDetailId) =>
+  http.get(`/guest-profiles/visitor-directory/${visitorDetailId}/access-logs`)

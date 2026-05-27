@@ -8,9 +8,66 @@
     </div>
 
     <section class="ops-panel">
-      <div class="toolbar-shell">
-        <div class="search-bar">
-          <input v-model="query" type="text" placeholder="Tim theo ID, ten, CCCD, host..." />
+      <div class="filters">
+        <div class="field">
+          <label>Tim khach (Ten, CCCD hoac ID)</label>
+          <div class="combo-box">
+            <input
+              v-model.trim="visitorFilterKeyword"
+              type="text"
+              placeholder="Vi du: Nguyen Van A hoac 12"
+              @focus="showVisitorFilterDropdown = true"
+              @input="handleVisitorFilterInput"
+            />
+            <ul v-if="showVisitorFilterDropdown && visitorFilterOptions.length" class="combo-menu">
+              <li
+                v-for="visitor in visitorFilterOptions"
+                :key="visitor.visitorDetailId"
+                class="combo-item"
+                @mousedown.prevent="selectVisitorFilter(visitor)"
+              >
+                {{ visitor.fullName }} (ID {{ visitor.visitorDetailId }}) - CCCD: {{ visitor.idCardNumber || '-' }}
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Loc theo host phu trach</label>
+          <div class="combo-box">
+            <input
+              v-model.trim="hostFilterKeyword"
+              type="text"
+              placeholder="Go ten hoac ID host"
+              @focus="showHostFilterDropdown = true"
+              @input="handleHostFilterInput"
+            />
+            <ul v-if="showHostFilterDropdown && hostFilterOptions.length" class="combo-menu">
+              <li class="combo-item" @mousedown.prevent="selectAllHostFilter">Tat ca host</li>
+              <li
+                v-for="emp in hostFilterOptions"
+                :key="emp.employeeId"
+                class="combo-item"
+                @mousedown.prevent="selectHostFilter(emp)"
+              >
+                {{ emp.fullName }} (ID {{ emp.employeeId }})
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Trang thai phieu</label>
+          <select v-model="filters.registrationStatus">
+            <option value="">Tat ca trang thai</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-subtle" :disabled="isLoading" @click="resetFilters">Dat lai</button>
         </div>
       </div>
 
@@ -40,6 +97,7 @@
               <td>
                 <div class="panel-actions">
                   <button class="btn btn-secondary btn-sm" @click="openModal(item)">Sua</button>
+                  <button class="btn btn-secondary btn-sm" @click="openLogModal(item)">Lich su</button>
                   <button class="btn btn-danger btn-sm" @click="handleDelete(item)">Xoa</button>
                 </div>
               </td>
@@ -95,13 +153,48 @@
         </div>
       </div>
     </transition>
+
+    <transition name="modal">
+      <div v-if="showLogModal" class="modal-overlay" @click.self="closeLogModal">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title">Lich su ra vao - {{ logTargetName }}</h3>
+            <button class="modal-close" @click="closeLogModal">x</button>
+          </div>
+          <div v-if="isLogLoading" class="empty-card">Dang tai lich su...</div>
+          <div v-else-if="accessLogs.length === 0" class="empty-card">Khong co log.</div>
+          <div v-else class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Thoi gian</th>
+                  <th>Huong</th>
+                  <th>Gate</th>
+                  <th>Camera</th>
+                  <th>Ket qua</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="log in accessLogs" :key="log.logId">
+                  <td>{{ formatDateTime(log.timestamp) }}</td>
+                  <td>{{ log.direction }}</td>
+                  <td>{{ log.gateName || '-' }}</td>
+                  <td>{{ log.cameraName || '-' }}</td>
+                  <td>{{ log.resultStatus || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { getAll as getEmployees } from '../services/employeeApi'
-import { deleteVisitorDirectoryItem, getVisitorDirectory, updateVisitorDirectoryItem } from '../services/guestProfileApi'
+import { deleteVisitorDirectoryItem, getVisitorAccessLogs, getVisitorDirectory, updateVisitorDirectoryItem } from '../services/guestProfileApi'
 
 const isLoading = ref(true)
 const isSaving = ref(false)
@@ -109,6 +202,10 @@ const query = ref('')
 const rows = ref([])
 const total = ref(0)
 const showModal = ref(false)
+const showLogModal = ref(false)
+const isLogLoading = ref(false)
+const accessLogs = ref([])
+const logTargetName = ref('')
 const formError = ref('')
 const employees = ref([])
 const editingId = ref(null)
@@ -118,11 +215,58 @@ const form = reactive({
   idCardNumber: '',
   hostEmployeeId: null
 })
+const filters = reactive({
+  hostEmployeeId: null,
+  registrationStatus: ''
+})
+const visitorFilterKeyword = ref('')
+const hostFilterKeyword = ref('')
+const showVisitorFilterDropdown = ref(false)
+const showHostFilterDropdown = ref(false)
+
+function normalizeText(input) {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
+    .replace(/\u0110/g, 'd')
+    .toLowerCase()
+    .trim()
+}
+
+const visitorFilterOptions = computed(() => {
+  const q = normalizeText(visitorFilterKeyword.value)
+  const all = rows.value || []
+  if (!q) return all.slice(0, 5)
+  return all
+    .filter((v) =>
+      normalizeText(v.fullName).includes(q) ||
+      String(v.visitorDetailId || '').includes(q) ||
+      normalizeText(v.idCardNumber || '').includes(q)
+    )
+    .slice(0, 5)
+})
+
+const hostFilterOptions = computed(() => {
+  const q = normalizeText(hostFilterKeyword.value)
+  const all = employees.value || []
+  if (!q) return all.slice(0, 5)
+  return all
+    .filter((e) => normalizeText(e.fullName).includes(q) || String(e.employeeId || '').includes(q))
+    .slice(0, 5)
+})
 
 const fetchRows = async () => {
   isLoading.value = true
   try {
-    const { data } = await getVisitorDirectory({ query: query.value || undefined, page: 1, pageSize: 100 })
+    const params = {
+      query: query.value || undefined,
+      page: 1,
+      pageSize: 100,
+      hostEmployeeId: filters.hostEmployeeId || undefined,
+      registrationStatus: filters.registrationStatus || undefined
+    }
+    const { data } = await getVisitorDirectory(params)
     rows.value = data?.items || []
     total.value = data?.total || 0
   } finally {
@@ -133,6 +277,53 @@ const fetchRows = async () => {
 const fetchEmployees = async () => {
   const { data } = await getEmployees({ search: '' })
   employees.value = Array.isArray(data) ? data : (data?.items || [])
+}
+
+function handleVisitorFilterInput() {
+  showVisitorFilterDropdown.value = true
+  query.value = visitorFilterKeyword.value
+}
+function selectVisitorFilter(visitor) {
+  visitorFilterKeyword.value = `${visitor.fullName} (ID ${visitor.visitorDetailId})`
+  query.value = String(visitor.visitorDetailId)
+  showVisitorFilterDropdown.value = false
+  fetchRows()
+}
+function handleHostFilterInput() {
+  showHostFilterDropdown.value = true
+  filters.hostEmployeeId = null
+}
+function selectAllHostFilter() {
+  filters.hostEmployeeId = null
+  hostFilterKeyword.value = ''
+  showHostFilterDropdown.value = false
+  fetchRows()
+}
+function selectHostFilter(emp) {
+  filters.hostEmployeeId = emp.employeeId
+  hostFilterKeyword.value = `${emp.fullName} (ID ${emp.employeeId})`
+  showHostFilterDropdown.value = false
+  fetchRows()
+}
+function resetFilters() {
+  query.value = ''
+  filters.hostEmployeeId = null
+  filters.registrationStatus = ''
+  visitorFilterKeyword.value = ''
+  hostFilterKeyword.value = ''
+  showVisitorFilterDropdown.value = false
+  showHostFilterDropdown.value = false
+  fetchRows()
+}
+function closeAllComboboxes() {
+  showVisitorFilterDropdown.value = false
+  showHostFilterDropdown.value = false
+}
+function handleDocumentClick(event) {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.combo-box')) return
+  closeAllComboboxes()
 }
 
 const openModal = (item) => {
@@ -180,8 +371,36 @@ const handleSave = async () => {
 const handleDelete = async (item) => {
   const ok = window.confirm(`Xoa khach "${item.fullName}" (ID ${item.visitorDetailId})?`)
   if (!ok) return
-  await deleteVisitorDirectoryItem(item.visitorDetailId)
-  await fetchRows()
+  try {
+    await deleteVisitorDirectoryItem(item.visitorDetailId)
+    await fetchRows()
+  } catch (e) {
+    window.alert(e?.response?.data?.message || 'Khong the xoa khach nay.')
+  }
+}
+
+const openLogModal = async (item) => {
+  showLogModal.value = true
+  isLogLoading.value = true
+  accessLogs.value = []
+  logTargetName.value = item.fullName
+  try {
+    const { data } = await getVisitorAccessLogs(item.visitorDetailId)
+    accessLogs.value = data?.items || []
+  } finally {
+    isLogLoading.value = false
+  }
+}
+
+const closeLogModal = () => {
+  showLogModal.value = false
+  accessLogs.value = []
+  logTargetName.value = ''
+}
+
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('vi-VN')
 }
 
 let timer = null
@@ -189,8 +408,32 @@ watch(query, () => {
   clearTimeout(timer)
   timer = setTimeout(fetchRows, 250)
 })
+watch(
+  () => [filters.hostEmployeeId, filters.registrationStatus],
+  () => {
+    fetchRows()
+  }
+)
 
 onMounted(async () => {
   await Promise.all([fetchRows(), fetchEmployees()])
+  document.addEventListener('click', handleDocumentClick)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
+
+<style scoped>
+.filters { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr auto; gap: 12px; align-items: end; margin-bottom: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; color: #51657b; font-weight: 600; }
+.field select, .combo-box input { width: 100%; min-height: 38px; border: 1px solid #cfe0ea; border-radius: 10px; padding: 8px 10px; background: #f8fcff; }
+.combo-box { position: relative; }
+.combo-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; background: #ffffff; border: 1px solid #cfe0ea; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); max-height: 220px; overflow-y: auto; }
+.combo-item { padding: 10px 12px; cursor: pointer; font-size: 13px; color: #17304b; }
+.combo-item:hover { background: #eef7ff; }
+.actions { display: flex; justify-content: flex-end; }
+.btn-subtle { border: 1px solid #cfe0ea; background: #fff; color: #1f3650; border-radius: 10px; padding: 8px 12px; }
+@media (max-width: 1100px) { .filters { grid-template-columns: 1fr; } .actions { justify-content: flex-start; } }
+</style>

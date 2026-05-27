@@ -198,7 +198,10 @@ public class GuestProfilesController : ControllerBase
     public async Task<IActionResult> GetVisitorDirectory(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? query = null)
+        [FromQuery] string? query = null,
+        [FromQuery] int? hostEmployeeId = null,
+        [FromQuery] string? registrationStatus = null,
+        [FromQuery] string? idCardNumber = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -219,6 +222,20 @@ public class GuestProfilesController : ControllerBase
                 (v.IdCardNumber != null && v.IdCardNumber.Contains(normalized)) ||
                 (v.Registration != null && v.Registration.Guest != null && v.Registration.Guest.Phone != null && v.Registration.Guest.Phone.Contains(normalized)) ||
                 (v.Registration != null && v.Registration.HostEmployee != null && v.Registration.HostEmployee.FullName.Contains(normalized)));
+        }
+        if (hostEmployeeId.HasValue)
+        {
+            visitorsQuery = visitorsQuery.Where(v => v.Registration != null && v.Registration.HostEmployeeId == hostEmployeeId.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(registrationStatus))
+        {
+            var status = registrationStatus.Trim();
+            visitorsQuery = visitorsQuery.Where(v => v.Registration != null && v.Registration.Status != null && v.Registration.Status == status);
+        }
+        if (!string.IsNullOrWhiteSpace(idCardNumber))
+        {
+            var cccd = idCardNumber.Trim();
+            visitorsQuery = visitorsQuery.Where(v => v.IdCardNumber != null && v.IdCardNumber.Contains(cccd));
         }
 
         var total = await visitorsQuery.CountAsync();
@@ -276,6 +293,19 @@ public class GuestProfilesController : ControllerBase
         if (visitor == null)
             return NotFound(new { message = "Khong tim thay ban ghi khach." });
 
+        var recentCutoff = DateTime.Now.AddDays(-7);
+        var recentLogCount = await _context.AccessLogs
+            .AsNoTracking()
+            .Where(l => l.VisitorDetailId == visitorDetailId && l.Timestamp.HasValue && l.Timestamp.Value >= recentCutoff)
+            .CountAsync();
+        if (recentLogCount > 0)
+        {
+            return Conflict(new
+            {
+                message = $"Khong the xoa vi khach co {recentLogCount} log ra/vao trong 7 ngay gan day."
+            });
+        }
+
         _context.VisitorDetails.Remove(visitor);
 
         if (visitor.Registration != null && visitor.Registration.NumberOfVisitors > 0)
@@ -285,6 +315,32 @@ public class GuestProfilesController : ControllerBase
 
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("visitor-directory/{visitorDetailId:int}/access-logs")]
+    public async Task<IActionResult> GetVisitorAccessLogs(int visitorDetailId)
+    {
+        var exists = await _context.VisitorDetails.AsNoTracking().AnyAsync(v => v.VisitorDetailId == visitorDetailId);
+        if (!exists) return NotFound(new { message = "Khong tim thay khach." });
+
+        var logs = await _context.AccessLogs
+            .AsNoTracking()
+            .Where(l => l.VisitorDetailId == visitorDetailId)
+            .OrderByDescending(l => l.Timestamp)
+            .Take(100)
+            .Select(l => new
+            {
+                l.LogId,
+                l.Timestamp,
+                l.Direction,
+                l.ResultStatus,
+                l.Note,
+                GateName = l.Gate != null ? l.Gate.GateName : null,
+                CameraName = l.Camera != null ? l.Camera.CameraName : null
+            })
+            .ToListAsync();
+
+        return Ok(new { items = logs });
     }
 
     private static string? NormalizeOptional(string? value)
