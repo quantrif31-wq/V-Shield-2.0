@@ -194,6 +194,99 @@ public class GuestProfilesController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("visitor-directory")]
+    public async Task<IActionResult> GetVisitorDirectory(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? query = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var visitorsQuery = _context.VisitorDetails
+            .AsNoTracking()
+            .Include(v => v.Registration)
+                .ThenInclude(r => r!.HostEmployee)
+            .Include(v => v.Registration)
+                .ThenInclude(r => r!.Guest)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var normalized = query.Trim();
+            visitorsQuery = visitorsQuery.Where(v =>
+                v.FullName.Contains(normalized) ||
+                (v.IdCardNumber != null && v.IdCardNumber.Contains(normalized)) ||
+                (v.Registration != null && v.Registration.Guest != null && v.Registration.Guest.Phone != null && v.Registration.Guest.Phone.Contains(normalized)) ||
+                (v.Registration != null && v.Registration.HostEmployee != null && v.Registration.HostEmployee.FullName.Contains(normalized)));
+        }
+
+        var total = await visitorsQuery.CountAsync();
+        var items = await visitorsQuery
+            .OrderByDescending(v => v.VisitorDetailId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(v => new
+            {
+                v.VisitorDetailId,
+                v.RegistrationId,
+                GuestId = v.Registration != null ? v.Registration.GuestId : null,
+                v.FullName,
+                v.IdCardNumber,
+                GuestPhone = v.Registration != null && v.Registration.Guest != null ? v.Registration.Guest.Phone : null,
+                HostEmployeeId = v.Registration != null ? v.Registration.HostEmployeeId : null,
+                HostEmployeeName = v.Registration != null && v.Registration.HostEmployee != null ? v.Registration.HostEmployee.FullName : null,
+                RegistrationStatus = v.Registration != null ? v.Registration.Status : null,
+                v.IsQrActive
+            })
+            .ToListAsync();
+
+        return Ok(new { page, pageSize, total, items });
+    }
+
+    [HttpPut("visitor-directory/{visitorDetailId:int}")]
+    public async Task<IActionResult> UpdateVisitorDirectoryItem(int visitorDetailId, [FromBody] UpdateVisitorDirectoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            return BadRequest(new { message = "Ho ten khach la bat buoc." });
+
+        var visitor = await _context.VisitorDetails
+            .Include(v => v.Registration)
+            .FirstOrDefaultAsync(v => v.VisitorDetailId == visitorDetailId);
+
+        if (visitor == null || visitor.Registration == null)
+            return NotFound(new { message = "Khong tim thay ban ghi khach." });
+
+        visitor.FullName = request.FullName.Trim();
+        visitor.IdCardNumber = NormalizeOptional(request.IdCardNumber);
+        visitor.Registration.HostEmployeeId = request.HostEmployeeId;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Cap nhat khach thanh cong." });
+    }
+
+    [HttpDelete("visitor-directory/{visitorDetailId:int}")]
+    public async Task<IActionResult> DeleteVisitorDirectoryItem(int visitorDetailId)
+    {
+        var visitor = await _context.VisitorDetails
+            .Include(v => v.Registration)
+            .FirstOrDefaultAsync(v => v.VisitorDetailId == visitorDetailId);
+
+        if (visitor == null)
+            return NotFound(new { message = "Khong tim thay ban ghi khach." });
+
+        _context.VisitorDetails.Remove(visitor);
+
+        if (visitor.Registration != null && visitor.Registration.NumberOfVisitors > 0)
+        {
+            visitor.Registration.NumberOfVisitors = Math.Max(0, visitor.Registration.NumberOfVisitors - 1);
+        }
+
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     private static string? NormalizeOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -205,5 +298,12 @@ public class GuestProfilesController : ControllerBase
         public string? Phone { get; set; }
         public string? DefaultLicensePlate { get; set; }
         public string? FaceImageUrl { get; set; }
+    }
+
+    public sealed class UpdateVisitorDirectoryRequest
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string? IdCardNumber { get; set; }
+        public int? HostEmployeeId { get; set; }
     }
 }

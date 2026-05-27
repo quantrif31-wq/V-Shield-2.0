@@ -423,8 +423,8 @@ const closeCurrentPage = () => {
 const resetForm = () => {
     isSubmitted.value = false
     currentStep.value = 1
-    form.fullName = hostInfo.hostEmployeeName || ''
-    form.phone = hostInfo.hostEmployeePhone || ''
+    form.fullName = ''
+    form.phone = ''
     form.expectedTimeIn = ''
     form.expectedTimeOut = ''
     form.numberOfVisitors = 1
@@ -445,8 +445,8 @@ onMounted(async () => {
         hostInfo.expiredAt = res.data.expiredAt
 
         // Tự động điền thông tin nhân viên chủ trì vào form
-        form.fullName = res.data.hostEmployeeName || ''
-        form.phone = res.data.hostEmployeePhone || ''
+        form.fullName = ''
+        form.phone = ''
 
         isValidating.value = false
     } catch (err) {

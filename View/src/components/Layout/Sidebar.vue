@@ -338,7 +338,7 @@ const navGroups = ref([
                 label: 'Hồ sơ khách',
                 hint: 'Danh bạ khách quen',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6"/><path d="M17 11h6"/></svg>',
-                roles: ['Admin'],
+                roles: ['Admin', 'BaoVe'],
             },
         ],
     },
@@ -1202,6 +1202,7 @@ const handleSidebarNavClick = () => {
     }
 }
 </style>
+
 
 
 
