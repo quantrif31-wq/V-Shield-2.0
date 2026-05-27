@@ -18,6 +18,7 @@
       <button class="btn btn-secondary" @click="resetFilters">Đặt lại</button>
     </div>
     <div v-if="loading" class="empty-card">Đang tải nhật ký...</div>
+    <div v-else-if="errorText" class="empty-card" style="color:#b42318;">{{ errorText }}</div>
     <div v-else class="table-container">
       <table class="data-table">
         <thead>
@@ -46,12 +47,14 @@ import { getSystemAuditLogs } from '../services/accessLogApi'
 
 const loading = ref(false)
 const items = ref([])
+const errorText = ref('')
 const filters = reactive({ query: '', actionType: '', isSuccess: '' })
 
 function fmt(v){ return v ? new Date(v).toLocaleString('vi-VN') : '-' }
 
 async function fetchData() {
   loading.value = true
+  errorText.value = ''
   try {
     const params = {
       query: filters.query || undefined,
@@ -62,6 +65,10 @@ async function fetchData() {
     }
     const { data } = await getSystemAuditLogs(params)
     items.value = data?.items || []
+    if (data?.warning) errorText.value = data.warning
+  } catch (e) {
+    items.value = []
+    errorText.value = 'Không tải được nhật ký hệ thống. Vui lòng kiểm tra API và thử lại.'
   } finally {
     loading.value = false
   }

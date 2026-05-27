@@ -1,4 +1,5 @@
 ﻿using API.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -255,19 +256,33 @@ public class AccessLogsController : ControllerBase
         if (dateFrom.HasValue) q = q.Where(x => x.TimestampUtc >= dateFrom.Value);
         if (dateTo.HasValue) q = q.Where(x => x.TimestampUtc < dateTo.Value.Date.AddDays(1));
 
-        var total = await q.CountAsync();
-        var items = await q.OrderByDescending(x => x.TimestampUtc)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        return Ok(new
+        try
         {
-            page,
-            pageSize,
-            total,
-            items
-        });
+            var total = await q.CountAsync();
+            var items = await q.OrderByDescending(x => x.TimestampUtc)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                page,
+                pageSize,
+                total,
+                items
+            });
+        }
+        catch (SqlException ex) when (ex.Message.Contains("SystemAuditLogs", StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(new
+            {
+                page,
+                pageSize,
+                total = 0,
+                items = Array.Empty<object>(),
+                warning = "Bảng SystemAuditLogs chưa sẵn sàng. Vui lòng khởi động lại API để chạy migrate."
+            });
+        }
     }
 
     private IQueryable<AccessLogListItem> BuildAccessLogProjectionQuery()
@@ -397,4 +412,7 @@ public class AccessLogsController : ControllerBase
         public int? EntryLogId { get; set; }
     }
 }
+
+
+
 
