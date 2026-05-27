@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <div class="guest-register">
         <div class="bg-decoration">
             <div class="bg-circle c1"></div>
@@ -59,7 +59,8 @@
                         <span class="s-value">{{ hostInfo.hostEmployeeName }}</span>
                     </div>
                 </div>
-                <p class="redirect-note">Tự động quay lại sau {{ countdown }} giây...</p>
+                <p class="redirect-note">Trang se tu dong dong sau {{ countdown }} giay de bao mat.</p>
+                <button class="btn btn-secondary" style="margin-top: 12px;" @click="closeCurrentPage">Dong trang ngay</button>
             </div>
 
             <div v-else class="register-card animate-in">
@@ -227,13 +228,13 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { validateToken, submitRegistration } from '../services/preRegistrationApi'
 import { API_ORIGIN } from '../config/api'
 import { validateVietnameseName, normalizeVietnameseName } from '../utils/nameValidator'
 
 const route = useRoute()
-const router = useRouter()
+
 
 // ── State ────────────────────────────────────────
 const isValidating = ref(true)
@@ -389,13 +390,13 @@ const handleSubmit = async () => {
         submittedId.value = res.data.registrationId
         isSubmitted.value = true
 
-        // Auto redirect back to pre-registration page after 5 seconds
+        // Auto close tab/page after 5 seconds for better security
         countdown.value = 5
         const timer = setInterval(() => {
             countdown.value--
             if (countdown.value <= 0) {
                 clearInterval(timer)
-                router.push({ name: 'PreRegistration' })
+                closeCurrentPage()
             }
         }, 1000)
     } catch (err) {
@@ -403,6 +404,19 @@ const handleSubmit = async () => {
         alert(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại')
     } finally {
         isSubmitting.value = false
+    }
+}
+
+const closeCurrentPage = () => {
+    try {
+        window.close()
+        setTimeout(() => {
+            if (!window.closed) {
+                window.open('', '_self')
+                window.close()
+            }
+        }, 120)
+    } catch {
     }
 }
 
@@ -957,3 +971,4 @@ onMounted(async () => {
     }
 }
 </style>
+
