@@ -1,12 +1,18 @@
 using System;
 using System.Collections.Generic;
 using API.Models;
+using API.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Text.Json;
 
 namespace API.Data;
 
 public partial class ApplicationDbContext : DbContext
 {
+    private readonly ICurrentUserContext? _currentUserContext;
+    private bool _isWritingAudit;
+
     public ApplicationDbContext()
     {
     }
@@ -14,6 +20,12 @@ public partial class ApplicationDbContext : DbContext
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
+    }
+
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ICurrentUserContext currentUserContext)
+        : base(options)
+    {
+        _currentUserContext = currentUserContext;
     }
 
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
@@ -49,6 +61,112 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<DynamicQrScanLog> DynamicQrScanLogs { get; set; }
     public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
     public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
+    public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_isWritingAudit)
+            return await base.SaveChangesAsync(cancellationToken);
+
+        var auditCandidates = BuildAuditCandidates();
+        if (auditCandidates.Count == 0)
+            return await base.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            _isWritingAudit = true;
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            foreach (var candidate in auditCandidates)
+            {
+                candidate.Log.IsSuccess = true;
+                candidate.Log.FailureReason = null;
+                candidate.Log.EntityId = BuildEntityId(candidate.Entry);
+            }
+
+            SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
+            await base.SaveChangesAsync(cancellationToken);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                foreach (var candidate in auditCandidates)
+                {
+                    candidate.Log.IsSuccess = false;
+                    candidate.Log.FailureReason = ex.Message;
+                    candidate.Log.EntityId = BuildEntityId(candidate.Entry);
+                }
+                SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
+                await base.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+            }
+            throw;
+        }
+        finally
+        {
+            _isWritingAudit = false;
+        }
+    }
+
+    private List<(EntityEntry Entry, SystemAuditLog Log)> BuildAuditCandidates()
+    {
+        var candidates = new List<(EntityEntry, SystemAuditLog)>();
+
+        foreach (var entry in ChangeTracker.Entries().Where(e =>
+                     e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
+                     e.Entity is not SystemAuditLog))
+        {
+            var action = entry.State switch
+            {
+                EntityState.Added => "CREATE",
+                EntityState.Modified => "UPDATE",
+                EntityState.Deleted => "DELETE",
+                _ => "UNKNOWN"
+            };
+
+            var oldValues = entry.State == EntityState.Added ? null : SerializeValues(entry.OriginalValues);
+            var newValues = entry.State == EntityState.Deleted ? null : SerializeValues(entry.CurrentValues);
+
+            var log = new SystemAuditLog
+            {
+                TimestampUtc = DateTime.UtcNow,
+                UserId = _currentUserContext?.UserId,
+                Username = _currentUserContext?.Username,
+                ActionType = action,
+                EntityName = entry.Metadata.ClrType.Name,
+                OldValuesJson = oldValues,
+                NewValuesJson = newValues,
+                IsSuccess = false
+            };
+
+            candidates.Add((entry, log));
+        }
+
+        return candidates;
+    }
+
+    private static string SerializeValues(PropertyValues values)
+    {
+        var dict = values.Properties.ToDictionary(p => p.Name, p => values[p.Name]);
+        return JsonSerializer.Serialize(dict);
+    }
+
+    private static string? BuildEntityId(EntityEntry entry)
+    {
+        var key = entry.Metadata.FindPrimaryKey();
+        if (key == null) return null;
+        var parts = new List<string>();
+        foreach (var k in key.Properties)
+        {
+            var value = entry.Property(k.Name).CurrentValue ?? entry.Property(k.Name).OriginalValue;
+            parts.Add($"{k.Name}:{value}");
+        }
+        return string.Join("|", parts);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Data.SqlClient;
 using API.Data;
 using API.Hubs;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -49,6 +50,8 @@ namespace API
             builder.Services.AddAuthorization();
 
             builder.Services.AddMemoryCache();
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
             builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
             builder.Services.AddScoped<IVehicleManagementService, VehicleManagementService>();
             builder.Services.AddScoped<ILocalNetworkCameraDiscoveryService, LocalNetworkCameraDiscoveryService>();
@@ -149,6 +152,7 @@ namespace API
             app.UseCors("AllowVue");
             app.UseAuthentication();
             app.UseAuthorization();
+            app.UseMiddleware<SystemRequestAuditMiddleware>();
 
             app.MapControllers();
             app.MapHub<EmployeeStatsHub>("/hubs/employee-stats");

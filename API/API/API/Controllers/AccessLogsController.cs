@@ -223,6 +223,53 @@ public class AccessLogsController : ControllerBase
         return Ok(MapAccessLogItem(item));
     }
 
+    [HttpGet("system-audit")]
+    public async Task<IActionResult> GetSystemAudit(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? query = null,
+        [FromQuery] bool? isSuccess = null,
+        [FromQuery] string? actionType = null,
+        [FromQuery] DateTime? dateFrom = null,
+        [FromQuery] DateTime? dateTo = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var q = _context.SystemAuditLogs.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var normalized = query.Trim();
+            q = q.Where(x =>
+                (x.Username != null && x.Username.Contains(normalized)) ||
+                (x.Path != null && x.Path.Contains(normalized)) ||
+                (x.EntityName != null && x.EntityName.Contains(normalized)) ||
+                (x.FailureReason != null && x.FailureReason.Contains(normalized)));
+        }
+        if (isSuccess.HasValue) q = q.Where(x => x.IsSuccess == isSuccess.Value);
+        if (!string.IsNullOrWhiteSpace(actionType))
+        {
+            var action = actionType.Trim().ToUpper();
+            q = q.Where(x => x.ActionType.ToUpper() == action);
+        }
+        if (dateFrom.HasValue) q = q.Where(x => x.TimestampUtc >= dateFrom.Value);
+        if (dateTo.HasValue) q = q.Where(x => x.TimestampUtc < dateTo.Value.Date.AddDays(1));
+
+        var total = await q.CountAsync();
+        var items = await q.OrderByDescending(x => x.TimestampUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            page,
+            pageSize,
+            total,
+            items
+        });
+    }
+
     private IQueryable<AccessLogListItem> BuildAccessLogProjectionQuery()
     {
         return _context.AccessLogs.AsNoTracking()

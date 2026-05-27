@@ -31,6 +31,7 @@ import Biometrics from '../pages/Biometrics.vue'
 import SystemCatalog from '../pages/SystemCatalog.vue'
 import QrAccessMonitor from '../components/QrAccessMonitor.vue'
 import AccessPermissionManager from '../components/AccessPermissionManager.vue'
+import SystemAuditLogs from '../pages/SystemAuditLogs.vue'
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -66,6 +67,7 @@ const routes = [
             { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'access-logs', name: 'AccessLogs', component: AccessLogs, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'system-audit-logs', name: 'SystemAuditLogs', component: SystemAuditLogs, meta: { allowedRoles: ['Admin'] } },
             { path: 'exceptions', name: 'Exceptions', component: Exceptions, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'pre-registrations', name: 'PreRegistration', component: PreRegistration, meta: { allowedRoles: ['Admin'] } },
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },

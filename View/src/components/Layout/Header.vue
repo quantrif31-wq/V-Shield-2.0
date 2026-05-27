@@ -172,6 +172,10 @@ const routeMeta = {
         title: 'Tra cứu vào/ra',
         description: 'Rà soát lịch sử ra vào theo thời gian, cổng, biển số và trạng thái xử lý.',
     },
+    SystemAuditLogs: {
+        title: 'Nhật ký hệ thống',
+        description: 'Theo dõi ai làm gì, dữ liệu trước/sau, kết quả thành công hay thất bại.',
+    },
     Exceptions: {
         title: 'Xử lý ngoại lệ',
         description: 'Tập trung các trường hợp bypass, lỗi nhận diện và lý do ngoại lệ cần đối soát.',
@@ -843,4 +847,5 @@ watch(
     }
 }
 </style>
+
 

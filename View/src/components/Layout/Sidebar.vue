@@ -306,6 +306,12 @@ const navGroups = ref([
                 hint: 'Lịch sử theo thời gian',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>',
                 roles: ['Admin', 'BaoVe'],
+            },            {
+                path: '/system-audit-logs',
+                label: 'Nhật ký hệ thống',
+                hint: 'Ai làm gì, trước/sau, kết quả',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
+                roles: ['Admin'],
             },
             {
                 path: '/exceptions',
@@ -1202,6 +1208,7 @@ const handleSidebarNavClick = () => {
     }
 }
 </style>
+
 
 
 
