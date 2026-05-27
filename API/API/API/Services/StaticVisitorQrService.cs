@@ -5,7 +5,7 @@ namespace API.Services;
 
 public sealed class StaticVisitorQrService
 {
-    private const string StaticContext = "STATIC_VISITOR_QR";
+    public const int DefaultTimeStepSeconds = 30;
 
     public string GenerateSecret(int length = 20)
     {
@@ -14,12 +14,23 @@ public sealed class StaticVisitorQrService
         return Base32Encode(bytes);
     }
 
-    public string GenerateOtp(string base32Secret, int digits = 6)
+    public long GetCurrentCounter(DateTime utcNow, int timeStepSeconds = DefaultTimeStepSeconds)
+    {
+        var unixTime = new DateTimeOffset(utcNow).ToUnixTimeSeconds();
+        return unixTime / timeStepSeconds;
+    }
+
+    public string GenerateOtp(string base32Secret, long counter, int digits = 6)
     {
         var key = Base32Decode(base32Secret);
+        var counterBytes = BitConverter.GetBytes(counter);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(counterBytes);
+        }
 
         using var hmac = new HMACSHA1(key);
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(StaticContext));
+        var hash = hmac.ComputeHash(counterBytes);
 
         var offset = hash[^1] & 0x0F;
 
@@ -33,9 +44,9 @@ public sealed class StaticVisitorQrService
         return otp.ToString().PadLeft(digits, '0');
     }
 
-    public string BuildPayload(int visitorId, int registrationId, string otp)
+    public string BuildPayload(int visitorId, int registrationId, long counter, string otp)
     {
-        return $"VIS:{visitorId}|REG:{registrationId}|OTP:{otp}";
+        return $"VIS:{visitorId}|REG:{registrationId}|TS:{counter}|OTP:{otp}";
     }
 
     public bool TryParsePayload(string payload, out VisitorQrParsedPayload? result, out string message)
@@ -52,7 +63,7 @@ public sealed class StaticVisitorQrService
             }
 
             var parts = payload.Split('|', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 3)
+            if (parts.Length != 4)
             {
                 message = "QR payload không đúng định dạng.";
                 return false;
@@ -60,9 +71,10 @@ public sealed class StaticVisitorQrService
 
             var visPart = parts[0].Split(':', 2);
             var regPart = parts[1].Split(':', 2);
-            var otpPart = parts[2].Split(':', 2);
+            var tsPart = parts[2].Split(':', 2);
+            var otpPart = parts[3].Split(':', 2);
 
-            if (visPart.Length != 2 || regPart.Length != 2 || otpPart.Length != 2)
+            if (visPart.Length != 2 || regPart.Length != 2 || tsPart.Length != 2 || otpPart.Length != 2)
             {
                 message = "QR payload không đúng định dạng.";
                 return false;
@@ -77,6 +89,12 @@ public sealed class StaticVisitorQrService
             if (!regPart[0].Equals("REG", StringComparison.OrdinalIgnoreCase))
             {
                 message = "Thiếu REG trong payload.";
+                return false;
+            }
+
+            if (!tsPart[0].Equals("TS", StringComparison.OrdinalIgnoreCase))
+            {
+                message = "Thiếu TS trong payload.";
                 return false;
             }
 
@@ -98,6 +116,12 @@ public sealed class StaticVisitorQrService
                 return false;
             }
 
+            if (!long.TryParse(tsPart[1], out var counter))
+            {
+                message = "TS không hợp lệ.";
+                return false;
+            }
+
             var otp = otpPart[1]?.Trim();
             if (string.IsNullOrWhiteSpace(otp))
             {
@@ -105,7 +129,7 @@ public sealed class StaticVisitorQrService
                 return false;
             }
 
-            result = new VisitorQrParsedPayload(visitorId, registrationId, otp);
+            result = new VisitorQrParsedPayload(visitorId, registrationId, counter, otp);
             return true;
         }
         catch
@@ -196,4 +220,4 @@ public sealed class StaticVisitorQrService
     }
 }
 
-public sealed record VisitorQrParsedPayload(int VisitorId, int RegistrationId, string Otp);
+public sealed record VisitorQrParsedPayload(int VisitorId, int RegistrationId, long Counter, string Otp);

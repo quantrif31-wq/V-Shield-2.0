@@ -55,6 +55,7 @@ public class VisitorInfoDto
     public string? ExpectedFaceImage { get; set; }
     // QR tĩnh trả về cho Vue render
     public string? QrCodeData { get; set; }
+    public string? VisitorPortalUrl { get; set; }
     public DateTime? QrIssuedAt { get; set; }
     public bool IsQrActive { get; set; }
 }

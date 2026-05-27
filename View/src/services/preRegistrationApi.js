@@ -45,6 +45,10 @@ export const submitRegistration = (token, data) => {
     return publicApi.post(`/pre-registrations/submit/${token}`, data)
 }
 
+export const getVisitorPass = (token) => {
+    return publicApi.get(`/pre-registrations/visitor-pass/${token}`)
+}
+
 // ========================================================
 // ADMIN - Yêu cầu đăng nhập
 // ========================================================

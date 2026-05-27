@@ -204,7 +204,7 @@
             v-for="(v, i) in detail.visitors"
             :key="v.visitorId || i"
             class="visitor-card visitor-card-qr"
-            :ref="el => setQrCardRef(el, i, v.qrCodeData)"
+            :ref="el => setQrCardRef(el, i, v.visitorPortalUrl || v.qrCodeData)"
         >
             <div class="visitor-left">
                 <div class="avatar mini" :style="{ background: getAvatarColor(getInitials(v.fullName)) }">
@@ -216,18 +216,18 @@
                 </div>
             </div>
 
-            <div class="visitor-right" v-if="v.qrCodeData">
+            <div class="visitor-right" v-if="v.visitorPortalUrl || v.qrCodeData">
                 <canvas width="120" height="120"></canvas>
 
                 <div class="qr-meta">
-                    <span class="qr-label">QR tĩnh</span>
-                    <code class="qr-text">{{ v.qrCodeData }}</code>
+                    <span class="qr-label">QR động</span>
+                    <code class="qr-text">{{ v.visitorPortalUrl || v.qrCodeData }}</code>
 
                     <div class="qr-actions">
                         <button class="btn btn-secondary" @click="downloadVisitorQr(i, v)">
                             Tải QR
                         </button>
-                        <button class="btn btn-primary" @click="copyQrText(v.qrCodeData)">
+                        <button class="btn btn-primary" @click="copyQrText(v.visitorPortalUrl || v.qrCodeData)">
                             {{ copied ? 'Đã Copy!' : 'Copy mã' }}
                         </button>
                     </div>
@@ -916,3 +916,4 @@ input[type="date"].minimal-select { padding: 8px 14px; }
     flex-wrap: wrap;
 }
 </style>
+

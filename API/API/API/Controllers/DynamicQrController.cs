@@ -514,7 +514,11 @@ namespace API.Controllers
                 if (!visitor.IsQrActive)
                     return (false, "QR đã bị khóa", null);
 
-                var expectedOtp = _visitorQrService.GenerateOtp(visitor.QrSecret);
+                var nowCounter = _visitorQrService.GetCurrentCounter(DateTime.UtcNow);
+                if (Math.Abs(payload.Counter - nowCounter) > 1)
+                    return (false, "QR visitor đã hết hạn", null);
+
+                var expectedOtp = _visitorQrService.GenerateOtp(visitor.QrSecret, payload.Counter);
 
                 if (payload.Otp != expectedOtp)
                     return (false, "OTP không đúng", null);

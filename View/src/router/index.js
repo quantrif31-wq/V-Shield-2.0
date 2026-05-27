@@ -15,6 +15,7 @@ import UserManagement from '../pages/UserManagement.vue'
 import DepartmentPosition from '../pages/DepartmentPosition.vue'
 import PreRegistration from '../pages/PreRegistration.vue'
 import GuestRegister from '../pages/GuestRegister.vue'
+import VisitorPass from '../pages/VisitorPass.vue'
 
 import FaceIdSecurity from '../components/FaceCamera.vue'
 import LicensePlateSecurity from '../components/LicensePlateSecurity.vue'
@@ -44,6 +45,12 @@ const routes = [
         path: '/register/:token',
         name: 'GuestRegister',
         component: GuestRegister,
+        meta: { guest: true },
+    },
+    {
+        path: '/visitor-pass/:token',
+        name: 'VisitorPass',
+        component: VisitorPass,
         meta: { guest: true },
     },
     {
@@ -139,7 +146,7 @@ router.beforeEach((to, from, next) => {
 
     // Nếu đã đăng nhập mà vào trang login thì redirect
     // Nhưng cho phép truy cập trang đăng ký khách (GuestRegister) dù đã đăng nhập
-    if (to.meta.guest && isLoggedIn() && to.name !== 'GuestRegister') {
+    if (to.meta.guest && isLoggedIn() && to.name !== 'GuestRegister' && to.name !== 'VisitorPass') {
         const currentRole = authState.user?.role
         if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
         return next({ name: 'Dashboard' })

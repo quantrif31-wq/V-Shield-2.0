@@ -1931,7 +1931,7 @@ if (safePayload.startsWith("EMP:")) {
   result = await verifyDynamicQr(safePayload, qr.scannerDevice)
 }
 else if (safePayload.startsWith("VIS:")) {
-  // 🔥 QR tĩnh → vẫn gọi API verify (backend đã handle fallback)
+  // QR khách mời (động) -> backend tự verify theo counter + OTP
   result = await verifyDynamicQr(safePayload, qr.scannerDevice)
 }
 else {
