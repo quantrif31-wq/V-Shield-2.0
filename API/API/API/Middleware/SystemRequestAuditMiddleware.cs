@@ -1,4 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text.Json;
 using API.Data;
 using API.Models;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +20,13 @@ public class SystemRequestAuditMiddleware
     {
         var method = context.Request.Method?.ToUpperInvariant() ?? "GET";
         var isMutation = method is "POST" or "PUT" or "PATCH" or "DELETE";
+        string? loginUsername = null;
+
+        if (IsLoginRequest(context))
+        {
+            loginUsername = await TryReadLoginUsername(context);
+        }
+
         if (!isMutation)
         {
             await _next(context);
@@ -40,9 +49,10 @@ public class SystemRequestAuditMiddleware
             {
                 var userIdRaw = context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
                 int? userId = int.TryParse(userIdRaw, out var parsed) ? parsed : null;
-                var username = context.User?.Identity?.Name;
+                var username = ResolveUsername(context, loginUsername);
                 var statusCode = context.Response?.StatusCode ?? 0;
                 var success = failureReason == null && statusCode is >= 200 and < 400;
+                var requestMeta = BuildRequestMeta(context);
 
                 var log = new SystemAuditLog
                 {
@@ -55,7 +65,7 @@ public class SystemRequestAuditMiddleware
                     EntityName = null,
                     EntityId = null,
                     OldValuesJson = null,
-                    NewValuesJson = null,
+                    NewValuesJson = JsonSerializer.Serialize(requestMeta),
                     IsSuccess = success,
                     FailureReason = success ? null : (failureReason ?? $"HTTP {statusCode}"),
                     StatusCode = statusCode
@@ -69,5 +79,67 @@ public class SystemRequestAuditMiddleware
             }
         }
     }
-}
 
+    private static bool IsLoginRequest(HttpContext context)
+    {
+        return string.Equals(context.Request.Method, "POST", StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(context.Request.Path.Value, "/api/Auth/login", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string?> TryReadLoginUsername(HttpContext context)
+    {
+        try
+        {
+            context.Request.EnableBuffering();
+            context.Request.Body.Position = 0;
+            using var doc = await JsonDocument.ParseAsync(context.Request.Body, cancellationToken: context.RequestAborted);
+            context.Request.Body.Position = 0;
+
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (!doc.RootElement.TryGetProperty("username", out var u)) return null;
+            return u.GetString();
+        }
+        catch
+        {
+            if (context.Request.Body.CanSeek) context.Request.Body.Position = 0;
+            return null;
+        }
+    }
+
+    private static string? ResolveUsername(HttpContext context, string? loginUsername)
+    {
+        var user = context.User;
+        return user?.Identity?.Name
+            ?? user?.FindFirst(JwtRegisteredClaimNames.UniqueName)?.Value
+            ?? user?.FindFirst("unique_name")?.Value
+            ?? user?.FindFirst(ClaimTypes.Name)?.Value
+            ?? user?.FindFirst("username")?.Value
+            ?? user?.FindFirst("preferred_username")?.Value
+            ?? loginUsername
+            ?? user?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+    }
+
+    private static object BuildRequestMeta(HttpContext context)
+    {
+        var headers = context.Request.Headers;
+        var forwardedFor = headers.TryGetValue("X-Forwarded-For", out var xff) ? xff.ToString() : null;
+        var realIp = headers.TryGetValue("X-Real-IP", out var xri) ? xri.ToString() : null;
+        var country = headers.TryGetValue("CF-IPCountry", out var cfc) ? cfc.ToString() : null;
+        var city = headers.TryGetValue("X-AppEngine-City", out var cityHeader) ? cityHeader.ToString() : null;
+
+        var ip = context.Connection.RemoteIpAddress?.ToString();
+        var userAgent = headers.UserAgent.ToString();
+
+        return new
+        {
+            device = string.IsNullOrWhiteSpace(userAgent) ? null : userAgent,
+            ip,
+            forwardedFor,
+            realIp,
+            country,
+            city,
+            referer = headers.Referer.ToString(),
+            origin = headers.Origin.ToString()
+        };
+    }
+}

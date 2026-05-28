@@ -63,6 +63,55 @@ public partial class ApplicationDbContext : DbContext
     public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
     public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
 
+    public override int SaveChanges()
+    {
+        if (_isWritingAudit)
+            return base.SaveChanges();
+
+        var auditCandidates = BuildAuditCandidates();
+        if (auditCandidates.Count == 0)
+            return base.SaveChanges();
+
+        try
+        {
+            _isWritingAudit = true;
+            var result = base.SaveChanges();
+
+            foreach (var candidate in auditCandidates)
+            {
+                candidate.Log.IsSuccess = true;
+                candidate.Log.FailureReason = null;
+                candidate.Log.EntityId = BuildEntityId(candidate.Entry);
+            }
+
+            SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
+            base.SaveChanges();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                foreach (var candidate in auditCandidates)
+                {
+                    candidate.Log.IsSuccess = false;
+                    candidate.Log.FailureReason = ex.Message;
+                    candidate.Log.EntityId = BuildEntityId(candidate.Entry);
+                }
+                SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
+                base.SaveChanges();
+            }
+            catch
+            {
+            }
+            throw;
+        }
+        finally
+        {
+            _isWritingAudit = false;
+        }
+    }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         if (_isWritingAudit)
