@@ -365,10 +365,12 @@ const flyoutStyle = computed(() => {
         Math.min(preferredTop, window.innerHeight - clampedPanelHeight - viewportPadding)
     )
 
+    const maxHeightPx = Math.max(180, window.innerHeight - safeTop - viewportPadding)
+
     return {
         top: `${safeTop}px`,
         left: `${rect.right + 12}px`,
-        maxHeight: `${maxPanelHeight}px`,
+        maxHeight: `${Math.min(maxPanelHeight, maxHeightPx)}px`,
     }
 })
 
