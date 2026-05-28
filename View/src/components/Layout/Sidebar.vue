@@ -1,5 +1,6 @@
 <template>
     <aside
+        ref="sidebarRootRef"
         class="sidebar"
         :class="{
             collapsed,
@@ -218,6 +219,7 @@
 
             <div
                 v-if="showDesktopFlyout"
+                ref="flyoutRef"
                 class="nav-flyout"
                 :style="flyoutStyle"
                 @mouseenter="hoverGroup(activeFlyoutLabel)"
@@ -280,6 +282,9 @@ const hoveredGroup = ref('')
 const pinnedGroup = ref('')
 const groupAnchors = ref({})
 const flyoutViewportTick = ref(0)
+const sidebarRootRef = ref(null)
+const flyoutRef = ref(null)
+let hoverLeaveTimer = null
 
 const getCurrentRouteGroupLabel = () => {
     const foundGroup = visibleGroups.value.find((group) =>
@@ -301,11 +306,21 @@ const toggleNavGroup = (label) => {
 }
 
 const hoverGroup = (label) => {
+    if (hoverLeaveTimer) {
+        clearTimeout(hoverLeaveTimer)
+        hoverLeaveTimer = null
+    }
     hoveredGroup.value = label
 }
 
 const leaveGroup = (label) => {
-    if (hoveredGroup.value === label) hoveredGroup.value = ''
+    if (hoverLeaveTimer) clearTimeout(hoverLeaveTimer)
+    hoverLeaveTimer = setTimeout(() => {
+        if (hoveredGroup.value === label && pinnedGroup.value !== label) {
+            hoveredGroup.value = ''
+        }
+        hoverLeaveTimer = null
+    }, 120)
 }
 
 const setGroupAnchor = (label, el) => {
@@ -322,7 +337,7 @@ const getGroupItemsByLabel = (label) => {
 
 const activeFlyoutLabel = computed(() => {
     if (props.isMobile || props.collapsed) return ''
-    return hoveredGroup.value || pinnedGroup.value || getCurrentRouteGroupLabel()
+    return hoveredGroup.value || pinnedGroup.value
 })
 
 const activeFlyoutItems = computed(() => getGroupItemsByLabel(activeFlyoutLabel.value))
@@ -621,7 +636,7 @@ const passageItems = computed(() =>
 
 onMounted(async () => {
     document.addEventListener('click', handleSearchOutsideClick)
-    pinnedGroup.value = getCurrentRouteGroupLabel()
+    document.addEventListener('mousedown', handleNavOutsideClick)
     window.addEventListener('resize', refreshFlyoutPosition, { passive: true })
     window.addEventListener('scroll', refreshFlyoutPosition, { passive: true })
 
@@ -640,15 +655,21 @@ onMounted(async () => {
 
 onUnmounted(() => {
     document.removeEventListener('click', handleSearchOutsideClick)
+    document.removeEventListener('mousedown', handleNavOutsideClick)
     window.removeEventListener('resize', refreshFlyoutPosition)
     window.removeEventListener('scroll', refreshFlyoutPosition)
+    if (hoverLeaveTimer) {
+        clearTimeout(hoverLeaveTimer)
+        hoverLeaveTimer = null
+    }
 })
 
 watch(
     () => route.fullPath,
     () => {
         showDropdown.value = false
-        pinnedGroup.value = getCurrentRouteGroupLabel()
+        hoveredGroup.value = ''
+        pinnedGroup.value = ''
         refreshFlyoutPosition()
         if (props.isMobile) {
             emit('close-mobile')
@@ -750,8 +771,21 @@ const handleSearchOutsideClick = (event) => {
 
 const handleSidebarNavClick = () => {
     hoveredGroup.value = ''
+    pinnedGroup.value = ''
     if (props.isMobile) {
         emit('close-mobile')
+    }
+}
+
+const handleNavOutsideClick = (event) => {
+    if (props.isMobile || props.collapsed) return
+    const target = event.target
+    const inSidebar = sidebarRootRef.value?.contains(target)
+    const inFlyout = flyoutRef.value?.contains(target)
+
+    if (!inSidebar && !inFlyout) {
+        hoveredGroup.value = ''
+        pinnedGroup.value = ''
     }
 }
 
