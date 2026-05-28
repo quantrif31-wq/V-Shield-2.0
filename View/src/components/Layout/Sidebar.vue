@@ -351,11 +351,24 @@ const flyoutStyle = computed(() => {
     const label = activeFlyoutLabel.value
     const anchor = groupAnchors.value[label]
     if (!anchor) return {}
+
+    const itemsCount = activeFlyoutItems.value.length
+    const viewportPadding = 12
+    const estimatedItemHeight = 62
+    const estimatedPanelHeight = Math.max(140, itemsCount * estimatedItemHeight + 20)
+    const maxPanelHeight = Math.min(window.innerHeight - viewportPadding * 2, 620)
+    const clampedPanelHeight = Math.min(estimatedPanelHeight, maxPanelHeight)
     const rect = anchor.getBoundingClientRect()
-    const safeTop = Math.max(12, Math.min(rect.top, window.innerHeight - 340))
+    const preferredTop = rect.top - 6
+    const safeTop = Math.max(
+        viewportPadding,
+        Math.min(preferredTop, window.innerHeight - clampedPanelHeight - viewportPadding)
+    )
+
     return {
         top: `${safeTop}px`,
         left: `${rect.right + 12}px`,
+        maxHeight: `${maxPanelHeight}px`,
     }
 })
 
@@ -1043,7 +1056,9 @@ const refreshFlyoutPosition = () => {
     position: fixed;
     width: min(320px, 62vw);
     max-height: min(72vh, 620px);
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 10px;
     border-radius: 16px;
     border: 1px solid rgba(84, 196, 211, 0.22);
