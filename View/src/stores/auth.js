@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { login as loginApi, getMe } from '../services/authApi'
+import { login as loginApi, getMe, logoutApi as logoutApiRequest } from '../services/authApi'
 
 const state = reactive({
     token: localStorage.getItem('v_shield_token') || null,
@@ -32,7 +32,14 @@ export async function login(username, password) {
 }
 
 /** Đăng xuất */
-export function logout() {
+export async function logout() {
+    try {
+        if (state.token) {
+            await logoutApiRequest()
+        }
+    } catch {
+        // best effort: vẫn xóa phiên local để đảm bảo đăng xuất
+    }
     state.token = null
     state.user = null
     localStorage.removeItem('v_shield_token')
@@ -63,7 +70,7 @@ export async function fetchUser() {
         localStorage.setItem('v_shield_user', JSON.stringify(state.user))
         return true
     } catch {
-        logout()
+        await logout()
         return false
     }
 }

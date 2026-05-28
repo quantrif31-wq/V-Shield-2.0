@@ -19,7 +19,7 @@ public class SystemRequestAuditMiddleware
     public async Task Invoke(HttpContext context, ApplicationDbContext dbContext)
     {
         var method = context.Request.Method?.ToUpperInvariant() ?? "GET";
-        var isMutation = method is "POST" or "PUT" or "PATCH" or "DELETE";
+        var isAuditableApiRequest = IsAuditableApiRequest(context.Request.Path.Value, method);
         string? loginUsername = null;
 
         if (IsLoginRequest(context))
@@ -27,7 +27,7 @@ public class SystemRequestAuditMiddleware
             loginUsername = await TryReadLoginUsername(context);
         }
 
-        if (!isMutation)
+        if (!isAuditableApiRequest)
         {
             await _next(context);
             return;
@@ -84,6 +84,13 @@ public class SystemRequestAuditMiddleware
     {
         return string.Equals(context.Request.Method, "POST", StringComparison.OrdinalIgnoreCase) &&
                string.Equals(context.Request.Path.Value, "/api/Auth/login", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAuditableApiRequest(string? path, string method)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        if (string.Equals(method, "OPTIONS", StringComparison.OrdinalIgnoreCase)) return false;
+        return path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string?> TryReadLoginUsername(HttpContext context)

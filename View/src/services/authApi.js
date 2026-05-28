@@ -48,3 +48,11 @@ export const getMe = () => {
     return authApiClient.get('/me')
 }
 
+/**
+ * Đăng xuất (server-side audit)
+ * @returns {Promise<any>}
+ */
+export const logoutApi = () => {
+    return authApiClient.post('/logout')
+}
+

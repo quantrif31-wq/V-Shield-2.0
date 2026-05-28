@@ -36,6 +36,14 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Đăng xuất khỏi phiên hiện tại (ghi log hệ thống)</summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public IActionResult Logout()
+    {
+        return Ok(new { message = "Đăng xuất thành công" });
+    }
+
     /// <summary>Lấy thông tin người dùng hiện đang đăng nhập</summary>
     [HttpGet("me")]
     [Authorize]

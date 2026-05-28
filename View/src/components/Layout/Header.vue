@@ -322,8 +322,8 @@ function markAllRead() {
     notifications.value = notifications.value.map((item) => ({ ...item, read: true }))
 }
 
-function handleLogout() {
-    logout()
+async function handleLogout() {
+    await logout()
     router.push('/login')
 }
 
