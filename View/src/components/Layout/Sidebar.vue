@@ -54,13 +54,6 @@
                 </button>
             </div>
 
-            <div class="sidebar-status" :class="{ compact: collapsed }">
-                <span class="status-dot"></span>
-                <transition name="fade">
-                    <span v-if="!collapsed">Dữ liệu nghiệp vụ đã sẵn sàng cho ca trực</span>
-                </transition>
-            </div>
-
             <nav class="sidebar-nav">
                 <transition name="fade">
                     <div v-if="!collapsed" class="sidebar-search" ref="searchContainerRef">
@@ -113,7 +106,15 @@
                     </div>
                 </transition>
 
-                <div v-for="group in visibleGroups" :key="group.label" class="nav-group">
+                <div
+                    v-for="group in visibleGroups"
+                    :key="group.label"
+                    class="nav-group"
+                    :class="{ 'is-open': isGroupExpanded(group.label) }"
+                    :ref="(el) => setGroupAnchor(group.label, el)"
+                    @mouseenter="hoverGroup(group.label)"
+                    @mouseleave="leaveGroup(group.label)"
+                >
                     <button
                         v-if="!collapsed"
                         type="button"
@@ -123,7 +124,7 @@
                         <span class="nav-label-text">{{ group.label }}</span>
                         <svg
                             class="nav-label-chevron"
-                            :class="{ 'chevron-collapsed': collapsedGroups[group.label] }"
+                            :class="{ 'chevron-collapsed': !isGroupExpanded(group.label) }"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -135,8 +136,8 @@
                     <span v-else class="nav-label sr-only">{{ group.label }}</span>
 
                     <div
-                        class="nav-group-items"
-                        :class="{ 'group-collapsed': collapsedGroups[group.label] && !collapsed }"
+                        class="nav-group-items mobile-inline"
+                        :class="{ 'group-collapsed': !isGroupExpanded(group.label) && !collapsed }"
                     >
                         <router-link
                             v-for="item in group.items"
@@ -160,17 +161,24 @@
                     </div>
                 </div>
 
-                <div v-if="passageItems.length" class="nav-group">
+                <div
+                    v-if="passageItems.length"
+                    class="nav-group"
+                    :class="{ 'is-open': isGroupExpanded(PASSAGE_GROUP_LABEL) }"
+                    :ref="(el) => setGroupAnchor(PASSAGE_GROUP_LABEL, el)"
+                    @mouseenter="hoverGroup(PASSAGE_GROUP_LABEL)"
+                    @mouseleave="leaveGroup(PASSAGE_GROUP_LABEL)"
+                >
                     <button
                         v-if="!collapsed"
                         type="button"
                         class="nav-label-toggle"
-                        @click="toggleNavGroup('Thông hành')"
+                        @click="toggleNavGroup(PASSAGE_GROUP_LABEL)"
                     >
-                        <span class="nav-label-text">Thông hành</span>
+                        <span class="nav-label-text">{{ PASSAGE_GROUP_LABEL }}</span>
                         <svg
                             class="nav-label-chevron"
-                            :class="{ 'chevron-collapsed': collapsedGroups['Thông hành'] }"
+                            :class="{ 'chevron-collapsed': !isGroupExpanded(PASSAGE_GROUP_LABEL) }"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -179,11 +187,11 @@
                             <path d="M6 9l6 6 6-6" />
                         </svg>
                     </button>
-                    <span v-else class="nav-label sr-only">Thông hành</span>
+                    <span v-else class="nav-label sr-only">{{ PASSAGE_GROUP_LABEL }}</span>
 
                     <div
-                        class="nav-group-items"
-                        :class="{ 'group-collapsed': collapsedGroups['Thông hành'] && !collapsed }"
+                        class="nav-group-items mobile-inline"
+                        :class="{ 'group-collapsed': !isGroupExpanded(PASSAGE_GROUP_LABEL) && !collapsed }"
                     >
                         <router-link
                             v-for="item in passageItems"
@@ -208,26 +216,31 @@
                 </div>
             </nav>
 
-            <div class="sidebar-footer">
-                <transition name="fade">
-                    <div v-if="!collapsed" class="footer-card">
-                        <div class="footer-chip">
-                            <span class="chip-ping"></span>
-                            Business data mapped
-                        </div>
-                        <div class="footer-metrics">
-                            <div>
-                                <strong>{{ authState.user?.role || 'Staff' }}</strong>
-                                <span>Vai trò hiện tại</span>
-                            </div>
-                            <div>
-                                <strong>{{ navigationGroupCount }} nhóm</strong>
-                                <span>Điều hướng nghiệp vụ</span>
-                            </div>
-                        </div>
-                    </div>
-                </transition>
+            <div
+                v-if="showDesktopFlyout"
+                class="nav-flyout"
+                :style="flyoutStyle"
+                @mouseenter="hoverGroup(activeFlyoutLabel)"
+                @mouseleave="leaveGroup(activeFlyoutLabel)"
+            >
+                <router-link
+                    v-for="item in activeFlyoutItems"
+                    :key="`flyout_${item.path}`"
+                    :to="item.path"
+                    class="nav-item"
+                    :class="{ active: route.path === item.path }"
+                    @click="handleSidebarNavClick"
+                >
+                    <span class="nav-icon" v-html="item.icon"></span>
+                    <span class="nav-copy">
+                        <span class="nav-text">{{ item.label }}</span>
+                        <span class="nav-hint">{{ item.hint }}</span>
+                    </span>
+                    <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+                </router-link>
+            </div>
 
+            <div class="sidebar-footer">
                 <button
                     v-if="!isMobile"
                     type="button"
@@ -262,11 +275,74 @@ const emit = defineEmits(['toggle', 'close-mobile'])
 const router = useRouter()
 const route = useRoute()
 
-const collapsedGroups = ref({})
+const PASSAGE_GROUP_LABEL = 'Thông hành'
+const hoveredGroup = ref('')
+const pinnedGroup = ref('')
+const groupAnchors = ref({})
+const flyoutViewportTick = ref(0)
+
+const getCurrentRouteGroupLabel = () => {
+    const foundGroup = visibleGroups.value.find((group) =>
+        group.items.some((item) => route.path === item.path)
+    )
+    if (foundGroup) return foundGroup.label
+    if (passageItems.value.some((item) => route.path === item.path)) return PASSAGE_GROUP_LABEL
+    return ''
+}
+
+const isGroupExpanded = (label) => {
+    if (props.collapsed) return true
+    const activeLabel = getCurrentRouteGroupLabel()
+    return pinnedGroup.value === label || hoveredGroup.value === label || activeLabel === label
+}
 
 const toggleNavGroup = (label) => {
-    collapsedGroups.value[label] = !collapsedGroups.value[label]
+    pinnedGroup.value = pinnedGroup.value === label ? '' : label
 }
+
+const hoverGroup = (label) => {
+    hoveredGroup.value = label
+}
+
+const leaveGroup = (label) => {
+    if (hoveredGroup.value === label) hoveredGroup.value = ''
+}
+
+const setGroupAnchor = (label, el) => {
+    if (el) groupAnchors.value[label] = el
+    else delete groupAnchors.value[label]
+}
+
+const getGroupItemsByLabel = (label) => {
+    if (!label) return []
+    if (label === PASSAGE_GROUP_LABEL) return passageItems.value
+    const found = visibleGroups.value.find((group) => group.label === label)
+    return found?.items || []
+}
+
+const activeFlyoutLabel = computed(() => {
+    if (props.isMobile || props.collapsed) return ''
+    return hoveredGroup.value || pinnedGroup.value || getCurrentRouteGroupLabel()
+})
+
+const activeFlyoutItems = computed(() => getGroupItemsByLabel(activeFlyoutLabel.value))
+
+const showDesktopFlyout = computed(
+    () => !props.isMobile && !props.collapsed && !!activeFlyoutLabel.value && activeFlyoutItems.value.length > 0
+)
+
+const flyoutStyle = computed(() => {
+    flyoutViewportTick.value
+    const label = activeFlyoutLabel.value
+    const anchor = groupAnchors.value[label]
+    if (!anchor) return {}
+    const rect = anchor.getBoundingClientRect()
+    const safeTop = Math.max(12, Math.min(rect.top, window.innerHeight - 340))
+    return {
+        top: `${safeTop}px`,
+        left: `${rect.right + 12}px`,
+    }
+})
 
 // Helper: kiểm tra role hiện tại có được phép xem item không
 // Nếu item không có 'roles' → chỉ Admin mới xem được (mặc định hạn chế)
@@ -543,10 +619,11 @@ const passageItems = computed(() =>
         .filter((item) => canAccessNavigationItem(item))
 )
 
-const navigationGroupCount = computed(() => visibleGroups.value.length + (passageItems.value.length ? 1 : 0))
-
 onMounted(async () => {
     document.addEventListener('click', handleSearchOutsideClick)
+    pinnedGroup.value = getCurrentRouteGroupLabel()
+    window.addEventListener('resize', refreshFlyoutPosition, { passive: true })
+    window.addEventListener('scroll', refreshFlyoutPosition, { passive: true })
 
     try {
         const employeesRes = await getAllEmployees()
@@ -563,12 +640,16 @@ onMounted(async () => {
 
 onUnmounted(() => {
     document.removeEventListener('click', handleSearchOutsideClick)
+    window.removeEventListener('resize', refreshFlyoutPosition)
+    window.removeEventListener('scroll', refreshFlyoutPosition)
 })
 
 watch(
     () => route.fullPath,
     () => {
         showDropdown.value = false
+        pinnedGroup.value = getCurrentRouteGroupLabel()
+        refreshFlyoutPosition()
         if (props.isMobile) {
             emit('close-mobile')
         }
@@ -668,9 +749,14 @@ const handleSearchOutsideClick = (event) => {
 }
 
 const handleSidebarNavClick = () => {
+    hoveredGroup.value = ''
     if (props.isMobile) {
         emit('close-mobile')
     }
+}
+
+const refreshFlyoutPosition = () => {
+    flyoutViewportTick.value += 1
 }
 </script>
 
@@ -692,7 +778,8 @@ const handleSidebarNavClick = () => {
     border: 1px solid var(--sidebar-border);
     border-radius: 28px;
     box-shadow: 0 30px 60px rgba(7, 16, 27, 0.34);
-    overflow: hidden;
+    overflow: visible;
+    overflow-y: auto;
 }
 
 .sidebar.collapsed {
@@ -771,37 +858,10 @@ const handleSidebarNavClick = () => {
     height: 18px;
 }
 
-.sidebar-status {
-    margin: 0 18px 18px;
-    padding: 11px 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-radius: 16px;
-    background: rgba(84, 196, 211, 0.08);
-    border: 1px solid rgba(84, 196, 211, 0.12);
-    color: var(--sidebar-text);
-    font-size: 0.85rem;
-}
-
-.sidebar-status.compact {
-    justify-content: center;
-    padding-inline: 0;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #5de3c7;
-    box-shadow: 0 0 0 6px rgba(93, 227, 199, 0.14);
-    flex-shrink: 0;
-}
-
 .sidebar-nav {
     flex: 1;
     padding: 0 12px 16px;
-    overflow-y: auto;
+    overflow: visible;
 }
 
 .sidebar-search {
@@ -857,6 +917,10 @@ const handleSidebarNavClick = () => {
     margin-top: 18px;
 }
 
+.nav-group {
+    position: relative;
+}
+
 .nav-label {
     display: block;
     padding: 0 12px 10px;
@@ -872,20 +936,28 @@ const handleSidebarNavClick = () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 12px 10px;
+    padding: 8px 12px;
     color: var(--sidebar-text-muted);
     font-size: 0.7rem;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     background: none;
-    border: none;
+    border: 1px solid transparent;
+    border-radius: 12px;
     cursor: pointer;
-    transition: color var(--transition-fast);
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .nav-label-toggle:hover {
     color: var(--sidebar-text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-group.is-open .nav-label-toggle {
+    color: #d6f5ff;
+    background: rgba(84, 196, 211, 0.12);
+    border-color: rgba(84, 196, 211, 0.25);
 }
 
 .nav-label-text {
@@ -904,15 +976,47 @@ const handleSidebarNavClick = () => {
 }
 
 .nav-group-items {
-    max-height: 600px;
-    overflow: hidden;
-    transition: max-height 0.3s ease, opacity 0.25s ease;
+    position: absolute;
+    top: 0;
+    left: calc(100% + 12px);
+    width: min(320px, 62vw);
+    max-height: min(72vh, 620px);
+    overflow: auto;
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(84, 196, 211, 0.22);
+    background: rgba(11, 25, 39, 0.97);
+    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
+    backdrop-filter: blur(8px);
+    transition: transform 0.2s ease, opacity 0.2s ease;
     opacity: 1;
+    transform: translateX(0);
+    margin-top: 0;
+    z-index: 65;
 }
 
 .nav-group-items.group-collapsed {
-    max-height: 0;
     opacity: 0;
+    transform: translateX(-8px);
+    pointer-events: none;
+}
+
+.nav-group-items.mobile-inline {
+    display: none;
+}
+
+.nav-flyout {
+    position: fixed;
+    width: min(320px, 62vw);
+    max-height: min(72vh, 620px);
+    overflow: auto;
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(84, 196, 211, 0.22);
+    background: rgba(11, 25, 39, 0.97);
+    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
+    backdrop-filter: blur(8px);
+    z-index: 120;
 }
 
 .nav-item {
@@ -921,7 +1025,7 @@ const handleSidebarNavClick = () => {
     align-items: center;
     gap: 12px;
     min-height: 54px;
-    margin: 4px 0;
+    margin: 6px 0;
     padding: 10px 12px;
     border-radius: 18px;
     color: var(--sidebar-text-muted);
@@ -1002,56 +1106,6 @@ const handleSidebarNavClick = () => {
 .sidebar-footer {
     padding: 16px 12px 12px;
     border-top: 1px solid var(--sidebar-border);
-}
-
-.footer-card {
-    padding: 14px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.045);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    color: var(--sidebar-text);
-    margin-bottom: 12px;
-}
-
-.footer-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: rgba(84, 196, 211, 0.1);
-    color: #c2f8ff;
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-
-.chip-ping {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #5de3c7;
-}
-
-.footer-metrics {
-    margin-top: 14px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.footer-metrics strong {
-    display: block;
-    color: var(--sidebar-text);
-    font-family: var(--font-heading);
-    font-size: 1rem;
-    font-weight: 700;
-}
-
-.footer-metrics span {
-    display: block;
-    margin-top: 4px;
-    color: var(--sidebar-text-muted);
-    font-size: 0.74rem;
 }
 
 .sidebar-toggle {
@@ -1205,6 +1259,39 @@ const handleSidebarNavClick = () => {
 
     .sidebar-mobile-close {
         display: inline-flex;
+    }
+
+    .sidebar-panel {
+        overflow: hidden;
+    }
+
+    .nav-group-items {
+        position: static;
+        width: 100%;
+        max-height: none;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+        margin-top: 8px;
+        opacity: 1 !important;
+        transform: none !important;
+        pointer-events: auto !important;
+    }
+
+    .nav-group-items.mobile-inline {
+        display: block;
+    }
+
+    .nav-flyout {
+        display: none;
+    }
+
+    .nav-group-items.group-collapsed {
+        max-height: 0;
+        overflow: hidden;
     }
 }
 </style>
