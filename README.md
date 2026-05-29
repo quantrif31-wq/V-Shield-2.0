@@ -2,6 +2,80 @@
 
 Huong dan moi theo kieu "mot lenh" de chay tren may Windows moi.
 
+## Docker chay nhanh (khuyen dung cho nguoi moi)
+
+### Dieu kien
+- Da cai Docker Desktop va dang o trang thai `Engine running`.
+
+### 1) Tao file env cho Docker
+Chay tai thu muc goc du an:
+
+```powershell
+Copy-Item .env.docker.example .env
+```
+
+### 2) Chay core stack
+```powershell
+docker compose up -d --build
+```
+
+Core stack gom:
+- `db` (SQL Server)
+- `api` (.NET)
+- `frontend` (Vue + Nginx)
+
+### 3) Bat them runtime AI (neu can)
+QR runtime:
+```powershell
+docker compose --profile ai up -d --build
+```
+
+Plate runtime:
+```powershell
+docker compose --profile ai-heavy up -d --build
+```
+
+### 4) Kiem tra nhanh
+```powershell
+docker compose ps
+curl http://localhost:5107/health
+curl http://localhost:8001/qr/result
+curl http://localhost:5002/api/camera/status
+```
+
+Ket qua mong doi:
+- API: `{"status":"ok","service":"v-shield-api"}`
+- QR runtime: JSON co cac truong `running`, `scan_enabled`, `locked`
+- Plate runtime: JSON co `success=true`
+
+### 5) Truy cap app
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:5107`
+
+### 6) Dung he thong Docker
+```powershell
+docker compose down
+```
+
+Neu can xoa ca du lieu DB volume:
+```powershell
+docker compose down -v
+```
+
+### 7) Neu gap loi
+Lay log nhanh:
+```powershell
+docker compose ps
+docker logs vshield-api --tail 100
+docker logs vshield-qr-runtime --tail 100
+docker logs vshield-plate-runtime --tail 100
+```
+
+Tai lieu day du:
+- `docs/DOCKER_RUN_GUIDE.md`
+- `docs/DOCKER_REGRESSION_CHECKLIST.md`
+- `docs/DOCKER_UI_REGRESSION.md`
+
 ## 1) Cai dat va dung he thong
 
 Chay trong thu muc goc `V-Shield`:
