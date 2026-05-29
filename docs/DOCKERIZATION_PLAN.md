@@ -86,9 +86,9 @@
 ## Tien do
 - [x] Tao ke hoach
 - [x] Giai doan 1 - Khao sat
-- [ ] Giai doan 2 - Chuan hoa ket noi (dang thuc hien)
-- [ ] Giai doan 3 - Dockerfile
-- [ ] Giai doan 4 - Compose
+- [x] Giai doan 2 - Chuan hoa ket noi
+- [x] Giai doan 3 - Dockerfile
+- [ ] Giai doan 4 - Compose (dang thuc hien)
 - [ ] Giai doan 5 - Migration
 - [ ] Giai doan 6 - Kiem thu
 - [ ] Giai doan 7 - Tai lieu

@@ -1,6 +1,7 @@
 import cv2
 import time
 import numpy as np
+import os
 from pyzbar import pyzbar
 from threading import Thread, Lock
 from fastapi import FastAPI
@@ -204,6 +205,16 @@ def main():
     Thread(target=camera_worker, daemon=True).start()
     Thread(target=scan_worker, daemon=True).start()
     Thread(target=lambda: uvicorn.run(app, host="0.0.0.0", port=8001), daemon=True).start()
+
+    headless_mode = str(os.getenv("QR_HEADLESS", "")).strip().lower() in ("1", "true", "yes", "on")
+    if headless_mode:
+        print("QR service running in headless mode")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            stop_flag = True
+        return
 
     print("\n=== QR FINAL PRO ===")
     print("i = nhập RTSP")

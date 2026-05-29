@@ -26,6 +26,7 @@ docker compose --profile ai up -d --build
 ```
 
 Se them service `qr-runtime` (port `8001`).
+Service nay da duoc dat `QR_HEADLESS=1` trong Docker de tranh loi GUI/display.
 
 ## 4) Bat Plate runtime (heavy)
 ```bash

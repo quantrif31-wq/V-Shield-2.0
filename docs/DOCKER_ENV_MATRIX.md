@@ -53,6 +53,9 @@
   - Plate runtime da ho tro (mac dinh 5002)
 - `HOST`
   - Nen bo sung, default `0.0.0.0`
+- `QR_HEADLESS`
+  - Docker QR runtime: `1` (tat `cv2.imshow`, chay headless)
+  - Local debug GUI: de trong hoac `0`
 - `CORS_ORIGINS`
   - Nen bo sung de han che theo moi truong
 - `LOG_LEVEL` / `DEBUG`

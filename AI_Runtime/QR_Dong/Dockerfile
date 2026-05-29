@@ -17,4 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY QR_Dong.py .
 
 EXPOSE 8001
+ENV QR_HEADLESS=1
 CMD ["python", "QR_Dong.py"]
