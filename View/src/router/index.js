@@ -32,6 +32,12 @@ import SystemCatalog from '../pages/SystemCatalog.vue'
 import QrAccessMonitor from '../components/QrAccessMonitor.vue'
 import AccessPermissionManager from '../components/AccessPermissionManager.vue'
 import SystemAuditLogs from '../pages/SystemAuditLogs.vue'
+import AttendanceShifts from '../pages/AttendanceShifts.vue'
+import AttendanceWorkSchedules from '../pages/AttendanceWorkSchedules.vue'
+import AttendanceRecords from '../pages/AttendanceRecords.vue'
+import LeaveRequests from '../pages/LeaveRequests.vue'
+import LeaveApprovals from '../pages/LeaveApprovals.vue'
+import AttendanceReports from '../pages/AttendanceReports.vue'
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -84,6 +90,12 @@ const routes = [
             { path: 'biometrics', name: 'Biometrics', component: Biometrics, meta: { allowedRoles: ['Admin'] } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin'] } },
+            { path: 'attendance/records', name: 'AttendanceRecords', component: AttendanceRecords, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
+            { path: 'attendance/work-schedules', name: 'AttendanceWorkSchedules', component: AttendanceWorkSchedules, meta: { allowedRoles: ['Admin', 'Staff'] } },
+            { path: 'attendance/shifts', name: 'AttendanceShifts', component: AttendanceShifts, meta: { allowedRoles: ['Admin', 'Staff'] } },
+            { path: 'attendance/leave-requests', name: 'LeaveRequests', component: LeaveRequests, meta: { allowedRoles: ['Admin', 'Staff'] } },
+            { path: 'attendance/leave-approvals', name: 'LeaveApprovals', component: LeaveApprovals, meta: { allowedRoles: ['Admin', 'Staff'] } },
+            { path: 'attendance/reports', name: 'AttendanceReports', component: AttendanceReports, meta: { allowedRoles: ['Admin', 'Staff'] } },
             { path: 'device-management', name: 'DeviceManagement', component: DeviceManagement, meta: { allowedRoles: ['Admin'], keepAlive: true } },
             {
                 path: 'system-catalog',

@@ -200,6 +200,30 @@ const routeMeta = {
         title: 'Phương tiện nội bộ',
         description: 'Theo dõi xe đăng ký cố định của nhân viên và trạng thái trong bãi.',
     },
+    AttendanceRecords: {
+        title: 'Bang cham cong',
+        description: 'Theo doi check-in/check-out, di tre va tong gio lam theo ngay.',
+    },
+    AttendanceWorkSchedules: {
+        title: 'Lich lam viec',
+        description: 'Phan ca va kiem soat trang thai lich lam viec cua nhan vien.',
+    },
+    AttendanceShifts: {
+        title: 'Ca lam viec',
+        description: 'Cau hinh khung gio ca, di tre, ve som va nghi giua ca.',
+    },
+    LeaveRequests: {
+        title: 'Don xin nghi',
+        description: 'Gui don nghi, theo doi phe duyet va trang thai xu ly.',
+    },
+    LeaveApprovals: {
+        title: 'Duyet don nghi',
+        description: 'Quan ly/Admin xu ly don nghi cho nhan vien theo phong ban.',
+    },
+    AttendanceReports: {
+        title: 'Bao cao cong',
+        description: 'Thong ke ngay cong, di tre, ve som va tang ca theo thang.',
+    },
     DeviceManagement: {
         title: 'Camera & cổng',
         description: 'Khai báo và cấu hình các camera, cổng truy cập đang có trong hệ thống.',
