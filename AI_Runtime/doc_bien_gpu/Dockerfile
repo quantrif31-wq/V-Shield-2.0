@@ -1,6 +1,7 @@
 FROM python:3.10-slim
 
 WORKDIR /app
+ENV LPR_HEADLESS=1
 
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
@@ -11,12 +12,12 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements.docker.txt .
 
 # NOTE:
-# requirements hien tai co paddle/torch ban GPU.
-# Service nay duoc dua vao profile "ai-heavy" de tranh bat buoc build trong lan chay docker dau tien.
-RUN pip install --no-cache-dir -r requirements.txt
+# requirements.docker.txt da loai bo cac dependency GPU (+cu118)
+# de profile "ai-heavy" co the build tren moi truong Docker CPU.
+RUN pip install --no-cache-dir -r requirements.docker.txt
 
 COPY docbien.py .
 COPY best.pt ./best.pt

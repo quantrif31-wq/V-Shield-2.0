@@ -90,6 +90,7 @@ MOVE_THRESHOLD = 20
 
 LOCK_AFTER_CONFIRM = True
 API_PORT = int(os.getenv("PORT", 5002))
+HEADLESS_MODE = os.getenv("LPR_HEADLESS", "").strip().lower() in ("1", "true", "yes", "on")
 
 MAX_READ_FAILS_BEFORE_WARN = 20
 RECONNECT_DELAY_SEC = 1.0
@@ -1430,12 +1431,15 @@ def main():
     global scan_locked, camera_thread, ocr_thread, api_thread
 
     print("\n===== LPR SINGLE-READ LOCK MODE =====")
-    print("PhÃ­m Ä‘iá»u khiá»ƒn:")
-    print("  i = nháº­p IP webcam")
-    print("  o = má»Ÿ camera")
-    print("  c = táº¯t camera")
-    print("  r = reset phiÃªn quÃ©t")
-    print("  q = thoÃ¡t chÆ°Æ¡ng trÃ¬nh\n")
+    if HEADLESS_MODE:
+        print("Headless mode: ON (disable OpenCV UI and keyboard controls)\n")
+    else:
+        print("PhÃ­m Ä‘iá»u khiá»ƒn:")
+        print("  i = nháº­p IP webcam")
+        print("  o = má»Ÿ camera")
+        print("  c = táº¯t camera")
+        print("  r = reset phiÃªn quÃ©t")
+        print("  q = thoÃ¡t chÆ°Æ¡ng trÃ¬nh\n")
 
     ocr_thread = threading.Thread(target=ocr_worker, daemon=True)
     ocr_thread.start()
@@ -1654,10 +1658,11 @@ def main():
                 with frame_lock:
                     latest_jpeg = encode_frame_to_jpeg(display_frame)
 
-            try:
-                cv2.imshow("LPR SINGLE-READ LOCK MODE", display_frame)
-            except cv2.error as e:
-                print("imshow error:", e)
+            if not HEADLESS_MODE:
+                try:
+                    cv2.imshow("LPR SINGLE-READ LOCK MODE", display_frame)
+                except cv2.error as e:
+                    print("imshow error:", e)
 
         else:
             frame = np.zeros((STREAM_HEIGHT, STREAM_WIDTH, 3), dtype=np.uint8)
@@ -1750,10 +1755,15 @@ def main():
                 message="Camera is off"
             )
 
-            try:
-                cv2.imshow("LPR SINGLE-READ LOCK MODE", frame)
-            except cv2.error as e:
-                print("imshow error:", e)
+            if not HEADLESS_MODE:
+                try:
+                    cv2.imshow("LPR SINGLE-READ LOCK MODE", frame)
+                except cv2.error as e:
+                    print("imshow error:", e)
+
+        if HEADLESS_MODE:
+            time.sleep(0.01)
+            continue
 
         key = cv2.waitKey(1) & 0xFF
 

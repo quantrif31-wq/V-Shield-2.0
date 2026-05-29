@@ -88,7 +88,15 @@
 - [x] Giai doan 1 - Khao sat
 - [x] Giai doan 2 - Chuan hoa ket noi
 - [x] Giai doan 3 - Dockerfile
-- [ ] Giai doan 4 - Compose (dang thuc hien)
-- [ ] Giai doan 5 - Migration
+- [x] Giai doan 4 - Compose
+- [x] Giai doan 5 - Migration
 - [ ] Giai doan 6 - Kiem thu
 - [ ] Giai doan 7 - Tai lieu
+
+## Moc da xac thuc (2026-05-29)
+- Docker core stack (`db`, `api`, `frontend`) da build + run on dinh.
+- API health check OK: `/health`.
+- Migration tu dong khi startup API da chay thanh cong.
+- Login API test thanh cong voi tai khoan seed admin.
+- Profile `ai` (QR runtime) da chay trong Docker sau khi them che do `QR_HEADLESS=1`.
+- Profile `ai-heavy` (plate runtime) da chuyen sang `requirements.docker.txt` (ban CPU) va bo sung che do `LPR_HEADLESS=1` de tiep tuc on dinh runtime trong Docker.
