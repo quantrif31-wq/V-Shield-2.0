@@ -14,11 +14,13 @@ namespace API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public CameraRuntimeController(ApplicationDbContext context, IConfiguration configuration)
+        public CameraRuntimeController(ApplicationDbContext context, IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
         }
 
         // ================= GET ALL =================
@@ -195,21 +197,27 @@ namespace API.Controllers
 
                 yaml.AppendLine("webrtc:");
                 yaml.AppendLine("  listen: \":8555\"");
+                var candidates = ResolveWebRtcCandidates().ToList();
+                if (candidates.Count > 0)
+                {
+                    yaml.AppendLine("  candidates:");
+                }
+                foreach (var candidate in candidates)
+                {
+                    yaml.AppendLine($"    - {candidate}");
+                }
                 yaml.AppendLine("  ice_servers:");
                 yaml.AppendLine("    - urls:");
                 yaml.AppendLine("        - stun:stun.l.google.com:19302");
 
 
                 // ===== PATH =====
-                var basePath = Directory.GetCurrentDirectory();
-
-                var aiRootFolderName = ResolveAiRootFolderName();
-                var go2rtcPath = Path.GetFullPath(
-                    Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64")
-                );
-
-                var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
-                var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
+                var yamlPath = ResolveGo2RtcYamlPath();
+                var yamlDirectory = Path.GetDirectoryName(yamlPath);
+                if (!string.IsNullOrWhiteSpace(yamlDirectory) && !Directory.Exists(yamlDirectory))
+                {
+                    Directory.CreateDirectory(yamlDirectory);
+                }
 
                 // ===== GHI FILE YAML =====
                 await System.IO.File.WriteAllTextAsync(yamlPath, yaml.ToString());
@@ -217,23 +225,33 @@ namespace API.Controllers
                 // ===== LƯU DB (QUAN TRỌNG) =====
                 await _context.SaveChangesAsync();
 
-                // ===== STOP PROCESS CŨ =====
-                foreach (var proc in Process.GetProcessesByName("go2rtc"))
+                if (!IsDockerMode())
                 {
-                    proc.Kill();
+                    var go2rtcPath = Path.GetDirectoryName(yamlPath) ?? string.Empty;
+                    var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
+
+                    // ===== STOP PROCESS CŨ =====
+                    foreach (var proc in Process.GetProcessesByName("go2rtc"))
+                    {
+                        proc.Kill();
+                    }
+
+                    // ===== START GO2RTC =====
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = exePath,
+                        WorkingDirectory = go2rtcPath,
+                        UseShellExecute = true
+                    });
+
+                    // ===== AUTO CLOUDFLARE =====
+                    EnsureCloudflaredTunnelConfig();
+                    StartCloudflaredTunnel();
                 }
-
-                // ===== START GO2RTC =====
-                Process.Start(new ProcessStartInfo
+                else
                 {
-                    FileName = exePath,
-                    WorkingDirectory = go2rtcPath,
-                    UseShellExecute = true
-                });
-
-                // ===== AUTO CLOUDFLARE =====
-                EnsureCloudflaredTunnelConfig();
-                StartCloudflaredTunnel();
+                    await TryReloadGo2RtcByHttpAsync();
+                }
 
                 return Ok(new
                 {
@@ -417,6 +435,79 @@ namespace API.Controllers
         private string ResolveAiRootFolderName() =>
             _configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
 
+        private bool IsDockerMode()
+        {
+            var mode = (_configuration["Runtime:Mode"] ?? "local").Trim().ToLowerInvariant();
+            return mode == "docker";
+        }
+
+        private string ResolveGo2RtcYamlPath()
+        {
+            var configured = _configuration["Go2Rtc:ConfigPath"];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured.Trim();
+            }
+
+            var basePath = Directory.GetCurrentDirectory();
+            var aiRootFolderName = ResolveAiRootFolderName();
+            var go2rtcPath = Path.GetFullPath(
+                Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64")
+            );
+            return Path.Combine(go2rtcPath, "go2rtc.yaml");
+        }
+
+        private async Task TryReloadGo2RtcByHttpAsync()
+        {
+            var reloadUrl = (_configuration["Go2Rtc:ReloadUrl"] ?? "http://go2rtc:1984/api/restart").Trim();
+            if (string.IsNullOrWhiteSpace(reloadUrl))
+            {
+                return;
+            }
+
+            try
+            {
+                using var http = _httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(5);
+                using var req = new HttpRequestMessage(HttpMethod.Post, reloadUrl);
+                using var _ = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+            }
+            catch
+            {
+                // Docker mode: do not crash flow if hot-reload endpoint is unavailable.
+            }
+        }
+
+        private IEnumerable<string> ResolveWebRtcCandidates()
+        {
+            var configured = _configuration["Go2Rtc:WebRtcCandidates"];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(value => !string.IsNullOrWhiteSpace(value));
+            }
+
+            if (!IsDockerMode())
+            {
+                return Array.Empty<string>();
+            }
+
+            var go2RtcBase = ResolveGo2RtcPublicBaseUrl();
+            if (!Uri.TryCreate(go2RtcBase, UriKind.Absolute, out var baseUri))
+            {
+                return Array.Empty<string>();
+            }
+
+            var port = _configuration["Go2Rtc:WebRtcPort"]?.Trim();
+            if (string.IsNullOrWhiteSpace(port))
+            {
+                port = "8555";
+            }
+
+            return new[] { $"{baseUri.Host}:{port}" };
+        }
+
 
         private static string? NormalizeCameraUrl(string? value)
         {
@@ -473,9 +564,8 @@ namespace API.Controllers
 
         private string ResolveGo2RtcPublicBaseUrl()
         {
-            // Ưu tiên config
             var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
-            if (!string.IsNullOrWhiteSpace(configured))
+            if (!string.IsNullOrWhiteSpace(configured) && !ShouldForceProxyGo2RtcBase(configured))
             {
                 return NormalizeBaseUrl(configured);
             }
@@ -489,6 +579,35 @@ namespace API.Controllers
             }
 
             return $"{ResolvePublicAppBaseUrl()}/go2rtc";
+        }
+
+        private bool ShouldForceProxyGo2RtcBase(string configuredBaseUrl)
+        {
+            if (!IsDockerMode())
+            {
+                return false;
+            }
+
+            var allowCrossOrigin = (_configuration["AppSettings:AllowCrossOriginGo2RtcFrame"] ?? "false")
+                .Trim()
+                .Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (allowCrossOrigin)
+            {
+                return false;
+            }
+
+            if (!Uri.TryCreate(configuredBaseUrl.Trim(), UriKind.Absolute, out var configuredUri))
+            {
+                return false;
+            }
+
+            var requestHost = Request.Host.Host;
+            if (string.IsNullOrWhiteSpace(requestHost))
+            {
+                return false;
+            }
+
+            return !configuredUri.Host.Equals(requestHost, StringComparison.OrdinalIgnoreCase);
         }
 
         private string ResolvePublicAppBaseUrl()

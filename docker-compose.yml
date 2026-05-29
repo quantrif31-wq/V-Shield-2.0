@@ -27,7 +27,12 @@ services:
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=AccessControlDB;User Id=sa;Password=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd};TrustServerCertificate=True;Encrypt=False;"
       Runtime__Mode: docker
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:-http://localhost:5173}"
+      AppSettings__Go2RtcPublicBaseUrl: "${APP_GO2RTC_PUBLIC_BASE_URL:-http://localhost:5173/go2rtc}"
       AppSettings__AllowedOrigins__0: "${APP_FRONTEND_URL:-http://localhost:5173}"
+      Go2Rtc__ConfigPath: "${GO2RTC_CONFIG_PATH:-/runtime/go2rtc/go2rtc.yaml}"
+      Go2Rtc__ReloadUrl: "${GO2RTC_RELOAD_URL:-http://go2rtc:1984/api/restart}"
+      Go2Rtc__WebRtcCandidates: "${GO2RTC_WEBRTC_CANDIDATES:-}"
+      Go2Rtc__WebRtcPort: "${GO2RTC_WEBRTC_PORT:-8555}"
       AiServices__PlateBaseUrl: "${PLATE_SERVICE_URL:-http://plate-runtime:5002/api}"
       AiServices__FaceCameraBaseUrl: "${FACE_SERVICE_URL:-http://face-runtime:5001/api}"
       AiServices__FaceIdBaseUrl: "${FACEID_SERVICE_URL:-http://faceid-runtime:8000}"
@@ -36,6 +41,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      go2rtc:
+        condition: service_started
+    volumes:
+      - ./runtime/go2rtc:/runtime/go2rtc
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health"]
       interval: 15s
@@ -53,11 +62,27 @@ services:
         VITE_PLATE_API_BASE_URL: "${VITE_PLATE_API_BASE_URL:-http://localhost:5002/api}"
         VITE_FACE_API_BASE_URL: "${VITE_FACE_API_BASE_URL:-http://localhost:5001/api}"
     container_name: vshield-frontend
+    environment:
+      GO2RTC_PROXY_BASE: "${GO2RTC_PROXY_BASE:-http://go2rtc:1984}"
     ports:
       - "5173:80"
     depends_on:
       api:
         condition: service_healthy
+      go2rtc:
+        condition: service_started
+    restart: unless-stopped
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: vshield-go2rtc
+    command: ["go2rtc", "-config", "/config/go2rtc.yaml"]
+    volumes:
+      - ./runtime/go2rtc:/config
+    ports:
+      - "1984:1984"
+      - "8554:8554"
+      - "8555:8555"
     restart: unless-stopped
 
   qr-runtime:
