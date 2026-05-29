@@ -524,6 +524,7 @@ import { verifyDynamicQr } from "../services/dynamicQrVerifyApi"
 import { getCameras, startPythonQrProcess, stopPythonQrProcess, startPythonPlateProcess, stopPythonPlateProcess, startPythonSimulatedCameraProcess, stopPythonSimulatedCameraProcess, getPythonProcessStatus } from "../services/cameraRuntimeApi"
 import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRuntimeService } from "../services/runtimeServiceApi"
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce, QR_API_BASE_URL } from "../services/dynamicQrScannerApi"
+import { PLATE_API_BASE_URL } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
 function createQrModule(defaultScannerDevice) {
   return {
@@ -1083,7 +1084,7 @@ export default {
 
       while (Date.now() - startedAt < timeoutMs) {
         try {
-          const base = plateLane1Api.getResolvedPlateApiBaseUrl() || "http://127.0.0.1:5002/api"
+          const base = plateLane1Api.getResolvedPlateApiBaseUrl() || PLATE_API_BASE_URL
           await axios.get(`${String(base).replace(/\/+$/, "")}/health`, { timeout: 2000 })
           return
         } catch (e) {
@@ -1348,7 +1349,7 @@ const qr = lane.qr
       }
 
       // Prevent relative path fallback to Vue route (causing iframe overlay over content).
-      const base = String(QR_API_BASE_URL || "http://localhost:8001").replace(/\/+$/, "")
+      const base = String(QR_API_BASE_URL || "").replace(/\/+$/, "")
       const path = raw.replace(/^\/+/, "")
       return `${base}/${path}`
     },

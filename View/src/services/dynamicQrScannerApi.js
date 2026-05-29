@@ -1,8 +1,18 @@
 const trimTrailingSlash = (value = "") => String(value || "").replace(/\/+$/, "")
 
-const QR_API_BASE_URL = trimTrailingSlash(
-  import.meta.env.VITE_QR_API_BASE_URL || "http://localhost:8001"
-)
+const resolveQrApiBaseUrl = () => {
+  const configured = trimTrailingSlash(import.meta.env.VITE_QR_API_BASE_URL || "")
+  if (configured) return configured
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location
+    return `${protocol}//${hostname}:8001`
+  }
+
+  return "http://localhost:8001"
+}
+
+const QR_API_BASE_URL = resolveQrApiBaseUrl()
 
 async function request(path, options = {}) {
   let response

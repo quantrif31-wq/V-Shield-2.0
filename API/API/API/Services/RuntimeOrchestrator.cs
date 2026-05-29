@@ -6,6 +6,7 @@ namespace API.Services;
 public sealed class RuntimeOrchestrator
 {
     private const string ManagedModeLegacy = "legacy_process";
+    private const string ManagedModeExternal = "external_service";
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _env;
     private readonly object _sync = new();
@@ -55,6 +56,7 @@ public sealed class RuntimeOrchestrator
         var service = LoadConfigs().FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (service == null) return RuntimeActionResult.Fail($"Khong tim thay service {name}.");
         if (!service.Enabled) return RuntimeActionResult.Fail($"Service {name} dang bi tat (Enabled=false).");
+        if (IsDockerMode()) return RuntimeActionResult.Ok($"Docker mode: bo qua lenh start cho {name} (quan ly boi docker-compose).");
 
         try
         {
@@ -76,6 +78,8 @@ public sealed class RuntimeOrchestrator
 
     public async Task<RuntimeActionResult> StopAsync(string name)
     {
+        if (IsDockerMode()) return RuntimeActionResult.Ok($"Docker mode: bo qua lenh stop cho {name} (quan ly boi docker-compose).");
+
         try
         {
             var result = name switch
@@ -96,6 +100,20 @@ public sealed class RuntimeOrchestrator
 
     private RuntimeServiceState ToState(RuntimeServiceConfig config)
     {
+        if (IsDockerMode())
+        {
+            return new RuntimeServiceState
+            {
+                Name = config.Name,
+                DisplayName = config.DisplayName,
+                Enabled = config.Enabled,
+                AutoStart = config.AutoStart,
+                ManagedMode = ManagedModeExternal,
+                Running = config.Enabled,
+                UpdatedAt = config.UpdatedAt
+            };
+        }
+
         var running = config.Name switch
         {
             "python_qr" => IsPythonScriptRunning("QR_Dong.py"),
@@ -173,6 +191,12 @@ public sealed class RuntimeOrchestrator
 
     private string ResolveAiRootFolderName() =>
         _configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
+
+    private bool IsDockerMode()
+    {
+        var mode = (_configuration["Runtime:Mode"] ?? "local").Trim().ToLowerInvariant();
+        return mode == "docker";
+    }
 
     private static List<RuntimeServiceConfig> GetDefaultConfigs() =>
         new()
