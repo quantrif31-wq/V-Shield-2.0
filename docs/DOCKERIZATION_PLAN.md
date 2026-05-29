@@ -90,8 +90,8 @@
 - [x] Giai doan 3 - Dockerfile
 - [x] Giai doan 4 - Compose
 - [x] Giai doan 5 - Migration
-- [ ] Giai doan 6 - Kiem thu
-- [ ] Giai doan 7 - Tai lieu
+- [x] Giai doan 6 - Kiem thu (smoke + API regression)
+- [x] Giai doan 7 - Tai lieu
 
 ## Moc da xac thuc (2026-05-29)
 - Docker core stack (`db`, `api`, `frontend`) da build + run on dinh.
@@ -100,3 +100,9 @@
 - Login API test thanh cong voi tai khoan seed admin.
 - Profile `ai` (QR runtime) da chay trong Docker sau khi them che do `QR_HEADLESS=1`.
 - Profile `ai-heavy` (plate runtime) da chuyen sang `requirements.docker.txt` (ban CPU) va bo sung che do `LPR_HEADLESS=1` de tiep tuc on dinh runtime trong Docker.
+- Smoke test endpoint (Docker): `GET /health`, `GET qr-runtime /qr/result`, `GET plate-runtime /api/camera/status` deu phan hoi OK.
+- API regression cot loi (Auth/Employees/PreRegistrations/AccessPermissions/SystemAudit) da pass. Chi tiet tai `docs/DOCKER_REGRESSION_CHECKLIST.md`.
+- Tai lieu van hanh va test tay UI da bo sung:
+  - `docs/DOCKER_RUN_GUIDE.md`
+  - `docs/DOCKER_REGRESSION_CHECKLIST.md`
+  - `docs/DOCKER_UI_REGRESSION.md`

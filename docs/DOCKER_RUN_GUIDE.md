@@ -35,21 +35,47 @@ docker compose --profile ai-heavy up -d --build
 
 Luu y:
 - `plate-runtime` dung dependencies nang (paddle/torch), build co the lau va can tai nguyen lon.
+- Docker image da chuyen qua `requirements.docker.txt` (CPU-compatible) de giam xung dot dependency.
+- Service duoc bat `LPR_HEADLESS=1` de tranh loi `qt.qpa.xcb` khi khong co man hinh GUI.
 
-## 5) Tat stack
+## 5) Kiem tra nhanh sau khi len stack
+Chay lan luot:
+```bash
+curl http://localhost:5107/health
+curl http://localhost:8001/qr/result
+curl http://localhost:5002/api/camera/status
+```
+
+Ket qua mong doi:
+- API: `{"status":"ok","service":"v-shield-api"}`
+- QR runtime: JSON co cac truong `running`, `scan_enabled`, `locked`, ...
+- Plate runtime: JSON co `success=true`, `camera_enabled=false` (neu chua mo cam)
+
+## 6) Tat stack
 ```bash
 docker compose down
 ```
 
-## 6) Reset ca volume DB
+## 7) Reset ca volume DB
 ```bash
 docker compose down -v
 ```
 
-## 7) Giai thich Runtime mode
+## 8) Giai thich Runtime mode
 - API da bo sung `Runtime__Mode`.
 - Trong docker compose, mode dat la `docker`:
   - API KHONG tu spawn process local (PowerShell/go2rtc.exe/cloudflared).
   - Runtime duoc quan ly boi docker compose.
 - Ngoai docker:
   - Dung `Runtime:Mode=local` de giu hanh vi cu.
+
+## 9) Xu ly su co thuong gap
+1. `SystemAuditLogs chua san sang`:
+   - Kiem tra API da restart sau khi pull code moi.
+   - Xem log `vshield-api` de xac nhan migration da chay xong.
+2. QR/LPR timeout:
+   - Kiem tra container runtime co dang `Up` khong: `docker compose ps`
+   - Xem log: `docker logs vshield-qr-runtime`, `docker logs vshield-plate-runtime`
+3. Loi CORS tren frontend:
+   - Kiem tra `APP_FRONTEND_URL`, `VITE_API_BASE_URL` trong `.env`
+   - Rebuild frontend: `docker compose up -d --build frontend`
