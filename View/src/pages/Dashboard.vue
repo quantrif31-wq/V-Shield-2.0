@@ -35,6 +35,39 @@
             </article>
         </section>
 
+        <section class="metric-grid">
+            <article class="metric-tile">
+                <span class="metric-label">Nhan vien dang lam hom nay</span>
+                <strong class="metric-value">{{ snapshot.employeesWorkingToday || 0 }}</strong>
+                <span class="metric-note">So nhan su co lich lam hom nay.</span>
+            </article>
+            <article class="metric-tile">
+                <span class="metric-label">Nhan vien chua check-in</span>
+                <strong class="metric-value">{{ snapshot.employeesNotCheckedIn || 0 }}</strong>
+                <span class="metric-note">So nhan su chua cham cong dau ca.</span>
+            </article>
+            <article class="metric-tile">
+                <span class="metric-label">Nhan vien di tre hom nay</span>
+                <strong class="metric-value">{{ snapshot.employeesLateToday || 0 }}</strong>
+                <span class="metric-note">So nhan su co phat sinh di tre.</span>
+            </article>
+            <article class="metric-tile">
+                <span class="metric-label">Don nghi cho duyet</span>
+                <strong class="metric-value">{{ snapshot.pendingLeaveApprovals || 0 }}</strong>
+                <span class="metric-note">Don xin nghi dang cho quan ly/Admin xu ly.</span>
+            </article>
+            <article class="metric-tile">
+                <span class="metric-label">Tong ca lam hom nay</span>
+                <strong class="metric-value">{{ snapshot.totalShiftsToday || 0 }}</strong>
+                <span class="metric-note">Tong lich ca duoc phan cong trong ngay.</span>
+            </article>
+            <article class="metric-tile">
+                <span class="metric-label">Tong gio tang ca hom nay</span>
+                <strong class="metric-value">{{ Number(snapshot.totalOvertimeHoursToday || 0).toFixed(2) }}h</strong>
+                <span class="metric-note">Gio lam ngoai ca da ghi nhan trong ngay.</span>
+            </article>
+        </section>
+
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
@@ -193,6 +226,12 @@ const snapshot = ref({
     employeeCount: 0,
     trainedEmployeeCount: 0,
     recognitionCoverage: 0,
+    employeesWorkingToday: 0,
+    employeesNotCheckedIn: 0,
+    employeesLateToday: 0,
+    pendingLeaveApprovals: 0,
+    totalShiftsToday: 0,
+    totalOvertimeHoursToday: 0,
 })
 const weeklyTraffic = ref([])
 const recentActivities = ref([])

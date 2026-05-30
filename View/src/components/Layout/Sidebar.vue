@@ -412,7 +412,8 @@ const navGroups = ref([
                 hint: 'Lịch sử theo thời gian',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>',
                 roles: ['Admin', 'BaoVe'],
-            },            {
+            },
+            {
                 path: '/system-audit-logs',
                 label: 'Nhật ký hệ thống',
                 hint: 'Ai làm gì, trước/sau, kết quả',
@@ -471,6 +472,53 @@ const navGroups = ref([
                 hint: 'Xe đăng ký cố định',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="5" width="16" height="11" rx="2"/><path d="M17 8h4l2 3v5h-6V8z"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
                 roles: ['Admin'],
+            },
+        ],
+    },
+    {
+        label: 'CHAM CONG',
+        items: [
+            {
+                path: '/attendance/records',
+                label: 'Bang cham cong',
+                hint: 'Check-in/check-out, tre/som',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+                roles: ['Admin', 'Staff', 'BaoVe'],
+            },
+            {
+                path: '/attendance/work-schedules',
+                label: 'Lich lam viec',
+                hint: 'Len lich ca cho nhan vien',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>',
+                roles: ['Admin', 'Staff'],
+            },
+            {
+                path: '/attendance/shifts',
+                label: 'Ca lam viec',
+                hint: 'Cau hinh ca va thoi gian',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>',
+                roles: ['Admin', 'Staff'],
+            },
+            {
+                path: '/attendance/leave-requests',
+                label: 'Don xin nghi',
+                hint: 'Gui va theo doi don nghi',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>',
+                roles: ['Admin', 'Staff'],
+            },
+            {
+                path: '/attendance/leave-approvals',
+                label: 'Duyet don nghi',
+                hint: 'Xu ly don cho duyet',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>',
+                roles: ['Admin', 'Staff'],
+            },
+            {
+                path: '/attendance/reports',
+                label: 'B�o c�o c�ng',
+                hint: 'Thong ke theo ngay/thang',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 4-6"/></svg>',
+                roles: ['Admin', 'Staff'],
             },
         ],
     },
@@ -1346,6 +1394,8 @@ const refreshFlyoutPosition = () => {
     }
 }
 </style>
+
+
 
 
 

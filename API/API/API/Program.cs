@@ -56,6 +56,8 @@ namespace API
             builder.Services.AddScoped<IVehicleManagementService, VehicleManagementService>();
             builder.Services.AddScoped<ILocalNetworkCameraDiscoveryService, LocalNetworkCameraDiscoveryService>();
             builder.Services.AddScoped<StaticVisitorQrService>();
+            builder.Services.AddScoped<IAttendanceCalculationService, AttendanceCalculationService>();
+            builder.Services.AddScoped<IAttendancePermissionService, AttendancePermissionService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
             builder.Services.AddHttpClient();

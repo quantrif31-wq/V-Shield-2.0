@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.DTOs.PreRegistration;
 using API.Models;
 using API.Services;
@@ -354,29 +354,29 @@ public class PreRegistrationController : ControllerBase
     public async Task<IActionResult> GetVisitorPass(string token)
     {
         if (!TryParseVisitorPortalToken(token, out var visitorId, out var registrationId, out var expiresAtUnix, out var tokenSig))
-            return BadRequest(new { Message = "Link truy c?p khÃ´ng h?p l?." });
+            return BadRequest(new { Message = "Link truy cập không hợp lệ." });
 
         var visitor = await _context.VisitorDetails
             .Include(v => v.Registration)
             .FirstOrDefaultAsync(v => v.VisitorDetailId == visitorId && v.RegistrationId == registrationId);
 
         if (visitor == null || visitor.Registration == null)
-            return NotFound(new { Message = "KhÃ´ng tÃ¬m th?y khÃ¡ch ho?c ??n ??ng kÃ½." });
+            return NotFound(new { Message = "Không tìm thấy khách hoặc đơn đăng ký." });
 
         var nowUtc = DateTime.UtcNow;
         if (nowUtc > visitor.Registration.ExpectedTimeOut.ToUniversalTime())
-            return BadRequest(new { Message = "Link ?Ã£ h?t hi?u l?c do ??ng kÃ½ ?Ã£ h?t h?n." });
+            return BadRequest(new { Message = "Link đã hết hiệu lực do đăng ký đã hết hạn." });
 
         var expiresAtUtc = DateTimeOffset.FromUnixTimeSeconds(expiresAtUnix).UtcDateTime;
         if (nowUtc > expiresAtUtc)
-            return BadRequest(new { Message = "Link truy c?p ?Ã£ h?t h?n." });
+            return BadRequest(new { Message = "Link truy cập đã hết hạn." });
 
         if (!visitor.IsQrActive || string.IsNullOrWhiteSpace(visitor.QrSecret))
-            return BadRequest(new { Message = "QR c?a khÃ¡ch hi?n khÃ´ng kh? d?ng." });
+            return BadRequest(new { Message = "QR của khách hiện không khả dụng." });
 
         var expectedSig = ComputeVisitorPortalSignature(visitor.VisitorDetailId, visitor.RegistrationId, expiresAtUnix, visitor.QrSecret);
         if (!FixedTimeEquals(tokenSig, expectedSig))
-            return Unauthorized(new { Message = "Ch? kÃ½ link khÃ´ng h?p l?." });
+            return Unauthorized(new { Message = "Chữ ký link không hợp lệ." });
 
         var counter = _qrService.GetCurrentCounter(nowUtc);
         var otp = _qrService.GenerateOtp(visitor.QrSecret, counter);

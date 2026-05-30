@@ -1,4 +1,5 @@
-﻿using API.Data;
+using API.Data;
+using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -90,6 +91,39 @@ public class DashboardController : ControllerBase
                 ExceptionReason = log.ExceptionReason != null ? log.ExceptionReason.Description : null
             })
             .ToListAsync();
+
+        var schedulesToday = await _context.WorkSchedules.AsNoTracking()
+            .Where(s => s.WorkDate == today &&
+                        s.Status != WorkScheduleStatuses.Cancelled)
+            .ToListAsync();
+
+        var attendancesToday = await _context.Attendances.AsNoTracking()
+            .Where(a => a.WorkDate == today)
+            .ToListAsync();
+
+        var pendingLeaveApprovals = await _context.LeaveRequests.AsNoTracking()
+            .CountAsync(l => l.Status == LeaveRequestStatuses.Pending);
+
+        var workingEmployeeIdsToday = schedulesToday
+            .Where(s => s.Status != WorkScheduleStatuses.Leave)
+            .Select(s => s.EmployeeId)
+            .Distinct()
+            .ToHashSet();
+
+        var checkedInEmployeeIdsToday = attendancesToday
+            .Where(a => a.CheckIn.HasValue &&
+                        a.Status != AttendanceStatuses.Leave)
+            .Select(a => a.EmployeeId)
+            .Distinct()
+            .ToHashSet();
+
+        var lateEmployeeIdsToday = attendancesToday
+            .Where(a => a.LateMinutes > 0)
+            .Select(a => a.EmployeeId)
+            .Distinct()
+            .ToHashSet();
+
+        var totalOvertimeHoursToday = Math.Round(attendancesToday.Sum(a => a.OvertimeHours), 2);
         var successfulStatuses = new[] { "APPROVED", "SUCCESS", "GRANTED", "OK", "MATCHED" };
 
         var traffic = Enumerable.Range(0, 7)
@@ -129,8 +163,8 @@ public class DashboardController : ControllerBase
             activity.Direction,
             actorName = activity.EmployeeName
     ?? activity.VisitorName
-    ?? "Chưa xác định",
-            gateName = activity.GateName ?? "Chưa gắn cổng",
+    ?? "Chua x�c d?nh",
+            gateName = activity.GateName ?? "Chua g?n c?ng",
             cameraName = activity.CameraName,
             activity.CapturedLicensePlate,
             activity.ResultStatus,
@@ -158,7 +192,13 @@ public class DashboardController : ControllerBase
                 guestProfiles,
                 employeeCount,
                 trainedEmployeeCount,
-                recognitionCoverage
+                recognitionCoverage,
+                employeesWorkingToday = workingEmployeeIdsToday.Count,
+                employeesNotCheckedIn = Math.Max(0, workingEmployeeIdsToday.Count - checkedInEmployeeIdsToday.Count),
+                employeesLateToday = lateEmployeeIdsToday.Count,
+                pendingLeaveApprovals,
+                totalShiftsToday = schedulesToday.Count,
+                totalOvertimeHoursToday
             },
             weeklyTraffic = traffic,
             recentActivities
@@ -185,4 +225,5 @@ public class DashboardController : ControllerBase
         };
     }
 }
+
 
