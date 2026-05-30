@@ -58,6 +58,7 @@ namespace API
             builder.Services.AddScoped<StaticVisitorQrService>();
             builder.Services.AddScoped<IAttendanceCalculationService, AttendanceCalculationService>();
             builder.Services.AddScoped<IAttendancePermissionService, AttendancePermissionService>();
+            builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
             builder.Services.AddHttpClient();

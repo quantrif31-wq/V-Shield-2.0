@@ -523,6 +523,18 @@ const navGroups = ref([
         ],
     },
     {
+        label: 'BAN DO',
+        items: [
+            {
+                path: '/campus-map',
+                label: 'Ban do khuon vien',
+                hint: 'Realtime Gate + camera + AccessLog',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>',
+                roles: ['Admin', 'Staff', 'BaoVe'],
+            },
+        ],
+    },
+    {
         label: 'AI & Thiết bị',
         items: [
             {

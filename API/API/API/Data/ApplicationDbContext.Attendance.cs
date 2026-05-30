@@ -9,6 +9,7 @@ public partial class ApplicationDbContext
     public DbSet<WorkSchedule> WorkSchedules { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<LeaveRequest> LeaveRequests { get; set; }
+    public DbSet<CampusMapLayout> CampusMapLayouts { get; set; }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
@@ -158,6 +159,34 @@ public partial class ApplicationDbContext
                 .HasForeignKey(e => e.ApproverId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_AttendanceModule_LeaveRequest_ApproverUser");
+        });
+
+        modelBuilder.Entity<CampusMapLayout>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.GateId).IsUnique();
+            entity.Property(e => e.X).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.Y).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.W).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.H).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.ZIndex).HasDefaultValue(1);
+            entity.Property(e => e.Color).HasMaxLength(30);
+            entity.Property(e => e.Icon).HasMaxLength(80);
+            entity.Property(e => e.IsVisible).HasDefaultValue(true);
+            entity.Property(e => e.IsLocked).HasDefaultValue(false);
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("(getutcdate())");
+
+            entity.HasOne(e => e.Gate)
+                .WithMany()
+                .HasForeignKey(e => e.GateId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_CampusMapLayouts_Gate");
+
+            entity.HasOne(e => e.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.UpdatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_CampusMapLayouts_AppUser");
         });
     }
 }

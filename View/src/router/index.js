@@ -38,6 +38,7 @@ import AttendanceRecords from '../pages/AttendanceRecords.vue'
 import LeaveRequests from '../pages/LeaveRequests.vue'
 import LeaveApprovals from '../pages/LeaveApprovals.vue'
 import AttendanceReports from '../pages/AttendanceReports.vue'
+import CampusMapPage from '../pages/CampusMapPage.vue'
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -96,6 +97,7 @@ const routes = [
             { path: 'attendance/leave-requests', name: 'LeaveRequests', component: LeaveRequests, meta: { allowedRoles: ['Admin', 'Staff'] } },
             { path: 'attendance/leave-approvals', name: 'LeaveApprovals', component: LeaveApprovals, meta: { allowedRoles: ['Admin', 'Staff'] } },
             { path: 'attendance/reports', name: 'AttendanceReports', component: AttendanceReports, meta: { allowedRoles: ['Admin', 'Staff'] } },
+            { path: 'campus-map', name: 'CampusMap', component: CampusMapPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
             { path: 'device-management', name: 'DeviceManagement', component: DeviceManagement, meta: { allowedRoles: ['Admin'], keepAlive: true } },
             {
                 path: 'system-catalog',
