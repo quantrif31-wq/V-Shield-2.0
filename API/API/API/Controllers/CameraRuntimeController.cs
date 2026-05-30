@@ -193,8 +193,14 @@ namespace API.Controllers
 
                     yaml.AppendLine($"  {streamName}:");
                     yaml.AppendLine($"    - {normalizedStreamUrl}#transport=tcp");
+                    if (!normalizedStreamUrl.Contains("#transport=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        yaml.AppendLine($"    - {normalizedStreamUrl}");
+                    }
                 }
 
+                yaml.AppendLine("api:");
+                yaml.AppendLine("  origin: \"*\"");
                 yaml.AppendLine("webrtc:");
                 yaml.AppendLine("  listen: \":8555\"");
                 var candidates = ResolveWebRtcCandidates().ToList();
@@ -488,13 +494,20 @@ namespace API.Controllers
                     .Where(value => !string.IsNullOrWhiteSpace(value));
             }
 
+            // Keep public-domain safe default (no forced candidate).
+            // For localhost docker preview, provide loopback candidate so browser can reach media port.
             if (!IsDockerMode())
             {
                 return Array.Empty<string>();
             }
 
-            var go2RtcBase = ResolveGo2RtcPublicBaseUrl();
-            if (!Uri.TryCreate(go2RtcBase, UriKind.Absolute, out var baseUri))
+            var requestHost = Request.Host.Host?.Trim();
+            if (string.IsNullOrWhiteSpace(requestHost))
+            {
+                return Array.Empty<string>();
+            }
+
+            if (!IsLoopbackHost(requestHost))
             {
                 return Array.Empty<string>();
             }
@@ -505,8 +518,13 @@ namespace API.Controllers
                 port = "8555";
             }
 
-            return new[] { $"{baseUri.Host}:{port}" };
+            return new[] { $"{requestHost}:{port}" };
         }
+
+        private static bool IsLoopbackHost(string host) =>
+            host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("::1", StringComparison.OrdinalIgnoreCase);
 
 
         private static string? NormalizeCameraUrl(string? value)

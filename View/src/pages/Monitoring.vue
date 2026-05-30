@@ -1,37 +1,25 @@
 <template>
   <div class="page">
-    <!-- HEADER -->
     <div class="topbar">
       <div>
-        <h1>🎥 Giám sát trực tiếp</h1>
+        <h1>Giám sát trực tiếp</h1>
         <p>Theo dõi camera realtime</p>
       </div>
 
-      <!-- NÚT CÀI ĐẶT -->
-      <button class="gear-btn" @click="toggleSettings">
-        ⚙️
+      <button class="gear-btn" @click="toggleSettings" type="button" aria-label="Mở cài đặt camera">
+        ⚙
       </button>
     </div>
 
-    <!-- PANEL CÀI ĐẶT -->
     <transition name="fade">
       <div v-if="showSettings" class="settings-panel">
         <h3>Chọn camera (tối đa 4)</h3>
 
         <div class="cam-list">
-          <div
-            v-for="cam in cameras"
-            :key="cam.cameraId"
-            class="cam-item"
-          >
+          <div v-for="cam in cameras" :key="cam.cameraId" class="cam-item">
             <span>{{ cam.cameraName }}</span>
-
-            <!-- TOGGLE -->
             <label class="switch">
-              <input
-                type="checkbox"
-                v-model="selectedMap[cam.cameraId]"
-              />
+              <input type="checkbox" v-model="selectedMap[cam.cameraId]" />
               <span class="slider"></span>
             </label>
           </div>
@@ -39,129 +27,116 @@
       </div>
     </transition>
 
-    <!-- GRID CAMERA -->
     <div class="grid">
-      <div
-        v-for="cam in activeCams"
-        :key="cam.cameraId"
-        class="cam-card"
-      >
+      <div v-for="cam in activeCams" :key="cam.cameraId" class="cam-card">
         <div class="cam-head">
           <span>{{ cam.cameraName }}</span>
-
-          <span
-            class="status"
-            :class="cam.previewHealthy ? 'ok' : 'wait'"
-          >
-            {{ cam.previewHealthy ? "LIVE" : "LOADING..." }}
+          <span class="status" :class="isHealthy(cam.cameraId) ? 'ok' : 'wait'">
+            {{ isHealthy(cam.cameraId) ? "LIVE" : "LOADING..." }}
           </span>
         </div>
 
         <div class="cam-preview">
-          <!-- FIX NULL URL -->
           <iframe
-            v-if="cam.urlView"
-            :src="buildUrl(cam.urlView)"
+            v-if="resolvedPreviewUrl(cam)"
+            :src="resolvedPreviewUrl(cam)"
             class="preview"
-            @load="onLoad(cam)"
-            @error="onError(cam)"
+            @load="onLoad(cam.cameraId)"
+            @error="onError(cam.cameraId)"
           ></iframe>
-
-          <div v-else class="cam-off">
-            Camera OFF
-          </div>
+          <div v-else class="cam-off">Camera OFF</div>
         </div>
       </div>
 
-      <!-- EMPTY -->
-      <div v-if="!activeCams.length" class="empty">
-        Chưa chọn camera
-      </div>
+      <div v-if="!activeCams.length" class="empty">Chưa chọn camera</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import {
-  ref,
-  reactive,
-  computed,
-  onMounted,
-  watchEffect
-} from "vue"
-
+import { computed, onMounted, reactive, ref, watch } from "vue"
 import { getCameras } from "../services/cameraRuntimeApi"
 
-// ===== STATE =====
 const cameras = ref([])
 const selectedMap = reactive({})
 const showSettings = ref(false)
+const previewHealthById = reactive({})
+const previewSeedById = reactive({})
 
-// ===== LOAD CAMERA =====
+const initPreviewState = (cameraId) => {
+  if (!Object.prototype.hasOwnProperty.call(previewHealthById, cameraId)) {
+    previewHealthById[cameraId] = false
+  }
+  if (!Object.prototype.hasOwnProperty.call(previewSeedById, cameraId)) {
+    previewSeedById[cameraId] = Date.now()
+  }
+}
+
+const normalizeUrl = (value) => {
+  if (!value || typeof value !== "string") return ""
+  const trimmed = value.trim()
+  return trimmed || ""
+}
+
+const resolvedPreviewUrl = (cam) => {
+  const base = normalizeUrl(cam?.urlView)
+  if (!base) return ""
+  initPreviewState(cam.cameraId)
+  const sep = base.includes("?") ? "&" : "?"
+  return `${base}${sep}t=${previewSeedById[cam.cameraId]}`
+}
+
+const isHealthy = (cameraId) => !!previewHealthById[cameraId]
+
+const onLoad = (cameraId) => {
+  previewHealthById[cameraId] = true
+}
+
+const onError = (cameraId) => {
+  previewHealthById[cameraId] = false
+}
+
+const activeCams = computed(() =>
+  cameras.value.filter((camera) => selectedMap[camera.cameraId]).slice(0, 4)
+)
+
+const enforceSelectLimit = () => {
+  const selectedIds = Object.keys(selectedMap).filter((id) => selectedMap[id])
+  if (selectedIds.length <= 4) return
+  const overflowId = selectedIds[selectedIds.length - 1]
+  selectedMap[overflowId] = false
+  alert("Chỉ tối đa 4 camera")
+}
+
+watch(
+  () => ({ ...selectedMap }),
+  () => {
+    enforceSelectLimit()
+  },
+  { deep: true }
+)
+
 const loadCameras = async () => {
   try {
     const res = await getCameras()
-    cameras.value = res || []
+    const list = Array.isArray(res) ? res : []
+    cameras.value = list
 
-    // chọn mặc định 4 cam đầu
-    cameras.value.forEach((cam, index) => {
-      selectedMap[cam.cameraId] = index < 4
+    list.forEach((cam, index) => {
+      if (!Object.prototype.hasOwnProperty.call(selectedMap, cam.cameraId)) {
+        selectedMap[cam.cameraId] = index < 4
+      }
+      initPreviewState(cam.cameraId)
     })
-  } catch (err) {
-    console.error("Lỗi load camera:", err)
+  } catch (error) {
+    console.error("Lỗi load camera:", error)
   }
 }
 
-// ===== BUILD URL (FIX NULL + FIX MÀN ĐEN) =====
-const buildUrl = (url) => {
-  if (!url || typeof url !== "string") return ""
-
-  const clean = url.trim()
-  if (!clean) return ""
-
-  const sep = clean.includes("?") ? "&" : "?"
-  return clean + sep + "t=" + Date.now()
-}
-
-// ===== ACTIVE CAMERA =====
-const activeCams = computed(() => {
-  return cameras.value
-    .filter(c => selectedMap[c.cameraId])
-    .slice(0, 4)
-    .map(c => ({
-      ...c,
-      previewHealthy: false
-    }))
-})
-
-// ===== STATUS =====
-const onLoad = (cam) => {
-  cam.previewHealthy = true
-}
-
-const onError = (cam) => {
-  cam.previewHealthy = false
-}
-
-// ===== LIMIT 4 CAMERA =====
-watchEffect(() => {
-  const selectedIds = Object.keys(selectedMap).filter(
-    id => selectedMap[id]
-  )
-
-  if (selectedIds.length > 4) {
-    const last = selectedIds[selectedIds.length - 1]
-    selectedMap[last] = false
-    alert("Chỉ tối đa 4 camera")
-  }
-})
-
-// ===== TOGGLE SETTINGS =====
 const toggleSettings = () => {
   showSettings.value = !showSettings.value
 }
 
-// ===== INIT =====
 onMounted(() => {
   loadCameras()
 })
@@ -174,7 +149,6 @@ onMounted(() => {
   min-height: 100vh;
 }
 
-/* HEADER */
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -189,21 +163,20 @@ onMounted(() => {
   padding: 8px 12px;
   border-radius: 10px;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* SETTINGS */
 .settings-panel {
   background: white;
   padding: 16px;
   border-radius: 14px;
   margin-bottom: 16px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
 }
 
 .cam-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -213,7 +186,6 @@ onMounted(() => {
   align-items: center;
 }
 
-/* TOGGLE */
 .switch {
   position: relative;
   width: 46px;
@@ -232,7 +204,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  transition: .3s;
+  transition: 0.3s;
 }
 
 .slider::before {
@@ -244,7 +216,7 @@ onMounted(() => {
   top: 3px;
   background: white;
   border-radius: 50%;
-  transition: .3s;
+  transition: 0.3s;
 }
 
 .switch input:checked + .slider {
@@ -255,10 +227,9 @@ onMounted(() => {
   transform: translateX(22px);
 }
 
-/* GRID */
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -266,7 +237,7 @@ onMounted(() => {
   background: white;
   border-radius: 16px;
   padding: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 }
 
 .cam-head {
@@ -313,7 +284,6 @@ onMounted(() => {
   color: gray;
 }
 
-/* ANIMATION */
 .fade-enter-active,
 .fade-leave-active {
   transition: all 0.3s ease;

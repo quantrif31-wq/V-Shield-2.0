@@ -41,7 +41,7 @@ try {
   $updated = Replace-JsonStringValue -InputText $updated -Key "TunnelName" -NewValue $TunnelName
   $updated = Replace-JsonStringValue -InputText $updated -Key "PublicHostname" -NewValue $PublicHostname
   $updated = Replace-JsonStringValue -InputText $updated -Key "TargetService" -NewValue $TargetService
-  $updated = Replace-JsonStringValue -InputText $updated -Key "Go2RtcPublicBaseUrl" -NewValue ("https://{0}" -f $PublicHostname)
+  $updated = Replace-JsonStringValue -InputText $updated -Key "Go2RtcPublicBaseUrl" -NewValue ("https://{0}/go2rtc" -f $PublicHostname)
   $updated = Replace-JsonStringValue -InputText $updated -Key "FrontendUrl" -NewValue ("https://{0}" -f $PublicHostname)
 
   $null = $updated | ConvertFrom-Json

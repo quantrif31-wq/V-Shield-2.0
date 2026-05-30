@@ -269,7 +269,13 @@ namespace API
 
                     yaml.AppendLine($"  cam{cam.CameraId}:");
                     yaml.AppendLine($"    - {streamUrl}#transport=tcp");
+                    if (!streamUrl.Contains("#transport=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        yaml.AppendLine($"    - {streamUrl}");
+                    }
                 }
+                yaml.AppendLine("api:");
+                yaml.AppendLine("  origin: \"*\"");
                 yaml.AppendLine("webrtc:");
                 yaml.AppendLine("  listen: \":8555\"");
                 yaml.AppendLine("  ice_servers:");

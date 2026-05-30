@@ -7,14 +7,15 @@ Huong dan moi theo kieu "mot lenh" de chay tren may Windows moi.
 ### Dieu kien
 - Da cai Docker Desktop va dang o trang thai `Engine running`.
 
-### 1) Tao file env cho Docker
+### Lan dau (setup)
+1) Tao file env cho Docker:
 Chay tai thu muc goc du an:
 
 ```powershell
 Copy-Item .env.docker.example .env
 ```
 
-### 2) Chay core stack
+2) Khoi dong core stack:
 ```powershell
 docker compose up -d --build
 ```
@@ -24,7 +25,7 @@ Core stack gom:
 - `api` (.NET)
 - `frontend` (Vue + Nginx)
 
-### 3) Bat them runtime AI (neu can)
+3) Bat them runtime AI (neu can):
 QR runtime:
 ```powershell
 docker compose --profile ai up -d --build
@@ -35,7 +36,7 @@ Plate runtime:
 docker compose --profile ai-heavy up -d --build
 ```
 
-### 4) Kiem tra nhanh
+4) Kiem tra nhanh:
 ```powershell
 docker compose ps
 curl http://localhost:5107/health
@@ -48,11 +49,21 @@ Ket qua mong doi:
 - QR runtime: JSON co cac truong `running`, `scan_enabled`, `locked`
 - Plate runtime: JSON co `success=true`
 
-### 5) Truy cap app
+### Tu lan thu 2 tro di
+```powershell
+docker compose up -d
+```
+
+Neu can rebuild sau khi doi code:
+```powershell
+docker compose up -d --build
+```
+
+### Truy cap app
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:5107`
 
-### 6) Dung he thong Docker
+### Dung he thong Docker
 ```powershell
 docker compose down
 ```
@@ -62,7 +73,7 @@ Neu can xoa ca du lieu DB volume:
 docker compose down -v
 ```
 
-### 7) Neu gap loi
+### Neu gap loi
 Lay log nhanh:
 ```powershell
 docker compose ps
@@ -70,6 +81,35 @@ docker logs vshield-api --tail 100
 docker logs vshield-qr-runtime --tail 100
 docker logs vshield-plate-runtime --tail 100
 ```
+
+## Docker + Cloudflare Tunnel (khong VPS)
+
+### Buoc 1: Lay token tunnel tren may host
+```bat
+get-cloudflare-token.bat
+```
+
+Script se:
+- login cloudflare (co mo browser cap quyen)
+- tao/bao dam tunnel ton tai
+- tao/bao dam DNS route
+- in ra token de copy
+
+### Buoc 2: Setup Docker tunnel
+```powershell
+.\scripts\setup-docker-cloudflare-tunnel.ps1
+```
+
+Script se:
+- cap nhat `.env` (token, domain, go2rtc base)
+- patch `appsettings.json` cho public domain
+- chay `db -> go2rtc -> api -> frontend -> cloudflared`
+- goi reload go2rtc
+
+Mac dinh giu logic cam cu:
+- `GO2RTC_STREAM_MODE=webrtc`
+- `GO2RTC_WEBRTC_CANDIDATES=` (de trong, khong ep candidate)
+- stream URL public theo dang `https://<domain>/go2rtc/stream.html?...`
 
 Tai lieu day du:
 - `docs/DOCKER_RUN_GUIDE.md`
