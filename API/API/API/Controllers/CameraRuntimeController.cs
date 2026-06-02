@@ -720,10 +720,28 @@ ingress:
 
             var configPath = Path.Combine(cloudflareDir, "config.yml");
 
-            // kill cũ
+            var couldStopExisting = true;
             foreach (var proc in Process.GetProcessesByName("cloudflared"))
             {
-                proc.Kill();
+                try
+                {
+                    proc.Kill();
+                    proc.WaitForExit(3000);
+                }
+                catch (Exception ex)
+                {
+                    couldStopExisting = false;
+                    Console.WriteLine($"WARN: Khong the tat cloudflared hien tai: {ex.Message}");
+                }
+                finally
+                {
+                    proc.Dispose();
+                }
+            }
+
+            if (!couldStopExisting && Process.GetProcessesByName("cloudflared").Any())
+            {
+                return;
             }
 
             Process.Start(new ProcessStartInfo

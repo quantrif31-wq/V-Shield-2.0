@@ -15,6 +15,8 @@ set "CLOUDFLARED_DIR=%USERPROFILE%\.cloudflared"
 set "TARGET_SERVICE=http://localhost:1984"
 set "TUNNEL_NAME=cam-tunnel"
 set "AI_ROOT_NAME=AI_Runtime"
+set "SETUP_MODE=AUTO"
+set "CLOUDFLARED_TOKEN="
 
 echo ===========================================================
 echo              V-SHIELD PUBLIC DOMAIN SETUP
@@ -25,10 +27,17 @@ if not exist "%CLOUDFLARED_DIR%" mkdir "%CLOUDFLARED_DIR%" >nul 2>&1
 call :load_from_env
 goto :ask_values
 :after_ask_values
+call :normalize_mode
 call :normalize_public_hostname
 if not defined PUBLIC_HOSTNAME (
   call :fail "PUBLIC_HOSTNAME is empty after normalization."
   goto :summary
+)
+if /I "%SETUP_MODE%"=="MANUAL_TOKEN" (
+  if not defined CLOUDFLARED_TOKEN (
+    call :fail "CLOUDFLARED_TOKEN is empty in MANUAL_TOKEN mode."
+    goto :summary
+  )
 )
 
 call :section "1) Validate binaries"
@@ -61,58 +70,74 @@ if exist "%GO2RTC_PATH%" (call :ok "go2rtc.exe found.") else call :warn "go2rtc.
 
 call :section "2) Ensure tunnel credentials"
 set "CRED_FILE="
-for %%F in ("%CLOUDFLARED_DIR%\*.json") do set "CRED_FILE=%%~fF"
-if not defined CRED_FILE (
-  choice /C YN /N /M "Run cloudflared login/create now? [Y/N]: "
-  if errorlevel 2 (
-    call :fail "User skipped required Cloudflare auth."
-    goto :summary
-  )
-  cloudflared tunnel login
-  if errorlevel 1 (
-    call :fail "cloudflared tunnel login failed."
-    goto :summary
-  )
-  cloudflared tunnel create %TUNNEL_NAME%
-  if errorlevel 1 call :warn "tunnel create returned non-zero (may already exist)."
+if /I "%SETUP_MODE%"=="MANUAL_TOKEN" (
+  call :ok "Manual token mode: skip cloudflared login/create."
+) else (
   for %%F in ("%CLOUDFLARED_DIR%\*.json") do set "CRED_FILE=%%~fF"
+  if not defined CRED_FILE (
+    choice /C YN /N /M "Run cloudflared login/create now? [Y/N]: "
+    if errorlevel 2 (
+      call :fail "User skipped required Cloudflare auth."
+      goto :summary
+    )
+    cloudflared tunnel login
+    if errorlevel 1 (
+      call :fail "cloudflared tunnel login failed."
+      goto :summary
+    )
+    cloudflared tunnel create %TUNNEL_NAME%
+    if errorlevel 1 call :warn "tunnel create returned non-zero (may already exist)."
+    for %%F in ("%CLOUDFLARED_DIR%\*.json") do set "CRED_FILE=%%~fF"
+  )
+  if not defined CRED_FILE (
+    call :fail "No credentials JSON found in %CLOUDFLARED_DIR%"
+    goto :summary
+  )
+  call :ok "Credentials file ready."
 )
-if not defined CRED_FILE (
-  call :fail "No credentials JSON found in %CLOUDFLARED_DIR%"
-  goto :summary
-)
-call :ok "Credentials file ready."
 
 call :section "3) Ensure DNS route"
-set "DNS_OUT=%TEMP%\vshield_dns_%RANDOM%.log"
-cloudflared tunnel route dns %TUNNEL_NAME% %PUBLIC_HOSTNAME% > "%DNS_OUT%" 2>&1
-set "DNS_RC=%ERRORLEVEL%"
-findstr /I /C:"already exists" "%DNS_OUT%" >nul 2>&1
-if not errorlevel 1 set "DNS_RC=0"
-if "%DNS_RC%"=="0" (
-  call :ok "DNS route ready."
+if /I "%SETUP_MODE%"=="MANUAL_TOKEN" (
+  call :ok "Manual token mode: skip DNS route."
 ) else (
-  type "%DNS_OUT%"
-  call :warn "DNS route command failed."
+  set "DNS_OUT=%TEMP%\vshield_dns_%RANDOM%.log"
+  cloudflared tunnel route dns %TUNNEL_NAME% %PUBLIC_HOSTNAME% > "%DNS_OUT%" 2>&1
+  set "DNS_RC=%ERRORLEVEL%"
+  findstr /I /C:"already exists" "%DNS_OUT%" >nul 2>&1
+  if not errorlevel 1 set "DNS_RC=0"
+  if "%DNS_RC%"=="0" (
+    call :ok "DNS route ready."
+  ) else (
+    type "%DNS_OUT%"
+    call :warn "DNS route command failed."
+  )
+  del /q "%DNS_OUT%" >nul 2>&1
 )
-del /q "%DNS_OUT%" >nul 2>&1
 
 call :section "4) Write cloudflared config"
 set "CONFIG_YML=%CLOUDFLARED_DIR%\config.yml"
-(
-  echo tunnel: %TUNNEL_NAME%
-  echo credentials-file: %CRED_FILE:\=/%
-  echo.
-  echo ingress:
-  echo   - hostname: %PUBLIC_HOSTNAME%
-  echo     service: %TARGET_SERVICE%
-  echo   - service: http_status:404
-) > "%CONFIG_YML%"
-if exist "%CONFIG_YML%" (call :ok "config.yml generated.") else call :fail "Failed writing config.yml"
+if /I "%SETUP_MODE%"=="MANUAL_TOKEN" (
+  call :ok "Manual token mode: skip config.yml generation."
+) else (
+  (
+    echo tunnel: %TUNNEL_NAME%
+    echo credentials-file: %CRED_FILE:\=/%
+    echo.
+    echo ingress:
+    echo   - hostname: %PUBLIC_HOSTNAME%
+    echo     service: %TARGET_SERVICE%
+    echo   - service: http_status:404
+  ) > "%CONFIG_YML%"
+  if exist "%CONFIG_YML%" (call :ok "config.yml generated.") else call :fail "Failed writing config.yml"
+)
 
 call :section "5) Restart processes"
 taskkill /F /IM cloudflared.exe >nul 2>&1
-start "" /MIN cloudflared tunnel --config "%CONFIG_YML%" run
+if /I "%SETUP_MODE%"=="MANUAL_TOKEN" (
+  start "" /MIN cloudflared tunnel --no-autoupdate run --token "%CLOUDFLARED_TOKEN%"
+) else (
+  start "" /MIN cloudflared tunnel --config "%CONFIG_YML%" run
+)
 timeout /t 2 /nobreak >nul
 tasklist /FI "IMAGENAME eq cloudflared.exe" | find /I "cloudflared.exe" >nul
 if errorlevel 1 (call :fail "cloudflared not running.") else call :ok "cloudflared running."
@@ -161,6 +186,8 @@ for /f "usebackq tokens=1,* delims==" %%K in ("%ENV_FILE%") do (
   if /I "%%K"=="PUBLIC_HOSTNAME" set "PUBLIC_HOSTNAME=%%L"
   if /I "%%K"=="TUNNEL_NAME" set "TUNNEL_NAME=%%L"
   if /I "%%K"=="TARGET_SERVICE" set "TARGET_SERVICE=%%L"
+  if /I "%%K"=="SETUP_MODE" set "SETUP_MODE=%%L"
+  if /I "%%K"=="CLOUDFLARED_TUNNEL_TOKEN" set "CLOUDFLARED_TOKEN=%%L"
 )
 call :ok "Loaded customer.env"
 exit /b 0
@@ -173,7 +200,27 @@ if defined TMP_INPUT set "TUNNEL_NAME=%TMP_INPUT%"
 set "TMP_INPUT="
 set /p TMP_INPUT=Enter TARGET_SERVICE [%TARGET_SERVICE%]: 
 if defined TMP_INPUT set "TARGET_SERVICE=%TMP_INPUT%"
+echo.
+echo Select setup mode:
+echo   1^) AUTO ^(login/create tunnel + DNS route^)
+echo   2^) MANUAL_TOKEN ^(paste token, skip login/create/route^)
+set "TMP_INPUT="
+set /p TMP_INPUT=Enter mode [1/2 or AUTO/MANUAL_TOKEN] (%SETUP_MODE%): 
+if defined TMP_INPUT set "SETUP_MODE=%TMP_INPUT%"
+call :normalize_mode
+if /I "%SETUP_MODE%"=="MANUAL_TOKEN" (
+  set "TMP_INPUT="
+  set /p TMP_INPUT=Enter CLOUDFLARED_TUNNEL_TOKEN [hidden not supported]: 
+  if defined TMP_INPUT set "CLOUDFLARED_TOKEN=%TMP_INPUT%"
+)
 goto :after_ask_values
+
+:normalize_mode
+set "SETUP_MODE=%SETUP_MODE: =%"
+if /I "%SETUP_MODE%"=="1" set "SETUP_MODE=AUTO"
+if /I "%SETUP_MODE%"=="2" set "SETUP_MODE=MANUAL_TOKEN"
+if /I not "%SETUP_MODE%"=="AUTO" if /I not "%SETUP_MODE%"=="MANUAL_TOKEN" set "SETUP_MODE=AUTO"
+exit /b 0
 
 :normalize_public_hostname
 if not defined PUBLIC_HOSTNAME exit /b 0
@@ -191,6 +238,7 @@ echo                          SUMMARY
 echo ===========================================================
 echo   Hostname : %PUBLIC_HOSTNAME%
 echo   Tunnel   : %TUNNEL_NAME%
+echo   Mode     : %SETUP_MODE%
 echo   Failures : %FAIL_COUNT%
 echo   Warnings : %WARN_COUNT%
 echo.
