@@ -137,6 +137,86 @@ Trang chinh sau khi start:
 - Frontend: `http://localhost:5173`
 - Health API: `http://localhost:5107/health`
 
+## Windows non-Docker: cấu hình domain public + Cloudflare
+
+Dùng phần này khi chạy dự án trực tiếp trên Windows bằng các file `.bat`, không chạy Docker.
+Mục tiêu là public camera qua Cloudflare Tunnel để các máy khác xem được stream go2rtc.
+
+### Chạy lần đầu
+
+```bat
+setup-public-domain.bat
+```
+
+Script sẽ hỏi domain, tên tunnel và chế độ cấu hình. Có 2 chế độ:
+
+- `AUTO`: script tự mở đăng nhập Cloudflare, tạo hoặc dùng lại tunnel, tạo DNS route, lấy token, patch `appsettings.json`, bật `cloudflared`, bật `go2rtc`, rồi reload URL camera.
+- `MANUAL_TOKEN`: bạn tự dán `CLOUDFLARED_TUNNEL_TOKEN`; script bỏ qua bước mở web/tạo route, chỉ dùng token để chạy tunnel, patch cấu hình và reload camera.
+
+Nên chọn:
+
+- Chọn `AUTO` nếu máy cài có trình duyệt và muốn script làm gần như toàn bộ.
+- Chọn `MANUAL_TOKEN` nếu máy khách không mở được trình duyệt, đăng nhập Cloudflare bị lỗi, hoặc bạn đã có token từ trước.
+
+Sau khi chạy thành công, stream mẫu sẽ có dạng:
+
+```text
+https://<domain>/stream.html?src=cam1&mode=webrtc
+```
+
+Ví dụ:
+
+```text
+https://cam.example.com/stream.html?src=cam1&mode=webrtc
+```
+
+### Lấy token thủ công nếu chọn MANUAL_TOKEN
+
+Nếu chưa có token, chạy:
+
+```bat
+get-cloudflare-token.bat
+```
+
+File này sẽ mở trình duyệt để bạn cấp quyền Cloudflare, đảm bảo tunnel/DNS route tồn tại, rồi in token ra màn hình.
+Copy token đó và dán vào `setup-public-domain.bat` khi chọn chế độ `MANUAL_TOKEN`.
+
+### Chạy lại sau khi đã cấu hình
+
+Nếu chỉ cần bật lại hệ thống:
+
+```bat
+start.bat
+```
+
+Nếu cần chạy lại cấu hình public domain, cứ chạy lại:
+
+```bat
+setup-public-domain.bat
+```
+
+Script được thiết kế để chạy lại an toàn: tunnel đã có thì dùng lại, cấu hình đã có thì cập nhật lại theo giá trị mới.
+
+### Gỡ cấu hình public domain
+
+```bat
+uninstall-public-domain.bat
+```
+
+Script gỡ sẽ hỏi trước các thao tác nhạy cảm như xóa tunnel, xóa credential Cloudflare, reset `appsettings.json` hoặc dọn URL camera trong DB.
+Nếu chỉ muốn xem script sẽ làm gì mà chưa muốn xóa thật, chạy:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\uninstall-public-domain.ps1 -DryRun
+```
+
+### Lỗi thường gặp
+
+- `Token is required`: đang chọn `MANUAL_TOKEN` nhưng chưa dán token.
+- `Tunnel token is not valid`: token sai, hết hạn hoặc không thuộc tunnel/domain đang dùng.
+- `cloudflared not found`: cài Cloudflare Tunnel bằng `winget install Cloudflare.cloudflared` rồi chạy lại.
+- Stream bị đen hoặc `stream not found`: kiểm tra camera trong app, chạy lại `setup-public-domain.bat`, sau đó mở trực tiếp `https://<domain>/stream.html?src=cam1&mode=webrtc` để test.
+
 ### Start 1 click cho production (khuyen dung khi da cai Windows Services)
 
 ```bat
