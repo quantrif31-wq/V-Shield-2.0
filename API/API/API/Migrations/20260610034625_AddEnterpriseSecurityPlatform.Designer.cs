@@ -4,6 +4,7 @@ using API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610034625_AddEnterpriseSecurityPlatform")]
+    partial class AddEnterpriseSecurityPlatform
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3132,56 +3135,6 @@ namespace API.Migrations
                     b.ToTable("Pre_Registration");
                 });
 
-            modelBuilder.Entity("API.Models.QaTestRun", b =>
-                {
-                    b.Property<long>("QaTestRunId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("QaTestRunId"));
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EvidenceReference")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("FailedCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("PassedCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Profile")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<string>("TestType")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.HasKey("QaTestRunId");
-
-                    b.HasIndex("TestType", "Status", "StartedAtUtc");
-
-                    b.ToTable("QaTestRuns");
-                });
-
             modelBuilder.Entity("API.Models.ReaderDevice", b =>
                 {
                     b.Property<int>("ReaderDeviceId")
@@ -3316,96 +3269,6 @@ namespace API.Migrations
                     b.ToTable("Registration_Links");
                 });
 
-            modelBuilder.Entity("API.Models.ReleaseCandidate", b =>
-                {
-                    b.Property<long>("ReleaseCandidateId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ReleaseCandidateId"));
-
-                    b.Property<DateTime?>("ApprovedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ApprovedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("BuildReference")
-                        .HasMaxLength(240)
-                        .HasColumnType("nvarchar(240)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("MigrationId")
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<string>("Version")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.HasKey("ReleaseCandidateId");
-
-                    b.HasIndex("Version", "Status");
-
-                    b.ToTable("ReleaseCandidates");
-                });
-
-            modelBuilder.Entity("API.Models.ReleaseGateCheck", b =>
-                {
-                    b.Property<long>("ReleaseGateCheckId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ReleaseGateCheckId"));
-
-                    b.Property<string>("EvidenceReference")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("GateName")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<long>("ReleaseCandidateId")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("Required")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<DateTime>("VerifiedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("VerifiedByUserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("ReleaseGateCheckId");
-
-                    b.HasIndex("ReleaseCandidateId", "GateName");
-
-                    b.ToTable("ReleaseGateChecks");
-                });
-
             modelBuilder.Entity("API.Models.RestoreDrill", b =>
                 {
                     b.Property<long>("RestoreDrillId")
@@ -3492,41 +3355,6 @@ namespace API.Migrations
                     b.HasIndex("EvidenceType", "RetentionCategory", "IsActive");
 
                     b.ToTable("RetentionPolicies");
-                });
-
-            modelBuilder.Entity("API.Models.RunbookAcknowledgement", b =>
-                {
-                    b.Property<long>("RunbookAcknowledgementId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RunbookAcknowledgementId"));
-
-                    b.Property<DateTime>("AcknowledgedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("AcknowledgedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EvidenceReference")
-                        .HasMaxLength(240)
-                        .HasColumnType("nvarchar(240)");
-
-                    b.Property<string>("RoleName")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("RunbookName")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.HasKey("RunbookAcknowledgementId");
-
-                    b.HasIndex("RunbookName", "RoleName", "AcknowledgedAtUtc");
-
-                    b.ToTable("RunbookAcknowledgements");
                 });
 
             modelBuilder.Entity("API.Models.RuntimeDependencyHealth", b =>
@@ -5640,17 +5468,6 @@ namespace API.Migrations
                         .HasConstraintName("FK_RegistrationLink_Employee");
 
                     b.Navigation("HostEmployee");
-                });
-
-            modelBuilder.Entity("API.Models.ReleaseGateCheck", b =>
-                {
-                    b.HasOne("API.Models.ReleaseCandidate", "ReleaseCandidate")
-                        .WithMany()
-                        .HasForeignKey("ReleaseCandidateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ReleaseCandidate");
                 });
 
             modelBuilder.Entity("API.Models.RestoreDrill", b =>

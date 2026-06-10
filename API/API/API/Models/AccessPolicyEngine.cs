@@ -1,0 +1,154 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace API.Models;
+
+public static class AccessDecisionResults
+{
+    public const string Allow = "Allow";
+    public const string Deny = "Deny";
+    public const string Review = "Review";
+}
+
+public class AccessSchedule
+{
+    public int AccessScheduleId { get; set; }
+    [MaxLength(160)] public string Name { get; set; } = string.Empty;
+    public TimeSpan StartTime { get; set; } = TimeSpan.Zero;
+    public TimeSpan EndTime { get; set; } = new(23, 59, 59);
+    [MaxLength(40)] public string DaysOfWeek { get; set; } = "Mon,Tue,Wed,Thu,Fri";
+    public bool IsActive { get; set; } = true;
+}
+
+public class HolidayCalendar
+{
+    public int HolidayCalendarId { get; set; }
+    public int? SiteId { get; set; }
+    [MaxLength(160)] public string Name { get; set; } = string.Empty;
+    public DateTime HolidayDate { get; set; }
+    [MaxLength(500)] public string? Note { get; set; }
+    public Site? Site { get; set; }
+}
+
+public class AccessLevel
+{
+    public int AccessLevelId { get; set; }
+    [MaxLength(160)] public string Name { get; set; } = string.Empty;
+    [MaxLength(50)] public string Code { get; set; } = string.Empty;
+    [MaxLength(500)] public string? Description { get; set; }
+    public bool RequiresApproval { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+public class AccessGroup
+{
+    public int AccessGroupId { get; set; }
+    [MaxLength(160)] public string Name { get; set; } = string.Empty;
+    [MaxLength(50)] public string Code { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+}
+
+public class AccessRule
+{
+    public int AccessRuleId { get; set; }
+    public int AccessLevelId { get; set; }
+    public int? AccessGroupId { get; set; }
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    public int? AccessPointId { get; set; }
+    public int? AccessScheduleId { get; set; }
+    [MaxLength(40)] public string SubjectType { get; set; } = "Employee";
+    public int? SubjectId { get; set; }
+    [MaxLength(40)] public string CredentialType { get; set; } = "Any";
+    public bool AllowAccess { get; set; } = true;
+    public DateTime? ValidFromUtc { get; set; }
+    public DateTime? ValidToUtc { get; set; }
+    public bool IsActive { get; set; } = true;
+    public AccessLevel? AccessLevel { get; set; }
+    public AccessGroup? AccessGroup { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
+    public AccessPoint? AccessPoint { get; set; }
+    public AccessSchedule? Schedule { get; set; }
+}
+
+public class TemporaryAccessGrant
+{
+    public int TemporaryAccessGrantId { get; set; }
+    [MaxLength(40)] public string SubjectType { get; set; } = "Employee";
+    public int SubjectId { get; set; }
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    public int? AccessPointId { get; set; }
+    public DateTime ValidFromUtc { get; set; }
+    public DateTime ValidToUtc { get; set; }
+    [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
+    public int? ApprovedByUserId { get; set; }
+    public bool IsRevoked { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
+    public AccessPoint? AccessPoint { get; set; }
+    public AppUser? ApprovedByUser { get; set; }
+}
+
+public class AccessPolicyVersion
+{
+    public int AccessPolicyVersionId { get; set; }
+    [MaxLength(160)] public string Name { get; set; } = string.Empty;
+    [MaxLength(40)] public string Status { get; set; } = "Draft";
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? ActivatedAtUtc { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public AppUser? CreatedByUser { get; set; }
+}
+
+public class AccessDecision
+{
+    public long AccessDecisionId { get; set; }
+    [MaxLength(40)] public string SubjectType { get; set; } = "Employee";
+    public int? SubjectId { get; set; }
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    public int? AccessPointId { get; set; }
+    [MaxLength(40)] public string CredentialType { get; set; } = "Unknown";
+    [MaxLength(20)] public string Result { get; set; } = AccessDecisionResults.Deny;
+    [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
+    public DateTime EvaluatedAtUtc { get; set; } = DateTime.UtcNow;
+    public int? EvaluatedByUserId { get; set; }
+}
+
+public class AntiPassbackState
+{
+    public int AntiPassbackStateId { get; set; }
+    [MaxLength(40)] public string SubjectType { get; set; } = "Employee";
+    public int SubjectId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    [MaxLength(40)] public string State { get; set; } = "Unknown";
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public bool IsViolated { get; set; }
+    [MaxLength(500)] public string? ResetReason { get; set; }
+}
+
+public class OccupancySnapshot
+{
+    public long OccupancySnapshotId { get; set; }
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    public int Count { get; set; }
+    public int? MaxAllowed { get; set; }
+    public DateTime CapturedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class EmergencyState
+{
+    public int EmergencyStateId { get; set; }
+    [MaxLength(40)] public string State { get; set; } = "Normal";
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    public int? AccessPointId { get; set; }
+    [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+    public DateTime StartedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? EndedAtUtc { get; set; }
+    public int? CreatedByUserId { get; set; }
+}
+

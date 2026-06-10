@@ -150,27 +150,11 @@ namespace API
                 });
             });
 
+            var allowedOrigins = ResolveAllowedOrigins(builder.Configuration);
+            ValidateProductionSecurityConfiguration(builder.Configuration, builder.Environment, allowedOrigins);
+
             builder.Services.AddCors(options =>
             {
-                var configuredOrigins = builder.Configuration.GetSection("AppSettings:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
-                var frontendUrl = builder.Configuration["AppSettings:FrontendUrl"];
-                var allowedOrigins = configuredOrigins
-                    .Append(frontendUrl ?? string.Empty)
-                    .Where(origin => !string.IsNullOrWhiteSpace(origin))
-                    .Select(origin => origin.Trim().TrimEnd('/'))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                if (allowedOrigins.Length == 0)
-                {
-                    allowedOrigins = new[]
-                    {
-                        "http://localhost:5173",
-                        "http://localhost:5174",
-                        "http://localhost:5175"
-                    };
-                }
-
                 options.AddPolicy("AllowVue", policy =>
                 {
                     policy
@@ -220,6 +204,11 @@ namespace API
 
             app.UseMiddleware<CorrelationIdMiddleware>();
             app.UseMiddleware<SafeExceptionHandlingMiddleware>();
+            app.UseSecurityHeaders();
+            if (app.Environment.IsProduction())
+            {
+                app.UseHsts();
+            }
             if (!app.Environment.IsEnvironment("Testing"))
             {
                 app.UseHttpsRedirection();
@@ -452,6 +441,62 @@ namespace API
         private static string NormalizeUsernameInvariant(string username) =>
             username.Trim().ToUpperInvariant();
 
+        private static string[] ResolveAllowedOrigins(IConfiguration configuration)
+        {
+            var configuredOrigins = configuration.GetSection("AppSettings:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+            var frontendUrl = configuration["AppSettings:FrontendUrl"];
+            var allowedOrigins = configuredOrigins
+                .Append(frontendUrl ?? string.Empty)
+                .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Select(origin => origin.Trim().TrimEnd('/'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (allowedOrigins.Length > 0)
+                return allowedOrigins;
+
+            return new[]
+            {
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://localhost:5175"
+            };
+        }
+
+        private static void ValidateProductionSecurityConfiguration(
+            IConfiguration configuration,
+            IHostEnvironment environment,
+            IReadOnlyCollection<string> allowedOrigins)
+        {
+            if (!environment.IsProduction())
+                return;
+
+            if (allowedOrigins.Count == 0)
+            {
+                throw new InvalidOperationException("Production requires at least one explicit allowed frontend origin.");
+            }
+
+            if (allowedOrigins.Any(origin => origin == "*" || origin.Contains('*', StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException("Production CORS origins must be explicit. Wildcards are not allowed.");
+            }
+
+            var invalidOrigins = allowedOrigins
+                .Where(origin => !Uri.TryCreate(origin, UriKind.Absolute, out _))
+                .ToArray();
+            if (invalidOrigins.Length > 0)
+            {
+                throw new InvalidOperationException("Production CORS origins contain invalid URI values: " + string.Join(", ", invalidOrigins));
+            }
+
+            var issuer = configuration["JwtSettings:Issuer"];
+            var audience = configuration["JwtSettings:Audience"];
+            if (string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(audience))
+            {
+                throw new InvalidOperationException("Production requires explicit JWT issuer and audience.");
+            }
+        }
+
         private static void EnsureGo2RtcProcessRunning(IServiceProvider services)
         {
             using var scope = services.CreateScope();
@@ -510,6 +555,27 @@ namespace API
             {
                 // Startup should not crash if go2rtc is unavailable.
             }
+        }
+    }
+
+    internal static class SecurityHeadersApplicationBuilderExtensions
+    {
+        public static IApplicationBuilder UseSecurityHeaders(this IApplicationBuilder app)
+        {
+            return app.Use(async (context, next) =>
+            {
+                context.Response.OnStarting(() =>
+                {
+                    var headers = context.Response.Headers;
+                    headers.TryAdd("X-Content-Type-Options", "nosniff");
+                    headers.TryAdd("X-Frame-Options", "DENY");
+                    headers.TryAdd("Referrer-Policy", "no-referrer");
+                    headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+                    return Task.CompletedTask;
+                });
+
+                await next();
+            });
         }
     }
 }

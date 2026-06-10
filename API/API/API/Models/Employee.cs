@@ -31,6 +31,15 @@ public partial class Employee
 
     public bool? Status { get; set; }
 
+    [StringLength(40)]
+    public string LifecycleStatus { get; set; } = EmployeeLifecycleStates.Active;
+
+    public int? PrimarySiteId { get; set; }
+
+    public int? ManagerEmployeeId { get; set; }
+
+    public DateTime? LifecycleUpdatedAtUtc { get; set; }
+
     [InverseProperty("Employee")]
     public virtual ICollection<AccessLog> AccessLogs { get; set; } = new List<AccessLog>();
 
@@ -51,4 +60,12 @@ public partial class Employee
     // Navigation ngược: một Employee có thể có một tài khoản AppUser
     [InverseProperty("Employee")]
     public virtual AppUser? AppUser { get; set; }
+
+    [ForeignKey("PrimarySiteId")]
+    public virtual Site? PrimarySite { get; set; }
+
+    [ForeignKey("ManagerEmployeeId")]
+    public virtual Employee? ManagerEmployee { get; set; }
+
+    public virtual ICollection<Employee> DirectReports { get; set; } = new List<Employee>();
 }

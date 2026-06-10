@@ -1,10 +1,12 @@
 ﻿using System.Net.Http.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize(Policy = "RuntimeOperator")]
 public class FaceCameraController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;

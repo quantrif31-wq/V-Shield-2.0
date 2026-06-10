@@ -159,5 +159,15 @@ public partial class ApplicationDbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_AttendanceModule_LeaveRequest_ApproverUser");
         });
+
+        ConfigureCompanySecurityFoundation(modelBuilder);
+        ConfigureAccessPolicyEngine(modelBuilder);
+        ConfigureVisitorVehicleOperations(modelBuilder);
+        ConfigureDeviceProtocolOperations(modelBuilder);
+        ConfigureSituationalAwareness(modelBuilder);
+        ConfigureSocIncidentOperations(modelBuilder);
+        ConfigureEvidenceComplianceGovernance(modelBuilder);
+        ConfigureOperationsResilience(modelBuilder);
+        ConfigureReleaseReadiness(modelBuilder);
     }
 }

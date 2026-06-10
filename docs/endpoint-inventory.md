@@ -43,6 +43,16 @@ These controllers have explicit role requirements.
 | DeviceManagementController | `api/device-management` | privileged | `Admin` | Device management |
 | DepartmentsController | `api/departments` | privileged | `Admin` | Catalog mutation |
 | DynamicQrController | `api/dynamic-qr` | privileged | `Admin,Staff,BaoVe` | Employee QR generation/verification |
+| EnterpriseAccessPolicyController | `api/enterprise/access-policy` | privileged | `Admin` | Enterprise access levels, schedules, rules, emergency state, anti-passback, occupancy, explainable decisioning |
+| EnterpriseDeviceController | `api/enterprise/devices` | privileged/runtime-internal | `Admin,BaoVe`; mutations mostly `Admin` | Device registry, health, OSDP/ONVIF-compatible boundaries, offline policy packages |
+| EnterpriseEvidenceController | `api/enterprise/evidence` | privileged | `Admin,BaoVe`; governance actions `Admin` | Evidence repository, retention, legal hold, export approval, chain of custody, redaction, compliance reports |
+| EnterpriseFoundationController | `api/enterprise/foundation` | privileged | `Admin` | Company/site/building/floor/zone/access point/person lifecycle/recertification foundation |
+| EnterpriseOperationsController | `api/enterprise/operations` | privileged/runtime-internal | `Admin,BaoVe`; configuration `Admin` | Outbox, webhook/SIEM, dependency health, backup/restore, observability checks |
+| EnterpriseReleaseReadinessController | `api/enterprise/release-readiness` | privileged | `Admin,BaoVe`; release mutations `Admin` | QA evidence, release gates, release candidates, runbook acknowledgements |
+| EnterpriseSituationalAwarenessController | `api/enterprise/situational-awareness` | privileged | `Admin,BaoVe`; map mutation `Admin` | Security events, correlation, video bookmarks, maps, AI adjudication and metrics |
+| EnterpriseSocController | `api/enterprise/soc` | privileged | `Admin,BaoVe`; rule/template mutation `Admin` | Alarm queue, SOP execution, incidents, dispatch, handover, muster snapshots |
+| EnterpriseVisitorVehicleController | `api/enterprise/visitor-vehicle` | privileged | `Admin,BaoVe`; governance/catalog actions `Admin` | Visitor lifecycle, forms, watchlist, parking, barrier, lane events |
+| FaceCameraController | `api/FaceCamera` | runtime-internal | `Admin,BaoVe` via `RuntimeOperator` policy | Face camera runtime control proxy |
 | FaceRecognitionController | `api/face-recognition` | runtime-internal | `Admin,BaoVe` | Face runtime wrapper |
 | GateTransitController | `api/gate-transit` | privileged | `Admin,BaoVe` | Gate/vehicle transit decisions |
 | GuestProfilesController | `api/guest-profiles` | privileged | `Admin,BaoVe` | Guest profile data |
@@ -70,7 +80,6 @@ These controllers are protected by either explicit `[Authorize]` or the default 
 | ReportsController | `api/reports` | authenticated | Reporting |
 | ShiftsController | `api/shifts` | authenticated | Shift management |
 | StatisticsController | `api/statistics` | authenticated | Statistics |
-| WeatherForecastController | `api/WeatherForecast` | authenticated | Covered by fallback policy; candidate for removal |
 | WorkSchedulesController | `api/work-schedules` | authenticated | Work schedule management |
 | SignalR EmployeeStatsHub | `/hubs/employee-stats` | authenticated | Uses `.RequireAuthorization()` |
 
@@ -87,6 +96,8 @@ Current operational hardening:
 - `GET /health/live` reports process liveness.
 - `GET /health/ready` checks database connectivity and returns `503` when the API is not ready.
 - `GET /health/degraded` reports database status plus enabled/runtime service state.
+- API responses include baseline security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- Production startup rejects wildcard/invalid CORS origins and requires explicit JWT issuer/audience.
 
 External integration work:
 
@@ -117,11 +128,15 @@ Current API test coverage:
 - Correlation ID tests verify generated and caller-provided `X-Correlation-ID` response headers.
 - Health tests verify readiness and degraded-mode dependency responses.
 - Safe exception tests verify generic problem details and no exception-detail leak.
+- Route-boundary tests fail when controller actions lack explicit `[Authorize]` or `[AllowAnonymous]`.
+- Face camera role tests verify Staff cannot operate camera runtime controls.
+- Demo endpoint tests verify `WeatherForecastController` is no longer exposed.
+- Enterprise workflow tests verify Staff denial and Admin execution for foundation, access policy, visitor/vehicle, device, situational awareness, SOC, evidence, operations resilience, and release readiness workflows.
 
 Latest local result:
 
 - `dotnet test API\API\API\API.sln --no-restore --verbosity minimal`
-- `22/22` tests passed, with `0` warnings and `0` errors.
+- `44/44` tests passed, with `0` warnings and `0` errors.
 
 Future product test work:
 
@@ -162,4 +177,4 @@ Future cleanup:
 
 - Confirm whether `DynamicQrController` verification should be available to all authenticated guards or narrowed further.
 - Confirm whether `VehiclesController` should allow `BaoVe` read-only access instead of `Admin` only.
-- Confirm whether `WeatherForecastController` should be removed.
+- Confirm whether future runtime-control endpoints should use `RuntimeOperator` policy by default.
