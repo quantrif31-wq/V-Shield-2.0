@@ -15,7 +15,5 @@
         public int? EmployeeId { get; set; }
         public int? VisitorDetailId { get; set; }
         public int CameraId { get; set; }
-        public string? UserPassword { get; set; }
-        public int? LoggedInUserId { get; set; } // Dùng để xác thực user nào đang chọn Cam
     }
 }

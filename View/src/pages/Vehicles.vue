@@ -111,7 +111,7 @@
                             <td>
                                 <div class="user-cell">
                                     <template v-if="getEmployeeFace(v.employeeId)">
-                                        <img :src="API_BASE + getEmployeeFace(v.employeeId)" class="avatar-img" @error="$event.target.style.display = 'none'" />
+                                        <img :src="getEmployeeFaceSrc(v.employeeId)" class="avatar-img" @error="$event.target.style.display = 'none'" />
                                     </template>
                                     <template v-else>
                                         <div class="avatar" :style="{ background: getAvatarColor(v.employeeId || 0) }">{{ getInitials(v.employeeFullName) }}</div>
@@ -327,14 +327,12 @@
 </template>
 
 <script setup>
-import { ref, reactive as useReactive, computed, onMounted } from 'vue'
+import { ref, reactive as useReactive, computed, onBeforeUnmount, onMounted } from 'vue'
 import * as vehicleApi from '../services/vehicleApi'
-import { getAll as getAllEmployees } from '../services/employeeApi'
-import { API_ORIGIN } from '../config/api'
+import { getAll as getAllEmployees, getProtectedFaceImage } from '../services/employeeApi'
 import { optimizeAndValidatePlate, getVehicleTypeLabel } from '../utils/licensePlateValidator'
 
 // ─── State ──────────────────────────────────────────────────
-const API_BASE = API_ORIGIN
 const vehicles = ref([])
 const employeeList = ref([])
 const loading = ref(true)
@@ -350,6 +348,7 @@ const deleteConfirm = ref(null)
 const showOwnerDropdown = ref(false)
 const ownerSearchQuery = ref('')
 const brokenOwnerAvatarIds = ref({})
+const protectedAvatarUrls = ref({})
 const vehicleTypeOptions = ref([])
 
 const form = ref({ licensePlate: '', vehicleTypeId: null, employeeId: null, description: '' })
@@ -522,6 +521,7 @@ async function fetchEmployees() {
     try {
         const res = await getAllEmployees()
         employeeList.value = res.data
+        await hydrateProtectedAvatars(employeeList.value)
     } catch { /* im lặng */ }
 }
 
@@ -697,13 +697,19 @@ function getEmployeeFace(empId) {
     return emp ? emp.faceImageUrl : null;
 }
 
+function getEmployeeFaceSrc(empId) {
+    const emp = employeeList.value.find(e => e.employeeId === empId)
+    if (!emp?.faceImageUrl) return ''
+    return emp.faceImageUrl.startsWith('http') ? emp.faceImageUrl : (protectedAvatarUrls.value[emp.employeeId] || '')
+}
+
 function canShowOwnerAvatar(employee) {
     return !!employee?.faceImageUrl && !brokenOwnerAvatarIds.value[employee.employeeId]
 }
 
 function getOwnerAvatarSrc(employee) {
     if (!employee?.faceImageUrl) return ''
-    return employee.faceImageUrl.startsWith('http') ? employee.faceImageUrl : `${API_BASE}${employee.faceImageUrl}`
+    return employee.faceImageUrl.startsWith('http') ? employee.faceImageUrl : (protectedAvatarUrls.value[employee.employeeId] || '')
 }
 
 function markOwnerAvatarBroken(employeeId) {
@@ -734,8 +740,35 @@ function getTypeIcon(typeName) {
 }
 
 // ─── Init ───────────────────────────────────────────────────
+async function hydrateProtectedAvatars(list) {
+    releaseProtectedAvatars()
+    const entries = await Promise.all((list || []).map(async (emp) => {
+        if (!emp?.employeeId || !emp?.faceImageUrl || emp.faceImageUrl.startsWith('http')) {
+            return [emp?.employeeId, '']
+        }
+        try {
+            const response = await getProtectedFaceImage(emp.employeeId)
+            return [emp.employeeId, URL.createObjectURL(response.data)]
+        } catch {
+            return [emp.employeeId, '']
+        }
+    }))
+    protectedAvatarUrls.value = Object.fromEntries(entries.filter(([id]) => !!id))
+}
+
+function releaseProtectedAvatars() {
+    Object.values(protectedAvatarUrls.value).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+    })
+    protectedAvatarUrls.value = {}
+}
+
 onMounted(async () => {
     await Promise.all([fetchVehicles(), fetchEmployees(), fetchVehicleTypes()])
+})
+
+onBeforeUnmount(() => {
+    releaseProtectedAvatars()
 })
 </script>
 

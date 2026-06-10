@@ -3,7 +3,7 @@
     public class CameraDTO
     {
         public int CameraId { get; set; }
-        public string CameraName { get; set; }
+        public string CameraName { get; set; } = string.Empty;
         public int? GateId { get; set; }
         public string? CameraType { get; set; }
         public string? StreamUrl { get; set; }

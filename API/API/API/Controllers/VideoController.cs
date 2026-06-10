@@ -1,7 +1,9 @@
 ﻿using System.Security.Claims;
 using API.Data;
+using System.IdentityModel.Tokens.Jwt;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +11,8 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [EnableRateLimiting("ops")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public class VideoController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -43,7 +46,8 @@ namespace API.Controllers
                 if (!allowed.Contains(ext))
                     return BadRequest(new { message = "Sai định dạng video" });
 
-                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+                                  User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrWhiteSpace(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
                     return Unauthorized(new { message = "Token không hợp lệ" });
 
@@ -124,6 +128,7 @@ namespace API.Controllers
         }
 
         [HttpGet("employee/{employeeId}")]
+        [Authorize(Roles = "Admin,BaoVe")]
         public async Task<IActionResult> GetVideosByEmployee(int employeeId)
         {
             var videos = await _context.EmployeeFaceVideos
@@ -132,6 +137,29 @@ namespace API.Controllers
                 .ToListAsync();
 
             return Ok(videos);
+        }
+
+        [HttpGet("{id}/content")]
+        [Authorize(Roles = "Admin,BaoVe")]
+        public async Task<IActionResult> GetVideoContent(int id)
+        {
+            var video = await _context.EmployeeFaceVideos
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == id);
+
+            if (video == null)
+                return NotFound(new { message = "Khong tim thay video" });
+
+            var webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var videoFolder = Path.Combine(webRoot, "uploads", "VideoFace", "video_notok");
+            var fullPath = Path.GetFullPath(Path.Combine(videoFolder, video.FileName));
+            var allowedRoot = Path.GetFullPath(videoFolder);
+
+            if (!fullPath.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(fullPath))
+                return NotFound(new { message = "Khong tim thay file video" });
+
+            await AuditEvidenceRead("EmployeeFaceVideo", id.ToString(), video.FileName);
+            return PhysicalFile(fullPath, ResolveVideoContentType(fullPath), enableRangeProcessing: true);
         }
 
         [Authorize(Roles = "Admin")]
@@ -169,6 +197,45 @@ namespace API.Controllers
                     error = ex.Message
                 });
             }
+        }
+
+        private async Task AuditEvidenceRead(string entityName, string entityId, string fileName)
+        {
+            var userIdRaw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var username = User.Identity?.Name
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName)
+                ?? User.FindFirstValue(ClaimTypes.Name)
+                ?? userIdRaw;
+
+            _context.SystemAuditLogs.Add(new SystemAuditLog
+            {
+                TimestampUtc = DateTime.UtcNow,
+                UserId = int.TryParse(userIdRaw, out var userId) ? userId : null,
+                Username = username,
+                HttpMethod = HttpContext.Request.Method,
+                Path = HttpContext.Request.Path.Value,
+                ActionType = "READ",
+                EntityName = entityName,
+                EntityId = entityId,
+                NewValuesJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    fileName
+                }),
+                IsSuccess = true,
+                StatusCode = StatusCodes.Status200OK
+            });
+            await _context.SaveChangesAsync();
+        }
+
+        private static string ResolveVideoContentType(string path)
+        {
+            return Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".mp4" => "video/mp4",
+                ".mov" => "video/quicktime",
+                ".avi" => "video/x-msvideo",
+                _ => "application/octet-stream"
+            };
         }
     }
 }

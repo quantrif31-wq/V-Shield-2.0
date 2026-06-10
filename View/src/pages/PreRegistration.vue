@@ -376,9 +376,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { ref, reactive, onBeforeUnmount, onMounted, watch, computed } from 'vue'
 import { getAll, getDetail, updateStatus, createLink } from '../services/preRegistrationApi'
-import { getAll as getAllEmployees } from '../services/employeeApi'
+import { getAll as getAllEmployees, getProtectedFaceImage } from '../services/employeeApi'
 import { API_ORIGIN } from '../config/api'
 
 import QRCode from 'qrcode'
@@ -484,6 +484,7 @@ const vClickOutside = {
 const showHostDropdown = ref(false)
 const hostSearchQuery = ref('')
 const brokenEmployeeAvatarIds = ref({})
+const protectedAvatarUrls = ref({})
 
 const selectedHostEmployee = computed(() => {
     if (!linkForm.hostEmployeeId) return null
@@ -540,7 +541,7 @@ const canShowEmployeeAvatar = (employee) => {
 
 const getEmployeeAvatarSrc = (employee) => {
     if (!employee?.faceImageUrl) return ''
-    return employee.faceImageUrl.startsWith('http') ? employee.faceImageUrl : `${API_BASE}${employee.faceImageUrl}`
+    return employee.faceImageUrl.startsWith('http') ? employee.faceImageUrl : (protectedAvatarUrls.value[employee.employeeId] || '')
 }
 
 const markEmployeeAvatarBroken = (employeeId) => {
@@ -617,7 +618,31 @@ const fetchEmployees = async () => {
     try {
         const res = await getAllEmployees()
         employees.value = res.data || []
+        await hydrateProtectedAvatars(employees.value)
     } catch (err) {}
+}
+
+async function hydrateProtectedAvatars(list) {
+    releaseProtectedAvatars()
+    const entries = await Promise.all((list || []).map(async (emp) => {
+        if (!emp?.employeeId || !emp?.faceImageUrl || emp.faceImageUrl.startsWith('http')) {
+            return [emp?.employeeId, '']
+        }
+        try {
+            const response = await getProtectedFaceImage(emp.employeeId)
+            return [emp.employeeId, URL.createObjectURL(response.data)]
+        } catch {
+            return [emp.employeeId, '']
+        }
+    }))
+    protectedAvatarUrls.value = Object.fromEntries(entries.filter(([id]) => !!id))
+}
+
+function releaseProtectedAvatars() {
+    Object.values(protectedAvatarUrls.value).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+    })
+    protectedAvatarUrls.value = {}
 }
 
 const viewDetail = async (id) => {
@@ -684,6 +709,7 @@ watch(searchQuery, () => {
 watch([filterStatus, filterDate], () => { currentPage.value = 1; fetchRegistrations() })
 
 onMounted(() => { fetchRegistrations(); fetchStats(); fetchEmployees() })
+onBeforeUnmount(() => { releaseProtectedAvatars() })
 </script>
 
 <style scoped>

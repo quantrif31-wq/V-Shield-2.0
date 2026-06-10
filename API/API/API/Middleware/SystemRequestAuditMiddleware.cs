@@ -53,12 +53,18 @@ public class SystemRequestAuditMiddleware
                 var statusCode = context.Response?.StatusCode ?? 0;
                 var success = failureReason == null && statusCode is >= 200 and < 400;
                 var requestMeta = BuildRequestMeta(context);
+                var category = ResolveCategory(context.Request.Path.Value, method);
 
                 var log = new SystemAuditLog
                 {
                     TimestampUtc = DateTime.UtcNow,
                     UserId = userId,
                     Username = username,
+                    CorrelationId = requestMeta.CorrelationId,
+                    EventCategory = category,
+                    Severity = ResolveSeverity(success, statusCode),
+                    ClientIp = requestMeta.Ip,
+                    UserAgent = requestMeta.UserAgent,
                     HttpMethod = method,
                     Path = context.Request.Path.Value,
                     ActionType = "REQUEST",
@@ -126,7 +132,32 @@ public class SystemRequestAuditMiddleware
             ?? user?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
     }
 
-    private static object BuildRequestMeta(HttpContext context)
+    private static string ResolveCategory(string? path, string method)
+    {
+        if (path?.StartsWith("/api/Auth", StringComparison.OrdinalIgnoreCase) == true)
+            return "AUTH";
+
+        if (path?.Contains("access", StringComparison.OrdinalIgnoreCase) == true ||
+            path?.Contains("qr", StringComparison.OrdinalIgnoreCase) == true ||
+            path?.Contains("gate", StringComparison.OrdinalIgnoreCase) == true ||
+            path?.Contains("video", StringComparison.OrdinalIgnoreCase) == true ||
+            path?.Contains("biometric", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "SECURITY";
+        }
+
+        return method is "POST" or "PUT" or "PATCH" or "DELETE" ? "DATA_CHANGE" : "APPLICATION";
+    }
+
+    private static string ResolveSeverity(bool success, int statusCode)
+    {
+        if (success) return "INFO";
+        if (statusCode is 401 or 403) return "WARN";
+        if (statusCode >= 500) return "ERROR";
+        return "WARN";
+    }
+
+    private static RequestAuditMeta BuildRequestMeta(HttpContext context)
     {
         var headers = context.Request.Headers;
         var forwardedFor = headers.TryGetValue("X-Forwarded-For", out var xff) ? xff.ToString() : null;
@@ -136,17 +167,34 @@ public class SystemRequestAuditMiddleware
 
         var ip = context.Connection.RemoteIpAddress?.ToString();
         var userAgent = headers.UserAgent.ToString();
+        var correlationId = context.Items[CorrelationIdMiddleware.ItemKey]?.ToString()
+                            ?? headers[CorrelationIdMiddleware.HeaderName].FirstOrDefault()
+                            ?? context.TraceIdentifier;
 
-        return new
+        return new RequestAuditMeta
         {
-            device = string.IsNullOrWhiteSpace(userAgent) ? null : userAgent,
-            ip,
-            forwardedFor,
-            realIp,
-            country,
-            city,
-            referer = headers.Referer.ToString(),
-            origin = headers.Origin.ToString()
+            CorrelationId = correlationId,
+            UserAgent = string.IsNullOrWhiteSpace(userAgent) ? null : userAgent,
+            Ip = ip,
+            ForwardedFor = forwardedFor,
+            RealIp = realIp,
+            Country = country,
+            City = city,
+            Referer = headers.Referer.ToString(),
+            Origin = headers.Origin.ToString()
         };
+    }
+
+    private sealed class RequestAuditMeta
+    {
+        public string? CorrelationId { get; set; }
+        public string? UserAgent { get; set; }
+        public string? Ip { get; set; }
+        public string? ForwardedFor { get; set; }
+        public string? RealIp { get; set; }
+        public string? Country { get; set; }
+        public string? City { get; set; }
+        public string? Referer { get; set; }
+        public string? Origin { get; set; }
     }
 }

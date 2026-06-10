@@ -1,6 +1,7 @@
-using API.Data;
+ï»¿using API.Data;
 using API.DTOs;
 using API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -10,6 +11,7 @@ namespace API.Controllers
 {
     [Route("api/access-permissions")]
     [ApiController]
+    [Authorize(Roles = "Admin")]
     public class AccessPermissionController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -23,14 +25,14 @@ namespace API.Controllers
         public async Task<IActionResult> SetPermission([FromBody] SetPermissionRequest request)
         {
             if (request == null)
-                return BadRequest(GateTransitApiResponse.CreateError("D? li?u g?i lên không h?p l?."));
+                return BadRequest(GateTransitApiResponse.CreateError("Du lieu gui len khong hop le."));
 
             if (request.EmployeeId == null && request.VisitorDetailId == null)
-                return BadRequest(GateTransitApiResponse.CreateError("Ph?i cung c?p EmployeeId ho?c VisitorDetailId."));
+                return BadRequest(GateTransitApiResponse.CreateError("Phai cung cap EmployeeId hoac VisitorDetailId."));
 
             var gateExists = await _context.Gates.AnyAsync(g => g.GateId == request.GateId);
             if (!gateExists)
-                return NotFound(GateTransitApiResponse.CreateError($"Không tìm th?y khu v?c (Gate) có id = {request.GateId}."));
+                return NotFound(GateTransitApiResponse.CreateError($"Khong tim thay khu vuc (Gate) co id = {request.GateId}."));
 
             try
             {
@@ -74,14 +76,12 @@ namespace API.Controllers
                 }
 
                 await _context.SaveChangesAsync();
-                return Ok(GateTransitApiResponse.CreateSuccess("C?p nh?t quy?n truy c?p khu v?c thành công."));
+                return Ok(GateTransitApiResponse.CreateSuccess("Cap nhat quyen truy cap khu vuc thanh cong."));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, GateTransitApiResponse.CreateError("Có l?i x?y ra khi c?p nh?t d? li?u.", ex.Message));
+                return StatusCode(500, GateTransitApiResponse.CreateError("Co loi xay ra khi cap nhat du lieu.", ex.Message));
             }
         }
     }
 }
-
-

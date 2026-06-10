@@ -9,4 +9,7 @@ public class UserResponse
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public int? EmployeeId { get; set; }
+    public bool MfaEnabled { get; set; }
+    public bool MfaRequired { get; set; }
+    public DateTime? LastLoginAtUtc { get; set; }
 }

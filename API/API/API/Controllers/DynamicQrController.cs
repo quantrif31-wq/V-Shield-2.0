@@ -2,6 +2,8 @@
 using API.Models;
 using API.Models.DTOs;
 using API.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -12,6 +14,7 @@ namespace API.Controllers
 {
     [Route("api/dynamic-qr")]
     [ApiController]
+    [Authorize(Roles = "Admin,Staff,BaoVe")]
     public class DynamicQrController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -35,6 +38,7 @@ namespace API.Controllers
         /// - KHÔNG trả OTP raw ra ngoài payload QR
         /// </summary>
         [HttpPost("generate")]
+        [EnableRateLimiting("ops")]
         public async Task<IActionResult> GenerateDynamicQr([FromBody] GenerateDynamicQrRequest request)
         {
             if (request == null || request.EmployeeId <= 0)
@@ -121,6 +125,7 @@ namespace API.Controllers
         /// => Miễn còn thời gian hiệu lực thì được dùng nhiều lần
         /// </summary>
         [HttpPost("verify")]
+        [EnableRateLimiting("ops")]
         public async Task<IActionResult> VerifyDynamicQr([FromBody] VerifyDynamicQrRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.QrPayload))
@@ -141,7 +146,7 @@ namespace API.Controllers
 
     if (staticResult.Success)
     {
-        await SaveScanLog(null, request.QrPayload, true,
+        await SaveScanLog(null, normalizedPayload, true,
         "Xác thực QR tĩnh thành công.", request.ScannerDevice);
 
         return Ok(new
@@ -152,7 +157,7 @@ namespace API.Controllers
         });
     }
 
-    await SaveScanLog(null, request.QrPayload, false,
+    await SaveScanLog(null, normalizedPayload, false,
         $"Dynamic fail: {parseResult.Message} | Static fail: {staticResult.Message}",
         request.ScannerDevice);
 
@@ -177,7 +182,7 @@ namespace API.Controllers
 
                 if (dynamicQr == null)
                 {
-                    await SaveScanLog(employeeId, request.QrPayload, false,
+                    await SaveScanLog(employeeId, normalizedPayload, false,
                         "Không tìm thấy cấu hình QR động trong database.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
@@ -191,7 +196,7 @@ namespace API.Controllers
 
                 if (dynamicQr.Employee == null || dynamicQr.Employee.Status != true)
                 {
-                    await SaveScanLog(employeeId, request.QrPayload, false,
+                    await SaveScanLog(employeeId, normalizedPayload, false,
                         "Nhân viên không hoạt động hoặc không tồn tại.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
@@ -210,7 +215,7 @@ namespace API.Controllers
                 // Cho phép lệch tối đa 1 time-step để tránh lỗi sát biên 30s.
                 if (counterDelta > 1)
                 {
-                    await SaveScanLog(employeeId, request.QrPayload, false,
+                    await SaveScanLog(employeeId, normalizedPayload, false,
                         "QR đã hết hạn hoặc chưa đến hiệu lực.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
@@ -227,7 +232,7 @@ namespace API.Controllers
 
                 if (!FixedTimeEquals(payloadOtp, expectedOtp))
                 {
-                    await SaveScanLog(employeeId, request.QrPayload, false,
+                    await SaveScanLog(employeeId, normalizedPayload, false,
                         "QR động không hợp lệ.", request.ScannerDevice);
 
                     await transaction.CommitAsync();
@@ -237,7 +242,7 @@ namespace API.Controllers
 
                     if (staticResult.Success)
                     {
-                        await SaveScanLog(employeeId, request.QrPayload, true,
+                        await SaveScanLog(employeeId, normalizedPayload, true,
                             "Fallback sang QR tĩnh thành công.", request.ScannerDevice);
 
                         await transaction.CommitAsync();
@@ -265,7 +270,7 @@ namespace API.Controllers
 
                 await _context.SaveChangesAsync();
 
-                await SaveScanLog(employeeId, request.QrPayload, true,
+                await SaveScanLog(employeeId, normalizedPayload, true,
                     "Xác thực QR động thành công.", request.ScannerDevice);
 
                 await transaction.CommitAsync();
@@ -290,7 +295,7 @@ namespace API.Controllers
 
                 _logger.LogError(ex, "Lỗi khi verify QR động.");
 
-                await SaveScanLog(employeeId, request.QrPayload, false,
+                await SaveScanLog(employeeId, normalizedPayload, false,
                     "Lỗi hệ thống khi xác thực QR.", request.ScannerDevice);
 
                 return StatusCode(StatusCodes.Status500InternalServerError, new
@@ -514,6 +519,9 @@ namespace API.Controllers
                 if (!visitor.IsQrActive)
                     return (false, "QR đã bị khóa", null);
 
+                if (string.IsNullOrWhiteSpace(visitor.QrSecret))
+                    return (false, "QR visitor chưa có secret", null);
+
                 var nowCounter = _visitorQrService.GetCurrentCounter(DateTime.UtcNow);
                 if (Math.Abs(payload.Counter - nowCounter) > 1)
                     return (false, "QR visitor đã hết hạn", null);
@@ -539,6 +547,7 @@ namespace API.Controllers
         }
     }
 }
+
 
 
 

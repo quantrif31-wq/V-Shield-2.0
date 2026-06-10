@@ -10,14 +10,14 @@ namespace API.Models
 
         public int EmployeeId { get; set; }
 
-        public string FileName { get; set; }
+        public string FileName { get; set; } = string.Empty;
 
-        public string FilePath { get; set; }
+        public string FilePath { get; set; } = string.Empty;
 
         public long FileSize { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-        public virtual Employee Employee { get; set; }
+        public virtual Employee Employee { get; set; } = null!;
     }
 }

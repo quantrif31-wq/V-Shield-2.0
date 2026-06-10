@@ -1,3 +1,5 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using API.Models;
@@ -7,6 +9,8 @@ namespace API.Controllers
 {
     [Route("api/license-plates")]
     [ApiController]
+    [EnableRateLimiting("ops")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public class LicensePlateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -17,7 +21,7 @@ namespace API.Controllers
         }
 
         // =========================
-        // L?Y DANH S�CH CAMERA
+        // L?Y DANH SÁCH CAMERA
         // =========================
 
         [HttpGet("cameras")]
@@ -106,5 +110,8 @@ namespace API.Controllers
         }
     }
 }
+
+
+
 
 

@@ -14,10 +14,12 @@ namespace API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly Services.IAuthenticationService _authService;
 
-    public UsersController(ApplicationDbContext context)
+    public UsersController(ApplicationDbContext context, Services.IAuthenticationService authService)
     {
         _context = context;
+        _authService = authService;
     }
 
     [HttpGet]
@@ -33,7 +35,10 @@ public class UsersController : ControllerBase
                 Role = u.Role,
                 IsActive = u.IsActive,
                 CreatedAt = u.CreatedAt,
-                EmployeeId = u.EmployeeId
+                EmployeeId = u.EmployeeId,
+                MfaEnabled = u.MfaEnabled,
+                MfaRequired = u.Role == "Admin" || u.Role == "BaoVe",
+                LastLoginAtUtc = u.LastLoginAtUtc
             })
             .ToListAsync();
 
@@ -55,7 +60,10 @@ public class UsersController : ControllerBase
             Role = user.Role,
             IsActive = user.IsActive,
             CreatedAt = user.CreatedAt,
-            EmployeeId = user.EmployeeId
+            EmployeeId = user.EmployeeId,
+            MfaEnabled = user.MfaEnabled,
+            MfaRequired = _authService.RequiresMfa(user),
+            LastLoginAtUtc = user.LastLoginAtUtc
         });
     }
 
@@ -88,6 +96,7 @@ public class UsersController : ControllerBase
             Role = request.Role,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
+            LastPasswordChangedAtUtc = DateTime.UtcNow,
             EmployeeId = (request.EmployeeId.HasValue && request.EmployeeId.Value > 0) ? request.EmployeeId : null
         };
 
@@ -102,7 +111,10 @@ public class UsersController : ControllerBase
             Role = user.Role,
             IsActive = user.IsActive,
             CreatedAt = user.CreatedAt,
-            EmployeeId = user.EmployeeId
+            EmployeeId = user.EmployeeId,
+            MfaEnabled = user.MfaEnabled,
+            MfaRequired = _authService.RequiresMfa(user),
+            LastLoginAtUtc = user.LastLoginAtUtc
         });
     }
 
@@ -126,7 +138,11 @@ public class UsersController : ControllerBase
             user.IsActive = request.IsActive.Value;
 
         if (!string.IsNullOrWhiteSpace(request.Password))
+        {
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            user.LastPasswordChangedAtUtc = DateTime.UtcNow;
+            user.TokenVersion++;
+        }
 
         if (request.EmployeeId.HasValue)
         {
@@ -153,8 +169,37 @@ public class UsersController : ControllerBase
             Role = user.Role,
             IsActive = user.IsActive,
             CreatedAt = user.CreatedAt,
-            EmployeeId = user.EmployeeId
+            EmployeeId = user.EmployeeId,
+            MfaEnabled = user.MfaEnabled,
+            MfaRequired = _authService.RequiresMfa(user),
+            LastLoginAtUtc = user.LastLoginAtUtc
         });
+    }
+
+    [HttpPost("{id}/mfa/reset")]
+    public async Task<IActionResult> ResetMfa(int id)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        user.MfaEnabled = false;
+        user.MfaSecretProtected = null;
+        user.MfaConfiguredAtUtc = null;
+        user.TokenVersion++;
+
+        var activeTokens = await _context.UserRefreshTokens
+            .Where(t => t.UserId == id && t.RevokedAtUtc == null && t.ExpiresAtUtc > DateTime.UtcNow)
+            .ToListAsync();
+
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAtUtc = DateTime.UtcNow;
+            token.RevocationReason = "MFA reset";
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Da dat lai MFA. Tai khoan se thiet lap lai o lan dang nhap tiep theo." });
     }
 
     [HttpDelete("{id}")]

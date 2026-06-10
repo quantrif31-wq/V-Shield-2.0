@@ -7,7 +7,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/biometrics")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class BiometricsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -53,20 +53,10 @@ public class BiometricsController : ControllerBase
                     .OrderByDescending(video => video.CreatedAt)
                     .Select(video => (DateTime?)video.CreatedAt)
                     .FirstOrDefault(),
-                latestVideoPath = _context.EmployeeFaceVideos
-                    .Where(video => video.EmployeeId == employee.EmployeeId)
-                    .OrderByDescending(video => video.CreatedAt)
-                    .Select(video => video.FilePath)
-                    .FirstOrDefault(),
                 latestModelAt = _context.EmployeeFaceModels
                     .Where(model => model.EmployeeId == employee.EmployeeId)
                     .OrderByDescending(model => model.CreatedAt)
                     .Select(model => (DateTime?)model.CreatedAt)
-                    .FirstOrDefault(),
-                latestModelPath = _context.EmployeeFaceModels
-                    .Where(model => model.EmployeeId == employee.EmployeeId)
-                    .OrderByDescending(model => model.CreatedAt)
-                    .Select(model => model.ModelPath)
                     .FirstOrDefault()
             })
             .ToListAsync();
@@ -95,7 +85,6 @@ public class BiometricsController : ControllerBase
                 model.EmployeeId,
                 employeeName = model.Employee.FullName,
                 model.ModelFileName,
-                model.ModelPath,
                 model.CreatedAt
             })
             .ToListAsync();

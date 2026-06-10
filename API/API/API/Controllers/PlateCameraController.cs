@@ -1,10 +1,14 @@
 ﻿using System.Net.Http.Json;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[EnableRateLimiting("ops")]
+[Authorize(Roles = "Admin,BaoVe")]
 public class PlateCameraController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
@@ -116,4 +120,7 @@ public class PlateCameraController : ControllerBase
         public string Ip { get; set; } = string.Empty;
     }
 }
+
+
+
 

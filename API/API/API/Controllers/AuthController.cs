@@ -1,8 +1,10 @@
 ﻿using System.Security.Claims;
 using API.Data;
 using API.DTOs;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers;
@@ -23,10 +25,19 @@ public class AuthController : ControllerBase
     /// <summary>Đăng nhập và nhận JWT token</summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
+
+        if (_authService.IsLoginTemporarilyLocked(request.Username))
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                message = "Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau."
+            });
+        }
 
         var result = await _authService.LoginAsync(request);
 
@@ -36,11 +47,33 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Gia hạn phiên bằng refresh token và xoay token mới</summary>
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _authService.RefreshAsync(request.RefreshToken);
+        if (result == null)
+            return Unauthorized(new { message = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn" });
+
+        return Ok(result);
+    }
+
     /// <summary>Đăng xuất khỏi phiên hiện tại (ghi log hệ thống)</summary>
     [HttpPost("logout")]
     [Authorize]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] LogoutRequest? request)
     {
+        var userIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        if (userIdClaim != null && int.TryParse(userIdClaim, out var userId))
+        {
+            await _authService.LogoutAsync(userId, request?.RefreshToken);
+        }
+
         return Ok(new { message = "Đăng xuất thành công" });
     }
 
@@ -64,7 +97,11 @@ public class AuthController : ControllerBase
             FullName = user.FullName,
             Role = user.Role,
             IsActive = user.IsActive,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            EmployeeId = user.EmployeeId,
+            MfaEnabled = user.MfaEnabled,
+            MfaRequired = _authService.RequiresMfa(user),
+            LastLoginAtUtc = user.LastLoginAtUtc
         });
     }
 }

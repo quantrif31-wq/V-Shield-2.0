@@ -1,5 +1,7 @@
 ﻿using API.Data;
 using API.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +9,7 @@ namespace API.Controllers
 {
     [Route("api/gate-transit")]
     [ApiController]
+    [Authorize(Roles = "Admin,BaoVe")]
     public class GateTransitController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -24,6 +27,7 @@ namespace API.Controllers
         ///     + Ngược lại => thêm mới với trạng thái IN.
         /// </summary>
         [HttpPost("scan")]
+        [EnableRateLimiting("ops")]
         public async Task<IActionResult> ScanVehicle([FromBody] GateTransitScanRequest request)
         {
             if (request == null)
@@ -181,6 +185,7 @@ namespace API.Controllers
             }
         }
         [HttpPost("scan-guest")]
+        [EnableRateLimiting("ops")]
         public async Task<IActionResult> ScanGuest([FromBody] GateTransitScanRequest request)
         {
             if (request == null)
@@ -199,6 +204,7 @@ namespace API.Controllers
         v.VisitorDetailId == request.VisitorDetailId &&
         v.IsQrActive &&
         v.Registration != null &&
+        v.Registration.Status != null &&
         v.Registration.Status.ToUpper() == "APPROVED");
             }
 
@@ -482,3 +488,6 @@ namespace API.Controllers
     }
 
 }
+
+
+

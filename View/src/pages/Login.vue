@@ -149,6 +149,36 @@
                         </div>
                     </div>
 
+                    <div v-if="mfaRequired" class="form-group">
+                        <div class="label-row">
+                            <label for="mfa-code">Ma xac thuc 6 so</label>
+                            <span class="field-hint">Authenticator</span>
+                        </div>
+                        <div class="input-shell">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <rect x="4" y="4" width="16" height="16" rx="4" />
+                                <path d="M9 12h6" />
+                                <path d="M12 9v6" />
+                            </svg>
+                            <input
+                                id="mfa-code"
+                                v-model="form.mfaCode"
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="6"
+                                placeholder="Nhap ma dang hien tren ung dung"
+                                autocomplete="one-time-code"
+                                :disabled="loading"
+                            />
+                        </div>
+                    </div>
+
+                    <div v-if="mfaSetupSecret" class="mfa-setup">
+                        <strong>Thiet lap xac thuc hai lop</strong>
+                        <code>{{ mfaSetupSecret }}</code>
+                        <small>{{ mfaSetupUri }}</small>
+                    </div>
+
                     <transition name="slide-error">
                         <div v-if="feedbackMessage" class="login-alert" :class="feedbackType">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -188,12 +218,15 @@ import { login } from '../stores/auth'
 
 const router = useRouter()
 
-const form = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', mfaCode: '' })
 const loading = ref(false)
 const feedbackMessage = ref('')
 const feedbackType = ref('danger')
 const error = feedbackMessage
 const showPassword = ref(false)
+const mfaRequired = ref(false)
+const mfaSetupSecret = ref('')
+const mfaSetupUri = ref('')
 let redirectTimer = null
 
 function setFeedback(message, type = 'danger') {
@@ -215,9 +248,23 @@ async function handleLogin() {
         return
     }
 
+    if (mfaRequired.value && !form.mfaCode.trim()) {
+        error.value = 'Vui long nhap ma xac thuc 6 so.'
+        return
+    }
+
     loading.value = true
     try {
-        await login(form.username, form.password)
+        const result = await login(form.username, form.password, form.mfaCode || null)
+        if (result?.requiresMfa) {
+            mfaRequired.value = true
+            mfaSetupSecret.value = result.mfaSetupSecret || ''
+            mfaSetupUri.value = result.mfaSetupUri || ''
+            feedbackType.value = 'danger'
+            feedbackMessage.value = result.message || 'Tai khoan can ma xac thuc hai lop.'
+            return
+        }
+
         feedbackType.value = 'success'
         feedbackMessage.value = 'Đăng nhập thành công. Đang chuyển vào trung tâm điều phối...'
         redirectTimer = setTimeout(() => {
@@ -225,6 +272,10 @@ async function handleLogin() {
         }, 900)
     } catch (err) {
         if (err.response?.status === 401) {
+            mfaRequired.value = false
+            mfaSetupSecret.value = ''
+            mfaSetupUri.value = ''
+            form.mfaCode = ''
             error.value = 'Sai tài khoản hoặc mật khẩu.'
             return
         } else if (err.code === 'ERR_NETWORK') {
@@ -659,6 +710,36 @@ onUnmounted(() => {
 .toggle-password svg {
     width: 18px;
     height: 18px;
+}
+
+.mfa-setup {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid rgba(15, 124, 130, 0.18);
+    border-radius: 8px;
+    background: rgba(84, 196, 211, 0.08);
+    color: var(--text-primary);
+}
+
+.mfa-setup code,
+.mfa-setup small {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.mfa-setup code {
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.82);
+    font-size: 0.88rem;
+}
+
+.mfa-setup small {
+    color: var(--text-muted);
+    font-size: 0.78rem;
 }
 
 .login-alert {

@@ -12,6 +12,16 @@ public class SystemAuditLog
     public int? UserId { get; set; }
     [MaxLength(100)]
     public string? Username { get; set; }
+    [MaxLength(100)]
+    public string? CorrelationId { get; set; }
+    [MaxLength(80)]
+    public string EventCategory { get; set; } = "APPLICATION";
+    [MaxLength(30)]
+    public string Severity { get; set; } = "INFO";
+    [MaxLength(80)]
+    public string? ClientIp { get; set; }
+    [MaxLength(500)]
+    public string? UserAgent { get; set; }
     [MaxLength(50)]
     public string? HttpMethod { get; set; }
     [MaxLength(300)]

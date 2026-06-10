@@ -3,6 +3,7 @@ using API.DTOs.PreRegistration;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -27,6 +28,7 @@ public class PreRegistrationController : ControllerBase
 
     [HttpGet("validate/{token}")]
     [AllowAnonymous]
+    [EnableRateLimiting("public")]
     public async Task<IActionResult> ValidateToken(string token)
     {
         var link = await _context.RegistrationLinks
@@ -54,7 +56,7 @@ public class PreRegistrationController : ControllerBase
             HostEmployeeEmail = link.HostEmployee.Email,
             HostDepartmentName = link.HostEmployee.Department?.Name,
             HostPositionName = link.HostEmployee.Position?.Name,
-            HostFaceImageUrl = link.HostEmployee.FaceImageUrl,
+            HostFaceImageUrl = null,
             HostLicensePlates = link.HostEmployee.Vehicles?.Select(v => v.LicensePlate).ToList(),
             ExpiredAt = link.ExpiredAt
         });
@@ -62,6 +64,7 @@ public class PreRegistrationController : ControllerBase
 
     [HttpPost("submit/{token}")]
     [AllowAnonymous]
+    [EnableRateLimiting("public")]
     public async Task<IActionResult> SubmitRegistration(
         string token,
         [FromBody] SubmitRegistrationDto dto)
@@ -351,6 +354,7 @@ public class PreRegistrationController : ControllerBase
 
     [HttpGet("visitor-pass/{token}")]
     [AllowAnonymous]
+    [EnableRateLimiting("public")]
     public async Task<IActionResult> GetVisitorPass(string token)
     {
         if (!TryParseVisitorPortalToken(token, out var visitorId, out var registrationId, out var expiresAtUnix, out var tokenSig))

@@ -151,9 +151,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { getLinks, createLink } from '../services/preRegistrationApi'
-import { getAll as getAllEmployees } from '../services/employeeApi'
+import { getAll as getAllEmployees, getProtectedFaceImage } from '../services/employeeApi'
 import { API_ORIGIN } from '../config/api'
 
 const API_BASE = API_ORIGIN
@@ -170,6 +170,7 @@ const formError = ref('')
 const showHostDropdown = ref(false)
 const hostSearchQuery = ref('')
 const brokenAvatarIds = ref({})
+const protectedAvatarUrls = ref({})
 
 const form = reactive({
     hostEmployeeId: null,
@@ -231,7 +232,7 @@ const getAvatarColor = (id) => avColors[Math.abs(id || 0) % avColors.length]
 const canShowAvatar = (emp) => !!emp?.faceImageUrl && !brokenAvatarIds.value[emp.employeeId]
 const getAvatarSrc = (emp) => {
     if (!emp?.faceImageUrl) return ''
-    return emp.faceImageUrl.startsWith('http') ? emp.faceImageUrl : `${API_BASE}${emp.faceImageUrl}`
+    return emp.faceImageUrl.startsWith('http') ? emp.faceImageUrl : (protectedAvatarUrls.value[emp.employeeId] || '')
 }
 const markAvatarBroken = (id) => {
     if (!id || brokenAvatarIds.value[id]) return
@@ -271,6 +272,7 @@ const fetchData = async () => {
         ])
         links.value = linksRes.data || []
         employees.value = employeesRes.data || []
+        await hydrateProtectedAvatars(employees.value)
     } catch (error) {
         console.error('Registration links load error:', error)
         links.value = []
@@ -324,7 +326,34 @@ const closeModal = () => {
     showHostDropdown.value = false
 }
 
+async function hydrateProtectedAvatars(list) {
+    releaseProtectedAvatars()
+    const entries = await Promise.all((list || []).map(async (emp) => {
+        if (!emp?.employeeId || !emp?.faceImageUrl || emp.faceImageUrl.startsWith('http')) {
+            return [emp?.employeeId, '']
+        }
+        try {
+            const response = await getProtectedFaceImage(emp.employeeId)
+            return [emp.employeeId, URL.createObjectURL(response.data)]
+        } catch {
+            return [emp.employeeId, '']
+        }
+    }))
+    protectedAvatarUrls.value = Object.fromEntries(entries.filter(([id]) => !!id))
+}
+
+function releaseProtectedAvatars() {
+    Object.values(protectedAvatarUrls.value).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+    })
+    protectedAvatarUrls.value = {}
+}
+
 onMounted(fetchData)
+
+onBeforeUnmount(() => {
+    releaseProtectedAvatars()
+})
 </script>
 
 <style scoped>

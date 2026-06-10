@@ -2,42 +2,41 @@
 import { isLoggedIn, hasRole } from '../stores/auth'
 import { authState } from '../stores/auth'
 
-import Login from '../pages/Login.vue'
-import MainLayout from '../components/Layout/MainLayout.vue'
-import Dashboard from '../pages/Dashboard.vue'
-import AboutProject from '../pages/AboutProject.vue'
-import Employees from '../pages/Employees.vue'
-import Vehicles from '../pages/Vehicles.vue'
-import AccessLogs from '../pages/AccessLogs.vue'
-import Monitoring from '../pages/Monitoring.vue'
-import Settings from '../pages/Settings.vue'
-import UserManagement from '../pages/UserManagement.vue'
-import DepartmentPosition from '../pages/DepartmentPosition.vue'
-import PreRegistration from '../pages/PreRegistration.vue'
-import GuestRegister from '../pages/GuestRegister.vue'
-import VisitorPass from '../pages/VisitorPass.vue'
-
-import FaceIdSecurity from '../components/FaceCamera.vue'
-import LicensePlateSecurity from '../components/LicensePlateSecurity.vue'
-import FaceVideo from '../components/FaceVideo.vue'
-import GatePassageMonitor from '../components/GateTransitMonitor.vue'
-import DynamicQrGenerator from '../components/DynamicQrGenerator.vue'
-import DynamicQrScanner from '../components/DynamicQrScanner.vue'
-import Exceptions from '../pages/Exceptions.vue'
-import RegistrationLinks from '../pages/RegistrationLinks.vue'
-import GuestProfiles from '../pages/GuestProfiles.vue'
-import DeviceManagement from '../pages/DeviceManagement.vue'
-import Biometrics from '../pages/Biometrics.vue'
-import SystemCatalog from '../pages/SystemCatalog.vue'
-import QrAccessMonitor from '../components/QrAccessMonitor.vue'
-import AccessPermissionManager from '../components/AccessPermissionManager.vue'
-import SystemAuditLogs from '../pages/SystemAuditLogs.vue'
-import AttendanceShifts from '../pages/AttendanceShifts.vue'
-import AttendanceWorkSchedules from '../pages/AttendanceWorkSchedules.vue'
-import AttendanceRecords from '../pages/AttendanceRecords.vue'
-import LeaveRequests from '../pages/LeaveRequests.vue'
-import LeaveApprovals from '../pages/LeaveApprovals.vue'
-import AttendanceReports from '../pages/AttendanceReports.vue'
+const Login = () => import('../pages/Login.vue')
+const MainLayout = () => import('../components/Layout/MainLayout.vue')
+const Dashboard = () => import('../pages/Dashboard.vue')
+const AboutProject = () => import('../pages/AboutProject.vue')
+const Employees = () => import('../pages/Employees.vue')
+const Vehicles = () => import('../pages/Vehicles.vue')
+const AccessLogs = () => import('../pages/AccessLogs.vue')
+const Monitoring = () => import('../pages/Monitoring.vue')
+const Settings = () => import('../pages/Settings.vue')
+const UserManagement = () => import('../pages/UserManagement.vue')
+const DepartmentPosition = () => import('../pages/DepartmentPosition.vue')
+const PreRegistration = () => import('../pages/PreRegistration.vue')
+const GuestRegister = () => import('../pages/GuestRegister.vue')
+const VisitorPass = () => import('../pages/VisitorPass.vue')
+const FaceIdSecurity = () => import('../components/FaceCamera.vue')
+const LicensePlateSecurity = () => import('../components/LicensePlateSecurity.vue')
+const FaceVideo = () => import('../components/FaceVideo.vue')
+const GatePassageMonitor = () => import('../components/GateTransitMonitor.vue')
+const DynamicQrGenerator = () => import('../components/DynamicQrGenerator.vue')
+const DynamicQrScanner = () => import('../components/DynamicQrScanner.vue')
+const Exceptions = () => import('../pages/Exceptions.vue')
+const RegistrationLinks = () => import('../pages/RegistrationLinks.vue')
+const GuestProfiles = () => import('../pages/GuestProfiles.vue')
+const DeviceManagement = () => import('../pages/DeviceManagement.vue')
+const Biometrics = () => import('../pages/Biometrics.vue')
+const SystemCatalog = () => import('../pages/SystemCatalog.vue')
+const QrAccessMonitor = () => import('../components/QrAccessMonitor.vue')
+const AccessPermissionManager = () => import('../components/AccessPermissionManager.vue')
+const SystemAuditLogs = () => import('../pages/SystemAuditLogs.vue')
+const AttendanceShifts = () => import('../pages/AttendanceShifts.vue')
+const AttendanceWorkSchedules = () => import('../pages/AttendanceWorkSchedules.vue')
+const AttendanceRecords = () => import('../pages/AttendanceRecords.vue')
+const LeaveRequests = () => import('../pages/LeaveRequests.vue')
+const LeaveApprovals = () => import('../pages/LeaveApprovals.vue')
+const AttendanceReports = () => import('../pages/AttendanceReports.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 

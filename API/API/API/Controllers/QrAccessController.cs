@@ -2,8 +2,12 @@
 using API.DTOs;
 using API.Models;
 using API.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 using System;
 using System.Threading.Tasks;
@@ -12,6 +16,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin,BaoVe")]
     public class QrAccessController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -24,6 +29,7 @@ namespace API.Controllers
         }
 
         [HttpPost("scan-access")]
+        [EnableRateLimiting("ops")]
         public async Task<IActionResult> ScanAccess([FromBody] QrScanAccessRequest request)
         {
             if (request == null)
@@ -118,6 +124,7 @@ namespace API.Controllers
                             v.VisitorDetailId == targetVisitorId.Value &&
                             v.IsQrActive &&
                             v.Registration != null &&
+                            v.Registration.Status != null &&
                             v.Registration.Status.ToUpper() == "APPROVED");
 
                     if (visitor == null)
@@ -187,6 +194,7 @@ namespace API.Controllers
         }
 
         [HttpPost("verify-camera-auth")]
+        [EnableRateLimiting("ops")]
         public async Task<IActionResult> VerifyCameraAuth([FromBody] QrScanAccessRequest request)
         {
             if (request == null)
@@ -227,28 +235,36 @@ namespace API.Controllers
                 return (false, "Camera khong ton tai hoac chua duoc gan Gate.", null);
             }
 
-            if (!request.LoggedInUserId.HasValue || request.LoggedInUserId.Value <= 0)
+            var currentUserId = GetCurrentUserId();
+            if (!currentUserId.HasValue)
             {
-                return (false, "Thieu LoggedInUserId.", null);
+                return (false, "Khong xac dinh duoc tai khoan dang nhap.", null);
             }
 
-            if (string.IsNullOrWhiteSpace(request.UserPassword))
-            {
-                return (false, "Yeu cau nhap mat khau tai khoan de su dung camera nay.", null);
-            }
-
-            var currentUser = await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == request.LoggedInUserId.Value);
+            var currentUser = await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == currentUserId.Value);
             if (currentUser == null)
             {
                 return (false, "Khong tim thay tai khoan thao tac.", null);
             }
 
-            if (!BCrypt.Net.BCrypt.Verify(request.UserPassword, currentUser.PasswordHash))
+            if (!currentUser.IsActive)
             {
-                return (false, "Mat khau tai khoan khong chinh xac.", null);
+                return (false, "Tai khoan dang nhap khong con hoat dong.", null);
+            }
+
+            if (!string.Equals(currentUser.Role, "Admin", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(currentUser.Role, "BaoVe", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Tai khoan khong co quyen su dung camera nay.", null);
             }
 
             return (true, null, camera);
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var raw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            return int.TryParse(raw, out var id) ? id : null;
         }
 
         private static int? TryParseEmployeeIdFromDynamicPayload(string payload)

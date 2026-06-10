@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +8,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
-[Authorize]
+[Authorize(Roles = "Admin,BaoVe")]
 public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -163,7 +163,7 @@ public class DashboardController : ControllerBase
             activity.Direction,
             actorName = activity.EmployeeName
     ?? activity.VisitorName
-    ?? "Chua x�c d?nh",
+    ?? "Chua xác d?nh",
             gateName = activity.GateName ?? "Chua g?n c?ng",
             cameraName = activity.CameraName,
             activity.CapturedLicensePlate,
@@ -225,5 +225,6 @@ public class DashboardController : ControllerBase
         };
     }
 }
+
 
 

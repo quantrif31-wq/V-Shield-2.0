@@ -10,7 +10,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/device-management")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class DeviceManagementController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -492,6 +492,11 @@ public class DeviceManagementController : ControllerBase
             foreach (var cam in cameras)
             {
                 var normalizedStreamUrl = NormalizeCameraStreamUrl(cam.StreamUrl);
+                if (string.IsNullOrWhiteSpace(normalizedStreamUrl))
+                {
+                    continue;
+                }
+
                 cam.UrlView = BuildCameraWebViewUrl(normalizedStreamUrl, cam.CameraId);
 
                 if (!ShouldProxyStreamViaGo2Rtc(normalizedStreamUrl))
@@ -651,4 +656,5 @@ public class DeviceManagementController : ControllerBase
         host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
         host.Equals("::1", StringComparison.OrdinalIgnoreCase);
 }
+
 

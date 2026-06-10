@@ -110,7 +110,7 @@
                         <div class="surface-item-sub">{{ model.modelFileName }}</div>
                         <div class="chip-row">
                             <span class="soft-chip">{{ formatDateTime(model.createdAt) }}</span>
-                            <span class="soft-chip success">{{ model.modelPath }}</span>
+                            <span class="soft-chip success">Protected artifact</span>
                         </div>
                     </article>
                 </div>
@@ -131,7 +131,7 @@
                         <div class="surface-item-sub">{{ video.fileName }} - {{ formatFileSize(video.fileSize) }}</div>
                         <div class="chip-row">
                             <span class="soft-chip">{{ formatDateTime(video.createdAt) }}</span>
-                            <span class="soft-chip success">{{ video.filePath }}</span>
+                            <span class="soft-chip success">Protected artifact</span>
                         </div>
                     </article>
                 </div>

@@ -101,7 +101,7 @@
                                     <div class="avatar" v-if="!emp.faceImageUrl" :style="{ background: getAvatarColor(emp.employeeId) }">
                                         {{ getInitials(emp.fullName) }}
                                     </div>
-                                    <img v-else :src="(emp.faceImageUrl.startsWith('http://') || emp.faceImageUrl.startsWith('https://')) ? emp.faceImageUrl : API_BASE + emp.faceImageUrl" class="avatar-img" @error="$event.target.style.display = 'none'" />
+                                    <img v-else :src="getEmployeeAvatarSrc(emp)" class="avatar-img" @error="markEmployeeAvatarBroken(emp.employeeId, $event)" />
                                     <div class="user-info">
                                         <span class="user-name">{{ emp.fullName }}</span>
                                         <span class="user-id">ID: {{ emp.employeeId }}</span>
@@ -302,9 +302,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
-import { getAll, create, update, deleteEmployee, uploadFace } from '../services/employeeApi'
+import { getAll, create, update, deleteEmployee, uploadFace, getProtectedFaceImage } from '../services/employeeApi'
 import { getDepartments, getPositions } from '../services/lookupApi'
 import { API_ORIGIN } from '../config/api'
 import { validateVietnameseName, normalizeVietnameseName } from '../utils/nameValidator'
@@ -319,6 +319,8 @@ const loading = ref(true)
 const loadError = ref('')
 const searchQuery = ref('')
 const filterStatus = ref('')
+const protectedAvatarUrls = ref({})
+const brokenEmployeeAvatarIds = ref({})
 
 const showModal = ref(false)
 const isEditing = ref(false)
@@ -394,6 +396,7 @@ async function fetchEmployees() {
         if (filterStatus.value !== '') params.status = filterStatus.value === 'true'
         const res = await getAll(params)
         employees.value = res.data
+        await hydrateEmployeeAvatars(employees.value)
     } catch (err) {
         loadError.value = 'Không thể kết nối đến máy chủ.'
     } finally { loading.value = false }
@@ -413,7 +416,7 @@ function openEditModal(emp) {
     const isUrl = emp.faceImageUrl && (emp.faceImageUrl.startsWith('http://') || emp.faceImageUrl.startsWith('https://'));
     uploadMode.value = isUrl ? 'url' : 'file';
     
-    facePreview.value = emp.faceImageUrl ? (isUrl ? null : API_BASE + emp.faceImageUrl) : null
+    facePreview.value = emp.faceImageUrl ? (isUrl ? null : getEmployeeAvatarSrc(emp)) : null
     Object.assign(modalForm, { 
         fullName: emp.fullName, 
         phone: emp.phone || '', 
@@ -486,10 +489,49 @@ function getInitials(name) { return name ? name.split(' ').map(w=>w[0]).slice(0,
 const avColors = [ '#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f43f5e' ]
 function getAvatarColor(id) { return avColors[id % avColors.length] }
 
+async function hydrateEmployeeAvatars(list) {
+    releaseProtectedAvatars()
+    const entries = await Promise.all((list || []).map(async (emp) => {
+        if (!emp?.employeeId || !emp?.faceImageUrl || emp.faceImageUrl.startsWith('http')) {
+            return [emp?.employeeId, '']
+        }
+        try {
+            const response = await getProtectedFaceImage(emp.employeeId)
+            return [emp.employeeId, URL.createObjectURL(response.data)]
+        } catch {
+            return [emp.employeeId, '']
+        }
+    }))
+    protectedAvatarUrls.value = Object.fromEntries(entries.filter(([id]) => !!id))
+}
+
+function getEmployeeAvatarSrc(emp) {
+    if (!emp?.faceImageUrl) return ''
+    if (emp.faceImageUrl.startsWith('http://') || emp.faceImageUrl.startsWith('https://')) return emp.faceImageUrl
+    return protectedAvatarUrls.value[emp.employeeId] || ''
+}
+
+function markEmployeeAvatarBroken(employeeId, event) {
+    if (event?.target) event.target.style.display = 'none'
+    if (!employeeId || brokenEmployeeAvatarIds.value[employeeId]) return
+    brokenEmployeeAvatarIds.value = { ...brokenEmployeeAvatarIds.value, [employeeId]: true }
+}
+
+function releaseProtectedAvatars() {
+    Object.values(protectedAvatarUrls.value).forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+    })
+    protectedAvatarUrls.value = {}
+}
+
 onMounted(async () => {
     if (route.query.search) { searchQuery.value = route.query.search }
     try { const [dRes, pRes] = await Promise.all([getDepartments(), getPositions()]); departments.value = dRes.data; positions.value = pRes.data } catch {}
     fetchEmployees()
+})
+
+onBeforeUnmount(() => {
+    releaseProtectedAvatars()
 })
 
 watch(() => route.query.search, (val) => { if (val !== undefined) { searchQuery.value = val; fetchEmployees() } })

@@ -1,9 +1,45 @@
 import { reactive } from 'vue'
 import { login as loginApi, getMe, logoutApi as logoutApiRequest } from '../services/authApi'
 
+const AUTH_TOKEN_KEY = 'v_shield_token'
+const AUTH_USER_KEY = 'v_shield_user'
+const AUTH_REFRESH_TOKEN_KEY = 'v_shield_refresh_token'
+
+const readAuthToken = () =>
+    sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || null
+
+const readAuthUser = () => {
+    const raw = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY)
+    return raw ? JSON.parse(raw) : null
+}
+
+const readRefreshToken = () =>
+    sessionStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || localStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || null
+
+const writeAuthState = (token, user, refreshToken) => {
+    sessionStorage.setItem(AUTH_TOKEN_KEY, token)
+    sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
+    if (refreshToken) {
+        sessionStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken)
+    }
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_USER_KEY)
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+}
+
+const clearAuthState = () => {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY)
+    sessionStorage.removeItem(AUTH_USER_KEY)
+    sessionStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_USER_KEY)
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+}
+
 const state = reactive({
-    token: localStorage.getItem('v_shield_token') || null,
-    user: JSON.parse(localStorage.getItem('v_shield_user') || 'null'),
+    token: readAuthToken(),
+    refreshToken: readRefreshToken(),
+    user: readAuthUser(),
 })
 
 /**
@@ -12,38 +48,50 @@ const state = reactive({
  * @param {string} password
  * @returns {Promise<boolean>}
  */
-export async function login(username, password) {
-    const res = await loginApi(username, password)
+export async function login(username, password, mfaCode = null) {
+    const res = await loginApi(username, password, mfaCode)
     const data = res.data
 
+    if (data.requiresMfa) {
+        return {
+            requiresMfa: true,
+            requiresMfaSetup: data.requiresMfaSetup,
+            mfaSetupSecret: data.mfaSetupSecret,
+            mfaSetupUri: data.mfaSetupUri,
+            message: data.message,
+        }
+    }
+
     state.token = data.token
+    state.refreshToken = data.refreshToken
     state.user = {
         userId: data.userId,
         username: data.username,
         fullName: data.fullName,
         role: data.role,
         employeeId: data.employeeId,
+        mfaEnabled: data.mfaEnabled,
+        mfaRequired: data.mfaRequired,
     }
 
-    localStorage.setItem('v_shield_token', data.token)
-    localStorage.setItem('v_shield_user', JSON.stringify(state.user))
+    writeAuthState(data.token, state.user, data.refreshToken)
 
-    return true
+    return { success: true }
 }
 
 /** Đăng xuất */
 export async function logout() {
     try {
         if (state.token) {
-            await logoutApiRequest()
+            await logoutApiRequest(state.refreshToken || readRefreshToken())
         }
     } catch {
         // best effort: vẫn xóa phiên local để đảm bảo đăng xuất
     }
     state.token = null
+    state.refreshToken = null
     state.user = null
-    localStorage.removeItem('v_shield_token')
-    localStorage.removeItem('v_shield_user')
+    clearAuthState()
 }
 
 /** Kiểm tra đã đăng nhập chưa */
@@ -66,8 +114,10 @@ export async function fetchUser() {
             fullName: res.data.fullName,
             role: res.data.role,
             employeeId: res.data.employeeId,
+            mfaEnabled: res.data.mfaEnabled,
+            mfaRequired: res.data.mfaRequired,
         }
-        localStorage.setItem('v_shield_user', JSON.stringify(state.user))
+        writeAuthState(state.token, state.user, state.refreshToken)
         return true
     } catch {
         await logout()

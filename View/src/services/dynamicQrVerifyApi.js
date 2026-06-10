@@ -1,20 +1,9 @@
-import axios from 'axios'
-import { API_BASE_URL } from '../config/api'
-
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    timeout: 15000,
-})
+import http from './http'
 
 export async function verifyDynamicQr(qrPayload, scannerDevice = 'WEB_SCANNER') {
-    const response = await api.post('/dynamic-qr/verify', {
+    const response = await http.post('/dynamic-qr/verify', {
         qrPayload,
         scannerDevice,
     })
     return response.data
 }
-
-export default api

@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.DTOs.PreRegistration;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -21,14 +21,14 @@ public class RegistrationLinkController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateLink([FromBody] CreateLinkRequestDto dto)
     {
         var employee = await _context.Employees.FindAsync(dto.HostEmployeeId);
         if (employee == null)
-            return NotFound(new { Message = "Không tìm thấy nhân viên" });
+            return NotFound(new { Message = "KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn" });
 
-        // Tạo token 32 ký tự không dấu gạch, khó đoán
+        // Táº¡o token 32 kÃ½ tá»± khÃ´ng dáº¥u gáº¡ch, khÃ³ Ä‘oÃ¡n
         var token = Guid.NewGuid().ToString("N");
 
         var link = new RegistrationLink
@@ -54,7 +54,7 @@ public class RegistrationLinkController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetLinks([FromQuery] string? query = null)
     {
         var linksQuery = _context.RegistrationLinks
@@ -94,28 +94,29 @@ public class RegistrationLinkController : ControllerBase
 
     private string ResolvePortalBaseUrl()
     {
-        // 1) Ưu tiên cấu hình riêng cho trang đăng ký khách (nếu có)
+        // 1) Æ¯u tiÃªn cáº¥u hÃ¬nh riÃªng cho trang Ä‘Äƒng kÃ½ khÃ¡ch (náº¿u cÃ³)
         var guestPortalUrl = (_config["AppSettings:GuestRegistrationPortalUrl"] ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(guestPortalUrl))
         {
             return guestPortalUrl.TrimEnd('/');
         }
 
-        // 2) Ưu tiên Origin thực tế từ request UI đang gọi API (thường là portal chính)
+        // 2) Æ¯u tiÃªn Origin thá»±c táº¿ tá»« request UI Ä‘ang gá»i API (thÆ°á»ng lÃ  portal chÃ­nh)
         var originHeader = Request.Headers["Origin"].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(originHeader))
         {
             return originHeader.TrimEnd('/');
         }
 
-        // 3) Fallback cấu hình FrontendUrl (để tương thích cũ)
+        // 3) Fallback cáº¥u hÃ¬nh FrontendUrl (Ä‘á»ƒ tÆ°Æ¡ng thÃ­ch cÅ©)
         var frontendUrl = (_config["AppSettings:FrontendUrl"] ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(frontendUrl))
         {
             return frontendUrl.TrimEnd('/');
         }
 
-        // 4) Fallback cuối: host hiện tại của API
+        // 4) Fallback cuá»‘i: host hiá»‡n táº¡i cá»§a API
         return $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
     }
 }
+

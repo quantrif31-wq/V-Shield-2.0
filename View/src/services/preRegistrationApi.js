@@ -1,46 +1,15 @@
-﻿import axios from 'axios'
+import axios from 'axios'
+import http from './http'
 import { API_BASE_URL } from '../config/api'
 
-// Axios instance cho các endpoint PUBLIC (không cần auth)
 const publicApi = axios.create({
     baseURL: API_BASE_URL
 })
 
-// Axios instance cho các endpoint ADMIN (cần auth)
-const authApi = axios.create({
-    baseURL: API_BASE_URL
-})
-
-authApi.interceptors.request.use((config) => {
-    const token = localStorage.getItem('v_shield_token')
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-})
-
-authApi.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            localStorage.removeItem('v_shield_token')
-            localStorage.removeItem('v_shield_user')
-            window.location.href = '/login'
-        }
-        return Promise.reject(error)
-    }
-)
-
-// ========================================================
-// PUBLIC - Khách sử dụng (không cần đăng nhập)
-// ========================================================
-
-/** Validate token đăng ký -> trả về tên nhân viên chủ trì và thời hạn */
 export const validateToken = (token) => {
     return publicApi.get(`/pre-registrations/validate/${token}`)
 }
 
-/** Khách submit form đăng ký */
 export const submitRegistration = (token, data) => {
     return publicApi.post(`/pre-registrations/submit/${token}`, data)
 }
@@ -49,31 +18,22 @@ export const getVisitorPass = (token) => {
     return publicApi.get(`/pre-registrations/visitor-pass/${token}`)
 }
 
-// ========================================================
-// ADMIN - Yêu cầu đăng nhập
-// ========================================================
-
-/** Lấy danh sách đơn đăng ký (có phân trang và filter) */
 export const getAll = (params = {}) => {
-    return authApi.get('/pre-registrations', { params })
+    return http.get('/pre-registrations', { params })
 }
 
-/** Lấy chi tiết đơn đăng ký */
 export const getDetail = (id) => {
-    return authApi.get(`/pre-registrations/${id}`)
+    return http.get(`/pre-registrations/${id}`)
 }
 
-/** Cập nhật trạng thái đơn (Approved / Rejected / Pending) */
 export const updateStatus = (id, status) => {
-    return authApi.patch(`/pre-registrations/${id}/status`, { status })
+    return http.patch(`/pre-registrations/${id}/status`, { status })
 }
 
-/** Tạo link đăng ký mới */
 export const createLink = (data) => {
-    return authApi.post('/registration-links', data)
+    return http.post('/registration-links', data)
 }
 
-/** Lấy danh sách link đăng ký */
 export const getLinks = (params = {}) => {
-    return authApi.get('/registration-links', { params })
+    return http.get('/registration-links', { params })
 }

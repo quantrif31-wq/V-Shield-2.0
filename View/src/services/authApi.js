@@ -1,58 +1,17 @@
-﻿import axios from 'axios'
-import { API_BASE_URL } from '../config/api'
+import http from './http'
 
-const authApiClient = axios.create({
-    baseURL: `${API_BASE_URL}/Auth`
-})
-
-// Tự động gắn JWT token vào mỗi request
-authApiClient.interceptors.request.use((config) => {
-    const token = localStorage.getItem('v_shield_token')
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-})
-
-// Tự động xử lý 401 -> redirect login
-authApiClient.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        const requestUrl = String(error.config?.url || '').toLowerCase()
-        const isLoginRequest = requestUrl.endsWith('/login') || requestUrl === '/login'
-
-        if (error.response && error.response.status === 401 && !isLoginRequest) {
-            localStorage.removeItem('v_shield_token')
-            localStorage.removeItem('v_shield_user')
-            window.location.href = '/login'
-        }
-        return Promise.reject(error)
-    }
-)
-
-/**
- * Đăng nhập
- * @param {string} username
- * @param {string} password
- * @returns {Promise<{token, username, fullName, role, expiresAt}>}
- */
-export const login = (username, password) => {
-    return authApiClient.post('/login', { username, password })
+export const login = (username, password, mfaCode = null) => {
+    return http.post('/Auth/login', { username, password, mfaCode })
 }
 
-/**
- * Lấy thông tin user đang đăng nhập
- * @returns {Promise<{userId, username, fullName, role, isActive, createdAt}>}
- */
 export const getMe = () => {
-    return authApiClient.get('/me')
+    return http.get('/Auth/me')
 }
 
-/**
- * Đăng xuất (server-side audit)
- * @returns {Promise<any>}
- */
-export const logoutApi = () => {
-    return authApiClient.post('/logout')
+export const refreshSession = (refreshToken) => {
+    return http.post('/Auth/refresh', { refreshToken })
 }
 
+export const logoutApi = (refreshToken = null) => {
+    return http.post('/Auth/logout', { refreshToken })
+}

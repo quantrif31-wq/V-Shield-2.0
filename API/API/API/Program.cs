@@ -8,9 +8,12 @@ using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Threading.RateLimiting;
 
 namespace API
 {
@@ -24,7 +27,16 @@ namespace API
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-            var secretKey = jwtSettings["Secret"]!;
+            var jwtSecretOverride = Environment.GetEnvironmentVariable("VSHIELD_JWT_SECRET");
+            var secretKey = (jwtSecretOverride ?? jwtSettings["Secret"] ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(secretKey) || secretKey.Length < 32)
+            {
+                throw new InvalidOperationException("JWT secret must be configured and at least 32 characters long.");
+            }
+            if (builder.Environment.IsProduction() && string.IsNullOrWhiteSpace(jwtSecretOverride))
+            {
+                throw new InvalidOperationException("Production requires VSHIELD_JWT_SECRET. Do not use repo-backed JWT settings in production.");
+            }
 
             builder.Services.AddAuthentication(options =>
             {
@@ -33,6 +45,7 @@ namespace API
             })
             .AddJwtBearer(options =>
             {
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -45,28 +58,65 @@ namespace API
                     NameClaimType = System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.UniqueName,
                     RoleClaimType = ClaimTypes.Role
                 };
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var userIdClaim = context.Principal?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+                        var tokenVersionClaim = context.Principal?.FindFirst("token_version")?.Value;
+                        if (!int.TryParse(userIdClaim, out var userId) ||
+                            !int.TryParse(tokenVersionClaim, out var tokenVersion))
+                        {
+                            context.Fail("Invalid access token session.");
+                            return;
+                        }
+
+                        var authService = context.HttpContext.RequestServices.GetRequiredService<IAuthenticationService>();
+                        if (!await authService.ValidateAccessTokenVersionAsync(userId, tokenVersion))
+                        {
+                            context.Fail("Access token session has been revoked.");
+                        }
+                    }
+                };
             });
 
-            builder.Services.AddAuthorization();
+            builder.Services.AddAuthorization(options =>
+            {
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+                options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("RuntimeOperator", policy => policy.RequireRole("Admin", "BaoVe"));
+                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "Staff"));
+            });
 
             builder.Services.AddMemoryCache();
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
             builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+            builder.Services.AddScoped<TotpService>();
             builder.Services.AddScoped<IVehicleManagementService, VehicleManagementService>();
             builder.Services.AddScoped<ILocalNetworkCameraDiscoveryService, LocalNetworkCameraDiscoveryService>();
             builder.Services.AddScoped<StaticVisitorQrService>();
             builder.Services.AddScoped<IAttendanceCalculationService, AttendanceCalculationService>();
             builder.Services.AddScoped<IAttendancePermissionService, AttendancePermissionService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
-            builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
+            if (!builder.Environment.IsEnvironment("Testing"))
+            {
+                builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
+            }
             builder.Services.AddHttpClient();
             builder.Services.AddSignalR();
-            builder.Services.AddControllers();
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                });
 
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
+                c.CustomSchemaIds(type => type.FullName);
                 c.SwaggerDoc("v1", new OpenApiInfo
                 {
                     Title = "V-Shield API",
@@ -130,18 +180,37 @@ namespace API
                         .AllowCredentials();
                 });
             });
-            builder.Services.AddSwaggerGen(c =>
+            builder.Services.AddRateLimiter(options =>
             {
-                c.CustomSchemaIds(type => type.FullName);
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddFixedWindowLimiter("auth", limiter =>
+                {
+                    limiter.Window = TimeSpan.FromMinutes(1);
+                    limiter.PermitLimit = 5;
+                    limiter.QueueLimit = 0;
+                    limiter.AutoReplenishment = true;
+                });
+                options.AddFixedWindowLimiter("public", limiter =>
+                {
+                    limiter.Window = TimeSpan.FromMinutes(1);
+                    limiter.PermitLimit = 30;
+                    limiter.QueueLimit = 0;
+                    limiter.AutoReplenishment = true;
+                });
+                options.AddFixedWindowLimiter("ops", limiter =>
+                {
+                    limiter.Window = TimeSpan.FromMinutes(1);
+                    limiter.PermitLimit = 60;
+                    limiter.QueueLimit = 0;
+                    limiter.AutoReplenishment = true;
+                });
             });
-            builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
             var app = builder.Build();
-            EnsureSeedAdminUser(app.Services, builder.Configuration);
-            EnsureGo2RtcProcessRunning(app.Services);
+            if (!app.Environment.IsEnvironment("Testing"))
+            {
+                EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
+                EnsureGo2RtcProcessRunning(app.Services);
+            }
 
             if (app.Environment.IsDevelopment())
             {
@@ -149,21 +218,133 @@ namespace API
                 app.UseSwaggerUI();
             }
 
-            // app.UseHttpsRedirection();
+            app.UseMiddleware<CorrelationIdMiddleware>();
+            app.UseMiddleware<SafeExceptionHandlingMiddleware>();
+            if (!app.Environment.IsEnvironment("Testing"))
+            {
+                app.UseHttpsRedirection();
+            }
+            app.UseAuthentication();
+            app.Use(async (context, next) =>
+            {
+                var isSensitiveUpload =
+                    context.Request.Path.StartsWithSegments("/uploads", StringComparison.OrdinalIgnoreCase);
+
+                if (isSensitiveUpload &&
+                    context.User?.Identity?.IsAuthenticated != true)
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+
+                await next();
+            });
             app.UseStaticFiles();
             app.UseCors("AllowVue");
-            app.UseAuthentication();
+            app.UseRateLimiter();
             app.UseAuthorization();
             app.UseMiddleware<SystemRequestAuditMiddleware>();
 
             app.MapControllers();
-            app.MapHub<EmployeeStatsHub>("/hubs/employee-stats");
-            app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" }));
+            app.MapHub<EmployeeStatsHub>("/hubs/employee-stats").RequireAuthorization();
+            app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" })).AllowAnonymous();
+            app.MapGet("/health/live", () => Results.Ok(new
+            {
+                status = "ok",
+                service = "v-shield-api",
+                checkedAtUtc = DateTime.UtcNow
+            })).AllowAnonymous();
+            app.MapGet("/health/ready", async (ApplicationDbContext dbContext) =>
+            {
+                var checks = new Dictionary<string, object>();
+                var ready = true;
+
+                try
+                {
+                    var canConnect = await dbContext.Database.CanConnectAsync();
+                    checks["database"] = new { status = canConnect ? "ok" : "unavailable" };
+                    ready = ready && canConnect;
+                }
+                catch (Exception ex)
+                {
+                    checks["database"] = new { status = "error", message = ex.GetType().Name };
+                    ready = false;
+                }
+
+                var payload = new
+                {
+                    status = ready ? "ready" : "not_ready",
+                    service = "v-shield-api",
+                    checkedAtUtc = DateTime.UtcNow,
+                    checks
+                };
+
+                return ready
+                    ? Results.Ok(payload)
+                    : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
+            }).AllowAnonymous();
+
+            app.MapGet("/health/degraded", async (ApplicationDbContext dbContext, RuntimeOrchestrator runtimeOrchestrator) =>
+            {
+                var checks = new Dictionary<string, object>();
+                var databaseReady = true;
+
+                try
+                {
+                    databaseReady = await dbContext.Database.CanConnectAsync();
+                    checks["database"] = new { status = databaseReady ? "ok" : "unavailable" };
+                }
+                catch (Exception ex)
+                {
+                    databaseReady = false;
+                    checks["database"] = new { status = "error", message = ex.GetType().Name };
+                }
+
+                var runtimeServices = runtimeOrchestrator.GetServices()
+                    .Select(service => new
+                    {
+                        service.Name,
+                        service.DisplayName,
+                        service.Enabled,
+                        service.AutoStart,
+                        service.ManagedMode,
+                        service.Running,
+                        status = !service.Enabled
+                            ? "disabled"
+                            : service.Running
+                                ? "ok"
+                                : service.AutoStart
+                                    ? "degraded"
+                                    : "manual"
+                    })
+                    .ToList();
+
+                var runtimeDegraded = runtimeServices.Any(service => service.status == "degraded");
+                checks["runtime"] = runtimeServices;
+
+                var payload = new
+                {
+                    status = !databaseReady ? "not_ready" : runtimeDegraded ? "degraded" : "ok",
+                    service = "v-shield-api",
+                    checkedAtUtc = DateTime.UtcNow,
+                    checks
+                };
+
+                return Results.Ok(payload);
+            }).AllowAnonymous();
+
+            if (app.Environment.IsEnvironment("Testing"))
+            {
+                app.MapGet("/__test/throw", () =>
+                {
+                    throw new InvalidOperationException("Sensitive test exception detail");
+                }).AllowAnonymous();
+            }
 
             app.Run();
         }
 
-        private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration)
+        private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)
         {
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -178,10 +359,18 @@ namespace API
             }
 
             var seedSection = configuration.GetSection("SeedAdmin");
-            var adminUsername = (seedSection["Username"] ?? "admin").Trim();
-            var adminPassword = seedSection["Password"] ?? "Admin@123";
-            var adminFullName = seedSection["FullName"] ?? "Quan tri vien";
+            var adminUsernameOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_USERNAME");
+            var adminPasswordOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_PASSWORD");
+            var adminFullNameOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_FULLNAME");
+            var adminUsername = (adminUsernameOverride ?? seedSection["Username"] ?? "admin").Trim();
+            var adminPassword = adminPasswordOverride ?? seedSection["Password"] ?? "Admin@123";
+            var adminFullName = (adminFullNameOverride ?? seedSection["FullName"] ?? "Quan tri vien").Trim();
             var resetPasswordOnStartup = seedSection.GetValue("ResetPasswordOnStartup", false);
+            var hasProductionSeedOverrides =
+                !string.IsNullOrWhiteSpace(adminUsernameOverride) &&
+                !string.IsNullOrWhiteSpace(adminPasswordOverride);
+            var unsafeDefaultSeed = string.Equals(adminUsername, "admin", StringComparison.OrdinalIgnoreCase) &&
+                                    string.Equals(adminPassword, "Admin@123", StringComparison.Ordinal);
             var normalizedAdminUsername = NormalizeUsernameInvariant(adminUsername);
 
             var adminUser = db.AppUsers.FirstOrDefault(u =>
@@ -190,16 +379,24 @@ namespace API
             if (adminUser == null)
             {
                 if (!db.AppUsers.Any())
-                db.AppUsers.Add(new AppUser
                 {
-                    Username = adminUsername,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
-                    FullName = adminFullName,
-                    Role = "Admin",
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    EmployeeId = null
-                });
+                    if (environment.IsProduction() && (!hasProductionSeedOverrides || unsafeDefaultSeed))
+                    {
+                        throw new InvalidOperationException("Production requires explicit VSHIELD_SEED_ADMIN_* overrides before bootstrap seeding can create the admin account.");
+                    }
+
+                    db.AppUsers.Add(new AppUser
+                    {
+                        Username = adminUsername,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+                        FullName = adminFullName,
+                        Role = "Admin",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        LastPasswordChangedAtUtc = DateTime.UtcNow,
+                        EmployeeId = null
+                    });
+                }
 
                 db.SaveChanges();
                 return;
@@ -233,8 +430,17 @@ namespace API
 
             if (resetPasswordOnStartup && !BCrypt.Net.BCrypt.Verify(adminPassword, adminUser.PasswordHash))
             {
-                adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
-                hasChanges = true;
+                if (environment.IsProduction() && (!hasProductionSeedOverrides || unsafeDefaultSeed))
+                {
+                    Console.WriteLine("[WARN] Skipping seed admin password reset in Production. Provide VSHIELD_SEED_ADMIN_* overrides to enable reset.");
+                }
+                else
+                {
+                    adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
+                    adminUser.LastPasswordChangedAtUtc = DateTime.UtcNow;
+                    adminUser.TokenVersion++;
+                    hasChanges = true;
+                }
             }
 
             if (hasChanges)

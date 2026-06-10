@@ -1,4 +1,4 @@
-using API.Data;
+﻿using API.Data;
 using API.DTOs;
 using API.Hubs;
 using API.Models;
@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace API.Controllers;
 
@@ -23,7 +25,7 @@ public class EmployeesController : ControllerBase
         _hubContext = hubContext;
     }
 
-    /// <summary>Lấy danh sách tất cả nhân viên (chỉ Admin)</summary>
+    /// <summary>Láº¥y danh sÃ¡ch táº¥t cáº£ nhÃ¢n viÃªn (chá»‰ Admin)</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? search,
@@ -36,7 +38,7 @@ public class EmployeesController : ControllerBase
             .Include(e => e.Position)
             .AsQueryable();
 
-        // Lọc theo tên hoặc email
+        // Lá»c theo tÃªn hoáº·c email
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(e =>
                 e.FullName.Contains(search) ||
@@ -72,7 +74,7 @@ public class EmployeesController : ControllerBase
         return Ok(employees);
     }
 
-    /// <summary>Lấy thông tin 1 nhân viên theo ID (chỉ Admin)</summary>
+    /// <summary>Láº¥y thÃ´ng tin 1 nhÃ¢n viÃªn theo ID (chá»‰ Admin)</summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -82,7 +84,7 @@ public class EmployeesController : ControllerBase
             .FirstOrDefaultAsync(x => x.EmployeeId == id);
 
         if (e == null)
-            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
 
         return Ok(new EmployeeResponse
         {
@@ -99,22 +101,22 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>Tạo nhân viên mới (chỉ Admin)</summary>
+    /// <summary>Táº¡o nhÃ¢n viÃªn má»›i (chá»‰ Admin)</summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest request)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        // Kiểm tra DepartmentId hợp lệ
+        // Kiá»ƒm tra DepartmentId há»£p lá»‡
         if (request.DepartmentId.HasValue &&
             !await _context.Departments.AnyAsync(d => d.DepartmentId == request.DepartmentId))
-            return BadRequest(new { message = $"DepartmentId {request.DepartmentId} không tồn tại" });
+            return BadRequest(new { message = $"DepartmentId {request.DepartmentId} khÃ´ng tá»“n táº¡i" });
 
-        // Kiểm tra PositionId hợp lệ
+        // Kiá»ƒm tra PositionId há»£p lá»‡
         if (request.PositionId.HasValue &&
             !await _context.Positions.AnyAsync(p => p.PositionId == request.PositionId))
-            return BadRequest(new { message = $"PositionId {request.PositionId} không tồn tại" });
+            return BadRequest(new { message = $"PositionId {request.PositionId} khÃ´ng tá»“n táº¡i" });
 
         var employee = new Employee
         {
@@ -134,7 +136,7 @@ public class EmployeesController : ControllerBase
         await _context.Entry(employee).Reference(e => e.Department).LoadAsync();
         await _context.Entry(employee).Reference(e => e.Position).LoadAsync();
 
-        // Broadcast real-time update tới clients đang theo dõi
+        // Broadcast real-time update tá»›i clients Ä‘ang theo dÃµi
         int total = await _context.Employees.CountAsync();
         int active = await _context.Employees.CountAsync(e => e.Status == true);
         await _hubContext.Clients.Group("stats").SendAsync("ReceiveStatsUpdate", new EmployeeCountChangedEvent
@@ -160,7 +162,7 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>Cập nhật nhân viên (chỉ Admin)</summary>
+    /// <summary>Cáº­p nháº­t nhÃ¢n viÃªn (chá»‰ Admin)</summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateEmployeeRequest request)
     {
@@ -173,7 +175,7 @@ public class EmployeesController : ControllerBase
             .FirstOrDefaultAsync(e => e.EmployeeId == id);
 
         if (employee == null)
-            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
 
         if (request.FullName != null)
             employee.FullName = request.FullName;
@@ -181,14 +183,14 @@ public class EmployeesController : ControllerBase
         if (request.DepartmentId.HasValue)
         {
             if (!await _context.Departments.AnyAsync(d => d.DepartmentId == request.DepartmentId))
-                return BadRequest(new { message = $"DepartmentId {request.DepartmentId} không tồn tại" });
+                return BadRequest(new { message = $"DepartmentId {request.DepartmentId} khÃ´ng tá»“n táº¡i" });
             employee.DepartmentId = request.DepartmentId;
         }
 
         if (request.PositionId.HasValue)
         {
             if (!await _context.Positions.AnyAsync(p => p.PositionId == request.PositionId))
-                return BadRequest(new { message = $"PositionId {request.PositionId} không tồn tại" });
+                return BadRequest(new { message = $"PositionId {request.PositionId} khÃ´ng tá»“n táº¡i" });
             employee.PositionId = request.PositionId;
         }
 
@@ -218,18 +220,18 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>Xóa nhân viên (chỉ Admin)</summary>
+    /// <summary>XÃ³a nhÃ¢n viÃªn (chá»‰ Admin)</summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
         var employee = await _context.Employees.FindAsync(id);
         if (employee == null)
-            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
 
         _context.Employees.Remove(employee);
         await _context.SaveChangesAsync();
 
-        // Broadcast real-time update tới clients đang theo dõi
+        // Broadcast real-time update tá»›i clients Ä‘ang theo dÃµi
         int total = await _context.Employees.CountAsync();
         int active = await _context.Employees.CountAsync(e => e.Status == true);
         await _hubContext.Clients.Group("stats").SendAsync("ReceiveStatsUpdate", new EmployeeCountChangedEvent
@@ -243,32 +245,32 @@ public class EmployeesController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Upload ảnh khuôn mặt nhân viên từ file máy tính (chỉ Admin)</summary>
+    /// <summary>Upload áº£nh khuÃ´n máº·t nhÃ¢n viÃªn tá»« file mÃ¡y tÃ­nh (chá»‰ Admin)</summary>
     [HttpPost("{id}/face")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadFace(int id, IFormFile file)
     {
         var employee = await _context.Employees.FindAsync(id);
         if (employee == null)
-            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
+            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
 
         if (file == null || file.Length == 0)
-            return BadRequest(new { message = "Vui lòng chọn file ảnh" });
+            return BadRequest(new { message = "Vui lÃ²ng chá»n file áº£nh" });
 
-        // Kiểm tra định dạng file
+        // Kiá»ƒm tra Ä‘á»‹nh dáº¡ng file
         var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp", "image/jpg" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
-            return BadRequest(new { message = "Chỉ chấp nhận file ảnh (JPG, PNG, WebP)" });
+            return BadRequest(new { message = "Chá»‰ cháº¥p nháº­n file áº£nh (JPG, PNG, WebP)" });
 
-        // Giới hạn dung lượng 5MB
+        // Giá»›i háº¡n dung lÆ°á»£ng 5MB
         if (file.Length > 5 * 1024 * 1024)
-            return BadRequest(new { message = "Kích thước ảnh không được vượt quá 5MB" });
+            return BadRequest(new { message = "KÃ­ch thÆ°á»›c áº£nh khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 5MB" });
 
-        // Tạo thư mục lưu ảnh nếu chưa có
+        // Táº¡o thÆ° má»¥c lÆ°u áº£nh náº¿u chÆ°a cÃ³
         var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "faces");
         Directory.CreateDirectory(uploadFolder);
 
-        // Xóa ảnh cũ nếu có
+        // XÃ³a áº£nh cÅ© náº¿u cÃ³
         if (!string.IsNullOrEmpty(employee.FaceImageUrl))
         {
             var oldFileName = Path.GetFileName(employee.FaceImageUrl);
@@ -277,24 +279,98 @@ public class EmployeesController : ControllerBase
                 System.IO.File.Delete(oldFilePath);
         }
 
-        // Tạo tên file duy nhất
+        // Táº¡o tÃªn file duy nháº¥t
         var ext = Path.GetExtension(file.FileName).ToLower();
         var newFileName = $"emp_{id}_{Guid.NewGuid():N}{ext}";
         var newFilePath = Path.Combine(uploadFolder, newFileName);
 
-        // Lưu file
+        // LÆ°u file
         using (var stream = new FileStream(newFilePath, FileMode.Create))
             await file.CopyToAsync(stream);
 
-        // Cập nhật URL vào DB (dạng path tương đối để serve qua static files)
+        // Cáº­p nháº­t URL vÃ o DB (dáº¡ng path tÆ°Æ¡ng Ä‘á»‘i Ä‘á»ƒ serve qua static files)
         employee.FaceImageUrl = $"/uploads/faces/{newFileName}";
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
-            message = "Upload ảnh thành công",
+            message = "Upload áº£nh thÃ nh cÃ´ng",
             employeeId = id,
             faceImageUrl = employee.FaceImageUrl
         });
     }
+
+    [HttpGet("{id}/face-image")]
+    public async Task<IActionResult> GetFaceImage(int id)
+    {
+        var employee = await _context.Employees
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.EmployeeId == id);
+
+        if (employee == null)
+            return NotFound(new { message = $"Khong tim thay nhan vien ID {id}" });
+
+        if (string.IsNullOrWhiteSpace(employee.FaceImageUrl))
+            return NotFound(new { message = "Nhan vien chua co anh khuon mat" });
+
+        if (employee.FaceImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            employee.FaceImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Anh ben ngoai khong duoc proxy qua endpoint noi bo" });
+        }
+
+        var fileName = Path.GetFileName(employee.FaceImageUrl);
+        if (string.IsNullOrWhiteSpace(fileName))
+            return NotFound(new { message = "Duong dan anh khong hop le" });
+
+        var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "faces");
+        var fullPath = Path.GetFullPath(Path.Combine(uploadFolder, fileName));
+        var allowedRoot = Path.GetFullPath(uploadFolder);
+
+        if (!fullPath.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(fullPath))
+            return NotFound(new { message = "Khong tim thay file anh" });
+
+        await AuditEvidenceRead("EmployeeFaceImage", id.ToString(), fullPath);
+        return PhysicalFile(fullPath, ResolveImageContentType(fullPath), enableRangeProcessing: false);
+    }
+
+    private async Task AuditEvidenceRead(string entityName, string entityId, string filePath)
+    {
+        var userIdRaw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var username = User.Identity?.Name
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? userIdRaw;
+
+        _context.SystemAuditLogs.Add(new SystemAuditLog
+        {
+            TimestampUtc = DateTime.UtcNow,
+            UserId = int.TryParse(userIdRaw, out var userId) ? userId : null,
+            Username = username,
+            HttpMethod = HttpContext.Request.Method,
+            Path = HttpContext.Request.Path.Value,
+            ActionType = "READ",
+            EntityName = entityName,
+            EntityId = entityId,
+            NewValuesJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                fileName = Path.GetFileName(filePath)
+            }),
+            IsSuccess = true,
+            StatusCode = StatusCodes.Status200OK
+        });
+        await _context.SaveChangesAsync();
+    }
+
+    private static string ResolveImageContentType(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
+    }
 }
+

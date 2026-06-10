@@ -29,9 +29,24 @@ public class AppUser
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public int TokenVersion { get; set; }
+
+    public bool MfaEnabled { get; set; }
+
+    [MaxLength(2048)]
+    public string? MfaSecretProtected { get; set; }
+
+    public DateTime? MfaConfiguredAtUtc { get; set; }
+
+    public DateTime? LastLoginAtUtc { get; set; }
+
+    public DateTime? LastPasswordChangedAtUtc { get; set; }
+
     // Liên kết với Employee (nullable – tài khoản Admin có thể không gắn nhân viên)
     public int? EmployeeId { get; set; }
 
     [ForeignKey("EmployeeId")]
     public virtual Employee? Employee { get; set; }
+
+    public virtual ICollection<UserRefreshToken> RefreshTokens { get; set; } = new List<UserRefreshToken>();
 }

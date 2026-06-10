@@ -134,6 +134,24 @@ namespace API.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<DateTime?>("LastLoginAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastPasswordChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("MfaConfiguredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("MfaEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("MfaSecretProtected")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -145,6 +163,11 @@ namespace API.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("Staff");
+
+                    b.Property<int>("TokenVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -1021,6 +1044,14 @@ namespace API.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("ClientIp")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("EntityId")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
@@ -1028,6 +1059,13 @@ namespace API.Migrations
                     b.Property<string>("EntityName")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("EventCategory")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)")
+                        .HasDefaultValue("APPLICATION");
 
                     b.Property<string>("FailureReason")
                         .HasMaxLength(1000)
@@ -1050,11 +1088,22 @@ namespace API.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("INFO");
+
                     b.Property<int?>("StatusCode")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("TimestampUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int?>("UserId")
                         .HasColumnType("int");
@@ -1065,7 +1114,65 @@ namespace API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("EventCategory", "TimestampUtc");
+
                     b.ToTable("SystemAuditLogs");
+                });
+
+            modelBuilder.Entity("API.Models.UserRefreshToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("(getutcdate())");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("JwtId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReplacedByTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ExpiresAtUtc");
+
+                    b.ToTable("UserRefreshTokens");
                 });
 
             modelBuilder.Entity("API.Models.Vehicle", b =>
@@ -1449,6 +1556,18 @@ namespace API.Migrations
                     b.Navigation("HostEmployee");
                 });
 
+            modelBuilder.Entity("API.Models.UserRefreshToken", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UserRefreshTokens_AppUser");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("API.Models.Vehicle", b =>
                 {
                     b.HasOne("API.Models.Employee", "Employee")
@@ -1516,6 +1635,11 @@ namespace API.Migrations
             modelBuilder.Entity("API.Models.AccessLog", b =>
                 {
                     b.Navigation("InverseEntryLog");
+                });
+
+            modelBuilder.Entity("API.Models.AppUser", b =>
+                {
+                    b.Navigation("RefreshTokens");
                 });
 
             modelBuilder.Entity("API.Models.Camera", b =>

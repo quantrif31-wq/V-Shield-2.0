@@ -62,6 +62,7 @@ public partial class ApplicationDbContext : DbContext
     public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
     public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
     public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
+    public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
 
     public override int SaveChanges()
     {
@@ -185,6 +186,8 @@ public partial class ApplicationDbContext : DbContext
                 TimestampUtc = DateTime.UtcNow,
                 UserId = _currentUserContext?.UserId,
                 Username = _currentUserContext?.Username,
+                EventCategory = "DATA_CHANGE",
+                Severity = "INFO",
                 ActionType = action,
                 EntityName = entry.Metadata.ClrType.Name,
                 OldValuesJson = oldValues,
@@ -349,6 +352,8 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.Role).HasDefaultValue("Staff");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getutcdate())");
+            entity.Property(e => e.TokenVersion).HasDefaultValue(0);
+            entity.Property(e => e.MfaEnabled).HasDefaultValue(false);
 
             // Quan hệ 1-1: một AppUser gắn với tối đa một Employee
             entity.HasOne(u => u.Employee)
@@ -357,6 +362,29 @@ public partial class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.SetNull)
                   .HasConstraintName("FK_AppUser_Employee");
         });
+
+        modelBuilder.Entity<UserRefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.ExpiresAtUtc });
+            entity.Property(e => e.CreatedAtUtc).HasDefaultValueSql("(getutcdate())");
+
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.RefreshTokens)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("FK_UserRefreshTokens_AppUser");
+        });
+
+        modelBuilder.Entity<SystemAuditLog>(entity =>
+        {
+            entity.Property(e => e.EventCategory).HasDefaultValue("APPLICATION");
+            entity.Property(e => e.Severity).HasDefaultValue("INFO");
+            entity.HasIndex(e => e.CorrelationId);
+            entity.HasIndex(e => new { e.EventCategory, e.TimestampUtc });
+        });
+
         modelBuilder.Entity<EmployeeFaceVideo>(entity =>
         {
             entity.HasKey(e => e.Id);

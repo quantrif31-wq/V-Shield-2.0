@@ -1,11 +1,13 @@
 ﻿using API.DTOs;
 using API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleManagementService _vehicleService;
@@ -125,4 +127,5 @@ public class VehiclesController : ControllerBase
         return NoContent();
     }
 }
+
 

@@ -67,14 +67,9 @@
                 <div class="card-header-info">
                     <h2>Đăng ký khách thăm quan</h2>
                     <div class="host-info-card">
-                        <template v-if="hostInfo.hostFaceImageUrl">
-                            <img :src="API_BASE + hostInfo.hostFaceImageUrl" class="host-avatar avatar-img" @error="$event.target.style.display = 'none'" />
-                        </template>
-                        <template v-else>
-                            <div class="host-avatar">
-                                {{ getInitials(hostInfo.hostEmployeeName) }}
-                            </div>
-                        </template>
+                        <div class="host-avatar">
+                            {{ getInitials(hostInfo.hostEmployeeName) }}
+                        </div>
                         <div class="host-details">
                             <span class="host-name">{{ hostInfo.hostEmployeeName }}</span>
                             <span v-if="hostInfo.hostPositionName || hostInfo.hostDepartmentName" class="host-role">
@@ -230,7 +225,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { validateToken, submitRegistration } from '../services/preRegistrationApi'
-import { API_ORIGIN } from '../config/api'
 import { validateVietnameseName, normalizeVietnameseName } from '../utils/nameValidator'
 
 const route = useRoute()
@@ -298,8 +292,6 @@ const form = reactive({
 })
 
 // ── Helpers ──────────────────────────────────────
-const API_BASE = API_ORIGIN;
-
 const getInitials = (name) => {
     if (!name) return '??'
     return name.split(' ').map(w => w[0]).join('').slice(-2).toUpperCase()

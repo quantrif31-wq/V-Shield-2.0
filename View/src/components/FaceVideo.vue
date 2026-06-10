@@ -82,7 +82,7 @@ class="video-item"
 >
 
 <video
-:src="baseURL + video.filePath"
+:src="videoPlaybackUrls[video.id] || ''"
 controls
 ></video>
 
@@ -105,12 +105,13 @@ Xóa
 
 <script>
 
-import axios from "axios"
-import { API_BASE_URL, API_ORIGIN } from "../config/api"
+import { authState } from "../stores/auth"
+import { getAll as getEmployees } from "../services/employeeApi"
 
 import {
 uploadFaceVideo,
 getEmployeeVideos,
+getProtectedVideoBlob,
 deleteVideo
 } from "../services/faceVideoApi"
 
@@ -130,21 +131,25 @@ uploading:false,
 
 videos:[],
 
+videoPlaybackUrls:{},
+
 employees:[],
 
 selectedEmployeeId:"",
 
-isAdmin:false,
-
-baseURL:API_ORIGIN
+isAdmin:false
 
 }
 
 },
 
+beforeUnmount(){
+this.releaseVideoObjectUrls()
+},
+
 async mounted(){
 
-const user = JSON.parse(localStorage.getItem("v_shield_user"))
+const user = authState.user
 
 if(user?.role === "Admin"){
 
@@ -169,15 +174,7 @@ async loadEmployees(){
 
 try{
 
-const res = await axios.get(
-`${API_BASE_URL}/Employees`,
-{
-headers:{
-Authorization:`Bearer ${localStorage.getItem("v_shield_token")}`
-}
-}
-)
-
+const res = await getEmployees()
 this.employees = res.data
 
 }catch(err){
@@ -271,17 +268,53 @@ if(!this.selectedEmployeeId) return
 
 try{
 
+this.releaseVideoObjectUrls()
+
 const res = await getEmployeeVideos(
 this.selectedEmployeeId
 )
 
 this.videos = res.data
 
+await this.loadProtectedVideoUrls()
+
 }catch(err){
 
 console.error(err)
 
 }
+
+},
+
+async loadProtectedVideoUrls(){
+
+const entries = await Promise.all(
+this.videos.map(async (video) => {
+try{
+const response = await getProtectedVideoBlob(video.id)
+const objectUrl = URL.createObjectURL(response.data)
+return [video.id, objectUrl]
+}catch(err){
+console.error("VIDEO LOAD ERROR:", err)
+return [video.id, ""]
+}
+})
+)
+
+this.videoPlaybackUrls = Object.fromEntries(entries)
+
+},
+
+
+releaseVideoObjectUrls(){
+
+Object.values(this.videoPlaybackUrls).forEach((url) => {
+if(url){
+URL.revokeObjectURL(url)
+}
+})
+
+this.videoPlaybackUrls = {}
 
 },
 

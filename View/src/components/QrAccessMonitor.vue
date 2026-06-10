@@ -125,12 +125,7 @@
       <div class="auth-dialog" @click.stop>
         <h3>Xac thuc doi camera</h3>
         <p>{{ authModal.cameraName }} (ID: {{ authModal.cameraId }})</p>
-        <input
-          v-model="authModal.password"
-          type="password"
-          placeholder="Nhap mat khau tai khoan..."
-          @keyup.enter="confirmCameraAuth"
-        />
+        <p class="auth-hint">Su dung phien dang nhap hien tai de xac thuc camera.</p>
         <div class="auth-error" v-if="authModal.error">{{ authModal.error }}</div>
         <div class="auth-actions">
           <button type="button" class="qrm-btn qrm-btn-off" :disabled="authModal.loading" @click="closeAuthModal">Huy</button>
@@ -144,11 +139,10 @@
 </template>
 
 <script>
-import axios from "axios";
+import http from "../services/http";
 import { getCameras } from "../services/cameraRuntimeApi";
 import { getRuntimeServices, startRuntimeService, stopRuntimeService, updateRuntimeService } from "../services/runtimeServiceApi";
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce } from "../services/dynamicQrScannerApi";
-import { authState } from "../stores/auth";
 
 const SCAN_TIMEOUT_MS = 6500;
 const DUPLICATE_SUPPRESS_MS = 1800;
@@ -177,7 +171,6 @@ export default {
         cameraName: "",
         cameraIp: "",
         viewUrl: "",
-        password: "",
         loading: false,
         error: ""
       },
@@ -187,11 +180,10 @@ export default {
           name: "Chot di bo 1",
           desc: "Quet QR kiem tra quyen Access",
           loading: false,
-          cameraIp: "",
-          viewUrl: "",
-          cameraId: null,
-          userPassword: "",
-          cameraVerified: false,
+        cameraIp: "",
+        viewUrl: "",
+        cameraId: null,
+        cameraVerified: false,
           previewRunning: false,
           previewKey: 0,
           resultTimer: null,
@@ -234,41 +226,6 @@ export default {
 
   methods: {
     setVideoRef() {},
-    getCurrentUserId() {
-      const fromStore = Number(
-        authState?.user?.userId ||
-        authState?.user?.UserId ||
-        authState?.user?.id ||
-        0
-      );
-      if (fromStore > 0) return fromStore;
-
-      try {
-        const raw = localStorage.getItem("v_shield_user");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const fromStorage = Number(parsed?.userId || parsed?.UserId || parsed?.id || 0);
-          if (fromStorage > 0) return fromStorage;
-        }
-      } catch {
-        // ignore and fallback JWT parse
-      }
-
-      try {
-        const token = localStorage.getItem("v_shield_token") || "";
-        const parts = String(token).split(".");
-        if (parts.length !== 3) return 0;
-        const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-        const normalized = payloadBase64.padEnd(payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4), "=");
-        const json = atob(normalized);
-        const payload = JSON.parse(json);
-        const fromSub = Number(payload?.sub || payload?.nameid || 0);
-        return fromSub > 0 ? fromSub : 0;
-      } catch {
-        return 0;
-      }
-    },
-
     runtimeState(name) {
       return (this.runtimeServices || []).find((item) => item?.name === name) || null;
     },
@@ -356,7 +313,6 @@ export default {
         cameraName: cam.cameraName || "Camera",
         cameraIp: cam.streamUrl,
         viewUrl: cam.urlView,
-        password: "",
         loading: false,
         error: ""
       };
@@ -370,27 +326,15 @@ export default {
 
     async confirmCameraAuth() {
       if (!this.authModal.open || !this.authModal.termId) return;
-      if (!this.authModal.password.trim()) {
-        this.authModal.error = "Vui long nhap mat khau.";
-        return;
-      }
 
       const term = this.terminals.find((x) => x.id === this.authModal.termId);
       if (!term) return;
 
-      const userId = this.getCurrentUserId();
-      if (userId <= 0) {
-        this.authModal.error = "Khong tim thay user dang dang nhap.";
-        return;
-      }
-
       this.authModal.loading = true;
       this.authModal.error = "";
       try {
-        await axios.post("/api/QrAccess/verify-camera-auth", {
-          CameraId: this.authModal.cameraId,
-          UserPassword: this.authModal.password,
-          LoggedInUserId: userId
+        await http.post("/QrAccess/verify-camera-auth", {
+          CameraId: this.authModal.cameraId
         });
 
         if (term.previewRunning) {
@@ -400,7 +344,6 @@ export default {
         term.cameraIp = this.authModal.cameraIp;
         term.viewUrl = this.authModal.viewUrl;
         term.cameraId = this.authModal.cameraId;
-        term.userPassword = this.authModal.password;
         term.cameraVerified = true;
         term.permissionState = "idle";
         term.identityLabel = "";
@@ -597,15 +540,12 @@ export default {
     async callApiScanAccess(term, payload) {
       term.loading = true;
       try {
-        const userId = this.getCurrentUserId();
         const reqData = {
           QrPayload: payload,
-          CameraId: term.cameraId,
-          UserPassword: term.userPassword,
-          LoggedInUserId: userId > 0 ? userId : null
+          CameraId: term.cameraId
         };
 
-        const res = await axios.post("/api/QrAccess/scan-access", reqData);
+        const res = await http.post("/QrAccess/scan-access", reqData);
         const data = res?.data?.data || {};
 
         term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
@@ -623,7 +563,7 @@ export default {
         term.verifiedName = String(data.subjectName || "");
         term.verifiedType = data.employeeId ? "Nhan vien" : "Khach";
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
-        term.verifyMessage = status === 401 ? "Mat khau tai khoan khong chinh xac." : message;
+        term.verifyMessage = status === 401 ? "Phiên đăng nhập không hợp lệ hoặc đã hết quyền." : message;
         term.permissionState = "deny";
       } finally {
         term.loading = false;

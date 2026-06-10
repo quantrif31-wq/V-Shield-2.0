@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using API.Data;
 using API.Models;
@@ -10,6 +12,8 @@ namespace API.Controllers
 {
     [Route("api/camera-runtime")]
     [ApiController]
+    [EnableRateLimiting("ops")]
+    [Authorize(Roles = "Admin")]
     public class CameraRuntimeController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -181,6 +185,11 @@ namespace API.Controllers
                 foreach (var cam in cameras)
                 {
                     var normalizedStreamUrl = NormalizeCameraUrl(cam.StreamUrl);
+                    if (string.IsNullOrWhiteSpace(normalizedStreamUrl))
+                    {
+                        continue;
+                    }
+
                     cam.UrlView = BuildCameraViewUrl(normalizedStreamUrl, cam.CameraId);
 
                     if (!ShouldProxyViaGo2Rtc(normalizedStreamUrl))
@@ -754,5 +763,8 @@ ingress:
         }
     }
     }
+
+
+
 
 
