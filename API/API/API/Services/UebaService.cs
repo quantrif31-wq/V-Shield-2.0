@@ -62,7 +62,7 @@ public class UebaService : IUebaService
         var avgPerDay = Math.Round(totalCount * 1.0 / totalDays, 2);
 
         var hours = logs.Where(l => l.Timestamp.HasValue)
-            .Select(l => l.Timestamp.Value.Hour)
+            .Select(l => l.Timestamp!.Value.Hour)
             .OrderBy(h => h)
             .ToList();
 
@@ -92,7 +92,7 @@ public class UebaService : IUebaService
             .ToList();
 
         var daysSinceLastAccess = logs.Count > 0 && logs.Last().Timestamp.HasValue
-            ? (int)(DateTime.UtcNow - logs.Last().Timestamp.Value).TotalDays
+            ? (int)(DateTime.UtcNow - logs.Last().Timestamp!.Value).TotalDays
             : 999;
 
         var riskScore = CalculateRiskScore(bypassRate, daysSinceLastAccess, weekendRatio, avgPerDay, totalCount);

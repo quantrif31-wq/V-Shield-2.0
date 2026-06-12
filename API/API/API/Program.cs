@@ -120,6 +120,7 @@ namespace API
             builder.Services.AddSingleton<API.Services.ImportExport.AI.IFileAnalyzer, API.Services.ImportExport.AI.FileAnalyzer>();
             builder.Services.AddSingleton<API.Services.ImportExport.Validation.SynonymRegistry>();
             builder.Services.AddSingleton<API.Services.ImportExport.Validation.SynonymDetector>();
+            builder.Services.AddSingleton<API.Services.ImportExport.Validation.IStructureValidator, API.Services.ImportExport.Validation.StructureValidator>();
             builder.Services.AddSingleton<API.Services.ImportExport.AI.IOcrService, API.Services.ImportExport.AI.OcrService>();
             builder.Services.AddSingleton<API.Services.ImportExport.AI.IAiNormalizationService, API.Services.ImportExport.AI.AiNormalizationService>();
             builder.Services.AddScoped<API.Services.ImportExport.AI.IAiImportService, API.Services.ImportExport.AI.AiImportService>();
