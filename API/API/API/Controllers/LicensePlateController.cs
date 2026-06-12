@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using API.Models;
 using API.Data;
+using API.Services;
 
 namespace API.Controllers
 {
@@ -14,10 +15,12 @@ namespace API.Controllers
     public class LicensePlateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPlateFuzzyService _plateFuzzy;
 
-        public LicensePlateController(ApplicationDbContext context)
+        public LicensePlateController(ApplicationDbContext context, IPlateFuzzyService plateFuzzy)
         {
             _context = context;
+            _plateFuzzy = plateFuzzy;
         }
 
         // =========================
@@ -108,6 +111,80 @@ namespace API.Controllers
 
             return Ok(data);
         }
+
+        [HttpPost("fuzzy-match")]
+        public async Task<IActionResult> FuzzyMatch([FromBody] FuzzyMatchRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Plate))
+                return BadRequest(new { message = "Bien so khong duoc de trong." });
+
+            var results = await _plateFuzzy.FindSimilarPlatesAsync(
+                request.Plate, request.MinScore, request.MaxResults);
+
+            return Ok(new
+            {
+                query = request.Plate,
+                normalized = LicensePlateHelper.NormalizeForMatch(request.Plate),
+                results
+            });
+        }
+
+        [HttpGet("{plate}/timeline")]
+        public async Task<IActionResult> GetTimeline(string plate, [FromQuery] int hours = 24)
+        {
+            if (string.IsNullOrWhiteSpace(plate))
+                return BadRequest(new { message = "Bien so khong duoc de trong." });
+
+            var entries = await _plateFuzzy.GetPlateTimelineAsync(plate, hours);
+
+            return Ok(new
+            {
+                plate,
+                normalized = LicensePlateHelper.NormalizeForMatch(plate),
+                hours,
+                entries
+            });
+        }
+
+        [HttpGet("{plate}/anomalies")]
+        public async Task<IActionResult> GetAnomalies(string plate, [FromQuery] int hours = 24)
+        {
+            if (string.IsNullOrWhiteSpace(plate))
+                return BadRequest(new { message = "Bien so khong duoc de trong." });
+
+            var anomalies = await _plateFuzzy.CheckAnomaliesAsync(plate, hours);
+
+            return Ok(new
+            {
+                plate,
+                normalized = LicensePlateHelper.NormalizeForMatch(plate),
+                hours,
+                anomalies
+            });
+        }
+
+        [HttpPost("suggest-correction")]
+        public async Task<IActionResult> SuggestCorrection([FromBody] SuggestCorrectionRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.RawOcr))
+                return BadRequest(new { message = "Du lieu OCR khong duoc de trong." });
+
+            var result = await _plateFuzzy.SuggestCorrectionAsync(request.RawOcr);
+
+            return Ok(result);
+        }
+    }
+
+    public class FuzzyMatchRequest
+    {
+        public string Plate { get; set; } = string.Empty;
+        public double MinScore { get; set; } = 0.6;
+        public int MaxResults { get; set; } = 10;
+    }
+
+    public class SuggestCorrectionRequest
+    {
+        public string RawOcr { get; set; } = string.Empty;
     }
 }
 

@@ -432,18 +432,8 @@ namespace API.Controllers
             return Ok(GateTransitApiResponse.CreateSuccess("Lấy lịch sử theo nhân viên thành công.", result));
         }
 
-        private static string NormalizeLicensePlate(string? plate)
-        {
-            if (string.IsNullOrWhiteSpace(plate))
-            {
-                return string.Empty;
-            }
-
-            return plate.Trim()
-                .ToUpper()
-                .Replace(" ", string.Empty)
-                .Replace("-", string.Empty);
-        }
+        private static string NormalizeLicensePlate(string? plate) =>
+            LicensePlateHelper.NormalizeForMatch(plate);
 
         private static string NormalizeParkingStatus(string? status)
         {

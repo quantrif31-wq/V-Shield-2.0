@@ -169,6 +169,37 @@
       <div><b>Message:</b> {{ message || "-----" }}</div>
       <div><b>Last Update:</b> {{ lastUpdate || "-----" }}</div>
     </div>
+
+    <div class="fuzzy-panel" v-if="confirmedPlate">
+      <div class="fuzzy-header">
+        <span class="fuzzy-title">AI Fuzzy Match</span>
+        <button class="btn btn-sm btn-config" @click="runFuzzyMatch" :disabled="fuzzyLoading">
+          {{ fuzzyLoading ? 'Dang phan tich...' : 'Phan tich bien so' }}
+        </button>
+      </div>
+
+      <div v-if="fuzzySimilar.length > 0" class="fuzzy-results">
+        <div class="fuzzy-subtitle">Bien so tuong tu trong he thong ({{ fuzzySimilar.length }})</div>
+        <div v-for="r in fuzzySimilar" :key="r.vehicleId" class="fuzzy-row" :class="{ exact: r.isExactMatch }">
+          <span class="fuzzy-plate">{{ r.licensePlate }}</span>
+          <span class="fuzzy-owner">{{ r.ownerName || '--' }}</span>
+          <span class="fuzzy-score">{{ (r.score * 100).toFixed(0) }}%</span>
+          <span v-if="r.isExactMatch" class="badge success">Chinh xac</span>
+        </div>
+      </div>
+
+      <div v-if="fuzzyAnomalies.length > 0" class="fuzzy-anomalies">
+        <div class="fuzzy-subtitle">Canh bao bat thuong</div>
+        <div v-for="a in fuzzyAnomalies" :key="a.type + a.detectedAt" class="anomaly-row" :class="'severity-' + a.severity.toLowerCase()">
+          <span class="anomaly-type">{{ a.type }}</span>
+          <span class="anomaly-desc">{{ a.description }}</span>
+        </div>
+      </div>
+
+      <div v-if="fuzzyDone && fuzzySimilar.length === 0 && fuzzyAnomalies.length === 0" class="fuzzy-none">
+        Khong phat hien bat thuong. Bien so chua tung duoc ghi nhan.
+      </div>
+    </div>
   </div>
 </template>
 
@@ -183,6 +214,7 @@ import {
   getLockedImages
 } from "../services/plateCameraApi"
 import { getConfiguredCameras } from "../services/cameraRegistryApi"
+import { fuzzyMatchPlate, getPlateAnomalies } from "../services/plateRecognitionApi"
 
 const PLATE_CAMERA_SELECTION_STORAGE_KEY = "vshield-plate-selected-camera"
 
@@ -225,6 +257,11 @@ export default {
       lastUpdate: "",
 
       previewHealthy: false,
+
+      fuzzySimilar: [],
+      fuzzyAnomalies: [],
+      fuzzyLoading: false,
+      fuzzyDone: false,
 
       resultTimer: null,
       busyResult: false,
@@ -677,6 +714,28 @@ export default {
 
     handlePreviewError() {
       this.previewHealthy = false
+    },
+
+    async runFuzzyMatch() {
+      if (!this.confirmedPlate) return
+      this.fuzzyLoading = true
+      this.fuzzyDone = false
+      this.fuzzySimilar = []
+      this.fuzzyAnomalies = []
+
+      try {
+        const [matchRes, anomalyRes] = await Promise.all([
+          fuzzyMatchPlate({ plate: this.confirmedPlate, minScore: 0.5 }),
+          getPlateAnomalies(this.confirmedPlate, { hours: 48 })
+        ])
+        this.fuzzySimilar = matchRes.data?.results || []
+        this.fuzzyAnomalies = anomalyRes.data?.anomalies || []
+      } catch {
+        this.message = 'Loi phan tich bien so'
+      } finally {
+        this.fuzzyLoading = false
+        this.fuzzyDone = true
+      }
     }
   }
 }
@@ -925,6 +984,115 @@ export default {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 18px;
   text-align: left;
+}
+
+.fuzzy-panel {
+  margin-top: 20px;
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  text-align: left;
+}
+
+.fuzzy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fuzzy-title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.fuzzy-subtitle {
+  font-weight: 600;
+  margin: 10px 0 6px;
+  color: #374151;
+}
+
+.fuzzy-results,
+.fuzzy-anomalies {
+  margin-top: 8px;
+}
+
+.fuzzy-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 6px;
+}
+
+.fuzzy-row.exact {
+  border-color: #198754;
+  background: #f0fdf4;
+}
+
+.fuzzy-plate {
+  font-weight: 700;
+  min-width: 120px;
+}
+
+.fuzzy-owner {
+  color: #6b7280;
+  flex: 1;
+}
+
+.fuzzy-score {
+  font-size: 0.85rem;
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+.fuzzy-none {
+  color: #6b7280;
+  font-size: 0.9rem;
+  padding: 8px 0;
+}
+
+.anomaly-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.anomaly-row.severity-warning {
+  background: #fffbea;
+  border-color: #f5d48c;
+}
+
+.anomaly-row.severity-info {
+  background: #f0f7ff;
+  border-color: #b8d4f0;
+}
+
+.anomaly-type {
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  min-width: 100px;
+}
+
+.anomaly-desc {
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  min-width: auto;
 }
 
 @media (max-width: 960px) {

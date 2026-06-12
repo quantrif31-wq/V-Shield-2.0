@@ -114,7 +114,7 @@ public class VehicleManagementService : IVehicleManagementService
 
         var vehicle = new Vehicle
         {
-            LicensePlate = dto.LicensePlate.Trim().ToUpper(),
+            LicensePlate = LicensePlateHelper.NormalizeForStorage(dto.LicensePlate),
             VehicleTypeId = dto.VehicleTypeId,
             EmployeeId = dto.EmployeeId,
             Description = dto.Description
