@@ -42,4 +42,9 @@ public class FileParserFactory
         var normalized = format.TrimStart('.').ToLowerInvariant();
         return _parsers.ContainsKey(normalized);
     }
+
+    public List<string> GetSupportedFormats()
+    {
+        return _parsers.Keys.ToList();
+    }
 }

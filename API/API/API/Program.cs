@@ -108,6 +108,14 @@ namespace API
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.XmlFileParser>();
             builder.Services.AddSingleton<API.Services.ImportExport.FileParserFactory>();
+
+            // AI Import/Export services
+            builder.Services.AddSingleton<API.Services.ImportExport.AI.IFileAnalyzer, API.Services.ImportExport.AI.FileAnalyzer>();
+            builder.Services.AddSingleton<API.Services.ImportExport.Validation.SynonymRegistry>();
+            builder.Services.AddSingleton<API.Services.ImportExport.Validation.SynonymDetector>();
+            builder.Services.AddSingleton<API.Services.ImportExport.AI.IOcrService, API.Services.ImportExport.AI.OcrService>();
+            builder.Services.AddSingleton<API.Services.ImportExport.AI.IAiNormalizationService, API.Services.ImportExport.AI.AiNormalizationService>();
+            builder.Services.AddScoped<API.Services.ImportExport.AI.IAiImportService, API.Services.ImportExport.AI.AiImportService>();
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.EmployeeImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.VehicleImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.DepartmentImportHandler>();

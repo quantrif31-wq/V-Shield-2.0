@@ -11,12 +11,12 @@
             <div class="modal-body">
                 <FileDropZone
                     :ref="dropZoneRef"
-                    :supported-formats="supportedFormatsStr"
+                    :supported-formats="aiStatusAvailable ? `${supportedFormatsStr}, PDF, Hình ảnh` : supportedFormatsStr"
                     @file-selected="onFileSelected"
                     @file-removed="onFileRemoved"
                 />
 
-                <div v-if="selectedFile" class="import-options">
+                <div v-if="selectedFile && !importResult" class="import-options">
                     <label class="checkbox-label">
                         <input type="checkbox" v-model="skipDuplicates" />
                         <span>Bỏ qua dữ liệu trùng lặp</span>
@@ -27,7 +27,35 @@
                     </label>
                 </div>
 
-                <div v-if="previewResult" class="preview-section">
+                <!-- AI OCR Progress -->
+                <AiOcrProgress
+                    v-if="aiOcrVisible"
+                    :status="ocrStatus"
+                    :steps="ocrSteps"
+                    :error="ocrError"
+                    :detected-format="detectedFormat"
+                    :current-step="ocrCurrentStep"
+                />
+
+                <!-- AI Analysis Message -->
+                <div v-if="aiMessage" class="ai-message" :class="aiMessageType">
+                    {{ aiMessage }}
+                </div>
+
+                <!-- AI Preview + Normalization Report -->
+                <AiPreviewConfirm
+                    v-if="aiPreviewVisible"
+                    ref="aiPreviewRef"
+                    :ai-result="aiNormalizeResult"
+                    :total-rows="aiTotalRows"
+                    :change-count="aiChangeCount"
+                    :changes="aiChanges"
+                    :validation="aiValidation"
+                    :synonym-issues="synonymIssues"
+                />
+
+                <!-- Legacy Preview (fallback when AI not available) -->
+                <div v-if="previewResult && !aiSessionId" class="preview-section">
                     <h3>Kết quả preview</h3>
                     <div class="preview-stats">
                         <div class="stat-badge" :class="previewResult.errorCount > 0 ? 'error' : 'success'">
@@ -42,6 +70,7 @@
                     </div>
                 </div>
 
+                <!-- Import Result -->
                 <div v-if="importResult" class="result-section">
                     <div class="result-card" :class="resultClass">
                         <div class="result-icon">{{ resultIcon }}</div>
@@ -78,28 +107,36 @@
                 <button class="btn btn-secondary" @click="$emit('close')">Đóng</button>
                 <div v-if="!importResult" class="footer-right">
                     <button
-                        v-if="selectedFile && !previewResult"
+                        v-if="selectedFile && !aiSessionId && !aiPreviewVisible"
                         class="btn btn-outline"
-                        :disabled="previewLoading"
-                        @click="doPreview"
+                        :disabled="loading"
+                        @click="startAiFlow"
                     >
-                        {{ previewLoading ? 'Đang xử lý...' : 'Xem trước' }}
+                        {{ loading ? 'Đang xử lý...' : '🔍 Xem trước (AI)' }}
                     </button>
                     <button
                         v-if="selectedFile"
                         class="btn btn-primary"
-                        :disabled="importLoading"
+                        :disabled="loading || importLoading"
                         @click="format && downloadTemplateFile(format)"
                     >
                         📄 Tải template
                     </button>
                     <button
-                        v-if="selectedFile"
+                        v-if="selectedFile && !aiSessionId && !aiPreviewVisible"
                         class="btn btn-accent"
-                        :disabled="importLoading"
+                        :disabled="loading || importLoading"
                         @click="doImport"
                     >
                         {{ importLoading ? 'Đang Import...' : '📥 Import' }}
+                    </button>
+                    <button
+                        v-if="aiPreviewVisible"
+                        class="btn btn-accent"
+                        :disabled="importLoading"
+                        @click="doAiImport"
+                    >
+                        {{ importLoading ? 'Đang Import...' : '✅ Xác nhận & Import' }}
                     </button>
                 </div>
             </footer>
@@ -108,8 +145,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import FileDropZone from './FileDropZone.vue'
+import AiOcrProgress from './ai/AiOcrProgress.vue'
+import AiPreviewConfirm from './ai/AiPreviewConfirm.vue'
 import * as importExportApi from '../../services/importExportApi'
 
 const props = defineProps({
@@ -127,6 +166,28 @@ const previewResult = ref(null)
 const importResult = ref(null)
 const previewLoading = ref(false)
 const importLoading = ref(false)
+
+// AI state
+const aiStatusAvailable = ref(true)
+const aiSessionId = ref(null)
+const aiNormalizeResult = ref(null)
+const aiChanges = ref([])
+const aiChangeCount = ref(0)
+const aiTotalRows = ref(0)
+const aiValidation = ref(null)
+const aiPreviewVisible = ref(false)
+const synonymIssues = ref([])
+const aiMessage = ref('')
+const aiMessageType = ref('info')
+const detectedFormat = ref('')
+const loading = ref(false)
+
+// OCR state
+const aiOcrVisible = ref(false)
+const ocrStatus = ref('idle')
+const ocrSteps = ref(['Queued', 'Queued', 'Queued', 'Queued'])
+const ocrError = ref('')
+const ocrCurrentStep = ref(-1)
 
 const supportedFormatsStr = 'CSV, Excel, JSON, XML'
 
@@ -155,24 +216,183 @@ function onFileSelected(file) {
     selectedFile.value = file
     previewResult.value = null
     importResult.value = null
+    resetAiState()
 }
 
 function onFileRemoved() {
     selectedFile.value = null
     previewResult.value = null
     importResult.value = null
+    resetAiState()
 }
 
-async function doPreview() {
+function resetAiState() {
+    aiSessionId.value = null
+    aiNormalizeResult.value = null
+    aiChanges.value = []
+    aiChangeCount.value = 0
+    aiTotalRows.value = 0
+    aiValidation.value = null
+    aiPreviewVisible.value = false
+    synonymIssues.value = []
+    aiMessage.value = ''
+    aiMessageType.value = 'info'
+    detectedFormat.value = ''
+    aiOcrVisible.value = false
+    ocrStatus.value = 'idle'
+    ocrSteps.value = ['Queued', 'Queued', 'Queued', 'Queued']
+    ocrError.value = ''
+    ocrCurrentStep.value = -1
+}
+
+async function startAiFlow() {
     if (!selectedFile.value) return
-    previewLoading.value = true
+    loading.value = true
+    resetAiState()
+
     try {
-        const res = await importExportApi.previewImport(props.entityType, selectedFile.value)
-        previewResult.value = res.data
+        // Step 1: Analyze
+        aiMessage.value = 'Đang phân tích file...'
+        aiMessageType.value = 'info'
+        const analyzeRes = await importExportApi.aiAnalyze(props.entityType, selectedFile.value)
+        const analysis = analyzeRes.data
+        aiSessionId.value = analysis.sessionId
+        detectedFormat.value = analysis.detectedFormat
+
+        if (!analysis.isReadable) {
+            // Step 2: OCR
+            await runOcrFlow(analysis)
+        } else if (analysis.suggestedAction === 'normalize' || analysis.suggestedAction === 'import') {
+            aiMessage.value = `File ${analysis.detectedFormat.toUpperCase()} đã được đọc thành công (${analysis.totalRows} rows)`
+            aiMessageType.value = 'success'
+
+            // Step 3: Normalize
+            await runNormalizeFlow()
+        } else {
+            aiPreviewVisible.value = true
+            aiNormalizeResult.value = { ready: true }
+            aiTotalRows.value = analysis.totalRows || 0
+        }
     } catch (err) {
-        previewResult.value = { totalRows: 0, errorCount: 1, errors: [{ row: 0, message: err.message }] }
+        aiMessage.value = err.response?.data?.message || err.message || 'Lỗi khi phân tích file'
+        aiMessageType.value = 'error'
+        // Fallback to legacy preview
+        try {
+            const fallbackRes = await importExportApi.previewImport(props.entityType, selectedFile.value)
+            previewResult.value = fallbackRes.data
+        } catch (fallbackErr) {
+            previewResult.value = { totalRows: 0, errorCount: 1, errors: [{ row: 0, message: fallbackErr.message }] }
+        }
     } finally {
-        previewLoading.value = false
+        loading.value = false
+    }
+}
+
+async function runOcrFlow(analysis) {
+    aiOcrVisible.value = true
+    ocrStatus.value = 'processing'
+
+    // Step animation
+    ocrSteps.value = ['✓ Phân tích', 'Đang trích xuất...', 'Queued', 'Queued']
+    ocrCurrentStep.value = 1
+    await sleep(500)
+
+    ocrSteps.value = ['✓ Phân tích', 'Đang trích xuất...', 'Đang phân tích ngữ nghĩa...', 'Queued']
+    ocrCurrentStep.value = 2
+    await sleep(300)
+
+    try {
+        const ocrRes = await importExportApi.aiOcr(props.entityType, selectedFile.value)
+        const ocrData = ocrRes.data
+
+        ocrSteps.value = ['✓ Phân tích', '✓ Trích xuất', '✓ Phân tích ngữ nghĩa', 'Đang chuẩn hóa...']
+        ocrCurrentStep.value = 3
+        await sleep(200)
+
+        if (ocrData.status === 'failed') {
+            ocrStatus.value = 'error'
+            ocrError.value = ocrData.errorMessage || 'OCR processing failed'
+            return
+        }
+
+        aiChanges.value = ocrData.changes || []
+        aiChangeCount.value = ocrData.changeCount || 0
+        aiTotalRows.value = ocrData.totalRows || 0
+
+        ocrSteps.value = [
+            `✓ File ${analysis.detectedFormat?.toUpperCase() || 'unknown'}`,
+            `✓ ${ocrData.totalRows || 0} rows extracted`,
+            `✓ ${ocrData.changes?.length || 0} synonyms detected`,
+            'Đang gửi normalization...',
+        ]
+        ocrCurrentStep.value = 3
+        ocrStatus.value = 'done'
+        await sleep(300)
+
+        // Step 3: Normalize after OCR
+        await runNormalizeFlow()
+    } catch (err) {
+        ocrStatus.value = 'error'
+        ocrError.value = err.response?.data?.message || err.message || 'OCR processing failed'
+    }
+}
+
+async function runNormalizeFlow() {
+    if (!aiSessionId.value) return
+
+    aiMessage.value = 'Đang chuẩn hóa dữ liệu với AI...'
+    aiMessageType.value = 'info'
+
+    try {
+        const normRes = await importExportApi.aiNormalize(props.entityType, aiSessionId.value)
+        const normData = normRes.data
+
+        aiChanges.value = normData.changes || []
+        aiChangeCount.value = normData.changeCount || 0
+        aiTotalRows.value = normData.totalRows || 0
+        aiValidation.value = normData.validation || null
+        aiPreviewVisible.value = true
+
+        const errorCount = normData.validation?.errorCount || 0
+        if (normData.readyForImport) {
+            aiMessage.value = `Dữ liệu đã sẵn sàng để import (${aiTotalRows.value} rows, ${aiChangeCount.value} changes)`
+            aiMessageType.value = 'success'
+        } else {
+            aiMessage.value = `Dữ liệu có ${errorCount} lỗi cần xem xét trước khi import`
+            aiMessageType.value = 'warning'
+        }
+    } catch (err) {
+        aiMessage.value = err.response?.data?.message || err.message || 'Lỗi khi chuẩn hóa dữ liệu'
+        aiMessageType.value = 'error'
+    }
+}
+
+async function doAiImport() {
+    if (!aiSessionId.value) return
+    importLoading.value = true
+
+    try {
+        const previewRef = await nextTick()
+        const opts = {
+            confirmNormalization: true,
+            overrideConflicts: false,
+        }
+
+        const res = await importExportApi.aiConfirm(props.entityType, aiSessionId.value, opts)
+        importResult.value = res.data
+        if (res.data.status === 'Completed' || res.data.status === 'PartialSuccess') {
+            emit('import-complete', res.data)
+        }
+    } catch (err) {
+        importResult.value = {
+            successCount: 0,
+            errorCount: 1,
+            warningCount: 0,
+            status: 'Failed',
+            errors: [{ row: 0, message: err.response?.data?.message || err.message }],
+        }
+    } finally {
+        importLoading.value = false
     }
 }
 
@@ -215,6 +435,10 @@ async function downloadTemplateFile(format) {
     } catch (err) {
         console.error('Template download failed', err)
     }
+}
+
+function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms))
 }
 </script>
 
@@ -276,7 +500,7 @@ async function downloadTemplateFile(format) {
 .footer-right { display: flex; gap: 0.5rem; }
 
 .import-options {
-    margin-top: 1rem;
+    margin-top: 0.75rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -290,6 +514,20 @@ async function downloadTemplateFile(format) {
     cursor: pointer;
 }
 .checkbox-label input { accent-color: var(--accent, #3b82f6); }
+
+.ai-message {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.ai-message.info { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
+.ai-message.success { background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); }
+.ai-message.warning { background: rgba(234, 179, 8, 0.1); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.2); }
+.ai-message.error { background: rgba(239, 68, 68, 0.1); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.2); }
 
 .preview-section, .result-section { margin-top: 1rem; }
 .preview-section h3, .error-detail-section h4 {
@@ -333,7 +571,6 @@ async function downloadTemplateFile(format) {
 .result-icon { font-size: 2rem; }
 .result-title { font-weight: 600; margin: 0; color: var(--text-primary, #f3f4f6); }
 .result-stats { font-size: 0.8rem; margin: 0.25rem 0 0; color: var(--text-secondary, #9ca3af); }
-
 .error-table-wrap { max-height: 200px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border-color, #374151); }
 .error-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .error-table th {

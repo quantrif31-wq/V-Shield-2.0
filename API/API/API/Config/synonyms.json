@@ -1,0 +1,21 @@
+{
+  "booleans": {
+    "true": ["1", "yes", "có", "co", "x", "✓", "✔", "active", "TRUE", "True"],
+    "false": ["0", "no", "không", "khong", "inactive", "FALSE", "False", ""]
+  },
+  "roles": {
+    "Admin": ["admin", "ADMIN", "quản trị", "quản trị viên", "quantri", "quantrivien"],
+    "Staff": ["staff", "STAFF", "nhân viên", "nhan vien", "nhanvien", "nv", "employee"],
+    "BaoVe": ["baove", "bảo vệ", "BẢO VỆ", "security", "guard"]
+  },
+  "departments": {
+    "Phòng Kỹ thuật": ["p. kỹ thuật", "p ky thuat", "kỹ thuật", "ky thuat", "IT", "it", "P. Kỹ thuật"],
+    "Phòng Nhân sự": ["p. nhân sự", "p nhan su", "nhân sự", "nhan su", "HR", "hr"],
+    "Phòng Bảo vệ": ["p. bảo vệ", "p bao ve", "bảo vệ", "bao ve"]
+  },
+  "positions": {
+    "Nhân viên": ["nv", "nhan vien", "staff"],
+    "Trưởng nhóm": ["truong nhom", "truongnhom", "team lead", "leader", "trưởng phòng"],
+    "Bảo vệ": ["bao ve", "security guard", "guard"]
+  }
+}
