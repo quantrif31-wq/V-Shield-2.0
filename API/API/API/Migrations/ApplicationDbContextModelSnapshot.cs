@@ -1170,6 +1170,70 @@ namespace API.Migrations
                     b.ToTable("CameraPlates");
                 });
 
+            modelBuilder.Entity("API.Models.CampusMapLayout", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("GateId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("H")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("IsLocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("(getutcdate())");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("W")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("X")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("Y")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("ZIndex")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GateId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("CampusMapLayouts");
+                });
+
             modelBuilder.Entity("API.Models.ChainOfCustodyEntry", b =>
                 {
                     b.Property<long>("ChainOfCustodyEntryId")
@@ -5493,6 +5557,26 @@ namespace API.Migrations
                         .HasConstraintName("FK_Camera_Gate");
 
                     b.Navigation("Gate");
+                });
+
+            modelBuilder.Entity("API.Models.CampusMapLayout", b =>
+                {
+                    b.HasOne("API.Models.Gate", "Gate")
+                        .WithMany()
+                        .HasForeignKey("GateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_CampusMapLayouts_Gate");
+
+                    b.HasOne("API.Models.AppUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_CampusMapLayouts_AppUser");
+
+                    b.Navigation("Gate");
+
+                    b.Navigation("UpdatedByUser");
                 });
 
             modelBuilder.Entity("API.Models.ChainOfCustodyEntry", b =>
