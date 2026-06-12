@@ -29,6 +29,13 @@ public class Attendance
     [Column(TypeName = "decimal(8,2)")]
     public decimal OvertimeHours { get; set; }
 
+    [Column(TypeName = "decimal(8,2)")]
+    public decimal ZoneDwellTime { get; set; }
+
+    public int ZoneTransitCount { get; set; }
+
+    public bool IsZoneDerived { get; set; }
+
     [Required]
     [MaxLength(40)]
     public string Status { get; set; } = AttendanceStatuses.NotCheckedIn;
@@ -49,5 +56,7 @@ public class Attendance
 
     [ForeignKey(nameof(ScheduleId))]
     public virtual WorkSchedule? Schedule { get; set; }
+
+    public virtual ICollection<ZoneTransit> ZoneTransits { get; set; } = new List<ZoneTransit>();
 }
 

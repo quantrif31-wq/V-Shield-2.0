@@ -21,11 +21,13 @@ namespace API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly StaticVisitorQrService _visitorQrService;
+        private readonly IZoneTransitService _zoneTransitService;
 
-        public QrAccessController(ApplicationDbContext context, StaticVisitorQrService visitorQrService)
+        public QrAccessController(ApplicationDbContext context, StaticVisitorQrService visitorQrService, IZoneTransitService zoneTransitService)
         {
             _context = context;
             _visitorQrService = visitorQrService;
+            _zoneTransitService = zoneTransitService;
         }
 
         [HttpPost("scan-access")]
@@ -162,6 +164,12 @@ namespace API.Controllers
                 _context.AccessLogs.Add(newLog);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                if (targetEmployeeId.HasValue)
+                {
+                    _ = _zoneTransitService.ProcessTransitAsync(
+                        targetEmployeeId.Value, gateId, "IN", newLog.Timestamp ?? DateTime.Now, ZoneTransitSources.Qr);
+                }
 
                 // 6. Trả kết quả
                 if (!hasAccess)

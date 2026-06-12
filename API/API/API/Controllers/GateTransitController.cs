@@ -1,5 +1,6 @@
 ﻿using API.Data;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
@@ -13,10 +14,12 @@ namespace API.Controllers
     public class GateTransitController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IZoneTransitService _zoneTransitService;
 
-        public GateTransitController(ApplicationDbContext context)
+        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService)
         {
             _context = context;
+            _zoneTransitService = zoneTransitService;
         }
 
         /// <summary>
@@ -94,6 +97,8 @@ namespace API.Controllers
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, newStatus, DateTime.Now, ZoneTransitSources.AccessLog);
+
                     return Ok(GateTransitApiResponse.CreateSuccess(
                         $"Cập nhật trạng thái thành công: {oldStatus} -> {newStatus}.",
                         new
@@ -131,6 +136,8 @@ namespace API.Controllers
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
+
                     return Conflict(GateTransitApiResponse.CreateError(
                         $"Biển số đang được giữ bởi 1 nhân viên có id là {conflictVehicle.EmployeeId}."));
                 }
@@ -162,6 +169,8 @@ namespace API.Controllers
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
                     "Chưa có dữ liệu trước đó. Đã thêm mới phương tiện với trạng thái IN.",

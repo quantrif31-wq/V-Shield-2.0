@@ -49,6 +49,11 @@ export const checkOutAttendance = (data) => http.post('/attendances/check-out', 
 export const updateAttendance = (id, data) => http.put(`/attendances/${id}`, data)
 export const recalculateAttendance = (data = {}) => http.post('/attendances/recalculate', data)
 
+export const getZoneTransits = (params = {}) => http.get('/attendances/zone-transits', { params })
+export const getAttendanceTransits = (id) => http.get(`/attendances/${id}/transits`)
+export const deriveAttendance = (data = {}) => http.post('/attendances/derive', data)
+export const deriveAttendanceBatch = (data = {}) => http.post('/attendances/derive-batch', data)
+
 export const getLeaveRequests = (params = {}) => http.get('/leave-requests', { params })
 export const getMyLeaveRequests = () => http.get('/leave-requests/my')
 export const getLeaveRequestById = (id) => http.get(`/leave-requests/${id}`)

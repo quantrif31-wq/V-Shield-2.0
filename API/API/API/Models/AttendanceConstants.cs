@@ -55,6 +55,7 @@ public static class AttendanceSources
     public const string Qr = "QR";
     public const string FaceAi = "FaceAI";
     public const string Card = "Card";
+    public const string ZoneTransit = "ZoneTransit";
 
     public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -62,7 +63,8 @@ public static class AttendanceSources
         AccessLog,
         Qr,
         FaceAi,
-        Card
+        Card,
+        ZoneTransit
     };
 }
 

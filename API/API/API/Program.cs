@@ -101,6 +101,8 @@ namespace API
             builder.Services.AddScoped<StaticVisitorQrService>();
             builder.Services.AddScoped<IAttendanceCalculationService, AttendanceCalculationService>();
             builder.Services.AddScoped<IAttendancePermissionService, AttendancePermissionService>();
+            builder.Services.AddScoped<IZoneTransitService, ZoneTransitService>();
+            builder.Services.AddScoped<IAttendanceZoneService, AttendanceZoneService>();
             builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();
             builder.Services.AddSingleton<ISecurityConfigurationHealthService, SecurityConfigurationHealthService>();
             builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();

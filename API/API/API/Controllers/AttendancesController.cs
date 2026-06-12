@@ -16,15 +16,21 @@ public class AttendancesController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IAttendancePermissionService _permissionService;
     private readonly IAttendanceCalculationService _calculationService;
+    private readonly IZoneTransitService _zoneTransitService;
+    private readonly IAttendanceZoneService _attendanceZoneService;
 
     public AttendancesController(
         ApplicationDbContext context,
         IAttendancePermissionService permissionService,
-        IAttendanceCalculationService calculationService)
+        IAttendanceCalculationService calculationService,
+        IZoneTransitService zoneTransitService,
+        IAttendanceZoneService attendanceZoneService)
     {
         _context = context;
         _permissionService = permissionService;
         _calculationService = calculationService;
+        _zoneTransitService = zoneTransitService;
+        _attendanceZoneService = attendanceZoneService;
     }
 
     [HttpGet]
@@ -155,6 +161,109 @@ public class AttendancesController : ControllerBase
             .ToListAsync();
 
         return Ok(data);
+    }
+
+    [HttpGet("zone-transits")]
+    public async Task<IActionResult> GetZoneTransits(
+        [FromQuery] int? employeeId,
+        [FromQuery] int? departmentId,
+        [FromQuery] int? securityZoneId,
+        [FromQuery] string? direction,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var data = await _zoneTransitService.QueryTransitsAsync(employeeId, departmentId, securityZoneId, direction, fromDate, toDate, page, pageSize);
+
+        var result = data.Select(t => new ZoneTransitResponse
+        {
+            ZoneTransitId = t.ZoneTransitId,
+            EmployeeId = t.EmployeeId,
+            EmployeeName = t.Employee.FullName,
+            SecurityZoneId = t.SecurityZoneId,
+            SecurityZoneName = t.SecurityZone.Name,
+            SecurityZoneCode = t.SecurityZone.Code,
+            SecurityLevel = t.SecurityZone.SecurityLevel,
+            AccessPointName = t.AccessPoint?.Name,
+            GateName = t.AccessLog?.Gate?.GateName ?? t.AccessLog?.GateNameSnapshot,
+            Timestamp = t.Timestamp,
+            Direction = t.Direction,
+            Source = t.Source,
+            IsAutoDerived = t.IsAutoDerived,
+            AccessLogId = t.AccessLogId
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:int}/transits")]
+    public async Task<IActionResult> GetAttendanceTransits(int id)
+    {
+        var attendance = await _context.Attendances
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.AttendanceId == id);
+
+        if (attendance == null)
+            return NotFound(new { message = $"Khong tim thay cham cong ID {id}" });
+
+        if (!await CanViewEmployeeAsync(attendance.EmployeeId))
+            return Forbid();
+
+        var transits = await _zoneTransitService.GetTransitsAsync(attendance.EmployeeId, attendance.WorkDate);
+
+        var result = transits.Select(t => new ZoneTransitResponse
+        {
+            ZoneTransitId = t.ZoneTransitId,
+            EmployeeId = t.EmployeeId,
+            EmployeeName = t.Employee.FullName,
+            SecurityZoneId = t.SecurityZoneId,
+            SecurityZoneName = t.SecurityZone.Name,
+            SecurityZoneCode = t.SecurityZone.Code,
+            SecurityLevel = t.SecurityZone.SecurityLevel,
+            AccessPointName = t.AccessPoint?.Name,
+            GateName = t.AccessLog?.Gate?.GateName ?? t.AccessLog?.GateNameSnapshot,
+            Timestamp = t.Timestamp,
+            Direction = t.Direction,
+            Source = t.Source,
+            IsAutoDerived = t.IsAutoDerived,
+            AccessLogId = t.AccessLogId
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("derive")]
+    public async Task<IActionResult> DeriveAttendance([FromBody] DeriveAttendanceRequest? request)
+    {
+        if (!await EnsureCanManageAsync()) return Forbid();
+
+        var employeeId = request?.EmployeeId;
+        var date = request?.Date?.Date ?? DateTime.Today;
+
+        if (employeeId.HasValue)
+        {
+            var result = await _attendanceZoneService.DeriveAttendanceAsync(employeeId.Value, date);
+            return Ok(result);
+        }
+
+        var batchResult = await _attendanceZoneService.DeriveBatchAsync(date, date, null);
+        return Ok(batchResult);
+    }
+
+    [HttpPost("derive-batch")]
+    public async Task<IActionResult> DeriveBatch([FromBody] AttendanceRecalculateRequest? request)
+    {
+        if (!await EnsureCanManageAsync()) return Forbid();
+
+        var fromDate = request?.FromDate?.Date ?? DateTime.Today.AddDays(-7);
+        var toDate = request?.ToDate?.Date ?? DateTime.Today;
+
+        if (toDate < fromDate)
+            return BadRequest(new { message = "toDate khong duoc nho hon fromDate." });
+
+        var result = await _attendanceZoneService.DeriveBatchAsync(fromDate, toDate, request?.EmployeeId);
+        return Ok(result);
     }
 
     [HttpPost("check-in")]

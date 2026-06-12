@@ -10,6 +10,7 @@ public partial class ApplicationDbContext
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<LeaveRequest> LeaveRequests { get; set; }
     public DbSet<CampusMapLayout> CampusMapLayouts { get; set; }
+    public DbSet<ZoneTransit> ZoneTransits { get; set; }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
@@ -187,6 +188,50 @@ public partial class ApplicationDbContext
                 .HasForeignKey(e => e.UpdatedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_CampusMapLayouts_AppUser");
+        });
+
+        modelBuilder.Entity<ZoneTransit>(entity =>
+        {
+            entity.HasKey(e => e.ZoneTransitId);
+            entity.Property(e => e.Direction).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Source).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getutcdate())");
+            entity.HasIndex(e => new { e.EmployeeId, e.Timestamp });
+
+            entity.HasOne(e => e.Employee)
+                .WithMany()
+                .HasForeignKey(e => e.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_ZoneTransit_Employee");
+
+            entity.HasOne(e => e.SecurityZone)
+                .WithMany()
+                .HasForeignKey(e => e.SecurityZoneId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_ZoneTransit_SecurityZone");
+
+            entity.HasOne(e => e.AccessPoint)
+                .WithMany()
+                .HasForeignKey(e => e.AccessPointId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_ZoneTransit_AccessPoint");
+
+            entity.HasOne(e => e.AccessLog)
+                .WithMany()
+                .HasForeignKey(e => e.AccessLogId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_ZoneTransit_AccessLog");
+
+            entity.HasMany(e => e.Attendances)
+                .WithMany(a => a.ZoneTransits)
+                .UsingEntity(j => j.ToTable("AttendanceZoneTransits"));
+        });
+
+        modelBuilder.Entity<Attendance>(entity =>
+        {
+            entity.Property(e => e.ZoneDwellTime).HasColumnType("decimal(8,2)").HasDefaultValue(0m);
+            entity.Property(e => e.ZoneTransitCount).HasDefaultValue(0);
+            entity.Property(e => e.IsZoneDerived).HasDefaultValue(false);
         });
 
         ConfigureCompanySecurityFoundation(modelBuilder);

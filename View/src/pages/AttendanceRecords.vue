@@ -12,6 +12,9 @@
                 <button class="btn btn-primary" @click="manualCheckOut" :disabled="!myEmployeeId || actionLoading">
                     Check-out thủ công
                 </button>
+                <button class="btn btn-secondary" @click="deriveNow(null)" :disabled="actionLoading">
+                    Tổng hợp từ zone
+                </button>
                 <button class="btn btn-secondary" @click="showToast('TODO: tích hợp export Excel ở backend/export service', 'error')">
                     Xuất Excel
                 </button>
@@ -63,6 +66,7 @@
                             <th>Tổng giờ</th>
                             <th>Trạng thái</th>
                             <th>Nguồn</th>
+                            <th>Trong zone</th>
                             <th class="text-right">Hành động</th>
                         </tr>
                     </thead>
@@ -82,14 +86,51 @@
                                 <span class="badge info">{{ statusLabel(item.status) }}</span>
                             </td>
                             <td>{{ item.source }}</td>
+                            <td>
+                                <span v-if="item.isZoneDerived" class="badge success" title="Tổng hợp từ zone">
+                                    {{ Number(item.zoneDwellTime || 0).toFixed(1) }}h
+                                </span>
+                                <span v-else class="badge">--</span>
+                            </td>
                             <td class="text-right">
                                 <button class="btn btn-secondary btn-sm" @click="openEditModal(item)">Sửa</button>
+                                <button class="btn btn-ghost btn-sm" @click="showTransitTimeline(item)">Lộ trình</button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
+
+        <transition name="modal">
+            <div v-if="showTransitModal" class="modal-overlay" @click.self="showTransitModal = false">
+                <div class="modal wide-modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Lộ trình zone — {{ transitTarget?.employeeName || '' }}</h3>
+                        <button class="modal-close" @click="showTransitModal = false">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="transitLoading" class="empty-card">Đang tải lộ trình...</div>
+                        <div v-else-if="transits.length === 0" class="empty-card">Không có dữ liệu di chuyển qua zone trong ngày.</div>
+                        <div v-else class="transit-timeline">
+                            <div v-for="(t, idx) in transits" :key="t.zoneTransitId" class="transit-item">
+                                <div class="transit-dot" :class="t.direction === 'IN' ? 'dot-in' : 'dot-out'"></div>
+                                <div class="transit-line" v-if="idx < transits.length - 1"></div>
+                                <div class="transit-content">
+                                    <span class="transit-time">{{ formatDateTime(t.timestamp) }}</span>
+                                    <span class="transit-dir-badge" :class="t.direction === 'IN' ? 'badge success' : 'badge warning'">
+                                        {{ t.direction === 'IN' ? 'VÀO' : 'RA' }}
+                                    </span>
+                                    <span class="transit-zone">{{ t.securityZoneName }}</span>
+                                    <span v-if="t.gateName" class="transit-gate">@ {{ t.gateName }}</span>
+                                    <span class="transit-source">{{ t.source }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
 
         <transition name="modal">
             <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
@@ -162,6 +203,8 @@ import {
     checkOutAttendance,
     getAttendances,
     updateAttendance,
+    getAttendanceTransits,
+    deriveAttendance,
 } from '../services/attendanceApi'
 
 const myEmployeeId = authState.user?.employeeId || null
@@ -191,7 +234,12 @@ const attendanceStatuses = [
     'OutOfSchedule',
 ]
 
-const attendanceSources = ['Manual', 'AccessLog', 'QR', 'FaceAI', 'Card']
+const attendanceSources = ['Manual', 'AccessLog', 'QR', 'FaceAI', 'Card', 'ZoneTransit']
+
+const showTransitModal = ref(false)
+const transitTarget = ref(null)
+const transits = ref([])
+const transitLoading = ref(false)
 
 const filters = reactive({
     fromDate: '',
@@ -296,6 +344,35 @@ const manualCheckOut = async () => {
     }
 }
 
+const showTransitTimeline = async (item) => {
+    transitTarget.value = item
+    transits.value = []
+    showTransitModal.value = true
+    transitLoading.value = true
+    try {
+        const { data } = await getAttendanceTransits(item.attendanceId)
+        transits.value = data || []
+    } catch {
+        showToast('Không tải được lộ trình zone.', 'error')
+    } finally {
+        transitLoading.value = false
+    }
+}
+
+const deriveNow = async (employeeId) => {
+    actionLoading.value = true
+    try {
+        const { data } = await deriveAttendance({ employeeId, date: filters.fromDate || undefined })
+        const msg = data.message || (data.processed !== undefined ? `Đã xử lý ${data.processed} bản ghi` : 'Đã tổng hợp')
+        showToast(msg)
+        await loadAttendances()
+    } catch (err) {
+        showToast(err?.response?.data?.message || 'Tổng hợp thất bại.', 'error')
+    } finally {
+        actionLoading.value = false
+    }
+}
+
 const openEditModal = (item) => {
     editingId.value = item.attendanceId
     modalError.value = ''
@@ -392,6 +469,85 @@ onMounted(async () => {
 .toast-leave-to {
     opacity: 0;
     transform: translateY(12px);
+}
+
+.wide-modal {
+    max-width: 640px;
+}
+
+.transit-timeline {
+    padding: 16px 0;
+    position: relative;
+}
+
+.transit-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    min-height: 48px;
+}
+
+.transit-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+    z-index: 1;
+}
+
+.dot-in {
+    background: var(--accent-success);
+}
+
+.dot-out {
+    background: var(--accent-warning);
+}
+
+.transit-line {
+    position: absolute;
+    left: 5px;
+    top: 16px;
+    width: 2px;
+    bottom: 0;
+    background: var(--border-color);
+}
+
+.transit-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding-bottom: 16px;
+}
+
+.transit-time {
+    font-weight: 600;
+    min-width: 110px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.transit-dir-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.transit-zone {
+    font-weight: 600;
+}
+
+.transit-gate {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.transit-source {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: var(--bg-muted);
 }
 </style>
 
