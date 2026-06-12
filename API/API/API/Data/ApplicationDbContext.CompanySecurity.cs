@@ -187,6 +187,24 @@ public partial class ApplicationDbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<Vehicle>(entity =>
+        {
+            entity.HasOne(e => e.Site)
+                .WithMany()
+                .HasForeignKey(e => e.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<AccessLog>(entity =>
+        {
+            entity.Property(e => e.SiteNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.SecurityZoneNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.AccessPointNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.LaneNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.GateNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.CameraNameSnapshot).HasMaxLength(160);
+        });
+
         modelBuilder.Entity<EmployeeLifecycleEvent>(entity =>
         {
             entity.HasKey(e => e.EmployeeLifecycleEventId);
@@ -234,4 +252,3 @@ public partial class ApplicationDbContext
         });
     }
 }
-

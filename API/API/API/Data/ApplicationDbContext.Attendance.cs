@@ -169,5 +169,7 @@ public partial class ApplicationDbContext
         ConfigureEvidenceComplianceGovernance(modelBuilder);
         ConfigureOperationsResilience(modelBuilder);
         ConfigureReleaseReadiness(modelBuilder);
+        ConfigurePrivilegedOperations(modelBuilder);
+        ConfigureMfaRecovery(modelBuilder);
     }
 }

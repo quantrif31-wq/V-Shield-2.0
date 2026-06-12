@@ -18,6 +18,11 @@ public class EvidenceItem
     public int? SiteId { get; set; }
     public bool IsImmutable { get; set; }
     public bool IsLegalHold { get; set; }
+    [MaxLength(40)] public string LastHashVerificationStatus { get; set; } = "NotVerified";
+    public DateTime? CurrentHashVerifiedAtUtc { get; set; }
+    public DateTime? PurgedAtUtc { get; set; }
+    public int? PurgedByUserId { get; set; }
+    [MaxLength(500)] public string? PurgeReason { get; set; }
     public int? CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

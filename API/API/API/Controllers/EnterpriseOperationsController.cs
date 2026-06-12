@@ -17,11 +17,16 @@ public class EnterpriseOperationsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly RuntimeOrchestrator _runtimeOrchestrator;
+    private readonly ISecurityConfigurationHealthService _configurationHealth;
 
-    public EnterpriseOperationsController(ApplicationDbContext context, RuntimeOrchestrator runtimeOrchestrator)
+    public EnterpriseOperationsController(
+        ApplicationDbContext context,
+        RuntimeOrchestrator runtimeOrchestrator,
+        ISecurityConfigurationHealthService configurationHealth)
     {
         _context = context;
         _runtimeOrchestrator = runtimeOrchestrator;
+        _configurationHealth = configurationHealth;
     }
 
     [HttpGet("overview")]
@@ -91,6 +96,27 @@ public class EnterpriseOperationsController : ControllerBase
             Boundary = "Runtime is observed through API wrappers; no AI_Runtime or runtime files are modified.",
             RuntimeServices = runtimeServices,
             RecordedHealth = latestHealth
+        });
+    }
+
+    [HttpGet("config-health")]
+    [Authorize(Roles = "Admin")]
+    public IActionResult GetConfigurationHealth()
+    {
+        var report = _configurationHealth.Evaluate();
+        return Ok(new
+        {
+            report.EnvironmentName,
+            report.IsProduction,
+            report.Status,
+            Findings = report.Findings.Select(finding => new
+            {
+                finding.Key,
+                finding.Severity,
+                finding.Status,
+                finding.Message,
+                finding.Remediation
+            })
         });
     }
 
@@ -345,7 +371,8 @@ public class EnterpriseOperationsController : ControllerBase
 
     private static string ComputeSignature(string secretReference, string payload)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{secretReference}|{payload}"));
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretReference));
+        var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 

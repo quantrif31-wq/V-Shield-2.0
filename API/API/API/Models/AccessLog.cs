@@ -45,6 +45,24 @@ public partial class AccessLog
     [StringLength(500)]
     public string? Note { get; set; }
 
+    [StringLength(160)]
+    public string? SiteNameSnapshot { get; set; }
+
+    [StringLength(160)]
+    public string? SecurityZoneNameSnapshot { get; set; }
+
+    [StringLength(160)]
+    public string? AccessPointNameSnapshot { get; set; }
+
+    [StringLength(160)]
+    public string? LaneNameSnapshot { get; set; }
+
+    [StringLength(160)]
+    public string? GateNameSnapshot { get; set; }
+
+    [StringLength(160)]
+    public string? CameraNameSnapshot { get; set; }
+
     public int? EntryLogId { get; set; }
 
     [ForeignKey("CameraId")]

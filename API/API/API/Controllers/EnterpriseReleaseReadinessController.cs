@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -120,19 +121,32 @@ public class EnterpriseReleaseReadinessController : ControllerBase
 
     [HttpPatch("release-candidates/{releaseCandidateId:long}/approve")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.ReleaseApproval)]
     public async Task<IActionResult> ApproveReleaseCandidate(long releaseCandidateId)
     {
         var candidate = await _context.ReleaseCandidates.FindAsync(releaseCandidateId);
         if (candidate == null)
             return NotFound(new { message = "Release candidate not found." });
 
+        var requiredGateCount = await _context.ReleaseGateChecks
+            .CountAsync(gate => gate.ReleaseCandidateId == releaseCandidateId && gate.Required);
+        if (requiredGateCount == 0)
+            return BadRequest(new { message = "At least one required release gate must be recorded before approval." });
+
         var blockingGates = await _context.ReleaseGateChecks
-            .Where(gate => gate.ReleaseCandidateId == releaseCandidateId && gate.Required && gate.Status != "Passed")
-            .Select(gate => gate.GateName)
+            .Where(gate => gate.ReleaseCandidateId == releaseCandidateId &&
+                           gate.Required &&
+                           (gate.Status != "Passed" || string.IsNullOrWhiteSpace(gate.EvidenceReference)))
+            .Select(gate => new
+            {
+                gate.GateName,
+                gate.Status,
+                MissingEvidence = string.IsNullOrWhiteSpace(gate.EvidenceReference)
+            })
             .ToListAsync();
 
         if (blockingGates.Count > 0)
-            return BadRequest(new { message = "Required release gates are not passed.", blockingGates });
+            return BadRequest(new { message = "Required release gates are not fully passed with evidence.", blockingGates });
 
         candidate.Status = "Approved";
         candidate.ApprovedAtUtc = DateTime.UtcNow;

@@ -28,8 +28,11 @@ public partial class ApplicationDbContext
             entity.Property(e => e.HashSha256).IsRequired().HasMaxLength(128);
             entity.Property(e => e.PrivacyLabel).IsRequired().HasMaxLength(80);
             entity.Property(e => e.RetentionCategory).IsRequired().HasMaxLength(80);
+            entity.Property(e => e.LastHashVerificationStatus).IsRequired().HasMaxLength(40).HasDefaultValue("NotVerified");
+            entity.Property(e => e.PurgeReason).HasMaxLength(500);
             entity.HasIndex(e => new { e.EvidenceType, e.PrivacyLabel, e.CreatedAtUtc });
             entity.HasIndex(e => e.HashSha256);
+            entity.HasIndex(e => new { e.RetentionCategory, e.PurgedAtUtc, e.IsLegalHold });
         });
 
         modelBuilder.Entity<EvidenceCollection>(entity =>

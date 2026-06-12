@@ -7,10 +7,19 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using API.Data;
+using API.Models;
+using API.Services;
 using API.Middleware;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
@@ -244,11 +253,14 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
     public async Task AdminToken_CanCreateEnterpriseFoundationHierarchy()
     {
         using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var companyCode = $"VSH{suffix}";
+        var siteCode = $"HQ{suffix[..4]}";
 
         var companyResponse = await authenticated.PostAsJsonAsync("/api/enterprise/foundation/companies", new
         {
             name = "V-Shield Corp",
-            code = "VSHIELD"
+            code = companyCode
         });
         Assert.Equal(HttpStatusCode.Created, companyResponse.StatusCode);
         var company = await ReadJsonAsync(companyResponse);
@@ -258,7 +270,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         {
             companyId,
             name = "Headquarters",
-            code = "HQ",
+            code = siteCode,
             address = "Main security site",
             timeZoneId = "Asia/Ho_Chi_Minh"
         });
@@ -311,11 +323,114 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         });
         Assert.Equal(HttpStatusCode.OK, accessPointResponse.StatusCode);
 
-        var overviewResponse = await authenticated.GetAsync("/api/enterprise/foundation/overview");
-        Assert.Equal(HttpStatusCode.OK, overviewResponse.StatusCode);
-        var overview = await overviewResponse.Content.ReadAsStringAsync();
-        Assert.Contains("\"companies\":1", overview, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"sites\":1", overview, StringComparison.OrdinalIgnoreCase);
+        var hierarchyResponse = await authenticated.GetAsync("/api/enterprise/foundation/hierarchy");
+        Assert.Equal(HttpStatusCode.OK, hierarchyResponse.StatusCode);
+        var hierarchy = await hierarchyResponse.Content.ReadAsStringAsync();
+        Assert.Contains(companyCode, hierarchy, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(siteCode, hierarchy, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AdminToken_CanBackfillLegacyAssetsIntoCompanyHierarchy()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var gateName = $"Legacy Gate {suffix}";
+        var cameraName = $"Legacy Camera {suffix}";
+        var plate = $"BF{suffix[..6]}";
+        int gateId;
+        int cameraId;
+        int vehicleId;
+        int logId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var gate = new Gate { GateName = gateName, Location = "Legacy perimeter" };
+            db.Gates.Add(gate);
+            await db.SaveChangesAsync();
+            gateId = gate.GateId;
+
+            var camera = new Camera
+            {
+                CameraName = cameraName,
+                CameraType = "Overview",
+                GateId = gateId,
+                StreamUrl = "rtsp://legacy-camera/backfill"
+            };
+            db.Cameras.Add(camera);
+            await db.SaveChangesAsync();
+            cameraId = camera.CameraId;
+
+            var vehicle = new Vehicle
+            {
+                LicensePlate = plate,
+                EmployeeId = 1,
+                ParkingStatus = "OUT"
+            };
+            db.Vehicles.Add(vehicle);
+            await db.SaveChangesAsync();
+            vehicleId = vehicle.VehicleId;
+
+            var log = new AccessLog
+            {
+                Timestamp = DateTime.UtcNow,
+                Direction = "IN",
+                GateId = gateId,
+                CameraId = cameraId,
+                CapturedLicensePlate = plate,
+                EmployeeId = 1,
+                ResultStatus = "ALLOW",
+                IsBypass = false
+            };
+            db.AccessLogs.Add(log);
+            await db.SaveChangesAsync();
+            logId = log.LogId;
+        }
+
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+        await GrantStepUpAsync(authenticated);
+
+        var backfillResponse = await authenticated.PostAsJsonAsync("/api/enterprise/foundation/backfill/default-site", new
+        {
+            companyName = "Backfill Test Company",
+            companyCode = $"BF{suffix[..6]}",
+            siteName = "Backfill Test Site",
+            siteCode = $"S{suffix[..6]}",
+            timeZoneId = "Asia/Ho_Chi_Minh"
+        });
+        Assert.Equal(HttpStatusCode.OK, backfillResponse.StatusCode);
+        var backfillBody = await backfillResponse.Content.ReadAsStringAsync();
+        Assert.Contains("gatesMapped", backfillBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cameraDevicesCreated", backfillBody, StringComparison.OrdinalIgnoreCase);
+
+        var assetMapResponse = await authenticated.GetAsync("/api/enterprise/foundation/asset-map");
+        Assert.Equal(HttpStatusCode.OK, assetMapResponse.StatusCode);
+        var assetMap = await assetMapResponse.Content.ReadAsStringAsync();
+        Assert.Contains(gateName, assetMap, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(cameraName, assetMap, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(plate, assetMap, StringComparison.OrdinalIgnoreCase);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var lane = await db.Lanes.FirstOrDefaultAsync(item => item.GateId == gateId);
+            Assert.NotNull(lane);
+            Assert.NotNull(lane!.AccessPointId);
+
+            var cameraDevice = await db.SecurityDevices.FirstOrDefaultAsync(item => item.SerialNumber == $"legacy-camera-{cameraId}");
+            Assert.NotNull(cameraDevice);
+            Assert.NotNull(cameraDevice!.SiteId);
+
+            var vehicle = await db.Vehicles.FindAsync(vehicleId);
+            Assert.NotNull(vehicle);
+            Assert.NotNull(vehicle!.SiteId);
+
+            var log = await db.AccessLogs.FindAsync(logId);
+            Assert.NotNull(log);
+            Assert.False(string.IsNullOrWhiteSpace(log!.SiteNameSnapshot));
+            Assert.Equal(gateName, log.GateNameSnapshot);
+            Assert.Equal(cameraName, log.CameraNameSnapshot);
+        }
     }
 
     [Fact]
@@ -336,6 +451,133 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
     }
 
     [Fact]
+    public async Task AdminToken_CannotRunPrivilegedActionWithoutStepUp()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+        var response = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/emergency-states", new
+        {
+            state = "FullLockdown",
+            siteId = (int?)null,
+            securityZoneId = (int?)null,
+            accessPointId = (int?)null,
+            reason = "No step-up should be rejected"
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("step_up_required", body);
+    }
+
+    [Fact]
+    public async Task AdminToken_CanImportIdentityUsers_AndGenerateOffboardingProof()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var providerResponse = await authenticated.PostAsJsonAsync("/api/enterprise/identity/providers", new
+        {
+            name = "Corporate IdP Test",
+            protocol = "OIDC",
+            authority = "https://idp.example.test",
+            clientId = "vshield-test",
+            isEnabled = true
+        });
+        Assert.Equal(HttpStatusCode.OK, providerResponse.StatusCode);
+        var provider = await ReadJsonAsync(providerResponse);
+        var providerId = provider.RootElement.GetProperty("externalIdentityProviderId").GetInt32();
+
+        var importResponse = await authenticated.PostAsJsonAsync("/api/enterprise/identity/import/users", new
+        {
+            providerId,
+            users = new[]
+            {
+                new
+                {
+                    externalSubject = "ext-employee-001",
+                    username = "external.employee",
+                    displayName = "External Employee",
+                    email = "external.employee@example.test",
+                    phone = "0900000010",
+                    role = "Staff",
+                    lifecycleStatus = "Active",
+                    primarySiteId = (int?)null
+                }
+            }
+        });
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        var importBody = await importResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Imported", importBody);
+
+        await GrantStepUpAsync(authenticated);
+        var offboardResponse = await authenticated.PatchAsJsonAsync("/api/enterprise/identity/employees/1/offboard", new
+        {
+            reason = "Automated termination drill"
+        });
+        Assert.Equal(HttpStatusCode.OK, offboardResponse.StatusCode);
+        var proofBody = await offboardResponse.Content.ReadAsStringAsync();
+        Assert.Contains("userDisabled", proofBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("activeRefreshTokens", proofBody, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AdminToken_CanRunDeviceSimulatorOfflineDecisionAndFaultAlarm()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var controllerResponse = await authenticated.PostAsJsonAsync("/api/enterprise/devices/simulator/virtual-controller", new
+        {
+            name = "Simulator Controller Test",
+            siteId = (int?)null,
+            accessPointId = (int?)null,
+            protocol = "OSDP-Sim",
+            direction = "Entry",
+            maxCredentials = 50000
+        });
+        Assert.Equal(HttpStatusCode.OK, controllerResponse.StatusCode);
+        var controller = await ReadJsonAsync(controllerResponse);
+        var securityDeviceId = controller.RootElement.GetProperty("securityDeviceId").GetInt32();
+
+        await GrantStepUpAsync(authenticated);
+        var packageResponse = await authenticated.PostAsJsonAsync("/api/enterprise/devices/offline-policy-packages", new
+        {
+            securityDeviceId,
+            packageVersion = "sim-v1",
+            payloadJson = "{\"allowAll\":true}",
+            payloadHash = "sim-hash",
+            status = "Published"
+        });
+        Assert.Equal(HttpStatusCode.OK, packageResponse.StatusCode);
+
+        var scanResponse = await authenticated.PostAsJsonAsync("/api/enterprise/devices/simulator/offline-scan", new
+        {
+            securityDeviceId,
+            subjectType = "Employee",
+            subjectId = 1,
+            siteId = (int?)null,
+            securityZoneId = (int?)null,
+            accessPointId = (int?)null,
+            credentialType = "QR",
+            evaluatedAtUtc = DateTime.UtcNow
+        });
+        Assert.Equal(HttpStatusCode.OK, scanResponse.StatusCode);
+        var scanBody = await scanResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Allow", scanBody);
+
+        var faultResponse = await authenticated.PostAsJsonAsync("/api/enterprise/devices/simulator/fault", new
+        {
+            securityDeviceId,
+            status = "Tamper",
+            severity = "High",
+            message = "Tamper test"
+        });
+        Assert.Equal(HttpStatusCode.OK, faultResponse.StatusCode);
+
+        var socOverviewResponse = await authenticated.GetAsync("/api/enterprise/soc/overview");
+        Assert.Equal(HttpStatusCode.OK, socOverviewResponse.StatusCode);
+        var overviewBody = await socOverviewResponse.Content.ReadAsStringAsync();
+        Assert.Contains("openAlarms", overviewBody, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task StaffToken_CannotAdministerAccessPolicy()
     {
         using var authenticated = CreateClientWithBearer(CreateJwtToken(1003, "staff.role", "Staff"));
@@ -348,6 +590,36 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminToken_CanApproveAndActivateAccessPolicyVersionWithStepUp()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var createResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/policy-versions", new
+        {
+            name = "HQ lockdown readiness policy",
+            changeSummary = "Versioned policy lifecycle test"
+        });
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var created = await ReadJsonAsync(createResponse);
+        var policyVersionId = created.RootElement.GetProperty("accessPolicyVersionId").GetInt32();
+
+        var submitResponse = await authenticated.PatchAsync($"/api/enterprise/access-policy/policy-versions/{policyVersionId}/submit", null);
+        Assert.Equal(HttpStatusCode.OK, submitResponse.StatusCode);
+
+        await GrantStepUpAsync(authenticated);
+        var approveResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/access-policy/policy-versions/{policyVersionId}/approve", new
+        {
+            note = "Approved by test security admin"
+        });
+        Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
+
+        var activateResponse = await authenticated.PatchAsync($"/api/enterprise/access-policy/policy-versions/{policyVersionId}/activate", null);
+        Assert.Equal(HttpStatusCode.OK, activateResponse.StatusCode);
+        var body = await activateResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Active", body);
     }
 
     [Fact]
@@ -412,6 +684,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         Assert.Contains("Allow", allowBody);
         Assert.Contains("allowed access", allowBody);
 
+        await GrantStepUpAsync(authenticated);
         var emergencyResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/emergency-states", new
         {
             state = "FullLockdown",
@@ -437,6 +710,112 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var denyBody = await denyResponse.Content.ReadAsStringAsync();
         Assert.Contains("Deny", denyBody);
         Assert.Contains("Emergency state active", denyBody);
+    }
+
+    [Fact]
+    public async Task AdminToken_CanSimulateAndShadowCompareAccessPolicyPrecedence()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+        const int subjectId = 777002;
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+
+        var levelResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/access-levels", new
+        {
+            name = $"Restricted Override {suffix}",
+            code = $"DENY{suffix[..6]}",
+            description = "Explicit deny precedence test",
+            requiresApproval = true
+        });
+        Assert.Equal(HttpStatusCode.OK, levelResponse.StatusCode);
+        var level = await ReadJsonAsync(levelResponse);
+        var accessLevelId = level.RootElement.GetProperty("accessLevelId").GetInt32();
+
+        var denyRuleResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/rules", new
+        {
+            accessLevelId,
+            accessGroupId = (int?)null,
+            siteId = (int?)null,
+            securityZoneId = (int?)null,
+            accessPointId = (int?)null,
+            accessScheduleId = (int?)null,
+            subjectType = "Employee",
+            subjectId,
+            credentialType = "EmergencyOverride",
+            allowAccess = false,
+            validFromUtc = (DateTime?)null,
+            validToUtc = (DateTime?)null,
+            isActive = true
+        });
+        Assert.Equal(HttpStatusCode.OK, denyRuleResponse.StatusCode);
+
+        var grantResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/temporary-grants", new
+        {
+            subjectType = "Employee",
+            subjectId,
+            siteId = (int?)null,
+            securityZoneId = (int?)null,
+            accessPointId = (int?)null,
+            validFromUtc = DateTime.UtcNow.AddMinutes(-5),
+            validToUtc = DateTime.UtcNow.AddHours(1),
+            reason = "Temporary grant should not override explicit deny"
+        });
+        Assert.Equal(HttpStatusCode.OK, grantResponse.StatusCode);
+
+        int decisionCountBefore;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            decisionCountBefore = await db.AccessDecisions.CountAsync();
+        }
+
+        var simulateResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/simulate", new
+        {
+            subjectType = "Employee",
+            subjectId,
+            siteId = (int?)null,
+            securityZoneId = (int?)null,
+            accessPointId = (int?)null,
+            credentialType = "EmergencyOverride",
+            allowHolidayAccess = true,
+            evaluatedAtUtc = DateTime.UtcNow
+        });
+        Assert.Equal(HttpStatusCode.OK, simulateResponse.StatusCode);
+        var simulateBody = await simulateResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Simulation", simulateBody);
+        Assert.Contains("Deny", simulateBody);
+        Assert.Contains("Explicit deny rule", simulateBody);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Equal(decisionCountBefore, await db.AccessDecisions.CountAsync());
+        }
+
+        var shadowResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/shadow-compare", new
+        {
+            subjectType = "Employee",
+            subjectId,
+            siteId = (int?)null,
+            securityZoneId = (int?)null,
+            accessPointId = (int?)null,
+            credentialType = "EmergencyOverride",
+            allowHolidayAccess = true,
+            evaluatedAtUtc = DateTime.UtcNow,
+            legacyResult = "Allow",
+            legacyReason = "Legacy gate table allowed this subject"
+        });
+        Assert.Equal(HttpStatusCode.OK, shadowResponse.StatusCode);
+        var shadowBody = await shadowResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Shadow", shadowBody);
+        Assert.Contains("shadowMismatch", shadowBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("true", shadowBody, StringComparison.OrdinalIgnoreCase);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.True(await db.AccessDecisions.AnyAsync(item => item.SubjectId == subjectId && item.DecisionMode == "Shadow" && item.ShadowMismatch));
+            Assert.True(await db.SecurityEvents.AnyAsync(item => item.EventType == "AccessPolicyShadowMismatch" && item.SubjectId == subjectId));
+        }
     }
 
     [Fact]
@@ -555,10 +934,18 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var barrier = await ReadJsonAsync(barrierResponse);
         var barrierId = barrier.RootElement.GetProperty("barrierId").GetInt32();
 
-        var commandResponse = await authenticated.PostAsJsonAsync($"/api/enterprise/visitor-vehicle/barriers/{barrierId}/commands", new
+        var blockedCommandResponse = await authenticated.PostAsJsonAsync($"/api/enterprise/visitor-vehicle/barriers/{barrierId}/commands", new
         {
             command = "Open",
             reason = "Visitor approved"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, blockedCommandResponse.StatusCode);
+
+        await GrantStepUpAsync(authenticated);
+        var commandResponse = await authenticated.PostAsJsonAsync($"/api/enterprise/visitor-vehicle/barriers/{barrierId}/commands", new
+        {
+            command = "Open",
+            reason = "Visitor approved by reception and security"
         });
         Assert.Equal(HttpStatusCode.OK, commandResponse.StatusCode);
 
@@ -625,6 +1012,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         });
         Assert.Equal(HttpStatusCode.OK, healthResponse.StatusCode);
 
+        await GrantStepUpAsync(authenticated);
         var packageResponse = await authenticated.PostAsJsonAsync("/api/enterprise/devices/offline-policy-packages", new
         {
             securityDeviceId,
@@ -872,6 +1260,12 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         });
         Assert.Equal(HttpStatusCode.OK, completeDispatchResponse.StatusCode);
 
+        var blockedSopResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/soc/sop-executions/{sopExecutionId}/complete", new
+        {
+            completedStepsJson = "[\"verify camera\"]"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, blockedSopResponse.StatusCode);
+
         var completeSopResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/soc/sop-executions/{sopExecutionId}/complete", new
         {
             completedStepsJson = "[\"verify camera\",\"dispatch guard\"]"
@@ -883,6 +1277,12 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
             note = "Closed after operator review."
         });
         Assert.Equal(HttpStatusCode.OK, closeAlarmResponse.StatusCode);
+
+        var blockedCloseIncidentResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/soc/incidents/{incidentId}/close", new
+        {
+            note = ""
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, blockedCloseIncidentResponse.StatusCode);
 
         var closeIncidentResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/soc/incidents/{incidentId}/close", new
         {
@@ -952,6 +1352,60 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var readResponse = await authenticated.GetAsync($"/api/enterprise/evidence/items/{evidenceItemId}?purpose=IncidentReview");
         Assert.Equal(HttpStatusCode.OK, readResponse.StatusCode);
 
+        var hashVerifyResponse = await authenticated.PostAsJsonAsync($"/api/enterprise/evidence/items/{evidenceItemId}/verify-hash", new
+        {
+            observedHashSha256 = "abc123",
+            purpose = "Integrity verification before export"
+        });
+        Assert.Equal(HttpStatusCode.OK, hashVerifyResponse.StatusCode);
+        var hashVerifyBody = await hashVerifyResponse.Content.ReadAsStringAsync();
+        Assert.Contains("true", hashVerifyBody, StringComparison.OrdinalIgnoreCase);
+
+        var mismatchItemResponse = await authenticated.PostAsJsonAsync("/api/enterprise/evidence/items", new
+        {
+            evidenceType = "Document",
+            sourceType = "Manual",
+            sourceReference = "doc-1",
+            securityEventId = (long?)null,
+            alarmId = (long?)null,
+            incidentId = (long?)null,
+            storageReference = "/evidence/doc/hash-mismatch.txt",
+            hashSha256 = "expectedhash",
+            privacyLabel = "Internal",
+            retentionCategory = "Default",
+            siteId = (int?)null,
+            isImmutable = false
+        });
+        Assert.Equal(HttpStatusCode.OK, mismatchItemResponse.StatusCode);
+        var mismatchItem = await ReadJsonAsync(mismatchItemResponse);
+        var mismatchEvidenceItemId = mismatchItem.RootElement.GetProperty("evidenceItemId").GetInt64();
+
+        var mismatchVerifyResponse = await authenticated.PostAsJsonAsync($"/api/enterprise/evidence/items/{mismatchEvidenceItemId}/verify-hash", new
+        {
+            observedHashSha256 = "wronghash",
+            purpose = "Mismatch drill"
+        });
+        Assert.Equal(HttpStatusCode.OK, mismatchVerifyResponse.StatusCode);
+
+        var blockedExportResponse = await authenticated.PostAsJsonAsync("/api/enterprise/evidence/export-requests", new
+        {
+            evidenceItemId = mismatchEvidenceItemId,
+            evidenceCollectionId = (long?)null,
+            purpose = "Should be blocked",
+            recipient = "auditor@example.com"
+        });
+        Assert.Equal(HttpStatusCode.OK, blockedExportResponse.StatusCode);
+        var blockedExport = await ReadJsonAsync(blockedExportResponse);
+        var blockedExportRequestId = blockedExport.RootElement.GetProperty("evidenceExportRequestId").GetInt64();
+
+        await GrantStepUpAsync(authenticated);
+        var blockedApprovalResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/evidence/export-requests/{blockedExportRequestId}/approve", new
+        {
+            watermark = "blocked",
+            signatureReference = "blocked"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, blockedApprovalResponse.StatusCode);
+
         var collectionResponse = await authenticated.PostAsJsonAsync("/api/enterprise/evidence/collections", new
         {
             name = "Lobby incident evidence",
@@ -991,6 +1445,23 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var hold = await ReadJsonAsync(holdResponse);
         var legalHoldId = hold.RootElement.GetProperty("legalHoldId").GetInt64();
 
+        var dryRunResponse = await authenticated.PostAsJsonAsync("/api/enterprise/evidence/retention/dry-run", new
+        {
+            asOfUtc = DateTime.UtcNow.AddDays(90),
+            limit = 10
+        });
+        Assert.Equal(HttpStatusCode.OK, dryRunResponse.StatusCode);
+
+        await GrantStepUpAsync(authenticated);
+        var purgeResponse = await authenticated.PostAsJsonAsync("/api/enterprise/evidence/retention/purge", new
+        {
+            evidenceItemIds = new[] { evidenceItemId },
+            reason = "Retention purge should be blocked by hold or immutable flag"
+        });
+        Assert.Equal(HttpStatusCode.OK, purgeResponse.StatusCode);
+        var purgeBody = await purgeResponse.Content.ReadAsStringAsync();
+        Assert.Contains("blocked", purgeBody, StringComparison.OrdinalIgnoreCase);
+
         var exportResponse = await authenticated.PostAsJsonAsync("/api/enterprise/evidence/export-requests", new
         {
             evidenceItemId = (long?)null,
@@ -1002,6 +1473,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var export = await ReadJsonAsync(exportResponse);
         var exportRequestId = export.RootElement.GetProperty("evidenceExportRequestId").GetInt64();
 
+        await GrantStepUpAsync(authenticated);
         var approveExportResponse = await authenticated.PatchAsJsonAsync($"/api/enterprise/evidence/export-requests/{exportRequestId}/approve", new
         {
             watermark = "V-Shield approved export",
@@ -1224,6 +1696,105 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
     }
 
     [Fact]
+    public async Task EnterpriseOperationsWorker_QueuesWebhookDeliveryFromOutbox()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+        var correlationId = Guid.NewGuid().ToString("N");
+
+        var subscriptionResponse = await authenticated.PostAsJsonAsync("/api/enterprise/operations/webhook-subscriptions", new
+        {
+            name = "Worker webhook",
+            targetUrl = "https://siem.example.test/events",
+            secretReference = "secret://worker/test",
+            eventTypes = "WorkerEvent",
+            isActive = true
+        });
+        Assert.Equal(HttpStatusCode.OK, subscriptionResponse.StatusCode);
+
+        var outboxResponse = await authenticated.PostAsJsonAsync("/api/enterprise/operations/outbox-events", new
+        {
+            eventType = "WorkerEvent",
+            aggregateType = "Alarm",
+            aggregateId = "worker-1",
+            payloadJson = "{\"ok\":true}",
+            correlationId
+        });
+        Assert.Equal(HttpStatusCode.OK, outboxResponse.StatusCode);
+
+        var worker = new EnterpriseOperationsWorker(
+            _factory.Services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<EnterpriseOperationsWorker>.Instance,
+            _factory.Services.GetRequiredService<IConfiguration>());
+        await worker.RunOnceAsync();
+
+        var overviewResponse = await authenticated.GetAsync("/api/enterprise/operations/overview");
+        Assert.Equal(HttpStatusCode.OK, overviewResponse.StatusCode);
+        var overview = await overviewResponse.Content.ReadAsStringAsync();
+        Assert.Contains("pendingWebhookDeliveries", overview, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AdminToken_CanReadSecurityConfigurationHealth()
+    {
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var response = await authenticated.GetAsync("/api/enterprise/operations/config-health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("jwt.secret", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("seedAdmin.credentials", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ProductionSecurityConfiguration_BlocksUnsafeRepoDefaults()
+    {
+        var envSnapshot = CaptureEnvironment(
+            "VSHIELD_JWT_SECRET",
+            "VSHIELD_SEED_ADMIN_USERNAME",
+            "VSHIELD_SEED_ADMIN_PASSWORD",
+            "VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY",
+            "ConnectionStrings__DefaultConnection",
+            "AppSettings__FrontendUrl",
+            "AppSettings__Go2RtcPublicBaseUrl",
+            "Cloudflared__PublicHostname",
+            "JwtSettings__Issuer",
+            "JwtSettings__Audience");
+
+        try
+        {
+            ClearEnvironment(envSnapshot.Keys);
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["JwtSettings:Secret"] = "LOCAL_DEVELOPMENT_ONLY_CHANGE_ME_32CHARS!",
+                    ["JwtSettings:Issuer"] = "VShieldAPI",
+                    ["JwtSettings:Audience"] = "VShieldClient",
+                    ["SeedAdmin:Username"] = "admin",
+                    ["SeedAdmin:Password"] = "Admin@123",
+                    ["ConnectionStrings:DefaultConnection"] = "Server=.;Database=AccessControlDB;Trusted_Connection=True;TrustServerCertificate=True;",
+                    ["AppSettings:FrontendUrl"] = "https://cam.maiai06.site",
+                    ["AppSettings:Go2RtcPublicBaseUrl"] = "https://cam.maiai06.site",
+                    ["Cloudflared:PublicHostname"] = "cam.maiai06.site",
+                    ["AppSettings:AllowedOrigins:0"] = "http://localhost:5173"
+                })
+                .Build();
+            var environment = new TestHostEnvironment("Production");
+
+            var report = SecurityConfigurationHealthService.Evaluate(configuration, environment);
+
+            Assert.Equal(SecurityConfigurationHealthStatuses.Blocked, report.Status);
+            Assert.Contains(report.Findings, finding => finding.Key == "jwt.secret.source" && finding.Status == SecurityConfigurationFindingStatuses.Fail);
+            Assert.Contains(report.Findings, finding => finding.Key == "seedAdmin.credentials" && finding.Status == SecurityConfigurationFindingStatuses.Fail);
+            Assert.Contains(report.Findings, finding => finding.Key == "rateLimiting.backend" && finding.Status == SecurityConfigurationFindingStatuses.Fail);
+        }
+        finally
+        {
+            RestoreEnvironment(envSnapshot);
+        }
+    }
+
+    [Fact]
     public async Task StaffToken_CannotAdministerReleaseReadiness()
     {
         using var authenticated = CreateClientWithBearer(CreateJwtToken(1003, "staff.role", "Staff"));
@@ -1305,6 +1876,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         });
         Assert.Equal(HttpStatusCode.OK, runbookResponse.StatusCode);
 
+        await GrantStepUpAsync(authenticated);
         var approveResponse = await authenticated.PatchAsync($"/api/enterprise/release-readiness/release-candidates/{releaseCandidateId}/approve", null);
         Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
         var approveBody = await approveResponse.Content.ReadAsStringAsync();
@@ -1347,11 +1919,114 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         Assert.False(string.IsNullOrWhiteSpace(GetString(login, "token")));
     }
 
+    [Fact]
+    public async Task MfaRecoveryCode_IsOneTimeUse()
+    {
+        const int userId = 2001;
+        const string username = "recovery.admin";
+        const string password = "Admin@12345";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (!db.AppUsers.Any(user => user.UserId == userId))
+            {
+                var totp = scope.ServiceProvider.GetRequiredService<TotpService>();
+                var secret = totp.GenerateSecret();
+                db.AppUsers.Add(new API.Models.AppUser
+                {
+                    UserId = userId,
+                    Username = username,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                    FullName = "Recovery Admin",
+                    Role = "Admin",
+                    IsActive = true,
+                    TokenVersion = 0,
+                    CreatedAt = DateTime.UtcNow,
+                    MfaEnabled = true,
+                    MfaSecretProtected = totp.ProtectSecret(secret),
+                    MfaConfiguredAtUtc = DateTime.UtcNow
+                });
+                db.SaveChanges();
+            }
+        }
+
+        using var authenticated = CreateClientWithBearer(CreateJwtToken(userId, username, "Admin"));
+        await GrantStepUpAsync(authenticated, password);
+        var codesResponse = await authenticated.PostAsJsonAsync("/api/Auth/mfa/recovery-codes", new { count = 4 });
+        Assert.Equal(HttpStatusCode.OK, codesResponse.StatusCode);
+        var codes = await ReadJsonAsync(codesResponse);
+        var recoveryCode = codes.RootElement.GetProperty("codes")[0].GetString();
+        Assert.False(string.IsNullOrWhiteSpace(recoveryCode));
+
+        var firstLoginResponse = await _client.PostAsJsonAsync("/api/Auth/login", new
+        {
+            username,
+            password,
+            mfaCode = recoveryCode
+        });
+        Assert.Equal(HttpStatusCode.OK, firstLoginResponse.StatusCode);
+        var firstLogin = await ReadJsonAsync(firstLoginResponse);
+        Assert.False(string.IsNullOrWhiteSpace(GetString(firstLogin, "token")));
+
+        var secondLoginResponse = await _client.PostAsJsonAsync("/api/Auth/login", new
+        {
+            username,
+            password,
+            mfaCode = recoveryCode
+        });
+        Assert.Equal(HttpStatusCode.OK, secondLoginResponse.StatusCode);
+        var secondLogin = await ReadJsonAsync(secondLoginResponse);
+        Assert.True(secondLogin.RootElement.GetProperty("requiresMfa").GetBoolean());
+        Assert.True(string.IsNullOrWhiteSpace(GetString(secondLogin, "token")));
+    }
+
     private HttpClient CreateClientWithBearer(string token)
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    private static Dictionary<string, string?> CaptureEnvironment(params string[] keys) =>
+        keys.ToDictionary(key => key, Environment.GetEnvironmentVariable);
+
+    private static void ClearEnvironment(IEnumerable<string> keys)
+    {
+        foreach (var key in keys)
+        {
+            Environment.SetEnvironmentVariable(key, null);
+        }
+    }
+
+    private static void RestoreEnvironment(IReadOnlyDictionary<string, string?> snapshot)
+    {
+        foreach (var (key, value) in snapshot)
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+
+    private static async Task GrantStepUpAsync(HttpClient authenticated, string password = "Admin@12345")
+    {
+        var startResponse = await authenticated.PostAsJsonAsync("/api/Auth/step-up/start", new
+        {
+            action = "AllPrivilegedActions",
+            reason = "Automated security boundary test"
+        });
+        Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
+        var start = await ReadJsonAsync(startResponse);
+        var sessionId = start.RootElement.GetProperty("sessionId").GetInt64();
+
+        var verifyResponse = await authenticated.PostAsJsonAsync("/api/Auth/step-up/verify", new
+        {
+            sessionId,
+            password
+        });
+        Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
+
+        authenticated.DefaultRequestHeaders.Remove("X-Step-Up-Session-Id");
+        authenticated.DefaultRequestHeaders.Add("X-Step-Up-Session-Id", sessionId.ToString());
     }
 
     private static bool HasTrustBoundary(MemberInfo member) =>
@@ -1438,5 +2113,18 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         }
 
         return output.ToArray();
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public TestHostEnvironment(string environmentName)
+        {
+            EnvironmentName = environmentName;
+        }
+
+        public string EnvironmentName { get; set; }
+        public string ApplicationName { get; set; } = "API.Tests";
+        public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }

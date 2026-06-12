@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using API.Data;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -212,6 +213,18 @@ public class EnterpriseSocController : ControllerBase
         if (execution == null)
             return NotFound(new { message = "SOP execution not found." });
 
+        var template = await _context.SopTemplates.FindAsync(execution.SopTemplateId);
+        if (template == null)
+            return BadRequest(new { message = "SOP template not found." });
+
+        var requiredSteps = ExtractChecklistSteps(template.ChecklistJson, requiredOnly: true);
+        var completedSteps = ExtractChecklistSteps(request.CompletedStepsJson, requiredOnly: false);
+        var missingSteps = requiredSteps
+            .Where(step => !completedSteps.Contains(step))
+            .ToArray();
+        if (missingSteps.Length > 0)
+            return BadRequest(new { message = "Required SOP steps are missing.", missingSteps });
+
         execution.Status = "Completed";
         execution.CompletedStepsJson = string.IsNullOrWhiteSpace(request.CompletedStepsJson) ? "[]" : request.CompletedStepsJson.Trim();
         execution.CompletedAtUtc = DateTime.UtcNow;
@@ -266,9 +279,11 @@ public class EnterpriseSocController : ControllerBase
         var incident = await _context.Incidents.FindAsync(incidentId);
         if (incident == null)
             return NotFound(new { message = "Incident not found." });
+        if (string.IsNullOrWhiteSpace(request.Note))
+            return BadRequest(new { message = "Outcome note is required before incident closure." });
 
         incident.Status = "Closed";
-        incident.Outcome = request.Note?.Trim();
+        incident.Outcome = request.Note.Trim();
         incident.ClosedAtUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return Ok(incident);
@@ -351,6 +366,67 @@ public class EnterpriseSocController : ControllerBase
     {
         var userIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
         return int.TryParse(userIdClaim, out var userId) ? userId : null;
+    }
+
+    private static ISet<string> ExtractChecklistSteps(string? json, bool requiredOnly)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(json))
+            return result;
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    AddStep(result, item.GetString());
+                    continue;
+                }
+
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var isRequired = !item.TryGetProperty("required", out var required) ||
+                                 required.ValueKind != JsonValueKind.False;
+                if (requiredOnly && !isRequired)
+                    continue;
+
+                if (TryGetStepValue(item, "id", out var step) ||
+                    TryGetStepValue(item, "name", out step) ||
+                    TryGetStepValue(item, "text", out step) ||
+                    TryGetStepValue(item, "step", out step))
+                {
+                    AddStep(result, step);
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            AddStep(result, json);
+        }
+
+        return result;
+    }
+
+    private static bool TryGetStepValue(JsonElement item, string propertyName, out string? step)
+    {
+        step = null;
+        if (!item.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+            return false;
+
+        step = property.GetString();
+        return !string.IsNullOrWhiteSpace(step);
+    }
+
+    private static void AddStep(ISet<string> result, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            result.Add(value.Trim());
     }
 
     public sealed record AlarmRuleRequest(string Name, string EventType, string? Severity, bool IsActive);

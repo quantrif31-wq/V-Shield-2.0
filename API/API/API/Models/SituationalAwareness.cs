@@ -20,6 +20,9 @@ public class SecurityEvent
     [MaxLength(100)] public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
     [MaxLength(2000)] public string? Summary { get; set; }
     public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+    [MaxLength(160)] public string? SiteNameSnapshot { get; set; }
+    [MaxLength(160)] public string? SecurityZoneNameSnapshot { get; set; }
+    [MaxLength(160)] public string? AccessPointNameSnapshot { get; set; }
 }
 
 public class EventCorrelation
@@ -91,4 +94,3 @@ public class AiPerformanceMetric
     public DateTime CapturedAtUtc { get; set; } = DateTime.UtcNow;
     [MaxLength(1000)] public string? Notes { get; set; }
 }
-

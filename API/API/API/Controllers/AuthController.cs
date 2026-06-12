@@ -1,6 +1,8 @@
 ﻿using System.Security.Claims;
 using API.Data;
 using API.DTOs;
+using API.Middleware;
+using API.Models;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +16,16 @@ namespace API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly Services.IAuthenticationService _authService;
+    private readonly Services.IStepUpService _stepUpService;
     private readonly ApplicationDbContext _context;
 
-    public AuthController(Services.IAuthenticationService AuthenticationService, ApplicationDbContext context)
+    public AuthController(
+        Services.IAuthenticationService AuthenticationService,
+        Services.IStepUpService stepUpService,
+        ApplicationDbContext context)
     {
         _authService = AuthenticationService;
+        _stepUpService = stepUpService;
         _context = context;
     }
 
@@ -103,6 +110,80 @@ public class AuthController : ControllerBase
             MfaRequired = _authService.RequiresMfa(user),
             LastLoginAtUtc = user.LastLoginAtUtc
         });
+    }
+
+    [HttpPost("step-up/start")]
+    [Authorize]
+    public async Task<IActionResult> StartStepUp([FromBody] StepUpStartRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var session = await _stepUpService.StartAsync(
+            userId.Value,
+            request.Action,
+            request.Reason,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.UserAgent.ToString());
+
+        return session == null ? Unauthorized() : Ok(session);
+    }
+
+    [HttpPost("step-up/verify")]
+    [Authorize]
+    public async Task<IActionResult> VerifyStepUp([FromBody] StepUpVerifyRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var session = await _stepUpService.VerifyAsync(userId.Value, request.SessionId, request.Password, request.MfaCode);
+        return session == null
+            ? Unauthorized(new { message = "Step-up verification failed." })
+            : Ok(session);
+    }
+
+    [HttpGet("step-up/status")]
+    [Authorize]
+    public async Task<IActionResult> GetStepUpStatus([FromQuery] string? action, [FromQuery] long? sessionId)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var session = await _stepUpService.GetStatusAsync(userId.Value, action, sessionId);
+        return Ok(session ?? new StepUpSessionResponse
+        {
+            Status = "None",
+            Action = action ?? "AllPrivilegedActions",
+            Active = false
+        });
+    }
+
+    [HttpPost("mfa/recovery-codes")]
+    [Authorize]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
+    public async Task<IActionResult> GenerateMfaRecoveryCodes([FromBody] MfaRecoveryCodeRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var response = await _authService.GenerateRecoveryCodesAsync(userId.Value, request.Count, userId.Value);
+        return response == null ? NotFound(new { message = "User not found." }) : Ok(response);
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        return int.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 }
 

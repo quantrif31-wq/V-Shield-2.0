@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -286,25 +287,44 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("barriers/{barrierId:int}/commands")]
+    [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> RecordBarrierCommand(int barrierId, [FromBody] BarrierCommandRequest request)
     {
         var barrier = await _context.Barriers.FindAsync(barrierId);
         if (barrier == null)
             return NotFound(new { message = "Barrier not found." });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { message = "Reason is required for barrier commands." });
 
         var command = string.IsNullOrWhiteSpace(request.Command) ? "Open" : request.Command.Trim();
         barrier.State = command.Equals("Open", StringComparison.OrdinalIgnoreCase) ? "Open" :
-            command.Equals("Close", StringComparison.OrdinalIgnoreCase) ? "Closed" : barrier.State;
+            command.Equals("Close", StringComparison.OrdinalIgnoreCase) ? "Closed" :
+            command.Equals("HoldOpen", StringComparison.OrdinalIgnoreCase) ? "HeldOpen" :
+            command.Equals("LockClosed", StringComparison.OrdinalIgnoreCase) ? "LockedClosed" :
+            barrier.State;
 
         var audit = new BarrierCommandAudit
         {
             BarrierId = barrierId,
             Command = command,
-            Reason = string.IsNullOrWhiteSpace(request.Reason) ? "Operator command" : request.Reason.Trim(),
+            Reason = request.Reason.Trim(),
             RequestedByUserId = GetCurrentUserId()
         };
 
         _context.BarrierCommandAudits.Add(audit);
+        _context.SecurityEvents.Add(new SecurityEvent
+        {
+            SourceType = "BarrierCommand",
+            SourceId = barrierId.ToString(),
+            EventType = "BarrierManualCommand",
+            Severity = command.Equals("Open", StringComparison.OrdinalIgnoreCase) ||
+                       command.Equals("HoldOpen", StringComparison.OrdinalIgnoreCase) ||
+                       command.Equals("LockClosed", StringComparison.OrdinalIgnoreCase)
+                ? "High"
+                : "Medium",
+            Summary = $"Barrier {barrier.Name} command {command}: {audit.Reason}",
+            OccurredAtUtc = audit.RequestedAtUtc
+        });
         await _context.SaveChangesAsync();
         return Ok(audit);
     }

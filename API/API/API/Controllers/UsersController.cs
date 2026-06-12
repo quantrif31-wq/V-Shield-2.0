@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using API.Data;
 using API.DTOs;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -68,6 +69,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
         if (!ModelState.IsValid)
@@ -119,6 +121,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest request)
     {
         if (!ModelState.IsValid)
@@ -177,6 +180,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{id}/mfa/reset")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> ResetMfa(int id)
     {
         var user = await _context.AppUsers.FindAsync(id);
@@ -203,6 +207,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Delete(int id)
     {
         var user = await _context.AppUsers.FindAsync(id);

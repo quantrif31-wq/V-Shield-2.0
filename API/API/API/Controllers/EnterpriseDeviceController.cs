@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using System.Text.Json;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -118,6 +120,7 @@ public class EnterpriseDeviceController : ControllerBase
 
     [HttpPost("{deviceId:int}/configuration-versions")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> AddConfigurationVersion(int deviceId, [FromBody] DeviceConfigurationRequest request)
     {
         if (!await _context.SecurityDevices.AnyAsync(device => device.SecurityDeviceId == deviceId))
@@ -158,6 +161,7 @@ public class EnterpriseDeviceController : ControllerBase
 
     [HttpPatch("provisioning-requests/{requestId:int}/approve")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> ApproveProvisioningRequest(int requestId, [FromBody] ProvisioningApprovalRequest request)
     {
         var provisioning = await _context.DeviceProvisioningRequests.FindAsync(requestId);
@@ -174,6 +178,7 @@ public class EnterpriseDeviceController : ControllerBase
 
     [HttpPost("offline-policy-packages")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> CreateOfflinePolicyPackage([FromBody] OfflinePolicyPackageRequest request)
     {
         var package = new OfflinePolicyPackage
@@ -215,6 +220,188 @@ public class EnterpriseDeviceController : ControllerBase
         });
     }
 
+    [HttpPost("simulator/virtual-controller")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateVirtualController([FromBody] VirtualControllerRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { message = "Name is required." });
+
+        var device = new SecurityDevice
+        {
+            SiteId = request.SiteId,
+            AccessPointId = request.AccessPointId,
+            DeviceType = "VirtualController",
+            Name = request.Name.Trim(),
+            Vendor = "V-Shield Simulator",
+            Model = "EnterpriseEdge-Sim",
+            SerialNumber = $"SIM-{Guid.NewGuid():N}"[..16],
+            FirmwareVersion = "sim-1.0",
+            ConfigurationVersion = "initial",
+            Status = "Ok",
+            LastSeenAtUtc = DateTime.UtcNow
+        };
+
+        _context.SecurityDevices.Add(device);
+        await _context.SaveChangesAsync();
+
+        _context.AccessControllerDevices.Add(new AccessControllerDevice
+        {
+            SecurityDeviceId = device.SecurityDeviceId,
+            Protocol = string.IsNullOrWhiteSpace(request.Protocol) ? "OSDP-Sim" : request.Protocol.Trim(),
+            SupportsOfflineDecision = true,
+            MaxCredentials = request.MaxCredentials <= 0 ? 50000 : request.MaxCredentials
+        });
+        _context.ReaderDevices.Add(new ReaderDevice
+        {
+            SecurityDeviceId = device.SecurityDeviceId,
+            ReaderProtocol = "OSDP-Sim",
+            CredentialFormats = string.IsNullOrWhiteSpace(request.Direction)
+                ? "QR,Card,Pin"
+                : $"QR,Card,Pin,{request.Direction.Trim()}"
+        });
+        _context.DeviceRelays.Add(new DeviceRelay
+        {
+            SecurityDeviceId = device.SecurityDeviceId,
+            Name = "door-relay",
+            State = "Secure"
+        });
+        _context.DeviceSensors.Add(new DeviceSensor
+        {
+            SecurityDeviceId = device.SecurityDeviceId,
+            SensorType = "Tamper",
+            State = "Normal"
+        });
+        _context.DeviceHealthSnapshots.Add(new DeviceHealthSnapshot
+        {
+            SecurityDeviceId = device.SecurityDeviceId,
+            Status = "Ok",
+            Message = "Virtual controller created."
+        });
+
+        await _context.SaveChangesAsync();
+        return Ok(new { device.SecurityDeviceId, device.Name, device.Status });
+    }
+
+    [HttpPost("simulator/offline-scan")]
+    public async Task<IActionResult> SimulateOfflineScan([FromBody] OfflineScanRequest request)
+    {
+        var device = await _context.SecurityDevices.FindAsync(request.SecurityDeviceId);
+        if (device == null)
+            return NotFound(new { message = "Device not found." });
+
+        var package = await _context.OfflinePolicyPackages
+            .Where(item => item.SecurityDeviceId == request.SecurityDeviceId && item.Status == "Published")
+            .OrderByDescending(item => item.PublishedAtUtc)
+            .FirstOrDefaultAsync();
+
+        var now = request.EvaluatedAtUtc ?? DateTime.UtcNow;
+        var allowed = PackageAllows(package?.PayloadJson, request.SubjectType, request.SubjectId, request.CredentialType);
+        var decision = new AccessDecision
+        {
+            SubjectType = string.IsNullOrWhiteSpace(request.SubjectType) ? "Employee" : request.SubjectType.Trim(),
+            SubjectId = request.SubjectId,
+            SiteId = request.SiteId ?? device.SiteId,
+            SecurityZoneId = request.SecurityZoneId,
+            AccessPointId = request.AccessPointId ?? device.AccessPointId,
+            CredentialType = string.IsNullOrWhiteSpace(request.CredentialType) ? "Any" : request.CredentialType.Trim(),
+            Result = allowed ? AccessDecisionResults.Allow : AccessDecisionResults.Deny,
+            Reason = allowed
+                ? $"Offline simulator package {package?.PackageVersion} allowed credential."
+                : "Offline simulator denied because no published package rule matched.",
+            EvaluatedAtUtc = now,
+            EvaluatedByUserId = GetCurrentUserId()
+        };
+
+        _context.AccessDecisions.Add(decision);
+        _context.SecurityEvents.Add(new SecurityEvent
+        {
+            SourceType = "DeviceSimulator",
+            SourceId = request.SecurityDeviceId.ToString(),
+            EventType = allowed ? "OfflineAccessGranted" : "OfflineAccessDenied",
+            Severity = allowed ? "Info" : "Medium",
+            SiteId = decision.SiteId,
+            SecurityZoneId = decision.SecurityZoneId,
+            AccessPointId = decision.AccessPointId,
+            SubjectType = decision.SubjectType,
+            SubjectId = decision.SubjectId,
+            Summary = decision.Reason,
+            OccurredAtUtc = now
+        });
+
+        device.Status = "Ok";
+        device.LastSeenAtUtc = now;
+        await _context.SaveChangesAsync();
+        return Ok(decision);
+    }
+
+    [HttpPost("simulator/fault")]
+    public async Task<IActionResult> InjectSimulatorFault([FromBody] SimulatorFaultRequest request)
+    {
+        var device = await _context.SecurityDevices.FindAsync(request.SecurityDeviceId);
+        if (device == null)
+            return NotFound(new { message = "Device not found." });
+
+        var status = string.IsNullOrWhiteSpace(request.Status) ? "Tamper" : request.Status.Trim();
+        device.Status = status;
+        device.LastSeenAtUtc = DateTime.UtcNow;
+
+        _context.DeviceHealthSnapshots.Add(new DeviceHealthSnapshot
+        {
+            SecurityDeviceId = request.SecurityDeviceId,
+            Status = status,
+            Message = request.Message?.Trim() ?? "Simulator fault injected."
+        });
+        _context.Alarms.Add(new Alarm
+        {
+            AlarmType = status,
+            Severity = request.Severity?.Trim() ?? "High",
+            State = "New",
+            Summary = $"Simulator fault for device {device.Name}: {status}.",
+            SiteId = device.SiteId
+        });
+
+        await _context.SaveChangesAsync();
+        return Ok(new { device.SecurityDeviceId, device.Status });
+    }
+
+    private static bool PackageAllows(string? payloadJson, string? subjectType, int? subjectId, string? credentialType)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+            return false;
+
+        try
+        {
+            using var json = JsonDocument.Parse(payloadJson);
+            var root = json.RootElement;
+            if (root.TryGetProperty("allowAll", out var allowAll) && allowAll.ValueKind == JsonValueKind.True)
+                return true;
+
+            if (!root.TryGetProperty("allowedSubjects", out var subjects) || subjects.ValueKind != JsonValueKind.Array)
+                return false;
+
+            foreach (var subject in subjects.EnumerateArray())
+            {
+                var typeMatches = !subject.TryGetProperty("subjectType", out var type) ||
+                                  string.Equals(type.GetString(), subjectType, StringComparison.OrdinalIgnoreCase);
+                var idMatches = !subject.TryGetProperty("subjectId", out var id) ||
+                                (subjectId.HasValue && id.GetInt32() == subjectId.Value);
+                var credentialMatches = !subject.TryGetProperty("credentialType", out var credential) ||
+                                        string.Equals(credential.GetString(), "Any", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(credential.GetString(), credentialType, StringComparison.OrdinalIgnoreCase);
+
+                if (typeMatches && idMatches && credentialMatches)
+                    return true;
+            }
+        }
+        catch (JsonException)
+        {
+            return payloadJson.Contains("\"allowAll\":true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
     private int? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
@@ -228,5 +415,7 @@ public class EnterpriseDeviceController : ControllerBase
     public sealed record ProvisioningRequest(int? SecurityDeviceId, string? DeviceType, string RequestedName);
     public sealed record ProvisioningApprovalRequest(string? ApprovalNote);
     public sealed record OfflinePolicyPackageRequest(int? SecurityDeviceId, string? PackageVersion, string? PayloadJson, string? PayloadHash, string? Status);
+    public sealed record VirtualControllerRequest(string Name, int? SiteId, int? AccessPointId, string? Protocol, string? Direction, int MaxCredentials);
+    public sealed record OfflineScanRequest(int SecurityDeviceId, string? SubjectType, int? SubjectId, int? SiteId, int? SecurityZoneId, int? AccessPointId, string? CredentialType, DateTime? EvaluatedAtUtc);
+    public sealed record SimulatorFaultRequest(int SecurityDeviceId, string? Status, string? Severity, string? Message);
 }
-

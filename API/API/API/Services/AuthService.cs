@@ -180,6 +180,9 @@ public class AuthenticationService : IAuthenticationService
 
         if (!_totpService.VerifyCode(user.MfaSecretProtected, submittedCode))
         {
+            if (user.MfaEnabled && await TryConsumeRecoveryCodeAsync(user.UserId, submittedCode))
+                return null;
+
             var secret = user.MfaEnabled ? null : _totpService.UnprotectSecret(user.MfaSecretProtected);
             return user.MfaEnabled
                 ? BuildMfaRequiredResponse(user)
@@ -193,6 +196,69 @@ public class AuthenticationService : IAuthenticationService
         }
 
         return null;
+    }
+
+    public async Task<MfaRecoveryCodeResponse?> GenerateRecoveryCodesAsync(int userId, int requestedCount, int? createdByUserId)
+    {
+        var user = await _context.AppUsers.FindAsync(userId);
+        if (user == null || !user.IsActive)
+            return null;
+
+        var count = Math.Clamp(requestedCount, 4, 12);
+        var now = DateTime.UtcNow;
+        var expiresAt = now.AddDays(180);
+
+        var activeCodes = await _context.MfaRecoveryCodes
+            .Where(code => code.UserId == userId && code.UsedAtUtc == null && code.ExpiresAtUtc > now)
+            .ToListAsync();
+        foreach (var code in activeCodes)
+        {
+            code.UsedAtUtc = now;
+        }
+
+        var plainCodes = new List<string>();
+        for (var i = 0; i < count; i++)
+        {
+            var plainCode = GenerateRecoveryCode();
+            plainCodes.Add(plainCode);
+            _context.MfaRecoveryCodes.Add(new MfaRecoveryCode
+            {
+                UserId = userId,
+                CodeHash = HashToken(plainCode),
+                CreatedAtUtc = now,
+                ExpiresAtUtc = expiresAt,
+                CreatedByUserId = createdByUserId
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return new MfaRecoveryCodeResponse
+        {
+            UserId = userId,
+            ExpiresAtUtc = expiresAt,
+            Codes = plainCodes
+        };
+    }
+
+    private async Task<bool> TryConsumeRecoveryCodeAsync(int userId, string? submittedCode)
+    {
+        if (string.IsNullOrWhiteSpace(submittedCode))
+            return false;
+
+        var hash = HashToken(submittedCode.Trim());
+        var now = DateTime.UtcNow;
+        var code = await _context.MfaRecoveryCodes.FirstOrDefaultAsync(item =>
+            item.UserId == userId &&
+            item.CodeHash == hash &&
+            item.UsedAtUtc == null &&
+            item.ExpiresAtUtc > now);
+
+        if (code == null)
+            return false;
+
+        code.UsedAtUtc = now;
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     private async Task<LoginResponse> IssueSessionAsync(AppUser user, string? refreshToken = null, string? refreshTokenHash = null)
@@ -325,6 +391,12 @@ public class AuthenticationService : IAuthenticationService
 
     private static string GenerateRefreshToken() =>
         WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(64));
+
+    private static string GenerateRecoveryCode()
+    {
+        var raw = Convert.ToHexString(RandomNumberGenerator.GetBytes(6));
+        return $"{raw[..4]}-{raw[4..8]}-{raw[8..12]}";
+    }
 
     private static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));

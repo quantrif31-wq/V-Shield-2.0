@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +15,14 @@ namespace API.Controllers;
 public class EnterpriseFoundationController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly ICompanyHierarchyBackfillService _backfillService;
 
-    public EnterpriseFoundationController(ApplicationDbContext context)
+    public EnterpriseFoundationController(
+        ApplicationDbContext context,
+        ICompanyHierarchyBackfillService backfillService)
     {
         _context = context;
+        _backfillService = backfillService;
     }
 
     [HttpGet("overview")]
@@ -102,6 +108,26 @@ public class EnterpriseFoundationController : ControllerBase
                 })
             })
         }));
+    }
+
+    [HttpGet("asset-map")]
+    public async Task<IActionResult> GetAssetMap(CancellationToken cancellationToken)
+    {
+        var report = await _backfillService.GetAssetMapAsync(cancellationToken);
+        return Ok(report);
+    }
+
+    [HttpPost("backfill/default-site")]
+    [RequireStepUp(PrivilegedActions.SiteHierarchyBackfill)]
+    public async Task<IActionResult> BackfillDefaultSite(
+        [FromBody] CompanyHierarchyBackfillRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var report = await _backfillService.BackfillDefaultSiteAsync(
+            request ?? new CompanyHierarchyBackfillRequest(null, null, null, null, null),
+            GetCurrentUserId(),
+            cancellationToken);
+        return Ok(report);
     }
 
     [HttpPost("companies")]

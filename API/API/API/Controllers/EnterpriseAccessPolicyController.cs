@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +31,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
             AccessGroups = await _context.AccessGroups.CountAsync(),
             AccessRules = await _context.AccessRules.CountAsync(),
             TemporaryGrants = await _context.TemporaryAccessGrants.CountAsync(),
+            PolicyVersions = await _context.AccessPolicyVersions.CountAsync(),
+            ActivePolicyVersions = await _context.AccessPolicyVersions.CountAsync(version => version.Status == "Active"),
+            PendingApprovalPolicyVersions = await _context.AccessPolicyVersions.CountAsync(version => version.Status == "PendingApproval"),
             EmergencyStates = await _context.EmergencyStates.CountAsync(e => e.IsActive),
             AntiPassbackStates = await _context.AntiPassbackStates.CountAsync(),
             OccupancySnapshots = await _context.OccupancySnapshots.CountAsync(),
@@ -120,6 +124,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
 
         var rule = new AccessRule
         {
+            AccessPolicyVersionId = request.AccessPolicyVersionId,
             AccessLevelId = request.AccessLevelId,
             AccessGroupId = request.AccessGroupId,
             SiteId = request.SiteId,
@@ -138,6 +143,124 @@ public class EnterpriseAccessPolicyController : ControllerBase
         _context.AccessRules.Add(rule);
         await _context.SaveChangesAsync();
         return Ok(rule);
+    }
+
+    [HttpGet("policy-versions")]
+    public async Task<IActionResult> GetPolicyVersions()
+    {
+        var versions = await _context.AccessPolicyVersions
+            .OrderByDescending(version => version.CreatedAtUtc)
+            .Select(version => new
+            {
+                version.AccessPolicyVersionId,
+                version.Name,
+                version.Status,
+                version.ChangeSummary,
+                version.CreatedAtUtc,
+                version.SubmittedAtUtc,
+                version.ApprovedAtUtc,
+                version.ActivatedAtUtc,
+                version.RetiredAtUtc,
+                Rules = _context.AccessRules.Count(rule => rule.AccessPolicyVersionId == version.AccessPolicyVersionId)
+            })
+            .ToListAsync();
+
+        return Ok(versions);
+    }
+
+    [HttpPost("policy-versions")]
+    public async Task<IActionResult> CreatePolicyVersion([FromBody] PolicyVersionRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { message = "Name is required." });
+
+        var version = new AccessPolicyVersion
+        {
+            Name = request.Name.Trim(),
+            Status = "Draft",
+            ChangeSummary = request.ChangeSummary?.Trim(),
+            CreatedByUserId = GetCurrentUserId()
+        };
+
+        _context.AccessPolicyVersions.Add(version);
+        await _context.SaveChangesAsync();
+        return Ok(version);
+    }
+
+    [HttpPatch("policy-versions/{policyVersionId:int}/submit")]
+    public async Task<IActionResult> SubmitPolicyVersion(int policyVersionId)
+    {
+        var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
+        if (version == null)
+            return NotFound(new { message = "Policy version not found." });
+        if (version.Status != "Draft")
+            return BadRequest(new { message = "Only Draft policy versions can be submitted." });
+
+        version.Status = "PendingApproval";
+        version.SubmittedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(version);
+    }
+
+    [HttpPatch("policy-versions/{policyVersionId:int}/approve")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
+    public async Task<IActionResult> ApprovePolicyVersion(int policyVersionId, [FromBody] PolicyApprovalRequest request)
+    {
+        var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
+        if (version == null)
+            return NotFound(new { message = "Policy version not found." });
+        if (version.Status != "PendingApproval")
+            return BadRequest(new { message = "Only PendingApproval policy versions can be approved." });
+
+        version.Status = "Approved";
+        version.ApprovedAtUtc = DateTime.UtcNow;
+        version.ApprovedByUserId = GetCurrentUserId();
+        if (!string.IsNullOrWhiteSpace(request.Note))
+            version.ChangeSummary = string.IsNullOrWhiteSpace(version.ChangeSummary)
+                ? request.Note.Trim()
+                : $"{version.ChangeSummary}\nApproval: {request.Note.Trim()}";
+
+        await _context.SaveChangesAsync();
+        return Ok(version);
+    }
+
+    [HttpPatch("policy-versions/{policyVersionId:int}/activate")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
+    public async Task<IActionResult> ActivatePolicyVersion(int policyVersionId)
+    {
+        var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
+        if (version == null)
+            return NotFound(new { message = "Policy version not found." });
+        if (version.Status != "Approved")
+            return BadRequest(new { message = "Only Approved policy versions can be activated." });
+
+        var activeVersions = await _context.AccessPolicyVersions
+            .Where(item => item.Status == "Active")
+            .ToListAsync();
+        foreach (var active in activeVersions)
+        {
+            active.Status = "Retired";
+            active.RetiredAtUtc = DateTime.UtcNow;
+        }
+
+        version.Status = "Active";
+        version.ActivatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(version);
+    }
+
+    [HttpPatch("policy-versions/{policyVersionId:int}/retire")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
+    public async Task<IActionResult> RetirePolicyVersion(int policyVersionId)
+    {
+        var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
+        if (version == null)
+            return NotFound(new { message = "Policy version not found." });
+
+        version.Status = "Retired";
+        version.RetiredAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(version);
     }
 
     [HttpPost("temporary-grants")]
@@ -167,6 +290,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     }
 
     [HttpPost("emergency-states")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
     public async Task<IActionResult> CreateEmergencyState([FromBody] EmergencyStateRequest request)
     {
         var state = new EmergencyState
@@ -186,6 +310,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     }
 
     [HttpPost("anti-passback/reset")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
     public async Task<IActionResult> ResetAntiPassback([FromBody] AntiPassbackResetRequest request)
     {
         var state = await _context.AntiPassbackStates.FirstOrDefaultAsync(item =>
@@ -240,8 +365,74 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("simulate")]
+    public async Task<IActionResult> Simulate([FromBody] AccessEvaluationRequest request)
+    {
+        var nowUtc = request.EvaluatedAtUtc ?? DateTime.UtcNow;
+        var result = await EvaluateInternalAsync(request, nowUtc);
+        result.DecisionMode = "Simulation";
+        return Ok(result);
+    }
+
+    [HttpPost("shadow-compare")]
+    public async Task<IActionResult> ShadowCompare([FromBody] AccessShadowCompareRequest request)
+    {
+        var nowUtc = request.EvaluatedAtUtc ?? DateTime.UtcNow;
+        var evaluation = new AccessEvaluationRequest(
+            request.SubjectType,
+            request.SubjectId,
+            request.SiteId,
+            request.SecurityZoneId,
+            request.AccessPointId,
+            request.CredentialType,
+            request.AllowHolidayAccess,
+            request.EvaluatedAtUtc);
+        var result = await EvaluateInternalAsync(evaluation, nowUtc);
+        result.DecisionMode = "Shadow";
+        result.LegacyResult = request.LegacyResult?.Trim();
+        result.ShadowMismatch = !string.IsNullOrWhiteSpace(result.LegacyResult) &&
+                                !string.Equals(result.Result, result.LegacyResult, StringComparison.OrdinalIgnoreCase);
+
+        _context.AccessDecisions.Add(result);
+        if (result.ShadowMismatch)
+        {
+            var correlationId = Guid.NewGuid().ToString("N");
+            _context.SecurityEvents.Add(new SecurityEvent
+            {
+                SourceType = "AccessPolicyShadow",
+                SourceId = result.AccessPolicyVersionId?.ToString(),
+                EventType = "AccessPolicyShadowMismatch",
+                Severity = "Medium",
+                SiteId = result.SiteId,
+                SecurityZoneId = result.SecurityZoneId,
+                AccessPointId = result.AccessPointId,
+                SubjectType = result.SubjectType,
+                SubjectId = result.SubjectId,
+                CorrelationId = correlationId,
+                Summary = $"Legacy result {result.LegacyResult} differed from policy result {result.Result}. {request.LegacyReason}".Trim(),
+                OccurredAtUtc = nowUtc
+            });
+            _context.EventCorrelations.Add(new EventCorrelation
+            {
+                CorrelationId = correlationId,
+                RuleName = "AccessPolicyShadowMismatch",
+                Severity = "Medium",
+                Summary = $"Shadow policy mismatch for {result.SubjectType}:{result.SubjectId}."
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(result);
+    }
+
     private async Task<AccessDecision> EvaluateInternalAsync(AccessEvaluationRequest request, DateTime nowUtc)
     {
+        var activePolicyVersionId = await _context.AccessPolicyVersions
+            .Where(version => version.Status == "Active")
+            .OrderByDescending(version => version.ActivatedAtUtc ?? version.CreatedAtUtc)
+            .Select(version => (int?)version.AccessPolicyVersionId)
+            .FirstOrDefaultAsync();
+
         var emergency = await _context.EmergencyStates
             .Where(state => state.IsActive)
             .Where(state =>
@@ -255,7 +446,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
             emergency.State is "FullLockdown" or "PartialLockdown" or "Evacuation" or "ShelterInPlace" &&
             !string.Equals(request.CredentialType, "EmergencyOverride", StringComparison.OrdinalIgnoreCase))
         {
-            return BuildDecision(request, AccessDecisionResults.Deny, $"Emergency state active: {emergency.State}", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, $"Emergency state active: {emergency.State}", nowUtc);
         }
 
         var holiday = await _context.HolidayCalendars.AnyAsync(holiday =>
@@ -263,7 +454,46 @@ public class EnterpriseAccessPolicyController : ControllerBase
             (holiday.SiteId == null || holiday.SiteId == request.SiteId));
         if (holiday && !request.AllowHolidayAccess)
         {
-            return BuildDecision(request, AccessDecisionResults.Deny, "Holiday access is not allowed by request context.", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "Holiday access is not allowed by request context.", nowUtc);
+        }
+
+        var rulesQuery = _context.AccessRules
+            .Include(rule => rule.Schedule)
+            .Where(rule => rule.IsActive)
+            .Where(rule => rule.SubjectType == request.SubjectType)
+            .Where(rule => rule.SubjectId == null || rule.SubjectId == request.SubjectId)
+            .Where(rule => rule.AccessPointId == null || rule.AccessPointId == request.AccessPointId)
+            .Where(rule => rule.SecurityZoneId == null || rule.SecurityZoneId == request.SecurityZoneId)
+            .Where(rule => rule.SiteId == null || rule.SiteId == request.SiteId)
+            .Where(rule => rule.CredentialType == "Any" || rule.CredentialType == request.CredentialType)
+            .Where(rule => rule.ValidFromUtc == null || rule.ValidFromUtc <= nowUtc)
+            .Where(rule => rule.ValidToUtc == null || rule.ValidToUtc >= nowUtc);
+
+        if (activePolicyVersionId.HasValue)
+        {
+            rulesQuery = rulesQuery.Where(rule =>
+                rule.AccessPolicyVersionId == null ||
+                rule.AccessPolicyVersionId == activePolicyVersionId.Value);
+        }
+
+        var rules = await rulesQuery
+            .OrderByDescending(rule => rule.AccessPolicyVersionId == activePolicyVersionId)
+            .ThenBy(rule => rule.AllowAccess)
+            .ThenBy(rule => rule.AccessRuleId)
+            .ToListAsync();
+
+        var scheduledRules = rules
+            .Where(rule => IsWithinSchedule(rule.Schedule, nowUtc))
+            .ToList();
+        var denyRule = scheduledRules.FirstOrDefault(rule => !rule.AllowAccess);
+        if (denyRule != null)
+        {
+            return BuildDecision(
+                request,
+                activePolicyVersionId,
+                AccessDecisionResults.Deny,
+                $"Explicit deny rule {denyRule.AccessRuleId} denied access.",
+                nowUtc);
         }
 
         var temporaryGrant = await _context.TemporaryAccessGrants.AnyAsync(grant =>
@@ -278,36 +508,27 @@ public class EnterpriseAccessPolicyController : ControllerBase
 
         if (temporaryGrant)
         {
-            return BuildDecision(request, AccessDecisionResults.Allow, "Temporary access grant matched.", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Allow, "Temporary access grant matched.", nowUtc);
         }
 
-        var rules = await _context.AccessRules
-            .Include(rule => rule.Schedule)
-            .Where(rule => rule.IsActive)
-            .Where(rule => rule.SubjectType == request.SubjectType)
-            .Where(rule => rule.SubjectId == null || rule.SubjectId == request.SubjectId)
-            .Where(rule => rule.AccessPointId == null || rule.AccessPointId == request.AccessPointId)
-            .Where(rule => rule.SecurityZoneId == null || rule.SecurityZoneId == request.SecurityZoneId)
-            .Where(rule => rule.SiteId == null || rule.SiteId == request.SiteId)
-            .Where(rule => rule.CredentialType == "Any" || rule.CredentialType == request.CredentialType)
-            .Where(rule => rule.ValidFromUtc == null || rule.ValidFromUtc <= nowUtc)
-            .Where(rule => rule.ValidToUtc == null || rule.ValidToUtc >= nowUtc)
-            .ToListAsync();
-
-        var matchedRule = rules.FirstOrDefault(rule => IsWithinSchedule(rule.Schedule, nowUtc));
-        if (matchedRule == null)
+        var allowRule = scheduledRules.FirstOrDefault(rule => rule.AllowAccess);
+        if (allowRule == null)
         {
-            return BuildDecision(request, AccessDecisionResults.Deny, "No active access rule matched.", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "No active access rule matched.", nowUtc);
         }
 
-        return matchedRule.AllowAccess
-            ? BuildDecision(request, AccessDecisionResults.Allow, $"Access rule {matchedRule.AccessRuleId} allowed access.", nowUtc)
-            : BuildDecision(request, AccessDecisionResults.Deny, $"Access rule {matchedRule.AccessRuleId} denied access.", nowUtc);
+        return BuildDecision(
+            request,
+            activePolicyVersionId,
+            AccessDecisionResults.Allow,
+            $"Access rule {allowRule.AccessRuleId} allowed access.",
+            nowUtc);
     }
 
-    private AccessDecision BuildDecision(AccessEvaluationRequest request, string result, string reason, DateTime nowUtc) =>
+    private AccessDecision BuildDecision(AccessEvaluationRequest request, int? policyVersionId, string result, string reason, DateTime nowUtc) =>
         new()
         {
+            AccessPolicyVersionId = policyVersionId,
             SubjectType = request.SubjectType,
             SubjectId = request.SubjectId,
             SiteId = request.SiteId,
@@ -350,6 +571,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public sealed record AccessLevelRequest(string Name, string Code, string? Description, bool RequiresApproval);
     public sealed record AccessGroupRequest(string Name, string Code);
     public sealed record AccessRuleRequest(
+        int? AccessPolicyVersionId,
         int AccessLevelId,
         int? AccessGroupId,
         int? SiteId,
@@ -384,5 +606,17 @@ public class EnterpriseAccessPolicyController : ControllerBase
         string CredentialType,
         bool AllowHolidayAccess,
         DateTime? EvaluatedAtUtc);
+    public sealed record AccessShadowCompareRequest(
+        string SubjectType,
+        int? SubjectId,
+        int? SiteId,
+        int? SecurityZoneId,
+        int? AccessPointId,
+        string CredentialType,
+        bool AllowHolidayAccess,
+        DateTime? EvaluatedAtUtc,
+        string? LegacyResult,
+        string? LegacyReason);
+    public sealed record PolicyVersionRequest(string Name, string? ChangeSummary);
+    public sealed record PolicyApprovalRequest(string? Note);
 }
-

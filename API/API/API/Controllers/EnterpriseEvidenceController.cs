@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +16,12 @@ namespace API.Controllers;
 public class EnterpriseEvidenceController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public EnterpriseEvidenceController(ApplicationDbContext context)
+    public EnterpriseEvidenceController(ApplicationDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet("overview")]
@@ -124,6 +127,129 @@ public class EnterpriseEvidenceController : ControllerBase
         return Ok(item);
     }
 
+    [HttpPost("items/{itemId:long}/verify-hash")]
+    public async Task<IActionResult> VerifyEvidenceHash(long itemId, [FromBody] EvidenceHashVerificationRequest request)
+    {
+        var item = await _context.EvidenceItems.FindAsync(itemId);
+        if (item == null)
+            return NotFound(new { message = "Evidence item not found." });
+        if (string.IsNullOrWhiteSpace(request.ObservedHashSha256))
+            return BadRequest(new { message = "ObservedHashSha256 is required." });
+
+        var observed = request.ObservedHashSha256.Trim().ToLowerInvariant();
+        var expected = item.HashSha256.Trim().ToLowerInvariant();
+        var matched = string.Equals(observed, expected, StringComparison.OrdinalIgnoreCase);
+
+        item.LastHashVerificationStatus = matched ? "Matched" : "Mismatch";
+        item.CurrentHashVerifiedAtUtc = DateTime.UtcNow;
+
+        _context.EvidenceAccessLogs.Add(new EvidenceAccessLog
+        {
+            EvidenceItemId = itemId,
+            UserId = GetCurrentUserId(),
+            AccessType = "HashVerification",
+            Purpose = request.Purpose?.Trim() ?? "Integrity check"
+        });
+        _context.ChainOfCustodyEntries.Add(new ChainOfCustodyEntry
+        {
+            EvidenceItemId = itemId,
+            Action = matched ? "HashVerified" : "HashMismatch",
+            ActorUserId = GetCurrentUserId(),
+            HashBefore = item.HashSha256,
+            HashAfter = observed,
+            Note = request.Purpose?.Trim()
+        });
+
+        await _context.SaveChangesAsync();
+        return Ok(new { item.EvidenceItemId, matched, expectedHash = item.HashSha256, observedHash = observed });
+    }
+
+    [HttpPost("retention/dry-run")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RunRetentionDryRun([FromBody] RetentionDryRunRequest request)
+    {
+        var now = request.AsOfUtc ?? DateTime.UtcNow;
+        var policies = await _context.RetentionPolicies
+            .Where(policy => policy.IsActive)
+            .ToListAsync();
+
+        var candidates = new List<object>();
+        foreach (var policy in policies)
+        {
+            var cutoff = now.AddDays(-policy.RetentionDays);
+            var query = _context.EvidenceItems
+                .Where(item =>
+                    item.PurgedAtUtc == null &&
+                    !item.IsLegalHold &&
+                    !item.IsImmutable &&
+                    item.CreatedAtUtc <= cutoff);
+
+            if (!string.Equals(policy.EvidenceType, "Any", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(item => item.EvidenceType == policy.EvidenceType);
+            if (!string.Equals(policy.RetentionCategory, "Any", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(item => item.RetentionCategory == policy.RetentionCategory);
+
+            var items = await query
+                .Take(request.Limit <= 0 ? 50 : Math.Min(request.Limit, 500))
+                .Select(item => new
+                {
+                    item.EvidenceItemId,
+                    item.EvidenceType,
+                    item.RetentionCategory,
+                    item.CreatedAtUtc,
+                    Policy = policy.Name,
+                    policy.RetentionDays
+                })
+                .ToListAsync();
+
+            candidates.AddRange(items);
+        }
+
+        return Ok(new { asOfUtc = now, candidates });
+    }
+
+    [HttpPost("retention/purge")]
+    [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.EvidenceRetentionPurge)]
+    public async Task<IActionResult> PurgeEvidence([FromBody] EvidencePurgeRequest request)
+    {
+        if (request.EvidenceItemIds.Count == 0)
+            return BadRequest(new { message = "EvidenceItemIds are required." });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { message = "Reason is required." });
+
+        var items = await _context.EvidenceItems
+            .Where(item => request.EvidenceItemIds.Contains(item.EvidenceItemId))
+            .ToListAsync();
+
+        var purged = new List<long>();
+        var blocked = new List<object>();
+        foreach (var item in items)
+        {
+            if (item.IsLegalHold || item.IsImmutable)
+            {
+                blocked.Add(new { item.EvidenceItemId, item.IsLegalHold, item.IsImmutable });
+                continue;
+            }
+
+            item.PurgedAtUtc = DateTime.UtcNow;
+            item.PurgedByUserId = GetCurrentUserId();
+            item.PurgeReason = request.Reason.Trim();
+            purged.Add(item.EvidenceItemId);
+            _context.ChainOfCustodyEntries.Add(new ChainOfCustodyEntry
+            {
+                EvidenceItemId = item.EvidenceItemId,
+                Action = "Purged",
+                ActorUserId = GetCurrentUserId(),
+                HashBefore = item.HashSha256,
+                Note = request.Reason.Trim()
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(new { purged, blocked });
+    }
+
     [HttpPost("collections")]
     public async Task<IActionResult> CreateCollection([FromBody] EvidenceCollectionRequest request)
     {
@@ -218,6 +344,7 @@ public class EnterpriseEvidenceController : ControllerBase
 
     [HttpPatch("legal-holds/{legalHoldId:long}/release")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.EvidenceLegalHoldRelease)]
     public async Task<IActionResult> ReleaseLegalHold(long legalHoldId, [FromBody] CloseRequest request)
     {
         var hold = await _context.LegalHolds.FindAsync(legalHoldId);
@@ -257,18 +384,32 @@ public class EnterpriseEvidenceController : ControllerBase
 
     [HttpPatch("export-requests/{exportRequestId:long}/approve")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.EvidenceExportApproval)]
     public async Task<IActionResult> ApproveExport(long exportRequestId, [FromBody] ExportApprovalRequest request)
     {
         var export = await _context.EvidenceExportRequests.FindAsync(exportRequestId);
         if (export == null)
             return NotFound(new { message = "Export request not found." });
 
+        if (export.EvidenceItemId.HasValue)
+        {
+            var item = await _context.EvidenceItems.FindAsync(export.EvidenceItemId.Value);
+            if (item == null)
+                return BadRequest(new { message = "Evidence item not found." });
+            if (item.PurgedAtUtc.HasValue)
+                return BadRequest(new { message = "Purged evidence cannot be exported." });
+            if (item.LastHashVerificationStatus == "Mismatch")
+                return BadRequest(new { message = "Evidence hash mismatch blocks export approval." });
+        }
+
         export.Status = "Approved";
         export.ApprovedAtUtc = DateTime.UtcNow;
         export.ApprovedByUserId = GetCurrentUserId();
         export.Watermark = string.IsNullOrWhiteSpace(request.Watermark) ? $"V-Shield export {DateTime.UtcNow:O}" : request.Watermark.Trim();
-        export.SignatureReference = string.IsNullOrWhiteSpace(request.SignatureReference) ? "internal-signature-placeholder" : request.SignatureReference.Trim();
         export.ExportHash = ComputeHash($"{export.EvidenceItemId}|{export.EvidenceCollectionId}|{export.Purpose}|{export.Recipient}|{export.Watermark}");
+        export.SignatureReference = string.IsNullOrWhiteSpace(request.SignatureReference)
+            ? $"hmac-sha256:{ComputeHmac(GetEvidenceExportSigningKey(), export.ExportHash)}"
+            : request.SignatureReference.Trim();
 
         if (export.EvidenceItemId.HasValue)
         {
@@ -309,6 +450,7 @@ public class EnterpriseEvidenceController : ControllerBase
 
     [HttpPatch("redaction-requests/{redactionRequestId:long}/approve")]
     [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.EvidenceRedactionApproval)]
     public async Task<IActionResult> ApproveRedaction(long redactionRequestId)
     {
         var redaction = await _context.RedactionRequests.FindAsync(redactionRequestId);
@@ -428,8 +570,22 @@ public class EnterpriseEvidenceController : ControllerBase
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
+    private string GetEvidenceExportSigningKey() =>
+        Environment.GetEnvironmentVariable("VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY") ??
+        _configuration["Evidence:ExportSigningKey"] ??
+        _configuration["JwtSettings:Secret"] ??
+        "development-export-signing-key-change-me";
+
+    private static string ComputeHmac(string key, string payload)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
+        var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
     public sealed record RetentionPolicyRequest(string Name, string? EvidenceType, string? RetentionCategory, int RetentionDays, string? PurgeMode, bool IsActive);
     public sealed record EvidenceItemRequest(string? EvidenceType, string? SourceType, string? SourceReference, long? SecurityEventId, long? AlarmId, long? IncidentId, string StorageReference, string? HashSha256, string? PrivacyLabel, string? RetentionCategory, int? SiteId, bool IsImmutable);
+    public sealed record EvidenceHashVerificationRequest(string ObservedHashSha256, string? Purpose);
     public sealed record EvidenceCollectionRequest(string Name, string? Purpose, long? IncidentId);
     public sealed record EvidenceCollectionItemRequest(long EvidenceItemId);
     public sealed record ChainOfCustodyRequest(string? Action, string? FromCustodian, string? ToCustodian, string? HashBefore, string? HashAfter, string? Note);
@@ -440,4 +596,6 @@ public class EnterpriseEvidenceController : ControllerBase
     public sealed record RedactionPerformRequest(string RedactedStorageReference);
     public sealed record ComplianceReportRequest(string ReportType, DateTime PeriodStartUtc, DateTime PeriodEndUtc, string? OutputReference);
     public sealed record CloseRequest(string? Note);
+    public sealed record RetentionDryRunRequest(DateTime? AsOfUtc, int Limit);
+    public sealed record EvidencePurgeRequest(List<long> EvidenceItemIds, string Reason);
 }

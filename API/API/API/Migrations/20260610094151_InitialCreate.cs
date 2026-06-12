@@ -3,62 +3,16 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace API.Migrations
 {
     /// <inheritdoc />
-    public partial class AddEnterpriseSecurityPlatform : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "LifecycleStatus",
-                table: "Employee",
-                type: "nvarchar(40)",
-                maxLength: 40,
-                nullable: false,
-                defaultValue: "Active");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "LifecycleUpdatedAtUtc",
-                table: "Employee",
-                type: "datetime2",
-                nullable: true);
-
-            migrationBuilder.AddColumn<int>(
-                name: "ManagerEmployeeId",
-                table: "Employee",
-                type: "int",
-                nullable: true);
-
-            migrationBuilder.AddColumn<int>(
-                name: "PrimarySiteId",
-                table: "Employee",
-                type: "int",
-                nullable: true);
-
-            migrationBuilder.CreateTable(
-                name: "AccessDecisions",
-                columns: table => new
-                {
-                    AccessDecisionId = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    SubjectType = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    SubjectId = table.Column<int>(type: "int", nullable: true),
-                    SiteId = table.Column<int>(type: "int", nullable: true),
-                    SecurityZoneId = table.Column<int>(type: "int", nullable: true),
-                    AccessPointId = table.Column<int>(type: "int", nullable: true),
-                    CredentialType = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    Result = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Reason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    EvaluatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EvaluatedByUserId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AccessDecisions", x => x.AccessDecisionId);
-                });
-
             migrationBuilder.CreateTable(
                 name: "AccessGroups",
                 columns: table => new
@@ -89,29 +43,6 @@ namespace API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AccessLevels", x => x.AccessLevelId);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AccessPolicyVersions",
-                columns: table => new
-                {
-                    AccessPolicyVersionId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ActivatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedByUserId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AccessPolicyVersions", x => x.AccessPolicyVersionId);
-                    table.ForeignKey(
-                        name: "FK_AccessPolicyVersions_AppUsers_CreatedByUserId",
-                        column: x => x.CreatedByUserId,
-                        principalTable: "AppUsers",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -250,6 +181,23 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "CameraPlates",
+                columns: table => new
+                {
+                    CameraIP = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    PlateNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    X1 = table.Column<int>(type: "int", nullable: false),
+                    Y1 = table.Column<int>(type: "int", nullable: false),
+                    X2 = table.Column<int>(type: "int", nullable: false),
+                    Y2 = table.Column<int>(type: "int", nullable: false),
+                    LastUpdate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CameraPlates", x => x.CameraIP);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Companies",
                 columns: table => new
                 {
@@ -286,6 +234,19 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Department",
+                columns: table => new
+                {
+                    DepartmentId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Departme__B2079BED22FBEE13", x => x.DepartmentId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DispatchTasks",
                 columns: table => new
                 {
@@ -305,6 +266,24 @@ namespace API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DispatchTasks", x => x.DispatchTaskId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DynamicQrScanLogs",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    QrPayload = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    IsValid = table.Column<bool>(type: "bit", nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    ScannerDevice = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ScannedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DynamicQrScanLogs", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -348,34 +327,19 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "EmployeeLifecycleEvents",
+                name: "Employee_Access_Permissions",
                 columns: table => new
                 {
-                    EmployeeLifecycleEventId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     EmployeeId = table.Column<int>(type: "int", nullable: false),
-                    PreviousState = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    NewState = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    EffectiveAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ChangedByUserId = table.Column<int>(type: "int", nullable: true)
+                    GateId = table.Column<int>(type: "int", nullable: false),
+                    IsAllowed = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_EmployeeLifecycleEvents", x => x.EmployeeLifecycleEventId);
-                    table.ForeignKey(
-                        name: "FK_EmployeeLifecycleEvents_AppUsers_ChangedByUserId",
-                        column: x => x.ChangedByUserId,
-                        principalTable: "AppUsers",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_EmployeeLifecycleEvents_Employee_EmployeeId",
-                        column: x => x.EmployeeId,
-                        principalTable: "Employee",
-                        principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.Restrict);
+                    table.PrimaryKey("PK_Employee_Access_Permissions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -457,12 +421,31 @@ namespace API.Migrations
                     SiteId = table.Column<int>(type: "int", nullable: true),
                     IsImmutable = table.Column<bool>(type: "bit", nullable: false),
                     IsLegalHold = table.Column<bool>(type: "bit", nullable: false),
+                    LastHashVerificationStatus = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false, defaultValue: "NotVerified"),
+                    CurrentHashVerifiedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PurgedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PurgedByUserId = table.Column<int>(type: "int", nullable: true),
+                    PurgeReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_EvidenceItems", x => x.EvidenceItemId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Exception_Reason",
+                columns: table => new
+                {
+                    ReasonId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ReasonCode = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Exceptio__A4F8C0E71D19C4D0", x => x.ReasonId);
                 });
 
             migrationBuilder.CreateTable(
@@ -481,6 +464,36 @@ namespace API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ExternalIdentityProviders", x => x.ExternalIdentityProviderId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Gate",
+                columns: table => new
+                {
+                    GateId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    GateName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Location = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Gate__9582C65020BEEB76", x => x.GateId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "GuestProfile",
+                columns: table => new
+                {
+                    GuestId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    FullName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    DefaultLicensePlate = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    FaceImageURL = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__GuestPro__0C423C12B547B8BB", x => x.GuestId);
                 });
 
             migrationBuilder.CreateTable(
@@ -563,6 +576,60 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Position",
+                columns: table => new
+                {
+                    PositionId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Position__60BB9A79F338CF82", x => x.PositionId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "QaTestRuns",
+                columns: table => new
+                {
+                    QaTestRunId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TestType = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    Profile = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    PassedCount = table.Column<int>(type: "int", nullable: false),
+                    FailedCount = table.Column<int>(type: "int", nullable: false),
+                    EvidenceReference = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    StartedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CompletedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_QaTestRuns", x => x.QaTestRunId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ReleaseCandidates",
+                columns: table => new
+                {
+                    ReleaseCandidateId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Version = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    MigrationId = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    BuildReference = table.Column<string>(type: "nvarchar(240)", maxLength: 240, nullable: true),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    ApprovedByUserId = table.Column<int>(type: "int", nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ApprovedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ReleaseCandidates", x => x.ReleaseCandidateId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RetentionPolicies",
                 columns: table => new
                 {
@@ -578,6 +645,23 @@ namespace API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_RetentionPolicies", x => x.RetentionPolicyId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RunbookAcknowledgements",
+                columns: table => new
+                {
+                    RunbookAcknowledgementId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RunbookName = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    RoleName = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    AcknowledgedByUserId = table.Column<int>(type: "int", nullable: true),
+                    EvidenceReference = table.Column<string>(type: "nvarchar(240)", maxLength: 240, nullable: true),
+                    AcknowledgedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RunbookAcknowledgements", x => x.RunbookAcknowledgementId);
                 });
 
             migrationBuilder.CreateTable(
@@ -618,7 +702,10 @@ namespace API.Migrations
                     Confidence = table.Column<decimal>(type: "decimal(9,6)", nullable: true),
                     CorrelationId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Summary = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
-                    OccurredAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    OccurredAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    SiteNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    SecurityZoneNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    AccessPointNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -657,6 +744,27 @@ namespace API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ShiftHandovers", x => x.ShiftHandoverId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Shifts",
+                columns: table => new
+                {
+                    ShiftId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ShiftName = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    StartTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    EndTime = table.Column<TimeSpan>(type: "time", nullable: false),
+                    BreakMinutes = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    AllowedLateMinutes = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    AllowedEarlyLeaveMinutes = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Shifts", x => x.ShiftId);
                 });
 
             migrationBuilder.CreateTable(
@@ -714,6 +822,49 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SystemAuditLogs",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TimestampUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UserId = table.Column<int>(type: "int", nullable: true),
+                    Username = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CorrelationId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    EventCategory = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false, defaultValue: "APPLICATION"),
+                    Severity = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false, defaultValue: "INFO"),
+                    ClientIp = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
+                    UserAgent = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    HttpMethod = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Path = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
+                    ActionType = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EntityName = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: true),
+                    EntityId = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: true),
+                    OldValuesJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NewValuesJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsSuccess = table.Column<bool>(type: "bit", nullable: false),
+                    FailureReason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    StatusCode = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SystemAuditLogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "VehicleType",
+                columns: table => new
+                {
+                    VehicleTypeId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TypeName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__VehicleT__9F449643A4120859", x => x.VehicleTypeId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "VideoBookmarks",
                 columns: table => new
                 {
@@ -729,6 +880,22 @@ namespace API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_VideoBookmarks", x => x.VideoBookmarkId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Visitor_Access_Permissions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    VisitorDetailId = table.Column<int>(type: "int", nullable: false),
+                    GateId = table.Column<int>(type: "int", nullable: false),
+                    IsAllowed = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Visitor_Access_Permissions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -968,40 +1135,25 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ExternalIdentityMappings",
+                name: "Camera",
                 columns: table => new
                 {
-                    ExternalIdentityMappingId = table.Column<int>(type: "int", nullable: false)
+                    CameraId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ExternalIdentityProviderId = table.Column<int>(type: "int", nullable: false),
-                    UserId = table.Column<int>(type: "int", nullable: true),
-                    EmployeeId = table.Column<int>(type: "int", nullable: true),
-                    ExternalSubject = table.Column<string>(type: "nvarchar(240)", maxLength: 240, nullable: false),
-                    ExternalUsername = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
-                    LastSyncedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                    CameraName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    GateId = table.Column<int>(type: "int", nullable: true),
+                    CameraType = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: true),
+                    StreamUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    UrlView = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ExternalIdentityMappings", x => x.ExternalIdentityMappingId);
+                    table.PrimaryKey("PK__Camera__F971E0C89B981B26", x => x.CameraId);
                     table.ForeignKey(
-                        name: "FK_ExternalIdentityMappings_AppUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AppUsers",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_ExternalIdentityMappings_Employee_EmployeeId",
-                        column: x => x.EmployeeId,
-                        principalTable: "Employee",
-                        principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_ExternalIdentityMappings_ExternalIdentityProviders_ExternalIdentityProviderId",
-                        column: x => x.ExternalIdentityProviderId,
-                        principalTable: "ExternalIdentityProviders",
-                        principalColumn: "ExternalIdentityProviderId",
-                        onDelete: ReferentialAction.Restrict);
+                        name: "FK_Camera_Gate",
+                        column: x => x.GateId,
+                        principalTable: "Gate",
+                        principalColumn: "GateId");
                 });
 
             migrationBuilder.CreateTable(
@@ -1024,6 +1176,32 @@ namespace API.Migrations
                         column: x => x.IncidentId,
                         principalTable: "Incidents",
                         principalColumn: "IncidentId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ReleaseGateChecks",
+                columns: table => new
+                {
+                    ReleaseGateCheckId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ReleaseCandidateId = table.Column<long>(type: "bigint", nullable: false),
+                    GateName = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    Required = table.Column<bool>(type: "bit", nullable: false),
+                    EvidenceReference = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    VerifiedByUserId = table.Column<int>(type: "int", nullable: true),
+                    VerifiedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ReleaseGateChecks", x => x.ReleaseGateCheckId);
+                    table.ForeignKey(
+                        name: "FK_ReleaseGateChecks_ReleaseCandidates_ReleaseCandidateId",
+                        column: x => x.ReleaseCandidateId,
+                        principalTable: "ReleaseCandidates",
+                        principalColumn: "ReleaseCandidateId",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -1107,6 +1285,51 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Employee",
+                columns: table => new
+                {
+                    EmployeeId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    DepartmentId = table.Column<int>(type: "int", nullable: true),
+                    PositionId = table.Column<int>(type: "int", nullable: true),
+                    FullName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    FaceImageURL = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
+                    Status = table.Column<bool>(type: "bit", nullable: true, defaultValue: true),
+                    LifecycleStatus = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false, defaultValue: "Active"),
+                    PrimarySiteId = table.Column<int>(type: "int", nullable: true),
+                    ManagerEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    LifecycleUpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Employee__7AD04F1101CCCAF2", x => x.EmployeeId);
+                    table.ForeignKey(
+                        name: "FK_Employee_Department",
+                        column: x => x.DepartmentId,
+                        principalTable: "Department",
+                        principalColumn: "DepartmentId");
+                    table.ForeignKey(
+                        name: "FK_Employee_Employee_ManagerEmployeeId",
+                        column: x => x.ManagerEmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Employee_Position",
+                        column: x => x.PositionId,
+                        principalTable: "Position",
+                        principalColumn: "PositionId");
+                    table.ForeignKey(
+                        name: "FK_Employee_Sites_PrimarySiteId",
+                        column: x => x.PrimarySiteId,
+                        principalTable: "Sites",
+                        principalColumn: "SiteId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "HolidayCalendars",
                 columns: table => new
                 {
@@ -1174,6 +1397,183 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "FacilityFloors",
+                columns: table => new
+                {
+                    FacilityFloorId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    BuildingId = table.Column<int>(type: "int", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    SortOrder = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FacilityFloors", x => x.FacilityFloorId);
+                    table.ForeignKey(
+                        name: "FK_FacilityFloors_Buildings_BuildingId",
+                        column: x => x.BuildingId,
+                        principalTable: "Buildings",
+                        principalColumn: "BuildingId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AppUsers",
+                columns: table => new
+                {
+                    UserId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Username = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    FullName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Role = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Staff"),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    TokenVersion = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    MfaEnabled = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    MfaSecretProtected = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    MfaConfiguredAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastLoginAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastPasswordChangedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    EmployeeId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AppUsers", x => x.UserId);
+                    table.ForeignKey(
+                        name: "FK_AppUser_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EmployeeDynamicQrs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    SecretKey = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    TimeStepSeconds = table.Column<int>(type: "int", nullable: false, defaultValue: 30),
+                    Digits = table.Column<int>(type: "int", nullable: false, defaultValue: 6),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    LastUsedCounter = table.Column<long>(type: "bigint", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EmployeeDynamicQrs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EmployeeDynamicQr_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EmployeeFaceModels",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    ModelFileName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    ModelPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EmployeeFaceModels", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EmployeeFaceModel_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EmployeeFaceVideos",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    FilePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    FileSize = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EmployeeFaceVideos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EmployeeFaceVideo_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Pre_Registration",
+                columns: table => new
+                {
+                    RegistrationId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    GuestId = table.Column<int>(type: "int", nullable: true),
+                    HostEmployeeId = table.Column<int>(type: "int", nullable: true),
+                    ExpectedTimeIn = table.Column<DateTime>(type: "datetime", nullable: false),
+                    ExpectedTimeOut = table.Column<DateTime>(type: "datetime", nullable: false),
+                    Status = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: true, defaultValue: "PENDING"),
+                    NumberOfVisitors = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Pre_Regi__6EF58810D0B7AD86", x => x.RegistrationId);
+                    table.ForeignKey(
+                        name: "FK_PreReg_Employee",
+                        column: x => x.HostEmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId");
+                    table.ForeignKey(
+                        name: "FK_PreReg_Guest",
+                        column: x => x.GuestId,
+                        principalTable: "GuestProfile",
+                        principalColumn: "GuestId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Registration_Links",
+                columns: table => new
+                {
+                    LinkId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Token = table.Column<string>(type: "varchar(32)", unicode: false, maxLength: 32, nullable: false),
+                    HostEmployeeId = table.Column<int>(type: "int", nullable: false),
+                    ExpiredAt = table.Column<DateTime>(type: "datetime", nullable: false),
+                    IsUsed = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "(getdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Registration_Links", x => x.LinkId);
+                    table.ForeignKey(
+                        name: "FK_RegistrationLink_Employee",
+                        column: x => x.HostEmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Visits",
                 columns: table => new
                 {
@@ -1208,6 +1608,72 @@ namespace API.Migrations
                         column: x => x.SiteId,
                         principalTable: "Sites",
                         principalColumn: "SiteId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SecurityZones",
+                columns: table => new
+                {
+                    SecurityZoneId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    SiteId = table.Column<int>(type: "int", nullable: false),
+                    BuildingId = table.Column<int>(type: "int", nullable: true),
+                    FacilityFloorId = table.Column<int>(type: "int", nullable: true),
+                    Name = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    SecurityLevel = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    IsRestricted = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SecurityZones", x => x.SecurityZoneId);
+                    table.ForeignKey(
+                        name: "FK_SecurityZones_FacilityFloors_FacilityFloorId",
+                        column: x => x.FacilityFloorId,
+                        principalTable: "FacilityFloors",
+                        principalColumn: "FacilityFloorId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_SecurityZones_Sites_SiteId",
+                        column: x => x.SiteId,
+                        principalTable: "Sites",
+                        principalColumn: "SiteId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AccessPolicyVersions",
+                columns: table => new
+                {
+                    AccessPolicyVersionId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    ChangeSummary = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    SubmittedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ApprovedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ActivatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RetiredAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    ApprovedByUserId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccessPolicyVersions", x => x.AccessPolicyVersionId);
+                    table.ForeignKey(
+                        name: "FK_AccessPolicyVersions_AppUsers_ApprovedByUserId",
+                        column: x => x.ApprovedByUserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_AccessPolicyVersions_AppUsers_CreatedByUserId",
+                        column: x => x.CreatedByUserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
                         onDelete: ReferentialAction.SetNull);
                 });
 
@@ -1248,63 +1714,251 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "FacilityFloors",
+                name: "EmployeeLifecycleEvents",
                 columns: table => new
                 {
-                    FacilityFloorId = table.Column<int>(type: "int", nullable: false)
+                    EmployeeLifecycleEventId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    BuildingId = table.Column<int>(type: "int", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
-                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    SortOrder = table.Column<int>(type: "int", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    PreviousState = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    NewState = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    EffectiveAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ChangedByUserId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_FacilityFloors", x => x.FacilityFloorId);
+                    table.PrimaryKey("PK_EmployeeLifecycleEvents", x => x.EmployeeLifecycleEventId);
                     table.ForeignKey(
-                        name: "FK_FacilityFloors_Buildings_BuildingId",
-                        column: x => x.BuildingId,
-                        principalTable: "Buildings",
-                        principalColumn: "BuildingId",
+                        name: "FK_EmployeeLifecycleEvents_AppUsers_ChangedByUserId",
+                        column: x => x.ChangedByUserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_EmployeeLifecycleEvents_Employee_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
-                name: "ParkingPermits",
+                name: "ExternalIdentityMappings",
                 columns: table => new
                 {
-                    ParkingPermitId = table.Column<int>(type: "int", nullable: false)
+                    ExternalIdentityMappingId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ParkingAreaId = table.Column<int>(type: "int", nullable: false),
-                    VehicleId = table.Column<int>(type: "int", nullable: true),
-                    VisitId = table.Column<int>(type: "int", nullable: true),
-                    PermitType = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
-                    ValidFromUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ValidToUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    IsRevoked = table.Column<bool>(type: "bit", nullable: false)
+                    ExternalIdentityProviderId = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<int>(type: "int", nullable: true),
+                    EmployeeId = table.Column<int>(type: "int", nullable: true),
+                    ExternalSubject = table.Column<string>(type: "nvarchar(240)", maxLength: 240, nullable: false),
+                    ExternalUsername = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    LastSyncedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ParkingPermits", x => x.ParkingPermitId);
+                    table.PrimaryKey("PK_ExternalIdentityMappings", x => x.ExternalIdentityMappingId);
                     table.ForeignKey(
-                        name: "FK_ParkingPermits_ParkingAreas_ParkingAreaId",
-                        column: x => x.ParkingAreaId,
-                        principalTable: "ParkingAreas",
-                        principalColumn: "ParkingAreaId",
+                        name: "FK_ExternalIdentityMappings_AppUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ExternalIdentityMappings_Employee_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ExternalIdentityMappings_ExternalIdentityProviders_ExternalIdentityProviderId",
+                        column: x => x.ExternalIdentityProviderId,
+                        principalTable: "ExternalIdentityProviders",
+                        principalColumn: "ExternalIdentityProviderId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LeaveRequests",
+                columns: table => new
+                {
+                    LeaveRequestId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    LeaveType = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    StartDate = table.Column<DateTime>(type: "date", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "date", nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Pending"),
+                    ApproverId = table.Column<int>(type: "int", nullable: true),
+                    RejectReason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    ApprovedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LeaveRequests", x => x.LeaveRequestId);
+                    table.ForeignKey(
+                        name: "FK_AttendanceModule_LeaveRequest_ApproverUser",
+                        column: x => x.ApproverId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_AttendanceModule_LeaveRequest_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MfaRecoveryCodes",
+                columns: table => new
+                {
+                    MfaRecoveryCodeId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CodeHash = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ExpiresAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UsedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MfaRecoveryCodes", x => x.MfaRecoveryCodeId);
+                    table.ForeignKey(
+                        name: "FK_MfaRecoveryCodes_AppUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PrivilegedActionSessions",
+                columns: table => new
+                {
+                    PrivilegedActionSessionId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    Action = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    ChallengeNonce = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    CorrelationId = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    IpAddress = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
+                    UserAgent = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    VerifiedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ExpiresAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    RevokedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PrivilegedActionSessions", x => x.PrivilegedActionSessionId);
+                    table.ForeignKey(
+                        name: "FK_PrivilegedActionSessions_AppUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserRefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    TokenHash = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    JwtId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    ExpiresAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    RevokedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ReplacedByTokenHash = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    RevocationReason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedByIp = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserRefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserRefreshTokens_AppUser",
+                        column: x => x.UserId,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkSchedules",
+                columns: table => new
+                {
+                    ScheduleId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    ShiftId = table.Column<int>(type: "int", nullable: false),
+                    WorkDate = table.Column<DateTime>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false, defaultValue: "Scheduled"),
+                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedBy = table.Column<int>(type: "int", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkSchedules", x => x.ScheduleId);
+                    table.ForeignKey(
+                        name: "FK_AttendanceModule_WorkSchedule_CreatedByUser",
+                        column: x => x.CreatedBy,
+                        principalTable: "AppUsers",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_AttendanceModule_WorkSchedule_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_ParkingPermits_Vehicle_VehicleId",
-                        column: x => x.VehicleId,
-                        principalTable: "Vehicle",
-                        principalColumn: "VehicleId",
-                        onDelete: ReferentialAction.SetNull);
+                        name: "FK_AttendanceModule_WorkSchedule_Shift",
+                        column: x => x.ShiftId,
+                        principalTable: "Shifts",
+                        principalColumn: "ShiftId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Visitor_Details",
+                columns: table => new
+                {
+                    VisitorDetailId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RegistrationId = table.Column<int>(type: "int", nullable: false),
+                    FullName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IdCardNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    ExpectedFaceImage = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    QrSecret = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    QrPayload = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    QrIssuedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsQrActive = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Visitor_Details", x => x.VisitorDetailId);
                     table.ForeignKey(
-                        name: "FK_ParkingPermits_Visits_VisitId",
-                        column: x => x.VisitId,
-                        principalTable: "Visits",
-                        principalColumn: "VisitId",
-                        onDelete: ReferentialAction.SetNull);
+                        name: "FK_VisitorDetail_PreRegistration",
+                        column: x => x.RegistrationId,
+                        principalTable: "Pre_Registration",
+                        principalColumn: "RegistrationId",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -1386,76 +2040,6 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "WatchlistMatches",
-                columns: table => new
-                {
-                    WatchlistMatchId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    WatchlistEntryId = table.Column<int>(type: "int", nullable: false),
-                    VisitId = table.Column<int>(type: "int", nullable: true),
-                    VehicleId = table.Column<int>(type: "int", nullable: true),
-                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    ReviewNote = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
-                    MatchedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ReviewedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ReviewedByUserId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_WatchlistMatches", x => x.WatchlistMatchId);
-                    table.ForeignKey(
-                        name: "FK_WatchlistMatches_Vehicle_VehicleId",
-                        column: x => x.VehicleId,
-                        principalTable: "Vehicle",
-                        principalColumn: "VehicleId",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_WatchlistMatches_Visits_VisitId",
-                        column: x => x.VisitId,
-                        principalTable: "Visits",
-                        principalColumn: "VisitId",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_WatchlistMatches_WatchlistEntries_WatchlistEntryId",
-                        column: x => x.WatchlistEntryId,
-                        principalTable: "WatchlistEntries",
-                        principalColumn: "WatchlistEntryId",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SecurityZones",
-                columns: table => new
-                {
-                    SecurityZoneId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    SiteId = table.Column<int>(type: "int", nullable: false),
-                    BuildingId = table.Column<int>(type: "int", nullable: true),
-                    FacilityFloorId = table.Column<int>(type: "int", nullable: true),
-                    Name = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
-                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    SecurityLevel = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    IsRestricted = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SecurityZones", x => x.SecurityZoneId);
-                    table.ForeignKey(
-                        name: "FK_SecurityZones_FacilityFloors_FacilityFloorId",
-                        column: x => x.FacilityFloorId,
-                        principalTable: "FacilityFloors",
-                        principalColumn: "FacilityFloorId",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_SecurityZones_Sites_SiteId",
-                        column: x => x.SiteId,
-                        principalTable: "Sites",
-                        principalColumn: "SiteId",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AccessPoints",
                 columns: table => new
                 {
@@ -1486,11 +2070,190 @@ namespace API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AccessDecisions",
+                columns: table => new
+                {
+                    AccessDecisionId = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AccessPolicyVersionId = table.Column<int>(type: "int", nullable: true),
+                    SubjectType = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    SubjectId = table.Column<int>(type: "int", nullable: true),
+                    SiteId = table.Column<int>(type: "int", nullable: true),
+                    SecurityZoneId = table.Column<int>(type: "int", nullable: true),
+                    AccessPointId = table.Column<int>(type: "int", nullable: true),
+                    CredentialType = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    Result = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    DecisionMode = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false, defaultValue: "Enforced"),
+                    LegacyResult = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    ShadowMismatch = table.Column<bool>(type: "bit", nullable: false),
+                    EvaluatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    EvaluatedByUserId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccessDecisions", x => x.AccessDecisionId);
+                    table.ForeignKey(
+                        name: "FK_AccessDecisions_AccessPolicyVersions_AccessPolicyVersionId",
+                        column: x => x.AccessPolicyVersionId,
+                        principalTable: "AccessPolicyVersions",
+                        principalColumn: "AccessPolicyVersionId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Attendances",
+                columns: table => new
+                {
+                    AttendanceId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeId = table.Column<int>(type: "int", nullable: false),
+                    ScheduleId = table.Column<int>(type: "int", nullable: true),
+                    WorkDate = table.Column<DateTime>(type: "date", nullable: false),
+                    CheckIn = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CheckOut = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LateMinutes = table.Column<int>(type: "int", nullable: false),
+                    EarlyLeaveMinutes = table.Column<int>(type: "int", nullable: false),
+                    TotalWorkingHours = table.Column<decimal>(type: "decimal(8,2)", nullable: false, defaultValue: 0m),
+                    OvertimeHours = table.Column<decimal>(type: "decimal(8,2)", nullable: false, defaultValue: 0m),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false, defaultValue: "NotCheckedIn"),
+                    Source = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Manual"),
+                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(getutcdate())")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Attendances", x => x.AttendanceId);
+                    table.ForeignKey(
+                        name: "FK_AttendanceModule_Attendance_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AttendanceModule_Attendance_WorkSchedule",
+                        column: x => x.ScheduleId,
+                        principalTable: "WorkSchedules",
+                        principalColumn: "ScheduleId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Access_Log",
+                columns: table => new
+                {
+                    LogId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Timestamp = table.Column<DateTime>(type: "datetime", nullable: true, defaultValueSql: "(getdate())"),
+                    Direction = table.Column<string>(type: "varchar(10)", unicode: false, maxLength: 10, nullable: false),
+                    GateId = table.Column<int>(type: "int", nullable: true),
+                    CameraId = table.Column<int>(type: "int", nullable: true),
+                    CapturedLicensePlate = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    CapturedFaceImageURL = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
+                    EmployeeId = table.Column<int>(type: "int", nullable: true),
+                    RegistrationId = table.Column<int>(type: "int", nullable: true),
+                    ResultStatus = table.Column<string>(type: "varchar(20)", unicode: false, maxLength: 20, nullable: false),
+                    IsBypass = table.Column<bool>(type: "bit", nullable: true, defaultValue: false),
+                    ExceptionReasonId = table.Column<int>(type: "int", nullable: true),
+                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    SiteNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    SecurityZoneNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    AccessPointNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    LaneNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    GateNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    CameraNameSnapshot = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: true),
+                    EntryLogId = table.Column<int>(type: "int", nullable: true),
+                    GuestId = table.Column<int>(type: "int", nullable: true),
+                    VisitorDetailId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Access_L__5E548648F597543A", x => x.LogId);
+                    table.ForeignKey(
+                        name: "FK_AccessLog_Camera",
+                        column: x => x.CameraId,
+                        principalTable: "Camera",
+                        principalColumn: "CameraId");
+                    table.ForeignKey(
+                        name: "FK_AccessLog_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId");
+                    table.ForeignKey(
+                        name: "FK_AccessLog_EntryLog",
+                        column: x => x.EntryLogId,
+                        principalTable: "Access_Log",
+                        principalColumn: "LogId");
+                    table.ForeignKey(
+                        name: "FK_AccessLog_ExceptionReason",
+                        column: x => x.ExceptionReasonId,
+                        principalTable: "Exception_Reason",
+                        principalColumn: "ReasonId");
+                    table.ForeignKey(
+                        name: "FK_AccessLog_Gate",
+                        column: x => x.GateId,
+                        principalTable: "Gate",
+                        principalColumn: "GateId");
+                    table.ForeignKey(
+                        name: "FK_AccessLog_PreRegistration",
+                        column: x => x.RegistrationId,
+                        principalTable: "Pre_Registration",
+                        principalColumn: "RegistrationId");
+                    table.ForeignKey(
+                        name: "FK_Access_Log_Visitor_Details_VisitorDetailId",
+                        column: x => x.VisitorDetailId,
+                        principalTable: "Visitor_Details",
+                        principalColumn: "VisitorDetailId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Vehicle",
+                columns: table => new
+                {
+                    VehicleId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    LicensePlate = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    VehicleTypeId = table.Column<int>(type: "int", nullable: true),
+                    EmployeeId = table.Column<int>(type: "int", nullable: true),
+                    SiteId = table.Column<int>(type: "int", nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ParkingStatus = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false, defaultValue: "OUT"),
+                    VisitorDetailId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK__Vehicle__476B54920FBE48B7", x => x.VehicleId);
+                    table.ForeignKey(
+                        name: "FK_Vehicle_Employee",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employee",
+                        principalColumn: "EmployeeId");
+                    table.ForeignKey(
+                        name: "FK_Vehicle_Sites_SiteId",
+                        column: x => x.SiteId,
+                        principalTable: "Sites",
+                        principalColumn: "SiteId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Vehicle_Type",
+                        column: x => x.VehicleTypeId,
+                        principalTable: "VehicleType",
+                        principalColumn: "VehicleTypeId");
+                    table.ForeignKey(
+                        name: "FK_Vehicle_Visitor_Details_VisitorDetailId",
+                        column: x => x.VisitorDetailId,
+                        principalTable: "Visitor_Details",
+                        principalColumn: "VisitorDetailId");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "AccessRules",
                 columns: table => new
                 {
                     AccessRuleId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
+                    AccessPolicyVersionId = table.Column<int>(type: "int", nullable: true),
                     AccessLevelId = table.Column<int>(type: "int", nullable: false),
                     AccessGroupId = table.Column<int>(type: "int", nullable: true),
                     SiteId = table.Column<int>(type: "int", nullable: true),
@@ -1525,6 +2288,12 @@ namespace API.Migrations
                         column: x => x.AccessPointId,
                         principalTable: "AccessPoints",
                         principalColumn: "AccessPointId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_AccessRules_AccessPolicyVersions_AccessPolicyVersionId",
+                        column: x => x.AccessPolicyVersionId,
+                        principalTable: "AccessPolicyVersions",
+                        principalColumn: "AccessPolicyVersionId",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_AccessRules_AccessSchedules_AccessScheduleId",
@@ -1681,6 +2450,81 @@ namespace API.Migrations
                         column: x => x.SiteId,
                         principalTable: "Sites",
                         principalColumn: "SiteId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ParkingPermits",
+                columns: table => new
+                {
+                    ParkingPermitId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ParkingAreaId = table.Column<int>(type: "int", nullable: false),
+                    VehicleId = table.Column<int>(type: "int", nullable: true),
+                    VisitId = table.Column<int>(type: "int", nullable: true),
+                    PermitType = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    ValidFromUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ValidToUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ParkingPermits", x => x.ParkingPermitId);
+                    table.ForeignKey(
+                        name: "FK_ParkingPermits_ParkingAreas_ParkingAreaId",
+                        column: x => x.ParkingAreaId,
+                        principalTable: "ParkingAreas",
+                        principalColumn: "ParkingAreaId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ParkingPermits_Vehicle_VehicleId",
+                        column: x => x.VehicleId,
+                        principalTable: "Vehicle",
+                        principalColumn: "VehicleId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ParkingPermits_Visits_VisitId",
+                        column: x => x.VisitId,
+                        principalTable: "Visits",
+                        principalColumn: "VisitId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WatchlistMatches",
+                columns: table => new
+                {
+                    WatchlistMatchId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    WatchlistEntryId = table.Column<int>(type: "int", nullable: false),
+                    VisitId = table.Column<int>(type: "int", nullable: true),
+                    VehicleId = table.Column<int>(type: "int", nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    ReviewNote = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    MatchedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ReviewedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ReviewedByUserId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WatchlistMatches", x => x.WatchlistMatchId);
+                    table.ForeignKey(
+                        name: "FK_WatchlistMatches_Vehicle_VehicleId",
+                        column: x => x.VehicleId,
+                        principalTable: "Vehicle",
+                        principalColumn: "VehicleId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_WatchlistMatches_Visits_VisitId",
+                        column: x => x.VisitId,
+                        principalTable: "Visits",
+                        principalColumn: "VisitId",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_WatchlistMatches_WatchlistEntries_WatchlistEntryId",
+                        column: x => x.WatchlistEntryId,
+                        principalTable: "WatchlistEntries",
+                        principalColumn: "WatchlistEntryId",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -2007,59 +2851,101 @@ namespace API.Migrations
                         column: x => x.SecurityDeviceId,
                         principalTable: "SecurityDevices",
                         principalColumn: "SecurityDeviceId",
-                        onDelete: ReferentialAction.NoAction);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.UpdateData(
-                table: "Employee",
-                keyColumn: "EmployeeId",
-                keyValue: 1,
-                columns: new[] { "LifecycleStatus", "LifecycleUpdatedAtUtc", "ManagerEmployeeId", "PrimarySiteId" },
-                values: new object[] { "Active", null, null, null });
+            migrationBuilder.InsertData(
+                table: "Department",
+                columns: new[] { "DepartmentId", "Name" },
+                values: new object[,]
+                {
+                    { 1, "Phòng Kỹ thuật" },
+                    { 2, "Phòng Nhân sự" },
+                    { 3, "Phòng Bảo vệ" }
+                });
 
-            migrationBuilder.UpdateData(
-                table: "Employee",
-                keyColumn: "EmployeeId",
-                keyValue: 2,
-                columns: new[] { "LifecycleStatus", "LifecycleUpdatedAtUtc", "ManagerEmployeeId", "PrimarySiteId" },
-                values: new object[] { "Active", null, null, null });
+            migrationBuilder.InsertData(
+                table: "Position",
+                columns: new[] { "PositionId", "Name" },
+                values: new object[,]
+                {
+                    { 1, "Nhân viên" },
+                    { 2, "Trưởng nhóm" },
+                    { 3, "Bảo vệ" }
+                });
 
-            migrationBuilder.UpdateData(
-                table: "Employee",
-                keyColumn: "EmployeeId",
-                keyValue: 3,
-                columns: new[] { "LifecycleStatus", "LifecycleUpdatedAtUtc", "ManagerEmployeeId", "PrimarySiteId" },
-                values: new object[] { "Active", null, null, null });
+            migrationBuilder.InsertData(
+                table: "Shifts",
+                columns: new[] { "ShiftId", "AllowedEarlyLeaveMinutes", "AllowedLateMinutes", "BreakMinutes", "CreatedAt", "EndTime", "IsActive", "ShiftName", "StartTime", "UpdatedAt" },
+                values: new object[] { 1, 5, 5, 60, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), new TimeSpan(0, 17, 0, 0, 0), true, "Ca hành chính", new TimeSpan(0, 8, 0, 0, 0), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
 
-            migrationBuilder.UpdateData(
-                table: "Employee",
-                keyColumn: "EmployeeId",
-                keyValue: 4,
-                columns: new[] { "LifecycleStatus", "LifecycleUpdatedAtUtc", "ManagerEmployeeId", "PrimarySiteId" },
-                values: new object[] { "Active", null, null, null });
+            migrationBuilder.InsertData(
+                table: "Shifts",
+                columns: new[] { "ShiftId", "AllowedEarlyLeaveMinutes", "AllowedLateMinutes", "CreatedAt", "EndTime", "IsActive", "ShiftName", "StartTime", "UpdatedAt" },
+                values: new object[,]
+                {
+                    { 2, 5, 5, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), new TimeSpan(0, 11, 0, 0, 0), true, "Ca sáng", new TimeSpan(0, 7, 0, 0, 0), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
+                    { 3, 5, 5, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), new TimeSpan(0, 17, 0, 0, 0), true, "Ca chiều", new TimeSpan(0, 13, 0, 0, 0), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
+                    { 4, 5, 5, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), new TimeSpan(0, 22, 0, 0, 0), true, "Ca tối", new TimeSpan(0, 18, 0, 0, 0), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) }
+                });
 
-            migrationBuilder.UpdateData(
+            migrationBuilder.InsertData(
                 table: "Employee",
-                keyColumn: "EmployeeId",
-                keyValue: 5,
-                columns: new[] { "LifecycleStatus", "LifecycleUpdatedAtUtc", "ManagerEmployeeId", "PrimarySiteId" },
-                values: new object[] { "Active", null, null, null });
+                columns: new[] { "EmployeeId", "DepartmentId", "Email", "FaceImageURL", "FullName", "LifecycleStatus", "LifecycleUpdatedAtUtc", "ManagerEmployeeId", "Phone", "PositionId", "PrimarySiteId", "Status" },
+                values: new object[,]
+                {
+                    { 1, 1, "a@company.local", "/images/employees/a.jpg", "Phạm Ngọc Hoài Anh", "Active", null, null, "0900000001", 1, null, true },
+                    { 2, 1, "b@company.local", "/images/employees/b.jpg", "Phạm Văn Thành", "Active", null, null, "0900000002", 2, null, true },
+                    { 3, 2, "c@company.local", "/images/employees/c.jpg", "Hà Mạnh Hùng", "Active", null, null, "0900000003", 1, null, true },
+                    { 4, 3, "d@company.local", "/images/employees/d.jpg", "Vũ Tiến Đạt", "Active", null, null, "0900000004", 3, null, true },
+                    { 5, 3, "e@company.local", "/images/employees/e.jpg", "Nguyễn Quốc Việt", "Active", null, null, "0900000005", 3, null, true }
+                });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Employee_ManagerEmployeeId",
-                table: "Employee",
-                column: "ManagerEmployeeId");
+                name: "IX_Access_Log_CameraId",
+                table: "Access_Log",
+                column: "CameraId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Employee_PrimarySiteId",
-                table: "Employee",
-                column: "PrimarySiteId");
+                name: "IX_Access_Log_EmployeeId",
+                table: "Access_Log",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Access_Log_EntryLogId",
+                table: "Access_Log",
+                column: "EntryLogId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Access_Log_ExceptionReasonId",
+                table: "Access_Log",
+                column: "ExceptionReasonId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Access_Log_GateId",
+                table: "Access_Log",
+                column: "GateId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Access_Log_RegistrationId",
+                table: "Access_Log",
+                column: "RegistrationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Access_Log_VisitorDetailId",
+                table: "Access_Log",
+                column: "VisitorDetailId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AccessControllerDevices_SecurityDeviceId",
                 table: "AccessControllerDevices",
                 column: "SecurityDeviceId",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccessDecisions_AccessPolicyVersionId",
+                table: "AccessDecisions",
+                column: "AccessPolicyVersionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AccessDecisions_SubjectType_SubjectId_EvaluatedAtUtc",
@@ -2089,9 +2975,19 @@ namespace API.Migrations
                 columns: new[] { "SiteId", "Name" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AccessPolicyVersions_ApprovedByUserId",
+                table: "AccessPolicyVersions",
+                column: "ApprovedByUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AccessPolicyVersions_CreatedByUserId",
                 table: "AccessPolicyVersions",
                 column: "CreatedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccessPolicyVersions_Status_CreatedAtUtc",
+                table: "AccessPolicyVersions",
+                columns: new[] { "Status", "CreatedAtUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AccessRecertificationCampaigns_SiteId",
@@ -2128,6 +3024,11 @@ namespace API.Migrations
                 name: "IX_AccessRules_AccessPointId",
                 table: "AccessRules",
                 column: "AccessPointId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccessRules_AccessPolicyVersionId",
+                table: "AccessRules",
+                column: "AccessPolicyVersionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AccessRules_AccessScheduleId",
@@ -2177,6 +3078,31 @@ namespace API.Migrations
                 filter: "[SecurityZoneId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AppUsers_EmployeeId",
+                table: "AppUsers",
+                column: "EmployeeId",
+                unique: true,
+                filter: "[EmployeeId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AppUsers_Username",
+                table: "AppUsers",
+                column: "Username",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attendances_EmployeeId_WorkDate_ScheduleId",
+                table: "Attendances",
+                columns: new[] { "EmployeeId", "WorkDate", "ScheduleId" },
+                unique: true,
+                filter: "[ScheduleId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attendances_ScheduleId",
+                table: "Attendances",
+                column: "ScheduleId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_BackupRuns_Profile_StartedAtUtc",
                 table: "BackupRuns",
                 columns: new[] { "Profile", "StartedAtUtc" });
@@ -2196,6 +3122,11 @@ namespace API.Migrations
                 table: "Buildings",
                 columns: new[] { "SiteId", "Code" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Camera_GateId",
+                table: "Camera",
+                column: "GateId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChainOfCustodyEntries_EvidenceItemId",
@@ -2266,6 +3197,42 @@ namespace API.Migrations
                 columns: new[] { "SiteId", "SecurityZoneId", "AccessPointId", "IsActive" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Employee_DepartmentId",
+                table: "Employee",
+                column: "DepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employee_ManagerEmployeeId",
+                table: "Employee",
+                column: "ManagerEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employee_PositionId",
+                table: "Employee",
+                column: "PositionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employee_PrimarySiteId",
+                table: "Employee",
+                column: "PrimarySiteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeDynamicQrs_EmployeeId",
+                table: "EmployeeDynamicQrs",
+                column: "EmployeeId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeFaceModels_EmployeeId",
+                table: "EmployeeFaceModels",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeFaceVideos_EmployeeId",
+                table: "EmployeeFaceVideos",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_EmployeeLifecycleEvents_ChangedByUserId",
                 table: "EmployeeLifecycleEvents",
                 column: "ChangedByUserId");
@@ -2310,6 +3277,17 @@ namespace API.Migrations
                 name: "IX_EvidenceItems_HashSha256",
                 table: "EvidenceItems",
                 column: "HashSha256");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EvidenceItems_RetentionCategory_PurgedAtUtc_IsLegalHold",
+                table: "EvidenceItems",
+                columns: new[] { "RetentionCategory", "PurgedAtUtc", "IsLegalHold" });
+
+            migrationBuilder.CreateIndex(
+                name: "UQ__Exceptio__A6278DA348D14177",
+                table: "Exception_Reason",
+                column: "ReasonCode",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ExternalIdentityMappings_EmployeeId",
@@ -2380,6 +3358,16 @@ namespace API.Migrations
                 column: "SiteId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_ApproverId",
+                table: "LeaveRequests",
+                column: "ApproverId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_EmployeeId",
+                table: "LeaveRequests",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_LegalHolds_Status_AppliedAtUtc",
                 table: "LegalHolds",
                 columns: new[] { "Status", "AppliedAtUtc" });
@@ -2398,6 +3386,17 @@ namespace API.Migrations
                 name: "IX_MapDevicePlacements_SiteMapId",
                 table: "MapDevicePlacements",
                 column: "SiteMapId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MfaRecoveryCodes_CodeHash",
+                table: "MfaRecoveryCodes",
+                column: "CodeHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MfaRecoveryCodes_UserId_UsedAtUtc_ExpiresAtUtc",
+                table: "MfaRecoveryCodes",
+                columns: new[] { "UserId", "UsedAtUtc", "ExpiresAtUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_MusterPoints_SiteId",
@@ -2440,6 +3439,26 @@ namespace API.Migrations
                 column: "VisitId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Pre_Registration_GuestId",
+                table: "Pre_Registration",
+                column: "GuestId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Pre_Registration_HostEmployeeId",
+                table: "Pre_Registration",
+                column: "HostEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PrivilegedActionSessions_UserId_Action_Status_ExpiresAtUtc",
+                table: "PrivilegedActionSessions",
+                columns: new[] { "UserId", "Action", "Status", "ExpiresAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QaTestRuns_TestType_Status_StartedAtUtc",
+                table: "QaTestRuns",
+                columns: new[] { "TestType", "Status", "StartedAtUtc" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ReaderDevices_AccessControllerDeviceId",
                 table: "ReaderDevices",
                 column: "AccessControllerDeviceId");
@@ -2455,6 +3474,27 @@ namespace API.Migrations
                 column: "EvidenceItemId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Registration_Links_HostEmployeeId",
+                table: "Registration_Links",
+                column: "HostEmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Registration_Links_Token",
+                table: "Registration_Links",
+                column: "Token",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ReleaseCandidates_Version_Status",
+                table: "ReleaseCandidates",
+                columns: new[] { "Version", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ReleaseGateChecks_ReleaseCandidateId_GateName",
+                table: "ReleaseGateChecks",
+                columns: new[] { "ReleaseCandidateId", "GateName" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RestoreDrills_BackupRunId",
                 table: "RestoreDrills",
                 column: "BackupRunId");
@@ -2463,6 +3503,11 @@ namespace API.Migrations
                 name: "IX_RetentionPolicies_EvidenceType_RetentionCategory_IsActive",
                 table: "RetentionPolicies",
                 columns: new[] { "EvidenceType", "RetentionCategory", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RunbookAcknowledgements_RunbookName_RoleName_AcknowledgedAtUtc",
+                table: "RunbookAcknowledgements",
+                columns: new[] { "RunbookName", "RoleName", "AcknowledgedAtUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_RuntimeDependencyHealths_DependencyName_ObservedAtUtc",
@@ -2501,10 +3546,26 @@ namespace API.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Shifts_ShiftName",
+                table: "Shifts",
+                column: "ShiftName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Sites_CompanyId_Code",
                 table: "Sites",
                 columns: new[] { "CompanyId", "Code" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SystemAuditLogs_CorrelationId",
+                table: "SystemAuditLogs",
+                column: "CorrelationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SystemAuditLogs_EventCategory_TimestampUtc",
+                table: "SystemAuditLogs",
+                columns: new[] { "EventCategory", "TimestampUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_TemporaryAccessGrants_AccessPointId",
@@ -2532,9 +3593,51 @@ namespace API.Migrations
                 columns: new[] { "SubjectType", "SubjectId", "ValidToUtc" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_UserRefreshTokens_TokenHash",
+                table: "UserRefreshTokens",
+                column: "TokenHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserRefreshTokens_UserId_ExpiresAtUtc",
+                table: "UserRefreshTokens",
+                columns: new[] { "UserId", "ExpiresAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Vehicle_EmployeeId",
+                table: "Vehicle",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Vehicle_SiteId",
+                table: "Vehicle",
+                column: "SiteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Vehicle_VehicleTypeId",
+                table: "Vehicle",
+                column: "VehicleTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Vehicle_VisitorDetailId",
+                table: "Vehicle",
+                column: "VisitorDetailId");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ__Vehicle__026BC15CB8D416A0",
+                table: "Vehicle",
+                column: "LicensePlate",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_VideoBookmarks_SecurityEventId_CameraId",
                 table: "VideoBookmarks",
                 columns: new[] { "SecurityEventId", "CameraId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Visitor_Details_RegistrationId",
+                table: "Visitor_Details",
+                column: "RegistrationId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_VisitorCheckIns_VisitId",
@@ -2602,39 +3705,31 @@ namespace API.Migrations
                 table: "WebhookDeliveries",
                 column: "WebhookSubscriptionId");
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_Employee_Employee_ManagerEmployeeId",
-                table: "Employee",
-                column: "ManagerEmployeeId",
-                principalTable: "Employee",
-                principalColumn: "EmployeeId",
-                onDelete: ReferentialAction.Restrict);
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkSchedules_CreatedBy",
+                table: "WorkSchedules",
+                column: "CreatedBy");
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_Employee_Sites_PrimarySiteId",
-                table: "Employee",
-                column: "PrimarySiteId",
-                principalTable: "Sites",
-                principalColumn: "SiteId",
-                onDelete: ReferentialAction.SetNull);
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkSchedules_EmployeeId_ShiftId_WorkDate",
+                table: "WorkSchedules",
+                columns: new[] { "EmployeeId", "ShiftId", "WorkDate" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkSchedules_ShiftId",
+                table: "WorkSchedules",
+                column: "ShiftId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Employee_Employee_ManagerEmployeeId",
-                table: "Employee");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_Employee_Sites_PrimarySiteId",
-                table: "Employee");
+            migrationBuilder.DropTable(
+                name: "Access_Log");
 
             migrationBuilder.DropTable(
                 name: "AccessDecisions");
-
-            migrationBuilder.DropTable(
-                name: "AccessPolicyVersions");
 
             migrationBuilder.DropTable(
                 name: "AccessRecertificationDecisions");
@@ -2658,7 +3753,13 @@ namespace API.Migrations
                 name: "AntiPassbackStates");
 
             migrationBuilder.DropTable(
+                name: "Attendances");
+
+            migrationBuilder.DropTable(
                 name: "BarrierCommandAudits");
+
+            migrationBuilder.DropTable(
+                name: "CameraPlates");
 
             migrationBuilder.DropTable(
                 name: "ChainOfCustodyEntries");
@@ -2691,10 +3792,25 @@ namespace API.Migrations
                 name: "Doors");
 
             migrationBuilder.DropTable(
+                name: "DynamicQrScanLogs");
+
+            migrationBuilder.DropTable(
                 name: "EmergencyMusterSnapshots");
 
             migrationBuilder.DropTable(
                 name: "EmergencyStates");
+
+            migrationBuilder.DropTable(
+                name: "Employee_Access_Permissions");
+
+            migrationBuilder.DropTable(
+                name: "EmployeeDynamicQrs");
+
+            migrationBuilder.DropTable(
+                name: "EmployeeFaceModels");
+
+            migrationBuilder.DropTable(
+                name: "EmployeeFaceVideos");
 
             migrationBuilder.DropTable(
                 name: "EmployeeLifecycleEvents");
@@ -2724,10 +3840,16 @@ namespace API.Migrations
                 name: "LaneEvents");
 
             migrationBuilder.DropTable(
+                name: "LeaveRequests");
+
+            migrationBuilder.DropTable(
                 name: "LegalHolds");
 
             migrationBuilder.DropTable(
                 name: "MapDevicePlacements");
+
+            migrationBuilder.DropTable(
+                name: "MfaRecoveryCodes");
 
             migrationBuilder.DropTable(
                 name: "MusterPoints");
@@ -2742,16 +3864,31 @@ namespace API.Migrations
                 name: "ParkingPermits");
 
             migrationBuilder.DropTable(
+                name: "PrivilegedActionSessions");
+
+            migrationBuilder.DropTable(
+                name: "QaTestRuns");
+
+            migrationBuilder.DropTable(
                 name: "ReaderDevices");
 
             migrationBuilder.DropTable(
                 name: "RedactionRequests");
 
             migrationBuilder.DropTable(
+                name: "Registration_Links");
+
+            migrationBuilder.DropTable(
+                name: "ReleaseGateChecks");
+
+            migrationBuilder.DropTable(
                 name: "RestoreDrills");
 
             migrationBuilder.DropTable(
                 name: "RetentionPolicies");
+
+            migrationBuilder.DropTable(
+                name: "RunbookAcknowledgements");
 
             migrationBuilder.DropTable(
                 name: "RuntimeDependencyHealths");
@@ -2772,10 +3909,19 @@ namespace API.Migrations
                 name: "SopTemplates");
 
             migrationBuilder.DropTable(
+                name: "SystemAuditLogs");
+
+            migrationBuilder.DropTable(
                 name: "TemporaryAccessGrants");
 
             migrationBuilder.DropTable(
+                name: "UserRefreshTokens");
+
+            migrationBuilder.DropTable(
                 name: "VideoBookmarks");
+
+            migrationBuilder.DropTable(
+                name: "Visitor_Access_Permissions");
 
             migrationBuilder.DropTable(
                 name: "VisitorCheckIns");
@@ -2793,6 +3939,9 @@ namespace API.Migrations
                 name: "WebhookDeliveries");
 
             migrationBuilder.DropTable(
+                name: "Exception_Reason");
+
+            migrationBuilder.DropTable(
                 name: "AccessRecertificationCampaigns");
 
             migrationBuilder.DropTable(
@@ -2802,10 +3951,16 @@ namespace API.Migrations
                 name: "AccessLevels");
 
             migrationBuilder.DropTable(
+                name: "AccessPolicyVersions");
+
+            migrationBuilder.DropTable(
                 name: "AccessSchedules");
 
             migrationBuilder.DropTable(
                 name: "Alarms");
+
+            migrationBuilder.DropTable(
+                name: "WorkSchedules");
 
             migrationBuilder.DropTable(
                 name: "Barriers");
@@ -2820,6 +3975,9 @@ namespace API.Migrations
                 name: "Incidents");
 
             migrationBuilder.DropTable(
+                name: "Camera");
+
+            migrationBuilder.DropTable(
                 name: "SiteMaps");
 
             migrationBuilder.DropTable(
@@ -2832,10 +3990,16 @@ namespace API.Migrations
                 name: "EvidenceItems");
 
             migrationBuilder.DropTable(
+                name: "ReleaseCandidates");
+
+            migrationBuilder.DropTable(
                 name: "BackupRuns");
 
             migrationBuilder.DropTable(
                 name: "VisitorFormTemplates");
+
+            migrationBuilder.DropTable(
+                name: "Vehicle");
 
             migrationBuilder.DropTable(
                 name: "Visits");
@@ -2850,19 +4014,49 @@ namespace API.Migrations
                 name: "WebhookSubscriptions");
 
             migrationBuilder.DropTable(
+                name: "AppUsers");
+
+            migrationBuilder.DropTable(
+                name: "Shifts");
+
+            migrationBuilder.DropTable(
                 name: "Lanes");
 
             migrationBuilder.DropTable(
                 name: "SecurityDevices");
 
             migrationBuilder.DropTable(
+                name: "VehicleType");
+
+            migrationBuilder.DropTable(
+                name: "Visitor_Details");
+
+            migrationBuilder.DropTable(
+                name: "Gate");
+
+            migrationBuilder.DropTable(
                 name: "AccessPoints");
+
+            migrationBuilder.DropTable(
+                name: "Pre_Registration");
 
             migrationBuilder.DropTable(
                 name: "SecurityZones");
 
             migrationBuilder.DropTable(
+                name: "Employee");
+
+            migrationBuilder.DropTable(
+                name: "GuestProfile");
+
+            migrationBuilder.DropTable(
                 name: "FacilityFloors");
+
+            migrationBuilder.DropTable(
+                name: "Department");
+
+            migrationBuilder.DropTable(
+                name: "Position");
 
             migrationBuilder.DropTable(
                 name: "Buildings");
@@ -2872,30 +4066,6 @@ namespace API.Migrations
 
             migrationBuilder.DropTable(
                 name: "Companies");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Employee_ManagerEmployeeId",
-                table: "Employee");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Employee_PrimarySiteId",
-                table: "Employee");
-
-            migrationBuilder.DropColumn(
-                name: "LifecycleStatus",
-                table: "Employee");
-
-            migrationBuilder.DropColumn(
-                name: "LifecycleUpdatedAtUtc",
-                table: "Employee");
-
-            migrationBuilder.DropColumn(
-                name: "ManagerEmployeeId",
-                table: "Employee");
-
-            migrationBuilder.DropColumn(
-                name: "PrimarySiteId",
-                table: "Employee");
         }
     }
 }

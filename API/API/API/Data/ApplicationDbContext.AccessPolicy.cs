@@ -60,6 +60,10 @@ public partial class ApplicationDbContext
             entity.Property(e => e.SubjectType).IsRequired().HasMaxLength(40);
             entity.Property(e => e.CredentialType).IsRequired().HasMaxLength(40);
             entity.HasIndex(e => new { e.SubjectType, e.SubjectId, e.SiteId, e.SecurityZoneId, e.AccessPointId });
+            entity.HasOne(e => e.AccessPolicyVersion)
+                .WithMany(v => v.Rules)
+                .HasForeignKey(e => e.AccessPolicyVersionId)
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.AccessLevel)
                 .WithMany()
                 .HasForeignKey(e => e.AccessLevelId)
@@ -103,9 +107,15 @@ public partial class ApplicationDbContext
             entity.HasKey(e => e.AccessPolicyVersionId);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(160);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.ChangeSummary).HasMaxLength(1000);
+            entity.HasIndex(e => new { e.Status, e.CreatedAtUtc });
             entity.HasOne(e => e.CreatedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.ApprovedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -116,7 +126,13 @@ public partial class ApplicationDbContext
             entity.Property(e => e.CredentialType).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Result).IsRequired().HasMaxLength(20);
             entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.DecisionMode).IsRequired().HasMaxLength(40).HasDefaultValue("Enforced");
+            entity.Property(e => e.LegacyResult).HasMaxLength(20);
             entity.HasIndex(e => new { e.SubjectType, e.SubjectId, e.EvaluatedAtUtc });
+            entity.HasOne(e => e.AccessPolicyVersion)
+                .WithMany()
+                .HasForeignKey(e => e.AccessPolicyVersionId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<AntiPassbackState>(entity =>
@@ -142,4 +158,3 @@ public partial class ApplicationDbContext
         });
     }
 }
-

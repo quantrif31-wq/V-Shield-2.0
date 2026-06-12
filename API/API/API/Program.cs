@@ -94,16 +94,20 @@ namespace API
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
             builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+            builder.Services.AddScoped<IStepUpService, StepUpService>();
             builder.Services.AddScoped<TotpService>();
             builder.Services.AddScoped<IVehicleManagementService, VehicleManagementService>();
             builder.Services.AddScoped<ILocalNetworkCameraDiscoveryService, LocalNetworkCameraDiscoveryService>();
             builder.Services.AddScoped<StaticVisitorQrService>();
             builder.Services.AddScoped<IAttendanceCalculationService, AttendanceCalculationService>();
             builder.Services.AddScoped<IAttendancePermissionService, AttendancePermissionService>();
+            builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();
+            builder.Services.AddSingleton<ISecurityConfigurationHealthService, SecurityConfigurationHealthService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             if (!builder.Environment.IsEnvironment("Testing"))
             {
                 builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
+                builder.Services.AddHostedService<EnterpriseOperationsWorker>();
             }
             builder.Services.AddHttpClient();
             builder.Services.AddSignalR();
@@ -167,10 +171,11 @@ namespace API
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                var authPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1000 : 5;
                 options.AddFixedWindowLimiter("auth", limiter =>
                 {
                     limiter.Window = TimeSpan.FromMinutes(1);
-                    limiter.PermitLimit = 5;
+                    limiter.PermitLimit = authPermitLimit;
                     limiter.QueueLimit = 0;
                     limiter.AutoReplenishment = true;
                 });
@@ -468,33 +473,23 @@ namespace API
             IHostEnvironment environment,
             IReadOnlyCollection<string> allowedOrigins)
         {
-            if (!environment.IsProduction())
+            var jwtSecretOverride = Environment.GetEnvironmentVariable("VSHIELD_JWT_SECRET");
+            var report = SecurityConfigurationHealthService.Evaluate(
+                configuration,
+                environment,
+                allowedOrigins,
+                jwtSecretOverride,
+                jwtSecretOverride ?? configuration["JwtSettings:Secret"]);
+
+            if (!environment.IsProduction() || report.Status != SecurityConfigurationHealthStatuses.Blocked)
                 return;
 
-            if (allowedOrigins.Count == 0)
-            {
-                throw new InvalidOperationException("Production requires at least one explicit allowed frontend origin.");
-            }
-
-            if (allowedOrigins.Any(origin => origin == "*" || origin.Contains('*', StringComparison.Ordinal)))
-            {
-                throw new InvalidOperationException("Production CORS origins must be explicit. Wildcards are not allowed.");
-            }
-
-            var invalidOrigins = allowedOrigins
-                .Where(origin => !Uri.TryCreate(origin, UriKind.Absolute, out _))
+            var failures = report.Findings
+                .Where(finding => finding.Status == SecurityConfigurationFindingStatuses.Fail)
+                .Select(finding => $"{finding.Key}: {finding.Message}")
                 .ToArray();
-            if (invalidOrigins.Length > 0)
-            {
-                throw new InvalidOperationException("Production CORS origins contain invalid URI values: " + string.Join(", ", invalidOrigins));
-            }
 
-            var issuer = configuration["JwtSettings:Issuer"];
-            var audience = configuration["JwtSettings:Audience"];
-            if (string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(audience))
-            {
-                throw new InvalidOperationException("Production requires explicit JWT issuer and audience.");
-            }
+            throw new InvalidOperationException("Production security configuration is unsafe. " + string.Join(" | ", failures));
         }
 
         private static void EnsureGo2RtcProcessRunning(IServiceProvider services)

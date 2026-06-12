@@ -20,6 +20,8 @@ public partial class Vehicle
 
     public int? EmployeeId { get; set; }
 
+    public int? SiteId { get; set; }
+
     [StringLength(200)]
     public string? Description { get; set; }
 
@@ -27,6 +29,9 @@ public partial class Vehicle
     [InverseProperty("Vehicles")]
     public string ParkingStatus { get; set; } = "OUT";
     public virtual Employee? Employee { get; set; }
+
+    [ForeignKey("SiteId")]
+    public virtual Site? Site { get; set; }
 
     [ForeignKey("VehicleTypeId")]
     [InverseProperty("Vehicles")]

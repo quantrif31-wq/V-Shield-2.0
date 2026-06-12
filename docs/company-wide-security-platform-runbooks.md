@@ -1,101 +1,170 @@
 # V-Shield 2.0 - Company-Wide Security Platform Runbooks
 
-Date: 2026-06-10
+This runbook covers the operational flows added for the company-wide security platform renovation. It intentionally avoids protected runtime and public-domain scripts.
 
-## Admin Runbook
+## 1. Admin Runbook
 
-Daily:
+### Production Configuration Gate
 
-1. Review `api/enterprise/operations/overview` for failed outbox events, webhook deliveries and degraded dependencies.
-2. Review `api/enterprise/soc/overview` for open critical alarms and old alarm age.
-3. Review evidence export and redaction queues.
-4. Confirm release-readiness gates remain current before deploying any build.
+1. Open Enterprise Security Command.
+2. Review Configuration health.
+3. Production must not run with:
+   - repository-backed JWT secret,
+   - default seed admin credentials,
+   - localhost CORS origins,
+   - repository-backed public domain values without environment override,
+   - missing evidence export signing key,
+   - memory-only rate limiting for medium/large rollout.
+4. Set deploy-time secrets through environment variables:
+   - `VSHIELD_JWT_SECRET`
+   - `VSHIELD_SEED_ADMIN_USERNAME`
+   - `VSHIELD_SEED_ADMIN_PASSWORD`
+   - `VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY`
+   - `ConnectionStrings__DefaultConnection`
+   - `AppSettings__FrontendUrl`
+   - `AppSettings__AllowedOrigins__0`
 
-User and access lifecycle:
+### Step-Up MFA
 
-1. Create or link users through enterprise foundation identity mapping.
-2. Set employee lifecycle state.
-3. Assign site and manager.
-4. Grant access through access levels/groups/rules, not one-off bypasses.
-5. On termination or suspension, use lifecycle transition so app user sessions and refresh tokens are revoked.
-6. Record recertification decisions periodically.
+1. Start a privileged action session from the Enterprise page or call `/api/Auth/step-up/start`.
+2. Verify with password and MFA/recovery code through `/api/Auth/step-up/verify`.
+3. Use the returned session ID in `X-Step-Up-Session-Id`.
+4. Required for user administration, emergency policy, device configuration, evidence export/purge/redaction/legal-hold release, site hierarchy backfill, and release approval.
 
-## Security Operator Runbook
+### Identity And HR Lifecycle
 
-Alarm handling:
+1. Configure identity provider metadata.
+2. Import users/groups through enterprise identity import endpoints.
+3. For termination/suspension, run offboarding with step-up.
+4. Confirm revocation proof:
+   - user disabled,
+   - token version incremented,
+   - refresh tokens revoked,
+   - direct access rules disabled,
+   - lifecycle event written.
 
-1. Open SOC overview.
-2. Acknowledge the alarm.
-3. Assign owner or guard.
-4. Start the matching SOP.
-5. Create or update incident case.
-6. Add timeline notes, video bookmarks and evidence items.
-7. Dispatch guard when physical verification is needed.
-8. Close alarm and incident only after outcome is recorded.
-9. Include unresolved items in shift handover.
+## 2. Foundation And Asset Mapping
 
-Emergency:
+1. Verify no protected path changes.
+2. Run default-site backfill only after step-up.
+3. Confirm the report includes mapped gates, camera devices, employees, vehicles, log snapshots, and event snapshots.
+4. Review asset map:
+   - every legacy gate should map to a lane,
+   - every legacy camera should map to a camera security device,
+   - every vehicle should have a site,
+   - access logs should retain site/gate/camera snapshots.
 
-1. Set scoped emergency state in access policy.
-2. Record alarm and incident.
-3. Dispatch guards.
-4. Capture muster snapshot.
-5. Keep evidence under legal hold if an investigation is likely.
+## 3. Access Policy Runbook
 
-## Reception And Visitor Desk Runbook
+### Version Lifecycle
 
-1. Create visit with host, expected time and required forms.
-2. Screen visitor against watchlist.
-3. Issue credential only for approved time and area.
-4. Require NDA/safety form acceptance when configured.
-5. Record ID verification metadata.
-6. Check visitor in.
-7. Check visitor out and confirm pass cannot be reused.
-8. Escalate watchlist or overstay events to SOC.
+1. Create policy version in Draft.
+2. Add rules to the version.
+3. Submit for approval.
+4. Approve with step-up.
+5. Activate with step-up.
+6. Previous active versions retire automatically.
 
-## Vehicle And Gate Runbook
+### Decision Testing
 
-1. Confirm parking permit and lane policy.
-2. Review lane event and plate/credential context.
-3. Use barrier command only with reason.
-4. Record manual overrides as lane events.
-5. Escalate watchlist matches to SOC.
+1. Use `/api/enterprise/access-policy/simulate` before activating risky rules.
+2. Simulation must not write an enforced decision.
+3. Use `/api/enterprise/access-policy/shadow-compare` to compare legacy gate behavior with policy-engine behavior.
+4. Shadow mismatch creates a security event and correlation item.
 
-## Device Enrollment Runbook
+### Precedence
 
-1. Create security device record.
-2. Register controller/reader/relay/sensor topology.
-3. Record provisioning request.
-4. Publish configuration version and offline policy package.
-5. Monitor device health snapshots.
-6. Keep connector work at API/service boundary; do not edit `AI_Runtime/**` or `runtime/**`.
+The evaluator applies:
 
-## Evidence Governance Runbook
+1. emergency deny,
+2. holiday block,
+3. explicit deny,
+4. temporary grant,
+5. allow rule,
+6. default deny.
 
-1. Register evidence item with storage reference and hash.
-2. Add chain-of-custody entry for every transfer.
-3. Log read/export purpose.
-4. Apply retention policy.
-5. Apply legal hold before investigation export or deletion risk.
-6. Request export with recipient and purpose.
-7. Admin approves export and records watermark/signature reference.
-8. Use redaction workflow for privacy-sensitive disclosure.
-9. Generate compliance report for audit requests.
+## 4. Reception And Gate Operations
 
-## Backup And Restore Runbook
+### Visitor
 
-1. Start backup run for target profile.
-2. Complete backup with reference, size and verification state.
-3. Start restore drill from verified backup.
-4. Record measured RPO/RTO and findings.
-5. Release gate passes only if measured values meet target.
+1. Create visit.
+2. Screen watchlist.
+3. Collect required form acceptance before check-in.
+4. Check in with ID verification.
+5. Issue visitor credential within approved window.
+6. Monitor overstay through operations worker.
+7. Check out; credentials must not remain usable beyond the visit window.
 
-## Deployment Runbook
+### Barrier
 
-1. Confirm no-touch areas are clean.
-2. Run API tests.
-3. Run frontend build.
-4. Review migrations and rollback impact.
-5. Confirm security checks: secret rotation, dependency scan, public endpoint inventory.
-6. Record QA test runs and release gate checks.
-7. Approve release candidate only after required gates pass.
+1. Barrier commands require reason and step-up.
+2. Manual open/hold-open/lock-closed creates barrier audit and security event.
+3. Low-confidence or watchlist plate flows must be reviewed instead of silently accepted.
+
+## 5. Device And Offline Resilience
+
+1. Register virtual controller in simulator.
+2. Publish offline policy package with step-up.
+3. Run offline scan simulator.
+4. Inject tamper/offline/relay/barrier/camera faults.
+5. Confirm SOC alarm and device health snapshot are created.
+6. Runtime health is observed through API wrappers only; do not edit protected runtime folders.
+
+## 6. SOC And Incident Command
+
+1. Create or receive alarm.
+2. Acknowledge and assign owner.
+3. Start SOP execution.
+4. Required SOP steps must be completed before closing SOP.
+5. Create incident and timeline.
+6. Dispatch guard task when needed.
+7. Close dispatch with result.
+8. Close alarm with note.
+9. Close incident only with outcome note.
+10. Shift handover must include unresolved alarms/incidents.
+
+## 7. Evidence And Compliance
+
+1. Register evidence with hash and privacy label.
+2. Verify hash before export.
+3. Request export with purpose and recipient.
+4. Approve export with step-up.
+5. Export approval blocks if evidence is purged or hash mismatch exists.
+6. Export hash and HMAC signature reference are generated when no external signature is supplied.
+7. Legal hold prevents purge.
+8. Retention purge requires dry-run/review and step-up.
+
+## 8. Operations, Backup, Release
+
+1. Outbox worker creates webhook deliveries with HMAC signatures.
+2. Webhook delivery result and dispatch status must be recorded.
+3. Record SIEM export through outbox.
+4. Record backup run and restore drill with RPO/RTO evidence.
+5. Record security checks for secrets and vulnerability gates.
+6. Release candidate approval requires:
+   - at least one required gate,
+   - each required gate passed,
+   - evidence reference on each required gate,
+   - step-up session.
+
+## 9. Migration Rollback
+
+1. Migrations are additive in this renovation pass.
+2. Before production rollout, back up DB.
+3. Apply migrations on disposable copy.
+4. Run smoke tests.
+5. Rollback rehearsal must prove down migrations can remove new columns/tables without touching protected runtime/public-domain paths.
+
+## 10. QA Evidence
+
+Required before production claim:
+
+- API automated tests pass.
+- Frontend build pass.
+- EF pending model check is clean.
+- No-touch protected-path check is empty.
+- Browser E2E for Admin/SOC/Reception/Gate/Auditor/Emergency paths.
+- Load/stress/soak/chaos runs with documented profile and result.
+- Hardware simulator and real hardware acceptance for controller/reader/barrier/camera failure modes.
+- Backup/restore drill with measured RPO/RTO.
+- Security scan and container/dependency vulnerability gate.

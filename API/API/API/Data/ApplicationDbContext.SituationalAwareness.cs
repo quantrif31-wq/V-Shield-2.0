@@ -23,6 +23,9 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Severity).IsRequired().HasMaxLength(40);
             entity.Property(e => e.CorrelationId).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Confidence).HasColumnType("decimal(9,6)");
+            entity.Property(e => e.SiteNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.SecurityZoneNameSnapshot).HasMaxLength(160);
+            entity.Property(e => e.AccessPointNameSnapshot).HasMaxLength(160);
             entity.HasIndex(e => new { e.CorrelationId, e.OccurredAtUtc });
             entity.HasIndex(e => new { e.SiteId, e.SecurityZoneId, e.Severity, e.OccurredAtUtc });
         });

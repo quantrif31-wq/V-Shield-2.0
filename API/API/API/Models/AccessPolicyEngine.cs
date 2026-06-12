@@ -50,6 +50,7 @@ public class AccessGroup
 public class AccessRule
 {
     public int AccessRuleId { get; set; }
+    public int? AccessPolicyVersionId { get; set; }
     public int AccessLevelId { get; set; }
     public int? AccessGroupId { get; set; }
     public int? SiteId { get; set; }
@@ -63,6 +64,7 @@ public class AccessRule
     public DateTime? ValidFromUtc { get; set; }
     public DateTime? ValidToUtc { get; set; }
     public bool IsActive { get; set; } = true;
+    public AccessPolicyVersion? AccessPolicyVersion { get; set; }
     public AccessLevel? AccessLevel { get; set; }
     public AccessGroup? AccessGroup { get; set; }
     public Site? Site { get; set; }
@@ -95,15 +97,23 @@ public class AccessPolicyVersion
     public int AccessPolicyVersionId { get; set; }
     [MaxLength(160)] public string Name { get; set; } = string.Empty;
     [MaxLength(40)] public string Status { get; set; } = "Draft";
+    [MaxLength(1000)] public string? ChangeSummary { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? SubmittedAtUtc { get; set; }
+    public DateTime? ApprovedAtUtc { get; set; }
     public DateTime? ActivatedAtUtc { get; set; }
+    public DateTime? RetiredAtUtc { get; set; }
     public int? CreatedByUserId { get; set; }
+    public int? ApprovedByUserId { get; set; }
     public AppUser? CreatedByUser { get; set; }
+    public AppUser? ApprovedByUser { get; set; }
+    public ICollection<AccessRule> Rules { get; set; } = new List<AccessRule>();
 }
 
 public class AccessDecision
 {
     public long AccessDecisionId { get; set; }
+    public int? AccessPolicyVersionId { get; set; }
     [MaxLength(40)] public string SubjectType { get; set; } = "Employee";
     public int? SubjectId { get; set; }
     public int? SiteId { get; set; }
@@ -112,8 +122,12 @@ public class AccessDecision
     [MaxLength(40)] public string CredentialType { get; set; } = "Unknown";
     [MaxLength(20)] public string Result { get; set; } = AccessDecisionResults.Deny;
     [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
+    [MaxLength(40)] public string DecisionMode { get; set; } = "Enforced";
+    [MaxLength(20)] public string? LegacyResult { get; set; }
+    public bool ShadowMismatch { get; set; }
     public DateTime EvaluatedAtUtc { get; set; } = DateTime.UtcNow;
     public int? EvaluatedByUserId { get; set; }
+    public AccessPolicyVersion? AccessPolicyVersion { get; set; }
 }
 
 public class AntiPassbackState
@@ -151,4 +165,3 @@ public class EmergencyState
     public DateTime? EndedAtUtc { get; set; }
     public int? CreatedByUserId { get; set; }
 }
-
