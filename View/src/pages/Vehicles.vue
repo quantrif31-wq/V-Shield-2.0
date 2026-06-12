@@ -7,6 +7,22 @@
                 <p class="page-subtitle">Đăng ký và quản lý phương tiện ra/vào công ty</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-outline" @click="showImportModal = true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    Import
+                </button>
+                <button class="btn btn-outline" @click="showExportModal = true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Export
+                </button>
                 <button class="btn btn-primary" @click="openModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
                         <line x1="12" y1="5" x2="12" y2="19" />
@@ -319,6 +335,22 @@
             </div>
         </transition>
 
+        <!-- Import / Export Modals -->
+        <ImportModal
+            v-if="showImportModal"
+            entityType="Vehicle"
+            entityDisplayName="Phương tiện"
+            @close="showImportModal = false"
+            @import-complete="onImportComplete"
+        />
+        <ExportModal
+            v-if="showExportModal"
+            entityType="Vehicle"
+            entityDisplayName="Phương tiện"
+            :availableColumns="['VehicleId','LicensePlate','VehicleTypeName','EmployeeCode','Description']"
+            @close="showExportModal = false"
+        />
+
         <!-- Toast -->
         <transition name="toast">
             <div v-if="toast" class="toast-card" :class="toast.type">{{ toast.message }}</div>
@@ -330,6 +362,8 @@
 import { ref, reactive as useReactive, computed, onBeforeUnmount, onMounted } from 'vue'
 import * as vehicleApi from '../services/vehicleApi'
 import { getAll as getAllEmployees, getProtectedFaceImage } from '../services/employeeApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 import { optimizeAndValidatePlate, getVehicleTypeLabel } from '../utils/licensePlateValidator'
 
 // ─── State ──────────────────────────────────────────────────
@@ -338,6 +372,8 @@ const employeeList = ref([])
 const loading = ref(true)
 const loadError = ref('')
 const searchQuery = ref('')
+const showImportModal = ref(false)
+const showExportModal = ref(false)
 const filterType = ref('')
 
 const showModal = ref(false)
@@ -392,7 +428,13 @@ let toastTimer = null
 function showToast(message, type = 'success') {
     if (toastTimer) clearTimeout(toastTimer)
     toast.value = { message, type }
-    toastTimer = setTimeout(() => { toast.value = null }, 3500)
+    toastTimer = setTimeout(() => { toast.value = null }, 3000)
+}
+
+function onImportComplete(result) {
+    showImportModal.value = false
+    fetchVehicles()
+    showToast(`Import hoàn tất: ${result.successCount} thành công${result.errorCount > 0 ? `, ${result.errorCount} lỗi` : ''}`, result.errorCount > 0 ? 'error' : 'success')
 }
 
 // ─── Computed ───────────────────────────────────────────────

@@ -315,6 +315,24 @@ ol {
   box-shadow: 0 20px 38px rgba(195, 81, 70, 0.28);
 }
 
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent, #3b82f6);
+  color: var(--accent, #3b82f6);
+}
+.btn-accent {
+  background: var(--accent, #3b82f6);
+  color: #fff;
+}
+.btn-accent:hover {
+  background: var(--accent-hover, #2563eb);
+  box-shadow: 0 14px 28px rgba(59, 130, 246, 0.25);
+}
 .btn-sm {
   min-height: 36px;
   padding: 0 14px;

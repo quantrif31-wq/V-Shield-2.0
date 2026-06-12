@@ -103,6 +103,17 @@ namespace API
             builder.Services.AddScoped<IAttendancePermissionService, AttendancePermissionService>();
             builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();
             builder.Services.AddSingleton<ISecurityConfigurationHealthService, SecurityConfigurationHealthService>();
+            builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
+            builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
+            builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
+            builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.XmlFileParser>();
+            builder.Services.AddSingleton<API.Services.ImportExport.FileParserFactory>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.EmployeeImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.VehicleImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.DepartmentImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.PositionImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.UserImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IImportExportService, API.Services.ImportExport.ImportExportService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             if (!builder.Environment.IsEnvironment("Testing"))
             {

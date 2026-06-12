@@ -171,5 +171,6 @@ public partial class ApplicationDbContext
         ConfigureReleaseReadiness(modelBuilder);
         ConfigurePrivilegedOperations(modelBuilder);
         ConfigureMfaRecovery(modelBuilder);
+        ConfigureImportExport(modelBuilder);
     }
 }

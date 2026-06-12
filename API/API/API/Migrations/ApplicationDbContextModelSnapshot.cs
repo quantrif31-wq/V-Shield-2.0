@@ -2596,6 +2596,88 @@ namespace API.Migrations
                     b.ToTable("HolidayCalendars");
                 });
 
+            modelBuilder.Entity("API.Models.ImportExportHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AdditionalInfo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("ErrorCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ErrorDetails")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileFormat")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OperationType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<byte[]>("OriginalFileContent")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("(getutcdate())");
+
+                    b.Property<int?>("PerformedById")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("ResultFileContent")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<int>("SuccessCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalRows")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WarningCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PerformedAt");
+
+                    b.HasIndex("PerformedById");
+
+                    b.HasIndex("EntityType", "OperationType");
+
+                    b.ToTable("ImportExportHistory");
+                });
+
             modelBuilder.Entity("API.Models.Incident", b =>
                 {
                     b.Property<long>("IncidentId")
@@ -5659,6 +5741,16 @@ namespace API.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Site");
+                });
+
+            modelBuilder.Entity("API.Models.ImportExportHistory", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "PerformedBy")
+                        .WithMany()
+                        .HasForeignKey("PerformedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("PerformedBy");
                 });
 
             modelBuilder.Entity("API.Models.IncidentTimelineItem", b =>
