@@ -132,6 +132,68 @@
             </article>
         </section>
 
+        <section v-if="intelligence" class="ops-grid two">
+            <article class="ops-panel">
+                <div class="panel-head">
+                    <div>
+                        <span class="panel-kicker">AI Intelligence</span>
+                        <h2 class="panel-title">Tổng quan thông minh</h2>
+                    </div>
+                    <span v-if="intelligenceLoading" class="soft-chip">Đang phân tích...</span>
+                </div>
+                <p class="intel-summary">{{ intelligence.summary }}</p>
+                <div v-if="intelligence.insights && intelligence.insights.length" class="intel-insights">
+                    <div v-for="insight in intelligence.insights" :key="insight.title"
+                        class="intel-insight" :class="insight.type">
+                        <span class="insight-icon">{{ insight.type === 'critical' ? '⚠️' : insight.type === 'warning' ? '⚡' : '💡' }}</span>
+                        <div>
+                            <strong>{{ insight.title }}</strong>
+                            <p>{{ insight.detail }}</p>
+                            <span class="insight-severity" :class="insight.severity">{{ insight.severity }}</span>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="ops-panel">
+                <div class="panel-head">
+                    <div>
+                        <span class="panel-kicker">Trends</span>
+                        <h2 class="panel-title">Dự báo tuần tới</h2>
+                    </div>
+                </div>
+                <div v-if="intelligence.trends && intelligence.trends.length" class="trend-chart">
+                    <div v-for="day in intelligence.trends" :key="day.label" class="trend-day">
+                        <strong class="trend-label">{{ day.label }}</strong>
+                        <div class="trend-stack">
+                            <div class="trend-bar in" :style="{ height: getTrendPercent(day.predictedCheckIn, 'in') + '%' }">
+                                <span>{{ day.predictedCheckIn }}</span>
+                            </div>
+                            <div class="trend-bar out" :style="{ height: getTrendPercent(day.predictedCheckOut, 'out') + '%' }">
+                                <span>{{ day.predictedCheckOut }}</span>
+                            </div>
+                        </div>
+                        <span class="trend-headcount">~{{ day.predictedHeadcount }} NV</span>
+                        <span class="trend-conf">{{ day.confidence }}</span>
+                    </div>
+                </div>
+                <div v-if="intelligence.comparison" class="trend-compare">
+                    <div class="compare-item">
+                        <span>So với hôm qua</span>
+                        <strong :class="intelligence.comparison.attendanceVsYesterday > 0 ? 'up' : 'down'">
+                            {{ intelligence.comparison.attendanceVsYesterday > 0 ? '+' : '' }}{{ intelligence.comparison.attendanceVsYesterday }}%
+                        </strong>
+                    </div>
+                    <div class="compare-item">
+                        <span>Dự báo tuần tới</span>
+                        <strong :class="intelligence.comparison.trafficDirection === 'tang' ? 'up' : 'down'">
+                            {{ intelligence.comparison.trafficDirection === 'tang' ? '+' : '-' }}{{ intelligence.comparison.trafficVsLastWeek }}%
+                        </strong>
+                    </div>
+                </div>
+            </article>
+        </section>
+
         <section class="ops-grid three">
             <article class="ops-panel">
                 <div class="panel-head compact">
@@ -207,7 +269,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { getDashboardOverview } from '../services/dashboardApi'
+import { getDashboardOverview, getDashboardIntelligence } from '../services/dashboardApi'
 
 const maxActivities = 4
 
@@ -235,6 +297,8 @@ const snapshot = ref({
 })
 const weeklyTraffic = ref([])
 const recentActivities = ref([])
+const intelligence = ref(null)
+const intelligenceLoading = ref(false)
 
 const displayedActivities = computed(() => recentActivities.value.slice(0, maxActivities))
 
@@ -280,6 +344,14 @@ const formatTime = (value) => {
     })
 }
 
+const maxTrendIn = computed(() => Math.max(...(intelligence.value?.trends?.map(t => t.predictedCheckIn) || [1]), 1))
+const maxTrendOut = computed(() => Math.max(...(intelligence.value?.trends?.map(t => t.predictedCheckOut) || [1]), 1))
+
+const getTrendPercent = (value, type) => {
+    const max = type === 'in' ? maxTrendIn.value : maxTrendOut.value
+    return Math.max(12, Math.round((value / max) * 100))
+}
+
 const loadDashboard = async () => {
     isLoading.value = true
     loadError.value = ''
@@ -296,7 +368,22 @@ const loadDashboard = async () => {
     }
 }
 
-onMounted(loadDashboard)
+const loadIntelligence = async () => {
+    intelligenceLoading.value = true
+    try {
+        const { data } = await getDashboardIntelligence()
+        intelligence.value = data
+    } catch (error) {
+        console.error('Intelligence load error:', error)
+    } finally {
+        intelligenceLoading.value = false
+    }
+}
+
+onMounted(() => {
+    loadDashboard()
+    loadIntelligence()
+})
 </script>
 
 
@@ -448,6 +535,180 @@ onMounted(loadDashboard)
 
 
 
+
+.intel-summary {
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(84, 196, 211, 0.06), rgba(84, 196, 211, 0.02));
+    border-radius: 16px;
+    border: 1px solid rgba(84, 196, 211, 0.12);
+    margin-bottom: 16px;
+}
+
+.intel-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.intel-insight {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: rgba(236, 244, 246, 0.5);
+}
+
+.intel-insight.critical {
+    border-color: rgba(200, 50, 50, 0.25);
+    background: rgba(200, 50, 50, 0.04);
+}
+
+.intel-insight.warning {
+    border-color: rgba(216, 155, 55, 0.25);
+    background: rgba(216, 155, 55, 0.04);
+}
+
+.intel-insight.info {
+    border-color: rgba(84, 196, 211, 0.2);
+    background: rgba(84, 196, 211, 0.04);
+}
+
+.insight-icon {
+    font-size: 1.2rem;
+    line-height: 1.4;
+}
+
+.intel-insight div strong {
+    display: block;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.intel-insight div p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 0 6px 0;
+}
+
+.insight-severity {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(24, 49, 77, 0.06);
+    color: var(--text-muted);
+}
+
+.insight-severity.cao {
+    background: rgba(200, 50, 50, 0.1);
+    color: #c83232;
+}
+
+.insight-severity.trung-binh {
+    background: rgba(216, 155, 55, 0.1);
+    color: #b86f21;
+}
+
+.trend-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 200px;
+    margin-top: auto;
+}
+
+.trend-day {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.trend-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.trend-stack {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+}
+
+.trend-bar {
+    position: relative;
+    width: min(18px, 100%);
+    border-radius: 8px 8px 2px 2px;
+    transition: height 0.4s ease;
+}
+
+.trend-bar span {
+    position: absolute;
+    left: 50%;
+    top: -22px;
+    transform: translateX(-50%);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+.trend-bar.in {
+    background: linear-gradient(180deg, rgba(84, 196, 211, 0.2), var(--accent-primary));
+}
+
+.trend-bar.out {
+    background: linear-gradient(180deg, rgba(216, 155, 55, 0.2), var(--accent-warning));
+}
+
+.trend-headcount {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.trend-conf {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+.trend-compare {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(24, 49, 77, 0.06);
+}
+
+.compare-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.compare-item span {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+
+.compare-item strong {
+    font-size: 1.2rem;
+}
+
+.compare-item strong.up { color: var(--accent-success); }
+.compare-item strong.down { color: var(--accent-warning); }
 
 @media (max-width: 768px) {
     .activity-item {

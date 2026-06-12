@@ -1,5 +1,6 @@
 ﻿using API.Data;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +13,12 @@ namespace API.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IDashboardIntelligenceService _intelligence;
 
-    public DashboardController(ApplicationDbContext context)
+    public DashboardController(ApplicationDbContext context, IDashboardIntelligenceService intelligence)
     {
         _context = context;
+        _intelligence = intelligence;
     }
 
     [HttpGet("overview")]
@@ -203,6 +206,13 @@ public class DashboardController : ControllerBase
             weeklyTraffic = traffic,
             recentActivities
         });
+    }
+
+    [HttpGet("intelligence")]
+    public async Task<IActionResult> GetIntelligence()
+    {
+        var result = await _intelligence.GetIntelligenceAsync();
+        return Ok(result);
     }
 
     private static DateTime GetStartOfWeek(DateTime value, DayOfWeek startOfWeek)
