@@ -414,6 +414,13 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe'],
             },
             {
+                path: '/ueba',
+                label: 'UEBA',
+                hint: 'Phân tích hành vi & bất thường',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M5 3l4 4"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
                 path: '/system-audit-logs',
                 label: 'Nhật ký hệ thống',
                 hint: 'Ai làm gì, trước/sau, kết quả',
@@ -515,7 +522,7 @@ const navGroups = ref([
             },
             {
                 path: '/attendance/reports',
-                label: 'B�o c�o c�ng',
+                label: 'B�o c�o c�ng',
                 hint: 'Thong ke theo ngay/thang',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 4-6"/></svg>',
                 roles: ['Admin', 'Staff'],

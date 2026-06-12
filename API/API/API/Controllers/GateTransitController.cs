@@ -15,11 +15,13 @@ namespace API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IZoneTransitService _zoneTransitService;
+        private readonly IUebaService _uebaService;
 
-        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService)
+        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService)
         {
             _context = context;
             _zoneTransitService = zoneTransitService;
+            _uebaService = uebaService;
         }
 
         /// <summary>
@@ -80,7 +82,7 @@ namespace API.Controllers
 
                     currentVehicle.ParkingStatus = newStatus;
 
-                    _context.AccessLogs.Add(new AccessLog
+                    var uebaLog1 = new AccessLog
                     {
                         Timestamp = DateTime.Now,
                         Direction = newStatus,
@@ -92,12 +94,14 @@ namespace API.Controllers
                         ResultStatus = "SUCCESS",
                         IsBypass = false,
                         Note = $"Đổi trạng thái xe từ {oldStatus} sang {newStatus}"
-                    });
+                    };
+                    _context.AccessLogs.Add(uebaLog1);
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
                     _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, newStatus, DateTime.Now, ZoneTransitSources.AccessLog);
+                    _ = _uebaService.AnalyzeAccessLogAsync(uebaLog1);
 
                     return Ok(GateTransitApiResponse.CreateSuccess(
                         $"Cập nhật trạng thái thành công: {oldStatus} -> {newStatus}.",
@@ -119,7 +123,7 @@ namespace API.Controllers
 
                 if (conflictVehicle != null)
                 {
-                    _context.AccessLogs.Add(new AccessLog
+                    var uebaLog2 = new AccessLog
                     {
                         Timestamp = DateTime.Now,
                         Direction = "IN",
@@ -131,12 +135,14 @@ namespace API.Controllers
                         ResultStatus = "FAILED",
                         IsBypass = false,
                         Note = $"Biển số đang được giữ bởi nhân viên có id là {conflictVehicle.EmployeeId}"
-                    });
+                    };
+                    _context.AccessLogs.Add(uebaLog2);
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
                     _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
+                    _ = _uebaService.AnalyzeAccessLogAsync(uebaLog2);
 
                     return Conflict(GateTransitApiResponse.CreateError(
                         $"Biển số đang được giữ bởi 1 nhân viên có id là {conflictVehicle.EmployeeId}."));
@@ -153,7 +159,7 @@ namespace API.Controllers
 
                 _context.Vehicles.Add(newVehicle);
 
-                _context.AccessLogs.Add(new AccessLog
+                var uebaLog3 = new AccessLog
                 {
                     Timestamp = DateTime.Now,
                     Direction = "IN",
@@ -165,12 +171,14 @@ namespace API.Controllers
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
                     Note = "Thêm mới phương tiện và cho vào bãi với trạng thái IN"
-                });
+                };
+                _context.AccessLogs.Add(uebaLog3);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
+                _ = _uebaService.AnalyzeAccessLogAsync(uebaLog3);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
                     "Chưa có dữ liệu trước đó. Đã thêm mới phương tiện với trạng thái IN.",
@@ -246,7 +254,7 @@ namespace API.Controllers
 
                 _context.Vehicles.Add(newVehicle);
 
-                _context.AccessLogs.Add(new AccessLog
+                var uebaLog = new AccessLog
                 {
                     Timestamp = DateTime.Now,
                     Direction = "IN",
@@ -259,9 +267,11 @@ namespace API.Controllers
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
                     Note = "Thêm mới phương tiện cho khách với trạng thái IN."
-                });
+                };
+                _context.AccessLogs.Add(uebaLog);
 
                 await _context.SaveChangesAsync();
+                _ = _uebaService.AnalyzeAccessLogAsync(uebaLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
                     "Phương tiện của khách đã được thêm mới với trạng thái IN.",
@@ -281,7 +291,7 @@ namespace API.Controllers
                 var newStatus = oldStatus == "IN" ? "OUT" : "IN";
                 vehicle.ParkingStatus = newStatus;
 
-                _context.AccessLogs.Add(new AccessLog
+                var uebaLog = new AccessLog
                 {
                     Timestamp = DateTime.Now,
                     Direction = newStatus,
@@ -294,9 +304,11 @@ namespace API.Controllers
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
                     Note = $"Đổi trạng thái xe của khách từ {oldStatus} sang {newStatus}."
-                });
+                };
+                _context.AccessLogs.Add(uebaLog);
 
                 await _context.SaveChangesAsync();
+                _ = _uebaService.AnalyzeAccessLogAsync(uebaLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
                     $"Cập nhật trạng thái xe của khách thành công: {oldStatus} -> {newStatus}."));

@@ -104,6 +104,7 @@ namespace API
             builder.Services.AddScoped<IZoneTransitService, ZoneTransitService>();
             builder.Services.AddScoped<IAttendanceZoneService, AttendanceZoneService>();
             builder.Services.AddScoped<IAttendanceAnomalyService, AttendanceAnomalyService>();
+            builder.Services.AddScoped<IUebaService, UebaService>();
             builder.Services.AddScoped<IPlateFuzzyService, PlateFuzzyService>();
             builder.Services.AddScoped<IDashboardIntelligenceService, DashboardIntelligenceService>();
             builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();

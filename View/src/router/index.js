@@ -40,6 +40,7 @@ const AttendanceReports = () => import('../pages/AttendanceReports.vue')
 const EnterpriseSecurityOperations = () => import('../pages/EnterpriseSecurityOperations.vue')
 const ImportExportHistory = () => import('../pages/ImportExportHistory.vue')
 const CampusMapPage = () => import('../pages/CampusMapPage.vue')
+const UEBA = () => import('../pages/UEBA.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -75,6 +76,7 @@ const routes = [
             { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'access-logs', name: 'AccessLogs', component: AccessLogs, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'ueba', name: 'UEBA', component: UEBA, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'system-audit-logs', name: 'SystemAuditLogs', component: SystemAuditLogs, meta: { allowedRoles: ['Admin'] } },
             { path: 'import-export-history', name: 'ImportExportHistory', component: ImportExportHistory, meta: { allowedRoles: ['Admin'] } },
             { path: 'enterprise-security', name: 'EnterpriseSecurityOperations', component: EnterpriseSecurityOperations, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
