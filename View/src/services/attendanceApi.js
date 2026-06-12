@@ -62,6 +62,12 @@ export const approveLeaveRequest = (id) => http.put(`/leave-requests/${id}/appro
 export const rejectLeaveRequest = (id, data) => http.put(`/leave-requests/${id}/reject`, data)
 export const cancelLeaveRequest = (id) => http.put(`/leave-requests/${id}/cancel`)
 
+export const getAttendanceAnomalies = (params = {}) => http.get('/attendances/anomalies', { params })
+export const detectAttendanceAnomalies = (params = {}) => http.post('/attendances/anomalies/detect', null, { params })
+export const resolveAnomaly = (id, data) => http.post(`/attendances/anomalies/${id}/resolve`, data)
+export const markAnomalyFalsePositive = (id) => http.post(`/attendances/anomalies/${id}/false-positive`)
+export const predictAbsences = (employeeId, params = {}) => http.get(`/attendances/anomalies/predict-absences/${employeeId}`, { params })
+
 export const getAttendanceDailyReport = (params = {}) => http.get('/reports/attendance/daily', { params })
 export const getAttendanceMonthlyReport = (params = {}) => http.get('/reports/attendance/monthly', { params })
 export const getAttendanceDepartmentReport = (params = {}) => http.get('/reports/attendance/department', { params })

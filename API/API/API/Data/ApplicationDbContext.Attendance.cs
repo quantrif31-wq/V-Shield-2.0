@@ -11,6 +11,7 @@ public partial class ApplicationDbContext
     public DbSet<LeaveRequest> LeaveRequests { get; set; }
     public DbSet<CampusMapLayout> CampusMapLayouts { get; set; }
     public DbSet<ZoneTransit> ZoneTransits { get; set; }
+    public DbSet<AttendanceAnomaly> AttendanceAnomalies { get; set; }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {

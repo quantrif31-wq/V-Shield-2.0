@@ -18,19 +18,22 @@ public class AttendancesController : ControllerBase
     private readonly IAttendanceCalculationService _calculationService;
     private readonly IZoneTransitService _zoneTransitService;
     private readonly IAttendanceZoneService _attendanceZoneService;
+    private readonly IAttendanceAnomalyService _anomalyService;
 
     public AttendancesController(
         ApplicationDbContext context,
         IAttendancePermissionService permissionService,
         IAttendanceCalculationService calculationService,
         IZoneTransitService zoneTransitService,
-        IAttendanceZoneService attendanceZoneService)
+        IAttendanceZoneService attendanceZoneService,
+        IAttendanceAnomalyService anomalyService)
     {
         _context = context;
         _permissionService = permissionService;
         _calculationService = calculationService;
         _zoneTransitService = zoneTransitService;
         _attendanceZoneService = attendanceZoneService;
+        _anomalyService = anomalyService;
     }
 
     [HttpGet]
@@ -689,6 +692,67 @@ public class AttendancesController : ControllerBase
         return query.Where(l => l.Employee.DepartmentId == deptId.Value);
     }
 
+    [HttpGet("anomalies")]
+    [Authorize(Roles = "Admin,BaoVe")]
+    public async Task<IActionResult> GetAnomalies(
+        [FromQuery] int? employeeId,
+        [FromQuery] string? type,
+        [FromQuery] string? severity,
+        [FromQuery] string? status,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] int maxResults = 50)
+    {
+        var results = await _anomalyService.GetAnomaliesAsync(
+            employeeId, type, severity, status, fromDate, toDate, maxResults);
+        return Ok(results);
+    }
+
+    [HttpPost("anomalies/detect")]
+    [Authorize(Roles = "Admin,BaoVe")]
+    public async Task<IActionResult> DetectAnomalies(
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate)
+    {
+        var anomalies = await _anomalyService.DetectAnomaliesAsync(fromDate, toDate);
+        return Ok(new { detected = anomalies.Count, anomalies });
+    }
+
+    [HttpPost("anomalies/{id:int}/resolve")]
+    [Authorize(Roles = "Admin,BaoVe")]
+    public async Task<IActionResult> ResolveAnomaly(int id, [FromBody] AnomalyResolveRequest request)
+    {
+        var currentUserId = _permissionService.GetCurrentEmployeeId(User);
+        if (currentUserId == null || currentUserId.Value == 0)
+            return Unauthorized();
+
+        await _anomalyService.ResolveAnomalyAsync(id, request.Resolution, currentUserId.Value);
+        return Ok(new { message = "Anomaly resolved." });
+    }
+
+    [HttpPost("anomalies/{id:int}/false-positive")]
+    [Authorize(Roles = "Admin,BaoVe")]
+    public async Task<IActionResult> MarkFalsePositive(int id)
+    {
+        var currentUserId = _permissionService.GetCurrentEmployeeId(User);
+        if (currentUserId == null || currentUserId.Value == 0)
+            return Unauthorized();
+
+        await _anomalyService.MarkFalsePositiveAsync(id, currentUserId.Value);
+        return Ok(new { message = "Anomaly marked as false positive." });
+    }
+
+    [HttpGet("anomalies/predict-absences/{employeeId:int}")]
+    [Authorize(Roles = "Admin,BaoVe")]
+    public async Task<IActionResult> PredictAbsences(int employeeId, [FromQuery] int lookAheadDays = 7)
+    {
+        if (!await CanViewEmployeeAsync(employeeId))
+            return Forbid();
+
+        var predictions = await _anomalyService.PredictAbsencesAsync(employeeId, lookAheadDays);
+        return Ok(new { employeeId, lookAheadDays, predictions });
+    }
+
     private async Task<bool> EnsureCanManageAsync() =>
         _permissionService.IsAdmin(User) || await _permissionService.IsManagerAsync(User);
 
@@ -714,4 +778,9 @@ public class AttendancesController : ControllerBase
 
         return _permissionService.GetCurrentEmployeeId(User) == employeeId;
     }
+}
+
+public class AnomalyResolveRequest
+{
+    public string Resolution { get; set; } = string.Empty;
 }

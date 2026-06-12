@@ -18,6 +18,9 @@
                 <button class="btn btn-secondary" @click="showToast('TODO: tích hợp export Excel ở backend/export service', 'error')">
                     Xuất Excel
                 </button>
+                <button class="btn btn-ghost" @click="openAnomalyPanel">
+                    🛡️ Bất thường
+                </button>
             </div>
         </header>
 
@@ -186,6 +189,57 @@
             </div>
         </transition>
 
+        <transition name="modal">
+            <div v-if="showAnomalyModal" class="modal-overlay" @click.self="showAnomalyModal = false">
+                <div class="modal wide-modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Phát hiện bất thường chấm công</h3>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary btn-sm" @click="runDetection" :disabled="anomalyLoading">
+                                {{ anomalyLoading ? 'Đang phân tích...' : 'Quét ngay' }}
+                            </button>
+                            <button class="modal-close" @click="showAnomalyModal = false">✕</button>
+                        </div>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="anomalyLoading" class="empty-card">Đang phân tích dữ liệu chấm công...</div>
+                        <div v-else-if="anomalies.length === 0" class="empty-card">
+                            Không phát hiện bất thường nào.
+                            <button class="btn btn-secondary btn-sm" style="margin-top:12px" @click="runDetection">Quét lại</button>
+                        </div>
+                        <div v-else class="anomaly-list">
+                            <div v-for="a in anomalies" :key="a.anomalyId" class="anomaly-card" :class="a.severity">
+                                <div class="anomaly-head">
+                                    <span class="anomaly-type-badge" :class="a.severity">
+                                        {{ anomalyTypeLabel(a.anomalyType) }}
+                                    </span>
+                                    <span class="anomaly-severity" :class="a.severity">
+                                        {{ a.severity === 'cao' ? 'Cao' : a.severity === 'trung-binh' ? 'TB' : 'Thấp' }}
+                                    </span>
+                                    <span class="anomaly-status" :class="a.status">
+                                        {{ a.status === 'Open' ? 'Mở' : a.status === 'Resolved' ? 'Đã xử lý' : 'FP' }}
+                                    </span>
+                                </div>
+                                <p class="anomaly-desc">{{ a.description }}</p>
+                                <div class="anomaly-meta">
+                                    <span>{{ a.employee?.fullName || 'NV#' + a.employeeId }}</span>
+                                    <span>{{ formatDate(a.workDate) }}</span>
+                                    <span v-if="a.supportingData" class="anomaly-data">{{ a.supportingData }}</span>
+                                </div>
+                                <div v-if="a.status === 'Open'" class="anomaly-actions">
+                                    <button class="btn btn-primary btn-sm" @click="resolveAnomalyHandler(a.anomalyId)">Đã xử lý</button>
+                                    <button class="btn btn-ghost btn-sm" @click="falsePositiveHandler(a.anomalyId)">FP</button>
+                                </div>
+                                <div v-if="a.resolution" class="anomaly-resolution">
+                                    <span>Xử lý: {{ a.resolution }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
         <transition name="toast">
             <div v-if="toast" class="toast-card" :class="toast.type">{{ toast.message }}</div>
         </transition>
@@ -205,6 +259,10 @@ import {
     updateAttendance,
     getAttendanceTransits,
     deriveAttendance,
+    getAttendanceAnomalies,
+    detectAttendanceAnomalies,
+    resolveAnomaly,
+    markAnomalyFalsePositive,
 } from '../services/attendanceApi'
 
 const myEmployeeId = authState.user?.employeeId || null
@@ -240,6 +298,22 @@ const showTransitModal = ref(false)
 const transitTarget = ref(null)
 const transits = ref([])
 const transitLoading = ref(false)
+
+const showAnomalyModal = ref(false)
+const anomalies = ref([])
+const anomalyLoading = ref(false)
+
+const anomalyTypeLabel = (type) => {
+    const map = {
+        BuddyPunching: 'Buddy Punch',
+        SuspiciousTime: 'Giờ đáng ngờ',
+        MissingCheckOut: 'Thiếu Check-out',
+        ZoneMismatch: 'Lệch Zone',
+        AbsencePattern: 'Vắng mặt lặp lại',
+        DuplicateCheckIn: 'Trùng Check-in',
+    }
+    return map[type] || type
+}
 
 const filters = reactive({
     fromDate: '',
@@ -370,6 +444,53 @@ const deriveNow = async (employeeId) => {
         showToast(err?.response?.data?.message || 'Tổng hợp thất bại.', 'error')
     } finally {
         actionLoading.value = false
+    }
+}
+
+const openAnomalyPanel = async () => {
+    showAnomalyModal.value = true
+    anomalies.value = []
+    anomalyLoading.value = true
+    try {
+        const { data } = await getAttendanceAnomalies({ maxResults: 50 })
+        anomalies.value = data || []
+    } catch {
+        showToast('Không tải được dữ liệu bất thường.', 'error')
+    } finally {
+        anomalyLoading.value = false
+    }
+}
+
+const runDetection = async () => {
+    anomalyLoading.value = true
+    try {
+        const { data } = await detectAttendanceAnomalies()
+        showToast(`Phát hiện ${data.detected} bất thường mới.`)
+        await openAnomalyPanel()
+    } catch (err) {
+        showToast(err?.response?.data?.message || 'Quét thất bại.', 'error')
+    } finally {
+        anomalyLoading.value = false
+    }
+}
+
+const resolveAnomalyHandler = async (id) => {
+    try {
+        await resolveAnomaly(id, { resolution: 'Da kiem tra va xu ly.' })
+        showToast('Đã đánh dấu xử lý.')
+        anomalies.value = anomalies.value.filter(a => a.anomalyId !== id)
+    } catch (err) {
+        showToast(err?.response?.data?.message || 'Thất bại.', 'error')
+    }
+}
+
+const falsePositiveHandler = async (id) => {
+    try {
+        await markAnomalyFalsePositive(id)
+        showToast('Đã đánh dấu false positive.')
+        anomalies.value = anomalies.value.filter(a => a.anomalyId !== id)
+    } catch (err) {
+        showToast(err?.response?.data?.message || 'Thất bại.', 'error')
     }
 }
 
@@ -548,6 +669,113 @@ onMounted(async () => {
     padding: 2px 8px;
     border-radius: 8px;
     background: var(--bg-muted);
+}
+
+.anomaly-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.anomaly-card {
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: rgba(236, 244, 246, 0.5);
+}
+
+.anomaly-card.cao {
+    border-color: rgba(200, 50, 50, 0.3);
+    background: rgba(200, 50, 50, 0.04);
+}
+
+.anomaly-card.trung-binh {
+    border-color: rgba(216, 155, 55, 0.25);
+    background: rgba(216, 155, 55, 0.04);
+}
+
+.anomaly-head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.anomaly-type-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+    background: rgba(84, 196, 211, 0.1);
+    color: var(--accent-primary);
+}
+
+.anomaly-type-badge.cao {
+    background: rgba(200, 50, 50, 0.1);
+    color: #c83232;
+}
+
+.anomaly-type-badge.trung-binh {
+    background: rgba(216, 155, 55, 0.1);
+    color: #b86f21;
+}
+
+.anomaly-severity {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1px 8px;
+    border-radius: 12px;
+}
+
+.anomaly-severity.cao { background: rgba(200, 50, 50, 0.12); color: #c83232; }
+.anomaly-severity.trung-binh { background: rgba(216, 155, 55, 0.12); color: #b86f21; }
+.anomaly-severity.thap { background: rgba(24, 49, 77, 0.06); color: var(--text-muted); }
+
+.anomaly-status {
+    font-size: 0.68rem;
+    margin-left: auto;
+    padding: 1px 8px;
+    border-radius: 12px;
+}
+
+.anomaly-status.Open { background: rgba(84, 196, 211, 0.1); color: var(--accent-primary); }
+.anomaly-status.Resolved { background: rgba(20, 134, 109, 0.1); color: var(--accent-success); }
+.anomaly-status.FalsePositive { background: rgba(24, 49, 77, 0.06); color: var(--text-muted); }
+
+.anomaly-desc {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+}
+
+.anomaly-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.anomaly-data {
+    font-family: monospace;
+    background: rgba(24, 49, 77, 0.04);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.anomaly-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.anomaly-resolution {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
 }
 </style>
 
