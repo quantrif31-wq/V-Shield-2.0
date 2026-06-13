@@ -283,6 +283,7 @@ const roleLabel = computed(() => {
         Admin: 'Quản trị viên',
         Staff: 'Nhân viên vận hành',
         BaoVe: 'Bảo vệ trực cổng',
+        QuanLy: 'Quản lý vận hành',
     }
     return map[authState.user?.role] || authState.user?.role || 'Tài khoản hệ thống'
 })

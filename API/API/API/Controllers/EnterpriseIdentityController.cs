@@ -350,6 +350,7 @@ public class EnterpriseIdentityController : ControllerBase
         {
             "Admin" => "Admin",
             "BaoVe" => "BaoVe",
+            "QuanLy" => "QuanLy",
             _ => "Staff"
         };
     }

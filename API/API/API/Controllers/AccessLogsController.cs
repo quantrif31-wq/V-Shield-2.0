@@ -8,7 +8,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/access-logs")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin,BaoVe,QuanLy")]
 public class AccessLogsController : ControllerBase
 {
     private static readonly string[] SuccessfulStatuses = ["APPROVED", "SUCCESS", "GRANTED", "OK", "MATCHED"];
@@ -224,7 +224,7 @@ public class AccessLogsController : ControllerBase
         return Ok(MapAccessLogItem(item));
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     [HttpGet("system-audit")]
     public async Task<IActionResult> GetSystemAudit(
         [FromQuery] int page = 1,

@@ -15,7 +15,7 @@ public class UserImportHandler : EntityImportHandlerBase
     [
         new() { FieldName = "Username", DisplayName = "Tên đăng nhập", DataType = "string", IsRequired = true, Description = "Tên tài khoản" },
         new() { FieldName = "FullName", DisplayName = "Họ tên", DataType = "string", Description = "Tên đầy đủ" },
-        new() { FieldName = "Role", DisplayName = "Vai trò", DataType = "string", Description = "Admin / Staff / BaoVe", AllowedValues = ["Admin", "Staff", "BaoVe"] },
+        new() { FieldName = "Role", DisplayName = "Vai trò", DataType = "string", Description = "Admin / Staff / BaoVe / QuanLy", AllowedValues = ["Admin", "Staff", "BaoVe", "QuanLy"] },
         new() { FieldName = "IsActive", DisplayName = "Kích hoạt", DataType = "bool", Description = "true = Kích hoạt, false = Vô hiệu" },
         new() { FieldName = "EmployeeEmail", DisplayName = "Email nhân viên", DataType = "string", Description = "Gắn với nhân viên qua Email" },
     ];
@@ -32,8 +32,8 @@ public class UserImportHandler : EntityImportHandlerBase
             errors.Add(MakeError(rowIndex, "Username", $"Tên đăng nhập '{username}' đã tồn tại"));
 
         var role = GetString(row, "Role");
-        if (!string.IsNullOrWhiteSpace(role) && role is not ("Admin" or "Staff" or "BaoVe"))
-            errors.Add(MakeError(rowIndex, "Role", $"Vai trò không hợp lệ: '{role}'. Chấp nhận: Admin, Staff, BaoVe"));
+        if (!string.IsNullOrWhiteSpace(role) && role is not ("Admin" or "Staff" or "BaoVe" or "QuanLy"))
+            errors.Add(MakeError(rowIndex, "Role", $"Vai trò không hợp lệ: '{role}'. Chấp nhận: Admin, Staff, BaoVe, QuanLy"));
 
         return errors;
     }

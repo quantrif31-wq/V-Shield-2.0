@@ -7,7 +7,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,QuanLy,BaoVe")]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleManagementService _vehicleService;

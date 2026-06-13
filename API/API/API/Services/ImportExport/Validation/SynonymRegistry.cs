@@ -92,6 +92,7 @@ public class SynonymRegistry
         AddSynonym("staff", "Staff"); AddSynonym("STAFF", "Staff"); AddSynonym("nhân viên", "Staff");
         AddSynonym("nhan vien", "Staff"); AddSynonym("nhanvien", "Staff"); AddSynonym("nv", "Staff");
         AddSynonym("employee", "Staff");
+        AddSynonym("quản lý", "QuanLy"); AddSynonym("quan ly", "QuanLy"); AddSynonym("manager", "QuanLy");
         AddSynonym("baove", "BaoVe"); AddSynonym("bảo vệ", "BaoVe"); AddSynonym("BẢO VỆ", "BaoVe");
         AddSynonym("bảo vệ", "BaoVe"); AddSynonym("security", "BaoVe"); AddSynonym("guard", "BaoVe");
 

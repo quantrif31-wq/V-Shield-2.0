@@ -13,7 +13,7 @@ namespace API.Controllers
     [Route("api/camera-runtime")]
     [ApiController]
     [EnableRateLimiting("ops")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public class CameraRuntimeController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

@@ -9,7 +9,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,QuanLy")]
 public class DepartmentsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

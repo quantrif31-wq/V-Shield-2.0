@@ -10,7 +10,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/device-management")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,BaoVe")]
 public class DeviceManagementController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -94,7 +94,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPost("cameras")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateCamera([FromBody] UpsertCameraRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
@@ -133,7 +133,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPut("cameras/{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> UpdateCamera(int id, [FromBody] UpsertCameraRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
@@ -173,7 +173,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpDelete("cameras/{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> DeleteCamera(int id)
     {
         var camera = await _context.Cameras
@@ -233,7 +233,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPost("gates")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateGate([FromBody] UpsertGateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
@@ -259,7 +259,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPut("gates/{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> UpdateGate(int id, [FromBody] UpsertGateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
@@ -287,7 +287,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpDelete("gates/{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> DeleteGate(int id)
     {
         var gate = await _context.Gates

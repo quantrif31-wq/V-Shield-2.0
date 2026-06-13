@@ -10,7 +10,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/import-export")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,QuanLy")]
 public class ImportExportController : ControllerBase
 {
     private readonly IImportExportService _service;

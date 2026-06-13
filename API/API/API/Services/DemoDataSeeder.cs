@@ -30,11 +30,13 @@ public static class DemoDataSeeder
 
         if (db.Companies.AsNoTracking().Any(item => item.Code == DemoCompanyCode))
         {
-            Console.WriteLine("[INFO] Demo data already exists.");
+            ReconcileOperationalDemoData(db);
+            Console.WriteLine("[INFO] Demo data already exists; operational users and QR-centric sample data reconciled.");
             return;
         }
 
         Seed(db);
+        ReconcileOperationalDemoData(db);
         Console.WriteLine("[OK] Demo data seeded for medium/large company scenario.");
     }
 
@@ -118,7 +120,7 @@ public static class DemoDataSeeder
         {
             AccessPointId = ap.AccessPointId,
             Name = $"{ap.Name} Door",
-            DoorMode = ap.Type == "Turnstile" ? "CardAndFace" : "Normal"
+            DoorMode = ap.Type == "Turnstile" ? "DynamicQrAndPlate" : "DynamicQr"
         }));
         db.MusterPoints.AddRange(sites.Select(site => new MusterPoint
         {
@@ -152,7 +154,7 @@ public static class DemoDataSeeder
         var cameras = new List<Camera>();
         foreach (var gate in gates)
         {
-            cameras.Add(new Camera { CameraName = $"{gate.GateName} Face Camera", GateId = gate.GateId, CameraType = "Face", StreamUrl = "rtsp://demo.local/face", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
+            cameras.Add(new Camera { CameraName = $"{gate.GateName} QR Scanner", GateId = gate.GateId, CameraType = "QR", StreamUrl = "rtsp://demo.local/qr", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
             cameras.Add(new Camera { CameraName = $"{gate.GateName} Plate Camera", GateId = gate.GateId, CameraType = "Plate", StreamUrl = "rtsp://demo.local/plate", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
         }
         db.Cameras.AddRange(cameras);
@@ -185,7 +187,8 @@ public static class DemoDataSeeder
 
         db.ExceptionReasons.AddRange(new[]
         {
-            new ExceptionReason { ReasonCode = "NO_FACE_MATCH", Description = "Face recognition confidence below threshold" },
+            new ExceptionReason { ReasonCode = "QR_EXPIRED", Description = "Dynamic QR token expired or outside allowed time window" },
+            new ExceptionReason { ReasonCode = "QR_REPLAY", Description = "Dynamic QR token replay detected" },
             new ExceptionReason { ReasonCode = "PLATE_REVIEW", Description = "License plate requires manual review" },
             new ExceptionReason { ReasonCode = "TEMP_ACCESS", Description = "Temporary access approved by supervisor" },
             new ExceptionReason { ReasonCode = "TAILGATING", Description = "Tailgating or anti-passback anomaly" }
@@ -222,6 +225,7 @@ public static class DemoDataSeeder
         }
         db.Employees.AddRange(employees);
         db.SaveChanges();
+        EnsureEmployeeDynamicQrs(db, employees, now);
 
         var managers = employees.Where((_, index) => index < 20).ToArray();
         for (var i = 20; i < employees.Count; i++)
@@ -365,7 +369,7 @@ public static class DemoDataSeeder
                     schedule.WorkDate == DateTime.Today ? AttendanceStatuses.CheckedIn :
                     AttendanceStatuses.Completed,
                 Source = AttendanceSources.AccessLog,
-                Note = "Generated from demo access events",
+                Note = "Generated from dynamic QR and gate access events",
                 CreatedAt = now.AddDays(-20),
                 UpdatedAt = now.AddDays(-1)
             });
@@ -395,7 +399,8 @@ public static class DemoDataSeeder
             {
                 var employee = employees[(i * 11 + day + 900) % employees.Count];
                 var gate = gates[Math.Abs(i + day) % gates.Length];
-                var camera = cameras.FirstOrDefault(c => c.GateId == gate.GateId);
+                var camera = cameras.FirstOrDefault(c => c.GateId == gate.GateId && c.CameraType == "QR")
+                    ?? cameras.FirstOrDefault(c => c.GateId == gate.GateId);
                 var vehicle = vehicles.FirstOrDefault(v => v.EmployeeId == employee.EmployeeId);
                 var direction = i % 2 == 0 ? "IN" : "OUT";
                 var failed = i % 53 == 0;
@@ -408,12 +413,12 @@ public static class DemoDataSeeder
                     GateId = gate.GateId,
                     CameraId = camera?.CameraId,
                     CapturedLicensePlate = vehicle?.LicensePlate,
-                    CapturedFaceImageUrl = $"/uploads/demo/faces/emp-{employee.EmployeeId:000}.jpg",
+                    CapturedFaceImageUrl = null,
                     EmployeeId = employee.EmployeeId,
                     ResultStatus = failed ? "Denied" : "Granted",
                     IsBypass = i % 89 == 0,
                     ExceptionReasonId = failed ? exceptionReasons[Math.Abs(i + day) % exceptionReasons.Count].ReasonId : null,
-                    Note = failed ? "Demo anomaly event for SOC review" : "Demo access event",
+                    Note = failed ? "Demo dynamic QR anomaly event for SOC review" : "Demo dynamic QR access event",
                     SiteNameSnapshot = sites[(employee.PrimarySiteId ?? sites[0].SiteId) % sites.Length].Name,
                     SecurityZoneNameSnapshot = zones[Math.Abs(i + day) % zones.Count].Name,
                     AccessPointNameSnapshot = accessPoints[Math.Abs(i + day) % accessPoints.Count].Name,
@@ -443,6 +448,7 @@ public static class DemoDataSeeder
             })
             .ToList();
         db.ZoneTransits.AddRange(zoneTransits);
+        SeedDynamicQrScanLogs(db, employees, accessLogs.Take(500).ToList(), now);
 
         db.SystemAuditLogs.Add(new SystemAuditLog
         {
@@ -457,5 +463,219 @@ public static class DemoDataSeeder
         });
 
         db.SaveChanges();
+    }
+
+    private static void ReconcileOperationalDemoData(ApplicationDbContext db)
+    {
+        var now = DateTime.UtcNow;
+        var employees = db.Employees
+            .Include(employee => employee.Department)
+            .OrderBy(employee => employee.EmployeeId)
+            .ToList();
+
+        EnsureDemoUserAccounts(db, employees, now);
+        EnsureEmployeeDynamicQrs(db, employees, now);
+
+        foreach (var door in db.Doors)
+        {
+            door.DoorMode = door.DoorMode.Contains("Face", StringComparison.OrdinalIgnoreCase)
+                ? "DynamicQrAndPlate"
+                : string.IsNullOrWhiteSpace(door.DoorMode) || door.DoorMode == "Normal"
+                    ? "DynamicQr"
+                    : door.DoorMode;
+        }
+
+        foreach (var camera in db.Cameras.ToList().Where(item =>
+                     (item.CameraType ?? string.Empty).Contains("Face", StringComparison.OrdinalIgnoreCase) ||
+                     item.CameraName.Contains("Face", StringComparison.OrdinalIgnoreCase) ||
+                     (item.StreamUrl ?? string.Empty).Contains("/face", StringComparison.OrdinalIgnoreCase)))
+        {
+            camera.CameraName = camera.CameraName.Replace("Face Camera", "QR Scanner", StringComparison.OrdinalIgnoreCase);
+            camera.CameraName = camera.CameraName.Replace("Face", "QR", StringComparison.OrdinalIgnoreCase);
+            camera.CameraType = "QR";
+            camera.StreamUrl = "rtsp://demo.local/qr";
+        }
+
+        var noFaceReason = db.ExceptionReasons.FirstOrDefault(reason => reason.ReasonCode == "NO_FACE_MATCH");
+        if (noFaceReason != null)
+        {
+            var qrExpiredReason = db.ExceptionReasons.FirstOrDefault(reason => reason.ReasonCode == "QR_EXPIRED");
+            if (qrExpiredReason != null && qrExpiredReason.ReasonId != noFaceReason.ReasonId)
+            {
+                foreach (var log in db.AccessLogs.Where(item => item.ExceptionReasonId == noFaceReason.ReasonId))
+                {
+                    log.ExceptionReasonId = qrExpiredReason.ReasonId;
+                }
+
+                db.ExceptionReasons.Remove(noFaceReason);
+            }
+            else
+            {
+                noFaceReason.ReasonCode = "QR_EXPIRED";
+                noFaceReason.Description = "Dynamic QR token expired or outside allowed time window";
+            }
+        }
+
+        UpsertExceptionReason(db, "QR_REPLAY", "Dynamic QR token replay detected");
+        UpsertExceptionReason(db, "PLATE_REVIEW", "License plate requires manual review");
+        UpsertExceptionReason(db, "TEMP_ACCESS", "Temporary access approved by supervisor");
+        UpsertExceptionReason(db, "TAILGATING", "Tailgating or anti-passback anomaly");
+
+        foreach (var log in db.AccessLogs.ToList().Where(item =>
+                     item.CapturedFaceImageUrl != null ||
+                     (item.Note ?? string.Empty).Contains("face", StringComparison.OrdinalIgnoreCase)))
+        {
+            log.CapturedFaceImageUrl = null;
+            log.Note = string.IsNullOrWhiteSpace(log.Note)
+                ? "Demo dynamic QR access event"
+                : log.Note.Replace("face", "dynamic QR", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!db.DynamicQrScanLogs.Any() && employees.Count > 0)
+        {
+            SeedDynamicQrScanLogs(db, employees, db.AccessLogs.OrderByDescending(item => item.Timestamp).Take(500).ToList(), now);
+        }
+
+        db.SaveChanges();
+    }
+
+    private static void EnsureDemoUserAccounts(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        var securityEmployees = employees
+            .Where(employee => employee.Department != null &&
+                               employee.Department.Name.Contains("Security", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(employee => employee.EmployeeId)
+            .ToList();
+        if (securityEmployees.Count == 0)
+        {
+            securityEmployees = employees.OrderBy(employee => employee.EmployeeId).Take(4).ToList();
+        }
+
+        var managerEmployee = employees.FirstOrDefault(employee => employee.Email == "employee002@vshield-demo.vn")
+                              ?? employees.Skip(1).FirstOrDefault()
+                              ?? employees.FirstOrDefault();
+
+        UpsertDemoUser(db, "admin", "Admin", "Quan tri vien", "Admin@123", null, now, resetPassword: false);
+        UpsertDemoUser(db, "manager", "QuanLy", "Quan ly van hanh", "Manager@123", managerEmployee?.EmployeeId, now, resetPassword: true);
+
+        for (var i = 0; i < 3; i++)
+        {
+            var employee = securityEmployees.ElementAtOrDefault(i) ?? employees.ElementAtOrDefault(i);
+            UpsertDemoUser(db, $"baove{i + 1}", "BaoVe", $"Bao ve ca {i + 1}", "BaoVe@123", employee?.EmployeeId, now, resetPassword: true);
+        }
+    }
+
+    private static void UpsertDemoUser(
+        ApplicationDbContext db,
+        string username,
+        string role,
+        string fullName,
+        string password,
+        int? employeeId,
+        DateTime now,
+        bool resetPassword)
+    {
+        var normalized = username.ToUpperInvariant();
+        var user = db.AppUsers.FirstOrDefault(item => item.Username.Trim().ToUpper() == normalized);
+        if (user == null)
+        {
+            db.AppUsers.Add(new AppUser
+            {
+                Username = username,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                FullName = fullName,
+                Role = role,
+                IsActive = true,
+                CreatedAt = now,
+                LastPasswordChangedAtUtc = now,
+                EmployeeId = employeeId
+            });
+            return;
+        }
+
+        user.Role = role;
+        user.FullName = string.IsNullOrWhiteSpace(user.FullName) ? fullName : user.FullName;
+        user.IsActive = true;
+        user.EmployeeId ??= employeeId;
+
+        if (resetPassword && !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        {
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+            user.LastPasswordChangedAtUtc = now;
+            user.TokenVersion++;
+        }
+    }
+
+    private static void EnsureEmployeeDynamicQrs(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        var existingEmployeeIds = db.EmployeeDynamicQrs
+            .Select(item => item.EmployeeId)
+            .ToHashSet();
+
+        var qrs = employees
+            .Where(employee => employee.Status == true && !existingEmployeeIds.Contains(employee.EmployeeId))
+            .Select(employee => new EmployeeDynamicQr
+            {
+                EmployeeId = employee.EmployeeId,
+                SecretKey = BuildDemoQrSecret(employee.EmployeeId),
+                TimeStepSeconds = 30,
+                Digits = 6,
+                IsActive = true,
+                CreatedAt = now.AddDays(-30)
+            })
+            .ToList();
+
+        if (qrs.Count > 0)
+        {
+            db.EmployeeDynamicQrs.AddRange(qrs);
+            db.SaveChanges();
+        }
+    }
+
+    private static void SeedDynamicQrScanLogs(ApplicationDbContext db, List<Employee> employees, List<AccessLog> accessLogs, DateTime now)
+    {
+        if (employees.Count == 0)
+            return;
+
+        var scanLogs = accessLogs
+            .Where(log => log.EmployeeId.HasValue)
+            .Take(300)
+            .Select((log, index) =>
+            {
+                var employeeId = log.EmployeeId!.Value;
+                return new DynamicQrScanLog
+                {
+                    EmployeeId = employeeId,
+                    QrPayload = $"EMP:{employeeId}|T:{(log.Timestamp ?? now):yyyyMMddHHmm}|NONCE:{index:000000}",
+                    IsValid = log.ResultStatus == "Granted",
+                    Message = log.ResultStatus == "Granted"
+                        ? "Dynamic QR accepted"
+                        : "Dynamic QR rejected for policy or replay review",
+                    ScannerDevice = log.CameraNameSnapshot ?? log.GateNameSnapshot ?? "Demo QR Scanner",
+                    ScannedAt = log.Timestamp ?? now
+                };
+            })
+            .ToList();
+
+        db.DynamicQrScanLogs.AddRange(scanLogs);
+    }
+
+    private static void UpsertExceptionReason(ApplicationDbContext db, string code, string description)
+    {
+        var reason = db.ExceptionReasons.FirstOrDefault(item => item.ReasonCode == code);
+        if (reason == null)
+        {
+            db.ExceptionReasons.Add(new ExceptionReason { ReasonCode = code, Description = description });
+            return;
+        }
+
+        reason.Description = description;
+    }
+
+    private static string BuildDemoQrSecret(int employeeId)
+    {
+        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        return string.Concat(Enumerable.Range(0, 32)
+            .Select(index => alphabet[(employeeId * 17 + index * 11) % alphabet.Length]));
     }
 }

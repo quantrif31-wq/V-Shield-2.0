@@ -82,7 +82,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateDevice([FromBody] DeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -109,7 +109,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPost("{deviceId:int}/controllers")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> RegisterController(int deviceId, [FromBody] ControllerDeviceRequest request)
     {
         if (!await _context.SecurityDevices.AnyAsync(device => device.SecurityDeviceId == deviceId))
@@ -151,7 +151,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPost("{deviceId:int}/configuration-versions")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> AddConfigurationVersion(int deviceId, [FromBody] DeviceConfigurationRequest request)
     {
@@ -172,7 +172,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPost("provisioning-requests")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateProvisioningRequest([FromBody] ProvisioningRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RequestedName))
@@ -192,7 +192,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPatch("provisioning-requests/{requestId:int}/approve")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> ApproveProvisioningRequest(int requestId, [FromBody] ProvisioningApprovalRequest request)
     {
@@ -209,7 +209,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPost("offline-policy-packages")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> CreateOfflinePolicyPackage([FromBody] OfflinePolicyPackageRequest request)
     {
@@ -253,7 +253,7 @@ public class EnterpriseDeviceController : ControllerBase
     }
 
     [HttpPost("simulator/virtual-controller")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateVirtualController([FromBody] VirtualControllerRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))

@@ -59,6 +59,7 @@
                     <select class="minimal-select" v-model="filterRole">
                         <option value="">Tất cả vai trò</option>
                         <option value="Admin">Admin</option>
+                        <option value="QuanLy">Quản lý</option>
                         <option value="Staff">Nhân viên</option>
                         <option value="BaoVe">Bảo vệ</option>
                     </select>
@@ -213,6 +214,7 @@
                                     <label>Vai trò <span class="req">*</span></label>
                                     <select v-model="modalForm.role" class="sleek-select" required>
                                         <option value="Admin">Admin</option>
+                                        <option value="QuanLy">Quản lý</option>
                                         <option value="Staff">Nhân viên</option>
                                         <option value="BaoVe">Bảo vệ</option>
                                     </select>
@@ -481,12 +483,12 @@ const getAvatarColor = (str) => {
 }
 
 function getRoleLabel(role) {
-    const map = { Admin: 'Admin', Staff: 'Nhân viên', BaoVe: 'Bảo vệ' }
+    const map = { Admin: 'Admin', QuanLy: 'Quản lý', Staff: 'Nhân viên', BaoVe: 'Bảo vệ' }
     return map[role] || role
 }
 
 function getRoleBadgeClass(role) {
-    const map = { Admin: 'admin', Staff: 'staff', BaoVe: 'guard' }
+    const map = { Admin: 'admin', QuanLy: 'staff', Staff: 'staff', BaoVe: 'guard' }
     return map[role] || 'staff'
 }
 

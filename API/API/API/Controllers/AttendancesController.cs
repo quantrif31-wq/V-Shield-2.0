@@ -693,7 +693,7 @@ public class AttendancesController : ControllerBase
     }
 
     [HttpGet("anomalies")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin,BaoVe,QuanLy")]
     public async Task<IActionResult> GetAnomalies(
         [FromQuery] int? employeeId,
         [FromQuery] string? type,
@@ -709,7 +709,7 @@ public class AttendancesController : ControllerBase
     }
 
     [HttpPost("anomalies/detect")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin,BaoVe,QuanLy")]
     public async Task<IActionResult> DetectAnomalies(
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate)
@@ -719,7 +719,7 @@ public class AttendancesController : ControllerBase
     }
 
     [HttpPost("anomalies/{id:int}/resolve")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin,BaoVe,QuanLy")]
     public async Task<IActionResult> ResolveAnomaly(int id, [FromBody] AnomalyResolveRequest request)
     {
         var currentUserId = _permissionService.GetCurrentEmployeeId(User);
@@ -731,7 +731,7 @@ public class AttendancesController : ControllerBase
     }
 
     [HttpPost("anomalies/{id:int}/false-positive")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin,BaoVe,QuanLy")]
     public async Task<IActionResult> MarkFalsePositive(int id)
     {
         var currentUserId = _permissionService.GetCurrentEmployeeId(User);
@@ -743,7 +743,7 @@ public class AttendancesController : ControllerBase
     }
 
     [HttpGet("anomalies/predict-absences/{employeeId:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin,BaoVe,QuanLy")]
     public async Task<IActionResult> PredictAbsences(int employeeId, [FromQuery] int lookAheadDays = 7)
     {
         if (!await CanViewEmployeeAsync(employeeId))

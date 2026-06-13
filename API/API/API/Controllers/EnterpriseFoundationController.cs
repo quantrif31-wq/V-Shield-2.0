@@ -11,7 +11,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/foundation")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,QuanLy")]
 public class EnterpriseFoundationController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

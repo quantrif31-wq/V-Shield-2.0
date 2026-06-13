@@ -36,7 +36,7 @@ public class ExceptionReasonsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> Create([FromBody] UpsertExceptionReasonRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ReasonCode) || string.IsNullOrWhiteSpace(request.Description))
@@ -69,7 +69,7 @@ public class ExceptionReasonsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> Update(int id, [FromBody] UpsertExceptionReasonRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ReasonCode) || string.IsNullOrWhiteSpace(request.Description))
@@ -106,7 +106,7 @@ public class ExceptionReasonsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> Delete(int id)
     {
         var reason = await _context.ExceptionReasons
