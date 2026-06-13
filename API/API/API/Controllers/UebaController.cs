@@ -11,10 +11,12 @@ namespace API.Controllers;
 public class UebaController : ControllerBase
 {
     private readonly IUebaService _ueba;
+    private readonly IUebaRiskGraphService _riskGraph;
 
-    public UebaController(IUebaService ueba)
+    public UebaController(IUebaService ueba, IUebaRiskGraphService riskGraph)
     {
         _ueba = ueba;
+        _riskGraph = riskGraph;
     }
 
     [HttpGet("profiles")]
@@ -72,6 +74,23 @@ public class UebaController : ControllerBase
 
         await _ueba.MarkFalsePositiveAsync(id, currentUserId.Value);
         return Ok(new { message = "UEBA anomaly marked as false positive." });
+    }
+
+    /// <summary>
+    /// POST /api/ueba/employees/{employeeId}/risk-explanation - AI phan tich rui ro nhan su
+    /// </summary>
+    [HttpPost("employees/{employeeId:int}/risk-explanation")]
+    public async Task<IActionResult> ExplainEmployeeRisk(int employeeId)
+    {
+        try
+        {
+            var result = await _riskGraph.ExplainEmployeeRiskAsync(employeeId, GetCurrentEmployeeId());
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found." });
+        }
     }
 
     [HttpGet("summary")]

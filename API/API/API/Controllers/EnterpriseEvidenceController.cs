@@ -4,6 +4,7 @@ using System.Text;
 using API.Data;
 using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,11 +18,16 @@ public class EnterpriseEvidenceController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IEvidenceAiAssistantService _evidenceAi;
 
-    public EnterpriseEvidenceController(ApplicationDbContext context, IConfiguration configuration)
+    public EnterpriseEvidenceController(
+        ApplicationDbContext context,
+        IConfiguration configuration,
+        IEvidenceAiAssistantService evidenceAi)
     {
         _context = context;
         _configuration = configuration;
+        _evidenceAi = evidenceAi;
     }
 
     [HttpGet("overview")]
@@ -162,6 +168,40 @@ public class EnterpriseEvidenceController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok(new { item.EvidenceItemId, matched, expectedHash = item.HashSha256, observedHash = observed });
+    }
+
+    /// <summary>
+    /// POST /api/enterprise/evidence/items/{itemId}/ai-analyze - AI phan tich bang chung
+    /// </summary>
+    [HttpPost("items/{itemId:long}/ai-analyze")]
+    public async Task<IActionResult> AnalyzeEvidenceItem(long itemId)
+    {
+        try
+        {
+            var result = await _evidenceAi.AnalyzeEvidenceCaseAsync(itemId, GetCurrentUserId());
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Evidence item not found." });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/enterprise/evidence/export-requests/{exportId}/ai-review - AI phan tich yeu cau xuat
+    /// </summary>
+    [HttpPost("export-requests/{exportId:long}/ai-review")]
+    public async Task<IActionResult> ReviewExportRequest(long exportId)
+    {
+        try
+        {
+            var result = await _evidenceAi.AnalyzeExportRequestAsync(exportId, GetCurrentUserId());
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Export request not found." });
+        }
     }
 
     [HttpPost("retention/dry-run")]

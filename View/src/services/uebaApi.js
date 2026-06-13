@@ -7,3 +7,4 @@ export const getUebaAnomalies = (params = {}) => http.get('/ueba/anomalies', { p
 export const resolveUebaAnomaly = (id, data) => http.post(`/ueba/anomalies/${id}/resolve`, data)
 export const markUebaAnomalyFalsePositive = (id) => http.post(`/ueba/anomalies/${id}/false-positive`)
 export const getUebaSummary = () => http.get('/ueba/summary')
+export const explainEmployeeRisk = (employeeId) => http.post(`/ueba/employees/${employeeId}/risk-explanation`)

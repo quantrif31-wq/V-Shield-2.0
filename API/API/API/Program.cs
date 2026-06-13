@@ -7,6 +7,7 @@ using API.Hubs;
 using API.Middleware;
 using API.Models;
 using API.Services;
+using API.Services.AI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -107,6 +108,19 @@ namespace API
             builder.Services.AddScoped<IUebaService, UebaService>();
             builder.Services.AddScoped<IPlateFuzzyService, PlateFuzzyService>();
             builder.Services.AddScoped<IDashboardIntelligenceService, DashboardIntelligenceService>();
+            builder.Services.AddScoped<ISocIntelligenceService, SocIntelligenceService>();
+            builder.Services.AddScoped<ISocIncidentCopilotService, SocIncidentCopilotService>();
+            builder.Services.AddScoped<IUebaRiskGraphService, UebaRiskGraphService>();
+            builder.Services.AddScoped<IEvidenceAiAssistantService, EvidenceAiAssistantService>();
+            builder.Services.AddScoped<IDeviceHealthIntelligenceService, DeviceHealthIntelligenceService>();
+            builder.Services.AddScoped<IVisitorVehicleRiskScreeningService, VisitorVehicleRiskScreeningService>();
+            builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
+            builder.Services.AddScoped<IPolicySimulationService, PolicySimulationService>();
+            builder.Services.AddScoped<INaturalLanguageQueryService, NaturalLanguageQueryService>();
+            builder.Services.AddScoped<IAiGateway, AiGateway>();
+            builder.Services.AddSingleton<IAiRedactionService, AiRedactionService>();
+            builder.Services.AddSingleton<IAiPromptTemplateService, AiPromptTemplateService>();
+            builder.Services.Configure<API.Services.AI.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
             builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();
             builder.Services.AddSingleton<ISecurityConfigurationHealthService, SecurityConfigurationHealthService>();
             builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();
@@ -137,6 +151,11 @@ namespace API
                 builder.Services.AddHostedService<EnterpriseOperationsWorker>();
             }
             builder.Services.AddHttpClient();
+            builder.Services.AddHttpClient("AiGateway", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(35);
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json");
+            });
             builder.Services.AddSignalR();
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>

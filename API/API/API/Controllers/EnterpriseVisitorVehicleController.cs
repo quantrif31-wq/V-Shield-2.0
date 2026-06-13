@@ -2,6 +2,7 @@ using System.Security.Claims;
 using API.Data;
 using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace API.Controllers;
 public class EnterpriseVisitorVehicleController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IVisitorVehicleRiskScreeningService _screening;
 
-    public EnterpriseVisitorVehicleController(ApplicationDbContext context)
+    public EnterpriseVisitorVehicleController(ApplicationDbContext context, IVisitorVehicleRiskScreeningService screening)
     {
         _context = context;
+        _screening = screening;
     }
 
     [HttpGet("overview")]

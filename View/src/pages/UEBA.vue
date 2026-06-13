@@ -47,9 +47,36 @@
                 </div>
             </article>
 
-            <article class="ops-panel">
-                <span class="panel-kicker">High Risk</span>
-                <h2 class="panel-title">Nhân viên rủi ro cao</h2>
+            <article class="ops-panel">                        <span class="panel-kicker">AI Risk Graph</span>
+                        <h2 class="panel-title">Giải thích rủi ro AI</h2>
+                        <div v-if="riskExplaining.loading" class="empty-card">AI đang phân tích...</div>
+                        <div v-else-if="riskExplaining.result" class="risk-explanation">
+                            <div class="rec-header">
+                                <span class="soft-chip" :class="riskLevelClass(riskExplaining.result.severity)">
+                                    {{ riskExplaining.result.severity }}
+                                </span>
+                                <small>Confidence: {{ riskExplaining.result.confidence }}</small>
+                            </div>
+                            <p>{{ riskExplaining.result.summary }}</p>
+                            <div v-if="riskExplaining.result.reasoningSummary" class="rec-reasoning">
+                                <strong>Phân tích:</strong>
+                                <p>{{ riskExplaining.result.reasoningSummary }}</p>
+                            </div>
+                            <div class="rec-actions">
+                                <button class="btn btn-primary btn-sm" @click="approveAiRisk(riskExplaining.result.recommendationId)">
+                                    Duyệt
+                                </button>
+                                <button class="btn btn-ghost btn-sm" @click="rejectAiRisk(riskExplaining.result.recommendationId)">
+                                    Từ chối
+                                </button>
+                            </div>
+                        </div>
+                        <div v-else class="empty-card">Chọn nhân viên để xem giải thích rủi ro AI.</div>
+                    </article>
+
+                    <article class="ops-panel">
+                        <span class="panel-kicker">High Risk</span>
+                        <h2 class="panel-title">Nhân viên rủi ro cao</h2>
                 <div v-if="profilesLoading" class="empty-card">Đang tải...</div>
                 <div v-else-if="profiles.length === 0" class="empty-card">Chưa có dữ liệu profile.</div>
                 <div v-else class="risk-list">
@@ -156,6 +183,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import {
     getUebaProfiles, rebuildUebaProfile, getUebaAnomalies,
     resolveUebaAnomaly, markUebaAnomalyFalsePositive, getUebaSummary,
+    explainEmployeeRisk,
 } from '../services/uebaApi'
 
 const activeTab = ref('summary')
@@ -179,6 +207,58 @@ const filteredProfiles = computed(() => {
         String(p.employeeId).includes(q)
     )
 })
+
+const riskExplaining = reactive({
+    employeeId: null,
+    loading: false,
+    result: null,
+})
+
+const riskLevelClass = (severity) => {
+    switch ((severity || '').toLowerCase()) {
+        case 'critical': return 'danger'
+        case 'high': return 'danger'
+        case 'medium': return 'warning'
+        default: return 'success'
+    }
+}
+
+const explainRisk = async (employeeId) => {
+    riskExplaining.employeeId = employeeId
+    riskExplaining.loading = true
+    riskExplaining.result = null
+    try {
+        const { data } = await explainEmployeeRisk(employeeId)
+        riskExplaining.result = data
+    } catch (e) {
+        riskExplaining.result = {
+            severity: 'Low',
+            confidence: 0,
+            summary: 'Khong the phan tich: ' + (e.response?.data?.message || e.message),
+            recommendationId: null,
+        }
+    } finally {
+        riskExplaining.loading = false
+    }
+}
+
+const approveAiRisk = async (id) => {
+    if (!id) return
+    try {
+        const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
+        await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phe duyet sau khi xem xet')
+        riskExplaining.result = null
+    } catch { /* ignore */ }
+}
+
+const rejectAiRisk = async (id) => {
+    if (!id) return
+    try {
+        const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
+        await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Khong dong y voi phan tich')
+        riskExplaining.result = null
+    } catch { /* ignore */ }
+}
 
 const typeLabel = (type) => ({
     UnusualTime: 'Giờ bất thường',

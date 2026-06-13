@@ -248,5 +248,6 @@ public partial class ApplicationDbContext
         ConfigureMfaRecovery(modelBuilder);
         ConfigureImportExport(modelBuilder);
         ConfigureUeba(modelBuilder);
+        ConfigureAiCore(modelBuilder);
     }
 }

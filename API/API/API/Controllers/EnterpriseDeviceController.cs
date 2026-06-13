@@ -17,11 +17,43 @@ public class EnterpriseDeviceController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly RuntimeOrchestrator _runtimeOrchestrator;
+    private readonly IDeviceHealthIntelligenceService _deviceHealthAi;
 
-    public EnterpriseDeviceController(ApplicationDbContext context, RuntimeOrchestrator runtimeOrchestrator)
+    public EnterpriseDeviceController(
+        ApplicationDbContext context,
+        RuntimeOrchestrator runtimeOrchestrator,
+        IDeviceHealthIntelligenceService deviceHealthAi)
     {
         _context = context;
         _runtimeOrchestrator = runtimeOrchestrator;
+        _deviceHealthAi = deviceHealthAi;
+    }
+
+    /// <summary>
+    /// GET /api/enterprise/devices/health-insights - AI danh gia suc khoe thiet bi
+    /// </summary>
+    [HttpGet("health-insights")]
+    public async Task<IActionResult> GetHealthInsights()
+    {
+        var insights = await _deviceHealthAi.GetAllInsightsAsync();
+        return Ok(insights);
+    }
+
+    /// <summary>
+    /// POST /api/enterprise/devices/{deviceId}/ai-diagnose - AI chan doan thiet bi
+    /// </summary>
+    [HttpPost("{deviceId:int}/ai-diagnose")]
+    public async Task<IActionResult> DiagnoseDevice(int deviceId)
+    {
+        try
+        {
+            var result = await _deviceHealthAi.DiagnoseDeviceAsync(deviceId, GetCurrentUserId());
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Device not found." });
+        }
     }
 
     [HttpGet("overview")]

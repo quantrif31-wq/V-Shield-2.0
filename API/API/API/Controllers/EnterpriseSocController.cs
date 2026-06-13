@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using API.Data;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,14 @@ namespace API.Controllers;
 public class EnterpriseSocController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly ISocIntelligenceService _socIntel;
+    private readonly ISocIncidentCopilotService _incidentCopilot;
 
-    public EnterpriseSocController(ApplicationDbContext context)
+    public EnterpriseSocController(ApplicationDbContext context, ISocIntelligenceService socIntel, ISocIncidentCopilotService incidentCopilot)
     {
         _context = context;
+        _socIntel = socIntel;
+        _incidentCopilot = incidentCopilot;
     }
 
     [HttpGet("overview")]
@@ -82,7 +87,34 @@ public class EnterpriseSocController : ControllerBase
 
         _context.Alarms.Add(alarm);
         await _context.SaveChangesAsync();
+
+        _ = FireAndForgetClassifyAsync(alarm.AlarmId);
+
         return Ok(alarm);
+    }
+
+    private async Task FireAndForgetClassifyAsync(long alarmId)
+    {
+        try
+        {
+            var classification = await _socIntel.ClassifyAlarmAsync(alarmId);
+            if (classification != null)
+            {
+                _context.AlarmComments.Add(new AlarmComment
+                {
+                    AlarmId = alarmId,
+                    Comment = $"[AI Phan tich] Phan loai: {classification.PredictedSeverity} ({classification.Confidence}). " +
+                        $"Loai: {classification.PredictedAlarmType}. " +
+                        (classification.MatchedKeywords.Count > 0
+                            ? $"Tu khoa: {string.Join(", ", classification.MatchedKeywords)}."
+                            : "Khong tim thay tu khoa dac trung.")
+                });
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+        }
     }
 
     [HttpPatch("alarms/{alarmId:long}/acknowledge")]
@@ -360,6 +392,60 @@ public class EnterpriseSocController : ControllerBase
         _context.EmergencyMusterSnapshots.Add(snapshot);
         await _context.SaveChangesAsync();
         return Ok(snapshot);
+    }
+
+    [HttpGet("intelligence")]
+    public async Task<IActionResult> GetIntelligence()
+    {
+        var result = await _socIntel.GetIntelligenceAsync();
+        return Ok(result);
+    }
+
+    [HttpGet("alarms/{alarmId:long}/classify")]
+    public async Task<IActionResult> ClassifyAlarm(long alarmId)
+    {
+        var result = await _socIntel.ClassifyAlarmAsync(alarmId);
+        if (result == null) return NotFound(new { message = "Alarm not found." });
+        return Ok(result);
+    }
+
+    [HttpGet("alarms/{alarmId:long}/recommend-sop")]
+    public async Task<IActionResult> RecommendSop(long alarmId)
+    {
+        var result = await _socIntel.RecommendSopAsync(alarmId);
+        return Ok(result);
+    }
+
+    [HttpGet("alarms/{alarmId:long}/escalation-risk")]
+    public async Task<IActionResult> PredictEscalationRisk(long alarmId)
+    {
+        var result = await _socIntel.PredictEscalationRiskAsync(alarmId);
+        if (result == null) return NotFound(new { message = "Alarm not found." });
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// POST /api/enterprise/soc/incidents/{incidentId:long}/ai-briefing - Phân tích incident bằng AI
+    /// </summary>
+    [HttpPost("incidents/{incidentId:long}/ai-briefing")]
+    public async Task<IActionResult> GetIncidentAiBriefing(long incidentId)
+    {
+        try
+        {
+            var result = await _incidentCopilot.AnalyzeIncidentAsync(incidentId, GetCurrentUserId());
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Incident not found." });
+        }
+    }
+
+    [HttpGet("anomalies")]
+    public async Task<IActionResult> GetAnomalies()
+    {
+        var result = await _socIntel.DetectAnomaliesAsync();
+        return Ok(result);
     }
 
     private int? GetCurrentUserId()

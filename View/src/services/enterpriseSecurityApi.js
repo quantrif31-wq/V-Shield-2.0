@@ -1,5 +1,23 @@
 import http from './http'
 
+export const socIntelApi = {
+    getIntelligence() {
+        return http.get('/enterprise/soc/intelligence')
+    },
+    classifyAlarm(alarmId) {
+        return http.get(`/enterprise/soc/alarms/${alarmId}/classify`)
+    },
+    recommendSop(alarmId) {
+        return http.get(`/enterprise/soc/alarms/${alarmId}/recommend-sop`)
+    },
+    predictEscalationRisk(alarmId) {
+        return http.get(`/enterprise/soc/alarms/${alarmId}/escalation-risk`)
+    },
+    getAnomalies() {
+        return http.get('/enterprise/soc/anomalies')
+    },
+}
+
 export const enterpriseApi = {
     setStepUpSession(sessionId) {
         if (sessionId) {
