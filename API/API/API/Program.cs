@@ -244,6 +244,7 @@ namespace API
             if (!app.Environment.IsEnvironment("Testing"))
             {
                 EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
+                DemoDataSeeder.EnsureSeeded(app.Services, builder.Configuration, app.Environment);
                 EnsureGo2RtcProcessRunning(app.Services);
             }
 
