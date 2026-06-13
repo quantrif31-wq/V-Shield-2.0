@@ -107,6 +107,7 @@
                                 placeholder="Nhập tên đăng nhập"
                                 autocomplete="username"
                                 :disabled="loading"
+                                @keydown.enter.prevent="handleLogin"
                             />
                         </div>
                     </div>
@@ -128,6 +129,7 @@
                                 placeholder="Nhập mật khẩu"
                                 autocomplete="current-password"
                                 :disabled="loading"
+                                @keydown.enter.prevent="handleLogin"
                             />
                             <button
                                 type="button"
@@ -169,13 +171,23 @@
                                 placeholder="Nhap ma dang hien tren ung dung"
                                 autocomplete="one-time-code"
                                 :disabled="loading"
+                                @keydown.enter.prevent="handleLogin"
                             />
                         </div>
                     </div>
 
                     <div v-if="mfaSetupSecret" class="mfa-setup">
-                        <strong>Thiet lap xac thuc hai lop</strong>
-                        <code>{{ mfaSetupSecret }}</code>
+                        <div class="mfa-setup-header">
+                            <strong>Thiet lap xac thuc hai lop</strong>
+                            <span>Quet QR bang Authenticator roi nhap ma 6 so.</span>
+                        </div>
+                        <div v-if="mfaQrDataUrl" class="mfa-qr-frame">
+                            <img :src="mfaQrDataUrl" alt="Ma QR thiet lap MFA" />
+                        </div>
+                        <div class="mfa-manual-key">
+                            <span>Ma thiet lap du phong</span>
+                            <code>{{ mfaSetupSecret }}</code>
+                        </div>
                         <small>{{ mfaSetupUri }}</small>
                     </div>
 
@@ -213,6 +225,7 @@
 
 <script setup>
 import { onUnmounted, reactive, ref } from 'vue'
+import QRCode from 'qrcode'
 import { useRouter } from 'vue-router'
 import { login } from '../stores/auth'
 
@@ -227,6 +240,7 @@ const showPassword = ref(false)
 const mfaRequired = ref(false)
 const mfaSetupSecret = ref('')
 const mfaSetupUri = ref('')
+const mfaQrDataUrl = ref('')
 let redirectTimer = null
 
 function setFeedback(message, type = 'danger') {
@@ -234,7 +248,32 @@ function setFeedback(message, type = 'danger') {
     feedbackType.value = type
 }
 
+async function updateMfaQr(uri) {
+    mfaQrDataUrl.value = ''
+    if (!uri) {
+        return
+    }
+
+    try {
+        mfaQrDataUrl.value = await QRCode.toDataURL(uri, {
+            errorCorrectionLevel: 'M',
+            margin: 1,
+            width: 220,
+            color: {
+                dark: '#102b3c',
+                light: '#ffffff'
+            }
+        })
+    } catch {
+        mfaQrDataUrl.value = ''
+    }
+}
+
 async function handleLogin() {
+    if (loading.value) {
+        return
+    }
+
     if (redirectTimer) {
         clearTimeout(redirectTimer)
         redirectTimer = null
@@ -260,6 +299,7 @@ async function handleLogin() {
             mfaRequired.value = true
             mfaSetupSecret.value = result.mfaSetupSecret || ''
             mfaSetupUri.value = result.mfaSetupUri || ''
+            await updateMfaQr(mfaSetupUri.value)
             feedbackType.value = 'danger'
             feedbackMessage.value = result.message || 'Tai khoan can ma xac thuc hai lop.'
             return
@@ -275,6 +315,7 @@ async function handleLogin() {
             mfaRequired.value = false
             mfaSetupSecret.value = ''
             mfaSetupUri.value = ''
+            mfaQrDataUrl.value = ''
             form.mfaCode = ''
             error.value = 'Sai tài khoản hoặc mật khẩu.'
             return
@@ -714,12 +755,49 @@ onUnmounted(() => {
 
 .mfa-setup {
     display: grid;
-    gap: 8px;
-    padding: 12px;
+    justify-items: center;
+    gap: 12px;
+    padding: 14px;
     border: 1px solid rgba(15, 124, 130, 0.18);
     border-radius: 8px;
     background: rgba(84, 196, 211, 0.08);
     color: var(--text-primary);
+}
+
+.mfa-setup-header {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    text-align: center;
+}
+
+.mfa-setup-header span,
+.mfa-manual-key span {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.mfa-qr-frame {
+    display: grid;
+    place-items: center;
+    width: min(100%, 244px);
+    padding: 12px;
+    border: 1px solid rgba(16, 43, 60, 0.12);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 14px 30px rgba(16, 43, 60, 0.12);
+}
+
+.mfa-qr-frame img {
+    display: block;
+    width: min(100%, 220px);
+    height: auto;
+}
+
+.mfa-manual-key {
+    display: grid;
+    gap: 6px;
+    width: 100%;
 }
 
 .mfa-setup code,

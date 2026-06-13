@@ -12,8 +12,8 @@ $logsDir = Join-Path $root '.runtime\logs'
 $pidsDir = Join-Path $root '.runtime\pids'
 
 $services = @(
-  @{ Name = 'api';  WorkDir = $apiDir; Command = 'dotnet'; Args = 'run --no-launch-profile --urls http://0.0.0.0:5107'; Health = 'http://127.0.0.1:5107/health' },
-  @{ Name = 'view'; WorkDir = $viewDir; Command = 'cmd.exe'; Args = '/c npm run dev -- --host 0.0.0.0 --port 5173 --strictPort' }
+  @{ Name = 'api';  WorkDir = $apiDir; Command = 'cmd.exe'; Args = '/c set ASPNETCORE_ENVIRONMENT=Development&& set DOTNET_ENVIRONMENT=Development&& dotnet run --no-launch-profile --urls http://0.0.0.0:5107'; Health = 'http://127.0.0.1:5107/health'; Port = 5107 },
+  @{ Name = 'view'; WorkDir = $viewDir; Command = 'cmd.exe'; Args = '/c npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'; Health = 'http://127.0.0.1:5173/'; Port = 5173 }
 )
 
 function Ensure-Dir([string]$path) {
@@ -99,6 +99,27 @@ function Remove-Pid([string]$name) {
   if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
 }
 
+function Get-ListeningProcessId([int]$port) {
+  $connection = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+  if (-not $connection) { return $null }
+  return [int]$connection.OwningProcess
+}
+
+function Save-PortPidIfRunning($svc) {
+  if (-not $svc.Port) { return $false }
+
+  $portPid = Get-ListeningProcessId -port $svc.Port
+  if (-not $portPid) { return $false }
+
+  $proc = Get-Process -Id $portPid -ErrorAction SilentlyContinue
+  if (-not $proc) { return $false }
+
+  Save-Pid -name $svc.Name -processId $portPid
+  Write-WarnMsg "$($svc.Name) da dang lang nghe cong $($svc.Port) (PID $portPid)"
+  return $true
+}
+
 function Start-ServiceItem($svc) {
   $name = $svc.Name
   $existingPid = Read-Pid $name
@@ -111,6 +132,10 @@ function Start-ServiceItem($svc) {
     Remove-Pid $name
   }
 
+  if (Save-PortPidIfRunning $svc) {
+    return
+  }
+
   Ensure-Dir $logsDir
   $stdout = Join-Path $logsDir "$name.out.log"
   $stderr = Join-Path $logsDir "$name.err.log"
@@ -119,6 +144,18 @@ function Start-ServiceItem($svc) {
   Write-Info "Khoi dong $name..."
   $proc = Start-Process -FilePath $exe -ArgumentList $svc.Args -WorkingDirectory $svc.WorkDir -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru -WindowStyle Hidden
   Save-Pid -name $name -processId $proc.Id
+  if ($svc.Port) {
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline) {
+      $portPid = Get-ListeningProcessId -port $svc.Port
+      if ($portPid) {
+        Save-Pid -name $name -processId $portPid
+        Write-Ok "$name da khoi dong (PID $portPid)"
+        return
+      }
+      Start-Sleep -Milliseconds 500
+    }
+  }
   Write-Ok "$name da khoi dong (PID $($proc.Id))"
 }
 
@@ -126,8 +163,13 @@ function Stop-ServiceItem($svc) {
   $name = $svc.Name
   $processId = Read-Pid $name
   if (-not $processId) {
-    Write-WarnMsg "$name chua co PID file"
-    return
+    if ($svc.Port) {
+      $processId = Get-ListeningProcessId -port $svc.Port
+    }
+    if (-not $processId) {
+      Write-WarnMsg "$name chua chay"
+      return
+    }
   }
 
   $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
@@ -193,17 +235,26 @@ function Install-All {
 function Start-All {
   foreach ($svc in $services) { Start-ServiceItem $svc }
 
-  $apiSvc = $services | Where-Object { $_.Name -eq 'api' } | Select-Object -First 1
-  if ($apiSvc -and $apiSvc.Health) {
-    if (Wait-Health -url $apiSvc.Health -timeoutSeconds 60) {
-      Write-Ok 'API health check OK'
-    } else {
-      Write-WarnMsg 'API chua healthy trong 60s. Xem log trong .runtime\\logs\\api.err.log'
+  foreach ($svc in $services) {
+    if ($svc.Health) {
+      if (Wait-Health -url $svc.Health -timeoutSeconds 60) {
+        Write-Ok "$($svc.Name) health check OK"
+      } else {
+        Write-WarnMsg "$($svc.Name) chua healthy trong 60s. Xem log trong .runtime\\logs\\$($svc.Name).err.log"
+      }
     }
   }
 
-  Write-Info 'API: http://localhost:5107'
-  Write-Info 'VIEW: http://localhost:5173'
+  $webUrl = 'http://127.0.0.1:5173/'
+  try {
+    Start-Process $webUrl | Out-Null
+    Write-Ok "Da mo web: $webUrl"
+  } catch {
+    Write-WarnMsg "Khong the tu mo trinh duyet. Hay mo: $webUrl"
+  }
+
+  Write-Info 'API: http://127.0.0.1:5107'
+  Write-Info 'VIEW: http://127.0.0.1:5173'
 }
 
 function Stop-All {
@@ -216,6 +267,14 @@ function Show-Status {
     if ($processId -and (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
       Write-Ok "$($svc.Name): running (PID $processId)"
     } else {
+      if ($svc.Port) {
+        $portPid = Get-ListeningProcessId -port $svc.Port
+        if ($portPid -and (Get-Process -Id $portPid -ErrorAction SilentlyContinue)) {
+          Save-Pid -name $svc.Name -processId $portPid
+          Write-Ok "$($svc.Name): running on port $($svc.Port) (PID $portPid)"
+          continue
+        }
+      }
       Write-WarnMsg "$($svc.Name): stopped"
     }
   }
