@@ -246,6 +246,29 @@ export const enterpriseApi = {
     dryRunRetention(payload) { return http.post('/enterprise/evidence/retention/dry-run', payload) },
     purgeEvidence(payload) { return http.post('/enterprise/evidence/retention/purge', payload) },
     // Compliance Reports
-    getComplianceReports(params) { return http.get('/enterprise/evidence/compliance-reports', { params }) },
-    runComplianceReport(payload) { return http.post('/enterprise/evidence/compliance-reports', payload) },
+     getComplianceReports(params) { return http.get('/enterprise/evidence/compliance-reports', { params }) },
+     runComplianceReport(payload) { return http.post('/enterprise/evidence/compliance-reports', payload) },
+     // Operations
+     getOutboxEvents(params) { return http.get('/enterprise/operations/outbox-events', { params }) },
+     getWebhookSubscriptions(params) { return http.get('/enterprise/operations/webhook-subscriptions', { params }) },
+     createWebhookSubscription(payload) { return http.post('/enterprise/operations/webhook-subscriptions', payload) },
+     getWebhookDeliveries(params) { return http.get('/enterprise/operations/webhook-deliveries', { params }) },
+     getSiemExports(params) { return http.get('/enterprise/operations/siem-exports', { params }) },
+     // Backup
+     getBackupRuns(params) { return http.get('/enterprise/operations/backup-runs', { params }) },
+     startBackup(payload) { return http.post('/enterprise/operations/backup-runs', payload) },
+     // Restore
+     getRestoreDrills(params) { return http.get('/enterprise/operations/restore-drills', { params }) },
+     startRestore(payload) { return http.post('/enterprise/operations/restore-drills', payload) },
+     // Security
+     getSecurityChecks(params) { return http.get('/enterprise/operations/security-checks', { params }) },
+     recordSecurityCheck(payload) { return http.post('/enterprise/operations/security-checks', payload) },
+     // Config Health
+     getConfigHealth() { return http.get('/enterprise/operations/config-health') },
+     // Health summary
+     getHealthSummary() { return http.get('/enterprise/operations/health-summary') },
+     // Webhook operations
+     dispatchEvent(eventId) { return http.post(`/enterprise/operations/outbox-events/${eventId}/dispatch`) },
+     // SIEM operations
+     getSiemExports(params) { return http.get('/enterprise/operations/siem-exports', { params }) },
 }

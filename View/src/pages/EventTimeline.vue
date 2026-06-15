@@ -113,6 +113,18 @@ async function loadEvents() {
         totalPages.value = Math.ceil((res.data.total || 0) / 50) || 1
     } catch { events.value = [] }
     finally { loading.value = false }
+
+async function loadEventTrends() {
+    loading.value = true
+    try {
+        const res = await enterpriseApi.getCorrelations({ limit: 24 })
+        eventTrends.value = Array.isArray(res.data) ? res.data.map(item => ({
+            time: item.createdAtUtc ? new Date(item.createdAtUtc).toLocaleTimeString() : '',
+            count: 1
+        })) : []
+    } catch { eventTrends.value = [] }
+    finally { loading.value = false }
+}
 }
 
 function selectEvent(e) { selectedEvent.value = e }
