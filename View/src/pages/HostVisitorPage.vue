@@ -127,7 +127,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
-import employeeApi from '../services/employeeApi'
+import * as employeeApi from '../services/employeeApi'
 
 const showForm = ref(false)
 const loading = ref(false)
@@ -143,6 +143,7 @@ const formError = ref('')
 const formSuccess = ref('')
 
 const currentUser = ref(null)
+const AUTH_USER_KEY = 'v_shield_user'
 
 const form = ref({
     name: '', phone: '', email: '',
@@ -169,7 +170,7 @@ function formatDate(utc) {
 async function loadData() {
     loading.value = true
     try {
-        const stored = localStorage.getItem('user')
+        const stored = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY)
         if (stored) {
             const parsed = JSON.parse(stored)
             currentUser.value = parsed
@@ -193,7 +194,7 @@ async function submitInvitation() {
     formSuccess.value = ''
     saving.value = true
     try {
-        const stored = localStorage.getItem('user')
+        const stored = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY)
         const empId = stored ? JSON.parse(stored).employeeId : null
         await enterpriseApi.createVisit({
             visitorName: form.value.name,
