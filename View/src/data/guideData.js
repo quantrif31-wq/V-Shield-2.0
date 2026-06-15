@@ -1284,6 +1284,494 @@ export const pageData = [
       { ten: 'Nút Retry/Dispatch', yNghia: 'Gửi lại hoặc gửi ngay', ghiChu: null }
     ]
   },
+
+  // ====================================================================
+  // NHÓM 7: VIDEO & AI REVIEW (tiếp)
+  // ====================================================================
+  {
+    path: '/ai-review-queue',
+    label: 'AI Review Queue - Đánh giá kết quả AI',
+    icon: '🤖',
+    roles: ['Admin', 'Bảo vệ'],
+    group: 'Video & AI Review',
+    groupIcon: '🎥',
+    mucDich: 'Danh sách các kết quả mà AI tự động phân tích (nhận diện khuôn mặt, biển số, phát hiện bất thường). Con người cần kiểm tra lại để xác nhận hoặc bác bỏ, giúp AI học hỏi và cải thiện.',
+    steps: [
+      {
+        title: 'Xem danh sách cần review', moTa: 'Bảng hiển thị: ID, nguồn AI, loại (Face/Plate/Behavior), độ tin cậy, trạng thái.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết có bao nhiêu kết quả AI cần kiểm tra.'
+      },
+      {
+        title: 'Review từng kết quả', moTa: 'Bấm "Review". Xem thông tin AI đưa ra. Chọn: Confirm (đúng), Reject (sai), hoặc Flag (cần kiểm tra thêm). Nhập ghi chú nếu cần.',
+        nhapGi: 'Nhập ghi chú (nếu có)', bamGi: 'Bấm "Review" → chọn Confirm/Reject/Flag',
+        ketQua: 'Kết quả được xử lý. AI sẽ học từ phản hồi của bạn.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng kết quả AI', yNghia: 'Danh sách cần review', ghiChu: 'Có filter theo loại và trạng thái' },
+      { ten: 'Nút Review', yNghia: 'Mở cửa sổ đánh giá', ghiChu: null },
+      { ten: 'Nút Confirm/Reject/Flag', yNghia: 'Xác nhận đúng, sai hoặc cần kiểm tra', ghiChu: null }
+    ]
+  },
+  {
+    path: '/correlation-view',
+    label: 'Correlation View - Tương quan tín hiệu',
+    icon: '🔗',
+    roles: ['Admin', 'Bảo vệ'],
+    group: 'Video & AI Review',
+    groupIcon: '🎥',
+    mucDich: 'Hiển thị đồng thời nhiều nguồn thông tin về cùng một sự kiện: khuôn mặt + biển số + sự kiện. Giúp điều tra nhanh: "xe này ai lái?", "người này vào lúc nào?".',
+    steps: [
+      {
+        title: 'Xem tương quan', moTa: 'Nhập ID sự kiện hoặc biển số hoặc tên người. Hệ thống hiển thị đồng thời: ảnh khuôn mặt, biển số xe, thời gian, sự kiện liên quan.',
+        nhapGi: 'Nhập ID/biển số/tên', bamGi: null,
+        ketQua: 'Màn hình split hiển thị tất cả thông tin liên quan đến đối tượng.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Ô tìm kiếm', yNghia: 'Nhập ID/biển số/tên', ghiChu: null },
+      { ten: 'Khung Face + Plate + Event', yNghia: 'Hiển thị đồng thời 3 luồng thông tin', ghiChu: null }
+    ]
+  },
+
+  // ====================================================================
+  // NHÓM 8: THIẾT BỊ & HẠ TẦNG (tiếp)
+  // ====================================================================
+  {
+    path: '/offline-packages',
+    label: 'Offline Packages - Gói dữ liệu ngoại tuyến',
+    icon: '📦',
+    roles: ['Admin'],
+    group: 'Thiết bị & Hạ tầng',
+    groupIcon: '🔧',
+    mucDich: 'Quản lý các gói dữ liệu để đồng bộ với thiết bị offline (khi mất mạng). Tạo gói → gửi xuống thiết bị → thiết bị tự cập nhật khi có mạng.',
+    steps: [
+      {
+        title: 'Xem danh sách gói', moTa: 'Bảng: tên gói, kích thước, trạng thái (Pending/Synced/Failed), ngày tạo.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết gói nào đã đồng bộ, gói nào còn chờ.'
+      },
+      {
+        title: 'Đồng bộ gói', moTa: 'Bấm "Sync" để gửi gói xuống thiết bị. Nếu lỗi, bấm "Retry" để gửi lại.',
+        nhapGi: null, bamGi: 'Bấm "Sync" hoặc "Retry"',
+        ketQua: 'Gói được đồng bộ xuống thiết bị.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng danh sách gói offline', yNghia: 'Tên, kích thước, trạng thái, ngày tạo', ghiChu: null },
+      { ten: 'Nút Sync/Retry', yNghia: 'Đồng bộ hoặc gửi lại', ghiChu: null }
+    ]
+  },
+
+  // ====================================================================
+  // NHÓM 9: KHÁC — ATTENDANCE & NHÂN SỰ
+  // ====================================================================
+  {
+    path: '/attendance/records',
+    label: 'Bảng chấm công',
+    icon: '📅',
+    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    group: 'Tổng quan & Giám sát',
+    groupIcon: '📊',
+    mucDich: 'Xem bảng chấm công của bạn hoặc của nhân viên (Admin). Hiển thị giờ vào, giờ ra, tổng giờ làm, trạng thái (đi đúng giờ/trễ/vắng).',
+    steps: [
+      {
+        title: 'Xem chấm công của tôi', moTa: 'Nếu là Nhân viên: mở trang này sẽ thấy bảng chấm công của chính bạn trong tháng. Các ô màu xanh = đi đúng giờ, vàng = trễ, đỏ = vắng.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết tình trạng đi làm của bạn.'
+      },
+      {
+        title: 'Xem chấm công nhân viên (Admin)', moTa: 'Chọn tên nhân viên từ danh sách. Bảng hiển thị chấm công của người đó.',
+        nhapGi: 'Chọn nhân viên', bamGi: null,
+        ketQua: 'Thấy chấm công của nhân viên đã chọn.'
+      },
+      {
+        title: 'Xuất báo cáo', moTa: 'Bấm "Xuất Excel" để tải bảng chấm công về máy.',
+        nhapGi: null, bamGi: 'Bấm "Xuất Excel"',
+        ketQua: 'File Excel được tải về.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng chấm công', yNghia: 'Hiển thị ngày, giờ vào, giờ ra, tổng giờ', ghiChu: null },
+      { ten: 'Chọn tháng', yNghia: 'Chọn tháng muốn xem', ghiChu: null },
+      { ten: 'Nút Xuất Excel', yNghia: 'Tải về file Excel', ghiChu: null }
+    ]
+  },
+  {
+    path: '/attendance/reports',
+    label: 'Báo cáo chấm công',
+    icon: '📊',
+    roles: ['Admin', 'Quản lý'],
+    group: 'Tổng quan & Giám sát',
+    groupIcon: '📊',
+    mucDich: 'Báo cáo tổng hợp tình hình chấm công của toàn công ty. Xem tỷ lệ đi đúng giờ, số người vắng, số người trễ trong tháng.',
+    steps: [
+      {
+        title: 'Chọn kỳ báo cáo', moTa: 'Chọn tháng và năm muốn xem báo cáo.',
+        nhapGi: 'Chọn tháng/năm', bamGi: null,
+        ketQua: 'Báo cáo hiển thị số liệu.'
+      },
+      {
+        title: 'Xem biểu đồ', moTa: 'Biểu đồ tròn hiển thị tỷ lệ: Đúng giờ / Trễ / Vắng / Nghỉ phép. Biểu đồ cột hiển thị xu hướng theo ngày.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Nắm được tình hình chấm công tổng quan.'
+      },
+      {
+        title: 'Xem chi tiết', moTa: 'Bảng danh sách: từng nhân viên, số ngày đi làm, số ngày trễ, số ngày vắng.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết ai có vấn đề về chấm công.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Biểu đồ tròn, cột', yNghia: 'Hiển thị tỷ lệ và xu hướng', ghiChu: null },
+      { ten: 'Bảng chi tiết', yNghia: 'Từng nhân viên và chỉ số', ghiChu: null }
+    ]
+  },
+  {
+    path: '/attendance/leave-requests',
+    label: 'Đơn xin nghỉ phép',
+    icon: '📝',
+    roles: ['Admin', 'Nhân viên'],
+    group: 'Tổng quan & Giám sát',
+    groupIcon: '📊',
+    mucDich: 'Tạo đơn xin nghỉ phép. Nhân viên gửi đơn, Quản lý/Admin duyệt hoặc từ chối. Xem số ngày phép còn lại.',
+    steps: [
+      {
+        title: 'Tạo đơn mới', moTa: 'Bấm "Tạo đơn mới". Chọn loại nghỉ: Nghỉ phép năm, Nghỉ bệnh, Nghỉ việc riêng. Chọn ngày bắt đầu và kết thúc. Nhập lý do. Bấm "Gửi đơn".',
+        nhapGi: 'Chọn loại nghỉ, ngày, nhập lý do', bamGi: 'Bấm "Tạo đơn mới" → "Gửi đơn"',
+        ketQua: 'Đơn được gửi, trạng thái "Chờ duyệt".'
+      },
+      {
+        title: 'Xem trạng thái đơn', moTa: 'Bảng danh sách: loại nghỉ, ngày, số ngày, lý do, trạng thái (Chờ duyệt/Đã duyệt/Từ chối).',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết đơn nào đã được duyệt.'
+      },
+      {
+        title: 'Hủy đơn', moTa: 'Nếu đơn chưa được duyệt, có thể bấm "Hủy" để xóa.',
+        nhapGi: null, bamGi: 'Bấm "Hủy"',
+        ketQua: 'Đơn bị hủy.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Nút "Tạo đơn mới"', yNghia: 'Tạo đơn xin nghỉ', ghiChu: null },
+      { ten: 'Bảng danh sách đơn', yNghia: 'Loại, ngày, số ngày, lý do, trạng thái', ghiChu: null },
+      { ten: 'Số ngày phép còn lại', yNghia: 'Hiển thị số ngày phép bạn còn', ghiChu: null }
+    ]
+  },
+  {
+    path: '/attendance/work-schedules',
+    label: 'Lịch làm việc',
+    icon: '🗓️',
+    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    group: 'Tổng quan & Giám sát',
+    groupIcon: '📊',
+    mucDich: 'Xem lịch làm việc theo ca. Biết hôm nay ai làm ca nào, giờ nào vào, giờ nào ra.',
+    steps: [
+      {
+        title: 'Xem lịch', moTa: 'Lịch hiển thị dạng bảng: ngày, ca sáng/chiều/tối. Màu sắc phân biệt từng ca.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết lịch làm việc trong tháng.'
+      },
+      {
+        title: 'Đăng ký ca (nếu có)', moTa: 'Nếu công ty cho phép, có thể bấm vào ô trống để đăng ký ca làm.',
+        nhapGi: null, bamGi: 'Bấm vào ô trống trên lịch',
+        ketQua: 'Đăng ký ca thành công.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng lịch làm việc', yNghia: 'Ngày, ca sáng/chiều/tối', ghiChu: null }
+    ]
+  },
+  {
+    path: '/attendance/leave-approvals',
+    label: 'Duyệt đơn xin nghỉ',
+    icon: '✅',
+    roles: ['Admin', 'Quản lý'],
+    group: 'Tổng quan & Giám sát',
+    groupIcon: '📊',
+    mucDich: 'Quản lý duyệt hoặc từ chối đơn xin nghỉ của nhân viên. Xem lý do, kiểm tra số ngày phép còn lại, và quyết định.',
+    steps: [
+      {
+        title: 'Xem danh sách đơn chờ duyệt', moTa: 'Bảng: nhân viên, loại nghỉ, ngày, số ngày, lý do, trạng thái.',
+        nhapGi: null, bamGi: 'Chọn tab "Chờ duyệt"',
+        ketQua: 'Danh sách đơn cần xử lý.'
+      },
+      {
+        title: 'Duyệt hoặc từ chối', moTa: 'Bấm "Duyệt" (xanh) để đồng ý, "Từ chối" (đỏ) để không đồng ý. Có thể nhập ghi chú kèm theo.',
+        nhapGi: 'Nhập ghi chú (nếu có)', bamGi: 'Bấm "Duyệt" hoặc "Từ chối"',
+        ketQua: 'Đơn được xử lý. Nhân viên nhận thông báo.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Tab: Chờ duyệt / Đã duyệt / Từ chối', yNghia: 'Lọc đơn theo trạng thái', ghiChu: null },
+      { ten: 'Nút Duyệt / Từ chối', yNghia: 'Xử lý đơn xin nghỉ', ghiChu: null },
+      { ten: 'Số ngày phép còn lại', yNghia: 'Hiển thị để tham khảo khi duyệt', ghiChu: null }
+    ]
+  },
+
+  // ====================================================================
+  // NHÓM 9: KHÁC — VẬN HÀNH & KIỂM TOÁN
+  // ====================================================================
+  {
+    path: '/operations-dashboard',
+    label: 'Operations Dashboard - Vận hành hệ thống',
+    icon: '⚡',
+    roles: ['Admin'],
+    group: 'SOC & Enterprise',
+    groupIcon: '🏢',
+    mucDich: 'Bảng tổng quan tình hình vận hành hệ thống: Outbox (hàng đợi gửi), Backup (sao lưu), Security Checks (kiểm tra an ninh). Một nơi để quản trị viên nắm toàn bộ tình trạng hệ thống.',
+    steps: [
+      {
+        title: 'Xem trạng thái Outbox', moTa: 'Phần "Outbox Queue": số sự kiện đang chờ gửi, số lỗi. Bấm "View" để vào Outbox Viewer.',
+        nhapGi: null, bamGi: 'Bấm "View" ở mỗi phần',
+        ketQua: 'Biết tình trạng hàng đợi.'
+      },
+      {
+        title: 'Xem trạng thái Backup', moTa: 'Phần "Backup Status": lần sao lưu cuối, trạng thái (Success/Failed), dung lượng.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết lần gần nhất hệ thống được sao lưu.'
+      },
+      {
+        title: 'Xem Security Checks', moTa: 'Phần "Security Checks": kiểm tra port mở, cổng chưa cập nhật, phát hiện xâm nhập. Màu xanh = an toàn, đỏ = có vấn đề.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết tình hình an ninh mạng của hệ thống.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Phần Outbox Queue', yNghia: 'Sự kiện chờ gửi', ghiChu: null },
+      { ten: 'Phần Backup Status', yNghia: 'Tình trạng sao lưu', ghiChu: null },
+      { ten: 'Phần Security Checks', yNghia: 'Kiểm tra an ninh', ghiChu: 'Xanh = OK, Đỏ = có vấn đề' }
+    ]
+  },
+  {
+    path: '/siem-export-status',
+    label: 'SIEM Export - Xuất dữ liệu an ninh',
+    icon: '📤',
+    roles: ['Admin'],
+    group: 'SOC & Enterprise',
+    groupIcon: '🏢',
+    mucDich: 'Xuất dữ liệu sự kiện an ninh sang hệ thống SIEM bên ngoài (ví dụ: Splunk, ELK) để phân tích tập trung. Tại đây bạn xem trạng thái các lần xuất.',
+    steps: [
+      {
+        title: 'Xem danh sách xuất', moTa: 'Bảng: ID lần xuất, thời gian, target (đích đến), trạng thái (InProgress/Success/Failed).',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết lần xuất nào thành công, lần nào lỗi.'
+      },
+      {
+        title: 'Xuất mới', moTa: 'Bấm "Trigger Export". Chọn loại dữ liệu, khoảng thời gian. Bấm "Export".',
+        nhapGi: 'Chọn loại dữ liệu, thời gian', bamGi: 'Bấm "Trigger Export" → "Export"',
+        ketQua: 'Yêu cầu xuất được tạo, chờ xử lý.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng danh sách export', yNghia: 'ID, thời gian, target, trạng thái', ghiChu: null },
+      { ten: 'Nút Trigger Export', yNghia: 'Tạo yêu cầu xuất mới', ghiChu: null }
+    ]
+  },
+  {
+    path: '/backup-restore-drill',
+    label: 'Backup & Restore - Sao lưu và phục hồi',
+    icon: '💾',
+    roles: ['Admin'],
+    group: 'SOC & Enterprise',
+    groupIcon: '🏢',
+    mucDich: 'Quản lý sao lưu hệ thống. Lên lịch backup, chạy backup thủ công, xem lịch sử backup, và thực hành phục hồi (drill) để đảm bảo dữ liệu luôn an toàn.',
+    steps: [
+      {
+        title: 'Xem lịch sử backup', moTa: 'Bảng: thời gian, loại (Full/Incremental), dung lượng, trạng thái.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết các lần backup gần đây.'
+      },
+      {
+        title: 'Chạy backup thủ công', moTa: 'Bấm "Run Backup". Chọn loại backup. Bấm "Start".',
+        nhapGi: null, bamGi: 'Bấm "Run Backup" → "Start"',
+        ketQua: 'Quá trình backup bắt đầu. Hoàn thành sau vài phút.'
+      },
+      {
+        title: 'Thực hành phục hồi (Drill)', moTa: 'Bấm "Start Drill". Hệ thống mô phỏng quá trình phục hồi để kiểm tra dữ liệu backup có hoạt động không.',
+        nhapGi: null, bamGi: 'Bấm "Start Drill"',
+        ketQua: 'Kết quả: Pass (dữ liệu OK) hoặc Fail (cần kiểm tra lại).'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng backup history', yNghia: 'Lịch sử các lần backup', ghiChu: null },
+      { ten: 'Nút Run Backup', yNghia: 'Chạy backup thủ công', ghiChu: null },
+      { ten: 'Nút Start Drill', yNghia: 'Thực hành phục hồi thử', ghiChu: 'Quan trọng: kiểm tra backup có hoạt động không' }
+    ]
+  },
+  {
+    path: '/system-audit-logs',
+    label: 'Nhật ký kiểm toán hệ thống',
+    icon: '📜',
+    roles: ['Admin'],
+    group: 'SOC & Enterprise',
+    groupIcon: '🏢',
+    mucDich: 'Ghi lại tất cả hành động của người dùng trong hệ thống: ai đã làm gì, lúc nào, ở trang nào. Dùng để kiểm tra khi có sự cố hoặc kiểm toán.',
+    steps: [
+      {
+        title: 'Xem nhật ký', moTa: 'Bảng: thời gian, người dùng, hành động, chi tiết, địa chỉ IP.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Xem tất cả hoạt động trong hệ thống.'
+      },
+      {
+        title: 'Lọc nhật ký', moTa: 'Lọc theo người dùng, hành động, khoảng thời gian.',
+        nhapGi: 'Chọn người dùng, hành động, ngày', bamGi: null,
+        ketQua: 'Chỉ hiển thị nhật ký phù hợp.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng audit log', yNghia: 'Thời gian, người, hành động, IP', ghiChu: 'Không thể xóa hoặc sửa' }
+    ]
+  },
+  {
+    path: '/webhook-delivery-viewer',
+    label: 'Webhook Delivery - Xem webhook đã gửi',
+    icon: '🔗',
+    roles: ['Admin'],
+    group: 'SOC & Enterprise',
+    groupIcon: '🏢',
+    mucDich: 'Xem trạng thái các webhook đã gửi đi. Webhook là cách hệ thống gửi thông báo sự kiện ra ngoài (ví dụ: gửi thông báo ra vào qua webhook đến hệ thống khác).',
+    steps: [
+      {
+        title: 'Xem danh sách webhook', moTa: 'Bảng: ID webhook, URL đích, sự kiện, trạng thái (Success/Failed/Pending), thời gian, số lần thử.',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết webhook nào đã gửi thành công, webhook nào lỗi.'
+      },
+      {
+        title: 'Xem chi tiết lỗi', moTa: 'Bấm vào webhook bị lỗi để xem chi tiết: mã lỗi HTTP, response body.',
+        nhapGi: null, bamGi: 'Bấm vào webhook lỗi',
+        ketQua: 'Thông tin lỗi chi tiết giúp debug.'
+      },
+      {
+        title: 'Gửi lại', moTa: 'Bấm "Retry" để gửi lại webhook bị lỗi.',
+        nhapGi: null, bamGi: 'Bấm "Retry"',
+        ketQua: 'Webhook được gửi lại.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng webhook delivery', yNghia: 'URL, sự kiện, trạng thái, số lần thử', ghiChu: null },
+      { ten: 'Nút Retry', yNghia: 'Gửi lại webhook lỗi', ghiChu: null }
+    ]
+  },
+  {
+    path: '/visitor-pass',
+    label: 'Visitor Pass - Thẻ thăm viếng',
+    icon: '🪪',
+    roles: ['Admin', 'Bảo vệ'],
+    group: 'Quản lý Khách thăm',
+    groupIcon: '👤',
+    mucDich: 'Cấp thẻ tạm cho khách. In thẻ giấy hoặc cấp QR tạm thời. Thẻ có thời hạn và cổng được phép vào.',
+    steps: [
+      {
+        title: 'Tạo thẻ mới', moTa: 'Bấm "Cấp thẻ mới". Nhập tên khách, loại thẻ (Giấy/QR), thời hạn, cổng được vào.',
+        nhapGi: 'Nhập tên, loại thẻ, thời hạn, cổng', bamGi: 'Bấm "Cấp thẻ mới" → "In thẻ"',
+        ketQua: 'Thẻ được tạo. In ra hoặc gửi QR cho khách.'
+      },
+      {
+        title: 'Quản lý thẻ đã cấp', moTa: 'Bảng danh sách: tên khách, loại thẻ, thời hạn, trạng thái (Còn hiệu lực/Hết hạn/Đã thu hồi).',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết thẻ nào đang còn hiệu lực.'
+      },
+      {
+        title: 'Thu hồi thẻ', moTa: 'Bấm "Thu hồi" để vô hiệu hóa thẻ trước thời hạn.',
+        nhapGi: null, bamGi: 'Bấm "Thu hồi"',
+        ketQua: 'Thẻ bị vô hiệu hóa, không thể dùng để ra vào.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Nút "Cấp thẻ mới"', yNghia: 'Tạo thẻ tạm cho khách', ghiChu: null },
+      { ten: 'Bảng danh sách thẻ', yNghia: 'Tên, loại, thời hạn, trạng thái', ghiChu: null },
+      { ten: 'Nút Thu hồi', yNghia: 'Vô hiệu hóa thẻ', ghiChu: null }
+    ]
+  },
+  {
+    path: '/contractors',
+    label: 'Quản lý nhà thầu (Contractor)',
+    icon: '👷',
+    roles: ['Admin'],
+    group: 'Quản lý Khách thăm',
+    groupIcon: '👤',
+    mucDich: 'Quản lý nhà thầu/nhân công tạm thời làm việc tại công ty. Khác với khách thăm, nhà thầu ở lại nhiều ngày và cần quyền truy cập đặc biệt.',
+    steps: [
+      {
+        title: 'Đăng ký nhà thầu mới', moTa: 'Bấm "Add Contractor". Nhập tên công ty, đại diện, số lượng nhân công, thời gian làm việc, khu vực được phép vào.',
+        nhapGi: 'Nhập thông tin nhà thầu', bamGi: 'Bấm "Add Contractor" → "Save"',
+        ketQua: 'Nhà thầu được đăng ký. Có thể cấp thẻ cho từng nhân công.'
+      },
+      {
+        title: 'Cấp thẻ cho nhân công', moTa: 'Trong hồ sơ nhà thầu, bấm "Issue Badges". Nhập danh sách nhân công (tên, CCCD, ảnh). Bấm "Issue".',
+        nhapGi: 'Nhập danh sách nhân công', bamGi: 'Bấm "Issue Badges" → "Issue"',
+        ketQua: 'Mỗi nhân công có thẻ riêng để quét ra vào.'
+      },
+      {
+        title: 'Kết thúc hợp đồng', moTa: 'Khi nhà thầu hết việc, bấm "Contract End". Hệ thống tự động thu hồi tất cả thẻ.',
+        nhapGi: null, bamGi: 'Bấm "Contract End"',
+        ketQua: 'Tất cả thẻ bị vô hiệu hóa. Nhà thầu không thể vào công ty.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Nút Add Contractor', yNghia: 'Đăng ký nhà thầu mới', ghiChu: null },
+      { ten: 'Nút Issue Badges', yNghia: 'Cấp thẻ cho nhân công', ghiChu: null },
+      { ten: 'Nút Contract End', yNghia: 'Kết thúc hợp đồng, thu hồi thẻ', ghiChu: null }
+    ]
+  },
+  {
+    path: '/vulnerability-release-gate',
+    label: 'Vulnerability Gate - Cổng kiểm tra bảo mật',
+    icon: '🛡️',
+    roles: ['Admin'],
+    group: 'SOC & Enterprise',
+    groupIcon: '🏢',
+    mucDich: 'Kiểm tra an ninh trước khi phát hành phần mềm hoặc cập nhật. Quét lỗ hổng, kiểm tra phụ thuộc, đảm bảo không có lỗi bảo mật trước khi triển khai.',
+    steps: [
+      {
+        title: 'Xem kết quả quét', moTa: 'Bảng: gói phụ thuộc (dependency), phiên bản hiện tại, phiên bản mới nhất, mức độ lỗ hổng (Critical/High/Medium/Low).',
+        nhapGi: null, bamGi: null,
+        ketQua: 'Biết gói nào có lỗ hổng bảo mật.'
+      },
+      {
+        title: 'Xử lý lỗ hổng', moTa: 'Bấm "Cập nhật" để nâng cấp gói lên phiên bản an toàn. Hoặc bấm "Bỏ qua" nếu lỗ hổng không ảnh hưởng.',
+        nhapGi: null, bamGi: 'Bấm "Cập nhật" hoặc "Bỏ qua"',
+        ketQua: 'Lỗ hổng được xử lý hoặc ghi nhận.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Bảng vulnerability scan', yNghia: 'Gói, phiên bản, mức độ, trạng thái', ghiChu: null },
+      { ten: 'Nút Cập nhật / Bỏ qua', yNghia: 'Xử lý từng lỗ hổng', ghiChu: null },
+      { ten: 'Score tổng thể', yNghia: 'Điểm an ninh tổng quát', ghiChu: null }
+    ]
+  },
+  {
+    path: '/system-catalog',
+    label: 'System Catalog - Danh mục hệ thống',
+    icon: '📂',
+    roles: ['Admin', 'Quản lý'],
+    group: 'Tổng quan & Giám sát',
+    groupIcon: '📊',
+    mucDich: 'Quản lý danh mục dùng chung: phòng ban, chức vụ, loại xe, loại giấy tờ. Các danh mục này được dùng ở nhiều trang khác (nhân viên, xe, khách).',
+    steps: [
+      {
+        title: 'Chọn danh mục', moTa: 'Bấm vào tab: Phòng ban, Chức vụ, Loại xe, Loại giấy tờ.',
+        nhapGi: null, bamGi: 'Bấm tab tương ứng',
+        ketQua: 'Hiển thị danh sách mục trong danh mục đó.'
+      },
+      {
+        title: 'Thêm mục mới', moTa: 'Bấm "Thêm mới". Nhập tên, mã (nếu có). Bấm "Lưu".',
+        nhapGi: 'Nhập tên, mã', bamGi: 'Bấm "Thêm mới" → "Lưu"',
+        ketQua: 'Mục mới được thêm vào danh mục.'
+      },
+      {
+        title: 'Sửa/Xóa', moTa: 'Bấm "Sửa" để đổi tên. Bấm "Xóa" để xóa (không xóa được nếu đang có dữ liệu liên quan).',
+        nhapGi: null, bamGi: 'Bấm "Sửa" hoặc "Xóa"',
+        ketQua: 'Danh mục được cập nhật.'
+      }
+    ],
+    thanhPhan: [
+      { ten: 'Các tab: Phòng ban, Chức vụ, Loại xe...', yNghia: 'Chọn loại danh mục', ghiChu: null },
+      { ten: 'Nút Thêm mới', yNghia: 'Thêm mục vào danh mục', ghiChu: null }
+    ]
+  },
 ]
 
 // ====================================================================

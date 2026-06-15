@@ -8,7 +8,7 @@
     />
 
     <!-- Tabs -->
-    <div class="guide-tabs-bar">
+    <div class="guide-tabs-bar animate-in">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -71,7 +71,7 @@
           </div>
           <select v-model="groupFilter" class="filter-select">
             <option value="all">📂 Tất cả nhóm</option>
-            <option v-for="g in allGroups" :key="g.id" :value="g.id">{{ g.icon }} {{ g.label }}</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.icon }} {{ g.label }}</option>
           </select>
         </div>
 
@@ -160,7 +160,6 @@ const tabs = [
   { id: 'faq', icon: '❓', label: 'Câu hỏi thường gặp' },
 ]
 
-const allGroups = groups
 // Filter pages
 const filteredPages = computed(() => {
   return pageData.filter(p => {
