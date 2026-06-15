@@ -43,6 +43,36 @@
           </div>
         </div>
 
+        <!-- Quick Guide: Tôi cần làm gì? -->
+        <div v-if="showQuickGuide" class="quick-guide-box">
+          <div class="quick-guide-header">
+            <h4>🎯 "Tôi cần làm gì?" — Gợi ý nhanh cho bạn</h4>
+            <button class="quick-guide-close" @click="showQuickGuide = false" title="Đóng">✕</button>
+          </div>
+          <div class="quick-guide-roles">
+            <div
+              v-for="guide in filteredQuickGuides"
+              :key="guide.role"
+              class="quick-guide-group"
+            >
+              <span class="quick-guide-role-label">{{ guide.role }}</span>
+              <div class="quick-guide-links">
+                <button
+                  v-for="task in guide.tasks"
+                  :key="task.path"
+                  class="quick-guide-btn"
+                  :class="{ read: readPages.has(task.path) }"
+                  @click="scrollToPage(task.path)"
+                >
+                  <span class="qg-icon">{{ task.icon }}</span>
+                  <span class="qg-label">{{ task.label }}</span>
+                  <span v-if="readPages.has(task.path)" class="qg-check">✓</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="ov-info-box">
           <h4>💡 Bắt đầu từ đâu?</h4>
           <ol>
@@ -92,9 +122,11 @@
               v-for="page in group.pages"
               :key="page.path"
               :page="page"
+              :data-page-path="page.path"
               :is-open="openPage === page.path"
+              :is-read="readPages.has(page.path)"
               :group-color="group.color"
-              @toggle="openPage = openPage === page.path ? null : page.path"
+              @toggle="handleToggle(page.path)"
             />
           </div>
         </div>
@@ -140,10 +172,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import GuideHero from '../components/guide/GuideHero.vue'
 import GuidePageCard from '../components/guide/GuidePageCard.vue'
-import { pageData, groups, faqs } from '../data/guideData.js'
+import { pageData, groups, faqs, quickGuides } from '../data/guideData.js'
 
 // State
 const activeTab = ref('overview')
@@ -152,6 +184,31 @@ const searchQuery = ref('')
 const groupFilter = ref('all')
 const openPage = ref(null)
 const openFaq = ref(-1)
+const showQuickGuide = ref(true)
+
+// Read tracking — lưu trang đã đọc vào localStorage
+const STORAGE_KEY = 'vshield_guide_read'
+const readPages = ref(new Set())
+
+// Khôi phục từ localStorage
+const initReadPages = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      readPages.value = new Set(JSON.parse(stored))
+    }
+  } catch {}
+}
+initReadPages()
+
+const markRead = (path) => {
+  if (!readPages.value.has(path)) {
+    readPages.value.add(path)
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...readPages.value]))
+    } catch {}
+  }
+}
 
 // Tabs
 const tabs = [
@@ -195,6 +252,39 @@ const groupedFiltered = computed(() => {
   }
   return result
 })
+
+// Filter quick guides theo vai trò đang chọn
+const filteredQuickGuides = computed(() => {
+  if (activeRole.value === 'all') return quickGuides
+  return quickGuides.filter(g => g.role === activeRole.value)
+})
+
+const handleToggle = (path) => {
+  if (openPage.value === path) {
+    openPage.value = null
+  } else {
+    openPage.value = path
+    markRead(path)
+  }
+}
+
+const clearReadHistory = () => {
+  readPages.value = new Set()
+  localStorage.removeItem(STORAGE_KEY)
+}
+
+const scrollToPage = async (path) => {
+  activeTab.value = 'pages'
+  openPage.value = path
+  markRead(path)
+  await nextTick()
+  const el = document.querySelector(`[data-page-path="${path}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('highlight-flash')
+    setTimeout(() => el.classList.remove('highlight-flash'), 1500)
+  }
+}
 </script>
 
 <style scoped>
@@ -291,6 +381,149 @@ const groupedFiltered = computed(() => {
   font-size: 0.9rem;
   color: var(--text-secondary);
   line-height: 1.7;
+}
+
+/* Quick Guide */
+.quick-guide-box {
+  margin-bottom: 20px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(84,196,211,0.25);
+  background: linear-gradient(135deg, rgba(84,196,211,0.06), rgba(59,130,246,0.04));
+  position: relative;
+}
+.quick-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.quick-guide-header h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.quick-guide-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0,0,0,0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.quick-guide-close:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text-primary);
+}
+.quick-guide-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.quick-guide-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.quick-guide-role-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 70px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.quick-guide-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quick-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quick-guide-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(84,196,211,0.06);
+}
+.quick-guide-btn.read {
+  opacity: 0.6;
+}
+.qg-icon { font-size: 0.9rem; }
+.qg-check {
+  font-size: 0.7rem;
+  color: #10b981;
+  font-weight: 700;
+}
+
+/* Read Progress */
+.read-progress {
+  margin-bottom: 20px;
+}
+.read-progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.read-progress-info strong {
+  color: var(--accent-primary);
+}
+.read-clear-btn {
+  font-size: 0.78rem;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.read-clear-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.read-progress-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-color);
+  overflow: hidden;
+}
+.read-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-primary), #10b981);
+  transition: width 0.3s ease;
+}
+
+/* Highlight flash animation */
+.highlight-flash {
+  animation: flashHighlight 1.5s ease;
+}
+@keyframes flashHighlight {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(84,196,211,0); }
+  20% { box-shadow: 0 0 0 4px rgba(84,196,211,0.3); }
+  40% { box-shadow: 0 0 0 2px rgba(84,196,211,0.15); }
 }
 
 /* Filter bar */

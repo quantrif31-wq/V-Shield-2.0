@@ -1797,6 +1797,49 @@ export const roles = [
   { id: 'Nhân viên', label: 'Nhân viên' },
 ]
 
+export const quickGuides = [
+  {
+    role: 'Bảo vệ',
+    tasks: [
+      { label: 'Xem camera trực tiếp', path: '/monitoring', icon: '📹' },
+      { label: 'Check-in khách tại lễ tân', path: '/reception', icon: '🛎️' },
+      { label: 'Xử lý ngoại lệ ra vào', path: '/exceptions', icon: '⚠️' },
+      { label: 'Xem lịch sử ra vào', path: '/access-logs', icon: '📋' },
+      { label: 'Xem trạng thái làn đường', path: '/lane-dashboard', icon: '🛣️' },
+    ]
+  },
+  {
+    role: 'Nhân viên',
+    tasks: [
+      { label: 'Tạo QR ra vào', path: '/dynamic-qr-generator', icon: '📱' },
+      { label: 'Xem bảng chấm công', path: '/attendance/records', icon: '📅' },
+      { label: 'Gửi đơn xin nghỉ phép', path: '/attendance/leave-requests', icon: '📝' },
+      { label: 'Mời khách đến công ty', path: '/host-visitor', icon: '✉️' },
+      { label: 'Xem bản đồ khuôn viên', path: '/campus-map', icon: '🗺️' },
+    ]
+  },
+  {
+    role: 'Quản lý',
+    tasks: [
+      { label: 'Xem Dashboard tổng quan', path: '/dashboard', icon: '🏠' },
+      { label: 'Xem báo cáo chấm công', path: '/attendance/reports', icon: '📊' },
+      { label: 'Duyệt đơn xin nghỉ', path: '/attendance/leave-approvals', icon: '✅' },
+      { label: 'Xem UEBA bất thường', path: '/ueba', icon: '🔍' },
+    ]
+  },
+  {
+    role: 'Admin',
+    tasks: [
+      { label: 'Cấu hình hệ thống', path: '/settings', icon: '⚙️' },
+      { label: 'Quản lý nhân viên', path: '/employees', icon: '👥' },
+      { label: 'Tạo & duyệt chính sách', path: '/policy-engine', icon: '📜' },
+      { label: 'Xử lý cảnh báo SOC', path: '/soc-console', icon: '🚨' },
+      { label: 'Xem nhật ký kiểm toán', path: '/system-audit-logs', icon: '📜' },
+      { label: 'Quản lý thiết bị', path: '/device-management', icon: '📡' },
+    ]
+  },
+]
+
 export const faqs = [
   {
     q: 'Tôi quên mật khẩu đăng nhập thì làm thế nào?',

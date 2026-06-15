@@ -1,11 +1,14 @@
 <template>
-  <div class="page-card" :class="{ expanded: isOpen }">
+  <div class="page-card" :class="{ expanded: isOpen, read: isRead }">
     <!-- Header - always visible -->
     <button class="card-header" @click="$emit('toggle')">
       <div class="card-header-left">
-        <span class="card-icon">{{ page.icon }}</span>
+        <span class="card-icon" :class="{ 'icon-read': isRead }">{{ page.icon }}</span>
         <div class="card-info">
-          <strong class="card-title">{{ page.label }}</strong>
+          <div class="card-title-row">
+            <strong class="card-title" :class="{ 'title-read': isRead }">{{ page.label }}</strong>
+            <span v-if="isRead" class="read-badge" title="Đã đọc">✓</span>
+          </div>
           <span class="card-desc">{{ page.mucDich.substring(0, 120) }}{{ page.mucDich.length > 120 ? '...' : '' }}</span>
         </div>
       </div>
@@ -65,6 +68,7 @@ import GuideStepList from './GuideStepList.vue'
 const props = defineProps({
   page: { type: Object, required: true },
   isOpen: { type: Boolean, default: false },
+  isRead: { type: Boolean, default: false },
   groupColor: { type: String, default: '#3b82f6' }
 })
 
@@ -90,6 +94,12 @@ const roleColor = (r) => ({
 .page-card.expanded {
   box-shadow: var(--shadow-md);
   border-color: var(--border-color-hover);
+}
+.page-card.read {
+  opacity: 0.75;
+}
+.page-card.read.expanded {
+  opacity: 1;
 }
 
 .card-header {
@@ -127,11 +137,31 @@ const roleColor = (r) => ({
   flex-shrink: 0;
 }
 .card-info { min-width: 0; }
+.card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
 .card-title {
-  display: block;
   font-size: 0.96rem;
   color: var(--text-primary);
-  margin-bottom: 4px;
+}
+.card-title.title-read {
+  color: var(--text-muted);
+}
+.read-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(16,185,129,0.12);
+  color: #10b981;
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 .card-desc {
   display: block;
