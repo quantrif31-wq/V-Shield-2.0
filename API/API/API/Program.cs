@@ -123,6 +123,18 @@ namespace API
             builder.Services.Configure<API.Services.AI.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
             builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();
             builder.Services.AddSingleton<ISecurityConfigurationHealthService, SecurityConfigurationHealthService>();
+            builder.Services.AddSingleton<ISecretService, EnvironmentSecretService>();
+            builder.Services.AddSingleton<IDistributedRateCounter>(sp =>
+            {
+                var config = sp.GetRequiredService<IConfiguration>();
+                var backend = config.GetValue<string>("RateLimiting:Backend") ?? "Memory";
+                if (string.Equals(backend, "SqlServer", StringComparison.OrdinalIgnoreCase))
+                {
+                    var logger = sp.GetRequiredService<ILogger<SqlServerRateCounter>>();
+                    return new SqlServerRateCounter(config, logger);
+                }
+                return new MemoryRateCounter();
+            });
             builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
@@ -613,6 +625,16 @@ namespace API
                     headers.TryAdd("X-Frame-Options", "DENY");
                     headers.TryAdd("Referrer-Policy", "no-referrer");
                     headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+                    headers.TryAdd("Content-Security-Policy",
+                        "default-src 'self'; " +
+                        "script-src 'self'; " +
+                        "style-src 'self' 'unsafe-inline'; " +
+                        "img-src 'self' data: blob:; " +
+                        "connect-src 'self'; " +
+                        "font-src 'self'; " +
+                        "frame-ancestors 'none'; " +
+                        "base-uri 'self'; " +
+                        "form-action 'self'");
                     return Task.CompletedTask;
                 });
 

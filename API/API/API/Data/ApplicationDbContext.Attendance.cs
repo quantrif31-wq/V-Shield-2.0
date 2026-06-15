@@ -249,5 +249,15 @@ public partial class ApplicationDbContext
         ConfigureImportExport(modelBuilder);
         ConfigureUeba(modelBuilder);
         ConfigureAiCore(modelBuilder);
+        ConfigureRateLimiting(modelBuilder);
+    }
+
+    private static void ConfigureRateLimiting(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RateLimitCounter>(entity =>
+        {
+            entity.HasIndex(e => new { e.CounterKey, e.WindowStart }).HasDatabaseName("IX_RateLimitCounters_Key_Window");
+            entity.HasIndex(e => e.CreatedAtUtc).HasDatabaseName("IX_RateLimitCounters_CreatedAt");
+        });
     }
 }

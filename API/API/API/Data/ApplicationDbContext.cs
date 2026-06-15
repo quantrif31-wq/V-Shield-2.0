@@ -63,6 +63,7 @@ public partial class ApplicationDbContext : DbContext
     public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
     public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
     public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
+    public DbSet<RateLimitCounter> RateLimitCounters { get; set; }
 
     public override int SaveChanges()
     {
