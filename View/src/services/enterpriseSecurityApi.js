@@ -160,4 +160,29 @@ export const enterpriseApi = {
     // Adjudication (plate review)
     getAdjudications(params) { return http.get('/enterprise/visitor-vehicle/adjudications', { params }) },
     reviewAdjudication(adjudicationId, payload) { return http.patch(`/enterprise/visitor-vehicle/adjudications/${adjudicationId}/review`, payload) },
+    // Device Topology
+    getTopology() { return http.get('/enterprise/devices/topology') },
+    getDevice(deviceId) { return http.get(`/enterprise/devices/${deviceId}`) },
+    getDeviceReaders(deviceId) { return http.get(`/enterprise/devices/${deviceId}/readers`) },
+    getDeviceRelays(deviceId) { return http.get(`/enterprise/devices/${deviceId}/relays`) },
+    getDeviceSensors(deviceId) { return http.get(`/enterprise/devices/${deviceId}/sensors`) },
+    getDeviceHealthHistory(deviceId, params) { return http.get(`/enterprise/devices/${deviceId}/health`, { params }) },
+    getDeviceConfigurations(deviceId) { return http.get(`/enterprise/devices/${deviceId}/configuration-versions`) },
+    // Provisioning
+    getProvisioningRequests(params) { return http.get('/enterprise/devices/provisioning-requests', { params }) },
+    createProvisioningRequest(payload) { return http.post('/enterprise/devices/provisioning-requests', payload) },
+    approveProvisioningRequest(requestId, payload) { return http.patch(`/enterprise/devices/provisioning-requests/${requestId}/approve`, payload) },
+    // Offline Packages
+    getOfflinePolicyPackages(params) { return http.get('/enterprise/devices/offline-policy-packages', { params }) },
+    createOfflinePolicyPackage(payload) { return http.post('/enterprise/devices/offline-policy-packages', payload) },
+    // Device Adapters
+    getAdapters() { return http.get('/enterprise/devices/connectors/adapters') },
+    getConnectorStatus() { return http.get('/enterprise/devices/connectors/status') },
+    // Simulator
+    simulateOfflineScan(payload) { return http.post('/enterprise/devices/simulator/offline-scan', payload) },
+    createDevice(payload) { return http.post('/enterprise/devices', payload) },
+    registerController(deviceId, payload) { return http.post(`/enterprise/devices/${deviceId}/controllers`, payload) },
+    recordHealth(deviceId, payload) { return http.post(`/enterprise/devices/${deviceId}/health`, payload) },
+    getHealthInsights() { return http.get('/enterprise/devices/health-insights') },
+    diagnoseDevice(deviceId) { return http.post(`/enterprise/devices/${deviceId}/ai-diagnose`) },
 }

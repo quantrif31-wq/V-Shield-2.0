@@ -53,6 +53,11 @@ const ContractorManagement = () => import('../pages/ContractorManagement.vue')
 const LaneDashboard = () => import('../pages/LaneDashboard.vue')
 const PlateReviewQueue = () => import('../pages/PlateReviewQueue.vue')
 const BarrierPanel = () => import('../pages/BarrierPanel.vue')
+const DeviceTopology = () => import('../pages/DeviceTopology.vue')
+const ProvisioningWizard = () => import('../pages/ProvisioningWizard.vue')
+const OfflinePackages = () => import('../pages/OfflinePackages.vue')
+const DeviceHealth = () => import('../pages/DeviceHealth.vue')
+const SimulatorPanel = () => import('../pages/SimulatorPanel.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -108,6 +113,11 @@ const routes = [
             { path: 'lane-dashboard', name: 'LaneDashboard', component: LaneDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'plate-review', name: 'PlateReviewQueue', component: PlateReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'barrier-panel', name: 'BarrierPanel', component: BarrierPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'device-topology', name: 'DeviceTopology', component: DeviceTopology, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'provisioning-wizard', name: 'ProvisioningWizard', component: ProvisioningWizard, meta: { allowedRoles: ['Admin'] } },
+            { path: 'offline-packages', name: 'OfflinePackages', component: OfflinePackages, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'device-health', name: 'DeviceHealth', component: DeviceHealth, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'simulator-panel', name: 'SimulatorPanel', component: SimulatorPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },

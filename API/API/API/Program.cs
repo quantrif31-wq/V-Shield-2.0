@@ -8,6 +8,7 @@ using API.Middleware;
 using API.Models;
 using API.Services;
 using API.Services.AI;
+using API.Services.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -113,6 +114,7 @@ namespace API
             builder.Services.AddScoped<IUebaRiskGraphService, UebaRiskGraphService>();
             builder.Services.AddScoped<IEvidenceAiAssistantService, EvidenceAiAssistantService>();
             builder.Services.AddScoped<IDeviceHealthIntelligenceService, DeviceHealthIntelligenceService>();
+            builder.Services.AddScoped<IDeviceSimulator, DeviceSimulatorService>();
             builder.Services.AddScoped<IVisitorVehicleRiskScreeningService, VisitorVehicleRiskScreeningService>();
             builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
             builder.Services.AddScoped<IPolicySimulationService, PolicySimulationService>();

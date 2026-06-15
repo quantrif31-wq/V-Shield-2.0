@@ -434,6 +434,150 @@ public class EnterpriseDeviceController : ControllerBase
         return false;
     }
 
+    [HttpGet("topology")]
+    public async Task<IActionResult> GetTopology()
+    {
+        var devices = await _context.SecurityDevices
+            .Select(d => new
+            {
+                d.SecurityDeviceId,
+                d.Name,
+                d.DeviceType,
+                d.Status,
+                d.SiteId,
+                d.Vendor,
+                d.Model,
+                d.FirmwareVersion,
+                d.ConfigurationVersion,
+                d.LastSeenAtUtc,
+                Controller = _context.AccessControllerDevices
+                    .Where(c => c.SecurityDeviceId == d.SecurityDeviceId)
+                    .Select(c => new { c.AccessControllerDeviceId, c.Protocol, c.SupportsOfflineDecision, c.MaxCredentials })
+                    .FirstOrDefault(),
+                ReaderCount = _context.ReaderDevices.Count(r => r.SecurityDeviceId == d.SecurityDeviceId),
+                RelayCount = _context.DeviceRelays.Count(r => r.SecurityDeviceId == d.SecurityDeviceId),
+                SensorCount = _context.DeviceSensors.Count(s => s.SecurityDeviceId == d.SecurityDeviceId),
+                HealthStatus = _context.DeviceHealthSnapshots
+                    .Where(h => h.SecurityDeviceId == d.SecurityDeviceId)
+                    .OrderByDescending(h => h.DeviceHealthSnapshotId)
+                    .Select(h => new { h.Status, h.Message, h.CapturedAtUtc })
+                    .FirstOrDefault()
+            })
+            .OrderBy(d => d.SiteId)
+            .ThenBy(d => d.Name)
+            .ToListAsync();
+        return Ok(devices);
+    }
+
+    [HttpGet("{deviceId:int}")]
+    public async Task<IActionResult> GetDevice(int deviceId)
+    {
+        var device = await _context.SecurityDevices.FindAsync(deviceId);
+        if (device == null)
+            return NotFound(new { message = "Device not found." });
+        return Ok(device);
+    }
+
+    [HttpGet("{deviceId:int}/readers")]
+    public async Task<IActionResult> GetDeviceReaders(int deviceId)
+    {
+        if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
+            return NotFound(new { message = "Device not found." });
+        var readers = await _context.ReaderDevices
+            .Where(r => r.SecurityDeviceId == deviceId)
+            .ToListAsync();
+        return Ok(readers);
+    }
+
+    [HttpGet("{deviceId:int}/relays")]
+    public async Task<IActionResult> GetDeviceRelays(int deviceId)
+    {
+        if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
+            return NotFound(new { message = "Device not found." });
+        var relays = await _context.DeviceRelays
+            .Where(r => r.SecurityDeviceId == deviceId)
+            .ToListAsync();
+        return Ok(relays);
+    }
+
+    [HttpGet("{deviceId:int}/sensors")]
+    public async Task<IActionResult> GetDeviceSensors(int deviceId)
+    {
+        if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
+            return NotFound(new { message = "Device not found." });
+        var sensors = await _context.DeviceSensors
+            .Where(s => s.SecurityDeviceId == deviceId)
+            .ToListAsync();
+        return Ok(sensors);
+    }
+
+    [HttpGet("{deviceId:int}/health")]
+    public async Task<IActionResult> GetDeviceHealthHistory(int deviceId, [FromQuery] int limit = 50)
+    {
+        if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
+            return NotFound(new { message = "Device not found." });
+        var snapshots = await _context.DeviceHealthSnapshots
+            .Where(h => h.SecurityDeviceId == deviceId)
+            .OrderByDescending(h => h.DeviceHealthSnapshotId)
+            .Take(limit)
+            .ToListAsync();
+        return Ok(snapshots);
+    }
+
+    [HttpGet("{deviceId:int}/configuration-versions")]
+    public async Task<IActionResult> GetDeviceConfigurations(int deviceId)
+    {
+        if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
+            return NotFound(new { message = "Device not found." });
+        var versions = await _context.DeviceConfigurationVersions
+            .Where(v => v.SecurityDeviceId == deviceId)
+            .OrderByDescending(v => v.DeviceConfigurationVersionId)
+            .ToListAsync();
+        return Ok(versions);
+    }
+
+    [HttpGet("provisioning-requests")]
+    public async Task<IActionResult> GetProvisioningRequests([FromQuery] string? status)
+    {
+        var query = _context.DeviceProvisioningRequests.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(r => r.Status == status.Trim());
+        var requests = await query
+            .OrderByDescending(r => r.DeviceProvisioningRequestId)
+            .ToListAsync();
+        return Ok(requests);
+    }
+
+    [HttpGet("offline-policy-packages")]
+    public async Task<IActionResult> GetOfflinePolicyPackages([FromQuery] string? status)
+    {
+        var query = _context.OfflinePolicyPackages.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(p => p.Status == status.Trim());
+        var packages = await query
+            .OrderByDescending(p => p.OfflinePolicyPackageId)
+            .ToListAsync();
+        return Ok(packages);
+    }
+
+    [HttpGet("connectors/adapters")]
+    public IActionResult GetAdapters()
+    {
+        return Ok(new
+        {
+            Adapters = new[]
+            {
+                new { Protocol = "OSDP", Type = "AccessController", Status = "Simulated" },
+                new { Protocol = "ONVIF Profile A/C", Type = "CameraAccess", Status = "Simulated" },
+                new { Protocol = "OSDP-Sim", Type = "Reader", Status = "Simulated" },
+                new { Protocol = "Relay", Type = "GPIO", Status = "Simulated" },
+                new { Protocol = "Barrier", Type = "Gate", Status = "Simulated" }
+            },
+            SimulatorType = "V-Shield EnterpriseEdge-Sim",
+            Note = "Adapters are abstract; concrete implementations connect to physical hardware."
+        });
+    }
+
     private int? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
