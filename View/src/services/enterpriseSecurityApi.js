@@ -210,4 +210,42 @@ export const enterpriseApi = {
     getMapPlacements(mapId) { return http.get(`/enterprise/situational-awareness/maps/${mapId}/placements`) },
     createSiteMap(payload) { return http.post('/enterprise/situational-awareness/maps', payload) },
     addMapPlacement(mapId, payload) { return http.post(`/enterprise/situational-awareness/maps/${mapId}/placements`, payload) },
+    // Evidence
+    getEvidenceItems(params) { return http.get('/enterprise/evidence/items', { params }) },
+    createEvidenceItem(payload) { return http.post('/enterprise/evidence/items', payload) },
+    getEvidenceItem(itemId) { return http.get(`/enterprise/evidence/items/${itemId}`) },
+    verifyEvidenceHash(itemId, payload) { return http.post(`/enterprise/evidence/items/${itemId}/verify-hash`, payload) },
+    getChainOfCustody(itemId) { return http.get(`/enterprise/evidence/items/${itemId}/custody`) },
+    getEvidenceAccessLogs(itemId) { return http.get(`/enterprise/evidence/items/${itemId}/access-logs`) },
+    // Collections
+    getEvidenceCollections(params) { return http.get('/enterprise/evidence/collections', { params }) },
+    getEvidenceCollectionDetail(collectionId) { return http.get(`/enterprise/evidence/collections/${collectionId}`) },
+    createEvidenceCollection(payload) { return http.post('/enterprise/evidence/collections', payload) },
+    addEvidenceCollectionItem(collectionId, payload) { return http.post(`/enterprise/evidence/collections/${collectionId}/items`, payload) },
+    closeEvidenceCollection(collectionId, payload) { return http.patch(`/enterprise/evidence/collections/${collectionId}/close`, payload) },
+    addCustodyEntry(itemId, payload) { return http.post(`/enterprise/evidence/items/${itemId}/custody`, payload) },
+    // Export Requests
+    getExportRequests(params) { return http.get('/enterprise/evidence/export-requests', { params }) },
+    createExportRequest(payload) { return http.post('/enterprise/evidence/export-requests', payload) },
+    approveExportRequest(exportId, payload) { return http.patch(`/enterprise/evidence/export-requests/${exportId}/approve`, payload) },
+    // Redaction
+    getRedactionRequests(params) { return http.get('/enterprise/evidence/redaction-requests', { params }) },
+    createRedactionRequest(payload) { return http.post('/enterprise/evidence/redaction-requests', payload) },
+    approveRedaction(redactId, payload) { return http.patch(`/enterprise/evidence/redaction-requests/${redactId}/approve`, payload) },
+    performRedaction(redactId, payload) { return http.patch(`/enterprise/evidence/redaction-requests/${redactId}/perform`, payload) },
+    verifyRedaction(redactId, payload) { return http.patch(`/enterprise/evidence/redaction-requests/${redactId}/verify`, payload) },
+    // Legal Holds
+    getLegalHolds(params) { return http.get('/enterprise/evidence/legal-holds', { params }) },
+    createLegalHold(payload) { return http.post('/enterprise/evidence/legal-holds', payload) },
+    releaseLegalHold(legalHoldId, payload) { return http.patch(`/enterprise/evidence/legal-holds/${legalHoldId}/release`, payload) },
+    // Retention
+    getRetentionPolicies(params) { return http.get('/enterprise/evidence/retention-policies', { params }) },
+    getRetentionPolicy(policyId) { return http.get(`/enterprise/evidence/retention-policies/${policyId}`) },
+    createRetentionPolicy(payload) { return http.post('/enterprise/evidence/retention-policies', payload) },
+    updateRetentionPolicy(policyId, payload) { return http.patch(`/enterprise/evidence/retention-policies/${policyId}`, payload) },
+    dryRunRetention(payload) { return http.post('/enterprise/evidence/retention/dry-run', payload) },
+    purgeEvidence(payload) { return http.post('/enterprise/evidence/retention/purge', payload) },
+    // Compliance Reports
+    getComplianceReports(params) { return http.get('/enterprise/evidence/compliance-reports', { params }) },
+    runComplianceReport(payload) { return http.post('/enterprise/evidence/compliance-reports', payload) },
 }

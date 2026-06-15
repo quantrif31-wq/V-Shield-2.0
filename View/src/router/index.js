@@ -62,6 +62,11 @@ const EventTimeline = () => import('../pages/EventTimeline.vue')
 const VideoSearch = () => import('../pages/VideoSearch.vue')
 const AiReviewQueue = () => import('../pages/AiReviewQueue.vue')
 const CorrelationView = () => import('../pages/CorrelationView.vue')
+const EvidenceRepository = () => import('../pages/EvidenceRepository.vue')
+const ExportApprovalQueue = () => import('../pages/ExportApprovalQueue.vue')
+const RedactionQueue = () => import('../pages/RedactionQueue.vue')
+const RetentionDashboard = () => import('../pages/RetentionDashboard.vue')
+const ComplianceReports = () => import('../pages/ComplianceReports.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -126,6 +131,11 @@ const routes = [
             { path: 'video-search', name: 'VideoSearch', component: VideoSearch, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'ai-review-queue', name: 'AiReviewQueue', component: AiReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'correlation-view', name: 'CorrelationView', component: CorrelationView, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'evidence-repository', name: 'EvidenceRepository', component: EvidenceRepository, meta: { allowedRoles: ['Admin'] } },
+            { path: 'export-approval-queue', name: 'ExportApprovalQueue', component: ExportApprovalQueue, meta: { allowedRoles: ['Admin'] } },
+            { path: 'redaction-queue', name: 'RedactionQueue', component: RedactionQueue, meta: { allowedRoles: ['Admin'] } },
+            { path: 'retention-dashboard', name: 'RetentionDashboard', component: RetentionDashboard, meta: { allowedRoles: ['Admin'] } },
+            { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },

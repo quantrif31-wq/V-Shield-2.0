@@ -602,6 +602,46 @@ const navGroups = ref([
         ],
     },
     {
+        label: 'Evidence & Compliance',
+        items: [
+            {
+                path: '/evidence-repository',
+                label: 'Evidence Repository',
+                hint: 'Quản lý vật chứng & custody',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/export-approval-queue',
+                label: 'Export Approval',
+                hint: 'Phê duyệt xuất evidence',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/redaction-queue',
+                label: 'Redaction Queue',
+                hint: 'Xóa thông tin nhạy cảm',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 5H9l-7 7 7 7h11a2 2 0 002-2V7a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/retention-dashboard',
+                label: 'Retention & Legal Hold',
+                hint: 'Chính sách lưu giữ & niêm phong',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/compliance-reports',
+                label: 'Compliance Reports',
+                hint: 'Báo cáo tuân thủ',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>',
+                roles: ['Admin'],
+            },
+        ],
+    },
+    {
         label: 'Quản trị Nội bộ',
         items: [
             {
