@@ -59,6 +59,7 @@ public class EnterpriseOperationsWorker : BackgroundService
         await DetectVisitorOverstayAsync(db, now, cancellationToken);
         await MarkStaleDevicesAsync(db, now, cancellationToken);
         await AutoOffboardStaleAccountsAsync(db, _logger, now, cancellationToken);
+        await ExpireStaleInterventionRequestsAsync(db, now, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -327,6 +328,22 @@ public class EnterpriseOperationsWorker : BackgroundService
         return subscription.EventTypes
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Any(item => string.Equals(item, eventType, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task ExpireStaleInterventionRequestsAsync(ApplicationDbContext db, DateTime now, CancellationToken cancellationToken)
+    {
+        var expired = await db.OperationalInterventionRequests
+            .Where(r =>
+                r.Status == "Pending" &&
+                r.ExpiresAtUtc != null &&
+                r.ExpiresAtUtc <= now)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        foreach (var request in expired)
+        {
+            request.Status = "Expired";
+        }
     }
 
     private static string ComputeSignature(string secretReference, string payload)

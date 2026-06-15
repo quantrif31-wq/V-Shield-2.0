@@ -2785,20 +2785,46 @@ lane.qr.scanRequested = true
     },
 
     async executeEscalate(lane, reason) {
-      // Create an escalation request - log as event for now
+      // Create an intervention request via Phase G API
       try {
-        await enterpriseApi.recordLaneEvent({
-          laneId: lane.id,
-          eventType: 'ESCALATION_REQUEST',
-          direction: 'IN',
-          plateText: lane.plate.confirmedPlate || '',
-          note: `Yêu cầu can thiệp: ${reason || 'Không có lý do'}`,
+        const isGuest = !!lane.qr.guestId
+        const res = await enterpriseApi.createInterventionRequest({
+          interventionType: 'other',
+          reason: reason || 'Yêu cầu can thiệp từ lane',
+          laneId: String(lane.id || ''),
+          laneName: String(lane.name || ''),
+          subjectName: String(lane.qr.employeeName || 'Khách'),
+          subjectId: String(isGuest ? lane.qr.guestId : lane.qr.employeeId || ''),
+          subjectType: isGuest ? 'GUEST' : 'EMPLOYEE',
+          plateNumber: String(lane.plate.confirmedPlate || lane.plate.lastRawPlate || ''),
+          qrPayload: String(lane.qr.qrPayload || lane.qr.activeSessionPayload || ''),
+          priority: 'medium',
+          expiresInMinutes: 240,
         })
-      } catch (e) {
-        console.warn('recordLaneEvent failed:', e)
-      }
 
-      this.showAuditToast('info', 'Đã gửi yêu cầu', `Yêu cầu can thiệp đã được gửi đến quản lý. Lý do: ${reason}`, `ESC-${Date.now()}`)
+        // Also record lane event for audit trail
+        try {
+          await enterpriseApi.recordLaneEvent({
+            laneId: lane.id,
+            eventType: 'ESCALATION_REQUEST',
+            direction: 'IN',
+            plateText: lane.plate.confirmedPlate || '',
+            note: `Yêu cầu can thiệp #${res.data?.operationalInterventionRequestId}: ${reason || 'Không có lý do'}`,
+          })
+        } catch (e) {
+          console.warn('recordLaneEvent failed:', e)
+        }
+
+        const requestId = res.data?.operationalInterventionRequestId || ''
+        this.showAuditToast('info', 'Đã gửi yêu cầu can thiệp',
+          `Yêu cầu #${requestId} đã được gửi đến Admin. Lý do: ${reason}`,
+          `IR-${requestId || Date.now()}`)
+      } catch (e) {
+        console.error('createInterventionRequest failed:', e)
+        this.showAuditToast('danger', 'Gửi yêu cầu thất bại',
+          e?.response?.data?.message || e?.message || 'Không thể gửi yêu cầu can thiệp.',
+          'ERR-' + Date.now())
+      }
     },
 
     async executeEmergency(lane, reason) {
