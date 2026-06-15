@@ -42,6 +42,7 @@ const ImportExportHistory = () => import('../pages/ImportExportHistory.vue')
 const CampusMapPage = () => import('../pages/CampusMapPage.vue')
 const UEBA = () => import('../pages/UEBA.vue')
 const SocAlarmConsole = () => import('../pages/SocAlarmConsole.vue')
+const IdentityManagement = () => import('../pages/IdentityManagement.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -82,6 +83,7 @@ const routes = [
             { path: 'import-export-history', name: 'ImportExportHistory', component: ImportExportHistory, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
             { path: 'enterprise-security', name: 'EnterpriseSecurityOperations', component: EnterpriseSecurityOperations, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'soc-console', name: 'SocAlarmConsole', component: SocAlarmConsole, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'identity-management', name: 'IdentityManagement', component: IdentityManagement, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'exceptions', name: 'Exceptions', component: Exceptions, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'pre-registrations', name: 'PreRegistration', component: PreRegistration, meta: { allowedRoles: ['Admin'] } },
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },

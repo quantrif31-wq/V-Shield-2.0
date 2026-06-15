@@ -208,6 +208,30 @@
                     </button>
                 </form>
 
+                <div v-if="ssoProviders.length" class="sso-divider">
+                    <span class="sso-line"></span>
+                    <span class="sso-or">Hoặc đăng nhập với SSO</span>
+                    <span class="sso-line"></span>
+                </div>
+
+                <div v-if="ssoProviders.length" class="sso-buttons">
+                    <button
+                        v-for="p in ssoProviders"
+                        :key="p.externalIdentityProviderId"
+                        type="button"
+                        class="btn-sso"
+                        :disabled="loading"
+                        @click="handleSSO(p)"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="sso-icon">
+                            <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <path d="M20 8v6"/><path d="M23 11h-6"/>
+                        </svg>
+                        <span>{{ p.name }}</span>
+                    </button>
+                </div>
+
                 <div class="login-footer">
                     <div class="footer-item">
                         <strong>Kênh truy cập</strong>
@@ -224,10 +248,11 @@
 </template>
 
 <script setup>
-import { onUnmounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import QRCode from 'qrcode'
 import { useRouter } from 'vue-router'
 import { login } from '../stores/auth'
+import { identityApi } from '../services/identityApi'
 
 const router = useRouter()
 
@@ -242,6 +267,29 @@ const mfaSetupSecret = ref('')
 const mfaSetupUri = ref('')
 const mfaQrDataUrl = ref('')
 let redirectTimer = null
+const ssoProviders = ref([])
+
+onMounted(async () => {
+    try {
+        const res = await identityApi.getProviders()
+        ssoProviders.value = (res.data || []).filter(p => p.isEnabled && p.protocol === 'OIDC')
+    } catch {}
+})
+
+async function handleSSO(provider) {
+    if (loading.value) return
+    const redirectUri = window.location.origin + '/login'
+    try {
+        const res = await identityApi.oidcChallenge(
+            provider.externalIdentityProviderId,
+            redirectUri,
+            null
+        )
+        window.location.href = res.data.challengeUrl
+    } catch (err) {
+        setFeedback(err.response?.data?.message || 'SSO initiation failed')
+    }
+}
 
 function setFeedback(message, type = 'danger') {
     feedbackMessage.value = message
@@ -929,6 +977,42 @@ onUnmounted(() => {
     font-size: 0.8rem;
     line-height: 1.5;
 }
+
+.sso-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 6px 0;
+}
+.sso-line { flex: 1; height: 1px; background: var(--border-soft); }
+.sso-or { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.sso-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.btn-sso {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 46px;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    cursor: pointer;
+}
+.btn-sso:hover:not(:disabled) {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(84, 196, 211, 0.15);
+}
+.btn-sso:disabled { opacity: 0.6; cursor: not-allowed; }
+.sso-icon { width: 18px; height: 18px; color: var(--text-muted); }
 
 @media (max-width: 1080px) {
     .login-shell {

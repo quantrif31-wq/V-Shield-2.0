@@ -133,6 +133,9 @@ public class ExternalIdentityProvider
     [MaxLength(40)] public string Protocol { get; set; } = "OIDC";
     [MaxLength(300)] public string Authority { get; set; } = string.Empty;
     [MaxLength(160)] public string? ClientId { get; set; }
+    [MaxLength(400)] public string? ClientSecret { get; set; }
+    [MaxLength(300)] public string? RedirectUrl { get; set; }
+    [MaxLength(200)] public string? Scopes { get; set; }
     public bool IsEnabled { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }
