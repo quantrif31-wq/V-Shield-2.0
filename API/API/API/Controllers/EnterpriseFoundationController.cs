@@ -110,6 +110,75 @@ public class EnterpriseFoundationController : ControllerBase
         }));
     }
 
+    [HttpGet("hierarchy/search")]
+    public async Task<IActionResult> SearchHierarchy([FromQuery] string? type, [FromQuery] string? q)
+    {
+        if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(q))
+            return Ok(Array.Empty<object>());
+
+        var term = q.Trim().ToUpperInvariant();
+        var results = new List<object>();
+
+        switch (type.ToLowerInvariant())
+        {
+            case "company":
+                results.AddRange(await _context.Companies
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { x.CompanyId, x.Name, x.Code, EntityType = "Company", ParentId = (int?)null, ParentName = (string?)null })
+                    .ToListAsync());
+                break;
+            case "site":
+                results.AddRange(await _context.Sites
+                    .Include(x => x.Company)
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { SiteId = x.SiteId, x.Name, x.Code, EntityType = "Site", ParentId = (int?)x.CompanyId, ParentName = x.Company!.Name })
+                    .ToListAsync());
+                break;
+            case "building":
+                results.AddRange(await _context.Buildings
+                    .Include(x => x.Site)
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { BuildingId = x.BuildingId, x.Name, x.Code, EntityType = "Building", ParentId = (int?)x.SiteId, ParentName = x.Site!.Name })
+                    .ToListAsync());
+                break;
+            case "zone":
+                results.AddRange(await _context.SecurityZones
+                    .Include(x => x.Site)
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { x.SecurityZoneId, x.Name, x.Code, EntityType = "Zone", ParentId = (int?)x.SiteId, ParentName = x.Site!.Name })
+                    .ToListAsync());
+                break;
+            default:
+                results.AddRange(await _context.AccessPoints
+                    .Include(x => x.Site)
+                    .Where(x => x.Name.ToUpper().Contains(term) || (type == "accesspoint" || type == "all"))
+                    .Take(50)
+                    .Select(x => new { x.AccessPointId, x.Name, Type = x.Type, EntityType = "AccessPoint", ParentId = (int?)x.SiteId, ParentName = x.Site!.Name })
+                    .ToListAsync());
+                break;
+        }
+
+        return Ok(results.Take(50));
+    }
+
+    [HttpGet("backfill/status")]
+    public async Task<IActionResult> GetBackfillStatus()
+    {
+        var assetMap = await _backfillService.GetAssetMapAsync();
+        return Ok(new
+        {
+            GatesMapped = assetMap.Gates.Count(g => g.SiteId.HasValue),
+            GatesUnmapped = assetMap.Gates.Count(g => !g.SiteId.HasValue),
+            CamerasMapped = assetMap.Cameras.Count(c => c.SiteId.HasValue),
+            CamerasUnmapped = assetMap.Cameras.Count(c => !c.SiteId.HasValue),
+            VehiclesMapped = assetMap.Vehicles.Count(v => v.SiteId.HasValue),
+            VehiclesUnmapped = assetMap.Vehicles.Count(v => !v.SiteId.HasValue),
+            TotalGates = assetMap.Gates.Count,
+            TotalCameras = assetMap.Cameras.Count,
+            TotalVehicles = assetMap.Vehicles.Count
+        });
+    }
+
     [HttpGet("asset-map")]
     public async Task<IActionResult> GetAssetMap(CancellationToken cancellationToken)
     {

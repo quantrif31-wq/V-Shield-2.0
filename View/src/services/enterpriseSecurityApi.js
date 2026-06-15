@@ -73,6 +73,23 @@ export const enterpriseApi = {
     injectSimulatorFault(payload) {
         return http.post('/enterprise/devices/simulator/fault', payload)
     },
+    searchHierarchy(type, q) {
+        return http.get('/enterprise/foundation/hierarchy/search', { params: { type, q } })
+    },
+    getBackfillStatus() {
+        return http.get('/enterprise/foundation/backfill/status')
+    },
+    getHierarchy() {
+        return http.get('/enterprise/foundation/hierarchy')
+    },
+    createCompany(payload) { return http.post('/enterprise/foundation/companies', payload) },
+    createSite(payload) { return http.post('/enterprise/foundation/sites', payload) },
+    createBuilding(payload) { return http.post('/enterprise/foundation/buildings', payload) },
+    createFloor(payload) { return http.post('/enterprise/foundation/floors', payload) },
+    createZone(payload) { return http.post('/enterprise/foundation/zones', payload) },
+    createAccessPoint(payload) { return http.post('/enterprise/foundation/access-points', payload) },
+    createDoor(payload) { return http.post('/enterprise/foundation/doors', payload) },
+    createLane(payload) { return http.post('/enterprise/foundation/lanes', payload) },
     createAlarm(payload) {
         return http.post('/enterprise/soc/alarms', payload)
     },
