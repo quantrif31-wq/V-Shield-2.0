@@ -152,6 +152,21 @@ public class OccupancySnapshot
     public DateTime CapturedAtUtc { get; set; } = DateTime.UtcNow;
 }
 
+public class DuressEvent
+{
+    public long DuressEventId { get; set; }
+    public int? UserId { get; set; }
+    public int? EmployeeId { get; set; }
+    public int? AccessPointId { get; set; }
+    public int? SiteId { get; set; }
+    [MaxLength(40)] public string CredentialType { get; set; } = "Unknown";
+    [MaxLength(200)] public string? Description { get; set; }
+    public bool IsAcknowledged { get; set; }
+    public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? AcknowledgedAtUtc { get; set; }
+    public int? AcknowledgedByUserId { get; set; }
+}
+
 public class EmergencyState
 {
     public int EmergencyStateId { get; set; }

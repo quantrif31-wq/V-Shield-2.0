@@ -116,6 +116,16 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return Ok(group);
     }
 
+    [HttpGet("rules")]
+    public async Task<IActionResult> GetRules()
+    {
+        var rules = await _context.AccessRules
+            .OrderByDescending(r => r.AccessRuleId)
+            .Take(200)
+            .ToListAsync();
+        return Ok(rules);
+    }
+
     [HttpPost("rules")]
     public async Task<IActionResult> CreateRule([FromBody] AccessRuleRequest request)
     {
@@ -289,6 +299,16 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return Ok(grant);
     }
 
+    [HttpGet("emergency-states")]
+    public async Task<IActionResult> GetEmergencyStates([FromQuery] bool? active)
+    {
+        var query = _context.EmergencyStates.AsQueryable();
+        if (active == true)
+            query = query.Where(e => e.IsActive);
+        var states = await query.OrderByDescending(e => e.StartedAtUtc).Take(50).ToListAsync();
+        return Ok(states);
+    }
+
     [HttpPost("emergency-states")]
     [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
     public async Task<IActionResult> CreateEmergencyState([FromBody] EmergencyStateRequest request)
@@ -423,6 +443,57 @@ public class EnterpriseAccessPolicyController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok(result);
+    }
+
+    [HttpGet("duress-events")]
+    public async Task<IActionResult> GetDuressEvents([FromQuery] bool? unacknowledged)
+    {
+        var query = _context.DuressEvents.AsQueryable();
+        if (unacknowledged == true)
+            query = query.Where(e => !e.IsAcknowledged);
+        var events = await query.OrderByDescending(e => e.OccurredAtUtc).Take(50).ToListAsync();
+        return Ok(events);
+    }
+
+    [HttpPost("duress-events")]
+    public async Task<IActionResult> RecordDuressEvent([FromBody] DuressEventRequest request)
+    {
+        var duress = new DuressEvent
+        {
+            UserId = request.UserId,
+            EmployeeId = request.EmployeeId,
+            AccessPointId = request.AccessPointId,
+            SiteId = request.SiteId,
+            CredentialType = request.CredentialType ?? "Unknown",
+            Description = request.Description?.Trim(),
+            OccurredAtUtc = DateTime.UtcNow
+        };
+        _context.DuressEvents.Add(duress);
+
+        _context.Alarms.Add(new Alarm
+        {
+            AlarmType = "Duress",
+            Severity = "Critical",
+            State = "New",
+            Summary = $"Duress credential used at access point {request.AccessPointId}. User: {request.UserId}",
+            SiteId = request.SiteId
+        });
+
+        await _context.SaveChangesAsync();
+        return Ok(duress);
+    }
+
+    [HttpPost("duress-events/{eventId:long}/acknowledge")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
+    public async Task<IActionResult> AcknowledgeDuressEvent(long eventId)
+    {
+        var duress = await _context.DuressEvents.FindAsync(eventId);
+        if (duress == null) return NotFound();
+        duress.IsAcknowledged = true;
+        duress.AcknowledgedAtUtc = DateTime.UtcNow;
+        duress.AcknowledgedByUserId = GetCurrentUserId();
+        await _context.SaveChangesAsync();
+        return Ok(duress);
     }
 
     private async Task<AccessDecision> EvaluateInternalAsync(AccessEvaluationRequest request, DateTime nowUtc)
@@ -619,4 +690,5 @@ public class EnterpriseAccessPolicyController : ControllerBase
         string? LegacyReason);
     public sealed record PolicyVersionRequest(string Name, string? ChangeSummary);
     public sealed record PolicyApprovalRequest(string? Note);
+    public sealed record DuressEventRequest(int? UserId, int? EmployeeId, int? AccessPointId, int? SiteId, string? CredentialType, string? Description);
 }

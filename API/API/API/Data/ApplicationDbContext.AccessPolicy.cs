@@ -16,6 +16,7 @@ public partial class ApplicationDbContext
     public DbSet<AntiPassbackState> AntiPassbackStates { get; set; }
     public DbSet<OccupancySnapshot> OccupancySnapshots { get; set; }
     public DbSet<EmergencyState> EmergencyStates { get; set; }
+    public DbSet<DuressEvent> DuressEvents { get; set; }
 
     private static void ConfigureAccessPolicyEngine(ModelBuilder modelBuilder)
     {
