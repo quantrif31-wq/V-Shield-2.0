@@ -67,6 +67,7 @@ const ExportApprovalQueue = () => import('../pages/ExportApprovalQueue.vue')
 const RedactionQueue = () => import('../pages/RedactionQueue.vue')
 const RetentionDashboard = () => import('../pages/RetentionDashboard.vue')
 const ComplianceReports = () => import('../pages/ComplianceReports.vue')
+const GuideViewer = () => import('../pages/GuideViewer.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -137,6 +138,7 @@ const routes = [
             { path: 'retention-dashboard', name: 'RetentionDashboard', component: RetentionDashboard, meta: { allowedRoles: ['Admin'] } },
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
+            { path: 'guide', name: 'GuideViewer', component: GuideViewer },
             { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'face-video-monitor', name: 'FaceVideoMonitor', component: FaceVideo, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },

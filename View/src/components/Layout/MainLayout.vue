@@ -47,6 +47,7 @@
                 </div>
             </main>
         </div>
+        <AIChatBot />
     </div>
 </template>
 
@@ -54,6 +55,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
+import AIChatBot from '../AIChatBot.vue'
 
 const isMobile = ref(false)
 const desktopCollapsed = ref(false)
