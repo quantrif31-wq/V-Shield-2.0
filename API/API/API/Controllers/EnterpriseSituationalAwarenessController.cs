@@ -227,6 +227,237 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
         return Ok(metric);
     }
 
+    [HttpGet("events")]
+    public async Task<IActionResult> GetEvents(
+        [FromQuery] int? cameraId, [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] string? eventType, [FromQuery] string? subjectType, [FromQuery] string? plate,
+        [FromQuery] decimal? minConfidence, [FromQuery] string? severity, [FromQuery] string? sourceType,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    {
+        var query = _context.SecurityEvents.AsNoTracking().AsQueryable();
+        if (cameraId.HasValue)
+            query = query.Where(e => e.SourceId == cameraId.Value.ToString() || e.AccessPointId == cameraId.Value);
+        if (from.HasValue) query = query.Where(e => e.OccurredAtUtc >= from.Value);
+        if (to.HasValue) query = query.Where(e => e.OccurredAtUtc <= to.Value);
+        if (!string.IsNullOrWhiteSpace(eventType)) query = query.Where(e => e.EventType.Contains(eventType.Trim()));
+        if (!string.IsNullOrWhiteSpace(subjectType)) query = query.Where(e => e.SubjectType == subjectType.Trim());
+        if (!string.IsNullOrWhiteSpace(plate)) query = query.Where(e => e.PlateText != null && e.PlateText.Contains(plate.Trim()));
+        if (minConfidence.HasValue) query = query.Where(e => e.Confidence >= minConfidence.Value);
+        if (!string.IsNullOrWhiteSpace(severity)) query = query.Where(e => e.Severity == severity.Trim());
+        if (!string.IsNullOrWhiteSpace(sourceType)) query = query.Where(e => e.SourceType == sourceType.Trim());
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(e => e.OccurredAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("events/{eventId:long}")]
+    public async Task<IActionResult> GetEvent(long eventId)
+    {
+        var ev = await _context.SecurityEvents.FindAsync(eventId);
+        if (ev == null) return NotFound(new { message = "Event not found." });
+        return Ok(ev);
+    }
+
+    [HttpDelete("events/{eventId:long}")]
+    public async Task<IActionResult> DeleteEvent(long eventId)
+    {
+        var ev = await _context.SecurityEvents.FindAsync(eventId);
+        if (ev == null) return NotFound(new { message = "Event not found." });
+        _context.SecurityEvents.Remove(ev);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpGet("video-bookmarks")]
+    public async Task<IActionResult> GetVideoBookmarks([FromQuery] long? securityEventId, [FromQuery] int? cameraId)
+    {
+        var query = _context.VideoBookmarks.AsNoTracking().AsQueryable();
+        if (securityEventId.HasValue) query = query.Where(b => b.SecurityEventId == securityEventId.Value);
+        if (cameraId.HasValue) query = query.Where(b => b.CameraId == cameraId.Value);
+        var bookmarks = await query.OrderByDescending(b => b.StartUtc).ToListAsync();
+        return Ok(bookmarks);
+    }
+
+    [HttpDelete("video-bookmarks/{bookmarkId:int}")]
+    public async Task<IActionResult> DeleteVideoBookmark(int bookmarkId)
+    {
+        var bm = await _context.VideoBookmarks.FindAsync(bookmarkId);
+        if (bm == null) return NotFound(new { message = "Bookmark not found." });
+        _context.VideoBookmarks.Remove(bm);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPost("clip-requests")]
+    public async Task<IActionResult> CreateClipRequest([FromBody] ClipRequestRequest request)
+    {
+        if (request.EndUtc <= request.StartUtc)
+            return BadRequest(new { message = "EndUtc must be after StartUtc." });
+
+        var clip = new ClipRequest
+        {
+            CameraId = request.CameraId,
+            SecurityEventId = request.SecurityEventId,
+            StartUtc = request.StartUtc,
+            EndUtc = request.EndUtc,
+            RequestedBy = string.IsNullOrWhiteSpace(request.RequestedBy) ? "System" : request.RequestedBy.Trim(),
+            RetentionCategory = request.RetentionCategory?.Trim(),
+            Note = request.Note?.Trim(),
+            Status = "Pending"
+        };
+        _context.ClipRequests.Add(clip);
+        await _context.SaveChangesAsync();
+        return Ok(clip);
+    }
+
+    [HttpGet("clip-requests")]
+    public async Task<IActionResult> GetClipRequests([FromQuery] string? status)
+    {
+        var query = _context.ClipRequests.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(c => c.Status == status.Trim());
+        var clips = await query.OrderByDescending(c => c.CreatedAtUtc).ToListAsync();
+        return Ok(clips);
+    }
+
+    [HttpPatch("clip-requests/{clipId:int}/approve")]
+    public async Task<IActionResult> ApproveClipRequest(int clipId, [FromBody] ClipApproveRequest request)
+    {
+        var clip = await _context.ClipRequests.FindAsync(clipId);
+        if (clip == null) return NotFound(new { message = "Clip request not found." });
+        clip.Status = "Approved";
+        clip.RetentionCategory = request.RetentionCategory?.Trim();
+        clip.ApprovedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(clip);
+    }
+
+    [HttpPatch("clip-requests/{clipId:int}/export")]
+    public async Task<IActionResult> ExportClipRequest(int clipId, [FromBody] ClipExportRequest request)
+    {
+        var clip = await _context.ClipRequests.FindAsync(clipId);
+        if (clip == null) return NotFound(new { message = "Clip request not found." });
+        clip.Status = "Exported";
+        clip.ExportReference = request.ExportReference?.Trim();
+        clip.ExportedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(clip);
+    }
+
+    [HttpGet("ai-adjudications")]
+    public async Task<IActionResult> GetAiAdjudications(
+        [FromQuery] string? status, [FromQuery] string? aiSource, [FromQuery] string? outcome,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    {
+        var query = _context.AiAdjudicationItems.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(a => a.Status == status.Trim());
+        if (!string.IsNullOrWhiteSpace(aiSource)) query = query.Where(a => a.AiSource == aiSource.Trim());
+        if (!string.IsNullOrWhiteSpace(outcome)) query = query.Where(a => a.Outcome == outcome.Trim());
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(a => a.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("ai-metrics")]
+    public async Task<IActionResult> GetAiMetrics(
+        [FromQuery] string? aiSource, [FromQuery] string? metricName,
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] int limit = 100)
+    {
+        var query = _context.AiPerformanceMetrics.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(aiSource)) query = query.Where(m => m.AiSource == aiSource.Trim());
+        if (!string.IsNullOrWhiteSpace(metricName)) query = query.Where(m => m.MetricName == metricName.Trim());
+        if (from.HasValue) query = query.Where(m => m.CapturedAtUtc >= from.Value);
+        if (to.HasValue) query = query.Where(m => m.CapturedAtUtc <= to.Value);
+        var metrics = await query.OrderByDescending(m => m.CapturedAtUtc).Take(limit).ToListAsync();
+        return Ok(metrics);
+    }
+
+    [HttpGet("ai-metrics/summary")]
+    public async Task<IActionResult> GetAiMetricsSummary()
+    {
+        var totalReviewed = await _context.AiAdjudicationItems.CountAsync(a => a.Status == "Reviewed");
+        var totalConfirmed = await _context.AiAdjudicationItems.CountAsync(a => a.Outcome == "Confirmed");
+        var totalFalsePositive = await _context.AiAdjudicationItems.CountAsync(a => a.Outcome == "FalsePositive");
+        var totalFalseNegative = await _context.AiAdjudicationItems.CountAsync(a => a.Outcome == "FalseNegative");
+        var totalTraining = await _context.AiAdjudicationItems.CountAsync(a => a.Outcome == "TrainingCandidate");
+        var pending = await _context.AiAdjudicationItems.CountAsync(a => a.Status == "Pending");
+
+        var precisionProxy = totalReviewed > 0
+            ? (decimal)totalConfirmed / totalReviewed * 100
+            : 0;
+
+        var recentDrift = await _context.AiPerformanceMetrics
+            .Where(m => m.MetricName == "drift_score" && m.CapturedAtUtc >= DateTime.UtcNow.AddHours(-24))
+            .OrderByDescending(m => m.CapturedAtUtc)
+            .Select(m => new { m.MetricValue, m.CapturedAtUtc })
+            .FirstOrDefaultAsync();
+
+        return Ok(new
+        {
+            TotalReviewed = totalReviewed,
+            TotalConfirmed = totalConfirmed,
+            TotalFalsePositive = totalFalsePositive,
+            TotalFalseNegative = totalFalseNegative,
+            TotalTrainingCandidate = totalTraining,
+            PendingReviews = pending,
+            PrecisionProxy = Math.Round(precisionProxy, 1),
+            RecentDriftScore = recentDrift?.MetricValue,
+            DriftDetected = recentDrift?.MetricValue > 0.15m,
+            DriftCapturedAt = recentDrift?.CapturedAtUtc
+        });
+    }
+
+    [HttpGet("correlations")]
+    public async Task<IActionResult> GetCorrelations([FromQuery] string? ruleName, [FromQuery] int limit = 50)
+    {
+        var query = _context.EventCorrelations.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(ruleName)) query = query.Where(c => c.RuleName.Contains(ruleName.Trim()));
+        var correlations = await query.OrderByDescending(c => c.CreatedAtUtc).Take(limit).ToListAsync();
+        return Ok(correlations);
+    }
+
+    [HttpGet("correlations/{correlationId:long}")]
+    public async Task<IActionResult> GetCorrelationDetail(long correlationId)
+    {
+        var correlation = await _context.EventCorrelations.FindAsync(correlationId);
+        if (correlation == null) return NotFound(new { message = "Correlation not found." });
+        var events = await _context.SecurityEvents
+            .Where(e => e.CorrelationId == correlation.CorrelationId)
+            .OrderByDescending(e => e.OccurredAtUtc)
+            .ToListAsync();
+        return Ok(new { correlation, events });
+    }
+
+    [HttpGet("maps")]
+    public async Task<IActionResult> GetSiteMaps()
+    {
+        var maps = await _context.SiteMaps.AsNoTracking().OrderBy(m => m.Name).ToListAsync();
+        return Ok(maps);
+    }
+
+    [HttpGet("maps/{mapId:int}/placements")]
+    public async Task<IActionResult> GetMapPlacements(int mapId)
+    {
+        if (!await _context.SiteMaps.AnyAsync(m => m.SiteMapId == mapId))
+            return NotFound(new { message = "Map not found." });
+        var placements = await _context.MapDevicePlacements
+            .Where(p => p.SiteMapId == mapId)
+            .OrderBy(p => p.IconType).ThenBy(p => p.Y)
+            .ToListAsync();
+        return Ok(placements);
+    }
+
     private int? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
@@ -241,4 +472,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public sealed record AiAdjudicationRequest(long? SecurityEventId, string? AiSource, string? ModelVersion, decimal? Confidence);
     public sealed record AiReviewRequest(string? Outcome, string? ReviewNote);
     public sealed record AiMetricRequest(string? AiSource, string MetricName, decimal MetricValue, string? Notes);
+    public sealed record ClipRequestRequest(int? CameraId, long? SecurityEventId, DateTime StartUtc, DateTime EndUtc, string? RequestedBy, string? RetentionCategory, string? Note);
+    public sealed record ClipApproveRequest(string? RetentionCategory);
+    public sealed record ClipExportRequest(string? ExportReference);
 }

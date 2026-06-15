@@ -569,6 +569,39 @@ const navGroups = ref([
         ],
     },
     {
+        label: 'Video & AI Review',
+        items: [
+            {
+                path: '/event-timeline',
+                label: 'Event Timeline',
+                hint: 'Chuỗi sự kiện an ninh',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/video-search',
+                label: 'Video Search',
+                hint: 'Tìm kiếm video & bookmark',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M16 16l5 5"/><rect x="3" y="12" width="14" height="4" rx="1"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/ai-review-queue',
+                label: 'AI Review Queue',
+                hint: 'Chất lượng & đánh giá AI',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13l2 2 4-4"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/correlation-view',
+                label: 'Correlation',
+                hint: 'Tương quan đa tín hiệu',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+        ],
+    },
+    {
         label: 'Quản trị Nội bộ',
         items: [
             {

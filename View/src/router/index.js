@@ -58,6 +58,10 @@ const ProvisioningWizard = () => import('../pages/ProvisioningWizard.vue')
 const OfflinePackages = () => import('../pages/OfflinePackages.vue')
 const DeviceHealth = () => import('../pages/DeviceHealth.vue')
 const SimulatorPanel = () => import('../pages/SimulatorPanel.vue')
+const EventTimeline = () => import('../pages/EventTimeline.vue')
+const VideoSearch = () => import('../pages/VideoSearch.vue')
+const AiReviewQueue = () => import('../pages/AiReviewQueue.vue')
+const CorrelationView = () => import('../pages/CorrelationView.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -118,6 +122,10 @@ const routes = [
             { path: 'offline-packages', name: 'OfflinePackages', component: OfflinePackages, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'device-health', name: 'DeviceHealth', component: DeviceHealth, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'simulator-panel', name: 'SimulatorPanel', component: SimulatorPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'event-timeline', name: 'EventTimeline', component: EventTimeline, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'video-search', name: 'VideoSearch', component: VideoSearch, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'ai-review-queue', name: 'AiReviewQueue', component: AiReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'correlation-view', name: 'CorrelationView', component: CorrelationView, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
