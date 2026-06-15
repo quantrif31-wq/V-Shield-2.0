@@ -31,7 +31,7 @@
                     <tbody>
                         <tr v-for="b in barriers" :key="b.barrierId">
                             <td><strong>{{ b.name }}</strong></td>
-                            <td>{{ b.lane?.name || '—' }}</td>
+                            <td>{{ b.lane?.name || '&mdash;' }}</td>
                             <td><span class="soft-chip" :class="stateClass(b.state)">{{ b.state }}</span></td>
                             <td>{{ b.isActive ? 'Yes' : 'No' }}</td>
                             <td>
@@ -75,10 +75,10 @@
                     </thead>
                     <tbody>
                         <tr v-for="p in permits" :key="p.parkingPermitId">
-                            <td>{{ p.parkingArea?.name || '—' }}</td>
-                            <td>{{ p.vehicle?.licensePlate || '—' }}</td>
+                            <td>{{ p.parkingArea?.name || '&mdash;' }}</td>
+                            <td>{{ p.vehicle?.licensePlate || '&mdash;' }}</td>
                             <td>{{ p.permitType }}</td>
-                            <td>{{ formatDate(p.validFromUtc) }} → {{ formatDate(p.validToUtc) }}</td>
+                            <td>{{ formatDate(p.validFromUtc) }} &rarr; {{ formatDate(p.validToUtc) }}</td>
                             <td><span class="soft-chip" :class="p.isRevoked ? 'danger' : 'success'">{{ p.isRevoked ? 'Revoked' : 'Active' }}</span></td>
                         </tr>
                     </tbody>
@@ -95,6 +95,9 @@
                     </div>
                     <div class="modal-body">
                         <p>Send <strong>{{ pendingCommand }}</strong> to barrier <strong>{{ commandTarget.name }}</strong></p>
+                        <div v-if="isHighRiskCommand" class="alert alert-warning" style="margin-bottom: 12px;">
+                            <strong>&#9888; High-risk command:</strong> {{ pendingCommand }} requires step-up authentication.
+                        </div>
                         <div class="form-group">
                             <label>Reason *</label>
                             <textarea v-model="commandReason" class="form-control" rows="2" placeholder="Required reason for this command"></textarea>
@@ -145,7 +148,7 @@
                         <div class="form-group"><label>Name *</label><input v-model="newBarrier.name" class="form-control" /></div>
                         <div class="form-group"><label>Lane</label>
                             <select v-model="newBarrier.laneId" class="form-control">
-                                <option :value="null">— Select —</option>
+                                <option :value="null">&mdash; Select &mdash;</option>
                                 <option v-for="l in laneOptions" :key="l.laneId" :value="l.laneId">{{ l.name }}</option>
                             </select>
                         </div>
@@ -157,13 +160,37 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Step-Up Modal -->
+            <StepUpModal
+                :visible="stepUpVisible"
+                action-label="High-risk Barrier Command"
+                :action-description="'Confirm high-risk command: ' + pendingCommand + ' on barrier ' + (commandTarget?.name || '')"
+                severity="high"
+                :require-mfa="true"
+                @cancel="onStepUpCancelled"
+                @confirmed="onStepUpConfirmed"
+            />
+
+            <!-- Audit Receipt Toast -->
+            <AuditReceiptToast
+                :visible="auditToast.visible"
+                :type="auditToast.type"
+                :title="auditToast.title"
+                :message="auditToast.message"
+                :receipt-id="auditToast.receiptId"
+                :timestamp="auditToast.timestamp"
+                @dismiss="dismissAuditToast"
+            />
         </Teleport>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
+import StepUpModal from '../components/shared/StepUpModal.vue'
+import AuditReceiptToast from '../components/shared/AuditReceiptToast.vue'
 
 const loading = ref(false)
 const loadingParking = ref(false)
@@ -187,10 +214,27 @@ const showAddBarrier = ref(false)
 const addBarrierError = ref('')
 const newBarrier = ref({ name: '', laneId: null })
 
+// Step-up state
+const stepUpVisible = ref(false)
+
+// Audit toast state
+const auditToast = ref({
+    visible: false,
+    type: 'success',
+    title: '',
+    message: '',
+    receiptId: '',
+    timestamp: '',
+})
+
 const tabs = [
     { id: 'barriers', label: 'Barriers' },
     { id: 'parking', label: 'Parking' },
 ]
+
+const isHighRiskCommand = computed(() => {
+    return ['LockClosed', 'EmergencyRelease', 'ForceOpen'].includes(pendingCommand.value)
+})
 
 function stateClass(s) {
     if (!s) return ''
@@ -198,8 +242,23 @@ function stateClass(s) {
 }
 
 function formatDate(utc) {
-    if (!utc) return '—'
+    if (!utc) return '&mdash;'
     return new Date(utc).toLocaleString('vi-VN')
+}
+
+function showAuditToast(type, title, message, receiptId) {
+    auditToast.value = {
+        visible: true,
+        type,
+        title,
+        message,
+        receiptId,
+        timestamp: new Date().toLocaleString('vi-VN'),
+    }
+}
+
+function dismissAuditToast() {
+    auditToast.value.visible = false
 }
 
 async function loadAll() {
@@ -237,13 +296,29 @@ function sendCommand(barrier, command) {
     pendingCommand.value = command
     commandReason.value = ''
     commandError.value = ''
+    // The modal will open, user fills reason, then confirmCommand triggers step-up for high-risk commands
 }
 
 function cancelCommand() {
     commandTarget.value = null
+    pendingCommand.value = ''
+    commandReason.value = ''
+    commandError.value = ''
 }
 
 async function confirmCommand() {
+    if (!commandTarget.value || !commandReason.value) return
+
+    // Require step-up for high-risk commands before executing
+    if (isHighRiskCommand.value) {
+        stepUpVisible.value = true
+        return
+    }
+
+    await executeCommand()
+}
+
+async function executeCommand() {
     if (!commandTarget.value || !commandReason.value) return
     saving.value = true
     commandError.value = ''
@@ -257,11 +332,30 @@ async function confirmCommand() {
             pendingCommand.value === 'HoldOpen' ? 'HeldOpen' :
             pendingCommand.value === 'LockClosed' ? 'LockedClosed' :
             commandTarget.value.state
+
+        const receiptId = `BR-${Date.now()}`
+        showAuditToast('success', 'Command sent', `${pendingCommand.value} sent to ${commandTarget.value.name}`, receiptId)
         commandTarget.value = null
     } catch (e) {
         commandError.value = e.response?.data?.message || e.message
+        showAuditToast('danger', 'Command failed', commandError.value, '')
     } finally {
         saving.value = false
+    }
+}
+
+function onStepUpCancelled() {
+    stepUpVisible.value = false
+    commandTarget.value = null
+    pendingCommand.value = ''
+    commandReason.value = ''
+}
+
+async function onStepUpConfirmed(result) {
+    stepUpVisible.value = false
+    // Proceed with the command after step-up
+    if (commandTarget.value && commandReason.value) {
+        await confirmCommand()
     }
 }
 
@@ -272,9 +366,9 @@ async function simulateCommand(barrier) {
             command: 'Open',
             reason: 'Frontend simulation test',
         })
-        alert(`Simulation: ${res.data?.simulatedCommand} → ${res.data?.result}`)
+        showAuditToast('info', 'Simulation', `${res.data?.simulatedCommand} -> ${res.data?.result}`, `SIM-${Date.now()}`)
     } catch (e) {
-        alert('Simulation failed: ' + (e.response?.data?.message || e.message))
+        showAuditToast('danger', 'Simulation failed', e.response?.data?.message || e.message, '')
     } finally {
         saving.value = false
     }

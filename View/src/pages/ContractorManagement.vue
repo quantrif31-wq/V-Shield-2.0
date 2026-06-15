@@ -40,7 +40,7 @@
             <div v-else class="table-container">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Name</th><th>Company</th><th>Contract</th><th>Status</th><th>Training</th><th>Actions</th></tr>
+                        <tr><th>Name</th><th>Company</th><th>Contract</th><th>Status</th><th>Training</th><th>Parking</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                         <tr v-for="c in contractors" :key="c.contractorId">
@@ -56,6 +56,10 @@
                             <td><span class="soft-chip" :class="statusClass(c.status)">{{ c.status }}</span></td>
                             <td>
                                 <span v-if="c.requiredTraining" class="text-muted">{{ c.requiredTraining }}</span>
+                                <span v-else class="text-muted">—</span>
+                            </td>
+                            <td>
+                                <button v-if="c.status === 'Active'" class="btn btn-sm btn-ghost" @click="openContractorParking(c)">Permit</button>
                                 <span v-else class="text-muted">—</span>
                             </td>
                             <td>
@@ -152,6 +156,50 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Contractor Parking Permit Modal -->
+            <div v-if="parkingTarget" class="modal-overlay" @click.self="parkingTarget = null">
+                <div class="modal-panel">
+                    <div class="modal-header">
+                        <h2>Parking Permit — {{ parkingTarget.fullName }}</h2>
+                        <button class="btn-close" @click="parkingTarget = null">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="parkingLoading" class="empty-card">Loading parking areas...</div>
+                        <div v-else>
+                            <div class="form-group">
+                                <label>Parking Area</label>
+                                <select v-model="parkingForm.areaId" class="form-control">
+                                    <option :value="null">— Select —</option>
+                                    <option v-for="pa in parkingAreas" :key="pa.parkingAreaId || pa.id" :value="pa.parkingAreaId || pa.id">{{ pa.name }} ({{ pa.availableSpots ?? '?' }} spots)</option>
+                                </select>
+                            </div>
+                            <div class="form-row two">
+                                <div class="form-group">
+                                    <label>Valid From</label>
+                                    <input v-model="parkingForm.from" type="date" class="form-control" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Valid To</label>
+                                    <input v-model="parkingForm.to" type="date" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Vehicle Plate</label>
+                                <input v-model="parkingForm.plate" type="text" class="form-control" placeholder="e.g. 29A-12345" />
+                            </div>
+                            <div v-if="parkingDone" class="alert alert-success">{{ parkingDone }}</div>
+                            <div v-else-if="parkingError" class="alert alert-danger">{{ parkingError }}</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @click="parkingTarget = null">Close</button>
+                        <button class="btn btn-primary" :disabled="parkingSaving || !parkingForm.areaId" @click="submitContractorParking">
+                            {{ parkingSaving ? 'Issuing...' : 'Issue Permit' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </Teleport>
     </div>
 </template>
@@ -172,6 +220,15 @@ const showAddModal = ref(false)
 const revokeTarget = ref(null)
 const revokeReason = ref('')
 const formError = ref('')
+
+// Parking
+const parkingTarget = ref(null)
+const parkingLoading = ref(false)
+const parkingAreas = ref([])
+const parkingSaving = ref(false)
+const parkingError = ref('')
+const parkingDone = ref('')
+const parkingForm = ref({ areaId: null, from: '', to: '', plate: '' })
 
 const form = reactive({
     fullName: '', company: '', phone: '', email: '',
@@ -260,6 +317,48 @@ async function submitContractor() {
         formError.value = e.response?.data?.message || e.message
     } finally {
         saving.value = false
+    }
+}
+
+// --- Parking ---
+async function openContractorParking(c) {
+    parkingTarget.value = c
+    parkingForm.value = { areaId: null, from: '', to: '', plate: '' }
+    parkingError.value = ''
+    parkingDone.value = ''
+    parkingLoading.value = true
+    try {
+        const res = await enterpriseApi.getParkingAreas({ pageSize: 50 })
+        parkingAreas.value = res.data?.items || []
+    } catch (e) {
+        console.error('Failed to load parking areas', e)
+    } finally {
+        parkingLoading.value = false
+    }
+}
+
+async function submitContractorParking() {
+    if (!parkingTarget.value || !parkingForm.value.areaId) return
+    parkingSaving.value = true
+    parkingError.value = ''
+    parkingDone.value = ''
+    try {
+        // For contractor, we create a parking permit with contractorId in payload
+        const from = parkingForm.value.from ? new Date(parkingForm.value.from).toISOString() : new Date().toISOString()
+        const to = parkingForm.value.to ? new Date(parkingForm.value.to).toISOString() : new Date(Date.now() + 30 * 24 * 3600000).toISOString()
+        await enterpriseApi.createParkingPermit({
+            contractorId: parkingTarget.value.contractorId,
+            parkingAreaId: parkingForm.value.areaId,
+            validFromUtc: from,
+            validToUtc: to,
+            plateNumber: parkingForm.value.plate || null,
+        })
+        parkingDone.value = `Parking permit issued for ${parkingTarget.value.fullName}!`
+        parkingForm.value = { areaId: null, from: '', to: '', plate: '' }
+    } catch (e) {
+        parkingError.value = e.response?.data?.message || e.message
+    } finally {
+        parkingSaving.value = false
     }
 }
 

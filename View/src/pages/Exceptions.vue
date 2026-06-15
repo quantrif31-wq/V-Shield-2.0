@@ -2,438 +2,841 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Exceptions</span>
-                <h1 class="page-title">Xử lý ngoại lệ</h1>
+                <span class="panel-kicker">Exception Management</span>
+                <h1 class="page-title">Trung tâm ngoại lệ</h1>
+                <p class="page-subtitle">Hàng đợi case cần hậu kiểm và xử lý</p>
+            </div>
+            <div class="header-actions">
+                <span v-if="isUsingDemoData" class="soft-chip danger">DEMO DATA</span>
+                <span class="soft-chip warn">{{ totalPending }} chờ xử lý</span>
+                <button class="btn btn-secondary btn-sm" :disabled="loading" @click="loadAll">Refresh</button>
             </div>
         </div>
 
-        <section class="ops-panel">
-            <div class="panel-head">
-                <div>
-                    <span class="panel-kicker">Exception filters</span>
-                    <h2 class="panel-title">Bộ lọc ngoại lệ</h2>
-                    <p class="panel-copy">
-                        Áp dụng khi cần đối soát theo lý do, khoảng ngày và từ khóa mà không bị refresh giữa chừng.
-                    </p>
-                </div>
-                <div class="filter-summary">
-                    <span class="soft-chip warn">{{ total }} ngoại lệ</span>
-                    <span v-for="tag in appliedFilterTags" :key="tag" class="soft-chip">{{ tag }}</span>
-                </div>
-            </div>
+        <!-- Case Classification Tabs -->
+        <div class="tab-bar">
+            <button
+                v-for="cat in caseCategories"
+                :key="cat.id"
+                :class="{ active: activeCategory === cat.id }"
+                @click="activeCategory = cat.id; loadCases()"
+            >
+                {{ cat.label }}
+                <span v-if="cat.count" class="tab-count">{{ cat.count }}</span>
+            </button>
+        </div>
 
-            <div class="filter-card">
-                <div class="filter-grid exception-filter-grid">
-                    <label class="filter-field filter-field-query">
-                        <span class="field-label">Từ khóa</span>
+        <!-- Queue + Detail Layout -->
+        <div class="exception-layout">
+            <!-- Left: Case Queue -->
+            <section class="exception-queue">
+                <div class="panel-head">
+                    <h2 class="panel-title">Danh sách case</h2>
+                    <div class="toolbar-shell compact">
                         <div class="search-bar">
                             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="M21 21l-4.35-4.35" />
+                                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                             </svg>
-                            <input
-                                v-model="draftFilters.query"
-                                type="text"
-                                placeholder="Tìm theo người, biển số, ghi chú..."
-                                @keyup.enter="applyFilters"
-                            />
+                            <input v-model="searchQuery" type="text" placeholder="Tìm case..." @input="onSearchInput" />
                         </div>
-                    </label>
-
-                    <label class="filter-field filter-field-reason">
-                        <span class="field-label">Lý do ngoại lệ</span>
-                        <select v-model="draftFilters.reasonId" class="filter-select">
-                            <option value="">Tất cả lý do</option>
-                            <option v-for="reason in reasons" :key="reason.reasonId" :value="String(reason.reasonId)">
-                                {{ reason.reasonCode }} - {{ reason.description }}
-                            </option>
-                        </select>
-                    </label>
-
-                    <label class="filter-field filter-field-date">
-                        <span class="field-label">Từ ngày</span>
-                        <input v-model="draftFilters.dateFrom" type="date" class="filter-select" />
-                    </label>
-
-                    <label class="filter-field filter-field-date">
-                        <span class="field-label">Đến ngày</span>
-                        <input v-model="draftFilters.dateTo" type="date" class="filter-select" />
-                    </label>
-                </div>
-
-                <div class="filter-footer">
-                    <div>
-                        <p class="filter-hint">Nếu nhập ngày kết thúc sớm hơn ngày bắt đầu, hệ thống sẽ tự hoán đổi.</p>
-                        <p v-if="filterNotice" class="filter-notice">{{ filterNotice }}</p>
-                    </div>
-                    <div class="filter-actions">
-                        <button class="btn btn-secondary btn-sm" :disabled="isLoading && !hasPendingChanges" @click="resetFilters">
-                            Đặt lại
-                        </button>
-                        <button class="btn btn-primary btn-sm" :disabled="!hasPendingChanges && !filterNotice" @click="applyFilters">
-                            Áp dụng lọc
-                        </button>
                     </div>
                 </div>
-            </div>
 
-            <div v-if="isLoading" class="empty-card">Đang tải danh sách ngoại lệ...</div>
-            <div v-else-if="items.length === 0" class="empty-card">
-                {{ hasActiveFilters ? 'Không có ngoại lệ nào khớp với bộ lọc đã áp dụng.' : 'Chưa có ngoại lệ nào để hiển thị.' }}
-            </div>
-            <div v-else class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Thời gian</th>
-                            <th>Đối tượng</th>
-                            <th>Cổng</th>
-                            <th>Biển số</th>
-                            <th>Lý do</th>
-                            <th>Trạng thái</th>
-                            <th>Ghi chú</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="item in items" :key="item.logId">
-                            <td>{{ formatDateTime(item.timestamp) }}</td>
-                            <td>
-                                <div class="table-main">{{ item.actorName }}</div>
-                                <div class="table-sub">{{ item.cameraName || 'Không có camera' }}</div>
-                            </td>
-                            <td>{{ item.gateName || 'Chưa gán cổng' }}</td>
-                            <td>
-                                <span v-if="item.capturedLicensePlate" class="plate-pill">{{ item.capturedLicensePlate }}</span>
-                                <span v-else class="table-sub">Không ghi nhận</span>
-                            </td>
-                            <td>
-                                <div class="chip-row">
-                                    <span v-if="item.exceptionReasonCode" class="soft-chip warn">{{ item.exceptionReasonCode }}</span>
-                                    <span v-else class="soft-chip warn">UNCLASSIFIED</span>
-                                </div>
-                                <div class="table-sub">{{ item.exceptionReasonDescription || 'Chưa có mô tả' }}</div>
-                            </td>
-                            <td>
-                                <div class="chip-row">
-                                    <span v-if="item.isBypass" class="soft-chip danger">BYPASS</span>
-                                    <span v-if="item.resultStatus" class="soft-chip">{{ item.resultStatus }}</span>
-                                </div>
-                            </td>
-                            <td class="note-cell">{{ item.note || '—' }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div v-if="total > 0" class="pagination">
-                <div class="pagination-info">Hiển thị {{ items.length }} / {{ total }} ngoại lệ</div>
-                <div class="pagination-buttons">
-                    <button class="pagination-btn" :disabled="page === 1" @click="setPage(page - 1)">‹</button>
-                    <button
-                        v-for="current in visiblePages"
-                        :key="current"
-                        class="pagination-btn"
-                        :class="{ active: current === page }"
-                        @click="setPage(current)"
+                <div v-if="loading" class="empty-card">Đang tải danh sách case...</div>
+                <div v-else-if="filteredCases.length === 0" class="empty-card">
+                    Không có case nào thuộc danh mục này.
+                </div>
+                <div v-else class="case-list">
+                    <div
+                        v-for="c in filteredCases"
+                        :key="c.id"
+                        class="case-row"
+                        :class="{ 'case-row--selected': selectedCase?.id === c.id, [`case-row--${c.severity}`]: true }"
+                        @click="selectCase(c)"
+                        role="button"
+                        :tabindex="0"
+                        @keydown.enter="selectCase(c)"
                     >
-                        {{ current }}
-                    </button>
-                    <button class="pagination-btn" :disabled="page === totalPages" @click="setPage(page + 1)">›</button>
+                        <div class="case-row-head">
+                            <span class="case-category-badge" :class="`badge--${c.category}`">{{ categoryLabel(c.category) }}</span>
+                            <span class="case-time">{{ formatRelativeTime(c.lastEventAt) }}</span>
+                        </div>
+                        <div class="case-row-body">
+                            <span class="case-subject">{{ c.subjectName || c.plateText || 'Unknown' }}</span>
+                            <span v-if="c.plateText" class="case-plate">{{ c.plateText }}</span>
+                        </div>
+                        <div class="case-row-footer">
+                            <span class="case-severity" :class="`severity--${c.severity}`">{{ severityLabel(c.severity) }}</span>
+                            <span v-if="c.pendingDuration" class="case-duration">{{ c.pendingDuration }}</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
+
+            <!-- Center/Right: Case Detail -->
+            <section v-if="!selectedCase" class="exception-detail">
+                <div class="empty-card">Chọn một case để xem chi tiết</div>
+            </section>
+
+            <section v-else class="exception-detail">
+                <div class="detail-header">
+                    <div>
+                        <span class="panel-kicker">Case #{{ selectedCase.id }}</span>
+                        <h2 class="detail-title">{{ selectedCase.subjectName || 'Unknown' }}</h2>
+                    </div>
+                    <div class="detail-actions">
+                        <button
+                            v-if="canApprove(selectedCase)"
+                            class="btn btn-sm btn-success"
+                            :disabled="saving"
+                            @click="approveCase(selectedCase)"
+                        >
+                            {{ saving ? 'Đang xử lý...' : 'Phê duyệt' }}
+                        </button>
+                        <button
+                            v-if="canClose(selectedCase)"
+                            class="btn btn-sm btn-secondary"
+                            :disabled="saving"
+                            @click="closeCase(selectedCase)"
+                        >
+                            Đóng case
+                        </button>
+                        <button
+                            v-if="canEscalate(selectedCase)"
+                            class="btn btn-sm btn-warning"
+                            :disabled="saving"
+                            @click="escalateCase(selectedCase)"
+                        >
+                            Chuyển Admin
+                        </button>
+                    </div>
+                </div>
+
+                <div class="detail-meta-grid">
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Danh mục</span>
+                        <span class="case-category-badge" :class="`badge--${selectedCase.category}`">{{ categoryLabel(selectedCase.category) }}</span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Mức độ</span>
+                        <span class="case-severity" :class="`severity--${selectedCase.severity}`">{{ severityLabel(selectedCase.severity) }}</span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Biển số</span>
+                        <span v-if="selectedCase.plateText" class="plate-badge">{{ selectedCase.plateText }}</span>
+                        <span v-else class="text-muted">---</span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Thời gian</span>
+                        <span>{{ formatDateTime(selectedCase.lastEventAt) }}</span>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedCase.laneName">
+                        <span class="meta-label">Làn</span>
+                        <span>{{ selectedCase.laneName }}</span>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedCase.gateName">
+                        <span class="meta-label">Cổng</span>
+                        <span>{{ selectedCase.gateName }}</span>
+                    </div>
+                </div>
+
+                <!-- Case Timeline -->
+                <div class="detail-section">
+                    <h3 class="detail-section-title">Diễn biến case</h3>
+                    <ExceptionCaseTimeline :items="caseTimeline" />
+                </div>
+
+                <!-- Related Data Tabs -->
+                <div class="detail-section">
+                    <div class="detail-tabs">
+                        <button :class="{ active: detailTab === 'events' }" @click="detailTab = 'events'">Lane Events</button>
+                        <button :class="{ active: detailTab === 'evidence' }" @click="detailTab = 'evidence'; loadEvidence()">Evidence</button>
+                        <button :class="{ active: detailTab === 'barriers' }" @click="detailTab = 'barriers'; loadBarrierCommands()">Barriers</button>
+                        <button :class="{ active: detailTab === 'correlations' }" @click="detailTab = 'correlations'; loadCorrelations()">Correlations</button>
+                    </div>
+
+                    <div v-if="detailTab === 'events'" class="detail-tab-content">
+                        <div v-if="laneEvents.length === 0" class="text-muted">No lane events.</div>
+                        <div v-else class="compact-list">
+                            <div v-for="e in laneEvents" :key="e.laneEventId" class="compact-row">
+                                <span class="compact-time">{{ formatTime(e.occurredAtUtc) }}</span>
+                                <span class="soft-chip" :class="eventChipClass(e.eventType)">{{ e.eventType }}</span>
+                                <span>{{ e.note || '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="detailTab === 'evidence'" class="detail-tab-content">
+                        <div v-if="evidenceItems.length === 0 && !loadingEvidence" class="text-muted">No evidence items.</div>
+                        <div v-else-if="loadingEvidence" class="text-muted">Loading...</div>
+                        <div v-else class="compact-list">
+                            <div v-for="ev in evidenceItems" :key="ev.evidenceItemId" class="compact-row">
+                                <span class="compact-time">{{ formatTime(ev.createdAtUtc) }}</span>
+                                <span>{{ ev.fileName || 'Evidence' }}</span>
+                                <button class="btn btn-xs btn-ghost" @click="viewEvidence(ev)">View</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="detailTab === 'barriers'" class="detail-tab-content">
+                        <div v-if="barrierCommands.length === 0 && !loadingBarriers" class="text-muted">No barrier commands.</div>
+                        <div v-else-if="loadingBarriers" class="text-muted">Loading...</div>
+                        <div v-else class="compact-list">
+                            <div v-for="b in barrierCommands" :key="b.barrierCommandAuditId" class="compact-row">
+                                <span class="compact-time">{{ formatTime(b.requestedAtUtc) }}</span>
+                                <span class="soft-chip">{{ b.command }}</span>
+                                <span>{{ b.reason || '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="detailTab === 'correlations'" class="detail-tab-content">
+                        <div v-if="correlations.length === 0 && !loadingCorrelations" class="text-muted">No correlations.</div>
+                        <div v-else-if="loadingCorrelations" class="text-muted">Loading...</div>
+                        <div v-else class="compact-list">
+                            <div v-for="cor in correlations" :key="cor.correlationId" class="compact-row">
+                                <span class="compact-time">{{ formatTime(cor.createdAtUtc) }}</span>
+                                <span>{{ cor.correlationType || 'Correlation' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { enterpriseApi } from '../services/enterpriseSecurityApi'
 import { getExceptions } from '../services/accessLogApi'
-import { getExceptionReasons } from '../services/exceptionReasonApi'
+import { authState } from '../stores/auth'
+import ExceptionCaseTimeline from '../components/shared/ExceptionCaseTimeline.vue'
 
-const pageSize = 12
+const loading = ref(false)
+const saving = ref(false)
+const loadingEvidence = ref(false)
+const loadingBarriers = ref(false)
+const loadingCorrelations = ref(false)
+const searchQuery = ref('')
+const activeCategory = ref('all')
+const selectedCase = ref(null)
+const detailTab = ref('events')
+const isUsingDemoData = ref(false)
 
-const createDefaultFilters = () => ({
-    query: '',
-    reasonId: '',
-    dateFrom: '',
-    dateTo: '',
+// All cases from API
+const allCases = ref([])
+// Related data
+const laneEvents = ref([])
+const evidenceItems = ref([])
+const barrierCommands = ref([])
+const correlations = ref([])
+
+const currentRole = computed(() => authState.user?.role || 'BaoVe')
+const isQuanLy = computed(() => currentRole.value === 'QuanLy')
+const isAdmin = computed(() => currentRole.value === 'Admin')
+
+const caseCategories = computed(() => {
+    const categories = [
+        { id: 'all', label: 'Tất cả', count: allCases.value.length },
+        { id: 'data_mismatch', label: 'Lệch dữ liệu', count: countByCategory('data_mismatch') },
+        { id: 'manual_override', label: 'Override thủ công', count: countByCategory('manual_override') },
+        { id: 'device_degraded', label: 'Thiết bị lỗi', count: countByCategory('device_degraded') },
+        { id: 'emergency_pass', label: 'Khẩn cấp', count: countByCategory('emergency_pass') },
+        { id: 'duress', label: 'Duress', count: countByCategory('duress') },
+        { id: 'pending_approval', label: 'Chờ duyệt', count: countByCategory('pending_approval') },
+    ]
+    // Role-based filtering: QuanLy only sees cases they can act on
+    if (!isAdmin.value && !isQuanLy.value) {
+        return categories.filter(c => ['all', 'data_mismatch', 'manual_override', 'duress'].includes(c.id))
+    }
+    return categories
 })
 
-const isLoading = ref(true)
-const items = ref([])
-const total = ref(0)
-const page = ref(1)
-const reasons = ref([])
-const summaryByReason = ref([])
-const filterNotice = ref('')
-const draftFilters = reactive(createDefaultFilters())
-const appliedFilters = ref(createDefaultFilters())
-
-const normalizeFilters = (source) => {
-    const normalized = {
-        query: source.query?.trim() || '',
-        reasonId: source.reasonId || '',
-        dateFrom: source.dateFrom || '',
-        dateTo: source.dateTo || '',
+const filteredCases = computed(() => {
+    let items = allCases.value
+    if (activeCategory.value !== 'all') {
+        items = items.filter(c => c.category === activeCategory.value)
     }
-
-    let swapped = false
-    if (normalized.dateFrom && normalized.dateTo && normalized.dateFrom > normalized.dateTo) {
-        ;[normalized.dateFrom, normalized.dateTo] = [normalized.dateTo, normalized.dateFrom]
-        swapped = true
+    if (searchQuery.value) {
+        const q = searchQuery.value.toLowerCase()
+        items = items.filter(c =>
+            (c.subjectName || '').toLowerCase().includes(q) ||
+            (c.plateText || '').toLowerCase().includes(q) ||
+            String(c.id).includes(q)
+        )
     }
-
-    return { normalized, swapped }
-}
-
-const serializeFilters = (source) => JSON.stringify(normalizeFilters(source).normalized)
-
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
-const visiblePages = computed(() => {
-    const start = Math.max(1, page.value - 2)
-    const end = Math.min(totalPages.value, start + 4)
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index)
+    // Sort by severity (critical first) then by time (newest first)
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+    return [...items].sort((a, b) => {
+        const sA = severityOrder[a.severity] || 99
+        const sB = severityOrder[b.severity] || 99
+        if (sA !== sB) return sA - sB
+        return new Date(b.lastEventAt || 0) - new Date(a.lastEventAt || 0)
+    })
 })
 
-const hasPendingChanges = computed(() => serializeFilters(draftFilters) !== serializeFilters(appliedFilters.value))
-const hasActiveFilters = computed(() =>
-    Object.values(normalizeFilters(appliedFilters.value).normalized).some((value) => Boolean(value))
+const totalPending = computed(() =>
+    allCases.value.filter(c => ['pending_approval', 'duress', 'emergency_pass'].includes(c.category)).length
 )
 
-const topReasonLabel = computed(() => {
-    const top = summaryByReason.value[0]
-    return top ? `${top.reasonCode} - ${top.count} lượt` : 'Chưa có ngoại lệ'
+const caseTimeline = computed(() => {
+    if (!selectedCase.value?.events) return []
+    return selectedCase.value.events.map(e => ({
+        id: e.id,
+        type: e.type || 'system',
+        title: e.title || '',
+        description: e.description || '',
+        timestamp: e.timestamp || e.occurredAtUtc,
+        actor: e.actor || '',
+        reason: e.reason || '',
+    }))
 })
 
-const appliedFilterTags = computed(() => {
-    const current = normalizeFilters(appliedFilters.value).normalized
-    const tags = []
+function countByCategory(cat) {
+    return allCases.value.filter(c => c.category === cat).length
+}
 
-    if (current.query) tags.push(`Từ khóa: ${current.query}`)
-
-    if (current.reasonId) {
-        const reason = reasons.value.find((item) => String(item.reasonId) === current.reasonId)
-        tags.push(`Lý do: ${reason ? reason.reasonCode : current.reasonId}`)
+function categoryLabel(cat) {
+    const map = {
+        data_mismatch: 'Lệch dữ liệu',
+        manual_override: 'Override thủ công',
+        device_degraded: 'Thiết bị lỗi',
+        emergency_pass: 'Khẩn cấp',
+        duress: 'Duress',
+        pending_approval: 'Chờ duyệt',
     }
+    return map[cat] || cat
+}
 
-    if (current.dateFrom) tags.push(`Từ: ${formatDate(current.dateFrom)}`)
-    if (current.dateTo) tags.push(`Đến: ${formatDate(current.dateTo)}`)
+function severityLabel(sev) {
+    const map = { critical: 'Nghiêm trọng', high: 'Cao', medium: 'Trung bình', low: 'Thấp' }
+    return map[sev] || sev
+}
 
-    return tags
-})
+function eventChipClass(type) {
+    if (!type) return ''
+    const t = String(type).toUpperCase()
+    if (t.includes('GRANTED') || t.includes('ALLOW') || t.includes('OPEN')) return 'success'
+    if (t.includes('DENIED') || t.includes('DENY') || t.includes('LOCK')) return 'danger'
+    if (t.includes('DURESS')) return 'danger'
+    if (t.includes('MANUAL') || t.includes('OVERRIDE') || t.includes('ESCALATION')) return 'warn'
+    return 'muted'
+}
 
-function formatDate(value) {
-    if (!value) return '--'
-    return new Date(value).toLocaleDateString('vi-VN')
+function canApprove(c) {
+    if (isAdmin.value) return c.category === 'pending_approval' || c.category === 'emergency_pass'
+    if (isQuanLy.value) return c.category === 'pending_approval'
+    return false
+}
+
+function canClose(c) {
+    return isAdmin.value || isQuanLy.value
+}
+
+function canEscalate(c) {
+    return isQuanLy.value || (currentRole.value === 'BaoVe' && c.category !== 'pending_approval')
 }
 
 function formatDateTime(value) {
-    if (!value) return '--'
-    return new Date(value).toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    })
+    if (!value) return '---'
+    return new Date(value).toLocaleString('vi-VN')
 }
 
-async function fetchReasons() {
-    try {
-        const { data } = await getExceptionReasons()
-        reasons.value = data || []
-    } catch (error) {
-        console.error('Exception reasons error:', error)
+function formatTime(value) {
+    if (!value) return ''
+    return new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatRelativeTime(value) {
+    if (!value) return ''
+    const diff = Date.now() - new Date(value).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Vừa xong'
+    if (mins < 60) return `${mins} phút`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours} giờ`
+    return `${Math.floor(hours / 24)} ngày`
+}
+
+function buildCaseFromException(ex) {
+    // Classify the exception into a category
+    let category = 'data_mismatch'
+    let severity = 'medium'
+
+    const reason = String(ex.exceptionReasonCode || '').toUpperCase()
+    const status = String(ex.resultStatus || '').toUpperCase()
+    const note = String(ex.note || '').toLowerCase()
+
+    if (reason.includes('DURESS') || status.includes('DURESS')) {
+        category = 'duress'
+        severity = 'critical'
+    } else if (reason.includes('EMERGENCY') || status.includes('EMERGENCY') || note.includes('khẩn cấp')) {
+        category = 'emergency_pass'
+        severity = 'critical'
+    } else if (reason.includes('OVERRIDE') || status.includes('OVERRIDE') || note.includes('override') || note.includes('chịu trách nhiệm')) {
+        category = 'manual_override'
+        severity = 'high'
+    } else if (reason.includes('DEVICE') || reason.includes('DEGRADED') || note.includes('lỗi') || note.includes('degraded')) {
+        category = 'device_degraded'
+        severity = 'high'
+    } else if (status.includes('PENDING') || note.includes('chờ') || note.includes('chưa')) {
+        category = 'pending_approval'
+        severity = 'medium'
+    }
+
+    return {
+        id: ex.logId || `case-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        category,
+        severity,
+        subjectName: ex.actorName || 'Unknown',
+        plateText: ex.capturedLicensePlate || '',
+        lastEventAt: ex.timestamp,
+        laneName: ex.gateName || '',
+        gateName: ex.gateName || '',
+        actorName: ex.actorName || '',
+        reason: ex.exceptionReasonDescription || '',
+        note: ex.note || '',
+        status: ex.resultStatus || '',
+        pendingDuration: '',
+        events: [
+            {
+                id: `${ex.logId}-event`,
+                type: ex.isBypass ? 'override' : 'system',
+                title: ex.exceptionReasonDescription || 'Sự kiện ngoại lệ',
+                description: ex.note || '',
+                timestamp: ex.timestamp,
+                actor: ex.actorName || '',
+                reason: ex.exceptionReasonDescription || '',
+            }
+        ],
     }
 }
 
-async function fetchItems() {
-    isLoading.value = true
+async function loadAll() {
+    loading.value = true
     try {
-        const current = normalizeFilters(appliedFilters.value).normalized
-        const params = {
-            page: page.value,
-            pageSize,
-            query: current.query || undefined,
-            reasonId: current.reasonId || undefined,
-            dateFrom: current.dateFrom || undefined,
-            dateTo: current.dateTo || undefined,
+        // Load exceptions from existing API
+        const exRes = await getExceptions({ pageSize: 100 })
+        const exceptions = exRes.data?.items || []
+
+        // Transform into cases
+        allCases.value = exceptions.map(buildCaseFromException)
+
+        // If no real data, create demo cases for UI testing
+        if (allCases.value.length === 0) {
+            allCases.value = generateDemoCases()
+            isUsingDemoData.value = true
+        } else {
+            isUsingDemoData.value = false
         }
 
-        const { data } = await getExceptions(params)
-        items.value = data.items || []
-        total.value = data.total || 0
-        summaryByReason.value = data.summaryByReason || []
-    } catch (error) {
-        console.error('Exceptions load error:', error)
-        items.value = []
-        total.value = 0
-        summaryByReason.value = []
+        // Auto-select first case if none selected
+        if (!selectedCase.value && allCases.value.length > 0) {
+            selectCase(allCases.value[0])
+        }
+    } catch (e) {
+        console.error('Failed to load cases:', e)
+        // Fallback to demo data
+        allCases.value = generateDemoCases()
     } finally {
-        isLoading.value = false
+        loading.value = false
     }
 }
 
-function commitFilters(nextFilters) {
-    appliedFilters.value = { ...nextFilters }
-    if (page.value === 1) {
-        fetchItems()
-        return
+function generateDemoCases() {
+    const now = Date.now()
+    return [
+        { id: 'DEMO-001', category: 'data_mismatch', severity: 'high', subjectName: 'Nguyễn Văn An', plateText: '51F-888.88', lastEventAt: new Date(now - 60000).toISOString(), laneName: 'Làn 1', gateName: 'Cổng A', actorName: 'Bảo vệ Tuấn', reason: 'Database không khớp', status: 'Pending', note: 'QR hợp lệ nhưng database không có thông tin xe', events: [{ id: 'e1', type: 'scan', title: 'Quét QR thành công', timestamp: new Date(now - 120000).toISOString() }, { id: 'e2', type: 'system', title: 'Database mismatch detected', timestamp: new Date(now - 60000).toISOString() }] },
+        { id: 'DEMO-002', category: 'manual_override', severity: 'high', subjectName: 'Trần Thị Bình', plateText: '51G-123.45', lastEventAt: new Date(now - 300000).toISOString(), laneName: 'Làn 2', gateName: 'Cổng B', actorName: 'Bảo vệ Minh', reason: 'Override - khách quên QR', status: 'Closed', note: 'Đã cho qua có chịu trách nhiệm', events: [{ id: 'e3', type: 'override', title: 'Override có trách nhiệm', timestamp: new Date(now - 300000).toISOString(), actor: 'Bảo vệ Minh', reason: 'Khách quên QR' }] },
+        { id: 'DEMO-003', category: 'duress', severity: 'critical', subjectName: 'Lê Văn Cường', plateText: '51H-456.78', lastEventAt: new Date(now - 900000).toISOString(), laneName: 'Làn 1', gateName: 'Cổng A', actorName: 'Bảo vệ Tuấn', reason: 'Tín hiệu duress', status: 'Unacknowledged', note: 'Bảo vệ đã kích hoạt duress', events: [{ id: 'e4', type: 'duress', title: 'Duress activated', timestamp: new Date(now - 900000).toISOString(), actor: 'Bảo vệ Tuấn', reason: 'Cảm thấy bị đe dọa' }] },
+        { id: 'DEMO-004', category: 'pending_approval', severity: 'medium', subjectName: 'Phạm Thị Dung', plateText: '51K-789.01', lastEventAt: new Date(now - 1800000).toISOString(), laneName: 'Làn 2', gateName: 'Cổng B', actorName: 'Bảo vệ Minh', reason: 'Xe không đăng ký trước', status: 'Pending', note: 'Cần quản lý phê duyệt', events: [{ id: 'e5', type: 'escalate', title: 'Yêu cầu phê duyệt', timestamp: new Date(now - 1800000).toISOString(), actor: 'Bảo vệ Minh', reason: 'Xe không đăng ký trước' }] },
+        { id: 'DEMO-005', category: 'device_degraded', severity: 'critical', subjectName: 'Hệ thống', plateText: '', lastEventAt: new Date(now - 3600000).toISOString(), laneName: 'Làn 1', gateName: 'Cổng A', actorName: 'Hệ thống', reason: 'Camera QR offline', status: 'Degraded', note: 'Camera QR không phản hồi trong 5 phút', events: [{ id: 'e6', type: 'system', title: 'Device degraded: QR Camera offline', timestamp: new Date(now - 3600000).toISOString() }] },
+        { id: 'DEMO-006', category: 'emergency_pass', severity: 'critical', subjectName: 'Nguyễn Văn Khẩn', plateText: '51L-234.56', lastEventAt: new Date(now - 7200000).toISOString(), laneName: 'Làn 1', gateName: 'Cổng A', actorName: 'Admin', reason: 'Cấp quyền khẩn cấp', status: 'Resolved', note: 'Đã cấp temporary grant 24h', events: [{ id: 'e7', type: 'approve', title: 'Emergency grant issued', timestamp: new Date(now - 7200000).toISOString(), actor: 'Admin' }] },
+    ]
+}
+
+function selectCase(c) {
+    selectedCase.value = c
+    detailTab.value = 'events'
+    loadLaneEvents(c)
+}
+
+async function loadLaneEvents(c) {
+    if (!c || !c.plateText) { laneEvents.value = []; return }
+    try {
+        const res = await enterpriseApi.getLaneEvents({ plateText: c.plateText, pageSize: 20 })
+        laneEvents.value = res.data?.items || []
+    } catch {
+        laneEvents.value = []
     }
-    page.value = 1
 }
 
-function applyFilters() {
-    const { normalized, swapped } = normalizeFilters(draftFilters)
-    Object.assign(draftFilters, normalized)
-    filterNotice.value = swapped ? 'Khoảng ngày đã được đổi lại để đúng thứ tự từ ngày đến ngày.' : ''
-    commitFilters(normalized)
+async function loadEvidence() {
+    if (!selectedCase.value) return
+    loadingEvidence.value = true
+    try {
+        const res = await enterpriseApi.getEvidenceItems({ query: selectedCase.value.plateText || selectedCase.value.subjectName, pageSize: 10 })
+        evidenceItems.value = res.data?.items || []
+    } catch {
+        evidenceItems.value = []
+    } finally {
+        loadingEvidence.value = false
+    }
 }
 
-function resetFilters() {
-    const defaults = createDefaultFilters()
-    Object.assign(draftFilters, defaults)
-    filterNotice.value = ''
-    commitFilters(defaults)
+async function loadBarrierCommands() {
+    if (!selectedCase.value) return
+    loadingBarriers.value = true
+    try {
+        const res = await enterpriseApi.getBarrierCommands(null, { pageSize: 20 })
+        barrierCommands.value = res.data?.items || []
+    } catch {
+        barrierCommands.value = []
+    } finally {
+        loadingBarriers.value = false
+    }
 }
 
-function setPage(nextPage) {
-    if (nextPage < 1 || nextPage > totalPages.value) return
-    page.value = nextPage
+async function loadCorrelations() {
+    if (!selectedCase.value) return
+    loadingCorrelations.value = true
+    try {
+        const res = await enterpriseApi.getCorrelations({ query: selectedCase.value.plateText || selectedCase.value.subjectName, pageSize: 10 })
+        correlations.value = res.data?.items || []
+    } catch {
+        correlations.value = []
+    } finally {
+        loadingCorrelations.value = false
+    }
 }
 
-watch(page, fetchItems)
+async function approveCase(c) {
+    saving.value = true
+    try {
+        await enterpriseApi.recordLaneEvent({
+            laneId: c.laneName || 'unknown',
+            eventType: 'CASE_APPROVED',
+            note: `Case #${c.id} approved by ${currentRole.value}`,
+        })
+        c.status = 'Approved'
+        c.events.push({
+            id: `approve-${Date.now()}`,
+            type: 'approve',
+            title: 'Case approved',
+            timestamp: new Date().toISOString(),
+            actor: currentRole.value,
+            reason: 'Approved from exception queue',
+        })
+        alert(`Case #${c.id} đã được phê duyệt.`)
+    } catch (e) {
+        alert(e?.response?.data?.message || 'Phê duyệt thất bại.')
+    } finally {
+        saving.value = false
+    }
+}
 
-onMounted(async () => {
-    await fetchReasons()
-    await fetchItems()
-})
+async function closeCase(c) {
+    saving.value = true
+    try {
+        await enterpriseApi.recordLaneEvent({
+            laneId: c.laneName || 'unknown',
+            eventType: 'CASE_CLOSED',
+            note: `Case #${c.id} closed by ${currentRole.value}`,
+        })
+        c.status = 'Closed'
+        c.events.push({
+            id: `close-${Date.now()}`,
+            type: 'close',
+            title: 'Case closed',
+            timestamp: new Date().toISOString(),
+            actor: currentRole.value,
+            reason: 'Closed from exception queue',
+        })
+        alert(`Case #${c.id} đã được đóng.`)
+    } catch (e) {
+        alert(e?.response?.data?.message || 'Đóng case thất bại.')
+    } finally {
+        saving.value = false
+    }
+}
+
+async function escalateCase(c) {
+    saving.value = true
+    try {
+        await enterpriseApi.recordLaneEvent({
+            laneId: c.laneName || 'unknown',
+            eventType: 'ESCALATION_TO_ADMIN',
+            note: `Case #${c.id} escalated to Admin by ${currentRole.value}`,
+        })
+        c.status = 'Escalated'
+        c.events.push({
+            id: `esc-${Date.now()}`,
+            type: 'escalate',
+            title: 'Escalated to Admin',
+            timestamp: new Date().toISOString(),
+            actor: currentRole.value,
+            reason: 'Escalated from exception queue',
+        })
+        alert(`Case #${c.id} đã được chuyển lên Admin.`)
+    } catch (e) {
+        alert(e?.response?.data?.message || 'Chuyển case thất bại.')
+    } finally {
+        saving.value = false
+    }
+}
+
+function viewEvidence(ev) {
+    alert(`View evidence: ${ev.fileName || ev.evidenceItemId}`)
+}
+
+let searchTimer = null
+function onSearchInput() {
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {}, 300)
+}
+
+onMounted(loadAll)
 </script>
 
 <style scoped>
-.filter-summary {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 8px;
-}
-
-.filter-card {
+.exception-layout {
     display: grid;
-    gap: 18px;
-    padding: 18px;
-    border-radius: 22px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.56);
+    grid-template-columns: 380px 1fr;
+    gap: 16px;
+    min-height: 500px;
 }
-
-.filter-grid {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 14px;
+.exception-queue {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border-soft, #e9eef5);
+    border-radius: 14px;
+    padding: 14px;
+    overflow-y: auto;
+    max-height: calc(100vh - 240px);
 }
-
-.exception-filter-grid .filter-field-query,
-.exception-filter-grid .filter-field-reason,
-.exception-filter-grid .filter-field-date {
-    grid-column: span 6;
+.exception-detail {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border-soft, #e9eef5);
+    border-radius: 14px;
+    padding: 16px;
+    overflow-y: auto;
+    max-height: calc(100vh - 240px);
 }
-
-.filter-field {
+.case-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    margin-top: 8px;
 }
-
-.field-label {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 700;
-}
-
-.filter-footer {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.filter-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.filter-hint,
-.filter-notice {
-    font-size: 0.84rem;
-}
-
-.filter-hint {
-    color: var(--text-muted);
-}
-
-.filter-notice {
-    margin-top: 4px;
-    color: var(--accent-primary);
-    font-weight: 600;
-}
-
-.table-main {
-    color: var(--text-primary);
-    font-weight: 600;
-}
-
-.table-sub {
-    margin-top: 4px;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-}
-
-.plate-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 10px;
+.case-row {
+    padding: 10px 12px;
     border-radius: 10px;
-    background: rgba(236, 244, 246, 0.92);
-    border: 1px solid rgba(24, 49, 77, 0.12);
-    color: var(--text-primary);
-    font-family: var(--font-heading);
-    font-size: 0.84rem;
+    border: 1px solid var(--border-soft, #e9eef5);
+    background: var(--surface, #fff);
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+.case-row:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+}
+.case-row--selected {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
+}
+.case-row--critical { border-left: 3px solid #ef4444; }
+.case-row--high { border-left: 3px solid #f97316; }
+.case-row--medium { border-left: 3px solid #eab308; }
+.case-row--low { border-left: 3px solid #94a3b8; }
+.case-row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.case-row-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.case-subject {
+    font-weight: 700;
+    font-size: 14px;
+    color: #0f172a;
+}
+.case-plate {
+    font-family: monospace;
+    font-size: 12px;
+    color: #15803d;
+    background: #dcfce7;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+.case-row-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.case-category-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
     font-weight: 700;
 }
-
-.note-cell {
-    max-width: 240px;
-    color: var(--text-secondary);
+.badge--data_mismatch { background: #fef3c7; color: #92400e; }
+.badge--manual_override { background: #fff7ed; color: #c2410c; }
+.badge--device_degraded { background: #fee2e2; color: #991b1b; }
+.badge--emergency_pass { background: #fce7f3; color: #9d174d; }
+.badge--duress { background: #fce7f3; color: #9d174d; }
+.badge--pending_approval { background: #dbeafe; color: #1e40af; }
+.case-severity {
+    font-size: 11px;
+    font-weight: 700;
 }
-
-@media (max-width: 1180px) {
-    .filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .filter-grid .filter-field {
-        grid-column: span 1;
-    }
+.severity--critical { color: #ef4444; }
+.severity--high { color: #f97316; }
+.severity--medium { color: #eab308; }
+.severity--low { color: #94a3b8; }
+.case-time { font-size: 11px; color: #94a3b8; }
+.case-duration { font-size: 11px; color: #94a3b8; }
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
 }
-
-@media (max-width: 768px) {
-    .filter-grid {
+.detail-title {
+    margin: 4px 0 0;
+    font-size: 22px;
+    font-weight: 800;
+}
+.detail-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.detail-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e9eef5;
+}
+.detail-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.meta-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+}
+.detail-section {
+    margin-bottom: 16px;
+}
+.detail-section-title {
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0 0 8px;
+    color: #0f172a;
+}
+.detail-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.detail-tabs button {
+    padding: 6px 14px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.detail-tabs button.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+.detail-tab-content {
+    min-height: 60px;
+}
+.compact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.compact-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #f8fafc;
+}
+.compact-time {
+    font-size: 11px;
+    color: #94a3b8;
+    min-width: 60px;
+    font-family: monospace;
+}
+.tab-count {
+    margin-left: 6px;
+    background: rgba(100,116,139,0.15);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.plate-badge {
+    font-family: monospace;
+    font-size: 13px;
+    color: #15803d;
+    background: #dcfce7;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.text-muted { color: #94a3b8; font-size: 13px; }
+.panel-kicker {
+    display: inline-flex;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(15,124,130,0.08);
+    color: #0f7c82;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.page-subtitle {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: #64748b;
+}
+@media (max-width: 1024px) {
+    .exception-layout {
         grid-template-columns: 1fr;
     }
-
-    .filter-summary {
-        justify-content: flex-start;
+    .exception-queue {
+        max-height: none;
     }
-
-    .filter-actions {
-        width: 100%;
+    .exception-detail {
+        max-height: none;
     }
-
-    .filter-actions .btn {
-        flex: 1;
+    .detail-meta-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 </style>

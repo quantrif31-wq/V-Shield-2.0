@@ -207,7 +207,6 @@
                         <h2 class="panel-title">Provider and HR import</h2>
                     </div>
                 </div>
-
                 <form class="form-grid" @submit.prevent="saveProvider">
                     <label>
                         Provider name
@@ -225,7 +224,6 @@
                         Save provider
                     </button>
                 </form>
-
                 <form class="form-grid stacked" @submit.prevent="importUser">
                     <label>
                         Provider ID
@@ -270,7 +268,6 @@
                         <h2 class="panel-title">Simulator and fault drill</h2>
                     </div>
                 </div>
-
                 <form class="form-grid" @submit.prevent="createVirtualController">
                     <label>
                         Controller name
@@ -291,7 +288,6 @@
                         Create simulator
                     </button>
                 </form>
-
                 <form class="form-grid stacked" @submit.prevent="injectFault">
                     <label>
                         Device ID
@@ -398,7 +394,154 @@
             </article>
         </section>
 
+        <!-- Ops Workspace: Restore, Security Checks, Outbox -->
+        <section v-if="selectedWorkspace === 'ops'" class="ops-grid three">
+            <article class="ops-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <span class="panel-kicker">Restore</span>
+                        <h2 class="panel-title">Restore Drill</h2>
+                    </div>
+                </div>
+                <form class="form-grid single" @submit.prevent="startRestore">
+                    <label>
+                        Backup Run ID
+                        <input v-model.number="restoreForm.backupRunId" type="number" required />
+                    </label>
+                    <label>
+                        Target RTO (minutes)
+                        <input v-model.number="restoreForm.targetRtoMinutes" type="number" />
+                    </label>
+                    <button type="submit" class="btn btn-secondary" :disabled="busy.restore">
+                        {{ busy.restore ? 'Starting...' : 'Start Restore' }}
+                    </button>
+                </form>
+                <div v-if="restoreResult" class="success-card" style="margin-top:8px;">{{ restoreResult }}</div>
+            </article>
+            <article class="ops-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <span class="panel-kicker">Security</span>
+                        <h2 class="panel-title">Security Checks</h2>
+                    </div>
+                </div>
+                <form class="form-grid single" @submit.prevent="recordSecurityCheck">
+                    <label>
+                        Check Type
+                        <select v-model="securityForm.checkType">
+                            <option value="PhysicalPatrol">Physical Patrol</option>
+                            <option value="CameraReview">Camera Review</option>
+                            <option value="DoorAudit">Door Audit</option>
+                            <option value="PerimeterCheck">Perimeter Check</option>
+                            <option value="ComplianceAudit">Compliance Audit</option>
+                        </select>
+                    </label>
+                    <label>
+                        Status
+                        <select v-model="securityForm.status">
+                            <option value="Pass">Pass</option>
+                            <option value="Fail">Fail</option>
+                            <option value="Degraded">Degraded</option>
+                        </select>
+                    </label>
+                    <label>
+                        Notes
+                        <textarea v-model="securityForm.notes" class="form-input" rows="2"></textarea>
+                    </label>
+                    <button type="submit" class="btn btn-secondary" :disabled="busy.security">
+                        {{ busy.security ? 'Recording...' : 'Record Check' }}
+                    </button>
+                </form>
+                <div v-if="securityResult" class="success-card" style="margin-top:8px;">{{ securityResult }}</div>
+            </article>
+            <article class="ops-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <span class="panel-kicker">Outbox</span>
+                        <h2 class="panel-title">Outbox & Webhooks</h2>
+                    </div>
+                </div>
+                <div class="incident-brief-form" style="flex-wrap:wrap;">
+                    <select v-model="outboxFilter" class="filter-select" style="flex:1;">
+                        <option value="">All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Delivered">Delivered</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" :disabled="outboxLoading" @click="loadOutboxEvents">
+                        {{ outboxLoading ? 'Loading...' : 'Load' }}
+                    </button>
+                </div>
+                <div v-if="outboxEvents.length === 0" class="empty-card">No outbox events.</div>
+                <div v-else class="table-container" style="max-height:200px;overflow-y:auto;">
+                    <table class="data-table">
+                        <thead><tr><th>Type</th><th>Status</th><th>Retry</th></tr></thead>
+                        <tbody>
+                            <tr v-for="e in outboxEvents" :key="e.outboxEventId">
+                                <td class="table-sub">{{ (e.eventType || '').substring(0, 20) }}</td>
+                                <td><span class="soft-chip" :class="e.status === 'Failed' ? 'danger' : e.status === 'Delivered' ? 'success' : 'warn'">{{ e.status }}</span></td>
+                                <td><span v-if="e.retryCount != null" class="text-muted">{{ e.retryCount }}</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <!-- Ops backup list -->
+        <section v-if="selectedWorkspace === 'ops'" class="ops-grid two" style="margin-top:0.5rem;">
+            <article class="ops-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <span class="panel-kicker">Backups</span>
+                        <h2 class="panel-title">Recent Backup Runs</h2>
+                    </div>
+                    <button class="btn btn-sm btn-secondary" :disabled="backupLoading" @click="loadBackupRuns">Refresh</button>
+                </div>
+                <div v-if="backupLoading" class="empty-card">Loading...</div>
+                <div v-else-if="backupRuns.length === 0" class="empty-card">No backup runs.</div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>Profile</th><th>Status</th><th>Started</th><th>RPO</th></tr></thead>
+                        <tbody>
+                            <tr v-for="b in backupRuns" :key="b.backupRunId">
+                                <td>{{ b.profile || '—' }}</td>
+                                <td><span class="soft-chip" :class="b.status === 'Completed' ? 'success' : b.status === 'Failed' ? 'danger' : 'warn'">{{ b.status }}</span></td>
+                                <td class="table-sub">{{ new Date(b.startedAtUtc).toLocaleString() }}</td>
+                                <td>{{ b.achievedRpoMinutes || '—' }}m</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="ops-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <span class="panel-kicker">Restore</span>
+                        <h2 class="panel-title">Restore Drills</h2>
+                    </div>
+                    <button class="btn btn-sm btn-secondary" :disabled="restoreLoading" @click="loadRestoreDrills">Refresh</button>
+                </div>
+                <div v-if="restoreLoading" class="empty-card">Loading...</div>
+                <div v-else-if="restoreDrills.length === 0" class="empty-card">No restore drills.</div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Status</th><th>RTO Target</th><th>Started</th></tr></thead>
+                        <tbody>
+                            <tr v-for="r in restoreDrills" :key="r.restoreDrillId">
+                                <td>{{ r.restoreDrillId }}</td>
+                                <td><span class="soft-chip" :class="r.status === 'Completed' ? 'success' : r.status === 'Failed' ? 'danger' : 'warn'">{{ r.status }}</span></td>
+                                <td>{{ r.targetRtoMinutes || '—' }}m</td>
+                                <td class="table-sub">{{ new Date(r.startedAtUtc).toLocaleString() }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
         <section v-if="selectedWorkspace === 'soc'" class="ops-grid two">
+            <!-- SOC content (same as before) -->
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
@@ -438,11 +581,12 @@
                         <span>{{ count }}</span>
                     </div>
                 </div>
-
-                <div class="panel-head compact" style="margin-top:18px">
+            </article>
+            <article class="ops-panel">
+                <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">AI Copilot</span>
-                        <h3 class="panel-title">Incident Analysis</h3>
+                        <h2 class="panel-title">Incident Analysis</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
@@ -469,136 +613,10 @@
                     </div>
                 </div>
             </article>
-
-            <article class="ops-panel">
-                <div class="panel-head compact">
-                    <div>
-                        <span class="panel-kicker">AI Phan tich</span>
-                        <h2 class="panel-title">Bat thuong & Canh bao</h2>
-                    </div>
-                </div>
-                <div v-if="socIntel.anomalies && socIntel.anomalies.length" class="anomaly-list">
-                    <div v-for="(anomaly, idx) in socIntel.anomalies" :key="idx" class="anomaly-item" :class="'sev-' + anomaly.severity.toLowerCase()">
-                        <strong>{{ anomaly.type }}</strong>
-                        <p>{{ anomaly.detail }}</p>
-                        <div v-if="anomaly.currentCount != null" class="anomaly-metric">
-                            <span>{{ anomaly.currentCount }} hien tai</span>
-                            <span v-if="anomaly.expectedCount">| {{ anomaly.expectedCount }} TB</span>
-                            <span v-if="anomaly.deviation">| +{{ anomaly.deviation }}%</span>
-                        </div>
-                    </div>
-                </div>
-                <div v-else class="empty-card">Khong phat hien bat thuong nao.</div>
-
-                <div class="panel-head compact" style="margin-top:18px">
-                    <div>
-                        <span class="panel-kicker">Event Feed</span>
-                        <h3 class="panel-title">AI Event Metadata</h3>
-                    </div>
-                </div>
-                <div class="incident-brief-form" style="flex-wrap:wrap">
-                    <select v-model="eventFeed.filter.sourceType" class="filter-select" style="flex:1;min-width:80px">
-                        <option value="">All sources</option>
-                        <option value="FaceRecognition">Face</option>
-                        <option value="LicensePlate">Plate</option>
-                        <option value="CameraAnalytics">Camera</option>
-                        <option value="AccessControl">Access</option>
-                        <option value="DeviceHealth">Device</option>
-                    </select>
-                    <input v-model.number="eventFeed.filter.limit" type="number" min="5" max="100" placeholder="Limit" class="filter-input" style="width:60px" />
-                    <button class="btn btn-primary btn-sm" :disabled="eventFeed.loading" @click="searchEventFeed">
-                        {{ eventFeed.loading ? 'Dang tai...' : 'Tim su kien' }}
-                    </button>
-                </div>
-                <div v-if="eventFeed.events.length" class="event-feed-list">
-                    <div v-for="evt in eventFeed.events.slice(0, 8)" :key="evt.id" class="event-feed-item">
-                        <div class="event-feed-head">
-                            <span class="soft-chip" style="font-size:0.68rem">{{ evt.eventType }}</span>
-                            <small>{{ evt.sourceType }}:{{ evt.sourceId }}</small>
-                        </div>
-                        <p v-if="evt.label" class="small-meta">{{ evt.label }}</p>
-                        <div class="event-feed-meta">
-                            <span v-if="evt.confidence">Conf: {{ evt.confidence }}</span>
-                            <span v-if="evt.cameraId">Cam {{ evt.cameraId }}</span>
-                            <span v-if="evt.gateId">Gate {{ evt.gateId }}</span>
-                            <small v-if="evt.occurredAtUtc">{{ formatDate(evt.occurredAtUtc) }}</small>
-                        </div>
-                    </div>
-                </div>
-                <div v-else-if="!eventFeed.loading" class="empty-card">Chua co su kien. Nhap filter va tim kiem.</div>
-
-                <div class="panel-head compact" style="margin-top:18px">
-                    <div>
-                        <span class="panel-kicker">Device Health AI</span>
-                        <h3 class="panel-title">Thiet bi insight</h3>
-                    </div>
-                </div>
-                <div v-if="deviceInsights.loading" class="empty-card">Dang tai...</div>
-                <div v-else-if="deviceInsights.items.length" class="device-insight-list">
-                    <div v-for="di in deviceInsights.items.slice(0, 5)" :key="di.deviceId" class="device-insight-item" :class="'pred-' + (di.predictedStatus || '').toLowerCase()">
-                        <strong>{{ di.deviceName }}</strong>
-                        <span class="soft-chip" :class="di.predictedStatus === 'Online' ? 'success' : di.predictedStatus === 'AtRisk' ? 'warning' : 'danger'">
-                            {{ di.predictedStatus }}
-                        </span>
-                        <p v-if="di.insight" class="small-meta">{{ di.insight }}</p>
-                    </div>
-                </div>
-                <div v-else class="empty-card">Khong co thiet bi.</div>
-
-                <div class="panel-head compact" style="margin-top:18px">
-                    <div>
-                        <span class="panel-kicker">AI Truy van</span>
-                        <h3 class="panel-title">Natural Language Query</h3>
-                    </div>
-                </div>
-                <div class="nl-query-form">
-                    <textarea v-model="nlQuery.queryText" rows="2" class="filter-input" placeholder="Vi du: Ai vao cong sau 22h trong 7 ngay qua? Camera nao dang stale? Co bao nhieu alarm critical chua xu ly?"></textarea>
-                    <button class="btn btn-primary btn-sm" :disabled="nlQuery.loading || !nlQuery.queryText.trim()" @click="executeNlQuery" style="align-self:flex-start">
-                        {{ nlQuery.loading ? 'Dang truy van...' : 'Truy van' }}
-                    </button>
-                </div>
-
-                <div v-if="nlQuery.result" class="nl-query-result">
-                    <div class="nl-query-intent">
-                        <span class="soft-chip">{{ nlQuery.result.intent }}</span>
-                        <small v-if="nlQuery.result.totalCount != null">{{ nlQuery.result.totalCount }} ket qua</small>
-                        <span v-if="nlQuery.result.isActionable" class="soft-chip warning">Can phe duyet</span>
-                    </div>
-                    <p class="brief-summary">{{ nlQuery.result.summary }}</p>
-
-                    <div v-if="nlQuery.result.draftRecommendation" class="rec-reasoning">
-                        <strong>De xuat:</strong>
-                        <p>{{ nlQuery.result.draftRecommendation }}</p>
-                    </div>
-
-                    <div v-if="nlQuery.result.warnings && nlQuery.result.warnings.length" class="nl-query-warnings">
-                        <div v-for="(w, i) in nlQuery.result.warnings" :key="i" class="warning-item">
-                            <small>⚠ {{ w }}</small>
-                        </div>
-                    </div>
-
-                    <div v-if="nlQuery.result.results && nlQuery.result.results.length" class="nl-result-list">
-                        <div v-for="(row, i) in nlQuery.result.results.slice(0, 10)" :key="i" class="nl-result-row" :class="'sev-' + (row.severity || 'low').toLowerCase()">
-                            <div class="nl-result-head">
-                                <span class="soft-chip" style="font-size:0.64rem;min-height:20px">{{ row.source }}</span>
-                                <strong>{{ row.label }}</strong>
-                                <span v-if="row.severity" class="nl-severity-badge" :class="row.severity.toLowerCase()">{{ row.severity }}</span>
-                            </div>
-                            <p class="small-meta">{{ row.detail }}</p>
-                            <div class="nl-result-meta">
-                                <small v-if="row.timestamp">{{ formatDate(row.timestamp) }}</small>
-                                <small v-if="row.link" class="nl-link">{{ row.link }}</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-else-if="!nlQuery.result.draftRecommendation" class="empty-card">
-                        Khong tim thay ket qua phu hop.
-                    </div>
-                </div>
-            </article>
         </section>
 
         <section v-if="selectedWorkspace === 'reception'" class="ops-grid two">
+            <!-- Reception content -->
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
@@ -708,7 +726,6 @@
                     </div>
                 </div>
             </article>
-
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
@@ -773,7 +790,6 @@
                     </div>
                 </div>
             </article>
-
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
@@ -782,28 +798,6 @@
                     </div>
                 </div>
                 <div class="empty-card">Nhap Policy Version ID va chon "Giai thich" de xem phan tich chinh sach bang ngon ngu tu nhien. AI se giai thich muc dich, nguoi bi anh huong, va cac buoc tiep theo.</div>
-            </article>
-        </section>
-
-        <section v-if="selectedWorkspace === 'auditor'" class="ops-grid two">
-            <article class="ops-panel">
-                <div class="panel-head compact">
-                    <div>
-                        <span class="panel-kicker">AI Phan tich</span>
-                        <h2 class="panel-title">Retention & Legal Hold Review</h2>
-                    </div>
-                </div>
-                <div class="empty-card">Chuc nang phan tich retention va legal hold se duoc bo sung. Su dung AI de kiem tra rui ro xoa bang chung va canh bao legal hold sap het han.</div>
-            </article>
-
-            <article class="ops-panel">
-                <div class="panel-head compact">
-                    <div>
-                        <span class="panel-kicker">Quick actions</span>
-                        <h2 class="panel-title">Phan tich gan day</h2>
-                    </div>
-                </div>
-                <div class="empty-card">Cac ket qua phan tich AI bang chung se hien o day.</div>
             </article>
         </section>
 
@@ -859,164 +853,54 @@ const socIntel = reactive({
     anomalies: [],
 })
 
-const incidentBriefing = reactive({
-    incidentId: null,
-    loading: false,
-    result: null,
-})
-
-const evidenceAnalysis = reactive({
-    evidenceId: null,
-    loading: false,
-    result: null,
-})
-
-const evidenceExport = reactive({
-    exportId: null,
-    loading: false,
-    result: null,
-})
-
-const deviceInsights = reactive({
-    loading: false,
-    items: [],
-})
-
-const visitorScreening = reactive({
-    visitId: null,
-    loading: false,
-    result: null,
-})
-
-const vehicleScreening = reactive({
-    vehicleId: null,
-    loading: false,
-    result: null,
-})
-
-const policySimulation = reactive({
-    policyId: null,
-    loading: false,
-    result: null,
-})
+const incidentBriefing = reactive({ incidentId: null, loading: false, result: null })
+const evidenceAnalysis = reactive({ evidenceId: null, loading: false, result: null })
+const evidenceExport = reactive({ exportId: null, loading: false, result: null })
+const deviceInsights = reactive({ loading: false, items: [] })
+const visitorScreening = reactive({ visitId: null, loading: false, result: null })
+const vehicleScreening = reactive({ vehicleId: null, loading: false, result: null })
+const policySimulation = reactive({ policyId: null, loading: false, result: null })
 
 const eventFeed = reactive({
-    events: [],
-    loading: false,
-    filter: {
-        sourceType: '',
-        eventType: '',
-        cameraId: null,
-        subjectId: '',
-        limit: 20,
-    },
+    events: [], loading: false,
+    filter: { sourceType: '', eventType: '', cameraId: null, subjectId: '', limit: 20 },
 })
 
-const nlQuery = reactive({
-    queryText: '',
-    loading: false,
-    result: null,
-})
-const assetMap = reactive({
-    gates: [],
-    cameras: [],
-    vehicles: [],
-})
+const nlQuery = reactive({ queryText: '', loading: false, result: null })
+
+const assetMap = reactive({ gates: [], cameras: [], vehicles: [] })
 
 const busy = reactive({
-    stepUp: false,
-    provider: false,
-    importUser: false,
-    device: false,
-    fault: false,
-    alarm: false,
-    backup: false,
-    qa: false,
-    backfill: false,
-    policy: false,
-    ai: false,
+    stepUp: false, provider: false, importUser: false, device: false,
+    fault: false, alarm: false, backup: false, qa: false, backfill: false,
+    policy: false, ai: false, restore: false, security: false,
 })
 
-const stepUp = reactive({
-    action: 'AllPrivilegedActions',
-    password: '',
-    mfaCode: '',
-    sessionId: null,
-    active: false,
-    message: '',
-})
+const stepUp = reactive({ action: 'AllPrivilegedActions', password: '', mfaCode: '', sessionId: null, active: false, message: '' })
 
-const providerForm = reactive({
-    name: 'Corporate IdP',
-    protocol: 'OIDC',
-    authority: 'https://idp.company.local',
-    clientId: 'v-shield',
-    isEnabled: true,
-})
+const providerForm = reactive({ name: 'Corporate IdP', protocol: 'OIDC', authority: 'https://idp.company.local', clientId: 'v-shield', isEnabled: true })
+const importForm = reactive({ providerId: 1, externalSubject: 'employee-001', username: 'employee.001', displayName: 'Employee 001', email: 'employee.001@company.local', phone: '', role: 'Staff', lifecycleStatus: 'Active', primarySiteId: null })
+const deviceForm = reactive({ name: 'Virtual Controller 01', protocol: 'OSDP-Sim', direction: 'Entry', maxCredentials: 50000 })
+const faultForm = reactive({ securityDeviceId: null, status: 'Tamper', severity: 'High', message: 'Operator drill' })
+const alarmForm = reactive({ summary: 'Manual SOC drill alarm', severity: 'High' })
+const backupForm = reactive({ profile: 'MediumCompany' })
+const qaForm = reactive({ testType: 'LoadStressSoakChaos' })
+const backfillForm = reactive({ companyName: 'V-Shield Company', companyCode: 'VSHIELD', siteName: 'Headquarters', siteCode: 'HQ', timeZoneId: 'Asia/Ho_Chi_Minh' })
+const policyForm = reactive({ subjectType: 'Employee', subjectId: 1, siteId: null, securityZoneId: null, accessPointId: null, credentialType: 'QR', allowHolidayAccess: false, evaluatedAtUtc: null })
+const policyResult = reactive({ result: '', reason: '', decisionMode: '' })
 
-const importForm = reactive({
-    providerId: 1,
-    externalSubject: 'employee-001',
-    username: 'employee.001',
-    displayName: 'Employee 001',
-    email: 'employee.001@company.local',
-    phone: '',
-    role: 'Staff',
-    lifecycleStatus: 'Active',
-    primarySiteId: null,
-})
-
-const deviceForm = reactive({
-    name: 'Virtual Controller 01',
-    protocol: 'OSDP-Sim',
-    direction: 'Entry',
-    maxCredentials: 50000,
-})
-
-const faultForm = reactive({
-    securityDeviceId: null,
-    status: 'Tamper',
-    severity: 'High',
-    message: 'Operator drill',
-})
-
-const alarmForm = reactive({
-    summary: 'Manual SOC drill alarm',
-    severity: 'High',
-})
-
-const backupForm = reactive({
-    profile: 'MediumCompany',
-})
-
-const qaForm = reactive({
-    testType: 'LoadStressSoakChaos',
-})
-
-const backfillForm = reactive({
-    companyName: 'V-Shield Company',
-    companyCode: 'VSHIELD',
-    siteName: 'Headquarters',
-    siteCode: 'HQ',
-    timeZoneId: 'Asia/Ho_Chi_Minh',
-})
-
-const policyForm = reactive({
-    subjectType: 'Employee',
-    subjectId: 1,
-    siteId: null,
-    securityZoneId: null,
-    accessPointId: null,
-    credentialType: 'QR',
-    allowHolidayAccess: false,
-    evaluatedAtUtc: null,
-})
-
-const policyResult = reactive({
-    result: '',
-    reason: '',
-    decisionMode: '',
-})
+// Ops workspace state
+const restoreForm = reactive({ backupRunId: null, targetRtoMinutes: 60 })
+const restoreResult = ref('')
+const securityForm = reactive({ checkType: 'PhysicalPatrol', status: 'Pass', notes: '' })
+const securityResult = ref('')
+const outboxFilter = ref('')
+const outboxLoading = ref(false)
+const outboxEvents = ref([])
+const backupLoading = ref(false)
+const backupRuns = ref([])
+const restoreLoading = ref(false)
+const restoreDrills = ref([])
 
 const statusMessage = computed(() => {
     if (loadError.value) return loadError.value
@@ -1025,44 +909,17 @@ const statusMessage = computed(() => {
 })
 
 const headlineMetrics = computed(() => [
-    {
-        label: 'Sites',
-        value: overview.foundation.sites || 0,
-        note: `${overview.foundation.accessPoints || 0} access points`,
-    },
-    {
-        label: 'Open alarms',
-        value: overview.soc.openAlarms || 0,
-        note: `${overview.soc.criticalOpenAlarms || 0} critical`,
-    },
-    {
-        label: 'Devices',
-        value: overview.devices.devices || 0,
-        note: `${overview.devices.offlinePackages || 0} offline packages`,
-    },
-    {
-        label: 'Evidence',
-        value: overview.evidence.evidenceItems || 0,
-        note: `${overview.evidence.pendingExports || 0} pending exports`,
-    },
-    {
-        label: 'Outbox',
-        value: overview.operations.pendingOutboxEvents || 0,
-        note: `${overview.operations.failedOutboxEvents || 0} failed`,
-    },
-    {
-        label: 'Release gates',
-        value: overview.release.pendingRequiredGates || 0,
-        note: `${overview.release.approvedReleaseCandidates || 0} approved releases`,
-    },
+    { label: 'Sites', value: overview.foundation.sites || 0, note: `${overview.foundation.accessPoints || 0} access points` },
+    { label: 'Open alarms', value: overview.soc.openAlarms || 0, note: `${overview.soc.criticalOpenAlarms || 0} critical` },
+    { label: 'Devices', value: overview.devices.devices || 0, note: `${overview.devices.offlinePackages || 0} offline packages` },
+    { label: 'Evidence', value: overview.evidence.evidenceItems || 0, note: `${overview.evidence.pendingExports || 0} pending exports` },
+    { label: 'Outbox', value: overview.operations.pendingOutboxEvents || 0, note: `${overview.operations.failedOutboxEvents || 0} failed` },
+    { label: 'Release gates', value: overview.release.pendingRequiredGates || 0, note: `${overview.release.approvedReleaseCandidates || 0} approved releases` },
 ])
 
 const workspaces = computed(() => [
     {
-        id: 'admin',
-        label: 'Admin',
-        kicker: 'Administration',
-        title: 'Foundation and identity',
+        id: 'admin', label: 'Admin', kicker: 'Administration', title: 'Foundation and identity',
         badge: `${overview.identity.activeMappings || 0} active mappings`,
         metrics: [
             { label: 'Companies', value: overview.foundation.companies || 0 },
@@ -1072,10 +929,7 @@ const workspaces = computed(() => [
         actions: ['Provider', 'HR import', 'Recertification'],
     },
     {
-        id: 'soc',
-        label: 'SOC',
-        kicker: 'Command center',
-        title: 'Alarms and incidents',
+        id: 'soc', label: 'SOC', kicker: 'Command center', title: 'Alarms and incidents',
         badge: `${overview.soc.openIncidents || 0} open incidents`,
         metrics: [
             { label: 'Open alarms', value: overview.soc.openAlarms || 0 },
@@ -1085,10 +939,7 @@ const workspaces = computed(() => [
         actions: ['Acknowledge', 'Dispatch', 'Handover'],
     },
     {
-        id: 'reception',
-        label: 'Reception',
-        kicker: 'Visitor desk',
-        title: 'Visits and watchlists',
+        id: 'reception', label: 'Reception', kicker: 'Visitor desk', title: 'Visits and watchlists',
         badge: `${overview.visitorVehicle.watchlistMatches || 0} matches`,
         metrics: [
             { label: 'Visits', value: overview.visitorVehicle.visits || 0 },
@@ -1098,10 +949,7 @@ const workspaces = computed(() => [
         actions: ['Check-in', 'Forms', 'Overstay'],
     },
     {
-        id: 'gate',
-        label: 'Gate',
-        kicker: 'Vehicle lanes',
-        title: 'Parking and barrier review',
+        id: 'gate', label: 'Gate', kicker: 'Vehicle lanes', title: 'Parking and barrier review',
         badge: `${overview.visitorVehicle.barriers || 0} barriers`,
         metrics: [
             { label: 'Parking permits', value: overview.visitorVehicle.parkingPermits || 0 },
@@ -1111,10 +959,7 @@ const workspaces = computed(() => [
         actions: ['Plate review', 'Open barrier', 'Exception'],
     },
     {
-        id: 'auditor',
-        label: 'Auditor',
-        kicker: 'Governance',
-        title: 'Evidence and compliance',
+        id: 'auditor', label: 'Auditor', kicker: 'Governance', title: 'Evidence and compliance',
         badge: `${overview.evidence.activeLegalHolds || 0} legal holds`,
         metrics: [
             { label: 'Collections', value: overview.evidence.collections || 0 },
@@ -1124,17 +969,14 @@ const workspaces = computed(() => [
         actions: ['Export review', 'Retention', 'Report'],
     },
     {
-        id: 'ops',
-        label: 'Ops',
-        kicker: 'Resilience',
-        title: 'Workers, backup and release',
+        id: 'ops', label: 'Ops', kicker: 'Resilience', title: 'Backup, restore & security',
         badge: `${overview.operations.degradedDependencies || 0} degraded`,
         metrics: [
             { label: 'Backups', value: overview.operations.backupRuns || 0 },
             { label: 'Restore drills', value: overview.operations.restoreDrills || 0 },
-            { label: 'QA runs', value: overview.release.qaTestRuns || 0 },
+            { label: 'Security checks', value: overview.operations.securityChecks || 0 },
         ],
-        actions: ['Outbox', 'SIEM', 'Backup'],
+        actions: ['Outbox', 'Backup', 'Restore', 'Security'],
     },
 ])
 
@@ -1143,9 +985,7 @@ const activeWorkspace = computed(() =>
 )
 
 const visibleFindings = computed(() =>
-    (configHealth.findings || [])
-        .filter((finding) => finding.status !== 'Pass')
-        .slice(0, 5)
+    (configHealth.findings || []).filter((finding) => finding.status !== 'Pass').slice(0, 5)
 )
 
 const riskLabel = computed(() => {
@@ -1168,18 +1008,7 @@ async function loadOverview() {
     loading.value = true
     loadError.value = ''
     try {
-        const [
-            foundation,
-            identity,
-            policy,
-            visitorVehicle,
-            devices,
-            soc,
-            evidence,
-            operations,
-            release,
-        ] = await enterpriseApi.overview()
-
+        const [foundation, identity, policy, visitorVehicle, devices, soc, evidence, operations, release] = await enterpriseApi.overview()
         Object.assign(overview.foundation, normalizeKeys(foundation.data))
         Object.assign(overview.identity, normalizeKeys(identity.data))
         Object.assign(overview.policy, normalizeKeys(policy.data))
@@ -1205,7 +1034,6 @@ async function loadOverview() {
             assetMap.cameras = normalized.cameras || []
             assetMap.vehicles = normalized.vehicles || []
         }
-
         loadSocIntel()
     } catch (error) {
         loadError.value = error.response?.data?.message || 'Cannot load enterprise security data.'
@@ -1218,8 +1046,7 @@ async function loadSocIntel() {
     try {
         const intel = await socIntelApi.getIntelligence()
         Object.assign(socIntel, normalizeKeys(intel.data))
-    } catch {
-    }
+    } catch {}
 }
 
 const sevClass = (sev) => {
@@ -1240,15 +1067,8 @@ async function analyzeIncident() {
         incidentBriefing.result = data
         pushActivity('AI Incident Briefing', `Incident #${incidentBriefing.incidentId} analyzed`)
     } catch (error) {
-        incidentBriefing.result = {
-            severity: 'Medium',
-            summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        incidentBriefing.loading = false
-    }
+        incidentBriefing.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null }
+    } finally { incidentBriefing.loading = false }
 }
 
 async function analyzeEvidence() {
@@ -1260,15 +1080,8 @@ async function analyzeEvidence() {
         evidenceAnalysis.result = data
         pushActivity('AI Evidence Analysis', `Evidence #${evidenceAnalysis.evidenceId} analyzed`)
     } catch (error) {
-        evidenceAnalysis.result = {
-            severity: 'Medium',
-            summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        evidenceAnalysis.loading = false
-    }
+        evidenceAnalysis.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null }
+    } finally { evidenceAnalysis.loading = false }
 }
 
 async function reviewExport() {
@@ -1280,251 +1093,135 @@ async function reviewExport() {
         evidenceExport.result = data
         pushActivity('AI Export Review', `Export #${evidenceExport.exportId} reviewed`)
     } catch (error) {
-        evidenceExport.result = {
-            severity: 'Medium',
-            summary: 'Khong the kiem tra: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        evidenceExport.loading = false
-    }
+        evidenceExport.result = { severity: 'Medium', summary: 'Khong the kiem tra: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null }
+    } finally { evidenceExport.loading = false }
 }
 
-async function approveAi(id) {
-    if (!id) return
-    try {
-        await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phe duyet sau khi xem xet')
-        pushActivity('AI Recommendation', `Approved #${id}`)
-    } catch { /* ignore */ }
-}
-
-async function rejectAi(id) {
-    if (!id) return
-    try {
-        await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Khong dong y')
-        pushActivity('AI Recommendation', `Rejected #${id}`)
-    } catch { /* ignore */ }
-}
-
-async function loadDeviceInsights() {
-    deviceInsights.loading = true
-    try {
-        const { data } = await enterpriseAiApi.getDeviceHealthInsights()
-        deviceInsights.items = Array.isArray(data) ? data : []
-    } catch {
-        deviceInsights.items = []
-    } finally {
-        deviceInsights.loading = false
-    }
-}
+async function approveAi(id) { if (!id) return; try { await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phe duyet sau khi xem xet'); pushActivity('AI Recommendation', `Approved #${id}`) } catch {} }
+async function rejectAi(id) { if (!id) return; try { await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Khong dong y'); pushActivity('AI Recommendation', `Rejected #${id}`) } catch {} }
 
 async function screenVisitor() {
     if (!visitorScreening.visitId) return
-    visitorScreening.loading = true
-    visitorScreening.result = null
-    try {
-        const { data } = await enterpriseAiApi.screenVisitor(visitorScreening.visitId)
-        visitorScreening.result = data
-        pushActivity('AI Visitor Screening', `Visit #${visitorScreening.visitId} screened`)
-    } catch (error) {
-        visitorScreening.result = {
-            severity: 'Medium',
-            summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        visitorScreening.loading = false
-    }
+    visitorScreening.loading = true; visitorScreening.result = null
+    try { const { data } = await enterpriseAiApi.screenVisitor(visitorScreening.visitId); visitorScreening.result = data; pushActivity('AI Visitor Screening', `Visit #${visitorScreening.visitId} screened`) }
+    catch (error) { visitorScreening.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    finally { visitorScreening.loading = false }
 }
 
 async function screenVehicle() {
     if (!vehicleScreening.vehicleId) return
-    vehicleScreening.loading = true
-    vehicleScreening.result = null
-    try {
-        const { data } = await enterpriseAiApi.screenVehicle(vehicleScreening.vehicleId)
-        vehicleScreening.result = data
-        pushActivity('AI Vehicle Screening', `Vehicle #${vehicleScreening.vehicleId} screened`)
-    } catch (error) {
-        vehicleScreening.result = {
-            severity: 'Medium',
-            summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        vehicleScreening.loading = false
-    }
+    vehicleScreening.loading = true; vehicleScreening.result = null
+    try { const { data } = await enterpriseAiApi.screenVehicle(vehicleScreening.vehicleId); vehicleScreening.result = data; pushActivity('AI Vehicle Screening', `Vehicle #${vehicleScreening.vehicleId} screened`) }
+    catch (error) { vehicleScreening.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    finally { vehicleScreening.loading = false }
 }
 
 async function simulateAiPolicy() {
     if (!policySimulation.policyId) return
-    policySimulation.loading = true
-    policySimulation.result = null
-    try {
-        const { data } = await enterpriseAiApi.simulatePolicy(policySimulation.policyId)
-        policySimulation.result = data
-        pushActivity('AI Policy Simulate', `Policy #${policySimulation.policyId} simulated`)
-    } catch (error) {
-        policySimulation.result = {
-            severity: 'Low',
-            summary: 'Khong the mo phong: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        policySimulation.loading = false
-    }
+    policySimulation.loading = true; policySimulation.result = null
+    try { const { data } = await enterpriseAiApi.simulatePolicy(policySimulation.policyId); policySimulation.result = data; pushActivity('AI Policy Simulate', `Policy #${policySimulation.policyId} simulated`) }
+    catch (error) { policySimulation.result = { severity: 'Low', summary: 'Khong the mo phong: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    finally { policySimulation.loading = false }
 }
 
 async function explainAiPolicy() {
     if (!policySimulation.policyId) return
-    policySimulation.loading = true
-    policySimulation.result = null
-    try {
-        const { data } = await enterpriseAiApi.explainPolicy(policySimulation.policyId)
-        policySimulation.result = data
-        pushActivity('AI Policy Explain', `Policy #${policySimulation.policyId} explained`)
-    } catch (error) {
-        policySimulation.result = {
-            severity: 'Low',
-            summary: 'Khong the giai thich: ' + (error.response?.data?.message || error.message),
-            provider: 'Error',
-            recommendationId: null,
-        }
-    } finally {
-        policySimulation.loading = false
-    }
-}
-
-async function executeNlQuery() {
-    if (!nlQuery.queryText.trim()) return
-    nlQuery.loading = true
-    nlQuery.result = null
-    try {
-        const { data } = await enterpriseAiApi.naturalLanguageQuery(nlQuery.queryText)
-        nlQuery.result = data
-        pushActivity('NL Query', data.intent + ': ' + data.totalCount + ' results')
-    } catch (error) {
-        nlQuery.result = {
-            intent: 'error',
-            summary: 'Loi truy van: ' + (error.response?.data?.message || error.message),
-            results: [],
-            totalCount: 0,
-            isActionable: false,
-        }
-    } finally {
-        nlQuery.loading = false
-    }
-}
-
-async function searchEventFeed() {
-    eventFeed.loading = true
-    try {
-        const { data } = await enterpriseAiApi.searchEventMetadata(eventFeed.filter)
-        eventFeed.events = Array.isArray(data) ? data : []
-        pushActivity('Event Feed', `Found ${eventFeed.events.length} events`)
-    } catch {
-        eventFeed.events = []
-    } finally {
-        eventFeed.loading = false
-    }
+    policySimulation.loading = true; policySimulation.result = null
+    try { const { data } = await enterpriseAiApi.explainPolicy(policySimulation.policyId); policySimulation.result = data; pushActivity('AI Policy Explain', `Policy #${policySimulation.policyId} explained`) }
+    catch (error) { policySimulation.result = { severity: 'Low', summary: 'Khong the giai thich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    finally { policySimulation.loading = false }
 }
 
 watch(selectedWorkspace, (ws) => {
-    if (ws === 'soc') {
-        loadSocIntel()
-        loadDeviceInsights()
-    }
+    if (ws === 'soc') { loadSocIntel() }
+    if (ws === 'ops') { loadBackupRuns(); loadRestoreDrills(); loadOutboxEvents() }
 })
 
 async function verifyStepUp() {
-    busy.stepUp = true
-    stepUp.message = ''
+    busy.stepUp = true; stepUp.message = ''
     try {
         const start = await enterpriseApi.stepUpStart(stepUp.action, 'Operator console verification')
         const verified = await enterpriseApi.stepUpVerify(start.data.sessionId, stepUp.password, stepUp.mfaCode)
-        stepUp.sessionId = verified.data.sessionId
-        stepUp.active = verified.data.active
+        stepUp.sessionId = verified.data.sessionId; stepUp.active = verified.data.active
         enterpriseApi.setStepUpSession(verified.data.sessionId)
         stepUp.message = 'Verified until ' + formatDateTime(verified.data.expiresAtUtc)
         pushActivity('Step-up verified', stepUp.action)
     } catch (error) {
-        stepUp.active = false
-        stepUp.message = error.response?.data?.message || 'Verification failed.'
-    } finally {
-        busy.stepUp = false
-    }
+        stepUp.active = false; stepUp.message = error.response?.data?.message || 'Verification failed.'
+    } finally { busy.stepUp = false }
 }
 
-async function saveProvider() {
-    await runAction('provider', 'Provider saved', () => enterpriseApi.upsertIdentityProvider(providerForm))
-}
-
-async function importUser() {
-    const user = { ...importForm }
-    const providerId = user.providerId
-    delete user.providerId
-    await runAction('importUser', 'User import recorded', () => enterpriseApi.importIdentityUsers(providerId, [user]))
-}
-
-async function createVirtualController() {
-    await runAction('device', 'Virtual controller created', () => enterpriseApi.createVirtualController(deviceForm))
-}
-
-async function injectFault() {
-    await runAction('fault', 'Simulator fault injected', () => enterpriseApi.injectSimulatorFault(faultForm))
-}
-
-async function createAlarm() {
-    await runAction('alarm', 'Alarm created', () =>
-        enterpriseApi.createAlarm({
-            alarmType: 'ManualDrill',
-            severity: alarmForm.severity,
-            summary: alarmForm.summary,
-        })
-    )
-}
-
-async function startBackup() {
-    await runAction('backup', 'Backup run started', () =>
-        enterpriseApi.startBackup({
-            profile: backupForm.profile,
-            targetRpoMinutes: 15,
-            targetRtoMinutes: 60,
-            notes: 'Started from enterprise console',
-        })
-    )
-}
-
-async function createQaRun() {
-    await runAction('qa', 'QA run recorded', () =>
-        enterpriseApi.createQaRun({
-            testType: qaForm.testType,
-            profile: 'MediumCompany',
-            evidenceReference: '/qa/local-enterprise-console',
-            notes: 'Recorded from enterprise console',
-        })
-    )
-}
-
-async function backfillDefaultSite() {
-    await runAction('backfill', 'Foundation backfill completed', () => enterpriseApi.backfillDefaultSite(backfillForm))
-}
+async function saveProvider() { await runAction('provider', 'Provider saved', () => enterpriseApi.upsertIdentityProvider(providerForm)) }
+async function importUser() { const user = { ...importForm }; const pid = user.providerId; delete user.providerId; await runAction('importUser', 'User import recorded', () => enterpriseApi.importIdentityUsers(pid, [user])) }
+async function createVirtualController() { await runAction('device', 'Virtual controller created', () => enterpriseApi.createVirtualController(deviceForm)) }
+async function injectFault() { await runAction('fault', 'Simulator fault injected', () => enterpriseApi.injectSimulatorFault(faultForm)) }
+async function createAlarm() { await runAction('alarm', 'Alarm created', () => enterpriseApi.createAlarm({ alarmType: 'ManualDrill', severity: alarmForm.severity, summary: alarmForm.summary })) }
+async function startBackup() { await runAction('backup', 'Backup run started', () => enterpriseApi.startBackup({ profile: backupForm.profile, targetRpoMinutes: 15, targetRtoMinutes: 60, notes: 'Started from enterprise console' })) }
+async function createQaRun() { await runAction('qa', 'QA run recorded', () => enterpriseApi.createQaRun({ testType: qaForm.testType, profile: 'MediumCompany', evidenceReference: '/qa/local-enterprise-console', notes: 'Recorded from enterprise console' })) }
+async function backfillDefaultSite() { await runAction('backfill', 'Foundation backfill completed', () => enterpriseApi.backfillDefaultSite(backfillForm)) }
 
 async function simulatePolicy() {
     await runAction('policy', 'Policy simulation completed', async () => {
-        const response = await enterpriseApi.simulateAccessPolicy({
-            ...policyForm,
-            evaluatedAtUtc: policyForm.evaluatedAtUtc || new Date().toISOString(),
-        })
-        policyResult.result = response.data?.result || ''
-        policyResult.reason = response.data?.reason || ''
-        policyResult.decisionMode = response.data?.decisionMode || ''
+        const response = await enterpriseApi.simulateAccessPolicy({ ...policyForm, evaluatedAtUtc: policyForm.evaluatedAtUtc || new Date().toISOString() })
+        policyResult.result = response.data?.result || ''; policyResult.reason = response.data?.reason || ''; policyResult.decisionMode = response.data?.decisionMode || ''
         return response
     })
+}
+
+// --- Ops workspace actions ---
+async function startRestore() {
+    if (!restoreForm.backupRunId) return
+    busy.restore = true; restoreResult.value = ''
+    try {
+        await enterpriseApi.startRestore({ backupRunId: restoreForm.backupRunId, targetRtoMinutes: restoreForm.targetRtoMinutes })
+        restoreResult.value = 'Restore drill started!'
+        restoreForm.backupRunId = null
+        await loadRestoreDrills()
+    } catch (e) { restoreResult.value = 'Failed: ' + (e.response?.data?.message || e.message) }
+    finally { busy.restore = false }
+}
+
+async function recordSecurityCheck() {
+    busy.security = true; securityResult.value = ''
+    try {
+        await enterpriseApi.recordSecurityCheck({
+            checkType: securityForm.checkType,
+            status: securityForm.status,
+            notes: securityForm.notes || null,
+        })
+        securityResult.value = 'Security check recorded!'
+        securityForm.notes = ''
+    } catch (e) { securityResult.value = 'Failed: ' + (e.response?.data?.message || e.message) }
+    finally { busy.security = false }
+}
+
+async function loadOutboxEvents() {
+    outboxLoading.value = true; outboxEvents.value = []
+    try {
+        const params = { pageSize: 20 }
+        if (outboxFilter.value) params.status = outboxFilter.value
+        const res = await enterpriseApi.getOutboxEvents(params)
+        outboxEvents.value = res.data?.items || []
+    } catch { outboxEvents.value = [] }
+    finally { outboxLoading.value = false }
+}
+
+async function loadBackupRuns() {
+    backupLoading.value = true; backupRuns.value = []
+    try {
+        const res = await enterpriseApi.getBackupRuns({ pageSize: 10 })
+        backupRuns.value = Array.isArray(res.data) ? res.data : (res.data?.items || [])
+    } catch { backupRuns.value = [] }
+    finally { backupLoading.value = false }
+}
+
+async function loadRestoreDrills() {
+    restoreLoading.value = true; restoreDrills.value = []
+    try {
+        const res = await enterpriseApi.getRestoreDrills({ pageSize: 10 })
+        restoreDrills.value = Array.isArray(res.data) ? res.data : (res.data?.items || [])
+    } catch { restoreDrills.value = [] }
+    finally { restoreLoading.value = false }
 }
 
 async function runAction(key, title, action) {
@@ -1533,615 +1230,107 @@ async function runAction(key, title, action) {
         const response = await action()
         pushActivity(title, response.data?.message || JSON.stringify(response.data).slice(0, 140))
         await loadOverview()
-    } catch (error) {
-        pushActivity(title + ' failed', error.response?.data?.message || error.message)
-    } finally {
-        busy[key] = false
-    }
+    } catch (error) { pushActivity(title + ' failed', error.response?.data?.message || error.message) }
+    finally { busy[key] = false }
 }
 
 function pushActivity(title, detail) {
-    activityLog.value.unshift({
-        id: `${Date.now()}-${Math.random()}`,
-        title,
-        detail,
-        time: new Date().toLocaleTimeString(),
-    })
+    activityLog.value.unshift({ id: `${Date.now()}-${Math.random()}`, title, detail, time: new Date().toLocaleTimeString() })
     activityLog.value = activityLog.value.slice(0, 8)
 }
 
 function normalizeKeys(data) {
-    return Object.fromEntries(
-        Object.entries(data || {}).map(([key, value]) => [
-            key.charAt(0).toLowerCase() + key.slice(1),
-            value,
-        ])
-    )
+    return Object.fromEntries(Object.entries(data || {}).map(([key, value]) => [key.charAt(0).toLowerCase() + key.slice(1), value]))
 }
 
-function formatDateTime(value) {
-    if (!value) return ''
-    return new Date(value).toLocaleString()
-}
-
-function formatDate(value) {
-    if (!value) return ''
-    return new Date(value).toLocaleString('vi-VN', {
-        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
-    })
-}
+function formatDateTime(value) { if (!value) return ''; return new Date(value).toLocaleString() }
 
 onMounted(loadOverview)
 </script>
 
 <style scoped>
-.enterprise-page {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-}
-
-.readiness-band {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 24px;
-    padding: 22px;
-    border-radius: 18px;
-    border: 1px solid var(--border-soft);
-    background: linear-gradient(135deg, rgba(18, 75, 91, 0.92), rgba(18, 36, 52, 0.96));
-    color: #f7fcff;
-    box-shadow: var(--shadow-card);
-}
-
-.readiness-score {
-    width: 112px;
-    height: 112px;
-    border-radius: 999px;
-    display: grid;
-    place-content: center;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.readiness-score span {
-    font-size: 0.74rem;
-    text-transform: uppercase;
-    color: rgba(247, 252, 255, 0.72);
-}
-
-.readiness-score strong {
-    font-size: 2rem;
-    line-height: 1;
-}
-
-.readiness-copy h2 {
-    margin: 0 0 8px;
-    font-size: 1.35rem;
-}
-
-.readiness-copy p {
-    margin: 0;
-    color: rgba(247, 252, 255, 0.76);
-}
-
-.status-pill {
-    display: inline-flex;
-    align-items: center;
-    min-height: 36px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: rgba(77, 216, 180, 0.16);
-    color: #bbffe8;
-    font-weight: 700;
-}
-
-.status-pill.danger {
-    background: rgba(236, 91, 91, 0.18);
-    color: #ffd0d0;
-}
-
-.workspace-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.workspace-tabs button {
-    min-height: 40px;
-    padding: 0 16px;
-    border-radius: 999px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface);
-    color: var(--text-secondary);
-    font-weight: 700;
-}
-
-.workspace-tabs button.active {
-    color: #05313b;
-    background: #8ceaf4;
-    border-color: #8ceaf4;
-}
-
-.workspace-summary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.workspace-stat {
-    min-height: 86px;
-    padding: 14px;
-    border-radius: 14px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-muted);
-}
-
-.workspace-stat strong {
-    display: block;
-    font-size: 1.45rem;
-    color: var(--text-primary);
-}
-
-.workspace-stat span {
-    color: var(--text-secondary);
-    font-size: 0.86rem;
-}
-
-.action-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 18px;
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.form-grid.stacked {
-    margin-top: 18px;
-}
-
-.form-grid.single {
-    grid-template-columns: 1fr;
-}
-
-.form-grid label {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-weight: 700;
-}
-
-.form-grid input,
-.form-grid select {
-    width: 100%;
-    min-height: 42px;
-    padding: 0 12px;
-    border-radius: 12px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface);
-    color: var(--text-primary);
-}
-
-.form-grid button {
-    align-self: end;
-}
-
-.inline-message {
-    margin: 12px 0 0;
-    color: var(--text-secondary);
-}
-
-.finding-list {
-    display: grid;
-    gap: 8px;
-}
-
-.finding-row,
-.asset-map-summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    min-height: 38px;
-    padding: 8px 0;
-    border-top: 1px solid var(--border-soft);
-}
-
-.finding-row:first-child {
-    border-top: none;
-}
-
-.finding-row strong {
-    min-width: 0;
-    color: var(--text-primary);
-    font-size: 0.88rem;
-    overflow-wrap: anywhere;
-}
-
-.finding-row span,
-.asset-map-summary span {
-    flex: 0 0 auto;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-weight: 700;
-}
-
-.finding-row span.fail {
-    color: #d44747;
-}
-
-.finding-row span.warn {
-    color: #b7791f;
-}
-
-.asset-map-summary {
-    margin-top: 14px;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-}
-
-.audit-panel {
-    width: 100%;
-}
-
-.activity-list {
-    display: grid;
-    gap: 10px;
-}
-
-.activity-row {
-    display: grid;
-    grid-template-columns: 90px 190px minmax(0, 1fr);
-    gap: 12px;
-    align-items: center;
-    padding: 12px 0;
-    border-top: 1px solid var(--border-soft);
-}
-
-.activity-row:first-child {
-    border-top: none;
-}
-
-.activity-row span {
-    color: var(--text-muted);
-    font-size: 0.82rem;
-}
-
-.activity-row strong {
-    color: var(--text-primary);
-}
-
-.activity-row p {
-    margin: 0;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.soc-intel-summary {
-    margin-top: 14px;
-    padding: 12px;
-    border-radius: 12px;
-    background: var(--surface-muted);
-    border: 1px solid var(--border-soft);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.soc-intel-summary p {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.soc-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-top: 14px;
-}
-
-.soc-stat {
-    padding: 14px;
-    border-radius: 12px;
-    background: var(--surface-muted);
-    border: 1px solid var(--border-soft);
-}
-
-.soc-stat strong {
-    display: block;
-    font-size: 1.5rem;
-    color: var(--text-primary);
-}
-
-.soc-stat span {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-}
-
-.soc-change {
-    font-size: 0.8rem;
-    font-weight: 700;
-}
-
-.soc-change.up {
-    color: #d44747;
-}
-
-.soc-change.down {
-    color: #4db480;
-}
-
-.text-danger {
-    color: #d44747;
-}
-
-.soc-severity-breakdown {
-    margin-top: 16px;
-}
-
-.soc-severity-breakdown h4 {
-    margin: 0 0 8px;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.severity-bar-row {
-    display: grid;
-    grid-template-columns: 64px minmax(0, 1fr) 32px;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-}
-
-.severity-bar-track {
-    height: 18px;
-    border-radius: 999px;
-    background: var(--surface);
-    overflow: hidden;
-}
-
-.severity-bar-fill {
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.6s ease;
-}
-
+.enterprise-page { display: flex; flex-direction: column; gap: 22px; }
+.readiness-band { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 22px; border-radius: 18px; border: 1px solid var(--border-soft); background: linear-gradient(135deg, rgba(18, 75, 91, 0.92), rgba(18, 36, 52, 0.96)); color: #f7fcff; box-shadow: var(--shadow-card); }
+.readiness-score { width: 112px; height: 112px; border-radius: 999px; display: grid; place-content: center; text-align: center; border: 1px solid rgba(255, 255, 255, 0.24); background: rgba(255, 255, 255, 0.08); }
+.readiness-score span { font-size: 0.74rem; text-transform: uppercase; color: rgba(247, 252, 255, 0.72); }
+.readiness-score strong { font-size: 2rem; line-height: 1; }
+.readiness-copy h2 { margin: 0 0 8px; font-size: 1.35rem; }
+.readiness-copy p { margin: 0; color: rgba(247, 252, 255, 0.76); }
+.status-pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; background: rgba(77, 216, 180, 0.16); color: #bbffe8; font-weight: 700; }
+.status-pill.danger { background: rgba(236, 91, 91, 0.18); color: #ffd0d0; }
+.workspace-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
+.workspace-tabs button { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-secondary); font-weight: 700; }
+.workspace-tabs button.active { color: #05313b; background: #8ceaf4; border-color: #8ceaf4; }
+.workspace-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.workspace-stat { min-height: 86px; padding: 14px; border-radius: 14px; border: 1px solid var(--border-soft); background: var(--surface-muted); }
+.workspace-stat strong { display: block; font-size: 1.45rem; color: var(--text-primary); }
+.workspace-stat span { color: var(--text-secondary); font-size: 0.86rem; }
+.action-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.form-grid.stacked { margin-top: 18px; }
+.form-grid.single { grid-template-columns: 1fr; }
+.form-grid label { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
+.form-grid input, .form-grid select, .form-grid textarea { width: 100%; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-primary); }
+.form-grid textarea { padding: 8px 12px; min-height: 60px; }
+.form-grid button { align-self: end; }
+.inline-message { margin: 12px 0 0; color: var(--text-secondary); }
+.finding-list { display: grid; gap: 8px; }
+.finding-row, .asset-map-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; padding: 8px 0; border-top: 1px solid var(--border-soft); }
+.finding-row:first-child { border-top: none; }
+.finding-row strong { min-width: 0; color: var(--text-primary); font-size: 0.88rem; overflow-wrap: anywhere; }
+.finding-row span, .asset-map-summary span { flex: 0 0 auto; color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
+.finding-row span.fail { color: #d44747; }
+.finding-row span.warn { color: #b7791f; }
+.asset-map-summary { margin-top: 14px; justify-content: flex-start; flex-wrap: wrap; }
+.audit-panel { width: 100%; }
+.activity-list { display: grid; gap: 10px; }
+.activity-row { display: grid; grid-template-columns: 90px 190px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-soft); }
+.activity-row:first-child { border-top: none; }
+.activity-row span { color: var(--text-muted); font-size: 0.82rem; }
+.activity-row strong { color: var(--text-primary); }
+.activity-row p { margin: 0; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.soc-intel-summary { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--surface-muted); border: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 8px; }
+.soc-intel-summary p { margin: 0; font-size: 0.85rem; color: var(--text-secondary); }
+.soc-stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.soc-stat { padding: 14px; border-radius: 12px; background: var(--surface-muted); border: 1px solid var(--border-soft); }
+.soc-stat strong { display: block; font-size: 1.5rem; color: var(--text-primary); }
+.soc-stat span { font-size: 0.82rem; color: var(--text-secondary); }
+.soc-change { font-size: 0.8rem; font-weight: 700; }
+.soc-change.up { color: #d44747; }
+.soc-change.down { color: #4db480; }
+.text-danger { color: #d44747; }
+.soc-severity-breakdown { margin-top: 16px; }
+.soc-severity-breakdown h4 { margin: 0 0 8px; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.severity-bar-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 32px; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.82rem; color: var(--text-secondary); }
+.severity-bar-track { height: 18px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.severity-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
 .severity-bar-fill.sev-critical { background: #d44747; }
 .severity-bar-fill.sev-high { background: #d49b47; }
 .severity-bar-fill.sev-medium { background: #47a3d4; }
 .severity-bar-fill.sev-low { background: #74b47a; }
-
-.anomaly-list {
-    display: grid;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.anomaly-item {
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-muted);
-}
-
-.anomaly-item.sev-critical {
-    border-left: 3px solid #d44747;
-}
-
-.anomaly-item.sev-high {
-    border-left: 3px solid #d49b47;
-}
-
-.anomaly-item strong {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--text-primary);
-    text-transform: capitalize;
-    margin-bottom: 4px;
-}
-
-.anomaly-item p {
-    margin: 0 0 6px;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-}
-
-.anomaly-metric {
-    display: flex;
-    gap: 10px;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-}
-
-.soft-chip.warning {
-    background: rgba(212, 155, 71, 0.16);
-    color: #ffd89a;
-}
-
-.soft-chip.danger {
-    background: rgba(212, 71, 71, 0.16);
-    color: #ffb0b0;
-}
-
-.soft-chip.success {
-    background: rgba(77, 180, 128, 0.16);
-    color: #aaffd0;
-}
-
-.incident-brief-form {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-top: 14px;
-}
-
-.incident-brief-form input {
-    width: 100%;
-    min-height: 42px;
-    padding: 0 12px;
-    border-radius: 12px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface);
-    color: var(--text-primary);
-}
-
-.ai-brief-result {
-    margin-top: 14px;
-    padding: 14px;
-    border-radius: 14px;
-    background: var(--surface-muted);
-    border: 1px solid var(--border-soft);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.ai-brief-result .brief-summary {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
-.rec-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.rec-header small {
-    color: var(--text-muted);
-    font-size: 0.74rem;
-}
-
-.rec-reasoning {
-    padding: 10px;
-    border-radius: 10px;
-    background: rgba(24, 49, 77, 0.04);
-}
-
-.rec-reasoning strong {
-    display: block;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.rec-reasoning p {
-    margin: 0;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    white-space: pre-wrap;
-}
-
-.rec-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.btn-success {
-    background: rgba(77, 180, 128, 0.16);
-    color: #4db480;
-    border: 1px solid rgba(77, 180, 128, 0.3);
-}
-
-.device-insight-list {
-    display: grid;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.device-insight-item {
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-muted);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.device-insight-item strong {
-    font-size: 0.85rem;
-    color: var(--text-primary);
-}
-
-.device-insight-item .small-meta {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-}
-
-.device-insight-item.pred-degraded {
-    border-left: 3px solid #d49b47;
-}
-
-.device-insight-item.pred-stale {
-    border-left: 3px solid #d44747;
-}
-
-.device-insight-item.pred-offline {
-    border-left: 3px solid #d44747;
-}
-
-.device-insight-item.pred-atrisk {
-    border-left: 3px solid #d49b47;
-}
-
-.device-insight-item.pred-online {
-    border-left: 3px solid #4db480;
-}
-
-.risk-explanation {
-    margin-top: 12px;
-    padding: 14px;
-    border-radius: 14px;
-    background: var(--surface-muted);
-    border: 1px solid var(--border-soft);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.risk-explanation p {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
+.anomaly-list { display: grid; gap: 8px; margin-top: 10px; }
+.anomaly-item { padding: 12px; border-radius: 10px; border: 1px solid var(--border-soft); background: var(--surface-muted); }
+.anomaly-item.sev-critical { border-left: 3px solid #d44747; }
+.anomaly-item.sev-high { border-left: 3px solid #d49b47; }
+.anomaly-item strong { display: block; font-size: 0.85rem; color: var(--text-primary); text-transform: capitalize; margin-bottom: 4px; }
+.anomaly-item p { margin: 0 0 6px; font-size: 0.82rem; color: var(--text-secondary); }
+.anomaly-metric { display: flex; gap: 10px; font-size: 0.78rem; color: var(--text-muted); }
+.incident-brief-form { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+.incident-brief-form input, .filter-input { width: 100%; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-primary); }
+.filter-select { min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-primary); }
+.ai-brief-result { margin-top: 14px; padding: 14px; border-radius: 14px; background: var(--surface-muted); border: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 10px; }
+.ai-brief-result .brief-summary { margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+.rec-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rec-header small { color: var(--text-muted); font-size: 0.74rem; }
+.rec-reasoning { padding: 10px; border-radius: 10px; background: rgba(24, 49, 77, 0.04); }
+.rec-reasoning strong { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.rec-reasoning p { margin: 0; font-size: 0.82rem; color: var(--text-secondary); white-space: pre-wrap; }
+.rec-actions { display: flex; gap: 8px; }
+.success-card { padding: 10px; border-radius: 8px; background: rgba(77, 180, 128, 0.12); color: #16a34a; font-size: 0.85rem; }
+.empty-card { padding: 40px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-soft); border-radius: 12px; }
 @media (max-width: 900px) {
-    .readiness-band {
-        grid-template-columns: 1fr;
-    }
-
-    .readiness-score {
-        width: 92px;
-        height: 92px;
-    }
-
-    .workspace-summary,
-    .form-grid,
-    .activity-row {
-        grid-template-columns: 1fr;
-    }
+    .readiness-band { grid-template-columns: 1fr; }
+    .readiness-score { width: 92px; height: 92px; }
+    .workspace-summary, .form-grid, .activity-row { grid-template-columns: 1fr; }
 }
 </style>

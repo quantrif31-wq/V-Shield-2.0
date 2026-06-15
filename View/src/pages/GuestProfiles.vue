@@ -5,6 +5,9 @@
         <span class="panel-kicker">VISITOR DIRECTORY</span>
         <h1 class="page-title">Quan ly khach</h1>
       </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" @click="showFormTemplatesModal = true">Form Templates</button>
+      </div>
     </div>
 
     <section class="ops-panel">
@@ -83,6 +86,7 @@
               <th>Host phu trach</th>
               <th>Lien he</th>
               <th>Trang thai</th>
+              <th>Giay to</th>
               <th>Thao tac</th>
             </tr>
           </thead>
@@ -95,9 +99,14 @@
               <td>{{ item.guestPhone || '-' }}</td>
               <td>{{ item.registrationStatus || '-' }}</td>
               <td>
+                <span v-if="item.ndaStatus" class="soft-chip" :class="item.ndaStatus === 'Signed' ? 'success' : 'warn'">{{ item.ndaStatus }}</span>
+                <span v-else class="text-muted">—</span>
+              </td>
+              <td>
                 <div class="panel-actions">
                   <button class="btn btn-secondary btn-sm" @click="openModal(item)">Sua</button>
                   <button class="btn btn-secondary btn-sm" @click="openLogModal(item)">Lich su</button>
+                  <button class="btn btn-secondary btn-sm" @click="openParkingInfo(item)">Xe</button>
                   <button class="btn btn-danger btn-sm" @click="handleDelete(item)">Xoa</button>
                 </div>
               </td>
@@ -140,6 +149,16 @@
                 </option>
               </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>NDA Status</label>
+            <select v-model="form.ndaStatus" class="form-control">
+              <option value="">— None —</option>
+              <option value="Signed">Signed</option>
+              <option value="Pending">Pending</option>
+              <option value="NotRequired">Not Required</option>
+            </select>
           </div>
 
           <div v-if="formError" class="empty-card error-card">{{ formError }}</div>
@@ -188,6 +207,65 @@
         </div>
       </div>
     </transition>
+
+    <!-- Parking Info Modal -->
+    <transition name="modal">
+      <div v-if="showParkingModal" class="modal-overlay" @click.self="closeParkingModal">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title">Parking Permits - {{ parkingTargetName }}</h3>
+            <button class="modal-close" @click="closeParkingModal">x</button>
+          </div>
+          <div v-if="isParkingLoading" class="empty-card">Dang tai thong tin xe...</div>
+          <div v-else-if="parkingPermits.length === 0" class="empty-card">Khong co permit dau xe.</div>
+          <div v-else class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Plate</th>
+                  <th>Valid From</th>
+                  <th>Valid To</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in parkingPermits" :key="p.parkingPermitId || p.id">
+                  <td>{{ p.areaName || p.parkingAreaName || '-' }}</td>
+                  <td>{{ p.plateNumber || '-' }}</td>
+                  <td>{{ formatDateTime(p.validFromUtc) }}</td>
+                  <td>{{ formatDateTime(p.validToUtc) }}</td>
+                  <td>
+                    <span class="soft-chip" :class="new Date(p.validToUtc) > new Date() ? 'success' : 'danger'">
+                      {{ new Date(p.validToUtc) > new Date() ? 'Active' : 'Expired' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Form Templates Modal -->
+    <transition name="modal">
+      <div v-if="showFormTemplatesModal" class="modal-overlay" @click.self="showFormTemplatesModal = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title">Form Templates</h3>
+            <button class="modal-close" @click="showFormTemplatesModal = false">x</button>
+          </div>
+          <div v-if="formTemplates.length === 0" class="empty-card">Khong co form template.</div>
+          <div v-else>
+            <div v-for="ft in formTemplates" :key="ft.formTemplateId || ft.id" class="template-item">
+              <div><strong>{{ ft.templateName || ft.name }}</strong></div>
+              <div class="text-muted">{{ ft.description || ft.category || '' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -195,6 +273,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { getAll as getEmployees } from '../services/employeeApi'
 import { deleteVisitorDirectoryItem, getVisitorAccessLogs, getVisitorDirectory, updateVisitorDirectoryItem } from '../services/guestProfileApi'
+import { enterpriseApi } from '../services/enterpriseSecurityApi'
 
 const isLoading = ref(true)
 const isSaving = ref(false)
@@ -210,10 +289,21 @@ const formError = ref('')
 const employees = ref([])
 const editingId = ref(null)
 
+// Parking
+const showParkingModal = ref(false)
+const isParkingLoading = ref(false)
+const parkingTargetName = ref('')
+const parkingPermits = ref([])
+
+// Form Templates
+const showFormTemplatesModal = ref(false)
+const formTemplates = ref([])
+
 const form = reactive({
   fullName: '',
   idCardNumber: '',
-  hostEmployeeId: null
+  hostEmployeeId: null,
+  ndaStatus: '',
 })
 const filters = reactive({
   hostEmployeeId: null,
@@ -279,6 +369,15 @@ const fetchEmployees = async () => {
   employees.value = Array.isArray(data) ? data : (data?.items || [])
 }
 
+const fetchFormTemplates = async () => {
+  try {
+    const res = await enterpriseApi.getFormTemplates({ pageSize: 50 })
+    formTemplates.value = res.data?.items || []
+  } catch (e) {
+    console.error('Failed to load form templates', e)
+  }
+}
+
 function handleVisitorFilterInput() {
   showVisitorFilterDropdown.value = true
   query.value = visitorFilterKeyword.value
@@ -331,6 +430,7 @@ const openModal = (item) => {
   form.fullName = item.fullName || ''
   form.idCardNumber = item.idCardNumber || ''
   form.hostEmployeeId = item.hostEmployeeId || null
+  form.ndaStatus = item.ndaStatus || ''
   formError.value = ''
   showModal.value = true
 }
@@ -341,6 +441,7 @@ const closeModal = () => {
   form.fullName = ''
   form.idCardNumber = ''
   form.hostEmployeeId = null
+  form.ndaStatus = ''
   formError.value = ''
 }
 
@@ -357,7 +458,8 @@ const handleSave = async () => {
     await updateVisitorDirectoryItem(editingId.value, {
       fullName: form.fullName.trim(),
       idCardNumber: form.idCardNumber || null,
-      hostEmployeeId: form.hostEmployeeId || null
+      hostEmployeeId: form.hostEmployeeId || null,
+      ndaStatus: form.ndaStatus || null,
     })
     await fetchRows()
     closeModal()
@@ -398,6 +500,28 @@ const closeLogModal = () => {
   logTargetName.value = ''
 }
 
+// Parking info
+const openParkingInfo = async (item) => {
+  showParkingModal.value = true
+  isParkingLoading.value = true
+  parkingTargetName.value = item.fullName
+  parkingPermits.value = []
+  try {
+    const res = await enterpriseApi.getParkingPermits({ visitorDetailId: item.visitorDetailId, pageSize: 20 })
+    parkingPermits.value = res.data?.items || []
+  } catch (e) {
+    console.error('Failed to load parking permits', e)
+  } finally {
+    isParkingLoading.value = false
+  }
+}
+
+const closeParkingModal = () => {
+  showParkingModal.value = false
+  parkingPermits.value = []
+  parkingTargetName.value = ''
+}
+
 const formatDateTime = (value) => {
   if (!value) return '-'
   return new Date(value).toLocaleString('vi-VN')
@@ -416,7 +540,7 @@ watch(
 )
 
 onMounted(async () => {
-  await Promise.all([fetchRows(), fetchEmployees()])
+  await Promise.all([fetchRows(), fetchEmployees(), fetchFormTemplates()])
   document.addEventListener('click', handleDocumentClick)
 })
 onUnmounted(() => {
@@ -435,5 +559,6 @@ onUnmounted(() => {
 .combo-item:hover { background: #eef7ff; }
 .actions { display: flex; justify-content: flex-end; }
 .btn-subtle { border: 1px solid #cfe0ea; background: #fff; color: #1f3650; border-radius: 10px; padding: 8px 12px; }
+.template-item { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 6px; }
 @media (max-width: 1100px) { .filters { grid-template-columns: 1fr; } .actions { justify-content: flex-start; } }
 </style>

@@ -17,12 +17,38 @@
             <article class="metric-tile"><span class="metric-label">Barriers</span><strong class="metric-value">{{ barrierCount }}</strong></article>
         </section>
 
+        <section class="ops-panel" style="margin-bottom: 1rem;">
+            <div class="panel-head">
+                <h2 class="panel-title">Quick Navigation</h2>
+            </div>
+            <div class="chip-row">
+                <router-link to="/gate-transit-monitor" class="btn btn-sm btn-primary">
+                    Gate Transit Monitor
+                </router-link>
+                <router-link to="/exceptions" class="btn btn-sm btn-secondary">
+                    Exception Cases
+                </router-link>
+                <router-link to="/barrier-panel" class="btn btn-sm btn-ghost">
+                    Barrier Control
+                </router-link>
+            </div>
+        </section>
+
         <section v-if="loading" class="ops-panel">
             <div class="empty-card">Loading lane health data...</div>
         </section>
 
         <section v-else class="metric-grid" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));">
-            <article v-for="l in lanes" :key="l.laneId" class="ops-panel" :class="{ 'degraded-panel': l.isDegraded }">
+            <article
+                v-for="l in lanes"
+                :key="l.laneId"
+                class="ops-panel lane-card"
+                :class="{ 'degraded-panel': l.isDegraded }"
+                @click="navigateToLane(l)"
+                role="button"
+                :tabindex="0"
+                @keydown.enter="navigateToLane(l)"
+            >
                 <div class="panel-head">
                     <div>
                         <span class="panel-kicker">{{ l.direction }} lane</span>
@@ -55,12 +81,16 @@
                         <span class="soft-chip" :class="stateClass(b.state)">{{ b.name }}: {{ b.state }}</span>
                     </div>
                 </div>
+                <div class="lane-card-footer">
+                    <small class="text-muted">Click to open Gate Transit Monitor</small>
+                </div>
             </article>
         </section>
 
         <section class="ops-panel" style="margin-top: 1rem;">
             <div class="panel-head">
                 <h2 class="panel-title">Recent Lane Events</h2>
+                <router-link to="/gate-transit-monitor" class="btn btn-sm btn-ghost">View Monitor</router-link>
             </div>
             <div v-if="loadingEvents" class="empty-card">Loading events...</div>
             <div v-else-if="events.length === 0" class="empty-card">No lane events recorded.</div>
@@ -70,13 +100,13 @@
                         <tr><th>Time</th><th>Lane</th><th>Type</th><th>Direction</th><th>Plate</th><th>Note</th></tr>
                     </thead>
                     <tbody>
-                        <tr v-for="e in events" :key="e.laneEventId">
+                        <tr v-for="e in events" :key="e.laneEventId" class="clickable-row" @click="navigateToException(e)" role="button" :tabindex="0" @keydown.enter="navigateToException(e)">
                             <td>{{ formatDate(e.occurredAtUtc) }}</td>
-                            <td>{{ e.lane?.name || '—' }}</td>
-                            <td>{{ e.eventType }}</td>
+                            <td>{{ e.lane?.name || '&mdash;' }}</td>
+                            <td><span class="soft-chip" :class="eventTypeClass(e.eventType)">{{ e.eventType }}</span></td>
                             <td>{{ e.direction }}</td>
-                            <td><span v-if="e.plateText" class="plate-badge">{{ e.plateText }}</span><span v-else>—</span></td>
-                            <td>{{ e.note || '—' }}</td>
+                            <td><span v-if="e.plateText" class="plate-badge">{{ e.plateText }}</span><span v-else>&mdash;</span></td>
+                            <td>{{ e.note || '&mdash;' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -87,8 +117,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
 
+const router = useRouter()
 const loading = ref(false)
 const loadingEvents = ref(false)
 const lanes = ref([])
@@ -103,9 +135,27 @@ function stateClass(s) {
     return s === 'Open' ? 'success' : s === 'Closed' ? 'muted' : s === 'Fault' || s === 'LockedClosed' ? 'danger' : 'warn'
 }
 
+function eventTypeClass(type) {
+    if (!type) return ''
+    const t = String(type || '').toUpperCase()
+    if (t.includes('GRANTED') || t.includes('ALLOW') || t.includes('OPEN')) return 'success'
+    if (t.includes('DENIED') || t.includes('DENY') || t.includes('CLOSE') || t.includes('LOCK')) return 'danger'
+    if (t.includes('MANUAL') || t.includes('OVERRIDE') || t.includes('ESCALATION')) return 'warn'
+    if (t.includes('DURESS')) return 'danger'
+    return 'muted'
+}
+
 function formatDate(utc) {
-    if (!utc) return '—'
+    if (!utc) return '&mdash;'
     return new Date(utc).toLocaleString('vi-VN')
+}
+
+function navigateToLane(lane) {
+    router.push({ name: 'GateTransitMonitor' })
+}
+
+function navigateToException(event) {
+    router.push({ name: 'Exceptions', query: { eventId: event.laneEventId } })
 }
 
 async function loadAll() {
@@ -137,5 +187,29 @@ onMounted(loadAll)
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
     letter-spacing: 0.05em;
+}
+.lane-card {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.lane-card:hover {
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+    transform: translateY(-2px);
+}
+.lane-card-footer {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+.lane-card-footer small {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.75rem;
+}
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+.clickable-row:hover {
+    background: var(--surface-hover, #f1f5f9);
 }
 </style>

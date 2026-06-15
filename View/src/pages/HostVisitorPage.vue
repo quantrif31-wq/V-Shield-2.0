@@ -7,6 +7,7 @@
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary" @click="showForm = true" v-if="!showForm">New Invitation</button>
+                <button class="btn btn-secondary" @click="showFormTemplates = true">Forms</button>
             </div>
         </div>
 
@@ -47,6 +48,20 @@
                 <label class="checkbox-label"><input v-model="form.ndaRequired" type="checkbox" /> NDA required</label>
                 <label class="checkbox-label"><input v-model="form.escortRequired" type="checkbox" /> Escort required</label>
                 <label class="checkbox-label"><input v-model="form.safetyBriefingRequired" type="checkbox" /> Safety briefing</label>
+                <label class="checkbox-label"><input v-model="form.parkingRequired" type="checkbox" /> Parking permit</label>
+            </div>
+            <div v-if="form.parkingRequired" class="form-group">
+                <label>Vehicle Plate</label>
+                <input v-model="form.plateNumber" type="text" class="form-control" placeholder="e.g. 29A-12345" />
+            </div>
+            <div v-if="formExtra.ndaTemplate" class="form-group">
+                <label>Attach NDA Template</label>
+                <select v-model="formExtra.selectedNdaTemplateId" class="form-control">
+                    <option :value="null">— None —</option>
+                    <option v-for="ft in formTemplates" :key="ft.formTemplateId || ft.id" :value="ft.formTemplateId || ft.id">
+                        {{ ft.templateName || ft.name }}
+                    </option>
+                </select>
             </div>
             <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
             <div v-if="formSuccess" class="alert alert-success">{{ formSuccess }}</div>
@@ -83,7 +98,8 @@
                             <td><span class="soft-chip" :class="statusClass(v.status)">{{ v.status }}</span></td>
                             <td>
                                 <div class="chip-row">
-                                    <button v-if="v.status === 'Approved'" class="btn btn-sm btn-primary" @click="issueCredential(v)">Issue QR</button>
+                                    <button v-if="v.status === 'Approved' || v.status === 'Invited'" class="btn btn-sm btn-primary" @click="issueCredential(v)">Issue QR</button>
+                                    <button v-if="v.status === 'Approved' || v.status === 'CheckedIn'" class="btn btn-sm btn-secondary" @click="openParkingForm(v)">Parking</button>
                                     <button class="btn btn-sm btn-ghost" @click="viewDetail(v)">Detail</button>
                                 </div>
                             </td>
@@ -120,6 +136,67 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Parking Form Modal -->
+            <div v-if="parkingTarget" class="modal-overlay" @click.self="parkingTarget = null">
+                <div class="modal-panel">
+                    <div class="modal-header">
+                        <h2>Parking Permit — {{ parkingTarget.visitorName }}</h2>
+                        <button class="btn-close" @click="parkingTarget = null">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Parking Area</label>
+                            <select v-model="parkingForm.areaId" class="form-control">
+                                <option :value="null">— Select —</option>
+                                <option v-for="pa in parkingAreas" :key="pa.parkingAreaId || pa.id" :value="pa.parkingAreaId || pa.id">{{ pa.name }}</option>
+                            </select>
+                        </div>
+                        <div class="form-row two">
+                            <div class="form-group">
+                                <label>From</label>
+                                <input v-model="parkingForm.from" type="datetime-local" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>To</label>
+                                <input v-model="parkingForm.to" type="datetime-local" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Plate Number</label>
+                            <input v-model="parkingForm.plate" type="text" class="form-control" placeholder="e.g. 29A-12345" />
+                        </div>
+                        <div v-if="parkingError" class="alert alert-danger">{{ parkingError }}</div>
+                        <div v-if="parkingDone" class="alert alert-success">{{ parkingDone }}</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @click="parkingTarget = null">Close</button>
+                        <button class="btn btn-primary" :disabled="parkingSaving || !parkingForm.areaId" @click="submitParking">
+                            {{ parkingSaving ? 'Issuing...' : 'Issue Permit' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Templates Modal -->
+            <div v-if="showFormTemplates" class="modal-overlay" @click.self="showFormTemplates = false">
+                <div class="modal-panel">
+                    <div class="modal-header">
+                        <h2>Form Templates</h2>
+                        <button class="btn-close" @click="showFormTemplates = false">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="formTemplates.length === 0" class="empty-card">No form templates available.</div>
+                        <div v-for="ft in formTemplates" :key="ft.formTemplateId || ft.id" class="template-card">
+                            <div><strong>{{ ft.templateName || ft.name }}</strong></div>
+                            <div class="text-muted">{{ ft.description || ft.category || '' }}</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @click="showFormTemplates = false">Close</button>
+                    </div>
+                </div>
+            </div>
         </Teleport>
     </div>
 </template>
@@ -142,6 +219,18 @@ const credSuccess = ref('')
 const formError = ref('')
 const formSuccess = ref('')
 
+// Parking form
+const parkingTarget = ref(null)
+const parkingAreas = ref([])
+const parkingSaving = ref(false)
+const parkingError = ref('')
+const parkingDone = ref('')
+const parkingForm = ref({ areaId: null, from: '', to: '', plate: '' })
+
+// Form templates
+const showFormTemplates = ref(false)
+const formTemplates = ref([])
+
 const currentUser = ref(null)
 const AUTH_USER_KEY = 'v_shield_user'
 
@@ -150,6 +239,12 @@ const form = ref({
     expectedIn: '', expectedOut: '',
     siteId: null, ndaRequired: false,
     escortRequired: false, safetyBriefingRequired: false,
+    parkingRequired: false, plateNumber: '',
+})
+
+const formExtra = ref({
+    selectedNdaTemplateId: null,
+    ndaTemplate: false,
 })
 
 const filteredInvitations = computed(() => {
@@ -180,6 +275,11 @@ async function loadData() {
             const res = await enterpriseApi.getVisits({ hostEmployeeId: empId, pageSize: 100 })
             invitations.value = res.data?.items || []
         }
+        // Load form templates
+        try {
+            const ftRes = await enterpriseApi.getFormTemplates({ pageSize: 50 })
+            formTemplates.value = ftRes.data?.items || []
+        } catch (_) {}
     } catch (e) {
         console.error('Failed to load invitations', e)
     } finally {
@@ -196,7 +296,7 @@ async function submitInvitation() {
     try {
         const stored = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY)
         const empId = stored ? JSON.parse(stored).employeeId : null
-        await enterpriseApi.createVisit({
+        const res = await enterpriseApi.createVisit({
             visitorName: form.value.name,
             visitorPhone: form.value.phone || null,
             visitorEmail: form.value.email || null,
@@ -208,8 +308,29 @@ async function submitInvitation() {
             escortRequired: form.value.escortRequired,
             safetyBriefingRequired: form.value.safetyBriefingRequired,
         })
+        const visitId = res.data?.visitId
+        if (visitId && form.value.parkingRequired && form.value.plateNumber) {
+            try {
+                const from = new Date(form.value.expectedIn).toISOString()
+                const to = new Date(form.value.expectedOut).toISOString()
+                await enterpriseApi.createParkingPermit({
+                    visitId,
+                    validFromUtc: from,
+                    validToUtc: to,
+                    plateNumber: form.value.plateNumber,
+                })
+            } catch (_) {}
+        }
+        if (visitId && formExtra.value.selectedNdaTemplateId) {
+            try {
+                await enterpriseApi.acceptForm(visitId, {
+                    formTemplateId: formExtra.value.selectedNdaTemplateId,
+                })
+            } catch (_) {}
+        }
         formSuccess.value = `Invitation sent to ${form.value.name}!`
-        form.value = { name: '', phone: '', email: '', expectedIn: '', expectedOut: '', siteId: null, ndaRequired: false, escortRequired: false, safetyBriefingRequired: false }
+        form.value = { name: '', phone: '', email: '', expectedIn: '', expectedOut: '', siteId: null, ndaRequired: false, escortRequired: false, safetyBriefingRequired: false, parkingRequired: false, plateNumber: '' }
+        formExtra.value = { selectedNdaTemplateId: null, ndaTemplate: false }
         showForm.value = false
         await loadData()
     } catch (e) {
@@ -249,5 +370,51 @@ async function submitCredential() {
     }
 }
 
+// --- Parking ---
+async function openParkingForm(v) {
+    parkingTarget.value = v
+    parkingForm.value = { areaId: null, from: '', to: '', plate: '' }
+    parkingError.value = ''
+    parkingDone.value = ''
+    try {
+        const res = await enterpriseApi.getParkingAreas({ pageSize: 50 })
+        parkingAreas.value = res.data?.items || []
+    } catch (e) {
+        console.error('Failed to load parking areas', e)
+    }
+}
+
+async function submitParking() {
+    if (!parkingTarget.value || !parkingForm.value.areaId) return
+    parkingSaving.value = true
+    parkingError.value = ''
+    parkingDone.value = ''
+    try {
+        const from = parkingForm.value.from ? new Date(parkingForm.value.from).toISOString() : new Date().toISOString()
+        const to = parkingForm.value.to ? new Date(parkingForm.value.to).toISOString() : new Date(Date.now() + 24 * 3600000).toISOString()
+        await enterpriseApi.createParkingPermit({
+            visitId: parkingTarget.value.visitId,
+            parkingAreaId: parkingForm.value.areaId,
+            validFromUtc: from,
+            validToUtc: to,
+            plateNumber: parkingForm.value.plate || null,
+        })
+        parkingDone.value = 'Parking permit issued!'
+    } catch (e) {
+        parkingError.value = e.response?.data?.message || e.message
+    } finally {
+        parkingSaving.value = false
+    }
+}
+
 onMounted(loadData)
 </script>
+
+<style scoped>
+.template-card {
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+</style>

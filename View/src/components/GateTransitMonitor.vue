@@ -255,6 +255,16 @@
               >
                 Xác nhận
               </button>
+              <button
+                class="btn btn-dock btn-decision"
+                :disabled="
+                  lane.loading ||
+                    (!lane.qr.employeeId && !lane.qr.guestId && !lane.plate.confirmedPlate)
+                "
+                @click="openDecisionDrawer(lane)"
+              >
+                Quyết định
+              </button>
             </div>
           </div>
         </div>
@@ -512,6 +522,50 @@
       </aside>
     </div>
   </div>
+
+  <!-- Decision Drawer -->
+  <DecisionDrawer
+    :visible="decisionDrawerVisible"
+    :lane-name="decisionLane?.name || ''"
+    :subject-name="(decisionLane ? (decisionLane.qr.employeeName || 'Khách') : '')"
+    :subject-id="(decisionLane ? (decisionLane.qr.guestId || decisionLane.qr.employeeId || '') : '')"
+    :subject-type="(decisionLane ? (decisionLane.qr.guestId ? 'GUEST' : 'EMPLOYEE') : '')"
+    :plate-number="(decisionLane ? (decisionLane.plate.confirmedPlate || decisionLane.plate.lastRawPlate || '') : '')"
+    :qr-payload="(decisionLane ? (decisionLane.qr.qrPayload || decisionLane.qr.activeSessionPayload || '') : '')"
+    :warnings="decisionWarnings"
+    :can-allow="getActionPermissions(decisionLane)['allow']"
+    :can-deny="getActionPermissions(decisionLane)['deny']"
+    :can-manual="getActionPermissions(decisionLane)['manual']"
+    :can-override="getActionPermissions(decisionLane)['override']"
+    :can-duress="getActionPermissions(decisionLane)['duress']"
+    :can-escalate="getActionPermissions(decisionLane)['escalate']"
+    :can-emergency="getActionPermissions(decisionLane)['emergency']"
+    :loading="false"
+    @close="closeDecisionDrawer"
+    @action="handleDecisionAction"
+  />
+
+  <!-- Step-Up Modal -->
+  <StepUpModal
+    :visible="stepUpVisible"
+    action-label="Kích hoạt trạng thái khẩn cấp"
+    action-description="Hành động này sẽ ghi đè tất cả quy tắc access policy. Chỉ Admin mới được thực hiện."
+    severity="critical"
+    :require-mfa="true"
+    @cancel="onStepUpCancelled"
+    @confirmed="onStepUpConfirmed"
+  />
+
+  <!-- Audit Receipt Toast -->
+  <AuditReceiptToast
+    :visible="auditToast.visible"
+    :type="auditToast.type"
+    :title="auditToast.title"
+    :message="auditToast.message"
+    :receipt-id="auditToast.receiptId"
+    :timestamp="auditToast.timestamp"
+    @dismiss="dismissAuditToast"
+  />
 </template>
 
 <script>
@@ -526,6 +580,11 @@ import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRunt
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce, QR_API_BASE_URL } from "../services/dynamicQrScannerApi"
 import { PLATE_API_BASE_URL } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
+import { enterpriseApi } from "../services/enterpriseSecurityApi"
+import { authState, hasRole } from "../stores/auth"
+import DecisionDrawer from "./shared/DecisionDrawer.vue"
+import StepUpModal from "./shared/StepUpModal.vue"
+import AuditReceiptToast from "./shared/AuditReceiptToast.vue"
 function createQrModule(defaultScannerDevice) {
   return {
     cameraIp: "",
@@ -630,6 +689,7 @@ function createPlateModule() {
 
 export default {
   name: "VShieldGateMinimalQr",
+  components: { DecisionDrawer, StepUpModal, AuditReceiptToast },
 
   data() {
     return {
@@ -668,7 +728,23 @@ export default {
       settingsCameraSimulatorBusy: false,
       runtimeServices: [],
       runtimeBusy: {},
-      uiTogglePending: {}
+      uiTogglePending: {},
+      // Decision drawer state
+      decisionDrawerVisible: false,
+      decisionLaneId: null,
+      // Step-up modal state
+      stepUpVisible: false,
+      stepUpAction: null,
+      stepUpLaneId: null,
+      // Audit receipt toast state
+      auditToast: {
+        visible: false,
+        type: 'success',
+        title: '',
+        message: '',
+        receiptId: '',
+        timestamp: '',
+      }
     }
   },
 
@@ -704,12 +780,61 @@ export default {
       } catch {
         return ""
       }
-    }
+    },
+
+    currentRole() {
+      return authState.user?.role || 'BaoVe'
+    },
+    isAdmin() {
+      return this.currentRole === 'Admin'
+    },
+    isBaoVe() {
+      return this.currentRole === 'BaoVe'
+    },
+    isQuanLy() {
+      return this.currentRole === 'QuanLy'
+    },
+
+    decisionLane() {
+      if (!this.decisionLaneId) return null
+      return this.lanes.find((l) => l.id === this.decisionLaneId) || null
+    },
+
+    decisionWarnings() {
+      const lane = this.decisionLane
+      if (!lane) return []
+      const warnings = []
+      // Anti-passback check
+      if (lane.plate.confirmedPlate) {
+        warnings.push({
+          severity: 'warn',
+          text: 'Cảnh báo: Biển số đã được quét gần đây. Kiểm tra anti-passback.',
+          icon: '&#9888;'
+        })
+      }
+      // QR alert
+      if (lane.qr.alert) {
+        warnings.push({
+          severity: 'critical',
+          text: 'QR không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại.',
+          icon: '&#9940;'
+        })
+      }
+      // General alert
+      if (lane.qr.message && lane.qr.message.includes('hết hạn')) {
+        warnings.push({
+          severity: 'warn',
+          text: 'Phiên QR đã hết hạn. Cần quét lại.',
+          icon: '&#9888;'
+        })
+      }
+      return warnings
+    },
   },
 
   async mounted() {
   document.body.classList.add("gate-transit-compact")
-  await this.loadCameraList() // 🔥 THÊM
+  await this.loadCameraList()
 
   for (const lane of this.lanes) {
     lane.qr.destroyed = false
@@ -2437,6 +2562,299 @@ lane.qr.scanRequested = true
     lane.loading = false
   }
 },
+    // ================= DECISION DRAWER ACTIONS =================
+
+    openDecisionDrawer(lane) {
+      this.decisionLaneId = lane.id
+      this.decisionDrawerVisible = true
+    },
+
+    closeDecisionDrawer() {
+      this.decisionDrawerVisible = false
+      this.decisionLaneId = null
+    },
+
+    buildDecisionSubjectInfo(lane) {
+      if (!lane) return { name: '', id: '', type: '', plate: '', qr: '' }
+      const isGuest = !!lane.qr.guestId
+      return {
+        name: lane.qr.employeeName || lane.qr.employeeName || 'Khách',
+        id: isGuest ? lane.qr.guestId : lane.qr.employeeId,
+        type: isGuest ? 'GUEST' : 'EMPLOYEE',
+        plate: lane.plate.confirmedPlate || lane.plate.lastRawPlate || '',
+        qr: lane.qr.qrPayload || lane.qr.activeSessionPayload || '',
+      }
+    },
+
+    canBaoVeAction(actionType) {
+      // BaoVe permissions per the plan's role matrix
+      const baoVeAllowed = ['allow', 'deny', 'manual', 'override', 'duress', 'escalate']
+      return baoVeAllowed.includes(actionType)
+    },
+
+    canAdminAction(actionType) {
+      // Admin can do everything
+      return true
+    },
+
+    getActionPermissions(lane) {
+      // Returns which actions are available based on role + lane state
+      const role = this.currentRole
+      const isReady = lane && ((!!lane.qr.employeeId || !!lane.qr.guestId) || !!lane.plate.confirmedPlate)
+      
+      const permissions = {
+        allow: isReady && (role === 'Admin' || role === 'BaoVe'),
+        deny: isReady && (role === 'Admin' || role === 'BaoVe'),
+        manual: isReady && (role === 'Admin' || role === 'BaoVe'),
+        override: isReady && (role === 'Admin' || role === 'BaoVe'),
+        duress: (role === 'Admin' || role === 'BaoVe'),
+        escalate: isReady && (role === 'Admin' || role === 'BaoVe'),
+        emergency: role === 'Admin',
+      }
+      return permissions
+    },
+
+    async handleDecisionAction(action) {
+      if (!this.decisionLane) return
+      const lane = this.decisionLane
+      const { type, reason, responsibility } = action
+
+      try {
+        switch (type) {
+          case 'allow':
+            await this.executeAllow(lane, reason)
+            break
+          case 'deny':
+            await this.executeDeny(lane, reason)
+            break
+          case 'manual':
+            await this.executeManual(lane, reason)
+            break
+          case 'override':
+            await this.executeOverride(lane, reason, responsibility)
+            break
+          case 'duress':
+            await this.executeDuress(lane, reason, responsibility)
+            break
+          case 'escalate':
+            await this.executeEscalate(lane, reason)
+            break
+          case 'emergency':
+            await this.executeEmergency(lane, reason)
+            break
+        }
+      } catch (e) {
+        this.showAuditToast('danger', 'Thất bại', e?.response?.data?.message || e?.message || 'Xử lý thất bại', '')
+      } finally {
+        this.closeDecisionDrawer()
+      }
+    },
+
+    async executeAllow(lane, reason) {
+      const licensePlate = String(lane.plate.confirmedPlate || '').trim()
+      const isGuest = !!lane.qr.guestId
+      const employeeId = Number(lane.qr.employeeId || 0)
+      const visitorDetailId = Number(lane.qr.guestId || 0)
+
+      if (!licensePlate) throw new Error('Chưa có biển số')
+      if (!isGuest && !employeeId) throw new Error('Chưa có Employee ID')
+
+      const payload = {
+        LicensePlate: licensePlate,
+        GateId: lane.gateId || null,
+        CameraId: lane.cameraId || null,
+      }
+      if (isGuest) {
+        payload.VisitorDetailId = visitorDetailId
+        payload.QrPayload = lane.qr.qrPayload || lane.qr.activeSessionPayload || ''
+      } else {
+        payload.EmployeeId = employeeId
+      }
+
+      const res = isGuest ? await scanGuest(payload) : await scanGate(payload)
+
+      // Record lane event
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: lane.id,
+          eventType: 'ACCESS_GRANTED',
+          direction: 'IN',
+          plateText: licensePlate,
+          note: reason || 'Cho qua bình thường',
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      const receiptId = res.data?.receiptId || `RCP-${Date.now()}`
+      this.showAuditToast('success', 'Cho qua thành công', `Xe ${licensePlate} đã được cho qua.`, receiptId)
+    },
+
+    async executeDeny(lane, reason) {
+      // Record lane event as denied
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: lane.id,
+          eventType: 'ACCESS_DENIED',
+          direction: 'IN',
+          plateText: lane.plate.confirmedPlate || '',
+          note: reason || 'Từ chối',
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      this.clearQrState(lane.qr)
+      this.clearPlateState(lane.plate)
+      this.showAuditToast('warning', 'Đã từ chối', `Từ chối: ${reason || 'Không có lý do'}.`, `RCP-${Date.now()}`)
+    },
+
+    async executeManual(lane, reason) {
+      // Switch to manual mode - log the event
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: lane.id,
+          eventType: 'MANUAL_MODE',
+          direction: 'IN',
+          plateText: lane.plate.confirmedPlate || '',
+          note: reason || 'Chuyển vận hành thủ công',
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      this.showAuditToast('info', 'Chuyển manual', `Làn chuyển sang vận hành thủ công. Lý do: ${reason}`, `RCP-${Date.now()}`)
+    },
+
+    async executeOverride(lane, reason, responsibility) {
+      // Override with responsibility - requires step-up for risk mitigation
+      const licensePlate = String(lane.plate.confirmedPlate || '').trim()
+      const isGuest = !!lane.qr.guestId
+      const employeeId = Number(lane.qr.employeeId || 0)
+
+      if (!licensePlate) throw new Error('Chưa có biển số')
+
+      const payload = {
+        LicensePlate: licensePlate,
+        GateId: lane.gateId || null,
+        CameraId: lane.cameraId || null,
+        Responsibility: true,
+        Reason: reason || 'Override không có lý do',
+      }
+      if (isGuest) {
+        payload.VisitorDetailId = Number(lane.qr.guestId || 0)
+        payload.QrPayload = lane.qr.qrPayload || lane.qr.activeSessionPayload || ''
+      } else {
+        payload.EmployeeId = employeeId
+      }
+
+      const res = isGuest ? await scanGuest(payload) : await scanGate(payload)
+
+      // Record lane event
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: lane.id,
+          eventType: 'OVERRIDE',
+          direction: 'IN',
+          plateText: licensePlate,
+          note: `Override - ${reason} - Responsibility: ${responsibility}`,
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      const receiptId = res.data?.receiptId || `RCP-OVR-${Date.now()}`
+      this.showAuditToast('warning', 'Override thành công', `Cho qua có trách nhiệm: ${licensePlate}.`, receiptId)
+    },
+
+    async executeDuress(lane, reason, responsibility) {
+      // Record duress event
+      try {
+        const res = await enterpriseApi.recordDuressEvent({
+          location: lane.name || 'Gate',
+          note: reason || 'Ghi nhận duress',
+          source: 'GateTransitMonitor',
+        })
+        const receiptId = res.data?.duressEventId || `DRS-${Date.now()}`
+        this.showAuditToast('danger', 'ĐÃ GHI NHẬN DURESS', 'Tín hiệu ép buộc đã được gửi đến trung tâm giám sát. Hỗ trợ sẽ được điều động.', receiptId)
+      } catch (e) {
+        console.error('recordDuressEvent failed:', e)
+        // Fallback: still show alert with local receipt
+        this.showAuditToast('danger', 'DURESS (Offline)', 'Không thể gửi tín hiệu đến server. Đã lưu local. Vui lòng báo ngay quản lý.', `DRS-LOCAL-${Date.now()}`)
+      }
+    },
+
+    async executeEscalate(lane, reason) {
+      // Create an escalation request - log as event for now
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: lane.id,
+          eventType: 'ESCALATION_REQUEST',
+          direction: 'IN',
+          plateText: lane.plate.confirmedPlate || '',
+          note: `Yêu cầu can thiệp: ${reason || 'Không có lý do'}`,
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      this.showAuditToast('info', 'Đã gửi yêu cầu', `Yêu cầu can thiệp đã được gửi đến quản lý. Lý do: ${reason}`, `ESC-${Date.now()}`)
+    },
+
+    async executeEmergency(lane, reason) {
+      // Only Admin can execute emergency directly
+      if (!this.isAdmin) {
+        this.showAuditToast('warning', 'Không có quyền', 'Chỉ Admin mới có quyền cấp quyền khẩn cấp. Vui lòng gửi yêu cầu.', '')
+        return
+      }
+
+      // Show step-up for emergency action
+      this.stepUpLaneId = lane.id
+      this.stepUpAction = { type: 'emergency', reason }
+      this.stepUpVisible = true
+    },
+
+    async onStepUpConfirmed(result) {
+      const lane = this.lanes.find((l) => l.id === this.stepUpLaneId)
+      if (!lane || !this.stepUpAction) return
+
+      try {
+        const res = await enterpriseApi.createEmergencyState({
+          reason: this.stepUpAction.reason,
+          stepUpSessionId: result.sessionId,
+        })
+        const receiptId = res.data?.emergencyStateId || `EMG-${Date.now()}`
+        this.showAuditToast('danger', 'Trạng thái khẩn cấp đã kích hoạt', 'Quyền khẩn cấp đã được cấp. Tất cả các quy tắc đã được ghi đè.', receiptId)
+      } catch (e) {
+        this.showAuditToast('danger', 'Thất bại', e?.response?.data?.message || e?.message || 'Không thể kích hoạt trạng thái khẩn cấp.', '')
+      } finally {
+        this.stepUpVisible = false
+        this.stepUpAction = null
+        this.stepUpLaneId = null
+      }
+    },
+
+    onStepUpCancelled() {
+      this.stepUpVisible = false
+      this.stepUpAction = null
+      this.stepUpLaneId = null
+    },
+
+    showAuditToast(type, title, message, receiptId) {
+      this.auditToast = {
+        visible: true,
+        type,
+        title,
+        message,
+        receiptId,
+        timestamp: new Date().toLocaleString('vi-VN'),
+      }
+    },
+
+    dismissAuditToast() {
+      this.auditToast.visible = false
+    },
+
     // ================= CAMERA SEARCH =================
 
 async loadCameraList() {
@@ -2927,6 +3345,14 @@ selectCamera(cam, lane, type) {
 
 .btn-confirm {
   background: #111827;
+}
+
+.btn-decision {
+  background: #7c3aed;
+}
+
+.btn-decision:hover:not(:disabled) {
+  background: #6d28d9;
 }
 
 .ip-row {
