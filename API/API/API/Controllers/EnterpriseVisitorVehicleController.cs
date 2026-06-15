@@ -562,6 +562,163 @@ public class EnterpriseVisitorVehicleController : ControllerBase
         return Ok(laneEvent);
     }
 
+    [HttpGet("parking-areas")]
+    public async Task<IActionResult> GetParkingAreas([FromQuery] int? siteId)
+    {
+        var query = _context.ParkingAreas.AsQueryable();
+        if (siteId.HasValue) query = query.Where(a => a.SiteId == siteId);
+        return Ok(await query.OrderBy(a => a.Name).ToListAsync());
+    }
+
+    [HttpGet("parking-permits")]
+    public async Task<IActionResult> GetParkingPermits(
+        [FromQuery] int? parkingAreaId,
+        [FromQuery] int? vehicleId,
+        [FromQuery] bool? activeOnly,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var query = _context.ParkingPermits
+            .Include(p => p.ParkingArea)
+            .Include(p => p.Vehicle)
+            .Include(p => p.Visit)
+            .AsQueryable();
+        if (parkingAreaId.HasValue) query = query.Where(p => p.ParkingAreaId == parkingAreaId);
+        if (vehicleId.HasValue) query = query.Where(p => p.VehicleId == vehicleId);
+        if (activeOnly == true) query = query.Where(p => !p.IsRevoked && p.ValidToUtc >= DateTime.UtcNow);
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(p => p.ValidToUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("barriers")]
+    public async Task<IActionResult> GetBarriers([FromQuery] int? laneId, [FromQuery] bool? active)
+    {
+        var query = _context.Barriers.Include(b => b.Lane).AsQueryable();
+        if (laneId.HasValue) query = query.Where(b => b.LaneId == laneId);
+        if (active.HasValue) query = query.Where(b => b.IsActive == active.Value);
+        return Ok(await query.OrderBy(b => b.Name).ToListAsync());
+    }
+
+    [HttpGet("barriers/{barrierId:int}/commands")]
+    public async Task<IActionResult> GetBarrierCommands(int barrierId, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+    {
+        if (!await _context.Barriers.AnyAsync(b => b.BarrierId == barrierId))
+            return NotFound(new { message = "Barrier not found." });
+        var query = _context.BarrierCommandAudits.Where(a => a.BarrierId == barrierId);
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(a => a.RequestedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("lane-events")]
+    public async Task<IActionResult> GetLaneEvents(
+        [FromQuery] int? laneId,
+        [FromQuery] int? vehicleId,
+        [FromQuery] string? plateText,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var query = _context.LaneEvents.Include(e => e.Lane).Include(e => e.Vehicle).AsQueryable();
+        if (laneId.HasValue) query = query.Where(e => e.LaneId == laneId);
+        if (vehicleId.HasValue) query = query.Where(e => e.VehicleId == vehicleId);
+        if (!string.IsNullOrWhiteSpace(plateText)) query = query.Where(e => e.PlateText != null && e.PlateText.Contains(plateText));
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(e => e.OccurredAtUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("lane-health")]
+    public async Task<IActionResult> GetLaneHealth()
+    {
+        var lanes = await _context.Lanes.Where(l => l.IsActive).ToListAsync();
+        var now = DateTime.UtcNow;
+        var health = new List<object>();
+        foreach (var lane in lanes)
+        {
+            var lastEvent = await _context.LaneEvents
+                .Where(e => e.LaneId == lane.LaneId)
+                .OrderByDescending(e => e.OccurredAtUtc)
+                .FirstOrDefaultAsync();
+            var barriers = await _context.Barriers.Where(b => b.LaneId == lane.LaneId).ToListAsync();
+            var lastEventAge = lastEvent != null ? (now - lastEvent.OccurredAtUtc).TotalMinutes : (double?)null;
+            var degraded = lastEventAge > 30 || barriers.Any(b => b.State == "Unknown" || b.State == "LockedClosed");
+            health.Add(new
+            {
+                lane.LaneId, lane.Name, lane.Direction,
+                BarrierCount = barriers.Count,
+                Barriers = barriers.Select(b => new { b.BarrierId, b.Name, b.State }),
+                LastEventAt = lastEvent?.OccurredAtUtc,
+                LastEventAgeMinutes = lastEventAge,
+                LastEventType = lastEvent?.EventType,
+                LastPlateText = lastEvent?.PlateText,
+                IsDegraded = degraded,
+                Status = degraded ? "Degraded" : "Healthy"
+            });
+        }
+        return Ok(health);
+    }
+
+    [HttpPost("barriers/{barrierId:int}/simulate")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SimulateBarrierCommand(int barrierId, [FromBody] SimulateBarrierRequest request)
+    {
+        var barrier = await _context.Barriers.FindAsync(barrierId);
+        if (barrier == null)
+            return NotFound(new { message = "Barrier not found." });
+
+        var command = string.IsNullOrWhiteSpace(request.Command) ? "Open" : request.Command.Trim();
+        var previousState = barrier.State;
+        barrier.State = command.Equals("Open", StringComparison.OrdinalIgnoreCase) ? "Open" :
+            command.Equals("Close", StringComparison.OrdinalIgnoreCase) ? "Closed" :
+            command.Equals("HoldOpen", StringComparison.OrdinalIgnoreCase) ? "HeldOpen" :
+            command.Equals("LockClosed", StringComparison.OrdinalIgnoreCase) ? "LockedClosed" :
+            command.Equals("Fault", StringComparison.OrdinalIgnoreCase) ? "Fault" :
+            barrier.State;
+
+        var audit = new BarrierCommandAudit
+        {
+            BarrierId = barrierId,
+            Command = command,
+            Reason = $"Simulation: {(request.Reason ?? "No reason")}",
+            RequestedByUserId = GetCurrentUserId(),
+            Result = "Simulated"
+        };
+        _context.BarrierCommandAudits.Add(audit);
+        barrier.State = previousState; // revert after simulation
+        await _context.SaveChangesAsync();
+        return Ok(new { barrier.BarrierId, barrier.Name, SimulatedCommand = command, Result = "SimulatedOK", PreviousState = previousState });
+    }
+
+    [HttpGet("adjudications")]
+    public async Task<IActionResult> GetAdjudications(
+        [FromQuery] string? status,
+        [FromQuery] string? aiSource,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var query = _context.AiAdjudicationItems.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(a => a.Status == status);
+        if (!string.IsNullOrWhiteSpace(aiSource)) query = query.Where(a => a.AiSource == aiSource);
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(a => a.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpPatch("adjudications/{adjudicationId:int}/review")]
+    public async Task<IActionResult> ReviewAdjudication(int adjudicationId, [FromBody] AdjudicationReviewRequest request)
+    {
+        var item = await _context.AiAdjudicationItems.FindAsync(adjudicationId);
+        if (item == null) return NotFound(new { message = "Adjudication item not found." });
+        item.Status = string.IsNullOrWhiteSpace(request.Status) ? "Reviewed" : request.Status.Trim();
+        item.Outcome = request.Outcome?.Trim();
+        item.ReviewNote = request.ReviewNote?.Trim();
+        item.ReviewedByUserId = GetCurrentUserId();
+        item.ReviewedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(item);
+    }
+
     private async Task CreateWatchlistMatchesForVisitAsync(Visit visit)
     {
         var entries = await _context.WatchlistEntries
@@ -603,4 +760,6 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public sealed record LaneEventRequest(int? LaneId, int? VehicleId, string? EventType, string? Direction, string? PlateText, string? Note);
     public sealed record ContractorRequest(int? EmployeeId, string FullName, string Company, string? Phone, string? Email, DateTime ContractFromUtc, DateTime ContractToUtc, int? SiteId, string? RequiredTraining);
     public sealed record RevokeContractorRequest(string? Reason);
+    public sealed record SimulateBarrierRequest(string? Command, string? Reason);
+    public sealed record AdjudicationReviewRequest(string? Status, string? Outcome, string? ReviewNote);
 }

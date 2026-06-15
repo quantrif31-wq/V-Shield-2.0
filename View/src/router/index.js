@@ -50,6 +50,9 @@ const KioskCheckIn = () => import('../pages/KioskCheckIn.vue')
 const HostVisitorPage = () => import('../pages/HostVisitorPage.vue')
 const WatchlistQueue = () => import('../pages/WatchlistQueue.vue')
 const ContractorManagement = () => import('../pages/ContractorManagement.vue')
+const LaneDashboard = () => import('../pages/LaneDashboard.vue')
+const PlateReviewQueue = () => import('../pages/PlateReviewQueue.vue')
+const BarrierPanel = () => import('../pages/BarrierPanel.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -102,6 +105,9 @@ const routes = [
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'contractors', name: 'ContractorManagement', component: ContractorManagement, meta: { allowedRoles: ['Admin'] } },
+            { path: 'lane-dashboard', name: 'LaneDashboard', component: LaneDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'plate-review', name: 'PlateReviewQueue', component: PlateReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'barrier-panel', name: 'BarrierPanel', component: BarrierPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },

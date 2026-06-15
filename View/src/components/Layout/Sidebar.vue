@@ -543,6 +543,32 @@ const navGroups = ref([
         ],
     },
     {
+        label: 'Giao thông & Bãi đỗ',
+        items: [
+            {
+                path: '/lane-dashboard',
+                label: 'Lane Dashboard',
+                hint: 'Sức khỏe làn & barrier',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/barrier-panel',
+                label: 'Barrier Control',
+                hint: 'Điều khiển barrier & đỗ xe',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12H3"/><path d="M12 3v18"/><path d="M7 8l5-5 5 5"/><path d="M7 16l5 5 5-5"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/plate-review',
+                label: 'Plate Review',
+                hint: 'Duyệt ảnh biển số AI',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h4"/><path d="M14 10h4"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+        ],
+    },
+    {
         label: 'Quản trị Nội bộ',
         items: [
             {

@@ -144,4 +144,20 @@ export const enterpriseApi = {
     getContractorDetail(contractorId) { return http.get(`/enterprise/visitor-vehicle/contractors/${contractorId}`) },
     createContractor(payload) { return http.post('/enterprise/visitor-vehicle/contractors', payload) },
     revokeContractor(contractorId, payload) { return http.patch(`/enterprise/visitor-vehicle/contractors/${contractorId}/revoke`, payload) },
+    // Parking & Barriers & Lane
+    getParkingAreas(params) { return http.get('/enterprise/visitor-vehicle/parking-areas', { params }) },
+    getParkingPermits(params) { return http.get('/enterprise/visitor-vehicle/parking-permits', { params }) },
+    createParkingArea(payload) { return http.post('/enterprise/visitor-vehicle/parking-areas', payload) },
+    createParkingPermit(payload) { return http.post('/enterprise/visitor-vehicle/parking-permits', payload) },
+    getBarriers(params) { return http.get('/enterprise/visitor-vehicle/barriers', { params }) },
+    createBarrier(payload) { return http.post('/enterprise/visitor-vehicle/barriers', payload) },
+    recordBarrierCommand(barrierId, payload) { return http.post(`/enterprise/visitor-vehicle/barriers/${barrierId}/commands`, payload) },
+    getBarrierCommands(barrierId, params) { return http.get(`/enterprise/visitor-vehicle/barriers/${barrierId}/commands`, { params }) },
+    simulateBarrierCommand(barrierId, payload) { return http.post(`/enterprise/visitor-vehicle/barriers/${barrierId}/simulate`, payload) },
+    getLaneEvents(params) { return http.get('/enterprise/visitor-vehicle/lane-events', { params }) },
+    recordLaneEvent(payload) { return http.post('/enterprise/visitor-vehicle/lane-events', payload) },
+    getLaneHealth() { return http.get('/enterprise/visitor-vehicle/lane-health') },
+    // Adjudication (plate review)
+    getAdjudications(params) { return http.get('/enterprise/visitor-vehicle/adjudications', { params }) },
+    reviewAdjudication(adjudicationId, payload) { return http.patch(`/enterprise/visitor-vehicle/adjudications/${adjudicationId}/review`, payload) },
 }
