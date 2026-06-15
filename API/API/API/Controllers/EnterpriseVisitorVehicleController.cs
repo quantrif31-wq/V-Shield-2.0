@@ -40,6 +40,218 @@ public class EnterpriseVisitorVehicleController : ControllerBase
         });
     }
 
+    [HttpGet("visits")]
+    public async Task<IActionResult> GetVisits(
+        [FromQuery] string? status,
+        [FromQuery] int? hostEmployeeId,
+        [FromQuery] int? siteId,
+        [FromQuery] DateTime? dateFrom,
+        [FromQuery] DateTime? dateTo,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var query = _context.Visits.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(v => v.Status == status);
+        if (hostEmployeeId.HasValue)
+            query = query.Where(v => v.HostEmployeeId == hostEmployeeId);
+        if (siteId.HasValue)
+            query = query.Where(v => v.SiteId == siteId);
+        if (dateFrom.HasValue)
+            query = query.Where(v => v.ExpectedInUtc >= dateFrom.Value);
+        if (dateTo.HasValue)
+            query = query.Where(v => v.ExpectedInUtc <= dateTo.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(v => v.VisitorName.Contains(search) || (v.VisitorPhone != null && v.VisitorPhone.Contains(search)));
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(v => v.ExpectedInUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(v => v.HostEmployee)
+            .Include(v => v.Site)
+            .ToListAsync();
+
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("visits/{visitId:int}")]
+    public async Task<IActionResult> GetVisitDetail(int visitId)
+    {
+        var visit = await _context.Visits
+            .Include(v => v.HostEmployee)
+            .Include(v => v.Site)
+            .FirstOrDefaultAsync(v => v.VisitId == visitId);
+        if (visit == null)
+            return NotFound(new { message = "Visit not found." });
+
+        var credentials = await _context.VisitorCredentials
+            .Where(c => c.VisitId == visitId).ToListAsync();
+        var checkIn = await _context.VisitorCheckIns
+            .Where(c => c.VisitId == visitId).OrderByDescending(c => c.CheckedInAtUtc).FirstOrDefaultAsync();
+        var formAcceptances = await _context.VisitorFormAcceptances
+            .Include(a => a.Template)
+            .Where(a => a.VisitId == visitId).ToListAsync();
+
+        return Ok(new { visit, credentials, checkIn, formAcceptances });
+    }
+
+    [HttpGet("visits/overstays")]
+    public async Task<IActionResult> GetOverstays()
+    {
+        var overstays = await _context.Visits
+            .Where(v => v.Status == VisitStatuses.Overstay || (v.Status == VisitStatuses.CheckedIn && v.ExpectedOutUtc < DateTime.UtcNow))
+            .OrderByDescending(v => v.ExpectedOutUtc)
+            .Take(50)
+            .Include(v => v.HostEmployee)
+            .Include(v => v.Site)
+            .ToListAsync();
+        return Ok(overstays);
+    }
+
+    [HttpGet("watchlist-entries")]
+    public async Task<IActionResult> GetWatchlistEntries([FromQuery] bool? active, [FromQuery] string? entityType)
+    {
+        var query = _context.WatchlistEntries.AsQueryable();
+        if (active.HasValue)
+            query = query.Where(e => e.IsActive == active.Value);
+        if (!string.IsNullOrWhiteSpace(entityType))
+            query = query.Where(e => e.EntityType == entityType);
+        var items = await query.OrderByDescending(e => e.CreatedAtUtc).Take(100).ToListAsync();
+        return Ok(items);
+    }
+
+    [HttpGet("watchlist-matches")]
+    public async Task<IActionResult> GetWatchlistMatches(
+        [FromQuery] string? status,
+        [FromQuery] string? severity,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var query = _context.WatchlistMatches
+            .Include(m => m.WatchlistEntry)
+            .Include(m => m.Visit)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(m => m.Status == status);
+        if (!string.IsNullOrWhiteSpace(severity))
+            query = query.Where(m => m.WatchlistEntry != null && m.WatchlistEntry.Severity == severity);
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(m => m.MatchedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("forms")]
+    public async Task<IActionResult> GetFormTemplates([FromQuery] string? formType)
+    {
+        var query = _context.VisitorFormTemplates.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(formType))
+            query = query.Where(t => t.FormType == formType);
+        var items = await query.OrderByDescending(t => t.Version).ToListAsync();
+        return Ok(items);
+    }
+
+    [HttpGet("contractors")]
+    public async Task<IActionResult> GetContractors(
+        [FromQuery] string? status,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var query = _context.Contractors.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(c => c.Status == status);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(c => c.FullName.Contains(search) || c.Company.Contains(search));
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(c => c.ContractToUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(c => c.Employee)
+            .Include(c => c.Site)
+            .ToListAsync();
+
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("contractors/{contractorId:int}")]
+    public async Task<IActionResult> GetContractorDetail(int contractorId)
+    {
+        var contractor = await _context.Contractors
+            .Include(c => c.Employee)
+            .Include(c => c.Site)
+            .FirstOrDefaultAsync(c => c.ContractorId == contractorId);
+        if (contractor == null)
+            return NotFound(new { message = "Contractor not found." });
+        return Ok(contractor);
+    }
+
+    [HttpPost("contractors")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateContractor([FromBody] ContractorRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.Company))
+            return BadRequest(new { message = "FullName and Company are required." });
+        if (request.ContractToUtc <= request.ContractFromUtc)
+            return BadRequest(new { message = "ContractToUtc must be after ContractFromUtc." });
+
+        var contractor = new Contractor
+        {
+            EmployeeId = request.EmployeeId,
+            FullName = request.FullName.Trim(),
+            Company = request.Company.Trim(),
+            Phone = request.Phone?.Trim(),
+            Email = request.Email?.Trim(),
+            ContractFromUtc = request.ContractFromUtc,
+            ContractToUtc = request.ContractToUtc,
+            SiteId = request.SiteId,
+            RequiredTraining = request.RequiredTraining?.Trim()
+        };
+
+        _context.Contractors.Add(contractor);
+        await _context.SaveChangesAsync();
+        return Ok(contractor);
+    }
+
+    [HttpPatch("contractors/{contractorId:int}/revoke")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
+    public async Task<IActionResult> RevokeContractor(int contractorId, [FromBody] RevokeContractorRequest request)
+    {
+        var contractor = await _context.Contractors.FindAsync(contractorId);
+        if (contractor == null)
+            return NotFound(new { message = "Contractor not found." });
+
+        contractor.Status = ContractorStatuses.Revoked;
+        contractor.RevokedAtUtc = DateTime.UtcNow;
+        contractor.RevokedByUserId = GetCurrentUserId();
+        contractor.RevocationReason = request.Reason?.Trim();
+
+        if (contractor.EmployeeId.HasValue)
+        {
+            var employee = await _context.Employees.FindAsync(contractor.EmployeeId);
+            if (employee != null)
+            {
+                employee.LifecycleStatus = EmployeeLifecycleStates.ContractorExpired;
+                employee.LifecycleUpdatedAtUtc = DateTime.UtcNow;
+                employee.Status = false;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(contractor);
+    }
+
     [HttpPost("visits")]
     public async Task<IActionResult> CreateVisit([FromBody] VisitRequest request)
     {
@@ -389,4 +601,6 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public sealed record BarrierRequest(int? LaneId, string Name, string? State);
     public sealed record BarrierCommandRequest(string? Command, string? Reason);
     public sealed record LaneEventRequest(int? LaneId, int? VehicleId, string? EventType, string? Direction, string? PlateText, string? Note);
+    public sealed record ContractorRequest(int? EmployeeId, string FullName, string Company, string? Phone, string? Email, DateTime ContractFromUtc, DateTime ContractToUtc, int? SiteId, string? RequiredTraining);
+    public sealed record RevokeContractorRequest(string? Reason);
 }

@@ -17,6 +17,7 @@ public partial class ApplicationDbContext
     public DbSet<SecurityBarrier> Barriers { get; set; }
     public DbSet<LaneEvent> LaneEvents { get; set; }
     public DbSet<BarrierCommandAudit> BarrierCommandAudits { get; set; }
+    public DbSet<Contractor> Contractors { get; set; }
 
     private static void ConfigureVisitorVehicleOperations(ModelBuilder modelBuilder)
     {
@@ -125,6 +126,17 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.Result).IsRequired().HasMaxLength(40);
             entity.HasOne(e => e.Barrier).WithMany().HasForeignKey(e => e.BarrierId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Contractor>(entity =>
+        {
+            entity.HasKey(e => e.ContractorId);
+            entity.Property(e => e.FullName).IsRequired().HasMaxLength(180);
+            entity.Property(e => e.Company).IsRequired().HasMaxLength(180);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.HasIndex(e => new { e.Status, e.ContractToUtc });
+            entity.HasOne(e => e.Employee).WithMany().HasForeignKey(e => e.EmployeeId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Site).WithMany().HasForeignKey(e => e.SiteId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

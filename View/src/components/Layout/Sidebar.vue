@@ -500,6 +500,46 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6"/><path d="M17 11h6"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
+            {
+                path: '/reception',
+                label: 'Reception',
+                hint: 'Check-in, walk-in, overstays',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><circle cx="12" cy="10" r="2"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/kiosk',
+                label: 'Kiosk Check-in',
+                hint: 'Tự check-in tại quầy',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 6h6"/><path d="M12 10v4"/><path d="M10 12h4"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/host-visitor',
+                label: 'Mời khách',
+                hint: 'Tạo lời mời cho khách',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 12h-6"/><path d="M19 9v6"/></svg>',
+                roles: ['Admin', 'Staff', 'BaoVe'],
+            },
+            {
+                path: '/watchlist',
+                label: 'Watchlist',
+                hint: 'Rà soát đối sánh',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+        ],
+    },
+    {
+        label: 'Nhà thầu & Đối tác',
+        items: [
+            {
+                path: '/contractors',
+                label: 'Nhà thầu',
+                hint: 'Quản lý hợp đồng & truy cập',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+                roles: ['Admin'],
+            },
         ],
     },
     {

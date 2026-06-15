@@ -122,4 +122,26 @@ export const enterpriseApi = {
     createQaRun(payload) {
         return http.post('/enterprise/release-readiness/qa-test-runs', payload)
     },
+    // Visitor & Vehicle
+    getVisits(params) { return http.get('/enterprise/visitor-vehicle/visits', { params }) },
+    getVisitDetail(visitId) { return http.get(`/enterprise/visitor-vehicle/visits/${visitId}`) },
+    getOverstays() { return http.get('/enterprise/visitor-vehicle/visits/overstays') },
+    createVisit(payload) { return http.post('/enterprise/visitor-vehicle/visits', payload) },
+    checkInVisit(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/check-in`, payload) },
+    checkOutVisit(visitId) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/check-out`) },
+    issueVisitorCredential(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/credentials`, payload) },
+    // Watchlist
+    getWatchlistEntries(params) { return http.get('/enterprise/visitor-vehicle/watchlist-entries', { params }) },
+    getWatchlistMatches(params) { return http.get('/enterprise/visitor-vehicle/watchlist-matches', { params }) },
+    createWatchlistEntry(payload) { return http.post('/enterprise/visitor-vehicle/watchlist', payload) },
+    reviewWatchlistMatch(matchId, payload) { return http.patch(`/enterprise/visitor-vehicle/watchlist-matches/${matchId}/review`, payload) },
+    // Forms
+    getFormTemplates(params) { return http.get('/enterprise/visitor-vehicle/forms', { params }) },
+    createFormTemplate(payload) { return http.post('/enterprise/visitor-vehicle/forms', payload) },
+    acceptForm(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/form-acceptances`, payload) },
+    // Contractors
+    getContractors(params) { return http.get('/enterprise/visitor-vehicle/contractors', { params }) },
+    getContractorDetail(contractorId) { return http.get(`/enterprise/visitor-vehicle/contractors/${contractorId}`) },
+    createContractor(payload) { return http.post('/enterprise/visitor-vehicle/contractors', payload) },
+    revokeContractor(contractorId, payload) { return http.patch(`/enterprise/visitor-vehicle/contractors/${contractorId}/revoke`, payload) },
 }

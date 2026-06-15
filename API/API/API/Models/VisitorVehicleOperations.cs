@@ -1,6 +1,39 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace API.Models;
+
+public static class ContractorStatuses
+{
+    public const string Active = "Active";
+    public const string Expiring = "Expiring";
+    public const string Expired = "Expired";
+    public const string Revoked = "Revoked";
+}
+
+[Table("Contractors")]
+public class Contractor
+{
+    [Key] public int ContractorId { get; set; }
+    public int? EmployeeId { get; set; }
+    [MaxLength(180)] public string FullName { get; set; } = string.Empty;
+    [MaxLength(180)] public string Company { get; set; } = string.Empty;
+    [MaxLength(80)] public string? Phone { get; set; }
+    [MaxLength(160)] public string? Email { get; set; }
+    public DateTime ContractFromUtc { get; set; }
+    public DateTime ContractToUtc { get; set; }
+    [MaxLength(40)] public string Status { get; set; } = ContractorStatuses.Active;
+    public int? SiteId { get; set; }
+    [MaxLength(1000)] public string? RequiredTraining { get; set; }
+    public bool AccessReviewCompleted { get; set; }
+    public DateTime? AccessReviewDateUtc { get; set; }
+    public DateTime? RevokedAtUtc { get; set; }
+    public int? RevokedByUserId { get; set; }
+    [MaxLength(1000)] public string? RevocationReason { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public Employee? Employee { get; set; }
+    public Site? Site { get; set; }
+}
 
 public static class VisitStatuses
 {
