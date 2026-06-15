@@ -249,6 +249,7 @@ public partial class ApplicationDbContext
         ConfigureImportExport(modelBuilder);
         ConfigureUeba(modelBuilder);
         ConfigureAiCore(modelBuilder);
+        ConfigureInterventionRequests(modelBuilder);
         ConfigureRateLimiting(modelBuilder);
     }
 

@@ -9,17 +9,32 @@
             <div class="header-actions">
                 <span v-if="isUsingDemoData" class="soft-chip danger">DEMO DATA</span>
                 <span class="soft-chip warn">{{ totalPending }} chờ xử lý</span>
+                <button v-if="interventionPendingCount > 0" class="soft-chip danger" style="cursor:pointer" @click="switchToEscalations">
+                    {{ interventionPendingCount }} Yêu cầu can thiệp
+                </button>
                 <button class="btn btn-secondary btn-sm" :disabled="loading" @click="loadAll">Refresh</button>
             </div>
         </div>
 
-        <!-- Case Classification Tabs -->
+        <!-- Tabs: Exception Cases / Escalation Queue -->
         <div class="tab-bar">
+            <button :class="{ active: activeTab === 'cases' }" @click="activeTab = 'cases'">
+                Case ngoại lệ
+                <span v-if="allCases.length" class="tab-count">{{ allCases.length }}</span>
+            </button>
+            <button :class="{ active: activeTab === 'escalation' }" @click="activeTab = 'escalation'">
+                Yêu cầu can thiệp
+                <span v-if="interventionPendingCount" class="tab-count danger">{{ interventionPendingCount }}</span>
+            </button>
+        </div>
+
+        <!-- Case Classification Sub-Tabs (only for cases tab) -->
+        <div v-if="activeTab === 'cases'" class="tab-bar sub-tabs">
             <button
                 v-for="cat in caseCategories"
                 :key="cat.id"
                 :class="{ active: activeCategory === cat.id }"
-                @click="activeCategory = cat.id; loadCases()"
+                @click="activeCategory = cat.id"
             >
                 {{ cat.label }}
                 <span v-if="cat.count" class="tab-count">{{ cat.count }}</span>
@@ -203,11 +218,239 @@
                 </div>
             </section>
         </div>
+
+        <!-- ==================== ESCALATION QUEUE LAYOUT ==================== -->
+        <div v-if="activeTab === 'escalation'" class="exception-layout">
+            <!-- Left: Intervention Request Queue -->
+            <section class="exception-queue">
+                <div class="panel-head">
+                    <h2 class="panel-title">Yêu cầu can thiệp</h2>
+                    <div class="toolbar-shell compact">
+                        <button
+                            v-if="isAdmin || currentRole === 'BaoVe'"
+                            class="btn btn-sm btn-primary"
+                            @click="showCreateModal = true"
+                        >
+                            + Tạo yêu cầu
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status filter tabs -->
+                <div class="filter-pills">
+                    <button
+                        v-for="s in statusFilters"
+                        :key="s.value"
+                        :class="{ active: interventionStatusFilter === s.value }"
+                        @click="interventionStatusFilter = s.value"
+                        class="pill-btn"
+                    >
+                        {{ s.label }}
+                        <span v-if="s.count" class="tab-count">{{ s.count }}</span>
+                    </button>
+                </div>
+
+                <div v-if="loadingInterventions" class="empty-card">Đang tải...</div>
+                <div v-else-if="filteredInterventions.length === 0" class="empty-card">
+                    Không có yêu cầu nào.
+                </div>
+                <div v-else class="case-list">
+                    <div
+                        v-for="r in filteredInterventions"
+                        :key="r.operationalInterventionRequestId"
+                        class="case-row"
+                        :class="{
+                            'case-row--selected': selectedIntervention?.operationalInterventionRequestId === r.operationalInterventionRequestId,
+                            [`case-row--${severityForPriority(r.priority)}`]: true
+                        }"
+                        @click="selectIntervention(r)"
+                        role="button"
+                        :tabindex="0"
+                        @keydown.enter="selectIntervention(r)"
+                    >
+                        <div class="case-row-head">
+                            <span class="case-category-badge" :class="`badge--intv-${r.interventionType}`">{{ interventionTypeLabel(r.interventionType) }}</span>
+                            <span class="case-time">{{ formatRelativeTime(r.createdAtUtc) }}</span>
+                        </div>
+                        <div class="case-row-body">
+                            <span class="case-subject">{{ r.subjectName || r.plateNumber || 'Unknown' }}</span>
+                            <span v-if="r.plateNumber" class="case-plate">{{ r.plateNumber }}</span>
+                        </div>
+                        <div class="case-row-footer">
+                            <span class="soft-chip" :class="`intv-status--${r.status.toLowerCase()}`">{{ statusLabel(r.status) }}</span>
+                            <span class="case-time">{{ r.laneName || '' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Center/Right: Intervention Detail -->
+            <section v-if="!selectedIntervention" class="exception-detail">
+                <div class="empty-card">Chọn một yêu cầu để xem chi tiết</div>
+            </section>
+
+            <section v-else class="exception-detail">
+                <div class="detail-header">
+                    <div>
+                        <span class="panel-kicker">Request #{{ selectedIntervention.operationalInterventionRequestId }}</span>
+                        <h2 class="detail-title">{{ interventionTypeLabel(selectedIntervention.interventionType) }}</h2>
+                    </div>
+                    <div class="detail-actions">
+                        <!-- Admin actions -->
+                        <button
+                            v-if="isAdmin && selectedIntervention.status === 'Pending'"
+                            class="btn btn-sm btn-success"
+                            :disabled="savingIntervention"
+                            @click="acceptIntervention(selectedIntervention)"
+                        >
+                            {{ savingIntervention ? '...' : 'Chấp nhận' }}
+                        </button>
+                        <button
+                            v-if="isAdmin && selectedIntervention.status === 'Pending'"
+                            class="btn btn-sm btn-danger"
+                            :disabled="savingIntervention"
+                            @click="rejectIntervention(selectedIntervention)"
+                        >
+                            Từ chối
+                        </button>
+                        <button
+                            v-if="isAdmin && selectedIntervention.status === 'Accepted'"
+                            class="btn btn-sm btn-primary"
+                            :disabled="savingIntervention"
+                            @click="executeIntervention(selectedIntervention)"
+                        >
+                            Thực thi
+                        </button>
+                    </div>
+                </div>
+
+                <div class="detail-meta-grid">
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Loại can thiệp</span>
+                        <span class="case-category-badge" :class="`badge--intv-${selectedIntervention.interventionType}`">
+                            {{ interventionTypeLabel(selectedIntervention.interventionType) }}
+                        </span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Trạng thái</span>
+                        <span class="soft-chip" :class="`intv-status--${selectedIntervention.status.toLowerCase()}`">
+                            {{ statusLabel(selectedIntervention.status) }}
+                        </span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Mức độ</span>
+                        <span class="case-severity" :class="`severity--${severityForPriority(selectedIntervention.priority)}`">
+                            {{ priorityLabel(selectedIntervention.priority) }}
+                        </span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Biển số</span>
+                        <span v-if="selectedIntervention.plateNumber" class="plate-badge">{{ selectedIntervention.plateNumber }}</span>
+                        <span v-else class="text-muted">---</span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Đối tượng</span>
+                        <span>{{ selectedIntervention.subjectName || '---' }}</span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Làn</span>
+                        <span>{{ selectedIntervention.laneName || '---' }}</span>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedIntervention.requestedByUserId">
+                        <span class="meta-label">Người yêu cầu</span>
+                        <span>User #{{ selectedIntervention.requestedByUserId }}</span>
+                    </div>
+                    <div class="detail-meta-item">
+                        <span class="meta-label">Thời gian tạo</span>
+                        <span>{{ formatDateTime(selectedIntervention.createdAtUtc) }}</span>
+                    </div>
+                </div>
+
+                <!-- Reason -->
+                <div class="detail-section">
+                    <h3 class="detail-section-title">Lý do</h3>
+                    <div class="reason-box">{{ selectedIntervention.reason }}</div>
+                    <div v-if="selectedIntervention.note" class="note-box">
+                        <strong>Ghi chú:</strong> {{ selectedIntervention.note }}
+                    </div>
+                </div>
+
+                <!-- Status Timeline -->
+                <div class="detail-section">
+                    <h3 class="detail-section-title">Lịch sử xử lý</h3>
+                    <ExceptionCaseTimeline :items="buildInterventionTimeline(selectedIntervention)" />
+                </div>
+            </section>
+        </div>
+
+        <!-- ==================== CREATE REQUEST MODAL ==================== -->
+        <Teleport to="body">
+            <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+                <div class="modal-panel" style="max-width:520px">
+                    <div class="modal-header">
+                        <h2>Yêu cầu can thiệp</h2>
+                        <button class="btn-close" @click="showCreateModal = false">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Loại can thiệp *</label>
+                            <select v-model="createForm.interventionType" class="form-control">
+                                <option value="temporary_grant">Temporary Grant</option>
+                                <option value="anti_passback_reset">Anti-passback Reset</option>
+                                <option value="emergency_override">Emergency Override</option>
+                                <option value="policy_override">Policy Override</option>
+                                <option value="device_override">Device Override</option>
+                                <option value="other">Khác</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tên đối tượng</label>
+                            <input v-model="createForm.subjectName" class="form-control" placeholder="Tên người/xe" />
+                        </div>
+                        <div class="form-row two">
+                            <div class="form-group">
+                                <label>Biển số</label>
+                                <input v-model="createForm.plateNumber" class="form-control" placeholder="VD: 51F-888.88" />
+                            </div>
+                            <div class="form-group">
+                                <label>Làn</label>
+                                <input v-model="createForm.laneName" class="form-control" placeholder="VD: Làn 1" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Mức độ</label>
+                            <select v-model="createForm.priority" class="form-control">
+                                <option value="low">Thấp</option>
+                                <option value="medium" selected>Trung bình</option>
+                                <option value="high">Cao</option>
+                                <option value="critical">Nghiêm trọng</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Lý do *</label>
+                            <textarea v-model="createForm.reason" class="form-control" rows="3" placeholder="Mô tả lý do cần can thiệp..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú thêm</label>
+                            <textarea v-model="createForm.note" class="form-control" rows="2" placeholder="Ghi chú bổ sung..."></textarea>
+                        </div>
+                        <div v-if="createError" class="alert alert-danger">{{ createError }}</div>
+                        <div v-if="createSuccess" class="alert alert-success">{{ createSuccess }}</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @click="showCreateModal = false">Hủy</button>
+                        <button class="btn btn-primary" :disabled="creating || !createForm.reason || !createForm.interventionType" @click="submitInterventionRequest">
+                            {{ creating ? 'Đang gửi...' : 'Gửi yêu cầu' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
 import { getExceptions } from '../services/accessLogApi'
 import { authState } from '../stores/auth'
@@ -219,10 +462,31 @@ const loadingEvidence = ref(false)
 const loadingBarriers = ref(false)
 const loadingCorrelations = ref(false)
 const searchQuery = ref('')
+const activeTab = ref('cases')
 const activeCategory = ref('all')
 const selectedCase = ref(null)
 const detailTab = ref('events')
 const isUsingDemoData = ref(false)
+
+// Intervention (Phase G) state
+const loadingInterventions = ref(false)
+const savingIntervention = ref(false)
+const interventionRequests = ref([])
+const selectedIntervention = ref(null)
+const interventionStatusFilter = ref('all')
+const showCreateModal = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const createSuccess = ref('')
+const createForm = reactive({
+    interventionType: 'temporary_grant',
+    subjectName: '',
+    plateNumber: '',
+    laneName: '',
+    priority: 'medium',
+    reason: '',
+    note: '',
+})
 
 // All cases from API
 const allCases = ref([])
@@ -312,6 +576,118 @@ function categoryLabel(cat) {
 function severityLabel(sev) {
     const map = { critical: 'Nghiêm trọng', high: 'Cao', medium: 'Trung bình', low: 'Thấp' }
     return map[sev] || sev
+}
+
+// ===================== ESCALATION COMPUTED =====================
+
+const interventionPendingCount = computed(() =>
+    interventionRequests.value.filter(r => r.status === 'Pending').length
+)
+
+const statusFilters = computed(() => {
+    const all = interventionRequests.value
+    const counts = {}
+    all.forEach(r => {
+        const s = r.status || 'Pending'
+        counts[s] = (counts[s] || 0) + 1
+    })
+    return [
+        { value: 'all', label: 'Tất cả', count: all.length },
+        { value: 'Pending', label: 'Chờ xử lý', count: counts['Pending'] || 0 },
+        { value: 'Accepted', label: 'Đã chấp nhận', count: counts['Accepted'] || 0 },
+        { value: 'Rejected', label: 'Đã từ chối', count: counts['Rejected'] || 0 },
+        { value: 'Executed', label: 'Đã thực thi', count: counts['Executed'] || 0 },
+        { value: 'Expired', label: 'Hết hạn', count: counts['Expired'] || 0 },
+    ]
+})
+
+const filteredInterventions = computed(() => {
+    let items = interventionRequests.value
+    if (interventionStatusFilter.value !== 'all') {
+        items = items.filter(r => r.status === interventionStatusFilter.value)
+    }
+    // Sort by priority then by creation time (oldest first for pending)
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+    return [...items].sort((a, b) => {
+        const pA = priorityOrder[a.priority] || 99
+        const pB = priorityOrder[b.priority] || 99
+        if (pA !== pB) return pA - pB
+        return new Date(a.createdAtUtc || 0) - new Date(b.createdAtUtc || 0)
+    })
+})
+
+function severityForPriority(priority) {
+    const map = { critical: 'critical', high: 'high', medium: 'medium', low: 'low' }
+    return map[priority] || 'medium'
+}
+
+function interventionTypeLabel(type) {
+    const map = {
+        temporary_grant: 'Temporary Grant',
+        anti_passback_reset: 'Anti-passback Reset',
+        emergency_override: 'Emergency Override',
+        policy_override: 'Policy Override',
+        device_override: 'Device Override',
+        other: 'Khác',
+    }
+    return map[type] || type
+}
+
+function priorityLabel(priority) {
+    const map = { critical: 'Nghiêm trọng', high: 'Cao', medium: 'Trung bình', low: 'Thấp' }
+    return map[priority] || priority
+}
+
+function statusLabel(status) {
+    const map = { Pending: 'Chờ xử lý', Accepted: 'Đã chấp nhận', Rejected: 'Đã từ chối', Executed: 'Đã thực thi', Expired: 'Hết hạn' }
+    return map[status] || status
+}
+
+function buildInterventionTimeline(r) {
+    const items = []
+    items.push({
+        id: 'created',
+        type: 'system',
+        title: 'Yêu cầu được tạo',
+        description: r.reason,
+        timestamp: r.createdAtUtc,
+        actor: `User #${r.requestedByUserId}`,
+    })
+    if (r.acceptedAtUtc) {
+        items.push({
+            id: 'accepted',
+            type: 'approve',
+            title: 'Yêu cầu được chấp nhận',
+            timestamp: r.acceptedAtUtc,
+            actor: `User #${r.acceptedByUserId}`,
+            description: 'Admin xác nhận yêu cầu',
+        })
+    }
+    if (r.rejectedAtUtc) {
+        items.push({
+            id: 'rejected',
+            type: 'reject',
+            title: 'Yêu cầu bị từ chối',
+            timestamp: r.rejectedAtUtc,
+            actor: `User #${r.rejectedByUserId}`,
+            description: r.rejectionReason || '',
+        })
+    }
+    if (r.executedAtUtc) {
+        items.push({
+            id: 'executed',
+            type: 'success',
+            title: 'Yêu cầu được thực thi',
+            timestamp: r.executedAtUtc,
+            actor: `User #${r.executedByUserId}`,
+        })
+    }
+    return items
+}
+
+function switchToEscalations() {
+    activeTab.value = 'escalation'
+    loadInterventions()
 }
 
 function eventChipClass(type) {
@@ -413,6 +789,107 @@ function buildCaseFromException(ex) {
     }
 }
 
+async function loadInterventions() {
+    loadingInterventions.value = true
+    try {
+        const res = await enterpriseApi.getInterventionRequests({ pageSize: 100 })
+        interventionRequests.value = res.data?.items || []
+    } catch (e) {
+        console.error('Failed to load interventions:', e)
+        interventionRequests.value = []
+    } finally {
+        loadingInterventions.value = false
+    }
+}
+
+async function selectIntervention(r) {
+    selectedIntervention.value = r
+}
+
+async function submitInterventionRequest() {
+    if (!createForm.reason || !createForm.interventionType) return
+    creating.value = true
+    createError.value = ''
+    createSuccess.value = ''
+    try {
+        const payload = {
+            interventionType: createForm.interventionType,
+            reason: createForm.reason,
+            subjectName: createForm.subjectName || undefined,
+            plateNumber: createForm.plateNumber || undefined,
+            laneName: createForm.laneName || undefined,
+            priority: createForm.priority,
+            note: createForm.note || undefined,
+            expiresInMinutes: 240,
+        }
+        const res = await enterpriseApi.createInterventionRequest(payload)
+        createSuccess.value = `Yêu cầu #${res.data?.operationalInterventionRequestId} đã được gửi!`
+        // Reset form
+        createForm.reason = ''
+        createForm.note = ''
+        createForm.subjectName = ''
+        createForm.plateNumber = ''
+        createForm.laneName = ''
+        createForm.interventionType = 'temporary_grant'
+        createForm.priority = 'medium'
+        // Reload list
+        await loadInterventions()
+    } catch (e) {
+        createError.value = e?.response?.data?.message || e?.message || 'Gửi yêu cầu thất bại.'
+    } finally {
+        creating.value = false
+    }
+}
+
+async function acceptIntervention(r) {
+    savingIntervention.value = true
+    try {
+        const res = await enterpriseApi.acceptInterventionRequest(r.operationalInterventionRequestId, {})
+        r.status = 'Accepted'
+        r.acceptedAtUtc = new Date().toISOString()
+        r.acceptedByUserId = authState.user?.userId
+        alert(`Yêu cầu #${r.operationalInterventionRequestId} đã được chấp nhận.`)
+    } catch (e) {
+        alert(e?.response?.data?.message || 'Chấp nhận thất bại.')
+    } finally {
+        savingIntervention.value = false
+    }
+}
+
+async function rejectIntervention(r) {
+    const reason = prompt('Lý do từ chối:')
+    if (!reason) return
+    savingIntervention.value = true
+    try {
+        const res = await enterpriseApi.rejectInterventionRequest(r.operationalInterventionRequestId, { note: reason })
+        r.status = 'Rejected'
+        r.rejectedAtUtc = new Date().toISOString()
+        r.rejectedByUserId = authState.user?.userId
+        r.rejectionReason = reason
+        alert(`Yêu cầu #${r.operationalInterventionRequestId} đã bị từ chối.`)
+    } catch (e) {
+        alert(e?.response?.data?.message || 'Từ chối thất bại.')
+    } finally {
+        savingIntervention.value = false
+    }
+}
+
+async function executeIntervention(r) {
+    if (!confirm('Xác nhận thực thi yêu cầu này?')) return
+    savingIntervention.value = true
+    try {
+        const res = await enterpriseApi.executeInterventionRequest(r.operationalInterventionRequestId, {})
+        r.status = 'Executed'
+        r.executedAtUtc = new Date().toISOString()
+        r.executedByUserId = authState.user?.userId
+        alert(`Yêu cầu #${r.operationalInterventionRequestId} đã được thực thi.`)
+    } catch (e) {
+        alert(e?.response?.data?.message || 'Thực thi thất bại.')
+    } finally {
+        savingIntervention.value = false
+    }
+}
+
 async function loadAll() {
     loading.value = true
     try {
@@ -435,6 +912,9 @@ async function loadAll() {
         if (!selectedCase.value && allCases.value.length > 0) {
             selectCase(allCases.value[0])
         }
+
+        // Also load intervention requests in background
+        loadInterventions()
     } catch (e) {
         console.error('Failed to load cases:', e)
         // Fallback to demo data
@@ -825,6 +1305,76 @@ onMounted(loadAll)
     font-size: 14px;
     color: #64748b;
 }
+
+/* ===================== ESCALATION CSS ===================== */
+.sub-tabs {
+    margin-top: -8px;
+}
+
+.filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 8px 0;
+}
+.pill-btn {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+.pill-btn:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+.pill-btn.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.badge--intv-temporary_grant { background: #dbeafe; color: #1e40af; }
+.badge--intv-anti_passback_reset { background: #ede9fe; color: #5b21b6; }
+.badge--intv-emergency_override { background: #fce7f3; color: #9d174d; }
+.badge--intv-policy_override { background: #fff7ed; color: #c2410c; }
+.badge--intv-device_override { background: #fef3c7; color: #92400e; }
+.badge--intv-other { background: #f1f5f9; color: #475569; }
+
+.intv-status--pending { background: #fef3c7; color: #92400e; }
+.intv-status--accepted { background: #dbeafe; color: #1e40af; }
+.intv-status--rejected { background: #fee2e2; color: #991b1b; }
+.intv-status--executed { background: #dcfce7; color: #15803d; }
+.intv-status--expired { background: #f1f5f9; color: #64748b; }
+
+.reason-box {
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #334155;
+}
+.note-box {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fffbeb;
+    border-radius: 8px;
+    border: 1px solid #fde68a;
+    font-size: 13px;
+    color: #92400e;
+}
+
+.tab-count.danger {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
 @media (max-width: 1024px) {
     .exception-layout {
         grid-template-columns: 1fr;

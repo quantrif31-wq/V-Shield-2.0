@@ -271,4 +271,13 @@ export const enterpriseApi = {
      dispatchEvent(eventId) { return http.post(`/enterprise/operations/outbox-events/${eventId}/dispatch`) },
      // SIEM operations
      getSiemExports(params) { return http.get('/enterprise/operations/siem-exports', { params }) },
+     // ================= Phase G: Intervention Requests =================
+     getInterventionOverview() { return http.get('/enterprise/intervention/overview') },
+     getInterventionRequests(params) { return http.get('/enterprise/intervention/requests', { params }) },
+     getInterventionRequestDetail(requestId) { return http.get(`/enterprise/intervention/requests/${requestId}`) },
+     createInterventionRequest(payload) { return http.post('/enterprise/intervention/requests', payload) },
+     acceptInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/accept`, payload) },
+     rejectInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/reject`, payload) },
+     executeInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/execute`, payload) },
+     expireInterventionRequests() { return http.post('/enterprise/intervention/requests/expire') },
 }
