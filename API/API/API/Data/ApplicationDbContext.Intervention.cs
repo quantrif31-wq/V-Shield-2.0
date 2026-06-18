@@ -35,28 +35,28 @@ public partial class ApplicationDbContext
             entity.HasOne(e => e.RequestedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.RequestedByUserId)
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK_Intervention_RequestedByUser");
 
             // Navigation: AcceptedByUser
             entity.HasOne(e => e.AcceptedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.AcceptedByUserId)
-                .OnDelete(DeleteBehavior.SetNull)
+                .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK_Intervention_AcceptedByUser");
 
             // Navigation: RejectedByUser
             entity.HasOne(e => e.RejectedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.RejectedByUserId)
-                .OnDelete(DeleteBehavior.SetNull)
+                .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK_Intervention_RejectedByUser");
 
             // Navigation: ExecutedByUser
             entity.HasOne(e => e.ExecutedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.ExecutedByUserId)
-                .OnDelete(DeleteBehavior.SetNull)
+                .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK_Intervention_ExecutedByUser");
         });
     }
