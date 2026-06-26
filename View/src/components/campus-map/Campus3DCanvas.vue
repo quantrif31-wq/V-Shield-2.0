@@ -3,7 +3,13 @@
         <div v-if="!initialized" class="c3d-loading">Dang khoi tao 3D...</div>
 
         <div v-if="siteCards.length" class="c3d-hud">
-            <article v-for="site in siteCards" :key="site.siteId" class="c3d-site-card">
+            <article
+                v-for="site in siteCards"
+                :key="site.siteId"
+                class="c3d-site-card"
+                :class="{ active: selectedSiteId === site.siteId }"
+                @click="focusSite(site.siteId, true)"
+            >
                 <span class="site-code">{{ site.code }}</span>
                 <strong>{{ site.name }}</strong>
                 <span>{{ site.buildingCount }} toa nha • {{ site.gateCount }} cong</span>
@@ -74,6 +80,7 @@ export default {
     props: {
         sites: { type: Array, default: () => [] },
         gates: { type: Array, default: () => [] },
+        recentEvents: { type: Array, default: () => [] },
         selectedGateId: { type: Number, default: null },
     },
     emits: ['select-gate', 'inspect-object'],
@@ -90,9 +97,11 @@ export default {
             raycaster: markRaw(new THREE.Raycaster()),
             mouse: markRaw(new THREE.Vector2()),
             gateMeshes: markRaw(new Map()),
+            siteMeshes: markRaw(new Map()),
             objectRecords: markRaw([]),
             animFrameId: null,
             framedOnce: false,
+            selectedSiteId: null,
         }
     },
     computed: {
@@ -129,6 +138,12 @@ export default {
         selectedGateId(val) {
             this.highlightGate(val)
             if (val) this.focusGate(val)
+        },
+        recentEvents: {
+            deep: true,
+            handler() {
+                this.updateEventSignals()
+            },
         },
         sites: {
             deep: true,
@@ -248,6 +263,7 @@ export default {
             this.scene.add(this.worldGroup)
 
             this.gateMeshes.clear()
+            this.siteMeshes.clear()
             this.objectRecords.length = 0
 
             const layouts = this.computeSiteLayouts()
@@ -261,6 +277,7 @@ export default {
             }
 
             this.updateGateStatus()
+            this.updateEventSignals()
             this.highlightGate(this.selectedGateId)
 
             const bounds = new THREE.Box3().setFromObject(this.worldGroup)
@@ -321,6 +338,20 @@ export default {
             })
         },
         addSiteBase(layout) {
+            const siteGroup = markRaw(new THREE.Group())
+            siteGroup.position.set(layout.centerX, 0, layout.centerZ)
+            siteGroup.userData = {
+                objectType: 'Site',
+                label: layout.site.name,
+                siteName: layout.site.name,
+                siteCode: layout.site.code,
+                siteId: layout.site.siteId,
+                metrics: {
+                    buildings: Array.isArray(layout.site.objects) ? layout.site.objects.filter((obj) => obj.type === 'Building').length : 0,
+                    gates: Array.isArray(layout.site.objects) ? layout.site.objects.filter((obj) => obj.type === 'GateMarker').length : 0,
+                },
+            }
+
             const pad = new THREE.Mesh(
                 new THREE.BoxGeometry(layout.width, 1.1, layout.depth),
                 new THREE.MeshStandardMaterial({
@@ -329,50 +360,52 @@ export default {
                     metalness: 0,
                 })
             )
-            pad.position.set(layout.centerX, -0.55, layout.centerZ)
+            pad.position.set(0, -0.55, 0)
             pad.receiveShadow = true
-            this.worldGroup.add(pad)
+            siteGroup.add(pad)
 
             const apron = new THREE.Mesh(
                 new THREE.PlaneGeometry(layout.width + 18, layout.depth + 18),
                 new THREE.MeshBasicMaterial({ color: 0x17324a, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
             )
             apron.rotation.x = -Math.PI / 2
-            apron.position.set(layout.centerX, -0.48, layout.centerZ)
-            this.worldGroup.add(apron)
+            apron.position.set(0, -0.48, 0)
+            siteGroup.add(apron)
 
             const borderPoints = [
-                new THREE.Vector3(layout.centerX - layout.width / 2, -0.44, layout.centerZ - layout.depth / 2),
-                new THREE.Vector3(layout.centerX + layout.width / 2, -0.44, layout.centerZ - layout.depth / 2),
-                new THREE.Vector3(layout.centerX + layout.width / 2, -0.44, layout.centerZ + layout.depth / 2),
-                new THREE.Vector3(layout.centerX - layout.width / 2, -0.44, layout.centerZ + layout.depth / 2),
-                new THREE.Vector3(layout.centerX - layout.width / 2, -0.44, layout.centerZ - layout.depth / 2),
+                new THREE.Vector3(-layout.width / 2, -0.44, -layout.depth / 2),
+                new THREE.Vector3(layout.width / 2, -0.44, -layout.depth / 2),
+                new THREE.Vector3(layout.width / 2, -0.44, layout.depth / 2),
+                new THREE.Vector3(-layout.width / 2, -0.44, layout.depth / 2),
+                new THREE.Vector3(-layout.width / 2, -0.44, -layout.depth / 2),
             ]
             const border = new THREE.Line(
                 new THREE.BufferGeometry().setFromPoints(borderPoints),
                 new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.32 })
             )
-            this.worldGroup.add(border)
+            siteGroup.add(border)
 
             this.addLabel(
-                this.worldGroup,
+                siteGroup,
                 `${layout.site.code} • ${layout.site.name}`,
-                layout.centerX - layout.width / 2 + 18,
+                -layout.width / 2 + 18,
                 8,
-                layout.centerZ - layout.depth / 2 + 10,
+                -layout.depth / 2 + 10,
                 '#dbeafe',
                 15,
                 2.6
             )
 
-            this.addPerimeterLights(layout)
+            this.addPerimeterLights(siteGroup, layout)
+            this.worldGroup.add(siteGroup)
+            this.siteMeshes.set(layout.site.siteId, siteGroup)
         },
-        addPerimeterLights(layout) {
+        addPerimeterLights(parent, layout) {
             const corners = [
-                [layout.centerX - layout.width / 2 + 4, layout.centerZ - layout.depth / 2 + 4],
-                [layout.centerX + layout.width / 2 - 4, layout.centerZ - layout.depth / 2 + 4],
-                [layout.centerX + layout.width / 2 - 4, layout.centerZ + layout.depth / 2 - 4],
-                [layout.centerX - layout.width / 2 + 4, layout.centerZ + layout.depth / 2 - 4],
+                [-layout.width / 2 + 4, -layout.depth / 2 + 4],
+                [layout.width / 2 - 4, -layout.depth / 2 + 4],
+                [layout.width / 2 - 4, layout.depth / 2 - 4],
+                [-layout.width / 2 + 4, layout.depth / 2 - 4],
             ]
             for (const [x, z] of corners) {
                 const pole = new THREE.Mesh(
@@ -381,14 +414,14 @@ export default {
                 )
                 pole.position.set(x, 2.2, z)
                 pole.castShadow = true
-                this.worldGroup.add(pole)
+                parent.add(pole)
 
                 const lamp = new THREE.Mesh(
                     new THREE.SphereGeometry(0.32, 10, 10),
                     new THREE.MeshBasicMaterial({ color: 0xf8fafc })
                 )
                 lamp.position.set(x, 4.6, z)
-                this.worldGroup.add(lamp)
+                parent.add(lamp)
             }
         },
         buildObject(obj, layout) {
@@ -557,6 +590,17 @@ export default {
                 halo.position.y = 0.14
                 halo.userData.isGateHalo = true
                 group.add(halo)
+
+                const signal = new THREE.Mesh(
+                    new THREE.RingGeometry(2.1, 3.4, 40),
+                    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.24, side: THREE.DoubleSide })
+                )
+                signal.rotation.x = -Math.PI / 2
+                signal.position.y = 0.18
+                signal.visible = false
+                signal.userData.isEventSignal = true
+                signal.userData.eventWeight = 0
+                group.add(signal)
 
                 this.gateMeshes.set(obj.id || obj.label, group)
                 this.addLabel(group, obj.label || 'Gate', 0, h + 2.9, 0, '#ccfbf1')
@@ -743,7 +787,9 @@ export default {
             const dimensions = data.dimensions || {}
             const meta = []
 
-            if (data.objectType === 'Building') {
+            if (data.objectType === 'Site') {
+                meta.push(`${data.metrics?.buildings || 0} toa nha • ${data.metrics?.gates || 0} cong`)
+            } else if (data.objectType === 'Building') {
                 meta.push(`${data.floors || 1} tang • ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
                 if (properties.zone) meta.push(`Zone: ${properties.zone}`)
                 if (properties.level) meta.push(`Security level: ${properties.level}`)
@@ -830,8 +876,17 @@ export default {
                 this.gates.some((g) => g.gateId === gateId && key.includes(g.gateName))
             )
             if (!record) return
+            this.selectedSiteId = record[1].userData.siteId || null
             const box = new THREE.Box3().setFromObject(record[1])
             if (!box.isEmpty()) this.frameBounds(box, false, 0.8)
+        },
+        focusSite(siteId, inspect = false) {
+            const siteGroup = this.siteMeshes.get(siteId)
+            if (!siteGroup) return
+            this.selectedSiteId = siteId
+            const box = new THREE.Box3().setFromObject(siteGroup)
+            if (!box.isEmpty()) this.frameBounds(box, false, 0.95)
+            if (inspect) this.emitInspection(siteGroup)
         },
         frameBounds(bounds, immediate = false, zoomFactor = 1.2) {
             const size = bounds.getSize(new THREE.Vector3())
@@ -855,8 +910,37 @@ export default {
         },
         fitToContent() {
             if (!this.worldGroup) return
+            this.selectedSiteId = null
             const bounds = new THREE.Box3().setFromObject(this.worldGroup)
             if (!bounds.isEmpty()) this.frameBounds(bounds, false, 1.28)
+        },
+        updateEventSignals() {
+            for (const mesh of this.gateMeshes.values()) {
+                mesh.traverse((child) => {
+                    if (child.isMesh && child.userData.isEventSignal) {
+                        child.visible = false
+                        child.userData.eventWeight = 0
+                    }
+                })
+            }
+
+            const grouped = new Map()
+            for (const event of this.recentEvents.slice(0, 12)) {
+                if (!event?.gateName) continue
+                grouped.set(event.gateName, (grouped.get(event.gateName) || 0) + 1)
+            }
+
+            for (const [key, mesh] of this.gateMeshes) {
+                const gateInfo = this.gates.find((g) => g.gateName && key.includes(g.gateName))
+                const eventCount = gateInfo?.gateName ? grouped.get(gateInfo.gateName) || 0 : 0
+                mesh.traverse((child) => {
+                    if (child.isMesh && child.userData.isEventSignal) {
+                        child.visible = eventCount > 0
+                        child.userData.eventWeight = eventCount
+                        child.material.opacity = Math.min(0.2 + eventCount * 0.08, 0.72)
+                    }
+                })
+            }
         },
         formatDateTime(value) {
             if (!value) return '--'
@@ -880,6 +964,11 @@ export default {
                     }
                     if (child.userData.isGateHalo) {
                         child.rotation.z += 0.003
+                    }
+                    if (child.userData.isEventSignal && child.visible) {
+                        const weight = child.userData.eventWeight || 1
+                        const pulse = 1 + Math.sin(now * (1.8 + weight * 0.15)) * 0.16
+                        child.scale.setScalar(pulse + weight * 0.02)
                     }
                 })
             }
@@ -942,7 +1031,10 @@ export default {
 
             this.emitInspection(target)
             const gate = this.resolveGateInfo(target.userData)
-            if (target.userData.objectType === 'GateMarker' && gate) {
+            if (target.userData.objectType === 'Site') {
+                this.selectedSiteId = target.userData.siteId
+                this.frameBounds(new THREE.Box3().setFromObject(target), false, 1.0)
+            } else if (target.userData.objectType === 'GateMarker' && gate) {
                 this.$emit('select-gate', gate.gateId)
             } else {
                 this.frameBounds(new THREE.Box3().setFromObject(target), false, 0.9)
@@ -980,6 +1072,7 @@ export default {
     beforeUnmount() {
         this.dispose()
     },
+    expose: ['fitToContent', 'focusGate', 'focusSite'],
 }
 </script>
 
@@ -1029,6 +1122,15 @@ export default {
     border: 1px solid rgba(125, 211, 252, 0.14);
     backdrop-filter: blur(8px);
     color: #dbeafe;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.c3d-site-card:hover,
+.c3d-site-card.active {
+    transform: translateY(-1px);
+    border-color: rgba(125, 211, 252, 0.38);
+    background: rgba(10, 28, 44, 0.92);
 }
 
 .c3d-site-card strong {

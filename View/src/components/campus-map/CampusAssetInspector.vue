@@ -13,6 +13,10 @@
                 <span>Site</span>
                 <strong>{{ selectedAsset.siteCode }} • {{ selectedAsset.siteName }}</strong>
             </div>
+            <div class="inspector-item" v-if="selectedAsset.metrics">
+                <span>Quy mo</span>
+                <strong>{{ selectedAsset.metrics.buildings || 0 }} toa nha • {{ selectedAsset.metrics.gates || 0 }} cong</strong>
+            </div>
             <div class="inspector-item" v-if="selectedAsset.floors">
                 <span>Tang</span>
                 <strong>{{ selectedAsset.floors }}</strong>
@@ -86,6 +90,7 @@ const props = defineProps({
 })
 
 const typeMap = {
+    Site: 'Site',
     Building: 'Toa nha',
     GateMarker: 'Cong / lane',
     ParkingArea: 'Bai do xe',

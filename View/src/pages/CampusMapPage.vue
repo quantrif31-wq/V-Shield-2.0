@@ -28,13 +28,19 @@
                 ref="canvasRef"
                 :sites="sites"
                 :gates="gateStatuses"
+                :recent-events="recentEvents"
                 :selected-gate-id="selectedGateId"
                 @select-gate="onSelectGate"
                 @inspect-object="onInspectObject"
             />
             <div class="panel-col">
                 <CampusAssetInspector :selected-asset="selectedAsset" :summary="summary" :updated-at="updatedAt" />
-                <RealtimeStatusPanel :updated-at="updatedAt" :recent-events="recentEvents" :error="realtimeError" />
+                <RealtimeStatusPanel
+                    :updated-at="updatedAt"
+                    :recent-events="recentEvents"
+                    :error="realtimeError"
+                    @focus-gate="onFocusGate"
+                />
             </div>
         </section>
 
@@ -144,6 +150,12 @@ const onSelectGate = (gateId) => {
 
 const onInspectObject = (asset) => {
     selectedAsset.value = asset
+}
+
+const onFocusGate = (gateId) => {
+    if (!gateId) return
+    selectedGateId.value = gateId
+    canvasRef.value?.focusGate?.(gateId)
 }
 
 const fitToScreen = () => {
