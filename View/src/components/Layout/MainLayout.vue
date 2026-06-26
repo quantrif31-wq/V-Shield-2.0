@@ -126,8 +126,8 @@ onUnmounted(() => {
     transition: margin-left var(--transition-slow);
 }
 
-.nav-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed-width);
+.nav-collapsed {
+    --sidebar-width: 0px;
 }
 
 .content-shell {

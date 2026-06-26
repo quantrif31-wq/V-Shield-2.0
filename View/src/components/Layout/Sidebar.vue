@@ -8,7 +8,7 @@
             'mobile-open': mobileOpen,
         }"
     >
-        <div class="sidebar-panel">
+        <div class="sidebar-panel" @click="collapsed && !isMobile && $emit('toggle')">
             <div class="sidebar-top">
                 <div class="sidebar-logo">
                     <div class="logo-icon">
@@ -189,19 +189,17 @@
                 </router-link>
             </div>
 
-            <div class="sidebar-footer">
-                <button
-                    v-if="!isMobile"
-                    type="button"
-                    class="sidebar-toggle"
-                    :aria-label="collapsed ? 'Mở rộng điều hướng' : 'Thu gọn điều hướng'"
-                    @click="$emit('toggle')"
-                >
-                    <svg :class="{ rotated: collapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                </button>
-            </div>
+            <button
+                v-if="!isMobile && !collapsed"
+                type="button"
+                class="sidebar-collapse-btn"
+                aria-label="Thu gọn"
+                @click="$emit('toggle')"
+            >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
         </div>
     </aside>
 </template>
@@ -922,6 +920,7 @@ const refreshFlyoutPosition = () => {
 }
 
 .sidebar-panel {
+    position: relative;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -934,7 +933,40 @@ const refreshFlyoutPosition = () => {
 }
 
 .sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
+    width: 52px;
+    height: 52px;
+    inset: 18px auto auto 18px;
+    padding: 0;
+    overflow: visible;
+    cursor: pointer;
+}
+
+.sidebar.collapsed .sidebar-panel {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    overflow: hidden;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 16px rgba(3, 8, 14, 0.45), 0 0 0 1px rgba(84, 196, 211, 0.15);
+    transition: all var(--transition-slow);
+}
+
+.sidebar.collapsed .sidebar-panel:hover {
+    box-shadow: 0 6px 24px rgba(3, 8, 14, 0.55), 0 0 0 1.5px rgba(84, 196, 211, 0.3);
+    transform: scale(1.06);
+}
+
+.sidebar.collapsed .sidebar-top {
+    padding: 0;
+    height: 52px;
+    justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-logo .logo-copy,
+.sidebar.collapsed .sidebar-nav,
+.sidebar.collapsed .sidebar-collapse-btn {
+    display: none;
 }
 
 .sidebar-top {
@@ -1256,35 +1288,40 @@ const refreshFlyoutPosition = () => {
     flex-shrink: 0;
 }
 
-.sidebar-footer {
-    padding: 16px 12px 12px;
-    border-top: 1px solid var(--sidebar-border);
-}
-
-.sidebar-toggle {
-    width: 100%;
-    min-height: 48px;
+.sidebar-collapse-btn {
+    position: absolute;
+    top: 50%;
+    right: -17px;
+    transform: translateY(-50%);
+    z-index: 110;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--sidebar-text);
-    transition: background var(--transition-fast), transform var(--transition-fast);
+    background: var(--bg-sidebar-raised);
+    border: 1px solid var(--sidebar-border);
+    color: var(--sidebar-text-muted);
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(3, 8, 14, 0.4), 0 0 0 1px rgba(84, 196, 211, 0.08);
+    transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
-.sidebar-toggle:hover {
-    background: rgba(255, 255, 255, 0.09);
-    transform: translateY(-1px);
+.sidebar-collapse-btn:hover {
+    background: var(--bg-sidebar);
+    color: #d6f5ff;
+    box-shadow: 0 6px 20px rgba(3, 8, 14, 0.5), 0 0 0 1px rgba(84, 196, 211, 0.2);
+    transform: translateY(-50%) scale(1.08);
 }
 
-.sidebar-toggle svg {
-    width: 18px;
-    height: 18px;
+.sidebar-collapse-btn svg {
+    width: 16px;
+    height: 16px;
     transition: transform var(--transition-slow);
 }
 
-.sidebar-toggle svg.rotated {
+.sidebar-collapse-btn.collapsed svg {
     transform: rotate(180deg);
 }
 
@@ -1445,6 +1482,10 @@ const refreshFlyoutPosition = () => {
     .nav-group-items.group-collapsed {
         max-height: 0;
         overflow: hidden;
+    }
+
+    .sidebar-collapse-btn {
+        display: none;
     }
 }
 </style>

@@ -401,7 +401,7 @@ watch(
 }
 
 .app-header.collapsed {
-    left: calc(var(--sidebar-collapsed-width) + 18px);
+    left: 0;
 }
 
 .header-left {
