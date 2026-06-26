@@ -282,6 +282,10 @@ export const enterpriseApi = {
      rejectInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/reject`, payload) },
      executeInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/execute`, payload) },
      expireInterventionRequests() { return http.post('/enterprise/intervention/requests/expire') },
-     getActiveSecurityAlerts() { return http.get('/security-alerts/active') },
-     resetDemoScenarios() { return http.post('/demo-control/reset') },
+      getActiveSecurityAlerts() { return http.get('/security-alerts/active') },
+      resetDemoScenarios() { return http.post('/demo-control/reset') },
+      // ================= Kiosk Check-in =================
+      getVisits(params) { return http.get('/enterprise/visitor-vehicle/visits', { params }) },
+      checkInVisit(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/check-in`, payload) },
+      acceptForm(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/form-acceptances`, payload) },
 }

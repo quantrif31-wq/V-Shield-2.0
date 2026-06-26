@@ -395,7 +395,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
         var acceptance = new VisitorFormAcceptance
         {
             VisitId = visitId,
-            VisitorFormTemplateId = request.TemplateId,
+            VisitorFormTemplateId = request.TemplateId ?? 0,
             AcceptedByName = string.IsNullOrWhiteSpace(request.AcceptedByName) ? "Visitor" : request.AcceptedByName.Trim()
         };
 
@@ -750,7 +750,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public sealed record VisitorCredentialRequest(string? CredentialType, string? CredentialReference, DateTime ValidFromUtc, DateTime ValidToUtc);
     public sealed record VisitorCheckInRequest(string? IdDocumentType, string? IdDocumentReference, string? VerificationStatus);
     public sealed record VisitorFormTemplateRequest(string Name, string? FormType, int Version, string Body);
-    public sealed record VisitorFormAcceptanceRequest(int TemplateId, string? AcceptedByName);
+    public sealed record VisitorFormAcceptanceRequest(int? TemplateId, string? AcceptedByName);
     public sealed record WatchlistEntryRequest(string? EntityType, string DisplayName, string? Identifier, string? Severity, string? Reason);
     public sealed record WatchlistReviewRequest(string? Status, string? ReviewNote);
     public sealed record ParkingAreaRequest(int? SiteId, string Name, int? Capacity);
