@@ -495,6 +495,131 @@ public static class DemoDataSeeder
             NewValuesJson = "{\"profile\":\"medium-large-company\",\"employees\":180,\"days\":90}"
         });
 
+        // Seed EmployeeAccessPermissions — mỗi nhân viên được quyền vào cổng gần site của họ
+        var now2 = DateTime.Now;
+        var hnSiteId = sites[0].SiteId;
+        var bnSiteId = sites[1].SiteId;
+        var hpSiteId = sites[2].SiteId;
+        var secOpsDeptId = departments[0].DepartmentId;
+        var empPerms = new List<EmployeeAccessPermission>();
+        foreach (var emp in employees.Where(e => e.Status == true))
+        {
+            var targetGates = emp switch
+            {
+                { PrimarySiteId: var s } when s == hnSiteId => new[] { gates[0], gates[1] },
+                { PrimarySiteId: var s } when s == bnSiteId => new[] { gates[2], gates[3] },
+                { PrimarySiteId: var s } when s == hpSiteId => new[] { gates[4] },
+                _ => new[] { gates[0], gates[2], gates[4] }
+            };
+            // Security Operations được vào tất cả cổng
+            if (emp.DepartmentId == secOpsDeptId)
+                targetGates = gates;
+            foreach (var g in targetGates)
+            {
+                empPerms.Add(new EmployeeAccessPermission
+                {
+                    EmployeeId = emp.EmployeeId,
+                    GateId = g.GateId,
+                    IsAllowed = true,
+                    CreatedAt = now2
+                });
+            }
+        }
+        db.EmployeeAccessPermissions.AddRange(empPerms);
+
+        // Seed VisitorAccessPermissions — khách được vào cổng site chính
+        var visitorDetails = db.VisitorDetails.Local.ToList();
+        var visPerms = new List<VisitorAccessPermission>();
+        foreach (var vd in visitorDetails)
+        {
+            // Mỗi khách được vào 2 cổng ngẫu nhiên
+            var assigned = gates.OrderBy(_ => random.Next()).Take(2).ToList();
+            foreach (var g in assigned)
+            {
+                visPerms.Add(new VisitorAccessPermission
+                {
+                    VisitorDetailId = vd.VisitorDetailId,
+                    GateId = g.GateId,
+                    IsAllowed = true,
+                    CreatedAt = now2
+                });
+            }
+        }
+        db.VisitorAccessPermissions.AddRange(visPerms);
+
+        // Seed ParkingAreas
+        var parkingAreas = new List<ParkingArea>
+        {
+            new() { SiteId = hnSiteId, Name = "HN Tầng hầm B1", Capacity = 80, IsActive = true },
+            new() { SiteId = hnSiteId, Name = "HN Bãi ngoài trời", Capacity = 120, IsActive = true },
+            new() { SiteId = bnSiteId, Name = "BN Nhà xe nhân viên", Capacity = 200, IsActive = true },
+            new() { SiteId = bnSiteId, Name = "BN Bãi xe tải", Capacity = 50, IsActive = true },
+            new() { SiteId = hpSiteId, Name = "HP Kho bãi logistics", Capacity = 100, IsActive = true }
+        };
+        db.ParkingAreas.AddRange(parkingAreas);
+        db.SaveChanges();
+
+        // Seed ParkingPermits — cấp cho 30 xe đầu
+        var parkPermits = vehicles.Take(30).Select((v, i) => new ParkingPermit
+        {
+            ParkingAreaId = parkingAreas[i % parkingAreas.Count].ParkingAreaId,
+            VehicleId = v.VehicleId,
+            PermitType = i < 20 ? "Monthly" : "Temporary",
+            ValidFromUtc = now.AddDays(-60),
+            ValidToUtc = now.AddDays(30 + i),
+            IsRevoked = i > 28
+        }).ToList();
+        db.ParkingPermits.AddRange(parkPermits);
+
+        // Seed SecurityBarriers — một barrier cho mỗi lane
+        var lanes = db.Lanes.Local.ToList();
+        var barriers = lanes.Select((l, i) => new SecurityBarrier
+        {
+            LaneId = l.LaneId,
+            Name = $"{l.Name} Barrier",
+            State = i % 3 == 0 ? "Open" : i % 3 == 1 ? "Closed" : "Unknown",
+            IsActive = i < 4
+        }).ToList();
+        db.Barriers.AddRange(barriers);
+        db.SaveChanges();
+
+        // Seed BarrierCommandAudits
+        var barrierAudits = barriers.Take(4).SelectMany((b, i) => new[]
+        {
+            new BarrierCommandAudit
+            {
+                BarrierId = b.BarrierId,
+                Command = i % 2 == 0 ? "Open" : "Close",
+                Reason = "Demo seed — manual test",
+                RequestedByUserId = null,
+                RequestedAtUtc = now.AddDays(-i - 1),
+                Result = "Success"
+            },
+            new BarrierCommandAudit
+            {
+                BarrierId = b.BarrierId,
+                Command = i % 2 == 0 ? "Close" : "Open",
+                Reason = "Demo seed — end of test",
+                RequestedByUserId = null,
+                RequestedAtUtc = now.AddDays(-i),
+                Result = "Success"
+            }
+        }).ToList();
+        db.BarrierCommandAudits.AddRange(barrierAudits);
+
+        // Seed VisitorCredentials — cấp credential QR cho các visit đã Approved
+        var approvedPreRegs = preRegistrations.Where(p => p.Status == "Approved").Take(20).ToList();
+        var credentials = approvedPreRegs.Select((pr, i) => new VisitorCredential
+        {
+            VisitId = pr.RegistrationId,
+            CredentialType = "QR",
+            CredentialReference = $"DEMO-CRED-{pr.RegistrationId:000}",
+            ValidFromUtc = pr.ExpectedTimeIn,
+            ValidToUtc = pr.ExpectedTimeOut,
+            IsRevoked = i > 17
+        }).ToList();
+        db.VisitorCredentials.AddRange(credentials);
+
         db.SaveChanges();
     }
 
