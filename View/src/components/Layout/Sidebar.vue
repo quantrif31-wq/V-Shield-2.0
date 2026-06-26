@@ -426,9 +426,9 @@ const navGroups = ref([
             },
             {
                 path: '/kiosk',
-                label: 'Kiosk Check-in',
-                hint: 'Tự check-in tại quầy',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 6h6"/><path d="M12 10v4"/><path d="M10 12h4"/></svg>',
+                label: 'Vào cổng thủ công',
+                hint: 'QR tê liệt, nhập tay',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
             {

@@ -46,7 +46,7 @@ const IdentityManagement = () => import('../pages/IdentityManagement.vue')
 const SiteHierarchy = () => import('../pages/SiteHierarchy.vue')
 const PolicyEngine = () => import('../pages/PolicyEngine.vue')
 const ReceptionDashboard = () => import('../pages/ReceptionDashboard.vue')
-const KioskCheckIn = () => import('../pages/KioskCheckIn.vue')
+const ManualAccessFallback = () => import('../pages/ManualAccessFallback.vue')
 const HostVisitorPage = () => import('../pages/HostVisitorPage.vue')
 const WatchlistQueue = () => import('../pages/WatchlistQueue.vue')
 const ContractorManagement = () => import('../pages/ContractorManagement.vue')
@@ -121,7 +121,7 @@ const routes = [
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },
             { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'kiosk', name: 'KioskCheckIn', component: KioskCheckIn, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'contractors', name: 'ContractorManagement', component: ContractorManagement, meta: { allowedRoles: ['Admin'] } },

@@ -230,6 +230,129 @@ namespace API.Controllers
             }
         }
 
+        [HttpPost("manual-access")]
+        [EnableRateLimiting("ops")]
+        public async Task<IActionResult> ManualAccess([FromBody] ManualAccessRequest request)
+        {
+            if (request == null)
+                return BadRequest(GateTransitApiResponse.CreateError("Dữ liệu gửi lên không hợp lệ."));
+
+            var currentUserId = GetCurrentUserId();
+            if (!currentUserId.HasValue)
+                return Unauthorized(GateTransitApiResponse.CreateError("Không xác định được tài khoản đăng nhập."));
+
+            var currentUser = await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == currentUserId.Value);
+            if (currentUser == null || !currentUser.IsActive)
+                return Unauthorized(GateTransitApiResponse.CreateError("Tài khoản không hợp lệ hoặc không còn hoạt động."));
+
+            if (!string.Equals(currentUser.Role, "Admin", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(currentUser.Role, "BaoVe", StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+
+            var gate = await _context.Gates.FirstOrDefaultAsync(g => g.GateId == request.GateId);
+            if (gate == null)
+                return NotFound(GateTransitApiResponse.CreateError("Cổng không tồn tại."));
+
+            if (request.EmployeeId == null && request.VisitorDetailId == null)
+                return BadRequest(GateTransitApiResponse.CreateError("Phải cung cấp mã nhân viên hoặc mã khách."));
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                bool hasAccess = false;
+                string userType = request.EmployeeId.HasValue ? "Nhân viên" : "Khách";
+                string subjectName = "";
+
+                if (request.EmployeeId.HasValue)
+                {
+                    var employee = await _context.Employees.FirstOrDefaultAsync(e => e.EmployeeId == request.EmployeeId.Value);
+                    if (employee == null)
+                        return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {request.EmployeeId.Value}."));
+                    subjectName = employee.FullName ?? "";
+
+                    var permission = await _context.EmployeeAccessPermissions
+                        .FirstOrDefaultAsync(p => p.EmployeeId == request.EmployeeId.Value && p.GateId == request.GateId);
+                    hasAccess = permission != null && permission.IsAllowed;
+                }
+                else if (request.VisitorDetailId.HasValue)
+                {
+                    var visitor = await _context.VisitorDetails
+                        .Include(v => v.Registration)
+                        .FirstOrDefaultAsync(v =>
+                            v.VisitorDetailId == request.VisitorDetailId.Value &&
+                            v.IsQrActive &&
+                            v.Registration != null &&
+                            v.Registration.Status != null &&
+                            v.Registration.Status.ToUpper() == "APPROVED");
+
+                    if (visitor == null)
+                        return NotFound(GateTransitApiResponse.CreateError("Không tìm thấy khách đã được xác nhận."));
+                    subjectName = visitor.FullName ?? "";
+
+                    var permission = await _context.VisitorAccessPermissions
+                        .FirstOrDefaultAsync(p => p.VisitorDetailId == request.VisitorDetailId.Value && p.GateId == request.GateId);
+                    hasAccess = permission != null && permission.IsAllowed;
+                }
+
+                var logStatus = hasAccess ? "SUCCESS" : "FAILED_DENIED";
+                var reasonText = !string.IsNullOrWhiteSpace(request.Reason) ? $" Lý do: {request.Reason}" : "";
+                var logNote = hasAccess
+                    ? $"Vào cổng thủ công (QR tê liệt). {userType} được phép vào khu vực.{reasonText}"
+                    : $"Từ chối. {userType} không có quyền truy cập khu vực này.{reasonText}";
+
+                var newLog = new AccessLog
+                {
+                    Timestamp = DateTime.Now,
+                    Direction = "IN",
+                    GateId = request.GateId,
+                    CameraId = null,
+                    EmployeeId = request.EmployeeId,
+                    VisitorDetailId = request.VisitorDetailId,
+                    CapturedLicensePlate = request.PlateNumber,
+                    ResultStatus = logStatus,
+                    IsBypass = true,
+                    Note = logNote
+                };
+
+                _context.AccessLogs.Add(newLog);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                if (request.EmployeeId.HasValue && hasAccess)
+                {
+                    _ = _zoneTransitService.ProcessTransitAsync(
+                        request.EmployeeId.Value, request.GateId, "IN", newLog.Timestamp ?? DateTime.Now, ZoneTransitSources.Qr);
+                }
+
+                if (!hasAccess)
+                {
+                    return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new
+                    {
+                        LogId = newLog.LogId,
+                        EmployeeId = request.EmployeeId,
+                        VisitorDetailId = request.VisitorDetailId,
+                        SubjectName = subjectName,
+                        GateId = request.GateId
+                    }));
+                }
+
+                return Ok(GateTransitApiResponse.CreateSuccess(logNote, new
+                {
+                    LogId = newLog.LogId,
+                    EmployeeId = request.EmployeeId,
+                    VisitorDetailId = request.VisitorDetailId,
+                    SubjectName = subjectName,
+                    GateId = request.GateId,
+                    Timestamp = newLog.Timestamp
+                }));
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, GateTransitApiResponse.CreateError("Có lỗi xảy ra khi xử lý dữ liệu.", ex.Message));
+            }
+        }
+
         private async Task<(bool Ok, string? Message, Camera? Camera)> ValidateCameraAndUserAccess(QrScanAccessRequest request)
         {
             if (request.CameraId <= 0)
