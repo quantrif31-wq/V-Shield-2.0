@@ -8,6 +8,35 @@ const http = axios.create({
 const AUTH_TOKEN_KEY = 'v_shield_token'
 const AUTH_REFRESH_TOKEN_KEY = 'v_shield_refresh_token'
 const AUTH_USER_KEY = 'v_shield_user'
+let refreshPromise = null
+let redirectingToLogin = false
+
+function clearLocalAuthState() {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY)
+    sessionStorage.removeItem(AUTH_USER_KEY)
+    sessionStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_USER_KEY)
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+}
+
+function redirectToLoginOnce() {
+    if (redirectingToLogin) {
+        return
+    }
+
+    redirectingToLogin = true
+    clearLocalAuthState()
+
+    if (window.location.pathname !== '/login') {
+        window.location.replace('/login')
+        return
+    }
+
+    window.setTimeout(() => {
+        redirectingToLogin = false
+    }, 1200)
+}
 
 http.interceptors.request.use((config) => {
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY)
@@ -24,13 +53,22 @@ http.interceptors.response.use(
         const isLoginRequest = requestUrl.includes('/auth/login')
         const isRefreshRequest = requestUrl.includes('/auth/refresh')
         const originalRequest = error.config || {}
+        const status = error.response?.status
 
-        if (error.response && error.response.status === 401 && !isLoginRequest && !isRefreshRequest && !originalRequest._retry) {
+        if (status === 401 && !isLoginRequest && !isRefreshRequest && !originalRequest._retry) {
             const refreshToken = sessionStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)
             if (refreshToken) {
                 try {
                     originalRequest._retry = true
-                    const refreshResponse = await axios.post(`${API_BASE_URL}/Auth/refresh`, { refreshToken })
+                    if (!refreshPromise) {
+                        refreshPromise = axios
+                            .post(`${API_BASE_URL}/Auth/refresh`, { refreshToken })
+                            .finally(() => {
+                                refreshPromise = null
+                            })
+                    }
+
+                    const refreshResponse = await refreshPromise
                     const nextToken = refreshResponse.data.token
                     const nextRefreshToken = refreshResponse.data.refreshToken
 
@@ -43,17 +81,11 @@ http.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${nextToken}`
                     return http(originalRequest)
                 } catch {
-                    // fall through to clearing local session
+                    clearLocalAuthState()
                 }
             }
 
-            sessionStorage.removeItem(AUTH_TOKEN_KEY)
-            sessionStorage.removeItem(AUTH_USER_KEY)
-            sessionStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
-            localStorage.removeItem(AUTH_TOKEN_KEY)
-            localStorage.removeItem(AUTH_USER_KEY)
-            localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
-            window.location.href = '/login'
+            redirectToLoginOnce()
         }
         return Promise.reject(error)
     }
