@@ -191,6 +191,7 @@ export default {
             this.controls.maxDistance = 420
             this.controls.target.set(0, 0, 0)
 
+            this.addAtmosphere()
             this.addLights()
             this.addGround()
             this.rebuildWorld()
@@ -228,6 +229,54 @@ export default {
             rim.position.set(0, 120, 0)
             this.scene.add(rim)
         },
+        addAtmosphere() {
+            const sky = new THREE.Mesh(
+                new THREE.SphereGeometry(720, 48, 48),
+                new THREE.MeshBasicMaterial({
+                    color: 0x0a1624,
+                    side: THREE.BackSide,
+                    transparent: true,
+                    opacity: 0.96,
+                })
+            )
+            this.scene.add(sky)
+
+            const haze = new THREE.Mesh(
+                new THREE.SphereGeometry(690, 36, 36),
+                new THREE.MeshBasicMaterial({
+                    color: 0x12324a,
+                    side: THREE.BackSide,
+                    transparent: true,
+                    opacity: 0.12,
+                })
+            )
+            haze.rotation.z = Math.PI / 5
+            this.scene.add(haze)
+
+            const starGroup = new THREE.Group()
+            for (let i = 0; i < 140; i++) {
+                const star = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.28 + Math.random() * 0.35, 6, 6),
+                    new THREE.MeshBasicMaterial({
+                        color: i % 7 === 0 ? 0x7dd3fc : 0xf8fafc,
+                        transparent: true,
+                        opacity: 0.55 + Math.random() * 0.35,
+                    })
+                )
+                const radius = 420 + Math.random() * 120
+                const theta = Math.random() * Math.PI * 2
+                const phi = Math.random() * Math.PI * 0.36
+                star.position.set(
+                    Math.cos(theta) * Math.sin(phi) * radius,
+                    210 + Math.cos(phi) * radius * 0.35,
+                    Math.sin(theta) * Math.sin(phi) * radius
+                )
+                star.userData.isStar = true
+                star.userData.phase = Math.random() * Math.PI * 2
+                starGroup.add(star)
+            }
+            this.scene.add(starGroup)
+        },
         addGround() {
             const ground = new THREE.Mesh(
                 new THREE.PlaneGeometry(900, 900),
@@ -245,6 +294,29 @@ export default {
             tarmac.rotation.x = -Math.PI / 2
             tarmac.position.y = -1.05
             this.scene.add(tarmac)
+
+            const cityGlow = new THREE.Mesh(
+                new THREE.CircleGeometry(300, 80),
+                new THREE.MeshBasicMaterial({ color: 0x0f2a3c, transparent: true, opacity: 0.2, side: THREE.DoubleSide })
+            )
+            cityGlow.rotation.x = -Math.PI / 2
+            cityGlow.position.y = -1.03
+            this.scene.add(cityGlow)
+
+            for (let i = 0; i < 42; i++) {
+                const lightPatch = new THREE.Mesh(
+                    new THREE.CircleGeometry(1.2 + Math.random() * 2.4, 18),
+                    new THREE.MeshBasicMaterial({
+                        color: i % 3 === 0 ? 0x38bdf8 : 0xf8fafc,
+                        transparent: true,
+                        opacity: 0.06 + Math.random() * 0.06,
+                        side: THREE.DoubleSide,
+                    })
+                )
+                lightPatch.rotation.x = -Math.PI / 2
+                lightPatch.position.set(-250 + Math.random() * 500, -1.01, -250 + Math.random() * 500)
+                this.scene.add(lightPatch)
+            }
 
             const gridHelper = new THREE.GridHelper(800, 80, 0x173047, 0x0d2435)
             gridHelper.position.y = -1.02
@@ -364,6 +436,14 @@ export default {
             pad.receiveShadow = true
             siteGroup.add(pad)
 
+            const foundationGlow = new THREE.Mesh(
+                new THREE.PlaneGeometry(layout.width - 6, layout.depth - 6),
+                new THREE.MeshBasicMaterial({ color: 0x0f2740, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
+            )
+            foundationGlow.rotation.x = -Math.PI / 2
+            foundationGlow.position.y = -0.47
+            siteGroup.add(foundationGlow)
+
             const apron = new THREE.Mesh(
                 new THREE.PlaneGeometry(layout.width + 18, layout.depth + 18),
                 new THREE.MeshBasicMaterial({ color: 0x17324a, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
@@ -397,8 +477,27 @@ export default {
             )
 
             this.addPerimeterLights(siteGroup, layout)
+            this.addSiteRoadFrame(siteGroup, layout)
             this.worldGroup.add(siteGroup)
             this.siteMeshes.set(layout.site.siteId, siteGroup)
+        },
+        addSiteRoadFrame(parent, layout) {
+            const road = new THREE.Mesh(
+                new THREE.RingGeometry(
+                    Math.max(layout.width, layout.depth) * 0.38,
+                    Math.max(layout.width, layout.depth) * 0.48,
+                    72
+                ),
+                new THREE.MeshStandardMaterial({
+                    color: 0x1e293b,
+                    roughness: 0.95,
+                    metalness: 0.02,
+                    side: THREE.DoubleSide,
+                })
+            )
+            road.rotation.x = -Math.PI / 2
+            road.position.y = -0.46
+            parent.add(road)
         },
         addPerimeterLights(parent, layout) {
             const corners = [
@@ -422,6 +521,14 @@ export default {
                 )
                 lamp.position.set(x, 4.6, z)
                 parent.add(lamp)
+
+                const pool = new THREE.Mesh(
+                    new THREE.CircleGeometry(1.9, 20),
+                    new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.08, side: THREE.DoubleSide })
+                )
+                pool.rotation.x = -Math.PI / 2
+                pool.position.set(x, -0.45, z)
+                parent.add(pool)
             }
         },
         buildObject(obj, layout) {
@@ -457,12 +564,14 @@ export default {
                 const levelColor = LEVEL_COLORS[properties.level] || color
                 const shell = new THREE.Mesh(
                     new THREE.BoxGeometry(w, h, l),
-                    new THREE.MeshStandardMaterial({
+                    new THREE.MeshPhysicalMaterial({
                         color,
-                        roughness: 0.72,
-                        metalness: 0.12,
+                        roughness: 0.36,
+                        metalness: 0.2,
+                        clearcoat: 0.18,
+                        clearcoatRoughness: 0.28,
                         transparent: true,
-                        opacity: 0.96,
+                        opacity: 0.98,
                     })
                 )
                 shell.position.y = h / 2
@@ -472,7 +581,7 @@ export default {
 
                 const roof = new THREE.Mesh(
                     new THREE.BoxGeometry(w * 0.94, 0.45, l * 0.94),
-                    new THREE.MeshStandardMaterial({ color: levelColor, roughness: 0.55, metalness: 0.08 })
+                    new THREE.MeshStandardMaterial({ color: levelColor, roughness: 0.44, metalness: 0.14 })
                 )
                 roof.position.y = h + 0.22
                 roof.castShadow = true
@@ -485,6 +594,19 @@ export default {
                 plinth.position.y = 0.22
                 plinth.receiveShadow = true
                 group.add(plinth)
+
+                const entranceCanopy = new THREE.Mesh(
+                    new THREE.BoxGeometry(Math.max(3, w * 0.22), 0.2, 1.4),
+                    new THREE.MeshPhysicalMaterial({
+                        color: 0xe2e8f0,
+                        roughness: 0.18,
+                        metalness: 0.35,
+                        clearcoat: 0.55,
+                    })
+                )
+                entranceCanopy.position.set(0, 2.4, l / 2 + 0.75)
+                entranceCanopy.castShadow = true
+                group.add(entranceCanopy)
 
                 this.addWindowBands(group, w, h, l, properties.level)
                 this.addRoofEquipment(group, w, l, h, properties.level)
@@ -633,6 +755,13 @@ export default {
                 }
 
                 this.addVehicles(group, w, l)
+                const curb = new THREE.Mesh(
+                    new THREE.BoxGeometry(w + 0.8, 0.16, l + 0.8),
+                    new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.92 })
+                )
+                curb.position.y = 0.02
+                curb.receiveShadow = true
+                group.add(curb)
                 this.addLabel(group, obj.label || 'Parking', 0, 0.6, 0, '#cbd5e1')
             } else if (type === 'Path') {
                 const path = new THREE.Mesh(
@@ -649,6 +778,14 @@ export default {
                 path.receiveShadow = true
                 group.add(path)
 
+                const shoulder = new THREE.Mesh(
+                    new THREE.PlaneGeometry(w + 0.9, l + 0.9),
+                    new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.26, side: THREE.DoubleSide })
+                )
+                shoulder.rotation.x = -Math.PI / 2
+                shoulder.position.y = -0.035
+                group.add(shoulder)
+
                 const centerLine = new THREE.Mesh(
                     new THREE.PlaneGeometry(Math.max(0.4, w * 0.22), l * 0.86),
                     new THREE.MeshBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
@@ -664,6 +801,14 @@ export default {
                 beacon.position.set(0, 0.02, 0)
                 group.add(beacon)
             } else if (type === 'Landmark') {
+                const planter = new THREE.Mesh(
+                    new THREE.CylinderGeometry(2.15, 2.35, 0.22, 20),
+                    new THREE.MeshStandardMaterial({ color: 0x1f3b2b, roughness: 0.95 })
+                )
+                planter.position.y = 0.11
+                planter.receiveShadow = true
+                group.add(planter)
+
                 const trunk = new THREE.Mesh(
                     new THREE.CylinderGeometry(0.34, 0.46, 1.8, 7),
                     new THREE.MeshStandardMaterial({ color: 0x7c4a2a, roughness: 0.9 })
@@ -695,7 +840,16 @@ export default {
         addWindowBands(group, width, height, depth, level) {
             const floors = Math.max(1, Math.floor(height / 4))
             const tint = level === 'Critical' ? 0xfca5a5 : level === 'Restricted' ? 0xfde68a : 0x93c5fd
-            const mat = new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.3 })
+            const mat = new THREE.MeshPhysicalMaterial({
+                color: tint,
+                emissive: tint,
+                emissiveIntensity: 0.08,
+                roughness: 0.08,
+                metalness: 0.12,
+                transmission: 0.08,
+                transparent: true,
+                opacity: 0.42,
+            })
 
             for (let floor = 0; floor < floors; floor++) {
                 const y = 1.6 + floor * (height / floors)
@@ -707,6 +861,16 @@ export default {
                 back.position.z = -depth / 2 - 0.03
                 back.rotation.y = Math.PI
                 group.add(back)
+
+                const left = new THREE.Mesh(new THREE.PlaneGeometry(depth * 0.64, 0.52), mat)
+                left.position.set(-width / 2 - 0.03, y, 0)
+                left.rotation.y = Math.PI / 2
+                group.add(left)
+
+                const right = left.clone()
+                right.position.x = width / 2 + 0.03
+                right.rotation.y = -Math.PI / 2
+                group.add(right)
             }
         },
         addRoofEquipment(group, width, depth, height, level) {
@@ -955,6 +1119,12 @@ export default {
         animate() {
             this.animFrameId = requestAnimationFrame(() => this.animate())
             const now = performance.now() * 0.0025
+
+            this.scene?.traverse((child) => {
+                if (child.isMesh && child.userData.isStar) {
+                    child.material.opacity = 0.42 + (Math.sin(now * 0.7 + child.userData.phase) + 1) * 0.18
+                }
+            })
 
             for (const mesh of this.gateMeshes.values()) {
                 mesh.traverse((child) => {
