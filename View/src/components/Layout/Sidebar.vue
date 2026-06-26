@@ -432,6 +432,14 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe'],
             },
             {
+                path: '/parking-kiosk',
+                label: 'Gui xe thu cong',
+                hint: '2 lan du phong khi camera, QR parking loi',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 16l2-6a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 10l2 6"/><path d="M5 16v3"/><path d="M19 16v3"/><path d="M3 16h18"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/><path d="M9 8V5"/><path d="M15 8V5"/></svg>',
+                badge: '2 lan',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
                 path: '/host-visitor',
                 label: 'Mời khách',
                 hint: 'Tạo lời mời cho khách',

@@ -47,6 +47,7 @@ const SiteHierarchy = () => import('../pages/SiteHierarchy.vue')
 const PolicyEngine = () => import('../pages/PolicyEngine.vue')
 const ReceptionDashboard = () => import('../pages/ReceptionDashboard.vue')
 const ManualAccessFallback = () => import('../pages/ManualAccessFallback.vue')
+const ManualParkingFallback = () => import('../pages/ManualParkingFallback.vue')
 const HostVisitorPage = () => import('../pages/HostVisitorPage.vue')
 const WatchlistQueue = () => import('../pages/WatchlistQueue.vue')
 const ContractorManagement = () => import('../pages/ContractorManagement.vue')
@@ -122,6 +123,7 @@ const routes = [
             { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'parking-kiosk', name: 'ManualParkingFallback', component: ManualParkingFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'contractors', name: 'ContractorManagement', component: ContractorManagement, meta: { allowedRoles: ['Admin'] } },
