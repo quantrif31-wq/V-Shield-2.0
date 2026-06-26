@@ -30,7 +30,7 @@
 
         <div class="c3d-hint-pill">
             <span class="hint-dot"></span>
-            Hover de inspect, click de focus
+            Hover de xem, keo trai de xoay, keo phai de di chuyen
         </div>
     </div>
 </template>
@@ -39,6 +39,7 @@
 import { markRaw } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { MOUSE, TOUCH } from 'three'
 
 const STATUS_COLORS = {
     Normal: 0x22c55e,
@@ -173,7 +174,19 @@ export default {
             this.controls = markRaw(new OrbitControls(this.camera, this.renderer.domElement))
             this.controls.enableDamping = true
             this.controls.dampingFactor = 0.08
-            this.controls.screenSpacePanning = false
+            this.controls.enablePan = true
+            this.controls.screenSpacePanning = true
+            this.controls.panSpeed = 1.15
+            this.controls.zoomSpeed = 1.05
+            this.controls.mouseButtons = {
+                LEFT: MOUSE.ROTATE,
+                MIDDLE: MOUSE.DOLLY,
+                RIGHT: MOUSE.PAN,
+            }
+            this.controls.touches = {
+                ONE: TOUCH.ROTATE,
+                TWO: TOUCH.DOLLY_PAN,
+            }
             this.controls.maxPolarAngle = Math.PI / 2.08
             this.controls.minDistance = 25
             this.controls.maxDistance = 420

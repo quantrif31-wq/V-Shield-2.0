@@ -29,24 +29,7 @@
                 :recent-events="recentEvents"
                 :selected-gate-id="selectedGateId"
                 @select-gate="onSelectGate"
-                @inspect-object="onInspectObject"
-                @hover-object="onHoverObject"
             />
-            <div class="floating-panel-stack">
-                <CampusAssetInspector
-                    :selected-asset="selectedAsset || hoveredAsset"
-                    :summary="summary"
-                    :updated-at="updatedAt"
-                    compact
-                />
-                <RealtimeStatusPanel
-                    :updated-at="updatedAt"
-                    :recent-events="recentEvents"
-                    :error="realtimeError"
-                    compact
-                    @focus-gate="onFocusGate"
-                />
-            </div>
         </section>
 
         <transition name="toast">
@@ -60,8 +43,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { authState } from '../stores/auth'
 import CampusMapToolbar from '../components/campus-map/CampusMapToolbar.vue'
 import Campus3DCanvas from '../components/campus-map/Campus3DCanvas.vue'
-import CampusAssetInspector from '../components/campus-map/CampusAssetInspector.vue'
-import RealtimeStatusPanel from '../components/campus-map/RealtimeStatusPanel.vue'
 import { getCampusScene3D, getCampusMapRealtime } from '../services/campusMapApi'
 
 const sites = ref([])
@@ -77,8 +58,6 @@ const summary = ref({
 const recentEvents = ref([])
 const updatedAt = ref(null)
 const selectedGateId = ref(null)
-const selectedAsset = ref(null)
-const hoveredAsset = ref(null)
 const loading = ref(true)
 const refreshing = ref(false)
 const error = ref('')
@@ -153,14 +132,6 @@ const onSelectGate = (gateId) => {
     selectedGateId.value = gateId
 }
 
-const onInspectObject = (asset) => {
-    selectedAsset.value = asset
-}
-
-const onHoverObject = (asset) => {
-    hoveredAsset.value = asset
-}
-
 const onFocusGate = (gateId) => {
     if (!gateId) return
     selectedGateId.value = gateId
@@ -196,22 +167,6 @@ onBeforeUnmount(() => {
     position: relative;
 }
 
-.floating-panel-stack {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    z-index: 20;
-    display: grid;
-    align-content: start;
-    gap: 14px;
-    width: min(320px, calc(100% - 36px));
-    pointer-events: none;
-}
-
-.floating-panel-stack > * {
-    pointer-events: auto;
-}
-
 .toast-card {
     position: fixed;
     right: 24px;
@@ -237,14 +192,5 @@ onBeforeUnmount(() => {
 .toast-leave-to {
     opacity: 0;
     transform: translateY(12px);
-}
-
-@media (max-width: 1200px) {
-    .floating-panel-stack {
-        top: auto;
-        right: 12px;
-        bottom: 12px;
-        width: min(100%, calc(100% - 24px));
-    }
 }
 </style>
