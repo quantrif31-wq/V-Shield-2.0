@@ -18,19 +18,34 @@
             </button>
         </div>
 
-        <div ref="tooltipRef" class="c3d-tooltip" :style="tooltipStyle" v-show="tooltip.visible">
-            <strong>{{ tooltip.label }}</strong>
-            <div v-if="tooltip.siteName" class="c3d-site">{{ tooltip.siteName }}</div>
+        <div ref="tooltipRef" class="c3d-tooltip" :class="tooltip.tone" :style="tooltipStyle" v-show="tooltip.visible">
+            <div class="c3d-tooltip-head">
+                <span class="c3d-glyph" :class="tooltip.glyphClass"></span>
+                <div class="c3d-head-copy">
+                    <strong>{{ tooltip.label }}</strong>
+                    <div v-if="tooltip.siteName" class="c3d-site">{{ tooltip.siteName }}</div>
+                </div>
+                <div v-if="tooltip.status" class="c3d-status-badge" :style="{ color: tooltip.statusColor }">
+                    <span class="badge-dot" :style="{ background: tooltip.statusColor }"></span>
+                    {{ tooltip.status }}
+                </div>
+            </div>
+            <div v-if="tooltip.signals.length" class="c3d-signal-row">
+                <div v-for="signal in tooltip.signals" :key="signal.label" class="c3d-signal-pill">
+                    <strong>{{ signal.value }}</strong>
+                    <span>{{ signal.label }}</span>
+                </div>
+            </div>
+            <div class="c3d-wave-row">
+                <span v-for="n in 5" :key="n" class="wave-bar" :class="{ active: n <= tooltip.waveLevel }"></span>
+            </div>
             <div v-if="tooltip.detail" class="c3d-detail">{{ tooltip.detail }}</div>
             <div v-for="line in tooltip.meta" :key="line" class="c3d-meta">{{ line }}</div>
-            <div v-if="tooltip.status" class="c3d-status" :style="{ color: tooltip.statusColor }">
-                {{ tooltip.status }}
-            </div>
         </div>
 
         <div class="c3d-hint-pill">
             <span class="hint-dot"></span>
-            Hover de xem, keo trai de xoay, keo phai de di chuyen
+            Hover de xem, giu chuot de xoay-pan, WASD de di chuyen
         </div>
     </div>
 </template>
@@ -75,7 +90,19 @@ export default {
     data() {
         return {
             initialized: false,
-            tooltip: { visible: false, label: '', siteName: '', detail: '', meta: [], status: '', statusColor: '#fff' },
+            tooltip: {
+                visible: false,
+                label: '',
+                siteName: '',
+                detail: '',
+                meta: [],
+                status: '',
+                statusColor: '#fff',
+                tone: 'tone-neutral',
+                glyphClass: 'glyph-generic',
+                signals: [],
+                waveLevel: 2,
+            },
             tooltipStyle: { top: '0px', left: '0px' },
             scene: null,
             worldGroup: null,
@@ -91,6 +118,7 @@ export default {
             framedOnce: false,
             selectedSiteId: null,
             hoveredObject: null,
+            moveState: { forward: false, backward: false, left: false, right: false },
         }
     },
     computed: {
@@ -1036,6 +1064,92 @@ export default {
                 statusColor: this.statusColorHex(gate?.status || 'Normal'),
             }
         },
+        buildTooltipPayload(data) {
+            const gate = this.resolveGateInfo(data)
+            const properties = data.properties || {}
+            const dimensions = data.dimensions || {}
+            const meta = []
+            const signals = []
+            let tone = 'tone-neutral'
+            let glyphClass = 'glyph-generic'
+            let waveLevel = 2
+
+            if (data.objectType === 'Site') {
+                signals.push(
+                    { label: 'BLD', value: data.metrics?.buildings || 0 },
+                    { label: 'GATE', value: data.metrics?.gates || 0 }
+                )
+                meta.push('Cum van hanh / zone tong hop')
+                glyphClass = 'glyph-site'
+                waveLevel = Math.min(5, Math.max(2, data.metrics?.gates || 0))
+            } else if (data.objectType === 'Building') {
+                signals.push(
+                    { label: 'FLR', value: data.floors || 1 },
+                    { label: 'W', value: `${Math.round(dimensions.width || 0)}m` },
+                    { label: 'L', value: `${Math.round(dimensions.length || 0)}m` }
+                )
+                if (properties.zone) meta.push(`Zone: ${properties.zone}`)
+                if (properties.level) meta.push(`Security level: ${properties.level}`)
+                glyphClass = 'glyph-building'
+                tone = properties.level === 'Critical' ? 'tone-danger' : properties.level === 'Restricted' ? 'tone-warn' : 'tone-calm'
+                waveLevel = properties.level === 'Critical' ? 5 : properties.level === 'Restricted' ? 4 : 3
+            } else if (data.objectType === 'GateMarker') {
+                if (gate) {
+                    signals.push(
+                        { label: 'CAM', value: gate.cameraCount || 0 },
+                        { label: 'EVT', value: gate.recentAccessCount || 0 },
+                        { label: 'OFF', value: gate.offlineCameraCount || 0 }
+                    )
+                }
+                if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera dang offline`)
+                if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
+                glyphClass = 'glyph-gate'
+                tone = gate?.status === 'Offline' || gate?.status === 'Alarm'
+                    ? 'tone-danger'
+                    : gate?.status === 'Warning'
+                        ? 'tone-warn'
+                        : gate?.status === 'Active'
+                            ? 'tone-active'
+                            : 'tone-calm'
+                waveLevel = gate?.status === 'Offline' || gate?.status === 'Alarm'
+                    ? 5
+                    : gate?.status === 'Warning'
+                        ? 4
+                        : gate?.status === 'Active'
+                            ? 3
+                            : 2
+            } else if (data.objectType === 'ParkingArea') {
+                signals.push(
+                    { label: 'W', value: `${Math.round(dimensions.width || 0)}m` },
+                    { label: 'L', value: `${Math.round(dimensions.length || 0)}m` }
+                )
+                meta.push('Surface support / luu luong phuong tien')
+                glyphClass = 'glyph-parking'
+            } else if (data.objectType === 'Path') {
+                meta.push('Tuyen lien ket giua cac cum van hanh')
+                glyphClass = 'glyph-path'
+                tone = 'tone-calm'
+                waveLevel = 3
+            } else if (data.objectType === 'Landmark') {
+                meta.push('Moc canh quan / diem nhan nhan dien')
+                glyphClass = 'glyph-landmark'
+                waveLevel = 1
+            }
+
+            return {
+                visible: true,
+                label: data.label || data.objectType,
+                siteName: `${data.siteCode} - ${data.siteName}`,
+                detail: OBJECT_LABELS[data.objectType] || data.objectType,
+                meta,
+                status: gate ? gate.status : '',
+                statusColor: this.statusColorHex(gate?.status || 'Normal'),
+                tone,
+                glyphClass,
+                signals,
+                waveLevel,
+            }
+        },
         statusColorHex(status) {
             const color = STATUS_COLORS[status] || STATUS_COLORS.Normal
             return `#${color.toString(16).padStart(6, '0')}`
@@ -1221,6 +1335,43 @@ export default {
                 minute: '2-digit',
             })
         },
+        handleKeyDown(event) {
+            const key = String(event.key || '').toLowerCase()
+            if (['w', 'arrowup'].includes(key)) this.moveState.forward = true
+            if (['s', 'arrowdown'].includes(key)) this.moveState.backward = true
+            if (['a', 'arrowleft'].includes(key)) this.moveState.left = true
+            if (['d', 'arrowright'].includes(key)) this.moveState.right = true
+        },
+        handleKeyUp(event) {
+            const key = String(event.key || '').toLowerCase()
+            if (['w', 'arrowup'].includes(key)) this.moveState.forward = false
+            if (['s', 'arrowdown'].includes(key)) this.moveState.backward = false
+            if (['a', 'arrowleft'].includes(key)) this.moveState.left = false
+            if (['d', 'arrowright'].includes(key)) this.moveState.right = false
+        },
+        updateKeyboardMove() {
+            if (!this.camera || !this.controls) return
+
+            const moveVector = new THREE.Vector3()
+            const forward = new THREE.Vector3()
+            this.camera.getWorldDirection(forward)
+            forward.y = 0
+            if (forward.lengthSq() === 0) return
+            forward.normalize()
+
+            const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
+            const step = 1.8
+
+            if (this.moveState.forward) moveVector.add(forward)
+            if (this.moveState.backward) moveVector.sub(forward)
+            if (this.moveState.left) moveVector.sub(right)
+            if (this.moveState.right) moveVector.add(right)
+
+            if (moveVector.lengthSq() === 0) return
+            moveVector.normalize().multiplyScalar(step)
+            this.camera.position.add(moveVector)
+            this.controls.target.add(moveVector)
+        },
         animate() {
             this.animFrameId = requestAnimationFrame(() => this.animate())
             const now = performance.now() * 0.0025
@@ -1257,6 +1408,7 @@ export default {
                 })
             }
 
+            this.updateKeyboardMove()
             this.controls.update()
             this.renderer.render(this.scene, this.camera)
         },
@@ -1355,10 +1507,14 @@ export default {
                 this.renderer.domElement.remove()
             }
             window.removeEventListener('resize', this.onResize)
+            window.removeEventListener('keydown', this.handleKeyDown)
+            window.removeEventListener('keyup', this.handleKeyUp)
         },
     },
     mounted() {
         this.$nextTick(() => this.initScene())
+        window.addEventListener('keydown', this.handleKeyDown)
+        window.addEventListener('keyup', this.handleKeyUp)
     },
     beforeUnmount() {
         this.dispose()
@@ -1460,22 +1616,96 @@ export default {
 .c3d-tooltip {
     position: absolute;
     z-index: 20;
-    max-width: 260px;
+    max-width: 300px;
     background: rgba(6, 17, 28, 0.94);
     border: 1px solid rgba(125, 211, 252, 0.18);
-    border-radius: 12px;
-    padding: 10px 14px;
+    border-radius: 16px;
+    padding: 12px 14px;
     color: #e2e8f0;
     font-size: 13px;
     pointer-events: none;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
     box-shadow: 0 14px 40px rgba(2, 8, 23, 0.36);
+}
+
+.c3d-tooltip-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.c3d-head-copy {
+    min-width: 0;
+    flex: 1;
 }
 
 .c3d-tooltip strong {
     display: block;
     font-size: 14px;
     color: #fff;
+}
+
+.c3d-glyph {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    margin-top: 3px;
+    border-radius: 4px;
+    background: #7dd3fc;
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.35);
+    flex-shrink: 0;
+}
+
+.glyph-site {
+    border-radius: 999px;
+    background: #38bdf8;
+}
+
+.glyph-building {
+    border-radius: 3px;
+    background: linear-gradient(180deg, #dbeafe 0%, #60a5fa 100%);
+}
+
+.glyph-gate {
+    width: 16px;
+    border-radius: 999px 999px 4px 4px;
+    background: linear-gradient(180deg, #86efac 0%, #22c55e 100%);
+}
+
+.glyph-parking {
+    background: linear-gradient(180deg, #e2e8f0 0%, #64748b 100%);
+}
+
+.glyph-path {
+    width: 18px;
+    height: 6px;
+    border-radius: 999px;
+    background: #38bdf8;
+}
+
+.glyph-landmark {
+    transform: rotate(45deg);
+    border-radius: 3px;
+    background: linear-gradient(180deg, #fde68a 0%, #f59e0b 100%);
+}
+
+.c3d-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.badge-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
 }
 
 .c3d-site {
@@ -1485,9 +1715,73 @@ export default {
 }
 
 .c3d-detail {
-    margin-top: 6px;
+    margin-top: 10px;
     color: #dbeafe;
     font-size: 12px;
+}
+
+.c3d-signal-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.c3d-signal-pill {
+    display: grid;
+    gap: 2px;
+    min-width: 56px;
+    padding: 8px 9px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.58);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.c3d-signal-pill strong {
+    font-size: 12px;
+    line-height: 1;
+}
+
+.c3d-signal-pill span {
+    color: #94a3b8;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+}
+
+.c3d-wave-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 18px;
+    margin-top: 10px;
+}
+
+.wave-bar {
+    width: 8px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(71, 85, 105, 0.8);
+}
+
+.wave-bar:nth-child(2) {
+    height: 9px;
+}
+
+.wave-bar:nth-child(3) {
+    height: 12px;
+}
+
+.wave-bar:nth-child(4) {
+    height: 15px;
+}
+
+.wave-bar:nth-child(5) {
+    height: 18px;
+}
+
+.wave-bar.active {
+    background: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 100%);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.28);
 }
 
 .c3d-meta {
@@ -1496,10 +1790,24 @@ export default {
     font-size: 12px;
 }
 
-.c3d-status {
-    margin-top: 8px;
-    font-size: 12px;
-    font-weight: 700;
+.tone-calm {
+    border-color: rgba(56, 189, 248, 0.2);
+}
+
+.tone-active {
+    border-color: rgba(34, 197, 94, 0.28);
+}
+
+.tone-warn {
+    border-color: rgba(245, 158, 11, 0.28);
+}
+
+.tone-danger {
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
+.tone-neutral {
+    border-color: rgba(125, 211, 252, 0.18);
 }
 
 .c3d-hint-pill {
