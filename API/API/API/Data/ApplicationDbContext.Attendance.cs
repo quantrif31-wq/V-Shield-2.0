@@ -11,6 +11,7 @@ public partial class ApplicationDbContext
     public DbSet<LeaveRequest> LeaveRequests { get; set; }
     public DbSet<CampusMapLayout> CampusMapLayouts { get; set; }
     public DbSet<ZoneTransit> ZoneTransits { get; set; }
+    public DbSet<Campus3DObject> Campus3DObjects { get; set; }
     public DbSet<AttendanceAnomaly> AttendanceAnomalies { get; set; }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
@@ -189,6 +190,28 @@ public partial class ApplicationDbContext
                 .HasForeignKey(e => e.UpdatedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_CampusMapLayouts_AppUser");
+        });
+
+        modelBuilder.Entity<Campus3DObject>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ObjectType).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(160);
+            entity.Property(e => e.PositionX).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.PositionZ).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.PositionY).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.Width).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.Length).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.Height).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.Rotation).HasColumnType("decimal(6,2)");
+            entity.Property(e => e.Color).HasMaxLength(30);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+
+            entity.HasOne(e => e.Site)
+                .WithMany()
+                .HasForeignKey(e => e.SiteId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_Campus3DObjects_Site");
         });
 
         modelBuilder.Entity<ZoneTransit>(entity =>

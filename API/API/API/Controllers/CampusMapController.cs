@@ -270,6 +270,71 @@ public class CampusMapController : ControllerBase
         });
     }
 
+    [HttpGet("scene3d")]
+    public async Task<IActionResult> GetScene3D(CancellationToken cancellationToken)
+    {
+        var objects = await _context.Campus3DObjects
+            .AsNoTracking()
+            .Include(o => o.Site)
+            .Where(o => o.IsActive)
+            .OrderBy(o => o.SiteId)
+            .ThenBy(o => o.ObjectType)
+            .ToListAsync(cancellationToken);
+
+        var gateIds = objects.Where(o => o.ObjectType == "GateMarker").Select(o => o.SiteId).ToList();
+        var realtime = await _realtimeService.BuildSnapshotAsync(DateTime.Now, cancellationToken);
+
+        var sites = await _context.Sites
+            .AsNoTracking()
+            .Select(s => new { s.SiteId, s.Name, s.Code })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new
+        {
+            sites = sites.Select(s => new
+            {
+                siteId = s.SiteId,
+                name = s.Name,
+                code = s.Code,
+                objects = objects.Where(o => o.SiteId == s.SiteId).Select(o => new
+                {
+                    id = o.Id,
+                    type = o.ObjectType,
+                    label = o.Label,
+                    posX = o.PositionX,
+                    posZ = o.PositionZ,
+                    posY = o.PositionY,
+                    width = o.Width,
+                    length = o.Length,
+                    height = o.Height,
+                    floors = o.Floors,
+                    rotation = o.Rotation,
+                    color = o.Color,
+                    properties = o.PropertiesJson
+                })
+            }),
+            gates = realtime.Gates.Select(g => new
+            {
+                gateId = g.GateId,
+                gateName = g.GateName,
+                status = g.Status,
+                cameraCount = g.CameraCount,
+                offlineCameraCount = g.OfflineCameraCount,
+                lastAccessAt = g.LastAccessAt,
+                recentAccessCount = g.RecentAccessCount
+            }),
+            summary = new
+            {
+                siteCount = sites.Count,
+                objectCount = objects.Count,
+                onlineGates = realtime.Summary.ActiveGateCount,
+                warningGates = realtime.Summary.WarningGateCount,
+                offlineCameras = realtime.Summary.OfflineCameraCount
+            },
+            updatedAt = realtime.UpdatedAt
+        });
+    }
+
     [HttpGet("realtime")]
     public async Task<IActionResult> GetRealtime(CancellationToken cancellationToken)
     {

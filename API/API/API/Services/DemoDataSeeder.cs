@@ -745,7 +745,88 @@ public static class DemoDataSeeder
             }
         }
 
+        SeedCampus3DScene(db, sites, now);
         db.SaveChanges();
+    }
+
+    private static void SeedCampus3DScene(ApplicationDbContext db, List<Site> sites, DateTime now)
+    {
+        if (db.Campus3DObjects.Any()) return;
+
+        var hnSite = sites.FirstOrDefault(s => s.Code == "HN-HQ");
+        var bnSite = sites.FirstOrDefault(s => s.Code == "BN-FAC");
+        var hpSite = sites.FirstOrDefault(s => s.Code == "HP-LOG");
+
+        var objects = new List<Campus3DObject>();
+
+        // ── HN — Head Office ──
+        if (hnSite != null)
+        {
+            objects.AddRange(new[]
+            {
+                // Admin Building — 3 floors
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN Administration", PositionX = -30, PositionZ = 0, PositionY = 0, Width = 40, Length = 20, Height = 15, Floors = 3, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                // Ops Building — 2 floors
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN Operations", PositionX = 20, PositionZ = 5, PositionY = 0, Width = 30, Length = 18, Height = 10, Floors = 2, Rotation = 0, Color = "#7c3aed", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                // SOC & Server Room
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN SOC & Server", PositionX = 25, PositionZ = -12, PositionY = 0, Width = 15, Length = 12, Height = 4, Floors = 1, Rotation = 0, Color = "#dc2626", PropertiesJson = "{\"zone\":\"SOC and Server Room\",\"level\":\"Critical\"}" },
+                // Parking B1
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "ParkingArea", Label = "HN Tầng hầm B1", PositionX = -25, PositionZ = -22, PositionY = -0.5m, Width = 35, Length = 15, Height = 0.5m, Rotation = 0, Color = "#64748b" },
+                // Outdoor parking
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "ParkingArea", Label = "HN Bãi ngoài trời", PositionX = 15, PositionZ = -22, PositionY = -0.5m, Width = 30, Length = 20, Height = 0.5m, Rotation = 0, Color = "#94a3b8" },
+                // Main Gate marker
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "GateMarker", Label = "HN Main Gate", PositionX = -35, PositionZ = 16, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                // Basement gate marker
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "GateMarker", Label = "HN Basement Parking", PositionX = -15, PositionZ = -18, PositionY = -1, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                // Walkway: Admin → Main Gate
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Walkway Admin-Gate", PositionX = -32, PositionZ = 8, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                // Walkway: Admin → Ops
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Walkway Admin-Ops", PositionX = -5, PositionZ = 2, PositionY = -0.3m, Width = 3, Length = 16, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                // Walkway: Ops → SOC
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Walkway Ops-SOC", PositionX = 28, PositionZ = -3, PositionY = -0.3m, Width = 2, Length = 9, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                // Landscape trees
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HN", PositionX = -10, PositionZ = 15, PositionY = 0, Width = 3, Length = 3, Height = 5, Rotation = 0, Color = "#22c55e" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HN", PositionX = 0, PositionZ = 18, PositionY = 0, Width = 3, Length = 3, Height = 5, Rotation = 0, Color = "#16a34a" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HN", PositionX = 10, PositionZ = 17, PositionY = 0, Width = 3, Length = 3, Height = 4, Rotation = 0, Color = "#22c55e" },
+            });
+        }
+
+        // ── BN — Factory Campus ──
+        if (bnSite != null)
+        {
+            objects.AddRange(new[]
+            {
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Administration", PositionX = 0, PositionZ = 0, PositionY = 0, Width = 35, Length = 18, Height = 10, Floors = 2, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Production", PositionX = 45, PositionZ = 5, PositionY = 0, Width = 50, Length = 25, Height = 8, Floors = 2, Rotation = 0, Color = "#f59e0b", PropertiesJson = "{\"zone\":\"Production Zone\",\"level\":\"Restricted\"}" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN QA Lab", PositionX = 50, PositionZ = -15, PositionY = 0, Width = 20, Length = 12, Height = 5, Floors = 1, Rotation = 0, Color = "#eab308", PropertiesJson = "{\"zone\":\"Production Zone\",\"level\":\"Restricted\"}" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "ParkingArea", Label = "BN Nhà xe nhân viên", PositionX = 5, PositionZ = -22, PositionY = -0.5m, Width = 30, Length = 18, Height = 0.5m, Rotation = 0, Color = "#64748b" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "ParkingArea", Label = "BN Bãi xe tải", PositionX = 55, PositionZ = -22, PositionY = -0.5m, Width = 25, Length = 15, Height = 0.5m, Rotation = 0, Color = "#94a3b8" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "GateMarker", Label = "BN Employee Gate", PositionX = 0, PositionZ = 16, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "GateMarker", Label = "BN Truck Gate", PositionX = 60, PositionZ = 14, PositionY = 0, Width = 8, Length = 2, Height = 4, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Walkway Admin-Employee Gate", PositionX = -2, PositionZ = 8, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Walkway Admin-Production", PositionX = 22, PositionZ = 3, PositionY = -0.3m, Width = 3, Length = 22, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Walkway Production-QA", PositionX = 52, PositionZ = -5, PositionY = -0.3m, Width = 2, Length = 10, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh BN", PositionX = -10, PositionZ = 12, PositionY = 0, Width = 4, Length = 4, Height = 6, Rotation = 0, Color = "#22c55e" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh BN", PositionX = 30, PositionZ = 18, PositionY = 0, Width = 4, Length = 4, Height = 5, Rotation = 0, Color = "#16a34a" },
+            });
+        }
+
+        // ── HP — Logistics Hub ──
+        if (hpSite != null)
+        {
+            objects.AddRange(new[]
+            {
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Building", Label = "HP Administration", PositionX = 0, PositionZ = 0, PositionY = 0, Width = 25, Length = 15, Height = 6, Floors = 2, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Building", Label = "HP Warehouse", PositionX = 30, PositionZ = 5, PositionY = 0, Width = 40, Length = 30, Height = 8, Floors = 1, Rotation = 0, Color = "#f59e0b", PropertiesJson = "{\"zone\":\"Logistics\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "ParkingArea", Label = "HP Kho bãi logistics", PositionX = 5, PositionZ = -20, PositionY = -0.5m, Width = 30, Length = 15, Height = 0.5m, Rotation = 0, Color = "#64748b" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "GateMarker", Label = "HP Warehouse Gate", PositionX = -5, PositionZ = 15, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Path", Label = "HP Walkway Admin-Gate", PositionX = -3, PositionZ = 7, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Path", Label = "HP Walkway Admin-Warehouse", PositionX = 15, PositionZ = 3, PositionY = -0.3m, Width = 3, Length = 12, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HP", PositionX = -8, PositionZ = 10, PositionY = 0, Width = 3, Length = 3, Height = 4, Rotation = 0, Color = "#22c55e" },
+            });
+        }
+
+        db.Campus3DObjects.AddRange(objects);
     }
 
     private static void EnsureUebaDemoData(ApplicationDbContext db)
