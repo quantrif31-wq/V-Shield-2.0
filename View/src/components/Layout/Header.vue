@@ -414,7 +414,7 @@ watch(
 .menu-toggle {
     width: 44px;
     height: 44px;
-    display: none;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 14px;
@@ -422,6 +422,13 @@ watch(
     background: rgba(255, 255, 255, 0.76);
     color: var(--text-secondary);
     flex-shrink: 0;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(84, 196, 211, 0.3);
 }
 
 .menu-toggle svg {
@@ -834,10 +841,6 @@ watch(
         right: 12px;
         height: var(--header-height);
         padding: 14px 16px;
-    }
-
-    .menu-toggle {
-        display: inline-flex;
     }
 
     .time-chip {
