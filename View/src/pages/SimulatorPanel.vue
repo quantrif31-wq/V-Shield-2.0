@@ -6,9 +6,11 @@
                 <h1 class="page-title">Simulator Panel</h1>
             </div>
             <div class="header-actions">
+                <button class="btn btn-danger" :disabled="resetBusy" @click="resetDemo">{{ resetBusy ? 'Đang đặt lại...' : 'Đặt lại dữ liệu demo' }}</button>
                 <button class="btn btn-secondary" :disabled="loading" @click="loadConnectorStatus">Connector Status</button>
             </div>
         </div>
+        <div v-if="resetResult" class="success-card demo-reset-result">{{ resetResult }}</div>
 
         <section class="ops-grid three">
             <article class="ops-panel">
@@ -240,6 +242,22 @@ const showConnectorStatus = ref(false)
 const connectorLoading = ref(false)
 const connectorStatus = ref([])
 const loading = ref(false)
+const resetBusy = ref(false)
+const resetResult = ref('')
+
+async function resetDemo() {
+    resetBusy.value = true
+    resetResult.value = ''
+    try {
+        const response = await enterpriseApi.resetDemoScenarios()
+        const summary = response.data?.summary || {}
+        resetResult.value = `Đã đặt lại: ${summary.interventionRequests || 0} yêu cầu, ${summary.securityDevices || 0} thiết bị, ${summary.evidenceItems || 0} bằng chứng.`
+    } catch (error) {
+        resetResult.value = error?.response?.data?.message || 'Không thể đặt lại dữ liệu demo.'
+    } finally {
+        resetBusy.value = false
+    }
+}
 
 async function createVirtual() {
     if (!vcForm.value.name.trim()) return

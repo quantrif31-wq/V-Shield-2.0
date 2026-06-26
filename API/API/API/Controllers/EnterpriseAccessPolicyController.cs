@@ -299,6 +299,77 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return Ok(grant);
     }
 
+    [HttpGet("emergency-passes")]
+    public async Task<IActionResult> GetEmergencyPasses([FromQuery] bool? active)
+    {
+        var now = DateTime.UtcNow;
+        var query = _context.EmergencyPasses.AsNoTracking().AsQueryable();
+        if (active == true)
+            query = query.Where(item => item.Status == "Active" && item.ValidToUtc > now);
+
+        return Ok(await query
+            .OrderByDescending(item => item.ValidFromUtc)
+            .Take(100)
+            .ToListAsync());
+    }
+
+    [HttpPost("emergency-passes")]
+    public async Task<IActionResult> CreateEmergencyPass([FromBody] EmergencyPassRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 10)
+            return BadRequest(new { message = "Reason with at least 10 characters is required." });
+        if (string.IsNullOrWhiteSpace(request.SubjectName) && string.IsNullOrWhiteSpace(request.PlateNumber))
+            return BadRequest(new { message = "SubjectName or PlateNumber is required." });
+
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { message = "Cannot identify responsible user." });
+
+        var now = DateTime.UtcNow;
+        var durationMinutes = Math.Clamp(request.DurationMinutes <= 0 ? 30 : request.DurationMinutes, 5, 480);
+        var pass = new EmergencyPass
+        {
+            SubjectType = string.IsNullOrWhiteSpace(request.SubjectType) ? "Person" : request.SubjectType.Trim(),
+            SubjectId = request.SubjectId?.Trim(),
+            SubjectName = string.IsNullOrWhiteSpace(request.SubjectName) ? "Emergency vehicle" : request.SubjectName.Trim(),
+            PlateNumber = request.PlateNumber?.Trim(),
+            LaneReference = request.LaneReference?.Trim(),
+            LaneName = request.LaneName?.Trim(),
+            Reason = request.Reason.Trim(),
+            ApprovedByUserId = userId.Value,
+            ValidFromUtc = now,
+            ValidToUtc = now.AddMinutes(durationMinutes)
+        };
+
+        int? laneId = int.TryParse(request.LaneReference, out var parsedLaneId) ? parsedLaneId : null;
+        var laneEvent = new LaneEvent
+        {
+            LaneId = laneId,
+            EventType = "EMERGENCY_PASS",
+            Direction = string.IsNullOrWhiteSpace(request.Direction) ? "Entry" : request.Direction.Trim(),
+            PlateText = pass.PlateNumber,
+            Note = $"[{pass.CorrelationId}] {pass.SubjectName}; {pass.Reason}; approvedBy={userId.Value}"
+        };
+        var alarm = new Alarm
+        {
+            AlarmType = "EmergencyPass",
+            Severity = "Critical",
+            State = "New",
+            Summary = $"Emergency pass: {pass.SubjectName}{(string.IsNullOrWhiteSpace(pass.PlateNumber) ? "" : $" ({pass.PlateNumber})")} - {pass.Reason}"
+        };
+
+        _context.EmergencyPasses.Add(pass);
+        _context.LaneEvents.Add(laneEvent);
+        _context.Alarms.Add(alarm);
+        await _context.SaveChangesAsync();
+
+        pass.LaneEventId = laneEvent.LaneEventId;
+        pass.AlarmId = alarm.AlarmId;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { emergencyPass = pass, laneEvent, alarm });
+    }
+
     [HttpGet("emergency-states")]
     public async Task<IActionResult> GetEmergencyStates([FromQuery] bool? active)
     {
@@ -665,6 +736,16 @@ public class EnterpriseAccessPolicyController : ControllerBase
         DateTime ValidFromUtc,
         DateTime ValidToUtc,
         string? Reason);
+    public sealed record EmergencyPassRequest(
+        string? SubjectType,
+        string? SubjectId,
+        string? SubjectName,
+        string? PlateNumber,
+        string? LaneReference,
+        string? LaneName,
+        string? Direction,
+        string Reason,
+        int DurationMinutes);
     public sealed record EmergencyStateRequest(string? State, int? SiteId, int? SecurityZoneId, int? AccessPointId, string? Reason);
     public sealed record AntiPassbackResetRequest(string SubjectType, int SubjectId, int? SecurityZoneId, string? Reason);
     public sealed record OccupancyRequest(int? SiteId, int? SecurityZoneId, int Count, int? MaxAllowed);

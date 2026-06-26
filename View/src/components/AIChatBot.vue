@@ -134,7 +134,7 @@ const suggestions = [
   { id: 'baove', icon: '🛡️', label: 'Bảo vệ cần làm gì?', text: 'Tôi là Bảo vệ, cần làm những gì khi trực cổng?' },
   { id: 'staff', icon: '👤', label: 'Nhân viên cần biết', text: 'Tôi là Nhân viên, sử dụng V-Shield như thế nào?' },
   { id: 'quanly', icon: '📊', label: 'Quản lý vận hành', text: 'Tôi là Quản lý, các chức năng dành cho tôi?' },
-  { id: 'faceid', icon: '📸', label: 'Cách dùng Face ID', text: 'Làm thế nào để sử dụng Face ID tại cổng?' },
+  { id: 'manual', icon: '⌨️', label: 'Xử lý khi QR lỗi', text: 'Làm thế nào để xử lý thủ công khi QR hoặc camera lỗi?' },
 ]
 
 function addMessage(role, text) {
@@ -186,12 +186,12 @@ function handleGuideResponse(userMessage) {
   }
 
   if (msg.includes('admin') || msg.includes('quản trị')) {
-    addMessage('ai', `🔐 <strong>Quyền hạn của Admin</strong><br><br>Admin có <strong>toàn quyền</strong> trên hệ thống V-Shield:<br><br>• 📊 Dashboard tổng quan & AI Intelligence<br>• 📹 Giám sát camera, Face ID, biển số<br>• 👥 Quản lý nhân sự, tài khoản, phân quyền<br>• 🚗 Quản lý phương tiện, chấm công<br>• 🏢 Quản lý khách, nhà thầu, watchlist<br>• ⚙️ Cấu hình camera, thiết bị, policy<br>• 🔒 SOC, Evidence, Compliance, Retention<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
+    addMessage('ai', `🔐 <strong>Quyền hạn của Admin</strong><br><br>Admin có <strong>toàn quyền</strong> trên hệ thống V-Shield:<br><br>• 📊 Dashboard tổng quan & AI Intelligence<br>• 📹 Giám sát camera, QR động, biển số<br>• 👥 Quản lý nhân sự, tài khoản, phân quyền<br>• 🚗 Quản lý phương tiện, chấm công<br>• 🏢 Quản lý khách, nhà thầu, watchlist<br>• ⚙️ Cấu hình camera, thiết bị, policy<br>• 🔒 SOC, Evidence, Compliance, Retention<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
     return
   }
 
   if (msg.includes('bảo vệ') || msg.includes('baove') || msg.includes('trực cổng')) {
-    addMessage('ai', `🛡️ <strong>Quyền hạn của Bảo vệ</strong><br><br>Bảo vệ có thể truy cập các chức năng:<br><br>• 📹 Giám sát camera trực tiếp (4 luồng)<br>• 🔍 Tra cứu lịch sử vào/ra<br>• 👤 Face ID + Nhận diện biển số<br>• 🚪 Điều phối thông hành (QR + biển số)<br>• 🏪 Reception check-in khách<br>• ⚠️ Xử lý ngoại lệ<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luồng công việc chi tiết →</a>`)
+    addMessage('ai', `🛡️ <strong>Quyền hạn của Bảo vệ</strong><br><br>Bảo vệ có thể truy cập các chức năng:<br><br>• 📹 Giám sát camera trực tiếp<br>• 🔍 Tra cứu lịch sử vào/ra<br>• 📱 Xác thực QR động + biển số<br>• 🚪 Điều phối thông hành, cho qua thủ công có truy vết<br>• 🏪 Reception check-in khách<br>• ⚠️ Gửi yêu cầu xử lý ngoại lệ và duress<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luồng công việc chi tiết →</a>`)
     return
   }
 
@@ -205,8 +205,8 @@ function handleGuideResponse(userMessage) {
     return
   }
 
-  if (msg.includes('face id') || msg.includes('khuôn mặt') || msg.includes('nhận diện')) {
-    addMessage('ai', `📸 <strong>Hướng dẫn sử dụng Face ID</strong><br><br>1. Vào <a href="/face-id-security" class="chat-link">Face ID</a><br>2. Nhập URL camera stream<br>3. Bấm "Bật preview" để xem trước<br>4. Bấm "Khởi tạo phiên nhận diện"<br>5. Hệ thống tự động nhận diện khuôn mặt<br>6. Kết quả hiển thị Employee ID + confidence<br><br>💡 Mẹo: Đảm bảo camera chiếu thẳng vào mặt, đủ ánh sáng.`)
+  if (msg.includes('thủ công') || msg.includes('camera lỗi') || msg.includes('qr lỗi') || msg.includes('không đọc')) {
+    addMessage('ai', `⌨️ <strong>Vận hành thủ công tại cổng</strong><br><br>1. Mở <a href="/gate-transit-monitor" class="chat-link">Control Room</a><br>2. Chọn làn và mở bảng quyết định<br>3. Chọn “Vận hành thủ công”<br>4. Nhập họ tên hoặc biển số, lý do xác minh<br>5. Xác nhận cho qua<br><br>Hệ thống sẽ tạo sự kiện MANUAL_PASS cùng người thao tác và lý do để hậu kiểm.`)
     return
   }
 
@@ -221,7 +221,7 @@ function handleGuideResponse(userMessage) {
   }
 
   // Default response
-  addMessage('ai', `Xin chào! Tôi có thể giúp gì cho bạn?<br><br>Hãy thử các gợi ý bên dưới hoặc gõ câu hỏi của bạn:<br>• "Hướng dẫn sử dụng V-Shield"<br>• "Admin có thể làm gì?"<br>• "Bảo vệ cần làm gì?"<br>• "Cách tạo QR động"<br>• "Face ID hoạt động thế nào?"`)
+  addMessage('ai', `Xin chào! Tôi có thể giúp gì cho bạn?<br><br>Hãy thử các gợi ý bên dưới hoặc gõ câu hỏi của bạn:<br>• "Hướng dẫn sử dụng V-Shield"<br>• "Admin có thể làm gì?"<br>• "Bảo vệ cần làm gì?"<br>• "Cách tạo QR động"<br>• "Xử lý thế nào khi QR lỗi?"`)
 }
 
 function sendSuggestion(suggestion) {

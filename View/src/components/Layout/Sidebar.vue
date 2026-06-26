@@ -799,22 +799,10 @@ const registryItems = ref([
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="5" width="16" height="11" rx="2"/><path d="M17 8h4l2 3v5h-6V8z"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
     },
     {
-        path: '/face-id-security',
-        label: 'Face ID',
-        hint: 'Nhận diện trực diện',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H6a3 3 0 00-3 3v2"/><path d="M16 3h2a3 3 0 013 3v2"/><path d="M8 21H6a3 3 0 01-3-3v-2"/><path d="M16 21h2a3 3 0 003-3v-2"/><path d="M9 10a3 3 0 016 0v4a3 3 0 01-6 0z"/></svg>',
-    },
-    {
         path: '/license-plate-security',
         label: 'Nhận diện biển số',
         hint: 'Camera giao thông nội bộ',
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h10"/><path d="M7 14h4"/></svg>',
-    },
-    {
-        path: '/face-video-monitor',
-        label: 'Video khuôn mặt',
-        hint: 'Đối soát theo video',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="15" height="14" rx="2"/><path d="M18 10l3-2v8l-3-2"/><path d="M8 10a2 2 0 114 0v4a2 2 0 11-4 0z"/></svg>',
     },
     {
         path: '/gate-transit-monitor',

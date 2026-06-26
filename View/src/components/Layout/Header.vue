@@ -230,7 +230,7 @@ const routeMeta = {
     },
     Biometrics: {
         title: 'Dữ liệu nhận diện',
-        description: 'Kiểm tra model, video khuôn mặt và độ phủ dữ liệu AI theo từng nhân sự.',
+        description: 'Khu vực legacy không sử dụng trong luồng demo QR động.',
     },
     UserManagement: {
         title: 'Tài khoản & phân quyền',

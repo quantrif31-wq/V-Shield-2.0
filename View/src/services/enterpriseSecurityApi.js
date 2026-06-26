@@ -106,6 +106,8 @@ export const enterpriseApi = {
     simulateAccess(payload) { return http.post('/enterprise/access-policy/simulate', payload) },
     shadowCompare(payload) { return http.post('/enterprise/access-policy/shadow-compare', payload) },
     createTemporaryGrant(payload) { return http.post('/enterprise/access-policy/temporary-grants', payload) },
+    getEmergencyPasses(active = true) { return http.get('/enterprise/access-policy/emergency-passes', { params: { active } }) },
+    createEmergencyPass(payload) { return http.post('/enterprise/access-policy/emergency-passes', payload) },
     createEmergencyState(payload) { return http.post('/enterprise/access-policy/emergency-states', payload) },
     getActiveEmergencies() { return http.get('/enterprise/access-policy/emergency-states?active=true') },
     recordOccupancy(payload) { return http.post('/enterprise/access-policy/occupancy', payload) },
@@ -280,4 +282,6 @@ export const enterpriseApi = {
      rejectInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/reject`, payload) },
      executeInterventionRequest(requestId, payload) { return http.patch(`/enterprise/intervention/requests/${requestId}/execute`, payload) },
      expireInterventionRequests() { return http.post('/enterprise/intervention/requests/expire') },
+     getActiveSecurityAlerts() { return http.get('/security-alerts/active') },
+     resetDemoScenarios() { return http.post('/demo-control/reset') },
 }

@@ -1212,3 +1212,30 @@ ol {
     max-width: none;
   }
 }
+/* Enterprise readability baseline: operational tables must remain opaque. */
+table,
+.table,
+.data-table,
+.table-container,
+.table-wrapper,
+.table-responsive {
+  background-color: #ffffff !important;
+}
+
+table thead,
+.table thead,
+.data-table thead {
+  background-color: #eef3f7 !important;
+}
+
+table tbody tr,
+.table tbody tr,
+.data-table tbody tr {
+  background-color: #ffffff;
+}
+
+table tbody tr:hover,
+.table tbody tr:hover,
+.data-table tbody tr:hover {
+  background-color: #f4f8fa !important;
+}

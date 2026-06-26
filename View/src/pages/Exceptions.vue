@@ -250,38 +250,23 @@
                     </button>
                 </div>
 
-                <div v-if="loadingInterventions" class="empty-card">Đang tải...</div>
-                <div v-else-if="filteredInterventions.length === 0" class="empty-card">
-                    Không có yêu cầu nào.
-                </div>
-                <div v-else class="case-list">
-                    <div
-                        v-for="r in filteredInterventions"
-                        :key="r.operationalInterventionRequestId"
-                        class="case-row"
-                        :class="{
-                            'case-row--selected': selectedIntervention?.operationalInterventionRequestId === r.operationalInterventionRequestId,
-                            [`case-row--${severityForPriority(r.priority)}`]: true
-                        }"
-                        @click="selectIntervention(r)"
-                        role="button"
-                        :tabindex="0"
-                        @keydown.enter="selectIntervention(r)"
-                    >
-                        <div class="case-row-head">
-                            <span class="case-category-badge" :class="`badge--intv-${r.interventionType}`">{{ interventionTypeLabel(r.interventionType) }}</span>
-                            <span class="case-time">{{ formatRelativeTime(r.createdAtUtc) }}</span>
-                        </div>
-                        <div class="case-row-body">
-                            <span class="case-subject">{{ r.subjectName || r.plateNumber || 'Unknown' }}</span>
-                            <span v-if="r.plateNumber" class="case-plate">{{ r.plateNumber }}</span>
-                        </div>
-                        <div class="case-row-footer">
-                            <span class="soft-chip" :class="`intv-status--${r.status.toLowerCase()}`">{{ statusLabel(r.status) }}</span>
-                            <span class="case-time">{{ r.laneName || '' }}</span>
-                        </div>
-                    </div>
-                </div>
+                <EnterpriseDataTable
+                    :columns="interventionColumns"
+                    :rows="filteredInterventions"
+                    :loading="loadingInterventions"
+                    row-key="operationalInterventionRequestId"
+                    density="compact"
+                    empty-title="Không có yêu cầu"
+                    empty-message="Hàng chờ hiện không có yêu cầu phù hợp bộ lọc."
+                >
+                    <template #cell:subjectName="{ row }">
+                        <strong>{{ row.subjectName || row.plateNumber || 'Chưa xác định' }}</strong>
+                        <small class="table-subline">{{ row.plateNumber || row.laneName || '' }}</small>
+                    </template>
+                    <template #cell:priority="{ row }"><span class="case-severity" :class="`severity--${severityForPriority(row.priority)}`">{{ priorityLabel(row.priority) }}</span></template>
+                    <template #cell:status="{ row }"><span class="soft-chip" :class="`intv-status--${row.status.toLowerCase()}`">{{ statusLabel(row.status) }}</span></template>
+                    <template #rowActions="{ row }"><button class="btn btn-sm btn-secondary" @click="selectIntervention(row)">Xem</button></template>
+                </EnterpriseDataTable>
             </section>
 
             <!-- Center/Right: Intervention Detail -->
@@ -296,9 +281,9 @@
                         <h2 class="detail-title">{{ interventionTypeLabel(selectedIntervention.interventionType) }}</h2>
                     </div>
                     <div class="detail-actions">
-                        <!-- Admin actions -->
+                        <!-- Approval actions -->
                         <button
-                            v-if="isAdmin && selectedIntervention.status === 'Pending'"
+                            v-if="canReviewInterventions && selectedIntervention.status === 'Pending'"
                             class="btn btn-sm btn-success"
                             :disabled="savingIntervention"
                             @click="acceptIntervention(selectedIntervention)"
@@ -306,7 +291,7 @@
                             {{ savingIntervention ? '...' : 'Chấp nhận' }}
                         </button>
                         <button
-                            v-if="isAdmin && selectedIntervention.status === 'Pending'"
+                            v-if="canReviewInterventions && selectedIntervention.status === 'Pending'"
                             class="btn btn-sm btn-danger"
                             :disabled="savingIntervention"
                             @click="rejectIntervention(selectedIntervention)"
@@ -322,6 +307,14 @@
                             Thực thi
                         </button>
                     </div>
+                </div>
+
+                <div v-if="selectedIntervention.status === 'Pending' && canReviewInterventions" class="detail-section">
+                    <label class="meta-label" for="intervention-review-note">Ghi chú duyệt / lý do từ chối</label>
+                    <textarea id="intervention-review-note" v-model.trim="interventionReviewNote" class="form-control" rows="2" placeholder="Bắt buộc khi từ chối; nên ghi rõ căn cứ khi chấp nhận"></textarea>
+                </div>
+                <div v-if="interventionActionMessage" class="alert" :class="interventionActionError ? 'alert-danger' : 'alert-success'">
+                    {{ interventionActionMessage }}
                 </div>
 
                 <div class="detail-meta-grid">
@@ -455,6 +448,7 @@ import { enterpriseApi } from '../services/enterpriseSecurityApi'
 import { getExceptions } from '../services/accessLogApi'
 import { authState } from '../stores/auth'
 import ExceptionCaseTimeline from '../components/shared/ExceptionCaseTimeline.vue'
+import EnterpriseDataTable from '../components/shared/EnterpriseDataTable.vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -478,6 +472,9 @@ const showCreateModal = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const createSuccess = ref('')
+const interventionReviewNote = ref('')
+const interventionActionMessage = ref('')
+const interventionActionError = ref(false)
 const createForm = reactive({
     interventionType: 'temporary_grant',
     subjectName: '',
@@ -487,6 +484,11 @@ const createForm = reactive({
     reason: '',
     note: '',
 })
+const interventionColumns = [
+    { key: 'subjectName', label: 'Đối tượng' },
+    { key: 'priority', label: 'Ưu tiên', width: '92px' },
+    { key: 'status', label: 'Trạng thái', width: '118px' },
+]
 
 // All cases from API
 const allCases = ref([])
@@ -499,6 +501,7 @@ const correlations = ref([])
 const currentRole = computed(() => authState.user?.role || 'BaoVe')
 const isQuanLy = computed(() => currentRole.value === 'QuanLy')
 const isAdmin = computed(() => currentRole.value === 'Admin')
+const canReviewInterventions = computed(() => isAdmin.value || isQuanLy.value)
 
 const caseCategories = computed(() => {
     const categories = [
@@ -804,6 +807,8 @@ async function loadInterventions() {
 
 async function selectIntervention(r) {
     selectedIntervention.value = r
+    interventionReviewNote.value = ''
+    interventionActionMessage.value = ''
 }
 
 async function submitInterventionRequest() {
@@ -843,48 +848,56 @@ async function submitInterventionRequest() {
 
 async function acceptIntervention(r) {
     savingIntervention.value = true
+    interventionActionMessage.value = ''
     try {
-        const res = await enterpriseApi.acceptInterventionRequest(r.operationalInterventionRequestId, {})
+        await enterpriseApi.acceptInterventionRequest(r.operationalInterventionRequestId, { note: interventionReviewNote.value || undefined })
         r.status = 'Accepted'
         r.acceptedAtUtc = new Date().toISOString()
         r.acceptedByUserId = authState.user?.userId
-        alert(`Yêu cầu #${r.operationalInterventionRequestId} đã được chấp nhận.`)
+        interventionActionError.value = false
+        interventionActionMessage.value = `Yêu cầu #${r.operationalInterventionRequestId} đã được chấp nhận.`
     } catch (e) {
-        alert(e?.response?.data?.message || 'Chấp nhận thất bại.')
+        interventionActionError.value = true
+        interventionActionMessage.value = e?.response?.data?.message || 'Chấp nhận thất bại.'
     } finally {
         savingIntervention.value = false
     }
 }
 
 async function rejectIntervention(r) {
-    const reason = prompt('Lý do từ chối:')
+    const reason = interventionReviewNote.value
     if (!reason) return
     savingIntervention.value = true
+    interventionActionMessage.value = ''
     try {
         const res = await enterpriseApi.rejectInterventionRequest(r.operationalInterventionRequestId, { note: reason })
         r.status = 'Rejected'
         r.rejectedAtUtc = new Date().toISOString()
         r.rejectedByUserId = authState.user?.userId
         r.rejectionReason = reason
-        alert(`Yêu cầu #${r.operationalInterventionRequestId} đã bị từ chối.`)
+        interventionActionError.value = false
+        interventionActionMessage.value = `Yêu cầu #${r.operationalInterventionRequestId} đã bị từ chối.`
     } catch (e) {
-        alert(e?.response?.data?.message || 'Từ chối thất bại.')
+        interventionActionError.value = true
+        interventionActionMessage.value = e?.response?.data?.message || 'Từ chối thất bại.'
     } finally {
         savingIntervention.value = false
     }
 }
 
 async function executeIntervention(r) {
-    if (!confirm('Xác nhận thực thi yêu cầu này?')) return
     savingIntervention.value = true
+    interventionActionMessage.value = ''
     try {
-        const res = await enterpriseApi.executeInterventionRequest(r.operationalInterventionRequestId, {})
+        await enterpriseApi.executeInterventionRequest(r.operationalInterventionRequestId, { note: interventionReviewNote.value || 'Admin thực thi yêu cầu đã duyệt' })
         r.status = 'Executed'
         r.executedAtUtc = new Date().toISOString()
         r.executedByUserId = authState.user?.userId
-        alert(`Yêu cầu #${r.operationalInterventionRequestId} đã được thực thi.`)
+        interventionActionError.value = false
+        interventionActionMessage.value = `Yêu cầu #${r.operationalInterventionRequestId} đã được thực thi và tạo hiệu lực thực tế.`
     } catch (e) {
-        alert(e?.response?.data?.message || 'Thực thi thất bại.')
+        interventionActionError.value = true
+        interventionActionMessage.value = e?.response?.data?.message || 'Thực thi thất bại.'
     } finally {
         savingIntervention.value = false
     }
@@ -1080,6 +1093,7 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
+.table-subline { display: block; margin-top: 3px; color: #64748b; font-weight: 500; }
 .exception-layout {
     display: grid;
     grid-template-columns: 380px 1fr;

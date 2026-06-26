@@ -68,7 +68,7 @@
                     </div>
                 </div>
 
-                <div class="action-strip">
+                <div v-if="isAdmin" class="action-strip">
                     <button
                         v-for="action in activeWorkspace.actions"
                         :key="action"
@@ -81,7 +81,7 @@
                 </div>
             </article>
 
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head">
                     <div>
                         <span class="panel-kicker">Step-up</span>
@@ -141,7 +141,7 @@
                 </div>
             </article>
 
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Foundation</span>
@@ -168,7 +168,7 @@
                 </div>
             </article>
 
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Policy</span>
@@ -200,7 +200,7 @@
         </section>
 
         <section class="ops-grid two">
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Identity</span>
@@ -261,7 +261,7 @@
                 </form>
             </article>
 
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Devices</span>
@@ -318,7 +318,7 @@
         </section>
 
         <section class="ops-grid three">
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">SOC</span>
@@ -348,7 +348,7 @@
                 </div>
             </article>
 
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Recovery</span>
@@ -370,7 +370,7 @@
                 </form>
             </article>
 
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Release</span>
@@ -396,7 +396,7 @@
 
         <!-- Ops Workspace: Restore, Security Checks, Outbox -->
         <section v-if="selectedWorkspace === 'ops'" class="ops-grid three">
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Restore</span>
@@ -418,7 +418,7 @@
                 </form>
                 <div v-if="restoreResult" class="success-card" style="margin-top:8px;">{{ restoreResult }}</div>
             </article>
-            <article class="ops-panel">
+            <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">Security</span>
@@ -822,6 +822,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { authState } from '../stores/auth'
 import { enterpriseApi, socIntelApi } from '../services/enterpriseSecurityApi'
 import { enterpriseAiApi } from '../services/enterpriseAiApi'
 
@@ -830,6 +831,7 @@ const loadError = ref('')
 const selectedWorkspace = ref('admin')
 const selectedAction = ref('')
 const activityLog = ref([])
+const isAdmin = computed(() => authState.user?.role === 'Admin')
 
 const overview = reactive({
     foundation: {},

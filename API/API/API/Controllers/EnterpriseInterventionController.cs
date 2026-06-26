@@ -9,7 +9,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/intervention")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin,BaoVe,QuanLy")]
 public class EnterpriseInterventionController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -144,7 +144,7 @@ public class EnterpriseInterventionController : ControllerBase
     /// PATCH /api/enterprise/intervention/requests/{requestId:long}/accept - Admin chấp nhận
     /// </summary>
     [HttpPatch("requests/{requestId:long}/accept")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> AcceptRequest(long requestId, [FromBody] AcceptRejectRequest request)
     {
         var item = await _context.OperationalInterventionRequests.FindAsync(requestId);
@@ -171,7 +171,7 @@ public class EnterpriseInterventionController : ControllerBase
     /// PATCH /api/enterprise/intervention/requests/{requestId:long}/reject - Admin từ chối
     /// </summary>
     [HttpPatch("requests/{requestId:long}/reject")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,QuanLy")]
     public async Task<IActionResult> RejectRequest(long requestId, [FromBody] AcceptRejectRequest request)
     {
         var item = await _context.OperationalInterventionRequests.FindAsync(requestId);
@@ -219,8 +219,81 @@ public class EnterpriseInterventionController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.Note))
             item.Note = request.Note.Trim();
 
+        object? effect;
+        var interventionType = item.InterventionType.Trim().ToLowerInvariant();
+        if (interventionType is "temporary_grant" or "policy_override")
+        {
+            if (!int.TryParse(item.SubjectId, out var subjectId) || subjectId <= 0)
+                return BadRequest(new { message = "A numeric SubjectId is required to execute this access grant." });
+
+            var grant = new TemporaryAccessGrant
+            {
+                SubjectType = string.IsNullOrWhiteSpace(item.SubjectType) ? "Employee" : item.SubjectType,
+                SubjectId = subjectId,
+                ValidFromUtc = DateTime.UtcNow,
+                ValidToUtc = item.ExpiresAtUtc.HasValue && item.ExpiresAtUtc.Value > DateTime.UtcNow
+                    ? item.ExpiresAtUtc.Value
+                    : DateTime.UtcNow.AddHours(1),
+                Reason = $"[{item.CorrelationId}] {item.Reason}",
+                ApprovedByUserId = userId
+            };
+            _context.TemporaryAccessGrants.Add(grant);
+            effect = grant;
+        }
+        else if (interventionType is "emergency_pass" or "emergency_override")
+        {
+            var pass = new EmergencyPass
+            {
+                SubjectType = string.IsNullOrWhiteSpace(item.SubjectType) ? "Person" : item.SubjectType,
+                SubjectId = item.SubjectId,
+                SubjectName = string.IsNullOrWhiteSpace(item.SubjectName) ? "Emergency subject" : item.SubjectName,
+                PlateNumber = item.PlateNumber,
+                LaneReference = item.LaneId,
+                LaneName = item.LaneName,
+                Reason = item.Reason,
+                ApprovedByUserId = userId.Value,
+                ValidFromUtc = DateTime.UtcNow,
+                ValidToUtc = item.ExpiresAtUtc.HasValue && item.ExpiresAtUtc.Value > DateTime.UtcNow
+                    ? item.ExpiresAtUtc.Value
+                    : DateTime.UtcNow.AddMinutes(30),
+                CorrelationId = item.CorrelationId
+            };
+            var laneEvent = new LaneEvent
+            {
+                LaneId = int.TryParse(item.LaneId, out var laneId) ? laneId : null,
+                EventType = "EMERGENCY_PASS",
+                Direction = "Entry",
+                PlateText = item.PlateNumber,
+                Note = $"[{item.CorrelationId}] Approved intervention #{item.OperationalInterventionRequestId}: {item.Reason}"
+            };
+            var alarm = new Alarm
+            {
+                AlarmType = "EmergencyPass",
+                Severity = "Critical",
+                State = "New",
+                Summary = $"Emergency pass approved for {pass.SubjectName}: {item.Reason}"
+            };
+            _context.EmergencyPasses.Add(pass);
+            _context.LaneEvents.Add(laneEvent);
+            _context.Alarms.Add(alarm);
+            effect = pass;
+        }
+        else
+        {
+            var laneEvent = new LaneEvent
+            {
+                LaneId = int.TryParse(item.LaneId, out var laneId) ? laneId : null,
+                EventType = "INTERVENTION_EXECUTED",
+                Direction = "Entry",
+                PlateText = item.PlateNumber,
+                Note = $"[{item.CorrelationId}] #{item.OperationalInterventionRequestId} {item.InterventionType}: {item.Reason}"
+            };
+            _context.LaneEvents.Add(laneEvent);
+            effect = laneEvent;
+        }
+
         await _context.SaveChangesAsync();
-        return Ok(item);
+        return Ok(new { request = item, effect });
     }
 
     /// <summary>

@@ -27,7 +27,7 @@
         <div class="overview-grid">
           <div class="ov-card">
             <h3>🔐 Hệ thống kiểm soát ra vào thông minh</h3>
-            <p>V-Shield giúp bạn kiểm soát ai được ra vào công ty, bằng cách nào (khuôn mặt, QR, biển số xe), vào lúc nào. Hệ thống tự động nhận diện và ghi lại tất cả.</p>
+            <p>V-Shield giúp kiểm soát ai được ra vào công ty bằng QR động và biển số xe, vào thời điểm nào, qua cổng nào. Mọi quyết định đều được ghi lại để truy vết.</p>
           </div>
           <div class="ov-card">
             <h3>👥 4 vai trò người dùng</h3>
@@ -35,7 +35,7 @@
           </div>
           <div class="ov-card">
             <h3>📱 Các phương thức xác thực</h3>
-            <p>Face ID (khuôn mặt), QR động (mã vạch thay đổi liên tục), Biển số xe (ANPR), Thẻ từ, Mã xác thực 2 lớp (MFA).</p>
+            <p>QR động chống dùng lại, biển số xe (ANPR), thẻ từ và mã xác thực hai lớp (MFA) cho thao tác quản trị.</p>
           </div>
           <div class="ov-card">
             <h3>📊 Hệ thống gồm {{ totalPageCount }} trang chức năng</h3>

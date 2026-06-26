@@ -158,6 +158,10 @@ public class AuthenticationService : IAuthenticationService
 
     public bool RequiresMfa(AppUser user)
     {
+        if (_config.GetValue("Authentication:DemoBypassMfa", false) &&
+            _config.GetValue("DemoData:Enabled", false))
+            return false;
+
         var configuredRoles = _config.GetSection("Authentication:RequireMfaForRoles").Get<string[]>();
         var roles = configuredRoles is { Length: > 0 }
             ? configuredRoles

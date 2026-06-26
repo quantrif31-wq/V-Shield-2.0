@@ -11,6 +11,7 @@ public partial class ApplicationDbContext
     public DbSet<AccessGroup> AccessGroups { get; set; }
     public DbSet<AccessRule> AccessRules { get; set; }
     public DbSet<TemporaryAccessGrant> TemporaryAccessGrants { get; set; }
+    public DbSet<EmergencyPass> EmergencyPasses { get; set; }
     public DbSet<AccessPolicyVersion> AccessPolicyVersions { get; set; }
     public DbSet<AccessDecision> AccessDecisions { get; set; }
     public DbSet<AntiPassbackState> AntiPassbackStates { get; set; }
@@ -101,6 +102,22 @@ public partial class ApplicationDbContext
                 .WithMany()
                 .HasForeignKey(e => e.ApprovedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<EmergencyPass>(entity =>
+        {
+            entity.HasKey(e => e.EmergencyPassId);
+            entity.Property(e => e.SubjectType).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.SubjectName).IsRequired().HasMaxLength(240);
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.CorrelationId).IsRequired().HasMaxLength(80);
+            entity.HasIndex(e => new { e.Status, e.ValidToUtc });
+            entity.HasIndex(e => e.CorrelationId).IsUnique();
+            entity.HasOne(e => e.ApprovedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AccessPolicyVersion>(entity =>

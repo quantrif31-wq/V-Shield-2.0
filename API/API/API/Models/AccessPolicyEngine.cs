@@ -92,6 +92,26 @@ public class TemporaryAccessGrant
     public AppUser? ApprovedByUser { get; set; }
 }
 
+public class EmergencyPass
+{
+    public long EmergencyPassId { get; set; }
+    [MaxLength(40)] public string SubjectType { get; set; } = "Person";
+    [MaxLength(80)] public string? SubjectId { get; set; }
+    [MaxLength(240)] public string SubjectName { get; set; } = string.Empty;
+    [MaxLength(40)] public string? PlateNumber { get; set; }
+    [MaxLength(120)] public string? LaneReference { get; set; }
+    [MaxLength(160)] public string? LaneName { get; set; }
+    [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
+    [MaxLength(40)] public string Status { get; set; } = "Active";
+    [MaxLength(80)] public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
+    public int ApprovedByUserId { get; set; }
+    public DateTime ValidFromUtc { get; set; } = DateTime.UtcNow;
+    public DateTime ValidToUtc { get; set; }
+    public long? AlarmId { get; set; }
+    public long? LaneEventId { get; set; }
+    public AppUser? ApprovedByUser { get; set; }
+}
+
 public class AccessPolicyVersion
 {
     public int AccessPolicyVersionId { get; set; }

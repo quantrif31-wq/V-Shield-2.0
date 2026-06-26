@@ -2605,7 +2605,7 @@ lane.qr.scanRequested = true
       const permissions = {
         allow: isReady && (role === 'Admin' || role === 'BaoVe'),
         deny: isReady && (role === 'Admin' || role === 'BaoVe'),
-        manual: isReady && (role === 'Admin' || role === 'BaoVe'),
+        manual: (role === 'Admin' || role === 'BaoVe'),
         override: isReady && (role === 'Admin' || role === 'BaoVe'),
         duress: (role === 'Admin' || role === 'BaoVe'),
         escalate: isReady && (role === 'Admin' || role === 'BaoVe'),
@@ -2617,7 +2617,7 @@ lane.qr.scanRequested = true
     async handleDecisionAction(action) {
       if (!this.decisionLane) return
       const lane = this.decisionLane
-      const { type, reason, responsibility } = action
+      const { type, reason, responsibility, details } = action
 
       try {
         switch (type) {
@@ -2628,7 +2628,7 @@ lane.qr.scanRequested = true
             await this.executeDeny(lane, reason)
             break
           case 'manual':
-            await this.executeManual(lane, reason)
+            await this.executeManual(lane, reason, details)
             break
           case 'override':
             await this.executeOverride(lane, reason, responsibility)
@@ -2640,7 +2640,7 @@ lane.qr.scanRequested = true
             await this.executeEscalate(lane, reason)
             break
           case 'emergency':
-            await this.executeEmergency(lane, reason)
+            await this.executeEmergency(lane, reason, details, responsibility)
             break
         }
       } catch (e) {
@@ -2676,7 +2676,7 @@ lane.qr.scanRequested = true
       // Record lane event
       try {
         await enterpriseApi.recordLaneEvent({
-          laneId: lane.id,
+          laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
           eventType: 'ACCESS_GRANTED',
           direction: 'IN',
           plateText: licensePlate,
@@ -2694,7 +2694,7 @@ lane.qr.scanRequested = true
       // Record lane event as denied
       try {
         await enterpriseApi.recordLaneEvent({
-          laneId: lane.id,
+          laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
           eventType: 'ACCESS_DENIED',
           direction: 'IN',
           plateText: lane.plate.confirmedPlate || '',
@@ -2709,21 +2709,21 @@ lane.qr.scanRequested = true
       this.showAuditToast('warning', 'Đã từ chối', `Từ chối: ${reason || 'Không có lý do'}.`, `RCP-${Date.now()}`)
     },
 
-    async executeManual(lane, reason) {
-      // Switch to manual mode - log the event
-      try {
-        await enterpriseApi.recordLaneEvent({
-          laneId: lane.id,
-          eventType: 'MANUAL_MODE',
-          direction: 'IN',
-          plateText: lane.plate.confirmedPlate || '',
-          note: reason || 'Chuyển vận hành thủ công',
-        })
-      } catch (e) {
-        console.warn('recordLaneEvent failed:', e)
-      }
+    async executeManual(lane, reason, details = {}) {
+      const plate = String(details?.plateNumber || lane.plate.confirmedPlate || lane.plate.lastRawPlate || '').trim()
+      const subjectName = String(details?.subjectName || lane.qr.employeeName || '').trim()
+      const subjectId = String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || '').trim()
+      if (!subjectName && !plate) throw new Error('Cần nhập họ tên/đơn vị hoặc biển số để vận hành thủ công.')
 
-      this.showAuditToast('info', 'Chuyển manual', `Làn chuyển sang vận hành thủ công. Lý do: ${reason}`, `RCP-${Date.now()}`)
+      const response = await enterpriseApi.recordLaneEvent({
+        laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
+        eventType: 'MANUAL_PASS',
+        direction: 'IN',
+        plateText: plate,
+        note: `[manual] ${subjectName}; subjectId=${subjectId}; reason=${reason}`,
+      })
+
+      this.showAuditToast('success', 'Đã cho qua thủ công', `${subjectName || plate} đã được cho qua và ghi nhận trách nhiệm.`, `MAN-${response.data?.laneEventId || Date.now()}`)
     },
 
     async executeOverride(lane, reason, responsibility) {
@@ -2753,7 +2753,7 @@ lane.qr.scanRequested = true
       // Record lane event
       try {
         await enterpriseApi.recordLaneEvent({
-          laneId: lane.id,
+          laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
           eventType: 'OVERRIDE',
           direction: 'IN',
           plateText: licensePlate,
@@ -2771,9 +2771,12 @@ lane.qr.scanRequested = true
       // Record duress event
       try {
         const res = await enterpriseApi.recordDuressEvent({
-          location: lane.name || 'Gate',
-          note: reason || 'Ghi nhận duress',
-          source: 'GateTransitMonitor',
+          userId: authState.user?.userId || null,
+          employeeId: authState.user?.employeeId || null,
+          accessPointId: null,
+          siteId: null,
+          credentialType: 'DynamicQR',
+          description: `${lane.name || 'Gate'}: ${reason || 'Ghi nhận duress'}`,
         })
         const receiptId = res.data?.duressEventId || `DRS-${Date.now()}`
         this.showAuditToast('danger', 'ĐÃ GHI NHẬN DURESS', 'Tín hiệu ép buộc đã được gửi đến trung tâm giám sát. Hỗ trợ sẽ được điều động.', receiptId)
@@ -2805,7 +2808,7 @@ lane.qr.scanRequested = true
         // Also record lane event for audit trail
         try {
           await enterpriseApi.recordLaneEvent({
-            laneId: lane.id,
+            laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
             eventType: 'ESCALATION_REQUEST',
             direction: 'IN',
             plateText: lane.plate.confirmedPlate || '',
@@ -2827,17 +2830,29 @@ lane.qr.scanRequested = true
       }
     },
 
-    async executeEmergency(lane, reason) {
+    async executeEmergency(lane, reason, details = {}, responsibility) {
       // Only Admin can execute emergency directly
       if (!this.isAdmin) {
         this.showAuditToast('warning', 'Không có quyền', 'Chỉ Admin mới có quyền cấp quyền khẩn cấp. Vui lòng gửi yêu cầu.', '')
         return
       }
 
-      // Show step-up for emergency action
-      this.stepUpLaneId = lane.id
-      this.stepUpAction = { type: 'emergency', reason }
-      this.stepUpVisible = true
+      if (!responsibility) throw new Error('Phải xác nhận trách nhiệm trước khi cấp quyền khẩn cấp.')
+      const subjectName = String(details?.subjectName || lane.qr.employeeName || 'Đối tượng khẩn cấp').trim()
+      const plateNumber = String(details?.plateNumber || lane.plate.confirmedPlate || lane.plate.lastRawPlate || '').trim()
+      const response = await enterpriseApi.createEmergencyPass({
+        subjectType: lane.qr.guestId ? 'Guest' : 'EmergencyService',
+        subjectId: String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || ''),
+        subjectName,
+        plateNumber,
+        laneReference: String(lane.id || ''),
+        laneName: String(lane.name || ''),
+        direction: 'Entry',
+        reason,
+        durationMinutes: 30,
+      })
+      const pass = response.data?.emergencyPass
+      this.showAuditToast('danger', 'Đã cấp thông hành khẩn cấp', `${subjectName}${plateNumber ? ` - ${plateNumber}` : ''} được phép qua ngay. Cảnh báo toàn công ty đã phát.`, `EMG-${pass?.emergencyPassId || Date.now()}`)
     },
 
     async onStepUpConfirmed(result) {
@@ -3930,9 +3945,6 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
-
-
-
 
 
 

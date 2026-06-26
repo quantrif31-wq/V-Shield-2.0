@@ -40,6 +40,36 @@ public static class DemoDataSeeder
         Console.WriteLine("[OK] Demo data seeded for medium/large company scenario.");
     }
 
+    public static object ResetOperationalScenarios(ApplicationDbContext db)
+    {
+        db.OperationalInterventionRequests.RemoveRange(db.OperationalInterventionRequests);
+        db.EmergencyPasses.RemoveRange(db.EmergencyPasses);
+        db.LaneEvents.RemoveRange(db.LaneEvents.Where(item =>
+            item.EventType == "MANUAL_PASS" ||
+            item.EventType == "EMERGENCY_PASS" ||
+            item.EventType == "INTERVENTION_EXECUTED" ||
+            item.EventType == "ESCALATION_REQUEST"));
+        db.Alarms.RemoveRange(db.Alarms.Where(item =>
+            item.AlarmType == "DeviceHealth" ||
+            item.AlarmType == "DeviceOffline" ||
+            item.AlarmType == "EmergencyPass"));
+        db.EvidenceItems.RemoveRange(db.EvidenceItems.Where(item => item.StorageReference.StartsWith("demo://")));
+        db.SecurityDevices.RemoveRange(db.SecurityDevices.Where(item => item.SerialNumber != null && item.SerialNumber.StartsWith("DEMO-")));
+        db.SaveChanges();
+
+        var employees = db.Employees.Include(item => item.Department).OrderBy(item => item.EmployeeId).ToList();
+        EnsureEnterpriseDemoScenarios(db, employees, DateTime.UtcNow);
+        db.SaveChanges();
+
+        return new
+        {
+            interventionRequests = db.OperationalInterventionRequests.Count(),
+            securityDevices = db.SecurityDevices.Count(item => item.SerialNumber != null && item.SerialNumber.StartsWith("DEMO-")),
+            alarms = db.Alarms.Count(),
+            evidenceItems = db.EvidenceItems.Count(item => item.StorageReference.StartsWith("demo://"))
+        };
+    }
+
     private static void Seed(ApplicationDbContext db)
     {
         var now = DateTime.UtcNow;
@@ -475,6 +505,8 @@ public static class DemoDataSeeder
 
         EnsureDemoUserAccounts(db, employees, now);
         EnsureEmployeeDynamicQrs(db, employees, now);
+        db.SaveChanges();
+        EnsureEnterpriseDemoScenarios(db, employees, now);
 
         foreach (var door in db.Doors)
         {
@@ -537,6 +569,88 @@ public static class DemoDataSeeder
         }
 
         db.SaveChanges();
+    }
+
+    private static void EnsureEnterpriseDemoScenarios(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        var admin = db.AppUsers.FirstOrDefault(user => user.Username == "admin");
+        var guard = db.AppUsers.FirstOrDefault(user => user.Username == "baove1");
+        var sampleEmployee = employees.FirstOrDefault();
+
+        if (!db.OperationalInterventionRequests.Any() && guard != null)
+        {
+            db.OperationalInterventionRequests.AddRange(
+                new OperationalInterventionRequest
+                {
+                    RequestedByUserId = guard.UserId,
+                    LaneId = "1",
+                    LaneName = "Cong A - Lane 1",
+                    InterventionType = "temporary_grant",
+                    SubjectName = sampleEmployee?.FullName ?? "Nguyen Van Minh",
+                    SubjectId = (sampleEmployee?.EmployeeId ?? 1).ToString(),
+                    SubjectType = "Employee",
+                    PlateNumber = "51A-12345",
+                    Reason = "Nha thau da duoc xac minh can vao khu vuc han che",
+                    Priority = "high",
+                    Status = "Pending",
+                    CreatedAtUtc = now.AddMinutes(-12),
+                    ExpiresAtUtc = now.AddHours(3)
+                },
+                new OperationalInterventionRequest
+                {
+                    RequestedByUserId = guard.UserId,
+                    AcceptedByUserId = admin?.UserId,
+                    LaneId = "2",
+                    LaneName = "Bai xe - Lane 2",
+                    InterventionType = "policy_override",
+                    SubjectName = "Tran Thi Binh",
+                    SubjectId = (employees.Skip(1).FirstOrDefault()?.EmployeeId ?? 2).ToString(),
+                    SubjectType = "Employee",
+                    PlateNumber = "51C-33333",
+                    Reason = "Lech trang thai bai xe sau lan mat ket noi",
+                    Priority = "medium",
+                    Status = "Accepted",
+                    CreatedAtUtc = now.AddMinutes(-40),
+                    AcceptedAtUtc = now.AddMinutes(-15),
+                    ExpiresAtUtc = now.AddHours(1)
+                },
+                new OperationalInterventionRequest
+                {
+                    RequestedByUserId = guard.UserId,
+                    LaneId = "1",
+                    LaneName = "Cong A - Lane 1",
+                    InterventionType = "temporary_grant",
+                    SubjectName = "Khach demo het han",
+                    SubjectType = "Guest",
+                    Reason = "Yeu cau cu da qua thoi gian xu ly",
+                    Priority = "low",
+                    Status = "Expired",
+                    CreatedAtUtc = now.AddHours(-6),
+                    ExpiresAtUtc = now.AddHours(-2)
+                });
+        }
+
+        if (!db.SecurityDevices.Any())
+        {
+            db.SecurityDevices.AddRange(
+                new SecurityDevice { Name = "Gate A QR Controller", DeviceType = "QRController", Vendor = "V-Shield", Model = "VS-Q1", SerialNumber = "DEMO-QR-001", Status = "Online", LastSeenAtUtc = now.AddSeconds(-15) },
+                new SecurityDevice { Name = "Parking Barrier", DeviceType = "Barrier", Vendor = "V-Shield", Model = "VS-B2", SerialNumber = "DEMO-BAR-002", Status = "Degraded", LastSeenAtUtc = now.AddMinutes(-8) },
+                new SecurityDevice { Name = "Restricted Zone Reader", DeviceType = "QRReader", Vendor = "V-Shield", Model = "VS-R1", SerialNumber = "DEMO-QR-003", Status = "Offline", LastSeenAtUtc = now.AddHours(-2) });
+        }
+
+        if (!db.Alarms.Any())
+        {
+            db.Alarms.AddRange(
+                new Alarm { AlarmType = "DeviceHealth", Severity = "Low", State = "Acknowledged", Summary = "Gate A controller maintenance window", CreatedAtUtc = now.AddHours(-3), AcknowledgedAtUtc = now.AddHours(-2) },
+                new Alarm { AlarmType = "DeviceOffline", Severity = "Critical", State = "New", Summary = "Restricted Zone Reader has been offline for two hours", CreatedAtUtc = now.AddMinutes(-20) });
+        }
+
+        if (!db.EvidenceItems.Any())
+        {
+            db.EvidenceItems.AddRange(
+                new EvidenceItem { EvidenceType = "Document", SourceType = "DemoAlarm", SourceReference = "DeviceOffline-DEMO-QR-003", StorageReference = "demo://evidence/device-offline-qr-003.json", HashSha256 = new string('a', 64), PrivacyLabel = "Internal", RetentionCategory = "Incident", IsImmutable = true, LastHashVerificationStatus = "Verified", CurrentHashVerifiedAtUtc = now.AddMinutes(-18), CreatedByUserId = admin?.UserId, CreatedAtUtc = now.AddMinutes(-20) },
+                new EvidenceItem { EvidenceType = "Snapshot", SourceType = "DemoAccess", SourceReference = "ManualPass-51C-33333", StorageReference = "demo://evidence/manual-pass-51c-33333.jpg", HashSha256 = new string('b', 64), PrivacyLabel = "Restricted", RetentionCategory = "Investigation", IsImmutable = true, LastHashVerificationStatus = "Verified", CurrentHashVerifiedAtUtc = now.AddMinutes(-8), CreatedByUserId = admin?.UserId, CreatedAtUtc = now.AddMinutes(-10) });
+        }
     }
 
     private static void EnsureDemoUserAccounts(ApplicationDbContext db, List<Employee> employees, DateTime now)

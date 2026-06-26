@@ -1981,6 +1981,82 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         Assert.True(string.IsNullOrWhiteSpace(GetString(secondLogin, "token")));
     }
 
+    [Fact]
+    public async Task EmergencyPass_CreatesPassLaneEventAlarm_AndGlobalAlert()
+    {
+        using var admin = CreateClientWithBearer(CreateJwtToken(1002, "admin.test", "Admin"));
+        var response = await admin.PostAsJsonAsync("/api/enterprise/access-policy/emergency-passes", new
+        {
+            subjectType = "EmergencyService",
+            subjectId = "AMB-001",
+            subjectName = "Emergency ambulance",
+            plateNumber = "51A-115.00",
+            laneReference = "1",
+            laneName = "Gate A",
+            direction = "Entry",
+            reason = "Emergency medical response requires immediate access",
+            durationMinutes = 30
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Single(await db.EmergencyPasses.ToListAsync());
+            Assert.Contains(await db.LaneEvents.ToListAsync(), item => item.EventType == "EMERGENCY_PASS");
+            Assert.Contains(await db.Alarms.ToListAsync(), item => item.AlarmType == "EmergencyPass" && item.Severity == "Critical");
+        }
+
+        var alerts = await admin.GetAsync("/api/security-alerts/active");
+        Assert.Equal(HttpStatusCode.OK, alerts.StatusCode);
+        Assert.Contains("Thông hành khẩn cấp", await alerts.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Manager_CanAcceptIntervention_ButCannotExecuteIt()
+    {
+        const int managerId = 1010;
+        long requestId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (!await db.AppUsers.AnyAsync(user => user.UserId == managerId))
+            {
+                db.AppUsers.Add(new AppUser
+                {
+                    UserId = managerId,
+                    Username = "manager.test",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Manager@12345"),
+                    FullName = "Manager Test",
+                    Role = "QuanLy",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            var item = new OperationalInterventionRequest
+            {
+                RequestedByUserId = 1002,
+                InterventionType = "temporary_grant",
+                SubjectId = "1003",
+                SubjectName = "Staff Role Test",
+                SubjectType = "Employee",
+                Reason = "Verified temporary access request for integration test",
+                Status = "Pending",
+                Priority = "high"
+            };
+            db.OperationalInterventionRequests.Add(item);
+            await db.SaveChangesAsync();
+            requestId = item.OperationalInterventionRequestId;
+        }
+
+        using var manager = CreateClientWithBearer(CreateJwtToken(managerId, "manager.test", "QuanLy"));
+        var accept = await manager.PatchAsJsonAsync($"/api/enterprise/intervention/requests/{requestId}/accept", new { note = "Manager verified" });
+        Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
+
+        var execute = await manager.PatchAsJsonAsync($"/api/enterprise/intervention/requests/{requestId}/execute", new { note = "Must be admin" });
+        Assert.Equal(HttpStatusCode.Forbidden, execute.StatusCode);
+    }
+
     private HttpClient CreateClientWithBearer(string token)
     {
         var client = _factory.CreateClient();

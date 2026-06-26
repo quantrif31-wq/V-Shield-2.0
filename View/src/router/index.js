@@ -71,6 +71,13 @@ const GuideViewer = () => import('../pages/GuideViewer.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
+function landingRouteForRole(role) {
+    if (role === 'Staff') return { name: ROUTE_NAME_DYNAMIC_QR_GENERATOR }
+    if (role === 'BaoVe') return { name: 'GateTransitMonitor' }
+    if (role === 'QuanLy') return { name: 'Exceptions' }
+    return { name: 'Dashboard' }
+}
+
 const routes = [
     {
         path: '/login',
@@ -96,9 +103,7 @@ const routes = [
         meta: { requiresAuth: true },
         children: [
             { path: '', redirect: () => {
-                const currentRole = authState.user?.role
-                if (currentRole === 'Staff') return { name: ROUTE_NAME_DYNAMIC_QR_GENERATOR }
-                return { name: 'Dashboard' }
+                return landingRouteForRole(authState.user?.role)
             }},
             { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'], keepAlive: true } },
@@ -139,15 +144,12 @@ const routes = [
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'guide', name: 'GuideViewer', component: GuideViewer },
-            { path: 'face-id-security', name: 'FaceIdSecurity', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'face-video-monitor', name: 'FaceVideoMonitor', component: FaceVideo, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
             { path: 'dynamic-qr-scanner', name: 'DynamicQrScanner', component: DynamicQrScanner, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'biometrics', name: 'Biometrics', component: Biometrics, meta: { allowedRoles: ['Admin'] } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'attendance/records', name: 'AttendanceRecords', component: AttendanceRecords, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe', 'QuanLy'] } },
@@ -204,8 +206,7 @@ router.beforeEach((to, from, next) => {
     if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAdmin)) {
         if (!hasRole('Admin')) {
             const currentRole = authState.user?.role
-            if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
-            return next({ name: 'Dashboard' })
+            return next(landingRouteForRole(currentRole))
         }
     }
 
@@ -214,8 +215,7 @@ router.beforeEach((to, from, next) => {
     if (allowedRoles) {
         const currentRole = authState.user?.role
         if (!allowedRoles.includes(currentRole)) {
-            if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
-            return next({ name: 'Dashboard' })
+            return next(landingRouteForRole(currentRole))
         }
     }
 
@@ -223,8 +223,7 @@ router.beforeEach((to, from, next) => {
     // Nhưng cho phép truy cập trang đăng ký khách (GuestRegister) dù đã đăng nhập
     if (to.meta.guest && isLoggedIn() && to.name !== 'GuestRegister' && to.name !== 'VisitorPass') {
         const currentRole = authState.user?.role
-        if (currentRole === 'Staff') return next({ name: ROUTE_NAME_DYNAMIC_QR_GENERATOR })
-        return next({ name: 'Dashboard' })
+        return next(landingRouteForRole(currentRole))
     }
 
     next()

@@ -22,8 +22,8 @@
                         <span>Giám sát liên tục</span>
                     </article>
                     <article class="metric-card">
-                        <strong>Face ID</strong>
-                        <span>Nhận diện khuôn mặt</span>
+                        <strong>QR động</strong>
+                        <span>Xác thực chống dùng lại</span>
                     </article>
                     <article class="metric-card">
                         <strong>ANPR</strong>

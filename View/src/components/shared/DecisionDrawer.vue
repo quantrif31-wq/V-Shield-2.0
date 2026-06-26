@@ -137,7 +137,7 @@
               <span class="dd-action-icon">&#9888;&#65039;</span>
               <span class="dd-action-text">
                 <strong>Cấp quyền khẩn cấp</strong>
-                <small>Yêu cầu Admin cấp temporary grant</small>
+                <small>Admin cấp quyền ngay và chịu trách nhiệm</small>
               </span>
             </button>
           </div>
@@ -153,12 +153,26 @@
               ref="reasonForm"
               v-model="actionReason"
               :required="true"
-              :require-responsibility="formMode === 'override' || formMode === 'duress'"
+              :require-responsibility="formMode === 'override' || formMode === 'duress' || formMode === 'emergency'"
               :show-error="formError"
               placeholder="Nhập lý do cho hành động này..."
               :disabled="saving"
               @responsibility-change="responsibilityAccepted = $event"
             />
+            <div v-if="formMode === 'manual' || formMode === 'emergency'" class="dd-manual-grid">
+              <label>
+                <span>Họ tên / đơn vị</span>
+                <input v-model.trim="manualSubjectName" type="text" placeholder="Ví dụ: Kíp cấp cứu 115" />
+              </label>
+              <label>
+                <span>Mã người / giấy tờ</span>
+                <input v-model.trim="manualSubjectId" type="text" placeholder="Mã nhân viên hoặc giấy tờ" />
+              </label>
+              <label class="dd-manual-full">
+                <span>Biển số</span>
+                <input v-model.trim="manualPlateNumber" type="text" placeholder="51A-123.45" />
+              </label>
+            </div>
             <div v-if="formError" class="dd-form-error">Vui lòng nhập lý do và xác nhận trách nhiệm.</div>
             <div class="dd-form-actions">
               <button class="dd-btn dd-btn--ghost" :disabled="saving" @click="cancelForm">Hủy</button>
@@ -212,6 +226,9 @@ export default {
       formError: false,
       saving: false,
       currentAction: null,
+      manualSubjectName: '',
+      manualSubjectId: '',
+      manualPlateNumber: '',
     }
   },
   computed: {
@@ -221,7 +238,7 @@ export default {
         override: 'Cho qua có chịu trách nhiệm',
         duress: 'Ghi nhận ép buộc (Duress)',
         escalate: 'Xin phép quản lý',
-        emergency: 'Yêu cầu cấp quyền khẩn cấp',
+        emergency: 'Cấp quyền khẩn cấp ngay',
       }
       return titles[this.formMode] || 'Xác nhận hành động'
     },
@@ -233,7 +250,7 @@ export default {
         override: 'Xác nhận chịu trách nhiệm',
         duress: 'Gửi tín hiệu duress',
         escalate: 'Gửi yêu cầu',
-        emergency: 'Gửi yêu cầu khẩn cấp',
+        emergency: 'Cấp quyền và phát cảnh báo',
       }
       return labels[this.formMode] || 'Xác nhận'
     },
@@ -261,6 +278,7 @@ export default {
       this.actionReason = ''
       this.responsibilityAccepted = false
       this.formError = false
+      this.seedManualFields()
     },
     openStepUp(mode) {
       this.formMode = mode
@@ -268,6 +286,7 @@ export default {
       // For emergency - always require reason + escalation
       this.actionReason = ''
       this.responsibilityAccepted = false
+      this.seedManualFields()
     },
     cancelForm() {
       this.resetForm()
@@ -278,13 +297,25 @@ export default {
       this.responsibilityAccepted = false
       this.formError = false
       this.saving = false
+      this.manualSubjectName = ''
+      this.manualSubjectId = ''
+      this.manualPlateNumber = ''
+    },
+    seedManualFields() {
+      this.manualSubjectName = this.subjectName || ''
+      this.manualSubjectId = String(this.subjectId || '')
+      this.manualPlateNumber = this.plateNumber || ''
     },
     async submitForm() {
       if (!this.actionReason.trim()) {
         this.formError = true
         return
       }
-      if ((this.formMode === 'override' || this.formMode === 'duress') && !this.responsibilityAccepted) {
+      if ((this.formMode === 'override' || this.formMode === 'duress' || this.formMode === 'emergency') && !this.responsibilityAccepted) {
+        this.formError = true
+        return
+      }
+      if ((this.formMode === 'manual' || this.formMode === 'emergency') && !this.manualSubjectName && !this.manualPlateNumber) {
         this.formError = true
         return
       }
@@ -294,6 +325,11 @@ export default {
         type: this.formMode,
         reason: this.actionReason.trim(),
         responsibility: this.responsibilityAccepted,
+        details: {
+          subjectName: this.manualSubjectName,
+          subjectId: this.manualSubjectId,
+          plateNumber: this.manualPlateNumber,
+        },
       })
     },
     resetSaving() {
@@ -322,6 +358,10 @@ export default {
   flex-direction: column;
   overflow: hidden;
 }
+.dd-manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.dd-manual-grid label { display: grid; gap: 5px; color: #334155; font-size: 12px; font-weight: 700; }
+.dd-manual-grid input { width: 100%; min-height: 40px; border: 1px solid #cbd5e1; background: #fff; padding: 8px 10px; color: #0f172a; }
+.dd-manual-full { grid-column: 1 / -1; }
 .dd-header {
   display: flex;
   align-items: center;
