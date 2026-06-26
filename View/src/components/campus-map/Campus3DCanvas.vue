@@ -19,6 +19,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
@@ -49,10 +50,10 @@ export default {
             camera: null,
             renderer: null,
             controls: null,
-            raycaster: new THREE.Raycaster(),
-            mouse: new THREE.Vector2(),
+            raycaster: markRaw(new THREE.Raycaster()),
+            mouse: markRaw(new THREE.Vector2()),
             hoveredObject: null,
-            gateMeshes: new Map(),
+            gateMeshes: markRaw(new Map()),
             animFrameId: null,
         }
     },
@@ -73,23 +74,23 @@ export default {
             const w = container.clientWidth
             const h = container.clientHeight || 600
 
-            this.scene = new THREE.Scene()
+            this.scene = markRaw(new THREE.Scene())
             this.scene.background = new THREE.Color(0x0a1929)
 
-            this.camera = new THREE.PerspectiveCamera(45, w / h, 1, 1000)
+            this.camera = markRaw(new THREE.PerspectiveCamera(45, w / h, 1, 1000))
             this.camera.position.set(80, 70, 120)
             this.camera.lookAt(0, 0, 0)
 
-            this.renderer = new THREE.WebGLRenderer({ antialias: true })
+            this.renderer = markRaw(new THREE.WebGLRenderer({ antialias: true }))
             this.renderer.setSize(w, h)
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
             this.renderer.shadowMap.enabled = true
-            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+            this.renderer.shadowMap.type = THREE.PCFShadowMap
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping
             this.renderer.toneMappingExposure = 1.2
             container.prepend(this.renderer.domElement)
 
-            this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+            this.controls = markRaw(new OrbitControls(this.camera, this.renderer.domElement))
             this.controls.enableDamping = true
             this.controls.dampingFactor = 0.08
             this.controls.maxPolarAngle = Math.PI / 2.2
@@ -135,8 +136,6 @@ export default {
             const groundGeo = new THREE.PlaneGeometry(300, 300)
             const groundMat = new THREE.MeshPhongMaterial({
                 color: 0x1a2a3a,
-                roughness: 0.9,
-                metalness: 0.0,
             })
             const ground = new THREE.Mesh(groundGeo, groundMat)
             ground.rotation.x = -Math.PI / 2
@@ -197,8 +196,10 @@ export default {
                 border.position.y = -0.47
                 this.scene.add(border)
 
-                for (const obj of site.objects) {
-                    this.buildObject(obj)
+                if (site.objects) {
+                    for (const obj of site.objects) {
+                        this.buildObject(obj)
+                    }
                 }
             }
 
@@ -223,8 +224,6 @@ export default {
                     color,
                     transparent: true,
                     opacity: 0.85,
-                    roughness: 0.5,
-                    metalness: 0.2,
                 })
                 const block = new THREE.Mesh(blockGeo, blockMat)
                 block.position.y = h / 2
@@ -258,14 +257,14 @@ export default {
             } else if (type === 'GateMarker') {
                 const archBase = new THREE.Mesh(
                     new THREE.BoxGeometry(w, 0.5, l),
-                    new THREE.MeshPhongMaterial({ color, roughness: 0.3, metalness: 0.1 })
+                    new THREE.MeshPhongMaterial({ color })
                 )
                 archBase.position.y = 0.25
                 archBase.receiveShadow = true
                 group.add(archBase)
 
                 const pillarGeo = new THREE.BoxGeometry(0.5, h, 0.5)
-                const pillarMat = new THREE.MeshPhongMaterial({ color, roughness: 0.3, metalness: 0.1 })
+                const pillarMat = new THREE.MeshPhongMaterial({ color })
                 const p1 = new THREE.Mesh(pillarGeo, pillarMat)
                 p1.position.set(-w / 2 + 0.5, h / 2, 0)
                 group.add(p1)
@@ -275,7 +274,7 @@ export default {
 
                 const topBar = new THREE.Mesh(
                     new THREE.BoxGeometry(w - 1, 0.3, 0.5),
-                    new THREE.MeshPhongMaterial({ color, roughness: 0.3, metalness: 0.1 })
+                    new THREE.MeshPhongMaterial({ color })
                 )
                 topBar.position.set(0, h, 0)
                 group.add(topBar)
@@ -357,7 +356,7 @@ export default {
 
                 const crown = new THREE.Mesh(
                     new THREE.SphereGeometry(1.8, 8, 8),
-                    new THREE.MeshPhongMaterial({ color, roughness: 0.8 })
+                    new THREE.MeshPhongMaterial({ color })
                 )
                 crown.position.y = 2.5 + Math.random() * 1.5
                 crown.castShadow = true
@@ -365,7 +364,7 @@ export default {
 
                 const crown2 = new THREE.Mesh(
                     new THREE.SphereGeometry(1.3, 8, 8),
-                    new THREE.MeshPhongMaterial({ color: 0x166534, roughness: 0.8 })
+                    new THREE.MeshPhongMaterial({ color: 0x166534 })
                 )
                 crown2.position.set(0.6, 2.0 + Math.random() * 1.0, 0.5)
                 crown2.castShadow = true
@@ -384,8 +383,12 @@ export default {
             canvas.width = 512
             canvas.height = 96
             ctx.fillStyle = 'rgba(0,0,0,0.6)'
-            ctx.roundRect(0, 0, 512, 96, 16)
-            ctx.fill()
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(0, 0, 512, 96, 16)
+                ctx.fill()
+            } else {
+                ctx.fillRect(0, 0, 512, 96)
+            }
             ctx.fillStyle = color
             ctx.font = 'bold 32px Arial, sans-serif'
             ctx.textAlign = 'center'
@@ -404,7 +407,7 @@ export default {
         updateGateStatus() {
             const statusColors = { Normal: 0x22c55e, Warning: 0xf59e0b, Alarm: 0xef4444, Offline: 0x64748b }
             for (const [key, mesh] of this.gateMeshes) {
-                const gateInfo = this.gates.find(g => g.gateName && key.includes(g.gateName)) || this.gates[0]
+                const gateInfo = this.gates.find(g => g.gateName && key.includes(g.gateName))
                 const status = gateInfo?.status || 'Normal'
                 const color = statusColors[status] || 0x22c55e
                 mesh.traverse((child) => {
@@ -416,16 +419,18 @@ export default {
             }
         },
         highlightGate(gateId) {
-            for (const [, mesh] of this.gateMeshes) {
+            for (const [key, mesh] of this.gateMeshes) {
+                const isSelected = gateId && this.gates.some(g => g.gateId === gateId && key.includes(g.gateName))
                 mesh.traverse((child) => {
                     if (child.isMesh && !child.userData.isLabel && !child.userData.isGateGlow) {
-                        child.material.emissive?.setHex(0x000000)
+                        child.material.emissive?.setHex(isSelected ? 0x4444ff : 0x000000)
+                        child.material.emissiveIntensity = isSelected ? 0.3 : 0
                     }
                 })
             }
         },
         animate() {
-            this.animFrameId = requestAnimationFrame(this.animate)
+            this.animFrameId = requestAnimationFrame(() => this.animate())
             this.controls.update()
             this.renderer.render(this.scene, this.camera)
         },
