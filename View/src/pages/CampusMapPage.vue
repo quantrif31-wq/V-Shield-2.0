@@ -30,8 +30,10 @@
                 :gates="gateStatuses"
                 :selected-gate-id="selectedGateId"
                 @select-gate="onSelectGate"
+                @inspect-object="onInspectObject"
             />
             <div class="panel-col">
+                <CampusAssetInspector :selected-asset="selectedAsset" :summary="summary" :updated-at="updatedAt" />
                 <RealtimeStatusPanel :updated-at="updatedAt" :recent-events="recentEvents" :error="realtimeError" />
             </div>
         </section>
@@ -47,6 +49,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { authState } from '../stores/auth'
 import CampusMapToolbar from '../components/campus-map/CampusMapToolbar.vue'
 import Campus3DCanvas from '../components/campus-map/Campus3DCanvas.vue'
+import CampusAssetInspector from '../components/campus-map/CampusAssetInspector.vue'
 import RealtimeStatusPanel from '../components/campus-map/RealtimeStatusPanel.vue'
 import MapMiniStats from '../components/campus-map/MapMiniStats.vue'
 import { getCampusScene3D, getCampusMapRealtime } from '../services/campusMapApi'
@@ -56,13 +59,15 @@ const gateStatuses = ref([])
 const summary = ref({
     siteCount: 0,
     objectCount: 0,
-    onlineGates: 0,
-    warningGates: 0,
-    offlineCameras: 0,
+    activeGateCount: 0,
+    warningGateCount: 0,
+    offlineCameraCount: 0,
+    recentEventCount: 0,
 })
 const recentEvents = ref([])
 const updatedAt = ref(null)
 const selectedGateId = ref(null)
+const selectedAsset = ref(null)
 const loading = ref(true)
 const refreshing = ref(false)
 const error = ref('')
@@ -85,7 +90,14 @@ const loadScene = async () => {
     const { data } = await getCampusScene3D()
     sites.value = data?.sites || []
     gateStatuses.value = data?.gates || []
-    summary.value = data?.summary || summary.value
+    summary.value = {
+        ...summary.value,
+        siteCount: data?.summary?.siteCount || 0,
+        objectCount: data?.summary?.objectCount || 0,
+        activeGateCount: data?.summary?.onlineGates || 0,
+        warningGateCount: data?.summary?.warningGates || 0,
+        offlineCameraCount: data?.summary?.offlineCameras || 0,
+    }
     updatedAt.value = data?.updatedAt || null
 }
 
@@ -103,9 +115,10 @@ const loadRealtime = async () => {
         }))
         summary.value = {
             ...summary.value,
-            onlineGates: data?.summary?.activeGateCount || 0,
-            warningGates: data?.summary?.warningGateCount || 0,
-            offlineCameras: data?.summary?.offlineCameraCount || 0,
+            activeGateCount: data?.summary?.activeGateCount || 0,
+            warningGateCount: data?.summary?.warningGateCount || 0,
+            offlineCameraCount: data?.summary?.offlineCameraCount || 0,
+            recentEventCount: data?.summary?.recentEventCount || 0,
         }
         updatedAt.value = data?.updatedAt || null
         recentEvents.value = data?.recentEvents || []
@@ -127,6 +140,10 @@ const refreshAll = async () => {
 
 const onSelectGate = (gateId) => {
     selectedGateId.value = gateId
+}
+
+const onInspectObject = (asset) => {
+    selectedAsset.value = asset
 }
 
 const fitToScreen = () => {
