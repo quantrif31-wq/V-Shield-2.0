@@ -162,59 +162,6 @@
                     </div>
                 </div>
 
-                <div
-                    v-if="passageItems.length"
-                    class="nav-group"
-                    :class="{ 'is-open': isGroupExpanded(PASSAGE_GROUP_LABEL) }"
-                    :ref="(el) => setGroupAnchor(PASSAGE_GROUP_LABEL, el)"
-                    @mouseenter="hoverGroup(PASSAGE_GROUP_LABEL)"
-                    @mouseleave="leaveGroup(PASSAGE_GROUP_LABEL)"
-                >
-                    <button
-                        v-if="!collapsed"
-                        type="button"
-                        class="nav-label-toggle"
-                        @click="toggleNavGroup(PASSAGE_GROUP_LABEL)"
-                    >
-                        <span class="nav-label-text">{{ PASSAGE_GROUP_LABEL }}</span>
-                        <svg
-                            class="nav-label-chevron"
-                            :class="{ 'chevron-collapsed': !isGroupExpanded(PASSAGE_GROUP_LABEL) }"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <path d="M6 9l6 6 6-6" />
-                        </svg>
-                    </button>
-                    <span v-else class="nav-label sr-only">{{ PASSAGE_GROUP_LABEL }}</span>
-
-                    <div
-                        class="nav-group-items mobile-inline"
-                        :class="{ 'group-collapsed': !isGroupExpanded(PASSAGE_GROUP_LABEL) && !collapsed }"
-                    >
-                        <router-link
-                            v-for="item in passageItems"
-                            :key="item.path"
-                            :to="item.path"
-                            class="nav-item"
-                            :class="{ active: route.path === item.path }"
-                            @click="handleSidebarNavClick"
-                        >
-                            <span class="nav-icon" v-html="item.icon"></span>
-                            <transition name="fade">
-                                <span v-if="!collapsed" class="nav-copy">
-                                    <span class="nav-text">{{ item.label }}</span>
-                                    <span class="nav-hint">{{ item.hint }}</span>
-                                </span>
-                            </transition>
-                            <transition name="fade">
-                                <span v-if="!collapsed && item.badge" class="nav-badge">{{ item.badge }}</span>
-                            </transition>
-                        </router-link>
-                    </div>
-                </div>
             </nav>
 
             <div
@@ -277,7 +224,6 @@ const emit = defineEmits(['toggle', 'close-mobile'])
 const router = useRouter()
 const route = useRoute()
 
-const PASSAGE_GROUP_LABEL = 'Thông hành'
 const hoveredGroup = ref('')
 const pinnedGroup = ref('')
 const groupAnchors = ref({})
@@ -291,7 +237,6 @@ const getCurrentRouteGroupLabel = () => {
         group.items.some((item) => route.path === item.path)
     )
     if (foundGroup) return foundGroup.label
-    if (passageItems.value.some((item) => route.path === item.path)) return PASSAGE_GROUP_LABEL
     return ''
 }
 
@@ -330,7 +275,6 @@ const setGroupAnchor = (label, el) => {
 
 const getGroupItemsByLabel = (label) => {
     if (!label) return []
-    if (label === PASSAGE_GROUP_LABEL) return passageItems.value
     const found = visibleGroups.value.find((group) => group.label === label)
     return found?.items || []
 }
@@ -374,8 +318,6 @@ const flyoutStyle = computed(() => {
     }
 })
 
-// Helper: kiểm tra role hiện tại có được phép xem item không
-// Nếu item không có 'roles' → chỉ Admin mới xem được (mặc định hạn chế)
 const userRole = computed(() => authState.user?.role)
 const canAccessNavigationItem = (item) => {
     if (!item.roles) return userRole.value === 'Admin'
@@ -396,7 +338,7 @@ const navGroups = ref([
         ],
     },
     {
-        label: 'Giám sát & Lịch sử',
+        label: 'Tác nghiệp',
         items: [
             {
                 path: '/monitoring',
@@ -407,93 +349,74 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe', 'QuanLy'],
             },
             {
-                path: '/access-logs',
-                label: 'Tra cứu vào/ra',
-                hint: 'Lịch sử theo thời gian',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>',
-                roles: ['Admin', 'BaoVe', 'QuanLy'],
+                path: '/gate-transit-monitor',
+                label: 'Điều phối thông hành',
+                hint: 'QR + biển số theo từng làn',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18"/><path d="M6 7v10"/><path d="M18 7v10"/><path d="M9 11h6"/><path d="M9 15h6"/><path d="M12 7v10"/></svg>',
+                badge: '2 làn',
+                roles: ['Admin', 'BaoVe'],
             },
             {
-                path: '/ueba',
-                label: 'UEBA',
-                hint: 'Phân tích hành vi & bất thường',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M5 3l4 4"/></svg>',
-                roles: ['Admin', 'BaoVe', 'QuanLy'],
+                path: '/campus-map',
+                label: 'Bản đồ khuôn viên',
+                hint: 'Realtime Gate + camera + AccessLog',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>',
+                roles: ['Admin', 'Staff', 'BaoVe'],
             },
-            {
-                path: '/system-audit-logs',
-                label: 'Nhật ký hệ thống',
-                hint: 'Ai làm gì, trước/sau, kết quả',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
-                roles: ['Admin', 'QuanLy'],
-            },
-            {
-                path: '/exceptions',
-                label: 'Xử lý ngoại lệ',
-                hint: 'Bypass và lỗi nhận diện',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
-                roles: ['Admin', 'BaoVe', 'QuanLy'],
-            },
-        ],
-    },
-    {
-        label: 'SOC & Enterprise',
-        items: [
             {
                 path: '/soc-console',
                 label: 'SOC Alarm Console',
                 hint: 'Alarm queue & incident command',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>',
                 roles: ['Admin', 'BaoVe'],
-            },{ path: '/identity-management',
-                label: 'Identity Management',
-                hint: 'IdP, SSO & offboarding',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>',
-                roles: ['Admin'],
-            },{ path: '/site-hierarchy',
-                label: 'Site Hierarchy',
-                hint: 'Tree, assets & backfill',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
-                roles: ['Admin', 'QuanLy'],
             },
             {
-                path: '/policy-engine',
-                label: 'Policy Engine',
-                hint: 'Design, simulate & lockdown',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1"/></svg>',
-                roles: ['Admin'],
-            },
-            {
-                path: '/enterprise-security',
-                label: 'Enterprise Console',
-                hint: 'Workspaces & setup',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>',
+                path: '/qr-access-monitor',
+                label: 'Quét xác nhận vào cổng',
+                hint: 'Quét QR để xác nhận cho phép vào',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 16h2"/><path d="M18 16h2"/><path d="M14 20h6"/><path d="M9 9l2 2 4-4"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
-        ],
-    },
-    {
-        label: 'Quản lý Khách thăm',
-        items: [
             {
-                path: '/pre-registrations',
-                label: 'Danh sách hẹn trước',
-                hint: 'Duyệt và theo dõi đăng ký',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1.5"/><path d="M9 14l2 2 4-4"/></svg>',
-                roles: ['Admin'],
+                path: '/dynamic-qr-scanner',
+                label: 'Quét QR động',
+                hint: 'Giải mã và xác thực tại cổng',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h5v5H4z"/><path d="M15 4h5v5h-5z"/><path d="M4 15h5v5H4z"/><path d="M16 16h1"/><path d="M19 16h1"/><path d="M16 19h4"/><path d="M12 7h1"/><path d="M12 12h1"/><path d="M7 12h5"/></svg>',
+                roles: ['Admin', 'BaoVe'],
             },
             {
-                path: '/registration-links',
-                label: 'Link đăng ký tự động',
-                hint: 'Token và URL gửi khách',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>',
-                roles: ['Admin'],
+                path: '/dynamic-qr-generator',
+                label: 'Tạo QR động',
+                hint: 'Sinh mã QR realtime cho nhân viên',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M15 15h2"/><path d="M19 15v5"/><path d="M14 19h5"/></svg>',
+                roles: ['Admin', 'Staff', 'BaoVe'],
             },
             {
-                path: '/guest-profiles',
-                label: 'Hồ sơ khách',
-                hint: 'Danh bạ khách quen',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6"/><path d="M17 11h6"/></svg>',
+                path: '/event-timeline',
+                label: 'Event Timeline',
+                hint: 'Chuỗi sự kiện an ninh',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/barrier-panel',
+                label: 'Barrier Control',
+                hint: 'Điều khiển barrier & đỗ xe',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12H3"/><path d="M12 3v18"/><path d="M7 8l5-5 5 5"/><path d="M7 16l5 5 5-5"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/lane-dashboard',
+                label: 'Lane Dashboard',
+                hint: 'Sức khỏe làn & barrier',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/plate-review',
+                label: 'Plate Review',
+                hint: 'Duyệt ảnh biển số AI',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h4"/><path d="M14 10h4"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
             {
@@ -524,54 +447,11 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
-        ],
-    },
-    {
-        label: 'Nhà thầu & Đối tác',
-        items: [
             {
-                path: '/contractors',
-                label: 'Nhà thầu',
-                hint: 'Quản lý hợp đồng & truy cập',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
-                roles: ['Admin'],
-            },
-        ],
-    },
-    {
-        label: 'Giao thông & Bãi đỗ',
-        items: [
-            {
-                path: '/lane-dashboard',
-                label: 'Lane Dashboard',
-                hint: 'Sức khỏe làn & barrier',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
-            {
-                path: '/barrier-panel',
-                label: 'Barrier Control',
-                hint: 'Điều khiển barrier & đỗ xe',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12H3"/><path d="M12 3v18"/><path d="M7 8l5-5 5 5"/><path d="M7 16l5 5 5-5"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
-            {
-                path: '/plate-review',
-                label: 'Plate Review',
-                hint: 'Duyệt ảnh biển số AI',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h4"/><path d="M14 10h4"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
-        ],
-    },
-    {
-        label: 'Video & AI Review',
-        items: [
-            {
-                path: '/event-timeline',
-                label: 'Event Timeline',
-                hint: 'Chuỗi sự kiện an ninh',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>',
+                path: '/ai-review-queue',
+                label: 'AI Review Queue',
+                hint: 'Chất lượng & đánh giá AI',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13l2 2 4-4"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
             {
@@ -581,30 +461,51 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M16 16l5 5"/><rect x="3" y="12" width="14" height="4" rx="1"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
-            {
-                path: '/ai-review-queue',
-                label: 'AI Review Queue',
-                hint: 'Chất lượng & đánh giá AI',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13l2 2 4-4"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
-            {
-                path: '/correlation-view',
-                label: 'Correlation',
-                hint: 'Tương quan đa tín hiệu',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
         ],
     },
     {
-        label: 'Evidence & Compliance',
+        label: 'Phê duyệt & Kiểm soát',
         items: [
             {
-                path: '/evidence-repository',
-                label: 'Evidence Repository',
-                hint: 'Quản lý vật chứng & custody',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>',
+                path: '/exceptions',
+                label: 'Xử lý ngoại lệ',
+                hint: 'Bypass và lỗi nhận diện',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+                roles: ['Admin', 'BaoVe', 'QuanLy'],
+            },
+            {
+                path: '/policy-engine',
+                label: 'Policy Engine',
+                hint: 'Design, simulate & lockdown',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/enterprise-security',
+                label: 'Enterprise Console',
+                hint: 'Workspaces & setup',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/identity-management',
+                label: 'Identity Management',
+                hint: 'IdP, SSO & offboarding',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/access-permission-manager',
+                label: 'Quyền khu vực giới hạn',
+                hint: 'Phân quyền ra vào theo khu vực',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/><path d="M9 12l2 2 4-4"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/pre-registrations',
+                label: 'Danh sách hẹn trước',
+                hint: 'Duyệt và theo dõi đăng ký',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1.5"/><path d="M9 14l2 2 4-4"/></svg>',
                 roles: ['Admin'],
             },
             {
@@ -628,17 +529,10 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
                 roles: ['Admin'],
             },
-            {
-                path: '/compliance-reports',
-                label: 'Compliance Reports',
-                hint: 'Báo cáo tuân thủ',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>',
-                roles: ['Admin'],
-            },
         ],
     },
     {
-        label: 'Quản trị Nội bộ',
+        label: 'Danh mục',
         items: [
             {
                 path: '/employees',
@@ -655,69 +549,139 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="5" width="16" height="11" rx="2"/><path d="M17 8h4l2 3v5h-6V8z"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
                 roles: ['Admin', 'BaoVe', 'QuanLy'],
             },
+            {
+                path: '/guest-profiles',
+                label: 'Hồ sơ khách',
+                hint: 'Danh bạ khách quen',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6"/><path d="M17 11h6"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/contractors',
+                label: 'Nhà thầu',
+                hint: 'Quản lý hợp đồng & truy cập',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/registration-links',
+                label: 'Link đăng ký tự động',
+                hint: 'Token và URL gửi khách',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/site-hierarchy',
+                label: 'Site Hierarchy',
+                hint: 'Tree, assets & backfill',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+                roles: ['Admin', 'QuanLy'],
+            },
+            {
+                path: '/system-catalog',
+                label: 'Danh mục hệ thống',
+                hint: 'Phòng ban, chức vụ, ngoại lệ',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>',
+                roles: ['Admin', 'QuanLy'],
+            },
         ],
     },
     {
-        label: 'CHAM CONG',
+        label: 'Tra cứu & Báo cáo',
+        items: [
+            {
+                path: '/access-logs',
+                label: 'Tra cứu vào/ra',
+                hint: 'Lịch sử theo thời gian',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>',
+                roles: ['Admin', 'BaoVe', 'QuanLy'],
+            },
+            {
+                path: '/ueba',
+                label: 'UEBA',
+                hint: 'Phân tích hành vi & bất thường',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/><path d="M5 3l4 4"/></svg>',
+                roles: ['Admin', 'BaoVe', 'QuanLy'],
+            },
+            {
+                path: '/system-audit-logs',
+                label: 'Nhật ký hệ thống',
+                hint: 'Ai làm gì, trước/sau, kết quả',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
+                roles: ['Admin', 'QuanLy'],
+            },
+            {
+                path: '/evidence-repository',
+                label: 'Evidence Repository',
+                hint: 'Quản lý vật chứng & custody',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/compliance-reports',
+                label: 'Compliance Reports',
+                hint: 'Báo cáo tuân thủ',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/correlation-view',
+                label: 'Correlation',
+                hint: 'Tương quan đa tín hiệu',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+        ],
+    },
+    {
+        label: 'Chấm công',
         items: [
             {
                 path: '/attendance/records',
-                label: 'Bang cham cong',
-                hint: 'Check-in/check-out, tre/som',
+                label: 'Bảng chấm công',
+                hint: 'Check-in/check-out, trễ/sớm',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
                 roles: ['Admin', 'Staff', 'BaoVe', 'QuanLy'],
             },
             {
                 path: '/attendance/work-schedules',
-                label: 'Lich lam viec',
-                hint: 'Len lich ca cho nhan vien',
+                label: 'Lịch làm việc',
+                hint: 'Lên lịch ca cho nhân viên',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/></svg>',
                 roles: ['Admin', 'Staff'],
             },
             {
                 path: '/attendance/shifts',
-                label: 'Ca lam viec',
-                hint: 'Cau hinh ca va thoi gian',
+                label: 'Ca làm việc',
+                hint: 'Cấu hình ca và thời gian',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>',
                 roles: ['Admin', 'Staff'],
             },
             {
                 path: '/attendance/leave-requests',
-                label: 'Don xin nghi',
-                hint: 'Gui va theo doi don nghi',
+                label: 'Đơn xin nghỉ',
+                hint: 'Gửi và theo dõi đơn nghỉ',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>',
                 roles: ['Admin', 'Staff'],
             },
             {
                 path: '/attendance/leave-approvals',
-                label: 'Duyet don nghi',
-                hint: 'Xu ly don cho duyet',
+                label: 'Duyệt đơn nghỉ',
+                hint: 'Xử lý đơn chờ duyệt',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>',
                 roles: ['Admin', 'Staff'],
             },
             {
                 path: '/attendance/reports',
-                label: 'B�o c�o c�ng',
-                hint: 'Thong ke theo ngay/thang',
+                label: 'Báo cáo công',
+                hint: 'Thống kê theo ngày/tháng',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 4-6"/></svg>',
                 roles: ['Admin', 'Staff', 'QuanLy'],
             },
         ],
     },
     {
-        label: 'BAN DO',
-        items: [
-            {
-                path: '/campus-map',
-                label: 'Ban do khuon vien',
-                hint: 'Realtime Gate + camera + AccessLog',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>',
-                roles: ['Admin', 'Staff', 'BaoVe'],
-            },
-        ],
-    },
-    {
-        label: 'AI & Thiết bị',
+        label: 'Thiết bị & Hệ thống',
         items: [
             {
                 path: '/device-management',
@@ -761,11 +725,6 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
-        ],
-    },
-    {
-        label: 'Cài đặt Hệ thống',
-        items: [
             {
                 path: '/users',
                 label: 'Tài khoản & phân quyền',
@@ -774,81 +733,15 @@ const navGroups = ref([
                 roles: ['Admin'],
             },
             {
-                path: '/system-catalog',
-                label: 'Danh mục hệ thống',
-                hint: 'Phòng ban, chức vụ, ngoại lệ',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>',
-                roles: ['Admin', 'QuanLy'],
+                path: '/settings?tab=camera',
+                label: 'Quản trị camera',
+                hint: 'Quản lý tất cả camera giám sát',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M15 15h2"/><path d="M19 15v5"/><path d="M14 19h5"/></svg>',
+                roles: ['Admin', 'Staff', 'BaoVe'],
             },
         ],
     },
 ])
-
-const registryItems = ref([
-    {
-        path: '/employees',
-        label: 'Nhân sự',
-        hint: 'Danh sách và hồ sơ',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
-        badge: '0',
-    },
-    {
-        path: '/vehicles',
-        label: 'Phương tiện',
-        hint: 'Biển số và trạng thái',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="5" width="16" height="11" rx="2"/><path d="M17 8h4l2 3v5h-6V8z"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/></svg>',
-    },
-    {
-        path: '/license-plate-security',
-        label: 'Nhận diện biển số',
-        hint: 'Camera giao thông nội bộ',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h10"/><path d="M7 14h4"/></svg>',
-    },
-    {
-        path: '/gate-transit-monitor',
-        label: 'Gate Transit Monitor',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>'
-    },
-    {
-        path: '/dynamic-qr-generator',
-        label: 'Dynamic QR Generator',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>'
-    },
-    {
-        path: '/dynamic-qr-scanner',
-        label: 'Dynamic QR Scanner',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>'
-    },
-])
-
-const systemItems = [
-    {
-        path: '/about-project',
-        label: 'Giới thiệu dự án',
-        hint: 'Thông tin nền tảng',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
-    },
-    {
-        path: '/users',
-        label: 'Tài khoản hệ thống',
-        hint: 'Quyền truy cập',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
-        adminOnly: true,
-    },
-    {
-        path: '/departments-positions',
-        label: 'Phòng ban & chức vụ',
-        hint: 'Danh mục tổ chức',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-6 9 6"/><path d="M5 10v9h14v-9"/><path d="M9 19v-5h6v5"/></svg>',
-        adminOnly: true,
-    },
-    {
-        path: '/settings',
-        label: 'Cài đặt',
-        hint: 'Tùy chỉnh hệ thống',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
-    },
-]
 const visibleGroups = computed(() =>
     navGroups.value
         .map((group) => ({
@@ -856,62 +749,6 @@ const visibleGroups = computed(() =>
             items: group.items.filter((item) => canAccessNavigationItem(item)),
         }))
         .filter((group) => group.items.length > 0)
-)
-
-const allPassageItems = [
-    {
-        path: '/gate-transit-monitor',
-        label: 'Điều phối thông hành',
-        hint: 'Face + biển số theo từng làn',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18"/><path d="M6 7v10"/><path d="M18 7v10"/><path d="M9 11h6"/><path d="M9 15h6"/><path d="M12 7v10"/></svg>',
-        badge: '2 làn',
-        roles: ['Admin', 'BaoVe'],
-    },
-    {
-        path: '/dynamic-qr-scanner',
-        label: 'Quét QR động',
-        hint: 'Giải mã và xác thực tại cổng',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h5v5H4z"/><path d="M15 4h5v5h-5z"/><path d="M4 15h5v5H4z"/><path d="M16 16h1"/><path d="M19 16h1"/><path d="M16 19h4"/><path d="M12 7h1"/><path d="M12 12h1"/><path d="M7 12h5"/></svg>',
-        roles: ['Admin', 'BaoVe'],
-    },
-    {
-        path: '/qr-access-monitor',
-        label: 'Quét xác nhận vào cổng',
-        hint: 'Quét QR để xác nhận cho phép vào',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 16h2"/><path d="M18 16h2"/><path d="M14 20h6"/><path d="M9 9l2 2 4-4"/></svg>',
-        roles: ['Admin', 'BaoVe'],
-    },
-    {
-        path: '/access-permission-manager',
-        label: 'Quản lý quyền khu vực giới hạn',
-        hint: 'Phân quyền ra vào theo khu vực',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l7 4v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-4z"/><path d="M9 12l2 2 4-4"/></svg>',
-        roles: ['Admin', 'BaoVe'],
-    },
-    {
-        path: '/dynamic-qr-generator',
-        label: 'Tạo QR động',
-        hint: 'Sinh mã QR realtime cho nhân viên',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M15 15h2"/><path d="M19 15v5"/><path d="M14 19h5"/></svg>',
-        roles: ['Admin', 'Staff', 'BaoVe'],
-    },
-    {
-        path: '/settings?tab=camera',
-        label: 'Quản trị camera',
-        hint: 'Quản lý tất cả camera giám sát',
-        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M15 15h2"/><path d="M19 15v5"/><path d="M14 19h5"/></svg>',
-        roles: ['Admin', 'Staff', 'BaoVe'],
-    },
-]
-
-const passageItems = computed(() =>
-    allPassageItems
-        .map((item) =>
-            item.path === '/gate-transit-monitor'
-                ? { ...item, hint: 'QR + biển số theo từng làn' }
-                : item
-        )
-        .filter((item) => canAccessNavigationItem(item))
 )
 
 onMounted(async () => {
