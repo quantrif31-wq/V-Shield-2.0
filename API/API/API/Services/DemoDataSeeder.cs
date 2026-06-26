@@ -495,131 +495,6 @@ public static class DemoDataSeeder
             NewValuesJson = "{\"profile\":\"medium-large-company\",\"employees\":180,\"days\":90}"
         });
 
-        // Seed EmployeeAccessPermissions — mỗi nhân viên được quyền vào cổng gần site của họ
-        var now2 = DateTime.Now;
-        var hnSiteId = sites[0].SiteId;
-        var bnSiteId = sites[1].SiteId;
-        var hpSiteId = sites[2].SiteId;
-        var secOpsDeptId = departments[0].DepartmentId;
-        var empPerms = new List<EmployeeAccessPermission>();
-        foreach (var emp in employees.Where(e => e.Status == true))
-        {
-            var targetGates = emp switch
-            {
-                { PrimarySiteId: var s } when s == hnSiteId => new[] { gates[0], gates[1] },
-                { PrimarySiteId: var s } when s == bnSiteId => new[] { gates[2], gates[3] },
-                { PrimarySiteId: var s } when s == hpSiteId => new[] { gates[4] },
-                _ => new[] { gates[0], gates[2], gates[4] }
-            };
-            // Security Operations được vào tất cả cổng
-            if (emp.DepartmentId == secOpsDeptId)
-                targetGates = gates;
-            foreach (var g in targetGates)
-            {
-                empPerms.Add(new EmployeeAccessPermission
-                {
-                    EmployeeId = emp.EmployeeId,
-                    GateId = g.GateId,
-                    IsAllowed = true,
-                    CreatedAt = now2
-                });
-            }
-        }
-        db.EmployeeAccessPermissions.AddRange(empPerms);
-
-        // Seed VisitorAccessPermissions — khách được vào cổng site chính
-        var visitorDetails = db.VisitorDetails.Local.ToList();
-        var visPerms = new List<VisitorAccessPermission>();
-        foreach (var vd in visitorDetails)
-        {
-            // Mỗi khách được vào 2 cổng ngẫu nhiên
-            var assigned = gates.OrderBy(_ => random.Next()).Take(2).ToList();
-            foreach (var g in assigned)
-            {
-                visPerms.Add(new VisitorAccessPermission
-                {
-                    VisitorDetailId = vd.VisitorDetailId,
-                    GateId = g.GateId,
-                    IsAllowed = true,
-                    CreatedAt = now2
-                });
-            }
-        }
-        db.VisitorAccessPermissions.AddRange(visPerms);
-
-        // Seed ParkingAreas
-        var parkingAreas = new List<ParkingArea>
-        {
-            new() { SiteId = hnSiteId, Name = "HN Tầng hầm B1", Capacity = 80, IsActive = true },
-            new() { SiteId = hnSiteId, Name = "HN Bãi ngoài trời", Capacity = 120, IsActive = true },
-            new() { SiteId = bnSiteId, Name = "BN Nhà xe nhân viên", Capacity = 200, IsActive = true },
-            new() { SiteId = bnSiteId, Name = "BN Bãi xe tải", Capacity = 50, IsActive = true },
-            new() { SiteId = hpSiteId, Name = "HP Kho bãi logistics", Capacity = 100, IsActive = true }
-        };
-        db.ParkingAreas.AddRange(parkingAreas);
-        db.SaveChanges();
-
-        // Seed ParkingPermits — cấp cho 30 xe đầu
-        var parkPermits = vehicles.Take(30).Select((v, i) => new ParkingPermit
-        {
-            ParkingAreaId = parkingAreas[i % parkingAreas.Count].ParkingAreaId,
-            VehicleId = v.VehicleId,
-            PermitType = i < 20 ? "Monthly" : "Temporary",
-            ValidFromUtc = now.AddDays(-60),
-            ValidToUtc = now.AddDays(30 + i),
-            IsRevoked = i > 28
-        }).ToList();
-        db.ParkingPermits.AddRange(parkPermits);
-
-        // Seed SecurityBarriers — một barrier cho mỗi lane
-        var lanes = db.Lanes.Local.ToList();
-        var barriers = lanes.Select((l, i) => new SecurityBarrier
-        {
-            LaneId = l.LaneId,
-            Name = $"{l.Name} Barrier",
-            State = i % 3 == 0 ? "Open" : i % 3 == 1 ? "Closed" : "Unknown",
-            IsActive = i < 4
-        }).ToList();
-        db.Barriers.AddRange(barriers);
-        db.SaveChanges();
-
-        // Seed BarrierCommandAudits
-        var barrierAudits = barriers.Take(4).SelectMany((b, i) => new[]
-        {
-            new BarrierCommandAudit
-            {
-                BarrierId = b.BarrierId,
-                Command = i % 2 == 0 ? "Open" : "Close",
-                Reason = "Demo seed — manual test",
-                RequestedByUserId = null,
-                RequestedAtUtc = now.AddDays(-i - 1),
-                Result = "Success"
-            },
-            new BarrierCommandAudit
-            {
-                BarrierId = b.BarrierId,
-                Command = i % 2 == 0 ? "Close" : "Open",
-                Reason = "Demo seed — end of test",
-                RequestedByUserId = null,
-                RequestedAtUtc = now.AddDays(-i),
-                Result = "Success"
-            }
-        }).ToList();
-        db.BarrierCommandAudits.AddRange(barrierAudits);
-
-        // Seed VisitorCredentials — cấp credential QR cho các visit đã Approved
-        var approvedPreRegs = preRegistrations.Where(p => p.Status == "Approved").Take(20).ToList();
-        var credentials = approvedPreRegs.Select((pr, i) => new VisitorCredential
-        {
-            VisitId = pr.RegistrationId,
-            CredentialType = "QR",
-            CredentialReference = $"DEMO-CRED-{pr.RegistrationId:000}",
-            ValidFromUtc = pr.ExpectedTimeIn,
-            ValidToUtc = pr.ExpectedTimeOut,
-            IsRevoked = i > 17
-        }).ToList();
-        db.VisitorCredentials.AddRange(credentials);
-
         db.SaveChanges();
     }
 
@@ -694,6 +569,180 @@ public static class DemoDataSeeder
         if (!db.DynamicQrScanLogs.Any() && employees.Count > 0)
         {
             SeedDynamicQrScanLogs(db, employees, db.AccessLogs.OrderByDescending(item => item.Timestamp).Take(500).ToList(), now);
+        }
+
+        // ── Seed additional demo data if tables are empty ──
+        var rng = new Random(20260613);
+        var gates = db.Gates.OrderBy(g => g.GateId).ToList();
+        var sites = db.Sites.OrderBy(s => s.SiteId).ToList();
+        var departments = db.Departments.OrderBy(d => d.DepartmentId).ToList();
+        var vehiclesFull = db.Vehicles.OrderBy(v => v.VehicleId).ToList();
+
+        if (!db.EmployeeAccessPermissions.Any() && employees.Count > 0 && gates.Count > 0)
+        {
+            var hnSiteId = sites[0].SiteId;
+            var bnSiteId = sites.Count > 1 ? sites[1].SiteId : hnSiteId;
+            var hpSiteId = sites.Count > 2 ? sites[2].SiteId : hnSiteId;
+            var secOpsDeptId = departments.FirstOrDefault()?.DepartmentId ?? 0;
+            var empPerms = new List<EmployeeAccessPermission>();
+            foreach (var emp in employees.Where(e => e.Status == true))
+            {
+                var targetGates = emp switch
+                {
+                    { PrimarySiteId: var s } when s == hnSiteId => new[] { gates[0], gates.Count > 1 ? gates[1] : gates[0] },
+                    { PrimarySiteId: var s } when s == bnSiteId => new[] { gates.Count > 2 ? gates[2] : gates[0], gates.Count > 3 ? gates[3] : gates[0] },
+                    { PrimarySiteId: var s } when s == hpSiteId => new[] { gates.Count > 4 ? gates[4] : gates[0] },
+                    _ => new[] { gates[0], gates.Count > 2 ? gates[2] : gates[0], gates.Count > 4 ? gates[4] : gates[0] }
+                };
+                if (secOpsDeptId > 0 && emp.DepartmentId == secOpsDeptId)
+                    targetGates = gates.ToArray();
+                foreach (var g in targetGates)
+                {
+                    empPerms.Add(new EmployeeAccessPermission
+                    {
+                        EmployeeId = emp.EmployeeId, GateId = g.GateId, IsAllowed = true, CreatedAt = now
+                    });
+                }
+            }
+            db.EmployeeAccessPermissions.AddRange(empPerms);
+        }
+
+        if (!db.VisitorAccessPermissions.Any())
+        {
+            var visitorDetails = db.VisitorDetails.ToList();
+            var visPerms = new List<VisitorAccessPermission>();
+            foreach (var vd in visitorDetails)
+            {
+                foreach (var g in gates.OrderBy(_ => rng.Next()).Take(2))
+                {
+                    visPerms.Add(new VisitorAccessPermission
+                    {
+                        VisitorDetailId = vd.VisitorDetailId, GateId = g.GateId, IsAllowed = true, CreatedAt = now
+                    });
+                }
+            }
+            db.VisitorAccessPermissions.AddRange(visPerms);
+        }
+
+        if (!db.ParkingAreas.Any() && sites.Count > 0)
+        {
+            var parkingAreas = new List<ParkingArea>
+            {
+                new() { SiteId = sites[0].SiteId, Name = "HN Tầng hầm B1", Capacity = 80, IsActive = true },
+                new() { SiteId = sites[0].SiteId, Name = "HN Bãi ngoài trời", Capacity = 120, IsActive = true }
+            };
+            if (sites.Count > 1)
+            {
+                parkingAreas.Add(new() { SiteId = sites[1].SiteId, Name = "BN Nhà xe nhân viên", Capacity = 200, IsActive = true });
+                parkingAreas.Add(new() { SiteId = sites[1].SiteId, Name = "BN Bãi xe tải", Capacity = 50, IsActive = true });
+            }
+            if (sites.Count > 2)
+                parkingAreas.Add(new() { SiteId = sites[2].SiteId, Name = "HP Kho bãi logistics", Capacity = 100, IsActive = true });
+            db.ParkingAreas.AddRange(parkingAreas);
+        }
+
+        if (!db.ParkingPermits.Any() && vehiclesFull.Count > 0)
+        {
+            var areas = db.ParkingAreas.ToList();
+            if (areas.Count > 0)
+            {
+                var permits = vehiclesFull.Take(30).Select((v, i) => new ParkingPermit
+                {
+                    ParkingAreaId = areas[i % areas.Count].ParkingAreaId,
+                    VehicleId = v.VehicleId,
+                    PermitType = i < 20 ? "Monthly" : "Temporary",
+                    ValidFromUtc = now.AddDays(-60),
+                    ValidToUtc = now.AddDays(30 + i),
+                    IsRevoked = i > 28
+                }).ToList();
+                db.ParkingPermits.AddRange(permits);
+            }
+        }
+
+        if (!db.Barriers.Any())
+        {
+            var lanes = db.Lanes.ToList();
+            if (lanes.Count > 0)
+            {
+                var barriers = lanes.Select((l, i) => new SecurityBarrier
+                {
+                    LaneId = l.LaneId,
+                    Name = $"{l.Name} Barrier",
+                    State = i % 3 == 0 ? "Open" : i % 3 == 1 ? "Closed" : "Unknown",
+                    IsActive = i < 4
+                }).ToList();
+                db.Barriers.AddRange(barriers);
+                db.SaveChanges();
+            }
+        }
+
+        if (!db.BarrierCommandAudits.Any())
+        {
+            var barriers = db.Barriers.ToList();
+            if (barriers.Count > 0)
+            {
+                var barrierAudits = barriers.Take(4).SelectMany((b, i) => new[]
+                {
+                    new BarrierCommandAudit
+                    {
+                        BarrierId = b.BarrierId, Command = i % 2 == 0 ? "Open" : "Close",
+                        Reason = "Demo seed — manual test", RequestedByUserId = null,
+                        RequestedAtUtc = now.AddDays(-i - 1), Result = "Success"
+                    },
+                    new BarrierCommandAudit
+                    {
+                        BarrierId = b.BarrierId, Command = i % 2 == 0 ? "Close" : "Open",
+                        Reason = "Demo seed — end of test", RequestedByUserId = null,
+                        RequestedAtUtc = now.AddDays(-i), Result = "Success"
+                    }
+                }).ToList();
+                db.BarrierCommandAudits.AddRange(barrierAudits);
+            }
+        }
+
+        if (!db.Visits.Any())
+        {
+            var preRegs = db.PreRegistrations.Include(p => p.Guest).OrderBy(p => p.RegistrationId).ToList();
+            if (preRegs.Count > 0)
+            {
+                var visits = preRegs.Select(pr => new Visit
+                {
+                    SiteId = sites[(pr.RegistrationId - 1) % sites.Count].SiteId,
+                    HostEmployeeId = pr.HostEmployeeId,
+                    VisitorName = pr.Guest?.FullName ?? $"Visitor {pr.RegistrationId}",
+                    VisitorType = "Visitor",
+                    VisitorPhone = null,
+                    VisitorEmail = null,
+                    Status = pr.Status ?? VisitStatuses.Approved,
+                    ExpectedInUtc = pr.ExpectedTimeIn,
+                    ExpectedOutUtc = pr.ExpectedTimeOut,
+                    EscortRequired = false,
+                    NdaRequired = false,
+                    SafetyBriefingRequired = false,
+                    HostNotified = false,
+                    CreatedAtUtc = pr.CreatedAt
+                }).ToList();
+                db.Visits.AddRange(visits);
+                db.SaveChanges();
+            }
+        }
+
+        if (!db.VisitorCredentials.Any())
+        {
+            var visits = db.Visits.OrderBy(v => v.VisitId).Take(20).ToList();
+            if (visits.Count > 0)
+            {
+                var credentials = visits.Select((v, i) => new VisitorCredential
+                {
+                    VisitId = v.VisitId,
+                    CredentialType = "QR",
+                    CredentialReference = $"DEMO-CRED-{v.VisitId:000}",
+                    ValidFromUtc = v.ExpectedInUtc,
+                    ValidToUtc = v.ExpectedOutUtc,
+                    IsRevoked = i > 17
+                }).ToList();
+                db.VisitorCredentials.AddRange(credentials);
+            }
         }
 
         db.SaveChanges();
