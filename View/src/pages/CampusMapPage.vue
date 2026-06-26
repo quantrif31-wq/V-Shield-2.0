@@ -9,8 +9,6 @@
             </div>
         </header>
 
-        <MapMiniStats :summary="summary" />
-
         <CampusMapToolbar
             :mode="'view'"
             :can-edit="false"
@@ -32,13 +30,20 @@
                 :selected-gate-id="selectedGateId"
                 @select-gate="onSelectGate"
                 @inspect-object="onInspectObject"
+                @hover-object="onHoverObject"
             />
-            <div class="panel-col">
-                <CampusAssetInspector :selected-asset="selectedAsset" :summary="summary" :updated-at="updatedAt" />
+            <div class="floating-panel-stack">
+                <CampusAssetInspector
+                    :selected-asset="selectedAsset || hoveredAsset"
+                    :summary="summary"
+                    :updated-at="updatedAt"
+                    compact
+                />
                 <RealtimeStatusPanel
                     :updated-at="updatedAt"
                     :recent-events="recentEvents"
                     :error="realtimeError"
+                    compact
                     @focus-gate="onFocusGate"
                 />
             </div>
@@ -57,7 +62,6 @@ import CampusMapToolbar from '../components/campus-map/CampusMapToolbar.vue'
 import Campus3DCanvas from '../components/campus-map/Campus3DCanvas.vue'
 import CampusAssetInspector from '../components/campus-map/CampusAssetInspector.vue'
 import RealtimeStatusPanel from '../components/campus-map/RealtimeStatusPanel.vue'
-import MapMiniStats from '../components/campus-map/MapMiniStats.vue'
 import { getCampusScene3D, getCampusMapRealtime } from '../services/campusMapApi'
 
 const sites = ref([])
@@ -74,6 +78,7 @@ const recentEvents = ref([])
 const updatedAt = ref(null)
 const selectedGateId = ref(null)
 const selectedAsset = ref(null)
+const hoveredAsset = ref(null)
 const loading = ref(true)
 const refreshing = ref(false)
 const error = ref('')
@@ -152,6 +157,10 @@ const onInspectObject = (asset) => {
     selectedAsset.value = asset
 }
 
+const onHoverObject = (asset) => {
+    hoveredAsset.value = asset
+}
+
 const onFocusGate = (gateId) => {
     if (!gateId) return
     selectedGateId.value = gateId
@@ -184,15 +193,23 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .campus-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 18px;
+    position: relative;
 }
 
-.panel-col {
+.floating-panel-stack {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 20;
     display: grid;
     align-content: start;
-    gap: 18px;
+    gap: 14px;
+    width: min(320px, calc(100% - 36px));
+    pointer-events: none;
+}
+
+.floating-panel-stack > * {
+    pointer-events: auto;
 }
 
 .toast-card {
@@ -223,8 +240,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1200px) {
-    .campus-layout {
-        grid-template-columns: 1fr;
+    .floating-panel-stack {
+        top: auto;
+        right: 12px;
+        bottom: 12px;
+        width: min(100%, calc(100% - 24px));
     }
 }
 </style>

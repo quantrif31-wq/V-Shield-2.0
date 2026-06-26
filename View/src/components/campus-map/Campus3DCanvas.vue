@@ -2,19 +2,20 @@
     <div ref="containerRef" class="c3d-container" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
         <div v-if="!initialized" class="c3d-loading">Dang khoi tao 3D...</div>
 
-        <div v-if="siteCards.length" class="c3d-hud">
-            <article
+        <div v-if="siteCards.length" class="c3d-site-dock">
+            <button
                 v-for="site in siteCards"
                 :key="site.siteId"
-                class="c3d-site-card"
+                class="c3d-site-chip"
                 :class="{ active: selectedSiteId === site.siteId }"
+                :title="`${site.name} | ${site.buildingCount} toa nha | ${site.gateCount} cong | ${site.warningGateCount} canh bao`"
                 @click="focusSite(site.siteId, true)"
             >
+                <span class="site-chip-dot" :class="{ warning: site.warningGateCount > 0, critical: site.criticalCount > 0 }"></span>
                 <span class="site-code">{{ site.code }}</span>
-                <strong>{{ site.name }}</strong>
                 <span>{{ site.buildingCount }} toa nha • {{ site.gateCount }} cong</span>
                 <span>{{ site.criticalCount }} diem critical • {{ site.warningGateCount }} canh bao</span>
-            </article>
+            </button>
         </div>
 
         <div ref="tooltipRef" class="c3d-tooltip" :style="tooltipStyle" v-show="tooltip.visible">
@@ -27,23 +28,9 @@
             </div>
         </div>
 
-        <div class="c3d-legend">
-            <div class="legend-block">
-                <div class="legend-title">Thuc the</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#3b82f6"></span> Toa nha</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#0f766e"></span> Cong / lane</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#64748b"></span> Bai do xe</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#475569"></span> Tuyen ket noi</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#22c55e"></span> Cay xanh</div>
-            </div>
-            <div class="legend-block">
-                <div class="legend-title">Trang thai cong</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#22c55e"></span> Normal</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#38bdf8"></span> Active</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#f59e0b"></span> Warning</div>
-                <div class="c3d-legend-item"><span class="dot" style="background:#64748b"></span> Offline</div>
-            </div>
-            <div class="legend-note">Keo de xoay, cuon de zoom, click vao doi tuong de xem chi tiet.</div>
+        <div class="c3d-hint-pill">
+            <span class="hint-dot"></span>
+            Hover de inspect, click de focus
         </div>
     </div>
 </template>
@@ -83,7 +70,7 @@ export default {
         recentEvents: { type: Array, default: () => [] },
         selectedGateId: { type: Number, default: null },
     },
-    emits: ['select-gate', 'inspect-object'],
+    emits: ['select-gate', 'inspect-object', 'hover-object'],
     data() {
         return {
             initialized: false,
@@ -102,6 +89,7 @@ export default {
             animFrameId: null,
             framedOnce: false,
             selectedSiteId: null,
+            hoveredObject: null,
         }
     },
     computed: {
@@ -340,6 +328,7 @@ export default {
 
             const layouts = this.computeSiteLayouts()
             layouts.forEach((layout) => this.addSiteBase(layout))
+            this.addSiteConnections(layouts)
 
             for (const layout of layouts) {
                 const objects = Array.isArray(layout.site.objects) ? layout.site.objects : []
@@ -476,10 +465,36 @@ export default {
                 2.6
             )
 
+            this.addSiteBeacon(siteGroup, layout)
             this.addPerimeterLights(siteGroup, layout)
             this.addSiteRoadFrame(siteGroup, layout)
             this.worldGroup.add(siteGroup)
             this.siteMeshes.set(layout.site.siteId, siteGroup)
+        },
+        addSiteBeacon(parent, layout) {
+            const mast = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.16, 0.22, 7.2, 8),
+                new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.56, metalness: 0.24 })
+            )
+            mast.position.set(-layout.width / 2 + 5.5, 3.2, -layout.depth / 2 + 5.5)
+            mast.castShadow = true
+            parent.add(mast)
+
+            const beacon = new THREE.Mesh(
+                new THREE.SphereGeometry(0.72, 18, 18),
+                new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.88 })
+            )
+            beacon.position.set(mast.position.x, 7.2, mast.position.z)
+            parent.add(beacon)
+
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(0.95, 1.65, 32),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.34, side: THREE.DoubleSide })
+            )
+            ring.rotation.x = -Math.PI / 2
+            ring.position.set(mast.position.x, 0.06, mast.position.z)
+            ring.userData.isSiteBeacon = true
+            parent.add(ring)
         },
         addSiteRoadFrame(parent, layout) {
             const road = new THREE.Mesh(
@@ -498,6 +513,34 @@ export default {
             road.rotation.x = -Math.PI / 2
             road.position.y = -0.46
             parent.add(road)
+        },
+        addSiteConnections(layouts) {
+            if (!Array.isArray(layouts) || layouts.length < 2) return
+
+            for (let i = 0; i < layouts.length - 1; i++) {
+                const start = layouts[i]
+                const end = layouts[i + 1]
+                const points = [
+                    new THREE.Vector3(start.centerX, 0.28, start.centerZ),
+                    new THREE.Vector3((start.centerX + end.centerX) / 2, 0.4, (start.centerZ + end.centerZ) / 2),
+                    new THREE.Vector3(end.centerX, 0.28, end.centerZ),
+                ]
+
+                const line = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(points),
+                    new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.24 })
+                )
+                this.worldGroup.add(line)
+
+                const pulse = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.7, 14, 14),
+                    new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.85 })
+                )
+                pulse.position.copy(points[1])
+                pulse.userData.isFlowPulse = true
+                pulse.userData.phase = i * 0.9
+                this.worldGroup.add(pulse)
+            }
         },
         addPerimeterLights(parent, layout) {
             const corners = [
@@ -903,6 +946,7 @@ export default {
             }
         },
         addLabel(parent, text, x, y, z, color = '#fff', width = 512, scaleY = 2.5) {
+            return
             const canvas = document.createElement('canvas')
             const ctx = canvas.getContext('2d')
             canvas.width = width
@@ -1014,6 +1058,34 @@ export default {
                 })
             }
         },
+        applyHoverState(target) {
+            if (this.hoveredObject === target) return
+            this.clearHoverState()
+            this.hoveredObject = target
+            if (!target) return
+
+            target.traverse?.((child) => {
+                if (!child.isMesh || child.userData.isLabel) return
+                if (child.material?.emissive) {
+                    child.userData.prevEmissive = child.material.emissive.getHex()
+                    child.userData.prevEmissiveIntensity = child.material.emissiveIntensity || 0
+                    child.material.emissive.setHex(0x7dd3fc)
+                    child.material.emissiveIntensity = Math.max(child.userData.prevEmissiveIntensity || 0, 0.22)
+                }
+            })
+        },
+        clearHoverState() {
+            if (!this.hoveredObject) return
+            this.hoveredObject.traverse?.((child) => {
+                if (!child.isMesh || child.userData.isLabel) return
+                if (child.material?.emissive) {
+                    child.material.emissive.setHex(child.userData.prevEmissive ?? 0x000000)
+                    child.material.emissiveIntensity = child.userData.prevEmissiveIntensity ?? 0
+                }
+            })
+            this.hoveredObject = null
+            this.highlightGate(this.selectedGateId)
+        },
         findObjectFromHit(object) {
             let current = object
             while (current && !current.userData?.objectType) {
@@ -1032,6 +1104,26 @@ export default {
                 floors: data.floors || null,
                 dimensions: data.dimensions || null,
                 properties: data.properties || {},
+                gate: gate || null,
+            })
+        },
+        emitHover(target) {
+            if (!target) {
+                this.$emit('hover-object', null)
+                return
+            }
+
+            const data = target.userData
+            const gate = this.resolveGateInfo(data)
+            this.$emit('hover-object', {
+                label: data.label || '',
+                objectType: data.objectType,
+                siteName: data.siteName,
+                siteCode: data.siteCode,
+                floors: data.floors || null,
+                dimensions: data.dimensions || null,
+                properties: data.properties || {},
+                metrics: data.metrics || null,
                 gate: gate || null,
             })
         },
@@ -1124,6 +1216,15 @@ export default {
                 if (child.isMesh && child.userData.isStar) {
                     child.material.opacity = 0.42 + (Math.sin(now * 0.7 + child.userData.phase) + 1) * 0.18
                 }
+                if (child.isMesh && child.userData.isSiteBeacon) {
+                    child.rotation.z += 0.008
+                    child.material.opacity = 0.22 + (Math.sin(now * 1.6) + 1) * 0.08
+                }
+                if (child.isMesh && child.userData.isFlowPulse) {
+                    const pulse = 1 + Math.sin(now * 2 + child.userData.phase) * 0.18
+                    child.scale.setScalar(pulse)
+                    child.material.opacity = 0.58 + (Math.sin(now * 2 + child.userData.phase) + 1) * 0.14
+                }
             })
 
             for (const mesh of this.gateMeshes.values()) {
@@ -1165,6 +1266,8 @@ export default {
             this.renderer.domElement.removeEventListener('pointermove', this.onPointerMove)
             this.renderer.domElement.removeEventListener('click', this.onClick)
             this.tooltip.visible = false
+            this.clearHoverState()
+            this.emitHover(null)
         },
         onPointerMove(event) {
             if (!this.renderer || !this.camera) return
@@ -1177,6 +1280,8 @@ export default {
             const target = intersects.map((hit) => this.findObjectFromHit(hit.object)).find(Boolean)
 
             if (target) {
+                this.applyHoverState(target)
+                this.emitHover(target)
                 this.tooltip = this.buildTooltipPayload(target.userData)
                 this.tooltipStyle = {
                     top: `${event.clientY - this.$refs.containerRef.getBoundingClientRect().top + 12}px`,
@@ -1185,6 +1290,8 @@ export default {
                 this.renderer.domElement.style.cursor = 'pointer'
             } else {
                 this.tooltip.visible = false
+                this.clearHoverState()
+                this.emitHover(null)
                 this.renderer.domElement.style.cursor = 'default'
             }
         },
@@ -1228,6 +1335,7 @@ export default {
         },
         dispose() {
             if (this.animFrameId) cancelAnimationFrame(this.animFrameId)
+            this.clearHoverState()
             if (this.worldGroup) this.disposeGroup(this.worldGroup)
             if (this.renderer) {
                 this.renderer.dispose()
@@ -1273,43 +1381,56 @@ export default {
     z-index: 12;
 }
 
-.c3d-hud {
+.c3d-site-dock {
     position: absolute;
     top: 18px;
     left: 18px;
     z-index: 10;
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
-    width: min(320px, calc(100% - 36px));
+    width: min(360px, calc(100% - 36px));
 }
 
-.c3d-site-card {
-    display: grid;
-    gap: 2px;
+.c3d-site-chip {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     padding: 10px 12px;
-    border-radius: 14px;
+    border-radius: 999px;
     background: rgba(8, 22, 36, 0.82);
     border: 1px solid rgba(125, 211, 252, 0.14);
     backdrop-filter: blur(8px);
     color: #dbeafe;
     cursor: pointer;
+    font: inherit;
     transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
-.c3d-site-card:hover,
-.c3d-site-card.active {
+.c3d-site-chip:hover,
+.c3d-site-chip.active {
     transform: translateY(-1px);
     border-color: rgba(125, 211, 252, 0.38);
     background: rgba(10, 28, 44, 0.92);
 }
 
-.c3d-site-card strong {
-    font-size: 0.95rem;
+.site-chip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.5);
 }
 
-.c3d-site-card span {
-    color: #9fb6c9;
-    font-size: 0.78rem;
+.site-chip-dot.warning {
+    background: #f59e0b;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
+}
+
+.site-chip-dot.critical {
+    background: #ef4444;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.55);
 }
 
 .site-code {
@@ -1317,6 +1438,10 @@ export default {
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+.c3d-site-chip > span:not(.site-chip-dot):not(.site-code) {
+    display: none;
 }
 
 .c3d-tooltip {
@@ -1364,53 +1489,29 @@ export default {
     font-weight: 700;
 }
 
-.c3d-legend {
+.c3d-hint-pill {
     position: absolute;
-    right: 16px;
+    right: 18px;
     bottom: 16px;
     z-index: 10;
-    display: grid;
+    display: inline-flex;
+    align-items: center;
     gap: 10px;
-    padding: 12px 14px;
-    border-radius: 14px;
+    padding: 11px 14px;
+    border-radius: 999px;
     background: rgba(6, 17, 28, 0.82);
     border: 1px solid rgba(125, 211, 252, 0.14);
     backdrop-filter: blur(8px);
-    min-width: 220px;
-}
-
-.legend-block {
-    display: grid;
-    gap: 4px;
-}
-
-.legend-title {
-    color: #e2e8f0;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.legend-note {
-    color: #94a3b8;
-    font-size: 11px;
-    line-height: 1.45;
-}
-
-.c3d-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
     color: #cbd5e1;
     font-size: 12px;
 }
 
-.dot {
-    width: 10px;
-    height: 10px;
+.hint-dot {
+    width: 9px;
+    height: 9px;
     border-radius: 999px;
-    flex-shrink: 0;
+    background: #38bdf8;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.6);
 }
 
 @media (max-width: 900px) {
@@ -1419,14 +1520,14 @@ export default {
         height: 72vh;
     }
 
-    .c3d-hud {
+    .c3d-site-dock {
         width: min(280px, calc(100% - 36px));
     }
 
-    .c3d-legend {
+    .c3d-hint-pill {
         left: 16px;
         right: 16px;
-        min-width: 0;
+        justify-content: center;
     }
 }
 </style>
