@@ -1,7 +1,7 @@
 <template>
   <div class="ect-root">
-    <div v-if="!items || items.length === 0" class="ect-empty">
-      <p>Chưa có sự kiện nào cho case này.</p>
+    <div v-if="sortedItems.length === 0" class="ect-empty">
+      <p>Chua co su kien nao cho case nay.</p>
     </div>
 
     <div v-else class="ect-timeline">
@@ -9,14 +9,14 @@
         v-for="(item, index) in sortedItems"
         :key="item.id || index"
         class="ect-entry"
-        :class="`ect-entry--${item.type}`"
+        :class="`ect-entry--${normalizeType(item.type)}`"
       >
-        <div class="ect-dot" :class="`ect-dot--${item.type}`"></div>
+        <div class="ect-dot" :class="`ect-dot--${normalizeType(item.type)}`"></div>
         <div v-if="index < sortedItems.length - 1" class="ect-line"></div>
 
-        <div class="ect-card" :class="`ect-card--${item.type}`">
+        <div class="ect-card" :class="`ect-card--${normalizeType(item.type)}`">
           <div class="ect-card-head">
-            <span class="ect-badge" :class="`ect-badge--${item.type}`">{{ badgeText(item.type) }}</span>
+            <span class="ect-badge" :class="`ect-badge--${normalizeType(item.type)}`">{{ badgeText(item.type) }}</span>
             <span class="ect-time">{{ formatTime(item.timestamp) }}</span>
           </div>
 
@@ -24,28 +24,24 @@
             <p class="ect-title">{{ item.title }}</p>
             <p v-if="item.description" class="ect-desc">{{ item.description }}</p>
 
-            <!-- Actor info -->
             <div v-if="item.actor" class="ect-meta">
-              <span class="ect-meta-label">Người thực hiện:</span>
+              <span class="ect-meta-label">Nguoi thuc hien:</span>
               <span class="ect-meta-value">{{ item.actor }}</span>
             </div>
 
-            <!-- Reason -->
             <div v-if="item.reason" class="ect-meta">
-              <span class="ect-meta-label">Lý do:</span>
+              <span class="ect-meta-label">Ly do:</span>
               <span class="ect-meta-value">{{ item.reason }}</span>
             </div>
 
-            <!-- Receipt -->
             <div v-if="item.receiptId" class="ect-receipt">
               <code>{{ item.receiptId }}</code>
             </div>
 
-            <!-- Extra data -->
             <div v-if="item.details && item.details.length > 0" class="ect-details">
-              <div v-for="(d, i) in item.details" :key="i" class="ect-detail-row">
-                <span class="ect-detail-label">{{ d.label }}:</span>
-                <span class="ect-detail-value">{{ d.value }}</span>
+              <div v-for="(detail, detailIndex) in item.details" :key="detailIndex" class="ect-detail-row">
+                <span class="ect-detail-label">{{ detail.label }}:</span>
+                <span class="ect-detail-value">{{ detail.value }}</span>
               </div>
             </div>
           </div>
@@ -56,54 +52,57 @@
 </template>
 
 <script>
+const TYPE_ALIAS = {
+  warning: 'escalate',
+  success: 'allow',
+}
+
 export default {
   name: 'ExceptionCaseTimeline',
   props: {
     items: {
       type: Array,
       default: () => [],
-      validator: (items) =>
-        items.every(
-          (item) =>
-            item &&
-            item.type &&
-            item.title &&
-            ['scan', 'allow', 'deny', 'manual', 'override', 'duress', 'escalate', 'approve', 'reject', 'close', 'review', 'system'].includes(item.type)
-        ),
+      validator: Array.isArray,
     },
   },
   computed: {
     sortedItems() {
-      if (!this.items) return []
-      return [...this.items].sort((a, b) => {
-        const tA = new Date(a.timestamp || 0).getTime()
-        const tB = new Date(b.timestamp || 0).getTime()
-        return tA - tB
+      return [...(this.items || [])].sort((left, right) => {
+        const leftTime = new Date(left.timestamp || 0).getTime()
+        const rightTime = new Date(right.timestamp || 0).getTime()
+        return leftTime - rightTime
       })
     },
   },
   methods: {
+    normalizeType,
     badgeText(type) {
-      const map = {
-        scan: 'Quét',
+      const normalized = normalizeType(type)
+      const labels = {
+        scan: 'Quet',
         allow: 'Cho qua',
-        deny: 'Từ chối',
-        manual: 'Thủ công',
+        deny: 'Tu choi',
+        manual: 'Thu cong',
         override: 'Override',
         duress: 'Duress',
-        escalate: 'Yêu cầu',
-        approve: 'Phê duyệt',
-        reject: 'Từ chối duyệt',
-        close: 'Đóng case',
-        review: 'Hậu kiểm',
-        system: 'Hệ thống',
+        escalate: 'Yeu cau',
+        approve: 'Phe duyet',
+        reject: 'Tu choi duyet',
+        close: 'Dong case',
+        review: 'Hau kiem',
+        system: 'He thong',
       }
-      return map[type] || type
+
+      return labels[normalized] || normalized
     },
-    formatTime(ts) {
-      if (!ts) return ''
+    formatTime(timestamp) {
+      if (!timestamp) {
+        return ''
+      }
+
       try {
-        return new Date(ts).toLocaleString('vi-VN', {
+        return new Date(timestamp).toLocaleString('vi-VN', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
@@ -112,10 +111,15 @@ export default {
           second: '2-digit',
         })
       } catch {
-        return String(ts)
+        return String(timestamp)
       }
     },
   },
+}
+
+function normalizeType(type) {
+  const safeType = String(type || 'system').toLowerCase()
+  return TYPE_ALIAS[safeType] || safeType
 }
 </script>
 
@@ -123,6 +127,7 @@ export default {
 .ect-root {
   width: 100%;
 }
+
 .ect-empty {
   padding: 24px;
   text-align: center;
@@ -132,6 +137,7 @@ export default {
   border-radius: 10px;
   border: 1px dashed #cbd5e1;
 }
+
 .ect-timeline {
   position: relative;
   display: flex;
@@ -139,6 +145,7 @@ export default {
   gap: 0;
   padding: 8px 0;
 }
+
 .ect-entry {
   position: relative;
   display: flex;
@@ -146,6 +153,7 @@ export default {
   gap: 14px;
   padding: 6px 0 6px 20px;
 }
+
 .ect-dot {
   position: absolute;
   left: 4px;
@@ -157,6 +165,7 @@ export default {
   flex-shrink: 0;
   border: 2px solid #fff;
 }
+
 .ect-dot--scan { background: #64748b; }
 .ect-dot--allow { background: #22c55e; }
 .ect-dot--deny { background: #ef4444; }
@@ -169,6 +178,7 @@ export default {
 .ect-dot--close { background: #6b7280; }
 .ect-dot--review { background: #8b5cf6; }
 .ect-dot--system { background: #94a3b8; }
+
 .ect-line {
   position: absolute;
   left: 9px;
@@ -178,6 +188,7 @@ export default {
   background: #e2e8f0;
   z-index: 1;
 }
+
 .ect-card {
   flex: 1;
   min-width: 0;
@@ -187,9 +198,11 @@ export default {
   overflow: hidden;
   transition: box-shadow 0.15s ease;
 }
+
 .ect-card:hover {
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
+
 .ect-card--allow { border-left: 3px solid #22c55e; }
 .ect-card--deny { border-left: 3px solid #ef4444; }
 .ect-card--manual { border-left: 3px solid #f59e0b; }
@@ -202,6 +215,7 @@ export default {
 .ect-card--review { border-left: 3px solid #8b5cf6; }
 .ect-card--scan { border-left: 3px solid #64748b; }
 .ect-card--system { border-left: 3px solid #94a3b8; }
+
 .ect-card-head {
   display: flex;
   justify-content: space-between;
@@ -210,12 +224,14 @@ export default {
   background: #f8fafc;
   border-bottom: 1px solid #f1f5f9;
 }
+
 .ect-badge {
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
 }
+
 .ect-badge--scan { background: #f1f5f9; color: #475569; }
 .ect-badge--allow { background: #dcfce7; color: #166534; }
 .ect-badge--deny { background: #fee2e2; color: #991b1b; }
@@ -228,71 +244,66 @@ export default {
 .ect-badge--close { background: #f3f4f6; color: #374151; }
 .ect-badge--review { background: #ede9fe; color: #5b21b6; }
 .ect-badge--system { background: #f8fafc; color: #64748b; }
+
 .ect-time {
   font-size: 11px;
   color: #94a3b8;
   font-weight: 600;
 }
+
 .ect-card-body {
   padding: 10px 12px;
 }
+
 .ect-title {
   margin: 0 0 4px;
   font-size: 14px;
   font-weight: 700;
   color: #0f172a;
 }
+
 .ect-desc {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
+  color: #475569;
   font-size: 13px;
-  color: #475569;
-  line-height: 1.4;
+  line-height: 1.5;
 }
-.ect-meta {
-  display: flex;
-  gap: 6px;
-  font-size: 12px;
-  margin-top: 4px;
-}
-.ect-meta-label {
-  color: #64748b;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.ect-meta-value {
-  color: #334155;
-  font-weight: 600;
-}
-.ect-receipt {
-  margin-top: 6px;
-}
-.ect-receipt code {
-  font-size: 11px;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
-  background: #f1f5f9;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #475569;
-  word-break: break-all;
-}
-.ect-details {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+
+.ect-meta,
 .ect-detail-row {
   display: flex;
   gap: 8px;
+  margin-top: 6px;
   font-size: 12px;
 }
+
+.ect-meta-label,
 .ect-detail-label {
   color: #64748b;
-  font-weight: 600;
-  min-width: 100px;
+  min-width: 104px;
 }
+
+.ect-meta-value,
 .ect-detail-value {
   color: #0f172a;
-  font-weight: 500;
+  word-break: break-word;
+}
+
+.ect-receipt {
+  margin-top: 8px;
+}
+
+.ect-receipt code {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.ect-details {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #dbe4ee;
 }
 </style>

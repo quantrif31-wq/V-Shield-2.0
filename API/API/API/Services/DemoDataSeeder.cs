@@ -1,6 +1,7 @@
 using API.Data;
 using API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace API.Services;
 
@@ -31,12 +32,14 @@ public static class DemoDataSeeder
         if (db.Companies.AsNoTracking().Any(item => item.Code == DemoCompanyCode))
         {
             ReconcileOperationalDemoData(db);
+            EnsureUebaDemoData(db);
             Console.WriteLine("[INFO] Demo data already exists; operational users and QR-centric sample data reconciled.");
             return;
         }
 
         Seed(db);
         ReconcileOperationalDemoData(db);
+        EnsureUebaDemoData(db);
         Console.WriteLine("[OK] Demo data seeded for medium/large company scenario.");
     }
 
@@ -569,6 +572,203 @@ public static class DemoDataSeeder
         }
 
         db.SaveChanges();
+    }
+
+    private static void EnsureUebaDemoData(ApplicationDbContext db)
+    {
+        var employeeIds = db.AccessLogs.AsNoTracking()
+            .Where(item => item.EmployeeId.HasValue)
+            .Select(item => item.EmployeeId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (employeeIds.Count == 0)
+        {
+            return;
+        }
+
+        var uebaService = new UebaService(db);
+        foreach (var employeeId in employeeIds)
+        {
+            uebaService.BuildProfileAsync(employeeId).GetAwaiter().GetResult();
+        }
+
+        SeedUebaScenarioLogs(db, uebaService);
+    }
+
+    private static void SeedUebaScenarioLogs(ApplicationDbContext db, UebaService uebaService)
+    {
+        const string scenarioPrefix = "UEBA_DEMO_SCENARIO";
+
+        var candidateProfiles = db.UEBAProfiles.AsNoTracking()
+            .Where(item => item.TotalAccessCount >= 10)
+            .OrderByDescending(item => item.TotalAccessCount)
+            .ThenByDescending(item => item.RiskScore)
+            .Take(30)
+            .ToList();
+
+        var employeeIds = candidateProfiles.Select(item => item.EmployeeId).Distinct().ToList();
+        var employees = db.Employees.AsNoTracking()
+            .Where(item => employeeIds.Contains(item.EmployeeId))
+            .OrderBy(item => item.EmployeeId)
+            .ToList();
+
+        var gates = db.Gates.AsNoTracking().OrderBy(item => item.GateId).ToList();
+        var cameras = db.Cameras.AsNoTracking().ToList();
+        if (employees.Count < 4 || gates.Count == 0)
+        {
+            return;
+        }
+
+        var employeeById = employees.ToDictionary(item => item.EmployeeId);
+        var profileByEmployeeId = candidateProfiles
+            .Where(item => employeeById.ContainsKey(item.EmployeeId))
+            .ToDictionary(item => item.EmployeeId);
+
+        var existingScenarioLogs = db.AccessLogs
+            .Where(item => item.Note != null && item.Note.StartsWith(scenarioPrefix))
+            .ToList();
+
+        if (existingScenarioLogs.Count == 0)
+        {
+            var now = DateTime.UtcNow;
+            var weekendAnchor = now.Date.AddDays(-(int)now.DayOfWeek);
+            var createdLogs = new List<AccessLog>();
+            var plateByEmployeeId = db.Vehicles.AsNoTracking()
+                .Where(vehicle => vehicle.EmployeeId.HasValue && employeeById.Keys.Contains(vehicle.EmployeeId.Value))
+                .GroupBy(vehicle => vehicle.EmployeeId!.Value)
+                .ToDictionary(group => group.Key, group => group.Select(vehicle => vehicle.LicensePlate).FirstOrDefault());
+            var siteById = db.Sites.AsNoTracking().ToDictionary(site => site.SiteId, site => site.Name);
+
+            AccessLog CreateScenarioLog(
+                Employee employee,
+                Gate gate,
+                DateTime timestamp,
+                string direction,
+                bool isBypass,
+                string scenarioName)
+            {
+                var camera = cameras.FirstOrDefault(item => item.GateId == gate.GateId && item.CameraType == "QR")
+                    ?? cameras.FirstOrDefault(item => item.GateId == gate.GateId);
+
+                return new AccessLog
+                {
+                    Timestamp = timestamp,
+                    Direction = direction,
+                    GateId = gate.GateId,
+                    CameraId = camera?.CameraId,
+                    EmployeeId = employee.EmployeeId,
+                    CapturedLicensePlate = plateByEmployeeId.GetValueOrDefault(employee.EmployeeId),
+                    ResultStatus = "Granted",
+                    IsBypass = isBypass,
+                    Note = $"{scenarioPrefix}:{scenarioName}",
+                    SiteNameSnapshot = employee.PrimarySiteId.HasValue ? siteById.GetValueOrDefault(employee.PrimarySiteId.Value) : null,
+                    SecurityZoneNameSnapshot = "Restricted UEBA Scenario",
+                    AccessPointNameSnapshot = $"{gate.GateName} Access Point",
+                    LaneNameSnapshot = $"{gate.GateName} Demo Lane",
+                    GateNameSnapshot = gate.GateName,
+                    CameraNameSnapshot = camera?.CameraName
+                };
+            }
+
+            var unusualTimeProfile = candidateProfiles
+                .FirstOrDefault(item => item.TypicalStartHour >= 6);
+            var unusualGateProfile = candidateProfiles
+                .FirstOrDefault(item => gates.Any(gate => !ProfileContainsGate(item.CommonGatesJson, gate.GateId)));
+            var bypassProfile = candidateProfiles
+                .FirstOrDefault(item => item.BypassRate < 10);
+            var rapidFrequencyProfile = candidateProfiles
+                .FirstOrDefault(item => item.AvgAccessPerDay < 5);
+
+            if (unusualTimeProfile == null || unusualGateProfile == null || bypassProfile == null || rapidFrequencyProfile == null)
+            {
+                return;
+            }
+
+            var unusualTimeEmployee = employeeById[unusualTimeProfile.EmployeeId];
+            var unusualGateEmployee = employeeById[unusualGateProfile.EmployeeId];
+            var bypassEmployee = employeeById[bypassProfile.EmployeeId];
+            var rapidFrequencyEmployee = employeeById[rapidFrequencyProfile.EmployeeId];
+            var unusualGate = gates.First(gate => !ProfileContainsGate(unusualGateProfile.CommonGatesJson, gate.GateId));
+
+            createdLogs.Add(CreateScenarioLog(
+                unusualTimeEmployee,
+                gates[0],
+                weekendAnchor.AddHours(2).AddMinutes(10),
+                "IN",
+                false,
+                "UNUSUAL_TIME"));
+
+            createdLogs.Add(CreateScenarioLog(
+                unusualGateEmployee,
+                unusualGate,
+                now.Date.AddHours(11).AddMinutes(5),
+                "IN",
+                false,
+                "UNUSUAL_GATE"));
+
+            createdLogs.Add(CreateScenarioLog(
+                bypassEmployee,
+                gates[Math.Min(1, gates.Count - 1)],
+                now.Date.AddHours(9).AddMinutes(10),
+                "IN",
+                true,
+                "BYPASS"));
+
+            for (var i = 0; i < 7; i++)
+            {
+                createdLogs.Add(CreateScenarioLog(
+                    rapidFrequencyEmployee,
+                    gates[Math.Min(2, gates.Count - 1)],
+                    now.AddMinutes(-(25 - i * 3)),
+                    i % 2 == 0 ? "IN" : "OUT",
+                    false,
+                    "RAPID_FREQUENCY"));
+            }
+
+            db.AccessLogs.AddRange(createdLogs);
+            db.SaveChanges();
+            existingScenarioLogs = createdLogs;
+        }
+
+        foreach (var log in existingScenarioLogs.OrderBy(item => item.Timestamp))
+        {
+            uebaService.AnalyzeAccessLogAsync(log).GetAwaiter().GetResult();
+        }
+
+        foreach (var employeeId in existingScenarioLogs
+                     .Where(item => item.EmployeeId.HasValue)
+                     .Select(item => item.EmployeeId!.Value)
+                     .Distinct())
+        {
+            uebaService.BuildProfileAsync(employeeId).GetAwaiter().GetResult();
+        }
+    }
+
+    private static bool ProfileContainsGate(string? commonGatesJson, int gateId)
+    {
+        if (string.IsNullOrWhiteSpace(commonGatesJson))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(commonGatesJson);
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("gateId", out var gateElement) && gateElement.GetInt32() == gateId)
+                {
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
     }
 
     private static void EnsureEnterpriseDemoScenarios(ApplicationDbContext db, List<Employee> employees, DateTime now)

@@ -7,7 +7,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/ueba")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin,BaoVe,QuanLy")]
 public class UebaController : ControllerBase
 {
     private readonly IUebaService _ueba;
