@@ -260,6 +260,7 @@ namespace API.Controllers
             try
             {
                 bool hasAccess = false;
+                bool deniedByGuard = request.IsDenied;
                 string userType = request.EmployeeId.HasValue ? "Nhân viên" : "Khách";
                 string subjectName = "";
 
@@ -270,9 +271,12 @@ namespace API.Controllers
                         return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {request.EmployeeId.Value}."));
                     subjectName = employee.FullName ?? "";
 
-                    var permission = await _context.EmployeeAccessPermissions
-                        .FirstOrDefaultAsync(p => p.EmployeeId == request.EmployeeId.Value && p.GateId == request.GateId);
-                    hasAccess = permission != null && permission.IsAllowed;
+                    if (!deniedByGuard)
+                    {
+                        var permission = await _context.EmployeeAccessPermissions
+                            .FirstOrDefaultAsync(p => p.EmployeeId == request.EmployeeId.Value && p.GateId == request.GateId);
+                        hasAccess = permission != null && permission.IsAllowed;
+                    }
                 }
                 else if (request.VisitorDetailId.HasValue)
                 {
@@ -289,16 +293,30 @@ namespace API.Controllers
                         return NotFound(GateTransitApiResponse.CreateError("Không tìm thấy khách đã được xác nhận."));
                     subjectName = visitor.FullName ?? "";
 
-                    var permission = await _context.VisitorAccessPermissions
-                        .FirstOrDefaultAsync(p => p.VisitorDetailId == request.VisitorDetailId.Value && p.GateId == request.GateId);
-                    hasAccess = permission != null && permission.IsAllowed;
+                    if (!deniedByGuard)
+                    {
+                        var permission = await _context.VisitorAccessPermissions
+                            .FirstOrDefaultAsync(p => p.VisitorDetailId == request.VisitorDetailId.Value && p.GateId == request.GateId);
+                        hasAccess = permission != null && permission.IsAllowed;
+                    }
                 }
 
-                var logStatus = hasAccess ? "SUCCESS" : "FAILED_DENIED";
+                bool accessGranted = !deniedByGuard && hasAccess;
                 var reasonText = !string.IsNullOrWhiteSpace(request.Reason) ? $" Lý do: {request.Reason}" : "";
-                var logNote = hasAccess
-                    ? $"Vào cổng thủ công (QR tê liệt). {userType} được phép vào khu vực.{reasonText}"
-                    : $"Từ chối. {userType} không có quyền truy cập khu vực này.{reasonText}";
+                string logNote;
+
+                if (deniedByGuard)
+                {
+                    logNote = $"Bảo vệ từ chối thủ công — nhân dạng không khớp. {userType}: {subjectName}.{reasonText}";
+                }
+                else if (hasAccess)
+                {
+                    logNote = $"Vào cổng thủ công (QR tê liệt). {userType} được phép vào khu vực.{reasonText}";
+                }
+                else
+                {
+                    logNote = $"Từ chối. {userType} không có quyền truy cập khu vực này.{reasonText}";
+                }
 
                 var newLog = new AccessLog
                 {
@@ -308,8 +326,8 @@ namespace API.Controllers
                     CameraId = null,
                     EmployeeId = request.EmployeeId,
                     VisitorDetailId = request.VisitorDetailId,
-                    CapturedLicensePlate = request.PlateNumber,
-                    ResultStatus = logStatus,
+                    CapturedLicensePlate = null,
+                    ResultStatus = accessGranted ? "SUCCESS" : "FAILED_DENIED",
                     IsBypass = true,
                     Note = logNote
                 };
@@ -324,26 +342,26 @@ namespace API.Controllers
                         request.EmployeeId.Value, request.GateId, "IN", newLog.Timestamp ?? DateTime.Now, ZoneTransitSources.Qr);
                 }
 
-                if (!hasAccess)
+                if (accessGranted)
                 {
-                    return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new
+                    return Ok(GateTransitApiResponse.CreateSuccess(logNote, new
                     {
                         LogId = newLog.LogId,
                         EmployeeId = request.EmployeeId,
                         VisitorDetailId = request.VisitorDetailId,
                         SubjectName = subjectName,
-                        GateId = request.GateId
+                        GateId = request.GateId,
+                        Timestamp = newLog.Timestamp
                     }));
                 }
 
-                return Ok(GateTransitApiResponse.CreateSuccess(logNote, new
+                return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new
                 {
                     LogId = newLog.LogId,
                     EmployeeId = request.EmployeeId,
                     VisitorDetailId = request.VisitorDetailId,
                     SubjectName = subjectName,
-                    GateId = request.GateId,
-                    Timestamp = newLog.Timestamp
+                    GateId = request.GateId
                 }));
             }
             catch (Exception ex)
