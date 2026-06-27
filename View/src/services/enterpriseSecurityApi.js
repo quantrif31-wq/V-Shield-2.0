@@ -284,8 +284,41 @@ export const enterpriseApi = {
      expireInterventionRequests() { return http.post('/enterprise/intervention/requests/expire') },
       getActiveSecurityAlerts() { return http.get('/security-alerts/active') },
       resetDemoScenarios() { return http.post('/demo-control/reset') },
-      // ================= Kiosk Check-in =================
-      getVisits(params) { return http.get('/enterprise/visitor-vehicle/visits', { params }) },
-      checkInVisit(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/check-in`, payload) },
-      acceptForm(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/form-acceptances`, payload) },
+       // ================= Kiosk Check-in =================
+       getVisits(params) { return http.get('/enterprise/visitor-vehicle/visits', { params }) },
+       checkInVisit(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/check-in`, payload) },
+       acceptForm(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/form-acceptances`, payload) },
+}
+
+export const lostFoundApi = {
+    getOverview() { return http.get('/enterprise/lost-found/overview') },
+    // Lost items
+    getLostItems(params) { return http.get('/enterprise/lost-found/lost-items', { params }) },
+    getLostItem(id) { return http.get(`/enterprise/lost-found/lost-items/${id}`) },
+    createLostItem(payload) { return http.post('/enterprise/lost-found/lost-items', payload) },
+    closeLostItem(id) { return http.patch(`/enterprise/lost-found/lost-items/${id}/close`) },
+    // Found items
+    getFoundItems(params) { return http.get('/enterprise/lost-found/found-items', { params }) },
+    getFoundItem(id) { return http.get(`/enterprise/lost-found/found-items/${id}`) },
+    createFoundItem(payload) { return http.post('/enterprise/lost-found/found-items', payload) },
+    // Matching
+    getMatchSuggestions() { return http.post('/enterprise/lost-found/match/suggestions') },
+    createMatch(payload) { return http.post('/enterprise/lost-found/match', payload) },
+    confirmMatch(id) { return http.post(`/enterprise/lost-found/match/${id}/confirm`) },
+    rejectMatch(id) { return http.post(`/enterprise/lost-found/match/${id}/reject`) },
+    getMatches(params) { return http.get('/enterprise/lost-found/matches', { params }) },
+    // Claims
+    getClaimRequests(params) { return http.get('/enterprise/lost-found/claim-requests', { params }) },
+    createClaimRequest(payload) { return http.post('/enterprise/lost-found/claim-requests', payload) },
+    approveClaimRequest(id) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/approve`) },
+    completeClaimRequest(id) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/complete`) },
+    // Lockers
+    getLockerCabinets() { return http.get('/enterprise/lost-found/locker-cabinets') },
+    getLockerCabinetDetail(id) { return http.get(`/enterprise/lost-found/locker-cabinets/${id}`) },
+    createLockerCabinet(payload) { return http.post('/enterprise/lost-found/locker-cabinets', payload) },
+    createCompartments(cabinetId, payload) { return http.post(`/enterprise/lost-found/locker-cabinets/${cabinetId}/compartments`, payload) },
+    getAvailableCompartments(params) { return http.get('/enterprise/lost-found/compartments/available', { params }) },
+    assignCompartment(id, payload) { return http.post(`/enterprise/lost-found/compartments/${id}/assign`, payload) },
+    releaseCompartment(id) { return http.post(`/enterprise/lost-found/compartments/${id}/release`) },
+    getLockerAccessLogs(params) { return http.get('/enterprise/lost-found/access-logs', { params }) },
 }

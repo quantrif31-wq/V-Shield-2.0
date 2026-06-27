@@ -273,6 +273,7 @@ public partial class ApplicationDbContext
         ConfigureUeba(modelBuilder);
         ConfigureAiCore(modelBuilder);
         ConfigureInterventionRequests(modelBuilder);
+        ConfigureLostFound(modelBuilder);
         ConfigureRateLimiting(modelBuilder);
     }
 

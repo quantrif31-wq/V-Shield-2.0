@@ -139,6 +139,8 @@ namespace API
             });
             builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();
             builder.Services.AddScoped<EvidenceCaptureService>();
+            builder.Services.AddScoped<LostFoundMatchingService>();
+            builder.Services.AddScoped<LockerService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();

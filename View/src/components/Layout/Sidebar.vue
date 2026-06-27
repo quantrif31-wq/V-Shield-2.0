@@ -630,6 +630,42 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
+            // --- Lost & Found ---
+            {
+                path: '/lost-found',
+                label: 'Đồ thất lạc',
+                hint: 'Quản lý đồ thất lạc & locker',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/found-items',
+                label: 'Đồ tìm thấy',
+                hint: 'Danh sách đồ tìm thấy',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/><circle cx="12" cy="12" r="9"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/lost-items',
+                label: 'Báo mất đồ',
+                hint: 'Danh sách báo mất',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
+                path: '/locker-manager',
+                label: 'Tủ locker',
+                hint: 'Quản lý tủ chứa đồ',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M9 9h6"/><path d="M9 15h6"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/claim-approval',
+                label: 'Duyệt trả đồ',
+                hint: 'Xử lý yêu cầu nhận lại',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>',
+                roles: ['Admin'],
+            },
         ],
     },
     {

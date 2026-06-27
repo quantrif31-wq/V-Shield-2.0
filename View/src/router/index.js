@@ -66,6 +66,11 @@ const RedactionQueue = () => import('../pages/RedactionQueue.vue')
 const RetentionDashboard = () => import('../pages/RetentionDashboard.vue')
 const ComplianceReports = () => import('../pages/ComplianceReports.vue')
 const GuideViewer = () => import('../pages/GuideViewer.vue')
+const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
+const FoundItemRegistry = () => import('../pages/FoundItemRegistry.vue')
+const LostItemList = () => import('../pages/LostItemList.vue')
+const ClaimApproval = () => import('../pages/ClaimApproval.vue')
+const LockerManager = () => import('../pages/LockerManager.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -141,6 +146,11 @@ const routes = [
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'guide', name: 'GuideViewer', component: GuideViewer },
+            { path: 'lost-found', name: 'LostFoundDashboard', component: LostFoundDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'found-items', name: 'FoundItemRegistry', component: FoundItemRegistry, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'lost-items', name: 'LostItemList', component: LostItemList, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'claim-approval', name: 'ClaimApproval', component: ClaimApproval, meta: { allowedRoles: ['Admin'] } },
+            { path: 'locker-manager', name: 'LockerManager', component: LockerManager, meta: { allowedRoles: ['Admin'] } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
