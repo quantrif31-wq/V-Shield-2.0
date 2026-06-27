@@ -86,35 +86,23 @@
               </span>
             </button>
 
-            <!-- Responsibility Actions -->
+            <!-- Unified Emergency Override -->
             <button
               type="button"
-              class="dd-action dd-action--caution"
-              :disabled="!canOverride || loading"
-              @click="openResponsibilityForm('override')"
+              class="dd-action dd-action--unified"
+              :disabled="!canUnifiedEmergency || loading"
+              @pointerdown="startPress"
+              @pointerup="endPress"
+              @pointerleave="cancelPress"
             >
-              <span class="dd-action-icon">&#9888;</span>
+              <span class="dd-action-icon">&#9888;&#65039;</span>
               <span class="dd-action-text">
-                <strong>Cho qua có chịu trách nhiệm</strong>
-                <small>Override quy tắc, tự chịu trách nhiệm</small>
+                <strong>Cấp quyền khẩn cấp</strong>
+                <small>Cho qua, chịu trách nhiệm</small>
               </span>
             </button>
 
-            <!-- Duress -->
-            <button
-              type="button"
-              class="dd-action dd-action--danger dd-action--duress"
-              :disabled="!canDuress || loading"
-              @click="openReasonForm('duress')"
-            >
-              <span class="dd-action-icon">&#9940;</span>
-              <span class="dd-action-text">
-                <strong>Ghi nhận ép buộc / Duress</strong>
-                <small>Báo động đang bị ép buộc</small>
-              </span>
-            </button>
-
-            <!-- Emergency / Escalation -->
+            <!-- Escalation -->
             <button
               type="button"
               class="dd-action dd-action--admin"
@@ -125,19 +113,6 @@
               <span class="dd-action-text">
                 <strong>Xin phép quản lý</strong>
                 <small>Gửi yêu cầu can thiệp lên cấp trên</small>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              class="dd-action dd-action--admin"
-              :disabled="!canEmergency || loading"
-              @click="openStepUp('emergency')"
-            >
-              <span class="dd-action-icon">&#9888;&#65039;</span>
-              <span class="dd-action-text">
-                <strong>Cấp quyền khẩn cấp</strong>
-                <small>Admin cấp quyền ngay và chịu trách nhiệm</small>
               </span>
             </button>
           </div>
@@ -213,6 +188,7 @@ export default {
     canDuress: { type: Boolean, default: true },
     canEscalate: { type: Boolean, default: true },
     canEmergency: { type: Boolean, default: false },
+    canUnifiedEmergency: { type: Boolean, default: false },
     requireReasonForAllow: { type: Boolean, default: false },
     requireReasonForDeny: { type: Boolean, default: false },
     loading: { type: Boolean, default: false },
@@ -229,32 +205,36 @@ export default {
       manualSubjectName: '',
       manualSubjectId: '',
       manualPlateNumber: '',
+      _isDuress: false,
+      pressTimer: null,
     }
   },
-  computed: {
-    formTitle() {
-      const titles = {
-        manual: 'Vận hành thủ công',
-        override: 'Cho qua có chịu trách nhiệm',
-        duress: 'Ghi nhận ép buộc (Duress)',
-        escalate: 'Xin phép quản lý',
-        emergency: 'Cấp quyền khẩn cấp ngay',
-      }
-      return titles[this.formMode] || 'Xác nhận hành động'
+    computed: {
+      formTitle() {
+        const titles = {
+          manual: 'Vận hành thủ công',
+          override: 'Cho qua có chịu trách nhiệm',
+          duress: 'Ghi nhận ép buộc (Duress)',
+          escalate: 'Xin phép quản lý',
+          emergency: 'Cấp quyền khẩn cấp ngay',
+          unified_emergency: 'Cấp quyền khẩn cấp',
+        }
+        return titles[this.formMode] || 'Xác nhận hành động'
+      },
+      formSubmitLabel() {
+        const labels = {
+          allow: 'Xác nhận cho qua',
+          deny: 'Xác nhận từ chối',
+          manual: 'Xác nhận chuyển manual',
+          override: 'Xác nhận chịu trách nhiệm',
+          duress: 'Gửi tín hiệu duress',
+          escalate: 'Gửi yêu cầu',
+          emergency: 'Cấp quyền và phát cảnh báo',
+          unified_emergency: 'Cấp quyền và phát cảnh báo',
+        }
+        return labels[this.formMode] || 'Xác nhận'
+      },
     },
-    formSubmitLabel() {
-      const labels = {
-        allow: 'Xác nhận cho qua',
-      deny: 'Xác nhận từ chối',
-      manual: 'Xác nhận chuyển manual',
-        override: 'Xác nhận chịu trách nhiệm',
-        duress: 'Gửi tín hiệu duress',
-        escalate: 'Gửi yêu cầu',
-        emergency: 'Cấp quyền và phát cảnh báo',
-      }
-      return labels[this.formMode] || 'Xác nhận'
-    },
-  },
   watch: {
     visible(val) {
       if (!val) this.resetForm()
@@ -300,6 +280,36 @@ export default {
       this.manualSubjectName = ''
       this.manualSubjectId = ''
       this.manualPlateNumber = ''
+      this._isDuress = false
+      this.cancelPress()
+    },
+    startPress() {
+      this.pressTimer = setTimeout(() => {
+        this._isDuress = true
+        if (navigator.vibrate) navigator.vibrate(30)
+      }, 1500)
+    },
+    endPress() {
+      if (this.pressTimer) {
+        clearTimeout(this.pressTimer)
+        this.pressTimer = null
+      }
+      this.openUnifiedForm(this._isDuress)
+    },
+    cancelPress() {
+      if (this.pressTimer) {
+        clearTimeout(this.pressTimer)
+        this.pressTimer = null
+      }
+      this._isDuress = false
+    },
+    openUnifiedForm(isDuress) {
+      this.formMode = 'unified_emergency'
+      this._isDuress = isDuress
+      this.actionReason = ''
+      this.responsibilityAccepted = false
+      this.formError = false
+      this.seedManualFields()
     },
     seedManualFields() {
       this.manualSubjectName = this.subjectName || ''
@@ -311,17 +321,17 @@ export default {
         this.formError = true
         return
       }
-      if ((this.formMode === 'override' || this.formMode === 'duress' || this.formMode === 'emergency') && !this.responsibilityAccepted) {
+      if ((this.formMode === 'override' || this.formMode === 'duress' || this.formMode === 'emergency' || this.formMode === 'unified_emergency') && !this.responsibilityAccepted) {
         this.formError = true
         return
       }
-      if ((this.formMode === 'manual' || this.formMode === 'emergency') && !this.manualSubjectName && !this.manualPlateNumber) {
+      if ((this.formMode === 'manual' || this.formMode === 'emergency' || this.formMode === 'unified_emergency') && !this.manualSubjectName && !this.manualPlateNumber) {
         this.formError = true
         return
       }
       this.formError = false
       this.saving = true
-      this.$emit('action', {
+      const payload = {
         type: this.formMode,
         reason: this.actionReason.trim(),
         responsibility: this.responsibilityAccepted,
@@ -330,7 +340,11 @@ export default {
           subjectId: this.manualSubjectId,
           plateNumber: this.manualPlateNumber,
         },
-      })
+      }
+      if (this.formMode === 'unified_emergency') {
+        payload._duress = this._isDuress
+      }
+      this.$emit('action', payload)
     },
     resetSaving() {
       this.saving = false
@@ -529,6 +543,7 @@ export default {
 .dd-action--caution .dd-action-icon { background: #fff7ed; color: #c2410c; }
 .dd-action--duress .dd-action-icon { background: #fce7f3; color: #9d174d; }
 .dd-action--admin .dd-action-icon { background: #eff6ff; color: #1d4ed8; }
+.dd-action--unified .dd-action-icon { background: #fef3c7; color: #b45309; }
 .dd-action-text {
   display: flex;
   flex-direction: column;

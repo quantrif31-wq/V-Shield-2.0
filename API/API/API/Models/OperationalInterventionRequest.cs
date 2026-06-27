@@ -9,6 +9,11 @@ public class OperationalInterventionRequest
     /// <summary>Người yêu cầu (BaoVe)</summary>
     public int RequestedByUserId { get; set; }
 
+    /// <summary>Khu vực nơi phát sinh yêu cầu can thiệp</summary>
+    public int? SiteId { get; set; }
+
+    public int? SecurityZoneId { get; set; }
+
     /// <summary>Làn / cổng nơi phát sinh yêu cầu</summary>
     [MaxLength(120)]
     public string? LaneId { get; set; }
@@ -89,4 +94,6 @@ public class OperationalInterventionRequest
     public AppUser? AcceptedByUser { get; set; }
     public AppUser? RejectedByUser { get; set; }
     public AppUser? ExecutedByUser { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
 }

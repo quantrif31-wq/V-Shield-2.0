@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using API.Data;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace API.Controllers;
 public class EnterpriseInterventionController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly ZoneAuthorityService _zoneAuthority;
 
-    public EnterpriseInterventionController(ApplicationDbContext context)
+    public EnterpriseInterventionController(ApplicationDbContext context, ZoneAuthorityService zoneAuthority)
     {
         _context = context;
+        _zoneAuthority = zoneAuthority;
     }
 
     /// <summary>
@@ -54,9 +57,33 @@ public class EnterpriseInterventionController : ControllerBase
             return Unauthorized(new { message = "Cannot identify user." });
 
         var now = DateTime.UtcNow;
+
+        // Zone authority check for override/emergency types
+        var interventionType = request.InterventionType.Trim().ToLowerInvariant();
+        if (interventionType is "policy_override" or "emergency_override" or "emergency_pass")
+        {
+            var role = User.FindFirstValue(ClaimTypes.Role);
+            if (role != "Admin")
+            {
+                bool allowed;
+                string reason;
+                if (request.SecurityZoneId.HasValue)
+                    (allowed, reason) = await _zoneAuthority.CanOverrideZoneAsync(userId.Value, request.SecurityZoneId.Value);
+                else if (request.SiteId.HasValue)
+                    (allowed, reason) = await _zoneAuthority.CanOverrideAnyZoneAtSiteAsync(userId.Value, request.SiteId.Value);
+                else
+                    (allowed, reason) = (false, "Thiếu thông tin khu vực để kiểm tra quyền.");
+
+                if (!allowed)
+                    return BadRequest(new { message = reason });
+            }
+        }
+
         var item = new OperationalInterventionRequest
         {
             RequestedByUserId = userId.Value,
+            SiteId = request.SiteId,
+            SecurityZoneId = request.SecurityZoneId,
             LaneId = request.LaneId?.Trim(),
             LaneName = request.LaneName?.Trim(),
             InterventionType = request.InterventionType.Trim(),
@@ -339,6 +366,8 @@ public class EnterpriseInterventionController : ControllerBase
     public sealed record CreateInterventionRequest(
         string InterventionType,
         string Reason,
+        int? SiteId,
+        int? SecurityZoneId,
         string? LaneId,
         string? LaneName,
         string? SubjectName,

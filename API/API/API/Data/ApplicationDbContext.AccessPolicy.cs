@@ -118,6 +118,14 @@ public partial class ApplicationDbContext
                 .WithMany()
                 .HasForeignKey(e => e.ApprovedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Site)
+                .WithMany()
+                .HasForeignKey(e => e.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.SecurityZone)
+                .WithMany()
+                .HasForeignKey(e => e.SecurityZoneId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<AccessPolicyVersion>(entity =>
@@ -159,6 +167,22 @@ public partial class ApplicationDbContext
             entity.Property(e => e.SubjectType).IsRequired().HasMaxLength(40);
             entity.Property(e => e.State).IsRequired().HasMaxLength(40);
             entity.HasIndex(e => new { e.SubjectType, e.SubjectId, e.SecurityZoneId }).IsUnique();
+        });
+
+        modelBuilder.Entity<DuressEvent>(entity =>
+        {
+            entity.HasKey(e => e.DuressEventId);
+            entity.Property(e => e.CredentialType).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Description).HasMaxLength(200);
+            entity.HasIndex(e => new { e.SiteId, e.OccurredAtUtc });
+            entity.HasOne(e => e.Site)
+                .WithMany()
+                .HasForeignKey(e => e.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.SecurityZone)
+                .WithMany()
+                .HasForeignKey(e => e.SecurityZoneId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<OccupancySnapshot>(entity =>

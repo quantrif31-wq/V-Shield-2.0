@@ -99,6 +99,8 @@ public class EmergencyPass
     [MaxLength(80)] public string? SubjectId { get; set; }
     [MaxLength(240)] public string SubjectName { get; set; } = string.Empty;
     [MaxLength(40)] public string? PlateNumber { get; set; }
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
     [MaxLength(120)] public string? LaneReference { get; set; }
     [MaxLength(160)] public string? LaneName { get; set; }
     [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
@@ -110,6 +112,8 @@ public class EmergencyPass
     public long? AlarmId { get; set; }
     public long? LaneEventId { get; set; }
     public AppUser? ApprovedByUser { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
 }
 
 public class AccessPolicyVersion
@@ -178,6 +182,7 @@ public class DuressEvent
     public int? UserId { get; set; }
     public int? EmployeeId { get; set; }
     public int? AccessPointId { get; set; }
+    public int? SecurityZoneId { get; set; }
     public int? SiteId { get; set; }
     [MaxLength(40)] public string CredentialType { get; set; } = "Unknown";
     [MaxLength(200)] public string? Description { get; set; }
@@ -185,6 +190,8 @@ public class DuressEvent
     public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? AcknowledgedAtUtc { get; set; }
     public int? AcknowledgedByUserId { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
 }
 
 public class EmergencyState

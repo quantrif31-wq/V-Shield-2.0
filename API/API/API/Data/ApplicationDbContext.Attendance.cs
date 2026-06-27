@@ -274,6 +274,7 @@ public partial class ApplicationDbContext
         ConfigureAiCore(modelBuilder);
         ConfigureInterventionRequests(modelBuilder);
         ConfigureLostFound(modelBuilder);
+        ConfigureGuardZoneAuthority(modelBuilder);
         ConfigureRateLimiting(modelBuilder);
     }
 

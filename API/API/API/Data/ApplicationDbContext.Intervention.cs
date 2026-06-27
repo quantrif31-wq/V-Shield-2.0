@@ -31,6 +31,18 @@ public partial class ApplicationDbContext
 
             entity.HasIndex(e => new { e.Status, e.Priority, e.CreatedAtUtc });
 
+            entity.HasOne(e => e.Site)
+                .WithMany()
+                .HasForeignKey(e => e.SiteId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Intervention_Site");
+
+            entity.HasOne(e => e.SecurityZone)
+                .WithMany()
+                .HasForeignKey(e => e.SecurityZoneId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Intervention_SecurityZone");
+
             // Navigation: RequestedByUser
             entity.HasOne(e => e.RequestedByUser)
                 .WithMany()

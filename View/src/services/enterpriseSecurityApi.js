@@ -107,7 +107,10 @@ export const enterpriseApi = {
     shadowCompare(payload) { return http.post('/enterprise/access-policy/shadow-compare', payload) },
     createTemporaryGrant(payload) { return http.post('/enterprise/access-policy/temporary-grants', payload) },
     getEmergencyPasses(active = true) { return http.get('/enterprise/access-policy/emergency-passes', { params: { active } }) },
-    createEmergencyPass(payload) { return http.post('/enterprise/access-policy/emergency-passes', payload) },
+    createEmergencyPass(payload, isDuress) {
+      const config = isDuress ? { headers: { 'X-Duress-Signal': '1' } } : undefined
+      return http.post('/enterprise/access-policy/emergency-passes', payload, config)
+    },
     createEmergencyState(payload) { return http.post('/enterprise/access-policy/emergency-states', payload) },
     getActiveEmergencies() { return http.get('/enterprise/access-policy/emergency-states?active=true') },
     recordOccupancy(payload) { return http.post('/enterprise/access-policy/occupancy', payload) },
@@ -288,6 +291,28 @@ export const enterpriseApi = {
        getVisits(params) { return http.get('/enterprise/visitor-vehicle/visits', { params }) },
        checkInVisit(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/check-in`, payload) },
        acceptForm(visitId, payload) { return http.post(`/enterprise/visitor-vehicle/visits/${visitId}/form-acceptances`, payload) },
+}
+
+// ── Zone Authority ──────────────────────────────────────────────
+export const zoneAuthorityApi = {
+  getAuthorities(params) {
+    const query = new URLSearchParams()
+    if (params.userId) query.set('userId', params.userId)
+    if (params.securityZoneId) query.set('securityZoneId', params.securityZoneId)
+    return enterpriseAxios.get(`/access-policy/zone-authorities?${query}`)
+  },
+  createAuthority(data) {
+    return enterpriseAxios.post('/access-policy/zone-authorities', data)
+  },
+  revokeAuthority(id) {
+    return enterpriseAxios.delete(`/access-policy/zone-authorities/${id}`)
+  },
+  getMyZones() {
+    return enterpriseAxios.get('/access-policy/zone-authorities/my-zones')
+  },
+  checkCanOverride(securityZoneId) {
+    return enterpriseAxios.get(`/access-policy/zone-authorities/can-override?securityZoneId=${securityZoneId}`)
+  },
 }
 
 export const lostFoundApi = {

@@ -536,10 +536,8 @@
     :can-allow="getActionPermissions(decisionLane)['allow']"
     :can-deny="getActionPermissions(decisionLane)['deny']"
     :can-manual="getActionPermissions(decisionLane)['manual']"
-    :can-override="getActionPermissions(decisionLane)['override']"
-    :can-duress="getActionPermissions(decisionLane)['duress']"
+    :can-unified-emergency="getActionPermissions(decisionLane)['unifiedEmergency']"
     :can-escalate="getActionPermissions(decisionLane)['escalate']"
-    :can-emergency="getActionPermissions(decisionLane)['emergency']"
     :loading="false"
     @close="closeDecisionDrawer"
     @action="handleDecisionAction"
@@ -580,7 +578,7 @@ import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRunt
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce, QR_API_BASE_URL } from "../services/dynamicQrScannerApi"
 import { PLATE_API_BASE_URL } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
-import { enterpriseApi } from "../services/enterpriseSecurityApi"
+import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
 import { authState, hasRole } from "../stores/auth"
 import DecisionDrawer from "./shared/DecisionDrawer.vue"
 import StepUpModal from "./shared/StepUpModal.vue"
@@ -744,7 +742,8 @@ export default {
         message: '',
         receiptId: '',
         timestamp: '',
-      }
+      },
+      userZoneIds: [],
     }
   },
 
@@ -835,6 +834,7 @@ export default {
   async mounted() {
   document.body.classList.add("gate-transit-compact")
   await this.loadCameraList()
+  await this.fetchUserZones()
 
   for (const lane of this.lanes) {
     lane.qr.destroyed = false
@@ -2597,19 +2597,32 @@ lane.qr.scanRequested = true
       return true
     },
 
+    async fetchUserZones() {
+      if (this.currentRole === 'Admin') return
+      try {
+        const res = await zoneAuthorityApi.getMyZones()
+        this.userZoneIds = (res.data || []).map(z => z.securityZoneId)
+      } catch {
+        this.userZoneIds = []
+      }
+    },
+
     getActionPermissions(lane) {
-      // Returns which actions are available based on role + lane state
       const role = this.currentRole
       const isReady = lane && ((!!lane.qr.employeeId || !!lane.qr.guestId) || !!lane.plate.confirmedPlate)
-      
+      const roleOk = role === 'Admin' || role === 'BaoVe'
+      let zoneOk = true
+      if (role === 'BaoVe' && lane && (lane.siteId || lane.securityZoneId)) {
+        if (lane.securityZoneId) {
+          zoneOk = this.userZoneIds.includes(lane.securityZoneId)
+        }
+      }
       const permissions = {
-        allow: isReady && (role === 'Admin' || role === 'BaoVe'),
-        deny: isReady && (role === 'Admin' || role === 'BaoVe'),
-        manual: (role === 'Admin' || role === 'BaoVe'),
-        override: isReady && (role === 'Admin' || role === 'BaoVe'),
-        duress: (role === 'Admin' || role === 'BaoVe'),
-        escalate: isReady && (role === 'Admin' || role === 'BaoVe'),
-        emergency: role === 'Admin',
+        allow: isReady && roleOk,
+        deny: isReady && roleOk,
+        manual: roleOk,
+        unifiedEmergency: isReady && roleOk && zoneOk,
+        escalate: isReady && roleOk,
       }
       return permissions
     },
@@ -2638,6 +2651,9 @@ lane.qr.scanRequested = true
             break
           case 'escalate':
             await this.executeEscalate(lane, reason)
+            break
+          case 'unified_emergency':
+            await this.executeUnifiedEmergency(lane, reason, details, responsibility, action._duress)
             break
           case 'emergency':
             await this.executeEmergency(lane, reason, details, responsibility)
@@ -2774,7 +2790,8 @@ lane.qr.scanRequested = true
           userId: authState.user?.userId || null,
           employeeId: authState.user?.employeeId || null,
           accessPointId: null,
-          siteId: null,
+          siteId: lane.siteId || null,
+          securityZoneId: lane.securityZoneId || null,
           credentialType: 'DynamicQR',
           description: `${lane.name || 'Gate'}: ${reason || 'Ghi nhận duress'}`,
         })
@@ -2794,6 +2811,8 @@ lane.qr.scanRequested = true
         const res = await enterpriseApi.createInterventionRequest({
           interventionType: 'other',
           reason: reason || 'Yêu cầu can thiệp từ lane',
+          siteId: lane.siteId || null,
+          securityZoneId: lane.securityZoneId || null,
           laneId: String(lane.id || ''),
           laneName: String(lane.name || ''),
           subjectName: String(lane.qr.employeeName || 'Khách'),
@@ -2830,6 +2849,41 @@ lane.qr.scanRequested = true
       }
     },
 
+    async executeUnifiedEmergency(lane, reason, details = {}, responsibility, isDuress = false) {
+      if (!responsibility) throw new Error('Phải xác nhận trách nhiệm trước khi cấp quyền khẩn cấp.')
+      const subjectName = String(details?.subjectName || lane.qr.employeeName || lane.qr.guestName || 'Đối tượng khẩn cấp').trim()
+      const plateNumber = String(details?.plateNumber || lane.plate.confirmedPlate || lane.plate.lastRawPlate || '').trim()
+
+      try {
+        const response = await enterpriseApi.createEmergencyPass({
+          subjectType: lane.qr.guestId ? 'Guest' : 'Person',
+          subjectId: String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || ''),
+          subjectName,
+          plateNumber,
+          siteId: lane.siteId || null,
+          securityZoneId: lane.securityZoneId || null,
+          laneReference: String(lane.id || ''),
+          laneName: String(lane.name || ''),
+          direction: 'Entry',
+          reason,
+          durationMinutes: 30,
+        }, isDuress)
+
+        const pass = response.data?.emergencyPass
+        const receiptId = isDuress
+          ? `DRS-${pass?.emergencyPassId || Date.now()}`
+          : `EMG-${pass?.emergencyPassId || Date.now()}`
+
+        this.showAuditToast('danger', 'Đã cấp quyền khẩn cấp',
+          `${subjectName}${plateNumber ? ` - ${plateNumber}` : ''} được phép qua ngay.`,
+          receiptId)
+      } catch (e) {
+        this.showAuditToast('danger', 'Cấp quyền thất bại',
+          e?.response?.data?.message || e?.message || 'Không thể cấp quyền khẩn cấp.',
+          'ERR-' + Date.now())
+      }
+    },
+
     async executeEmergency(lane, reason, details = {}, responsibility) {
       // Only Admin can execute emergency directly
       if (!this.isAdmin) {
@@ -2845,6 +2899,8 @@ lane.qr.scanRequested = true
         subjectId: String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || ''),
         subjectName,
         plateNumber,
+        siteId: lane.siteId || null,
+        securityZoneId: lane.securityZoneId || null,
         laneReference: String(lane.id || ''),
         laneName: String(lane.name || ''),
         direction: 'Entry',
