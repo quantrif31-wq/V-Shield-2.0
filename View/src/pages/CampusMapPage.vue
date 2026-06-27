@@ -2,9 +2,9 @@
     <div class="page-container ops-page animate-in">
         <header class="page-header">
             <div>
-                <h1 class="page-title">Ban do 3D khuon vien realtime</h1>
+                <h1 class="page-title">Bản đồ 3D khuôn viên realtime</h1>
                 <p class="page-subtitle">
-                    Mo hinh 3D toan canh cong ty. Keo tha de xoay view, hover de xem thong tin, click vao cong de chi tiet.
+                    Mô hình 3D toàn cảnh công ty. Kéo thả để xoay view, hover để xem thông tin, click vào cổng để chi tiết.
                 </p>
             </div>
         </header>
@@ -19,7 +19,7 @@
             @fit-screen="fitToScreen"
         />
 
-        <div v-if="loading" class="empty-card">Dang tai du lieu 3D khuon vien...</div>
+        <div v-if="loading" class="empty-card">Đang tải dữ liệu 3D khuôn viên...</div>
         <div v-else-if="error" class="empty-card">{{ error }}</div>
         <section v-else class="campus-layout">
             <Campus3DCanvas
@@ -114,7 +114,7 @@ const loadRealtime = async () => {
         recentEvents.value = data?.recentEvents || []
         realtimeError.value = ''
     } catch (err) {
-        realtimeError.value = err?.response?.data?.message || 'Khong tai duoc realtime, se thu lai tu dong.'
+        realtimeError.value = err?.response?.data?.message || 'Không tải được realtime, sẽ thử lại tự động.'
     }
 }
 
@@ -150,7 +150,7 @@ onMounted(async () => {
         await loadRealtime()
         realtimeTimer = setInterval(loadRealtime, 5000)
     } catch (err) {
-        error.value = err?.response?.data?.message || 'Khong tai duoc du lieu campus 3D.'
+        error.value = err?.response?.data?.message || 'Không tải được dữ liệu campus 3D.'
     } finally {
         loading.value = false
     }

@@ -1,6 +1,6 @@
 <template>
-    <div class="page-container ops-page animate-in">
-        <div class="page-header-bar">
+    <div class="page-container ops-page animate-in" :class="{ 'timeline-embedded': embedded }">
+        <div v-if="!embedded" class="page-header-bar">
             <div>
                 <span class="panel-kicker">Situational awareness</span>
                 <h1 class="page-title">Event Timeline</h1>
@@ -217,6 +217,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
 
+defineProps({
+    embedded: {
+        type: Boolean,
+        default: false,
+    },
+})
+
 const events = ref([])
 const loading = ref(true)
 const page = ref(1)
@@ -366,3 +373,9 @@ async function submitCreateEvent() {
 
 onMounted(loadEvents)
 </script>
+
+<style scoped>
+.timeline-embedded {
+    padding: 0;
+}
+</style>

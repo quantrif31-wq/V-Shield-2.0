@@ -347,6 +347,13 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe', 'QuanLy'],
             },
             {
+                path: '/camera-archive/0',
+                label: 'Lưu trữ camera',
+                hint: 'Xem lại bản ghi hình cũ',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><path d="M12 11v5"/><path d="M9 14l3 3 3-3"/></svg>',
+                roles: ['Admin', 'BaoVe'],
+            },
+            {
                 path: '/gate-transit-monitor',
                 label: 'Điều phối thông hành',
                 hint: 'QR + biển số theo từng làn',
@@ -376,13 +383,6 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe'],
             },
             {
-                path: '/dynamic-qr-scanner',
-                label: 'Quét QR động',
-                hint: 'Giải mã và xác thực tại cổng',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h5v5H4z"/><path d="M15 4h5v5h-5z"/><path d="M4 15h5v5H4z"/><path d="M16 16h1"/><path d="M19 16h1"/><path d="M16 19h4"/><path d="M12 7h1"/><path d="M12 12h1"/><path d="M7 12h5"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
-            {
                 path: '/dynamic-qr-generator',
                 label: 'Tạo QR động',
                 hint: 'Sinh mã QR realtime cho nhân viên',
@@ -408,13 +408,6 @@ const navGroups = ref([
                 label: 'Lane Dashboard',
                 hint: 'Sức khỏe làn & barrier',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>',
-                roles: ['Admin', 'BaoVe'],
-            },
-            {
-                path: '/plate-review',
-                label: 'Plate Review',
-                hint: 'Duyệt ảnh biển số AI',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h4"/><path d="M14 10h4"/></svg>',
                 roles: ['Admin', 'BaoVe'],
             },
             {
@@ -748,11 +741,15 @@ const navGroups = ref([
         ],
     },
 ])
+const HIDDEN_NAV_PATHS = new Set(['/event-timeline', '/lane-dashboard'])
+
 const visibleGroups = computed(() =>
     navGroups.value
         .map((group) => ({
             ...group,
-            items: group.items.filter((item) => canAccessNavigationItem(item)),
+            items: group.items.filter(
+                (item) => canAccessNavigationItem(item) && !HIDDEN_NAV_PATHS.has(item.path)
+            ),
         }))
         .filter((group) => group.items.length > 0)
 )
@@ -1497,6 +1494,7 @@ const refreshFlyoutPosition = () => {
     }
 }
 </style>
+
 
 
 

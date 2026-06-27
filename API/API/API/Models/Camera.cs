@@ -25,6 +25,12 @@ public partial class Camera
     [StringLength(500)]
     public string? UrlView { get; set; }
 
+    public bool IsRecordingEnabled { get; set; }
+
+    public int RecordingRetentionDays { get; set; } = 30;
+
+    [InverseProperty("Camera")]
+    public virtual ICollection<RecordedSegment> RecordedSegments { get; set; } = new List<RecordedSegment>();
 
     [InverseProperty("Camera")]
     public virtual ICollection<AccessLog> AccessLogs { get; set; } = new List<AccessLog>();

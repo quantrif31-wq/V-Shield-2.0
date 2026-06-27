@@ -2,47 +2,47 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Exception Management</span>
-                <h1 class="page-title">Trung tam ngoai le</h1>
-                <p class="page-subtitle">Hang doi case can doi soat, xin can thiep va khoa so thao tac.</p>
+                <span class="panel-kicker">Quản lý ngoại lệ</span>
+                <h1 class="page-title">Trung tâm ngoại lệ</h1>
+                <p class="page-subtitle">Hàng đợi case cần đối soát, xin can thiệp và khóa sổ thao tác.</p>
             </div>
             <div class="header-actions">
-                <span class="soft-chip warn">{{ openCaseCount }} case mo</span>
-                <span class="soft-chip danger">{{ pendingInterventionCount }} yeu cau cho xu ly</span>
-                <button class="btn btn-secondary btn-sm" :disabled="loading" @click="loadAll">Refresh</button>
+                <span class="soft-chip warn">{{ openCaseCount }} case mở</span>
+                <span class="soft-chip danger">{{ pendingInterventionCount }} yêu cầu chờ xử lý</span>
+                <button class="btn btn-secondary btn-sm" :disabled="loading" @click="loadAll">Làm mới</button>
             </div>
         </div>
 
         <section class="summary-strip">
             <article class="summary-card">
-                <span class="summary-label">Case dang mo</span>
+                <span class="summary-label">Case đang mở</span>
                 <strong class="summary-value">{{ openCaseCount }}</strong>
-                <small>{{ categoryCount('pending_approval') }} cho phe duyet</small>
+                <small>{{ categoryCount('pending_approval') }} chờ phê duyệt</small>
             </article>
             <article class="summary-card">
-                <span class="summary-label">Override / bypass</span>
+                <span class="summary-label">Ghi đè / bypass</span>
                 <strong class="summary-value">{{ categoryCount('manual_override') }}</strong>
-                <small>{{ categoryCount('data_mismatch') }} lech du lieu</small>
+                <small>{{ categoryCount('data_mismatch') }} lệch dữ liệu</small>
             </article>
             <article class="summary-card">
-                <span class="summary-label">Device / duress</span>
+                <span class="summary-label">Thiết bị / ép buộc</span>
                 <strong class="summary-value">{{ categoryCount('device_degraded') + categoryCount('duress') }}</strong>
-                <small>{{ categoryCount('emergency_pass') }} khan cap</small>
+                <small>{{ categoryCount('emergency_pass') }} khẩn cấp</small>
             </article>
             <article class="summary-card">
-                <span class="summary-label">Workflow can thiep</span>
+                <span class="summary-label">Workflow can thiệp</span>
                 <strong class="summary-value">{{ interventionRequests.length }}</strong>
-                <small>{{ executedInterventionCount }} da thuc thi</small>
+                <small>{{ executedInterventionCount }} đã thực thi</small>
             </article>
         </section>
 
         <div class="tab-bar">
             <button :class="{ active: activeTab === 'cases' }" @click="activeTab = 'cases'">
-                Case ngoai le
+                Case ngoại lệ
                 <span v-if="exceptionCases.length" class="tab-count">{{ exceptionCases.length }}</span>
             </button>
             <button :class="{ active: activeTab === 'interventions' }" @click="activeTab = 'interventions'">
-                Hang doi can thiep
+                Hàng đợi can thiệp
                 <span v-if="pendingInterventionCount" class="tab-count danger">{{ pendingInterventionCount }}</span>
             </button>
         </div>
@@ -51,11 +51,11 @@
             <section class="workspace-pane queue-pane">
                 <div class="pane-header">
                     <div>
-                        <h2 class="panel-title">Danh sach case</h2>
-                        <p class="pane-subtitle">Tap trung vao case moi nhat va co nguy co thao tac.</p>
+                        <h2 class="panel-title">Danh sách case</h2>
+                        <p class="pane-subtitle">Tập trung vào case mới nhất và có nguy cơ thao tác.</p>
                     </div>
                     <div class="search-shell">
-                        <input v-model.trim="searchQuery" type="text" placeholder="Tim theo ten, bien so, log..." class="filter-input" />
+                        <input v-model.trim="searchQuery" type="text" placeholder="Tìm theo tên, biển số, log..." class="filter-input" />
                     </div>
                 </div>
 
@@ -72,8 +72,8 @@
                     </button>
                 </div>
 
-                <div v-if="loading" class="empty-card">Dang tai danh sach case...</div>
-                <div v-else-if="filteredCases.length === 0" class="empty-card">Khong co case phu hop bo loc hien tai.</div>
+                <div v-if="loading" class="empty-card">Đang tải danh sách case...</div>
+                <div v-else-if="filteredCases.length === 0" class="empty-card">Không có case phù hợp bộ lọc hiện tại.</div>
                 <div v-else class="queue-list">
                     <button
                         v-for="item in filteredCases"
@@ -89,7 +89,7 @@
                         <strong class="queue-title">{{ item.subjectName || item.plateText || `Log #${item.sourceLogId}` }}</strong>
                         <div class="queue-meta">
                             <span v-if="item.plateText" class="plate-badge">{{ item.plateText }}</span>
-                            <span>{{ item.gateName || 'Chua gan cong' }}</span>
+                            <span>{{ item.gateName || 'Chưa gán cổng' }}</span>
                         </div>
                         <div class="queue-footer">
                             <span class="severity-badge" :class="`severity-${item.severity}`">{{ severityLabel(item.severity) }}</span>
@@ -102,13 +102,13 @@
             </section>
 
             <section class="workspace-pane detail-pane">
-                <div v-if="!selectedCase" class="empty-card">Chon mot case de xem chi tiet va thao tac.</div>
+                <div v-if="!selectedCase" class="empty-card">Chọn một case để xem chi tiết và thao tác.</div>
                 <template v-else>
                     <div class="detail-header">
                         <div>
                             <span class="panel-kicker">Case #{{ selectedCase.id }}</span>
-                            <h2 class="detail-title">{{ selectedCase.subjectName || 'Unknown subject' }}</h2>
-                            <p class="detail-subtitle">{{ selectedCase.reason || 'Chua mo ta ly do' }}</p>
+                            <h2 class="detail-title">{{ selectedCase.subjectName || 'Đối tượng chưa rõ' }}</h2>
+                            <p class="detail-subtitle">{{ selectedCase.reason || 'Chưa mô tả lý do' }}</p>
                         </div>
                         <div class="detail-actions">
                             <button
@@ -125,7 +125,7 @@
                                 :disabled="saving"
                                 @click="closeCase(selectedCase)"
                             >
-                                Khoa so case
+                                Khóa sổ case
                             </button>
                         </div>
                     </div>
@@ -136,45 +136,45 @@
 
                     <div class="meta-grid">
                         <div class="meta-item">
-                            <span class="meta-label">Danh muc</span>
+                            <span class="meta-label">Danh mục</span>
                             <span class="case-badge" :class="`badge-${selectedCase.category}`">{{ categoryLabel(selectedCase.category) }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Muc do</span>
+                            <span class="meta-label">Mức độ</span>
                             <span class="severity-badge" :class="`severity-${selectedCase.severity}`">{{ severityLabel(selectedCase.severity) }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Trang thai log</span>
+                            <span class="meta-label">Trạng thái log</span>
                             <span>{{ selectedCase.resultStatus || '---' }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Bien so</span>
+                            <span class="meta-label">Biển số</span>
                             <span>{{ selectedCase.plateText || '---' }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Cong</span>
+                            <span class="meta-label">Cổng</span>
                             <span>{{ selectedCase.gateName || '---' }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Thoi gian</span>
+                            <span class="meta-label">Thời gian</span>
                             <span>{{ formatDateTime(selectedCase.lastEventAt) }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Nguon</span>
+                            <span class="meta-label">Nguồn</span>
                             <span>{{ methodLabel(selectedCase.method) }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Ma ly do</span>
+                            <span class="meta-label">Mã lý do</span>
                             <span>{{ selectedCase.reasonCode || 'UNCLASSIFIED' }}</span>
                         </div>
                     </div>
 
                     <div class="detail-tabs">
-                        <button :class="{ active: detailTab === 'timeline' }" @click="detailTab = 'timeline'">Timeline</button>
-                        <button :class="{ active: detailTab === 'events' }" @click="detailTab = 'events'; loadLaneEvents(selectedCase)">Lane events</button>
-                        <button :class="{ active: detailTab === 'evidence' }" @click="detailTab = 'evidence'; loadEvidence(selectedCase)">Evidence</button>
+                        <button :class="{ active: detailTab === 'timeline' }" @click="detailTab = 'timeline'">Dòng thời gian</button>
+                        <button :class="{ active: detailTab === 'events' }" @click="detailTab = 'events'; loadLaneEvents(selectedCase)">Sự kiện làn</button>
+                        <button :class="{ active: detailTab === 'evidence' }" @click="detailTab = 'evidence'; loadEvidence(selectedCase)">Chứng cứ</button>
                         <button :class="{ active: detailTab === 'barriers' }" @click="detailTab = 'barriers'; loadBarrierCommands(selectedCase)">Barrier</button>
-                        <button :class="{ active: detailTab === 'correlations' }" @click="detailTab = 'correlations'; loadCorrelations(selectedCase)">Correlation</button>
+                        <button :class="{ active: detailTab === 'correlations' }" @click="detailTab = 'correlations'; loadCorrelations(selectedCase)">Tương quan</button>
                     </div>
 
                     <div v-if="detailTab === 'timeline'" class="detail-body">
@@ -182,34 +182,34 @@
                     </div>
 
                     <div v-else-if="detailTab === 'events'" class="detail-body">
-                        <div v-if="loadingLaneEvents" class="empty-card compact">Dang tai lane events...</div>
-                        <div v-else-if="laneEvents.length === 0" class="empty-card compact">Khong co lane event lien quan tu plate hien tai.</div>
+                        <div v-if="loadingLaneEvents" class="empty-card compact">Đang tải sự kiện làn...</div>
+                        <div v-else-if="laneEvents.length === 0" class="empty-card compact">Không có sự kiện làn liên quan từ biển số hiện tại.</div>
                         <div v-else class="compact-list">
                             <div v-for="event in laneEvents" :key="event.laneEventId" class="compact-row">
                                 <span class="compact-time">{{ formatDateTime(event.occurredAtUtc) }}</span>
                                 <span class="soft-chip">{{ event.eventType }}</span>
-                                <span>{{ event.lane?.name || selectedCase.resolvedLaneName || 'Unknown lane' }}</span>
+                                <span>{{ event.lane?.name || selectedCase.resolvedLaneName || 'Làn chưa rõ' }}</span>
                                 <span class="text-muted">{{ event.note || '' }}</span>
                             </div>
                         </div>
                     </div>
 
                     <div v-else-if="detailTab === 'evidence'" class="detail-body">
-                        <div v-if="loadingEvidence" class="empty-card compact">Dang tai evidence...</div>
-                        <div v-else-if="evidenceItems.length === 0" class="empty-card compact">Chua co evidence phu hop.</div>
+                        <div v-if="loadingEvidence" class="empty-card compact">Đang tải chứng cứ...</div>
+                        <div v-else-if="evidenceItems.length === 0" class="empty-card compact">Chưa có chứng cứ phù hợp.</div>
                         <div v-else class="compact-list">
                             <div v-for="item in evidenceItems" :key="item.evidenceItemId" class="compact-row">
                                 <span class="compact-time">{{ formatDateTime(item.createdAtUtc) }}</span>
-                                <strong>{{ item.fileName || `Evidence #${item.evidenceItemId}` }}</strong>
+                                <strong>{{ item.fileName || `Chứng cứ #${item.evidenceItemId}` }}</strong>
                                 <span class="text-muted">{{ item.classification || '' }}</span>
                             </div>
                         </div>
                     </div>
 
                     <div v-else-if="detailTab === 'barriers'" class="detail-body">
-                        <div v-if="loadingBarriers" class="empty-card compact">Dang tai barrier commands...</div>
+                        <div v-if="loadingBarriers" class="empty-card compact">Đang tải lệnh barrier...</div>
                         <div v-else-if="barrierMessage" class="empty-card compact">{{ barrierMessage }}</div>
-                        <div v-else-if="barrierCommands.length === 0" class="empty-card compact">Chua co lenh barrier lien quan.</div>
+                        <div v-else-if="barrierCommands.length === 0" class="empty-card compact">Chưa có lệnh barrier liên quan.</div>
                         <div v-else class="compact-list">
                             <div v-for="command in barrierCommands" :key="command.barrierCommandAuditId" class="compact-row">
                                 <span class="compact-time">{{ formatDateTime(command.requestedAtUtc) }}</span>
@@ -220,12 +220,12 @@
                     </div>
 
                     <div v-else class="detail-body">
-                        <div v-if="loadingCorrelations" class="empty-card compact">Dang tai correlations...</div>
-                        <div v-else-if="correlations.length === 0" class="empty-card compact">Chua co correlation phu hop.</div>
+                        <div v-if="loadingCorrelations" class="empty-card compact">Đang tải tương quan...</div>
+                        <div v-else-if="correlations.length === 0" class="empty-card compact">Chưa có tương quan phù hợp.</div>
                         <div v-else class="compact-list">
                             <div v-for="correlation in correlations" :key="correlation.correlationId" class="compact-row">
                                 <span class="compact-time">{{ formatDateTime(correlation.createdAtUtc) }}</span>
-                                <strong>{{ correlation.correlationType || 'Correlation' }}</strong>
+                                <strong>{{ correlation.correlationType || 'Tương quan' }}</strong>
                                 <span class="text-muted">{{ correlation.summary || correlation.description || '' }}</span>
                             </div>
                         </div>
@@ -238,10 +238,10 @@
             <section class="workspace-pane queue-pane">
                 <div class="pane-header">
                     <div>
-                        <h2 class="panel-title">Hang doi can thiep</h2>
-                        <p class="pane-subtitle">Mot noi cho ca bao ve, quan ly va admin thao tac theo workflow that.</p>
+                        <h2 class="panel-title">Hàng đợi can thiệp</h2>
+                        <p class="pane-subtitle">Một nơi cho cả bảo vệ, quản lý và admin thao tác theo workflow thật.</p>
                     </div>
-                    <button v-if="canManuallyCreateIntervention" class="btn btn-primary btn-sm" @click="showCreateModal = true">+ Tao yeu cau</button>
+                    <button v-if="canManuallyCreateIntervention" class="btn btn-primary btn-sm" @click="showCreateModal = true">+ Tạo yêu cầu</button>
                 </div>
 
                 <div class="filter-pills">
@@ -257,8 +257,8 @@
                     </button>
                 </div>
 
-                <div v-if="loadingInterventions" class="empty-card">Dang tai yeu cau can thiep...</div>
-                <div v-else-if="filteredInterventions.length === 0" class="empty-card">Khong co yeu cau phu hop bo loc hien tai.</div>
+                <div v-if="loadingInterventions" class="empty-card">Đang tải yêu cầu can thiệp...</div>
+                <div v-else-if="filteredInterventions.length === 0" class="empty-card">Không có yêu cầu phù hợp bộ lọc hiện tại.</div>
                 <div v-else class="queue-list">
                     <button
                         v-for="item in filteredInterventions"
@@ -274,7 +274,7 @@
                         <strong class="queue-title">{{ item.subjectName || item.plateNumber || `Request #${item.operationalInterventionRequestId}` }}</strong>
                         <div class="queue-meta">
                             <span>{{ priorityLabel(item.priority) }}</span>
-                            <span>{{ item.laneName || item.laneId || 'Khong gan lane' }}</span>
+                            <span>{{ item.laneName || item.laneId || 'Không gán lane' }}</span>
                         </div>
                         <div class="queue-footer">
                             <span class="status-badge" :class="`status-${(item.status || 'Pending').toLowerCase()}`">{{ statusLabel(item.status) }}</span>
@@ -284,11 +284,11 @@
             </section>
 
             <section class="workspace-pane detail-pane">
-                <div v-if="!selectedIntervention" class="empty-card">Chon mot yeu cau de xu ly.</div>
+                <div v-if="!selectedIntervention" class="empty-card">Chọn một yêu cầu để xử lý.</div>
                 <template v-else>
                     <div class="detail-header">
                         <div>
-                            <span class="panel-kicker">Request #{{ selectedIntervention.operationalInterventionRequestId }}</span>
+                            <span class="panel-kicker">Yêu cầu #{{ selectedIntervention.operationalInterventionRequestId }}</span>
                             <h2 class="detail-title">{{ interventionTypeLabel(selectedIntervention.interventionType) }}</h2>
                             <p class="detail-subtitle">{{ selectedIntervention.reason }}</p>
                         </div>
@@ -299,7 +299,7 @@
                                 :disabled="savingIntervention"
                                 @click="acceptIntervention(selectedIntervention)"
                             >
-                                Phe duyet
+                                Phê duyệt
                             </button>
                             <button
                                 v-if="canRejectIntervention(selectedIntervention)"
@@ -307,7 +307,7 @@
                                 :disabled="savingIntervention || !interventionReviewNote.trim()"
                                 @click="rejectIntervention(selectedIntervention)"
                             >
-                                Tu choi
+                                Từ chối
                             </button>
                             <button
                                 v-if="canExecuteIntervention(selectedIntervention)"
@@ -315,7 +315,7 @@
                                 :disabled="savingIntervention"
                                 @click="executeIntervention(selectedIntervention)"
                             >
-                                Thuc thi cap quyen
+                                Thực thi cấp quyền
                             </button>
                         </div>
                     </div>
@@ -326,23 +326,23 @@
 
                     <div class="meta-grid">
                         <div class="meta-item">
-                            <span class="meta-label">Trang thai</span>
+                            <span class="meta-label">Trạng thái</span>
                             <span class="status-badge" :class="`status-${(selectedIntervention.status || 'Pending').toLowerCase()}`">
                                 {{ statusLabel(selectedIntervention.status) }}
                             </span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Uu tien</span>
+                            <span class="meta-label">Ưu tiên</span>
                             <span class="severity-badge" :class="`severity-${prioritySeverity(selectedIntervention.priority)}`">
                                 {{ priorityLabel(selectedIntervention.priority) }}
                             </span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Doi tuong</span>
+                            <span class="meta-label">Đối tượng</span>
                             <span>{{ selectedIntervention.subjectName || '---' }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Bien so</span>
+                            <span class="meta-label">Biển số</span>
                             <span>{{ selectedIntervention.plateNumber || '---' }}</span>
                         </div>
                         <div class="meta-item">
@@ -350,24 +350,24 @@
                             <span>{{ selectedIntervention.laneName || selectedIntervention.laneId || '---' }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Tao luc</span>
+                            <span class="meta-label">Tạo lúc</span>
                             <span>{{ formatDateTime(selectedIntervention.createdAtUtc) }}</span>
                         </div>
                     </div>
 
                     <div class="detail-section">
-                        <label class="meta-label" for="review-note">Ghi chu duyet / ly do tu choi</label>
+                        <label class="meta-label" for="review-note">Ghi chú duyệt / lý do từ chối</label>
                         <textarea
                             id="review-note"
                             v-model="interventionReviewNote"
                             class="form-control"
                             rows="3"
-                            placeholder="Ghi ro can cu, pham vi va trach nhiem..."
+                            placeholder="Ghi rõ căn cứ, phạm vi và trách nhiệm..."
                         />
                     </div>
 
                     <div class="detail-section">
-                        <h3 class="detail-section-title">Timeline workflow</h3>
+                        <h3 class="detail-section-title">Dòng thời gian workflow</h3>
                         <ExceptionCaseTimeline :items="buildInterventionTimeline(selectedIntervention)" />
                     </div>
                 </template>
@@ -378,8 +378,8 @@
             <div v-if="showCreateModal" class="modal-backdrop" @click.self="showCreateModal = false">
                 <div class="modal-card">
                     <div class="modal-header">
-                        <h2>Tao yeu cau can thiep</h2>
-                        <button class="btn btn-ghost btn-sm" @click="showCreateModal = false">Dong</button>
+                        <h2>Tạo yêu cầu can thiệp</h2>
+                        <button class="btn btn-ghost btn-sm" @click="showCreateModal = false">Đóng</button>
                     </div>
                     <div class="modal-body">
                         <div v-if="createMessage" class="alert" :class="createError ? 'alert-danger' : 'alert-success'">
@@ -387,50 +387,50 @@
                         </div>
                         <div class="form-grid">
                             <label>
-                                <span>Loai can thiep</span>
+                                <span>Loại can thiệp</span>
                                 <select v-model="createForm.interventionType" class="form-control">
-                                    <option value="temporary_grant">Temporary grant</option>
-                                    <option value="policy_override">Policy override</option>
-                                    <option value="device_override">Device override</option>
-                                    <option value="emergency_override">Emergency override</option>
-                                    <option value="other">Other</option>
+                                    <option value="temporary_grant">Cấp quyền tạm thời</option>
+                                    <option value="policy_override">Ghi đè chính sách</option>
+                                    <option value="device_override">Ghi đè thiết bị</option>
+                                    <option value="emergency_override">Ghi đè khẩn cấp</option>
+                                    <option value="other">Khác</option>
                                 </select>
                             </label>
                             <label>
-                                <span>Uu tien</span>
+                                <span>Ưu tiên</span>
                                 <select v-model="createForm.priority" class="form-control">
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="critical">Critical</option>
+                                    <option value="low">Thấp</option>
+                                    <option value="medium">Trung bình</option>
+                                    <option value="high">Cao</option>
+                                    <option value="critical">Nghiêm trọng</option>
                                 </select>
                             </label>
                             <label>
-                                <span>Doi tuong</span>
+                                <span>Đối tượng</span>
                                 <input v-model.trim="createForm.subjectName" class="form-control" />
                             </label>
                             <label>
-                                <span>Bien so</span>
+                                <span>Biển số</span>
                                 <input v-model.trim="createForm.plateNumber" class="form-control" />
                             </label>
                             <label>
-                                <span>Lane / khu vuc</span>
+                                <span>Làn / khu vực</span>
                                 <input v-model.trim="createForm.laneName" class="form-control" />
                             </label>
                             <label class="form-span-2">
-                                <span>Ly do</span>
+                                <span>Lý do</span>
                                 <textarea v-model.trim="createForm.reason" class="form-control" rows="3" />
                             </label>
                             <label class="form-span-2">
-                                <span>Ghi chu</span>
+                                <span>Ghi chú</span>
                                 <textarea v-model.trim="createForm.note" class="form-control" rows="2" />
                             </label>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showCreateModal = false">Huy</button>
+                        <button class="btn btn-secondary" @click="showCreateModal = false">Hủy</button>
                         <button class="btn btn-primary" :disabled="creating || !createForm.reason.trim()" @click="submitInterventionRequest">
-                            {{ creating ? 'Dang gui...' : 'Gui yeu cau' }}
+                            {{ creating ? 'Đang gửi...' : 'Gửi yêu cầu' }}
                         </button>
                     </div>
                 </div>
@@ -503,7 +503,7 @@ const caseCategories = computed(() => {
         { id: 'all', label: 'Tat ca', count: exceptionCases.value.length },
         { id: 'pending_approval', label: 'Cho phe duyet', count: categoryCount('pending_approval') },
         { id: 'manual_override', label: 'Override / bypass', count: categoryCount('manual_override') },
-        { id: 'data_mismatch', label: 'Lech du lieu', count: categoryCount('data_mismatch') },
+        { id: 'data_mismatch', label: 'Lệch dữ liệu', count: categoryCount('data_mismatch') },
         { id: 'device_degraded', label: 'Device loi', count: categoryCount('device_degraded') },
         { id: 'emergency_pass', label: 'Khan cap', count: categoryCount('emergency_pass') },
         { id: 'duress', label: 'Duress', count: categoryCount('duress') },
@@ -553,11 +553,11 @@ const interventionFilters = computed(() => {
 
     return [
         { value: 'all', label: 'Tat ca', count: interventionRequests.value.length },
-        { value: 'Pending', label: 'Cho xu ly', count: counts.Pending || 0 },
-        { value: 'Accepted', label: 'Da chap nhan', count: counts.Accepted || 0 },
-        { value: 'Executed', label: 'Da thuc thi', count: counts.Executed || 0 },
-        { value: 'Rejected', label: 'Da tu choi', count: counts.Rejected || 0 },
-        { value: 'Expired', label: 'Het han', count: counts.Expired || 0 },
+        { value: 'Pending', label: 'Chờ xử lý', count: counts.Pending || 0 },
+        { value: 'Accepted', label: 'Đã chấp nhận', count: counts.Accepted || 0 },
+        { value: 'Executed', label: 'Đã thực thi', count: counts.Executed || 0 },
+        { value: 'Rejected', label: 'Đã từ chối', count: counts.Rejected || 0 },
+        { value: 'Expired', label: 'Hết hạn', count: counts.Expired || 0 },
     ]
 })
 
@@ -581,7 +581,7 @@ function categoryCount(category) {
 
 function categoryLabel(value) {
     return {
-        data_mismatch: 'Lech du lieu',
+        data_mismatch: 'Lệch dữ liệu',
         manual_override: 'Override',
         device_degraded: 'Device loi',
         emergency_pass: 'Khan cap',
@@ -592,19 +592,19 @@ function categoryLabel(value) {
 
 function severityLabel(value) {
     return {
-        critical: 'Nghiem trong',
+        critical: 'Nghiêm trọng',
         high: 'Cao',
-        medium: 'Trung binh',
-        low: 'Thap',
+        medium: 'Trung bình',
+        low: 'Thấp',
     }[value] || value
 }
 
 function priorityLabel(value) {
     return {
-        critical: 'Critical',
-        high: 'High',
-        medium: 'Medium',
-        low: 'Low',
+        critical: 'Nghiêm trọng',
+        high: 'Cao',
+        medium: 'Trung bình',
+        low: 'Thấp',
     }[value] || value
 }
 
@@ -619,43 +619,43 @@ function prioritySeverity(priority) {
 
 function workflowStatusLabel(value) {
     return {
-        Pending: 'Cho xu ly',
-        Accepted: 'Da chap nhan',
-        Executed: 'Da thuc thi',
-        Rejected: 'Da tu choi',
-        Escalated: 'Da chuyen hang doi',
-        Closed: 'Da khoa so',
+        Pending: 'Chờ xử lý',
+        Accepted: 'Đã chấp nhận',
+        Executed: 'Đã thực thi',
+        Rejected: 'Đã từ chối',
+        Escalated: 'Đã chuyển hàng đợi',
+        Closed: 'Đã khóa sổ',
     }[value] || value
 }
 
 function statusLabel(value) {
     return {
-        Pending: 'Cho xu ly',
-        Accepted: 'Da chap nhan',
-        Rejected: 'Da tu choi',
-        Executed: 'Da thuc thi',
-        Expired: 'Het han',
+        Pending: 'Chờ xử lý',
+        Accepted: 'Đã chấp nhận',
+        Rejected: 'Đã từ chối',
+        Executed: 'Đã thực thi',
+        Expired: 'Hết hạn',
     }[value] || value
 }
 
 function interventionTypeLabel(value) {
     return {
-        temporary_grant: 'Temporary grant',
-        policy_override: 'Policy override',
-        device_override: 'Device override',
-        emergency_override: 'Emergency override',
-        other: 'Other',
+        temporary_grant: 'Cấp quyền tạm thời',
+        policy_override: 'Ghi đè chính sách',
+        device_override: 'Ghi đè thiết bị',
+        emergency_override: 'Ghi đè khẩn cấp',
+        other: 'Khác',
     }[value] || value
 }
 
 function methodLabel(value) {
     return {
-        manual: 'Thu cong / bypass',
-        plate: 'QR + bien so',
-        system: 'He thong',
-        'face-and-plate': 'Da nguon',
-        face: 'Face',
-    }[value] || value || 'He thong'
+        manual: 'Thủ công / bypass',
+        plate: 'QR + biển số',
+        system: 'Hệ thống',
+        'face-and-plate': 'Đa nguồn',
+        face: 'Khuôn mặt',
+    }[value] || value || 'Hệ thống'
 }
 
 function formatDateTime(value) {
@@ -667,11 +667,11 @@ function formatRelativeTime(value) {
     if (!value) return '---'
     const diffMs = Date.now() - new Date(value).getTime()
     const diffMinutes = Math.floor(diffMs / 60000)
-    if (diffMinutes < 1) return 'Vua xong'
-    if (diffMinutes < 60) return `${diffMinutes} phut`
+    if (diffMinutes < 1) return 'Vừa xong'
+    if (diffMinutes < 60) return `${diffMinutes} phút`
     const diffHours = Math.floor(diffMinutes / 60)
-    if (diffHours < 24) return `${diffHours} gio`
-    return `${Math.floor(diffHours / 24)} ngay`
+    if (diffHours < 24) return `${diffHours} giờ`
+    return `${Math.floor(diffHours / 24)} ngày`
 }
 
 function buildCaseFromException(item) {
@@ -708,8 +708,8 @@ function buildCaseFromException(item) {
         sourceLogId: item.logId,
         category,
         severity,
-        subjectName: item.actorName || 'Unknown',
-        actorType: item.actorType || 'Unknown',
+        subjectName: item.actorName || 'Chưa rõ',
+        actorType: item.actorType || 'Chưa rõ',
         employeeId: item.employeeId || null,
         plateText: item.capturedLicensePlate || '',
         gateId: item.gateId || null,
@@ -718,7 +718,7 @@ function buildCaseFromException(item) {
         method: item.method || 'system',
         resultStatus: item.resultStatus || '',
         reasonCode,
-        reason: item.exceptionReasonDescription || 'Ngoai le can doi soat',
+        reason: item.exceptionReasonDescription || 'Ngoại lệ cần đối soát',
         note,
         isBypass: item.isBypass === true,
         lastEventAt: item.timestamp,
@@ -731,7 +731,7 @@ function buildCaseFromException(item) {
                 id: `log-${item.logId}`,
                 type: item.isBypass ? 'warning' : 'system',
                 title: item.exceptionReasonDescription || 'Su kien ngoai le',
-                description: note || item.resultStatus || 'Khong co mo ta bo sung',
+                description: note || item.resultStatus || 'Không có mô tả bổ sung',
                 timestamp: item.timestamp,
                 actor: item.actorName || '',
                 reason: item.exceptionReasonCode || '',
@@ -781,10 +781,10 @@ function canExecuteIntervention(item) {
 }
 
 function casePrimaryActionLabel(item) {
-    if (isBaoVe.value) return 'Tao yeu cau can thiep'
-    if (isQuanLy.value) return 'Tao va duyet'
-    if (shouldExecuteImmediately(item)) return 'Tao va thuc thi'
-    return 'Tao va duyet'
+    if (isBaoVe.value) return 'Tạo yêu cầu can thiệp'
+    if (isQuanLy.value) return 'Tạo và duyệt'
+    if (shouldExecuteImmediately(item)) return 'Tạo và thực thi'
+    return 'Tạo và duyệt'
 }
 
 function shouldExecuteImmediately(item) {
@@ -808,7 +808,7 @@ function buildInterventionPayload(item) {
 
     return {
         interventionType,
-        reason: item.reason || item.note || 'Case ngoai le can can thiep',
+        reason: item.reason || item.note || 'Case ngoại lệ cần can thiệp',
         laneId: item.resolvedLaneId ? String(item.resolvedLaneId) : undefined,
         laneName: item.resolvedLaneName || item.gateName || undefined,
         subjectName: item.subjectName || undefined,
@@ -837,7 +837,7 @@ async function runPrimaryCaseAction(item) {
         item.timeline.push({
             id: `request-${requestId}`,
             type: 'warning',
-            title: 'Yeu cau can thiep da duoc tao',
+            title: 'Yêu cầu can thiệp đã được tạo',
             description: payload.reason,
             timestamp: new Date().toISOString(),
             actor: currentRole.value,
@@ -845,13 +845,13 @@ async function runPrimaryCaseAction(item) {
         })
 
         if ((isAdmin.value || isQuanLy.value) && requestId) {
-            await enterpriseApi.acceptInterventionRequest(requestId, { note: `Duyet tu case #${item.sourceLogId}` })
+            await enterpriseApi.acceptInterventionRequest(requestId, { note: `Duyệt từ case #${item.sourceLogId}` })
             item.workflowStatus = 'Accepted'
             item.timeline.push({
                 id: `accepted-${requestId}`,
                 type: 'approve',
-                title: 'Yeu cau da duoc chap nhan',
-                description: 'Chap nhan ngay tu trang ngoai le',
+                title: 'Yêu cầu đã được chấp nhận',
+                description: 'Chấp nhận ngay từ trang ngoại lệ',
                 timestamp: new Date().toISOString(),
                 actor: currentRole.value,
                 reason: payload.interventionType,
@@ -859,13 +859,13 @@ async function runPrimaryCaseAction(item) {
         }
 
         if (shouldExecuteImmediately(item) && requestId) {
-            await enterpriseApi.executeInterventionRequest(requestId, { note: `Thuc thi nhanh tu case #${item.sourceLogId}` })
+            await enterpriseApi.executeInterventionRequest(requestId, { note: `Thực thi nhanh từ case #${item.sourceLogId}` })
             item.workflowStatus = 'Executed'
             item.timeline.push({
                 id: `executed-${requestId}`,
                 type: 'success',
-                title: 'Yeu cau da duoc thuc thi',
-                description: 'Da tao hieu luc van hanh tu workflow can thiep',
+                title: 'Yêu cầu đã được thực thi',
+                description: 'Đã tạo hiệu lực vận hành từ workflow can thiệp',
                 timestamp: new Date().toISOString(),
                 actor: currentRole.value,
                 reason: payload.interventionType,
@@ -874,13 +874,13 @@ async function runPrimaryCaseAction(item) {
 
         await loadInterventions(requestId)
         caseActionMessage.value = isBaoVe.value
-            ? `Da tao yeu cau can thiep #${requestId}.`
+            ? `Đã tạo yêu cầu can thiệp #${requestId}.`
             : item.workflowStatus === 'Executed'
                 ? `Da tao va thuc thi yeu cau #${requestId}.`
                 : `Da tao va duyet yeu cau #${requestId}.`
     } catch (error) {
         caseActionError.value = true
-        caseActionMessage.value = error?.response?.data?.message || 'Khong the tao workflow can thiep cho case nay.'
+        caseActionMessage.value = error?.response?.data?.message || 'Không thể tạo workflow can thiệp cho case này.'
     } finally {
         saving.value = false
     }
@@ -896,22 +896,22 @@ async function closeCase(item) {
             laneId: item.resolvedLaneId || null,
             plateText: item.plateText || undefined,
             eventType: 'CASE_CLOSED',
-            note: `Case #${item.sourceLogId} duoc khoa so boi ${currentRole.value}`,
+            note: `Case #${item.sourceLogId} được khóa sổ bởi ${currentRole.value}`,
         })
         item.workflowStatus = 'Closed'
         item.timeline.push({
             id: `closed-${Date.now()}`,
             type: 'close',
-            title: 'Case da duoc khoa so',
-            description: 'Khong con yeu cau xu ly tiep tren hang doi.',
+            title: 'Case đã được khóa sổ',
+            description: 'Không còn yêu cầu xử lý tiếp trên hàng đợi.',
             timestamp: new Date().toISOString(),
             actor: currentRole.value,
             reason: 'Closed from exception desk',
         })
-        caseActionMessage.value = `Case #${item.sourceLogId} da duoc khoa so.`
+        caseActionMessage.value = `Case #${item.sourceLogId} đã được khóa sổ.`
     } catch (error) {
         caseActionError.value = true
-        caseActionMessage.value = error?.response?.data?.message || 'Khong the khoa so case.'
+        caseActionMessage.value = error?.response?.data?.message || 'Không thể khóa sổ case.'
     } finally {
         saving.value = false
     }
@@ -966,21 +966,21 @@ async function loadBarrierCommands(item = selectedCase.value) {
         }
 
         if (!laneId) {
-            barrierMessage.value = 'Case nay chua truy ra duoc lane cu the, khong the doi barrier command mot cach dang tin cay.'
+            barrierMessage.value = 'Case này chưa truy ra được lane cụ thể, không thể đối chiếu barrier command một cách đáng tin cậy.'
             return
         }
 
         const barriersResponse = await enterpriseApi.getBarriers({ laneId, active: true })
         const barriers = barriersResponse.data || []
         if (!barriers.length) {
-            barrierMessage.value = 'Khong co barrier nao duoc gan voi lane nay.'
+            barrierMessage.value = 'Không có barrier nào được gán với lane này.'
             return
         }
 
         const response = await enterpriseApi.getBarrierCommands(barriers[0].barrierId, { pageSize: 20 })
         barrierCommands.value = response.data?.items || []
     } catch {
-        barrierMessage.value = 'Khong the tai lich su barrier command.'
+        barrierMessage.value = 'Không thể tải lịch sử barrier command.'
     } finally {
         loadingBarriers.value = false
     }
@@ -1037,16 +1037,16 @@ async function acceptIntervention(item) {
     interventionError.value = false
     try {
         const response = await enterpriseApi.acceptInterventionRequest(item.operationalInterventionRequestId, {
-            note: interventionReviewNote.value || 'Chap nhan tu trang ngoai le',
+            note: interventionReviewNote.value || 'Chấp nhận từ trang ngoại lệ',
         })
         Object.assign(item, response.data)
         await refreshInterventionSelection(
             item.operationalInterventionRequestId,
-            `Yeu cau #${item.operationalInterventionRequestId} da duoc chap nhan.`,
+            `Yêu cầu #${item.operationalInterventionRequestId} đã được chấp nhận.`,
         )
     } catch (error) {
         interventionError.value = true
-        interventionMessage.value = error?.response?.data?.message || 'Chap nhan that bai.'
+        interventionMessage.value = error?.response?.data?.message || 'Chấp nhận thất bại.'
     } finally {
         savingIntervention.value = false
     }
@@ -1063,11 +1063,11 @@ async function rejectIntervention(item) {
         Object.assign(item, response.data)
         await refreshInterventionSelection(
             item.operationalInterventionRequestId,
-            `Yeu cau #${item.operationalInterventionRequestId} da bi tu choi.`,
+            `Yêu cầu #${item.operationalInterventionRequestId} đã bị từ chối.`,
         )
     } catch (error) {
         interventionError.value = true
-        interventionMessage.value = error?.response?.data?.message || 'Tu choi that bai.'
+        interventionMessage.value = error?.response?.data?.message || 'Từ chối thất bại.'
     } finally {
         savingIntervention.value = false
     }
@@ -1079,16 +1079,16 @@ async function executeIntervention(item) {
     interventionError.value = false
     try {
         const response = await enterpriseApi.executeInterventionRequest(item.operationalInterventionRequestId, {
-            note: interventionReviewNote.value || 'Thuc thi tu trang ngoai le',
+            note: interventionReviewNote.value || 'Thực thi từ trang ngoại lệ',
         })
         Object.assign(item, response.data?.request || response.data)
         await refreshInterventionSelection(
             item.operationalInterventionRequestId,
-            `Yeu cau #${item.operationalInterventionRequestId} da duoc thuc thi.`,
+            `Yêu cầu #${item.operationalInterventionRequestId} đã được thực thi.`,
         )
     } catch (error) {
         interventionError.value = true
-        interventionMessage.value = error?.response?.data?.message || 'Thuc thi that bai.'
+        interventionMessage.value = error?.response?.data?.message || 'Thực thi thất bại.'
     } finally {
         savingIntervention.value = false
     }
@@ -1099,7 +1099,7 @@ function buildInterventionTimeline(item) {
         {
             id: `created-${item.operationalInterventionRequestId}`,
             type: 'system',
-            title: 'Yeu cau duoc tao',
+            title: 'Yêu cầu được tạo',
             description: item.reason,
             timestamp: item.createdAtUtc,
             actor: item.requestedByUserId ? `User #${item.requestedByUserId}` : '',
@@ -1111,7 +1111,7 @@ function buildInterventionTimeline(item) {
         timeline.push({
             id: `accepted-${item.operationalInterventionRequestId}`,
             type: 'approve',
-            title: 'Yeu cau duoc chap nhan',
+            title: 'Yêu cầu được chấp nhận',
             description: item.note || '',
             timestamp: item.acceptedAtUtc,
             actor: item.acceptedByUserId ? `User #${item.acceptedByUserId}` : '',
@@ -1123,7 +1123,7 @@ function buildInterventionTimeline(item) {
         timeline.push({
             id: `rejected-${item.operationalInterventionRequestId}`,
             type: 'reject',
-            title: 'Yeu cau bi tu choi',
+            title: 'Yêu cầu bị từ chối',
             description: item.rejectionReason || '',
             timestamp: item.rejectedAtUtc,
             actor: item.rejectedByUserId ? `User #${item.rejectedByUserId}` : '',
@@ -1135,7 +1135,7 @@ function buildInterventionTimeline(item) {
         timeline.push({
             id: `executed-${item.operationalInterventionRequestId}`,
             type: 'success',
-            title: 'Yeu cau duoc thuc thi',
+            title: 'Yêu cầu được thực thi',
             description: item.note || '',
             timestamp: item.executedAtUtc,
             actor: item.executedByUserId ? `User #${item.executedByUserId}` : '',
@@ -1172,7 +1172,7 @@ async function submitInterventionRequest() {
             expiresInMinutes: 240,
         })
 
-        createMessage.value = 'Da gui yeu cau can thiep.'
+        createMessage.value = 'Đã gửi yêu cầu can thiệp.'
         createForm.interventionType = 'temporary_grant'
         createForm.subjectName = ''
         createForm.plateNumber = ''

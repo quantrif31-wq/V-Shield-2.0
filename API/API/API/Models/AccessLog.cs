@@ -30,6 +30,22 @@ public partial class AccessLog
     [StringLength(300)]
     public string? CapturedFaceImageUrl { get; set; }
 
+    [Column("CapturedSnapshotURL")]
+    [StringLength(500)]
+    public string? CapturedSnapshotUrl { get; set; }
+
+    [Column("CapturedPlateCropURL")]
+    [StringLength(500)]
+    public string? CapturedPlateCropUrl { get; set; }
+
+    [Column("CapturedFaceCropURL")]
+    [StringLength(500)]
+    public string? CapturedFaceCropUrl { get; set; }
+
+    [Column("CapturedQrSnapshotURL")]
+    [StringLength(500)]
+    public string? CapturedQrSnapshotUrl { get; set; }
+
     public int? EmployeeId { get; set; }
 
     public int? RegistrationId { get; set; }

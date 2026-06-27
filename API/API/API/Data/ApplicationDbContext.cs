@@ -31,6 +31,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
 
     public virtual DbSet<Camera> Cameras { get; set; }
+    public DbSet<RecordedSegment> RecordedSegments { get; set; }
     public virtual DbSet<CameraPlate> CameraPlates { get; set; }
 
     public virtual DbSet<Department> Departments { get; set; }

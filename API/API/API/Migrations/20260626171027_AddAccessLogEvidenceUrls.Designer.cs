@@ -4,6 +4,7 @@ using API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260626171027_AddAccessLogEvidenceUrls")]
+    partial class AddAccessLogEvidenceUrls
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1583,12 +1586,6 @@ namespace API.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<int?>("GateId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsRecordingEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("RecordingRetentionDays")
                         .HasColumnType("int");
 
                     b.Property<string>("StreamUrl")
@@ -4493,46 +4490,6 @@ namespace API.Migrations
                     b.ToTable("ReaderDevices");
                 });
 
-            modelBuilder.Entity("API.Models.RecordedSegment", b =>
-                {
-                    b.Property<long>("SegmentId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SegmentId"));
-
-                    b.Property<int>("CameraId")
-                        .HasColumnType("int");
-
-                    b.Property<double>("DurationSeconds")
-                        .HasColumnType("float");
-
-                    b.Property<DateTime?>("EndedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long>("FileSizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("StartedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("StorageUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("SegmentId");
-
-                    b.HasIndex("CameraId");
-
-                    b.ToTable("Recorded_Segment");
-                });
-
             modelBuilder.Entity("API.Models.RedactionRequest", b =>
                 {
                     b.Property<long>("RedactionRequestId")
@@ -7359,17 +7316,6 @@ namespace API.Migrations
                     b.Navigation("SecurityDevice");
                 });
 
-            modelBuilder.Entity("API.Models.RecordedSegment", b =>
-                {
-                    b.HasOne("API.Models.Camera", "Camera")
-                        .WithMany("RecordedSegments")
-                        .HasForeignKey("CameraId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Camera");
-                });
-
             modelBuilder.Entity("API.Models.RedactionRequest", b =>
                 {
                     b.HasOne("API.Models.EvidenceItem", "EvidenceItem")
@@ -7819,8 +7765,6 @@ namespace API.Migrations
             modelBuilder.Entity("API.Models.Camera", b =>
                 {
                     b.Navigation("AccessLogs");
-
-                    b.Navigation("RecordedSegments");
                 });
 
             modelBuilder.Entity("API.Models.Company", b =>

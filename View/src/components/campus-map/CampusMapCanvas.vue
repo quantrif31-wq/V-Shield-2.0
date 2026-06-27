@@ -1,6 +1,6 @@
 <template>
     <section class="card canvas-card">
-        <div v-if="!items.length" class="empty-card">Chua co Gate nao de hien thi tren ban do.</div>
+        <div v-if="!items.length" class="empty-card">Chưa có cổng nào để hiển thị trên bản đồ.</div>
         <div v-else ref="viewportRef" class="canvas-viewport">
             <div class="canvas-grid" :style="canvasStyle">
                 <CampusMapElement

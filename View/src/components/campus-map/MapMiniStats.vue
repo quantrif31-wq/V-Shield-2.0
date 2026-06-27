@@ -3,7 +3,7 @@
         <article class="metric-tile">
             <span class="metric-label">Site trong mo hinh</span>
             <strong class="metric-value">{{ summary.siteCount || 0 }}</strong>
-            <span class="metric-note">So khuon vien dang duoc mo phong trong canh 3D.</span>
+            <span class="metric-note">Số khuôn viên đang được mô phỏng trong cảnh 3D.</span>
         </article>
         <article class="metric-tile">
             <span class="metric-label">Doi tuong 3D</span>
@@ -13,7 +13,7 @@
         <article class="metric-tile">
             <span class="metric-label">Cong dang hoat dong</span>
             <strong class="metric-value">{{ summary.activeGateCount || 0 }}</strong>
-            <span class="metric-note">Gate co activity moi trong 5 phut gan nhat.</span>
+            <span class="metric-note">Cổng có hoạt động mới trong 5 phút gần nhất.</span>
         </article>
         <article class="metric-tile">
             <span class="metric-label">Cong canh bao</span>
@@ -26,7 +26,7 @@
             <span class="metric-note">Tinh theo camera thieu stream hoac URL xem.</span>
         </article>
         <article class="metric-tile">
-            <span class="metric-label">Su kien 5 phut</span>
+            <span class="metric-label">Sự kiện 5 phút</span>
             <strong class="metric-value">{{ summary.recentEventCount || 0 }}</strong>
             <span class="metric-note">Lay truc tiep tu luong AccessLog realtime.</span>
         </article>

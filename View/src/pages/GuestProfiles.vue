@@ -2,23 +2,23 @@
   <div class="page-container ops-page animate-in">
     <div class="page-header-bar">
       <div>
-        <span class="panel-kicker">VISITOR DIRECTORY</span>
-        <h1 class="page-title">Quan ly khach</h1>
+        <span class="panel-kicker">DANH BẠ KHÁCH</span>
+        <h1 class="page-title">Quản lý khách</h1>
       </div>
       <div class="header-actions">
-        <button class="btn btn-secondary" @click="showFormTemplatesModal = true">Form Templates</button>
+        <button class="btn btn-secondary" @click="showFormTemplatesModal = true">Mẫu biểu</button>
       </div>
     </div>
 
     <section class="ops-panel">
       <div class="filters">
         <div class="field">
-          <label>Tim khach (Ten, CCCD hoac ID)</label>
+          <label>Tìm khách (Tên, CCCD hoặc ID)</label>
           <div class="combo-box">
             <input
               v-model.trim="visitorFilterKeyword"
               type="text"
-              placeholder="Vi du: Nguyen Van A hoac 12"
+              placeholder="Ví dụ: Nguyễn Văn A hoặc 12"
               @focus="showVisitorFilterDropdown = true"
               @input="handleVisitorFilterInput"
             />
@@ -36,17 +36,17 @@
         </div>
 
         <div class="field">
-          <label>Loc theo host phu trach</label>
+          <label>Lọc theo host phụ trách</label>
           <div class="combo-box">
             <input
               v-model.trim="hostFilterKeyword"
               type="text"
-              placeholder="Go ten hoac ID host"
+              placeholder="Gõ tên hoặc ID host"
               @focus="showHostFilterDropdown = true"
               @input="handleHostFilterInput"
             />
             <ul v-if="showHostFilterDropdown && hostFilterOptions.length" class="combo-menu">
-              <li class="combo-item" @mousedown.prevent="selectAllHostFilter">Tat ca host</li>
+              <li class="combo-item" @mousedown.prevent="selectAllHostFilter">Tất cả host</li>
               <li
                 v-for="emp in hostFilterOptions"
                 :key="emp.employeeId"
@@ -60,34 +60,34 @@
         </div>
 
         <div class="field">
-          <label>Trang thai phieu</label>
+          <label>Trạng thái phiếu</label>
           <select v-model="filters.registrationStatus">
-            <option value="">Tat ca trang thai</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
+            <option value="">Tất cả trạng thái</option>
+            <option value="Pending">Chờ duyệt</option>
+            <option value="Approved">Đã duyệt</option>
+            <option value="Rejected">Từ chối</option>
           </select>
         </div>
 
         <div class="actions">
-          <button class="btn btn-subtle" :disabled="isLoading" @click="resetFilters">Dat lai</button>
+          <button class="btn btn-subtle" :disabled="isLoading" @click="resetFilters">Đặt lại</button>
         </div>
       </div>
 
-      <div v-if="isLoading" class="empty-card">Dang tai du lieu khach...</div>
-      <div v-else-if="rows.length === 0" class="empty-card">Chua co du lieu khach.</div>
+      <div v-if="isLoading" class="empty-card">Đang tải dữ liệu khách...</div>
+      <div v-else-if="rows.length === 0" class="empty-card">Chưa có dữ liệu khách.</div>
       <div v-else class="table-container">
         <table class="data-table">
           <thead>
             <tr>
-              <th>ID khach</th>
-              <th>Ten khach</th>
+              <th>ID khách</th>
+              <th>Tên khách</th>
               <th>CCCD</th>
-              <th>Host phu trach</th>
-              <th>Lien he</th>
-              <th>Trang thai</th>
-              <th>Giay to</th>
-              <th>Thao tac</th>
+              <th>Host phụ trách</th>
+              <th>Liên hệ</th>
+              <th>Trạng thái</th>
+              <th>Giấy tờ</th>
+              <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -97,17 +97,17 @@
               <td>{{ item.idCardNumber || '-' }}</td>
               <td>{{ item.hostEmployeeName || '-' }}</td>
               <td>{{ item.guestPhone || '-' }}</td>
-              <td>{{ item.registrationStatus || '-' }}</td>
+              <td>{{ registrationStatusLabel(item.registrationStatus) }}</td>
               <td>
-                <span v-if="item.ndaStatus" class="soft-chip" :class="item.ndaStatus === 'Signed' ? 'success' : 'warn'">{{ item.ndaStatus }}</span>
+                <span v-if="item.ndaStatus" class="soft-chip" :class="item.ndaStatus === 'Signed' ? 'success' : 'warn'">{{ ndaStatusLabel(item.ndaStatus) }}</span>
                 <span v-else class="text-muted">—</span>
               </td>
               <td>
                 <div class="panel-actions">
-                  <button class="btn btn-secondary btn-sm" @click="openModal(item)">Sua</button>
-                  <button class="btn btn-secondary btn-sm" @click="openLogModal(item)">Lich su</button>
+                  <button class="btn btn-secondary btn-sm" @click="openModal(item)">Sửa</button>
+                  <button class="btn btn-secondary btn-sm" @click="openLogModal(item)">Lịch sử</button>
                   <button class="btn btn-secondary btn-sm" @click="openParkingInfo(item)">Xe</button>
-                  <button class="btn btn-danger btn-sm" @click="handleDelete(item)">Xoa</button>
+                  <button class="btn btn-danger btn-sm" @click="handleDelete(item)">Xóa</button>
                 </div>
               </td>
             </tr>
@@ -116,7 +116,7 @@
       </div>
 
       <div v-if="!isLoading && total > 0" class="pagination-bar">
-        <span>Hien thi {{ rows.length }} / {{ total }}</span>
+        <span>Hiển thị {{ rows.length }} / {{ total }}</span>
       </div>
     </section>
 
@@ -124,13 +124,13 @@
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal">
           <div class="modal-header">
-            <h3 class="modal-title">Cap nhat thong tin khach</h3>
+            <h3 class="modal-title">Cập nhật thông tin khách</h3>
             <button class="modal-close" @click="closeModal">x</button>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label>Ten khach</label>
+              <label>Tên khách</label>
               <input v-model="form.fullName" type="text" />
             </div>
             <div class="form-group">
@@ -141,9 +141,9 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>Host phu trach</label>
+              <label>Host phụ trách</label>
               <select v-model="form.hostEmployeeId">
-                <option :value="null">Khong gan host</option>
+                <option :value="null">Không gán host</option>
                 <option v-for="emp in employees" :key="emp.employeeId" :value="emp.employeeId">
                   {{ emp.fullName }} (ID {{ emp.employeeId }})
                 </option>
@@ -152,21 +152,21 @@
           </div>
 
           <div class="form-group">
-            <label>NDA Status</label>
+            <label>Trạng thái NDA</label>
             <select v-model="form.ndaStatus" class="form-control">
-              <option value="">— None —</option>
-              <option value="Signed">Signed</option>
-              <option value="Pending">Pending</option>
-              <option value="NotRequired">Not Required</option>
+              <option value="">— Chưa có —</option>
+              <option value="Signed">Đã ký</option>
+              <option value="Pending">Chờ ký</option>
+              <option value="NotRequired">Không yêu cầu</option>
             </select>
           </div>
 
           <div v-if="formError" class="empty-card error-card">{{ formError }}</div>
 
           <div class="modal-footer">
-            <button class="btn btn-secondary" @click="closeModal">Huy</button>
+            <button class="btn btn-secondary" @click="closeModal">Hủy</button>
             <button class="btn btn-primary" :disabled="isSaving" @click="handleSave">
-              {{ isSaving ? 'Dang luu...' : 'Luu thay doi' }}
+              {{ isSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
             </button>
           </div>
         </div>
@@ -177,20 +177,20 @@
       <div v-if="showLogModal" class="modal-overlay" @click.self="closeLogModal">
         <div class="modal">
           <div class="modal-header">
-            <h3 class="modal-title">Lich su ra vao - {{ logTargetName }}</h3>
+            <h3 class="modal-title">Lịch sử ra vào - {{ logTargetName }}</h3>
             <button class="modal-close" @click="closeLogModal">x</button>
           </div>
-          <div v-if="isLogLoading" class="empty-card">Dang tai lich su...</div>
-          <div v-else-if="accessLogs.length === 0" class="empty-card">Khong co log.</div>
+          <div v-if="isLogLoading" class="empty-card">Đang tải lịch sử...</div>
+          <div v-else-if="accessLogs.length === 0" class="empty-card">Không có log.</div>
           <div v-else class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Thoi gian</th>
-                  <th>Huong</th>
+                  <th>Thời gian</th>
+                  <th>Hướng</th>
                   <th>Gate</th>
                   <th>Camera</th>
-                  <th>Ket qua</th>
+                  <th>Kết quả</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,7 +199,7 @@
                   <td>{{ log.direction }}</td>
                   <td>{{ log.gateName || '-' }}</td>
                   <td>{{ log.cameraName || '-' }}</td>
-                  <td>{{ log.resultStatus || '-' }}</td>
+                  <td>{{ resultStatusLabel(log.resultStatus) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -213,20 +213,20 @@
       <div v-if="showParkingModal" class="modal-overlay" @click.self="closeParkingModal">
         <div class="modal">
           <div class="modal-header">
-            <h3 class="modal-title">Parking Permits - {{ parkingTargetName }}</h3>
+            <h3 class="modal-title">Giấy phép đỗ xe - {{ parkingTargetName }}</h3>
             <button class="modal-close" @click="closeParkingModal">x</button>
           </div>
-          <div v-if="isParkingLoading" class="empty-card">Dang tai thong tin xe...</div>
-          <div v-else-if="parkingPermits.length === 0" class="empty-card">Khong co permit dau xe.</div>
+          <div v-if="isParkingLoading" class="empty-card">Đang tải thông tin xe...</div>
+          <div v-else-if="parkingPermits.length === 0" class="empty-card">Không có permit đậu xe.</div>
           <div v-else class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Area</th>
-                  <th>Plate</th>
-                  <th>Valid From</th>
-                  <th>Valid To</th>
-                  <th>Status</th>
+                  <th>Khu vực</th>
+                  <th>Biển số</th>
+                  <th>Hiệu lực từ</th>
+                  <th>Hiệu lực đến</th>
+                  <th>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,7 +237,7 @@
                   <td>{{ formatDateTime(p.validToUtc) }}</td>
                   <td>
                     <span class="soft-chip" :class="new Date(p.validToUtc) > new Date() ? 'success' : 'danger'">
-                      {{ new Date(p.validToUtc) > new Date() ? 'Active' : 'Expired' }}
+                      {{ new Date(p.validToUtc) > new Date() ? 'Còn hiệu lực' : 'Hết hạn' }}
                     </span>
                   </td>
                 </tr>
@@ -253,10 +253,10 @@
       <div v-if="showFormTemplatesModal" class="modal-overlay" @click.self="showFormTemplatesModal = false">
         <div class="modal">
           <div class="modal-header">
-            <h3 class="modal-title">Form Templates</h3>
+            <h3 class="modal-title">Mẫu biểu</h3>
             <button class="modal-close" @click="showFormTemplatesModal = false">x</button>
           </div>
-          <div v-if="formTemplates.length === 0" class="empty-card">Khong co form template.</div>
+          <div v-if="formTemplates.length === 0" class="empty-card">Không có mẫu biểu.</div>
           <div v-else>
             <div v-for="ft in formTemplates" :key="ft.formTemplateId || ft.id" class="template-item">
               <div><strong>{{ ft.templateName || ft.name }}</strong></div>
@@ -449,7 +449,7 @@ const handleSave = async () => {
   formError.value = ''
   if (!editingId.value) return
   if (!form.fullName.trim()) {
-    formError.value = 'Ten khach la bat buoc.'
+    formError.value = 'Tên khách là bắt buộc.'
     return
   }
 
@@ -464,20 +464,20 @@ const handleSave = async () => {
     await fetchRows()
     closeModal()
   } catch (e) {
-    formError.value = e?.response?.data?.message || 'Khong the cap nhat khach.'
+    formError.value = e?.response?.data?.message || 'Không thể cập nhật khách.'
   } finally {
     isSaving.value = false
   }
 }
 
 const handleDelete = async (item) => {
-  const ok = window.confirm(`Xoa khach "${item.fullName}" (ID ${item.visitorDetailId})?`)
+  const ok = window.confirm(`Xóa khách "${item.fullName}" (ID ${item.visitorDetailId})?`)
   if (!ok) return
   try {
     await deleteVisitorDirectoryItem(item.visitorDetailId)
     await fetchRows()
   } catch (e) {
-    window.alert(e?.response?.data?.message || 'Khong the xoa khach nay.')
+    window.alert(e?.response?.data?.message || 'Không thể xóa khách này.')
   }
 }
 
@@ -521,6 +521,27 @@ const closeParkingModal = () => {
   parkingPermits.value = []
   parkingTargetName.value = ''
 }
+
+const registrationStatusLabel = (value) => ({
+  Pending: 'Chờ duyệt',
+  Approved: 'Đã duyệt',
+  Rejected: 'Từ chối',
+})[value] || value || '-'
+
+const ndaStatusLabel = (value) => ({
+  Signed: 'Đã ký',
+  Pending: 'Chờ ký',
+  NotRequired: 'Không yêu cầu',
+})[value] || value || '-'
+
+const resultStatusLabel = (value) => ({
+  Approved: 'Đã duyệt',
+  Rejected: 'Từ chối',
+  Granted: 'Cho phép',
+  Denied: 'Từ chối truy cập',
+  Success: 'Thành công',
+  Failed: 'Thất bại',
+})[value] || value || '-'
 
 const formatDateTime = (value) => {
   if (!value) return '-'

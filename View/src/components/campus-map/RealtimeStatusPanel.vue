@@ -3,13 +3,13 @@
         <div class="panel-head compact-head">
             <div>
                 <span class="panel-kicker">Realtime</span>
-                <h3 class="panel-title">Dong su kien</h3>
+                <h3 class="panel-title">Dòng sự kiện</h3>
             </div>
             <span class="updated-at">{{ updatedLabel }}</span>
         </div>
 
         <div v-if="error" class="empty-card">{{ error }}</div>
-        <div v-else-if="!recentEvents.length" class="empty-card">Chua co hoat dong gan day.</div>
+        <div v-else-if="!recentEvents.length" class="empty-card">Chưa có hoạt động gần đây.</div>
         <div v-else-if="compact" class="event-orbit">
             <button
                 v-for="event in compactEvents"
@@ -30,9 +30,9 @@
                 class="surface-item event-card"
                 @click="$emit('focus-gate', event.gateId)"
             >
-                <strong>{{ event.gateName || 'Gate khong xac dinh' }}</strong>
+                <strong>{{ event.gateName || 'Cổng chưa xác định' }}</strong>
                 <p class="event-meta">
-                    {{ formatDateTime(event.timestamp) }} - {{ event.direction || 'N/A' }}
+                    {{ formatDateTime(event.timestamp) }} - {{ event.direction || 'Chưa rõ' }}
                     <span v-if="event.cameraName">- {{ event.cameraName }}</span>
                 </p>
                 <p class="event-sub">
@@ -40,7 +40,7 @@
                     <span v-if="event.capturedLicensePlate">- {{ event.capturedLicensePlate }}</span>
                     <span v-if="event.resultStatus">- {{ event.resultStatus }}</span>
                 </p>
-                <span class="event-status" :class="statusClass(event.resultStatus)">{{ event.resultStatus || 'Unknown' }}</span>
+                <span class="event-status" :class="statusClass(event.resultStatus)">{{ event.resultStatus || 'Chưa rõ' }}</span>
             </article>
         </div>
     </section>
@@ -61,8 +61,8 @@ defineEmits(['focus-gate'])
 const compactEvents = computed(() => props.recentEvents.slice(0, 6))
 
 const updatedLabel = computed(() => {
-    if (!props.updatedAt) return 'Chua cap nhat'
-    return `Cap nhat: ${formatDateTime(props.updatedAt)}`
+    if (!props.updatedAt) return 'Chưa cập nhật'
+    return `Cập nhật: ${formatDateTime(props.updatedAt)}`
 })
 
 const formatDateTime = (value) => {
@@ -87,7 +87,7 @@ const formatTime = (value) => {
 }
 
 const eventTitle = (event) => {
-    const gate = event.gateName || 'Gate'
+    const gate = event.gateName || 'Cổng'
     const actor = event.actorName ? ` - ${event.actorName}` : ''
     const result = event.resultStatus ? ` - ${event.resultStatus}` : ''
     return `${gate}${actor}${result}`

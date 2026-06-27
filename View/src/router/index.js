@@ -21,7 +21,6 @@ const LicensePlateSecurity = () => import('../components/LicensePlateSecurity.vu
 const FaceVideo = () => import('../components/FaceVideo.vue')
 const GatePassageMonitor = () => import('../components/GateTransitMonitor.vue')
 const DynamicQrGenerator = () => import('../components/DynamicQrGenerator.vue')
-const DynamicQrScanner = () => import('../components/DynamicQrScanner.vue')
 const Exceptions = () => import('../pages/Exceptions.vue')
 const RegistrationLinks = () => import('../pages/RegistrationLinks.vue')
 const GuestProfiles = () => import('../pages/GuestProfiles.vue')
@@ -51,19 +50,17 @@ const ManualParkingFallback = () => import('../pages/ManualParkingFallback.vue')
 const HostVisitorPage = () => import('../pages/HostVisitorPage.vue')
 const WatchlistQueue = () => import('../pages/WatchlistQueue.vue')
 const ContractorManagement = () => import('../pages/ContractorManagement.vue')
-const LaneDashboard = () => import('../pages/LaneDashboard.vue')
-const PlateReviewQueue = () => import('../pages/PlateReviewQueue.vue')
 const BarrierPanel = () => import('../pages/BarrierPanel.vue')
 const DeviceTopology = () => import('../pages/DeviceTopology.vue')
 const ProvisioningWizard = () => import('../pages/ProvisioningWizard.vue')
 const OfflinePackages = () => import('../pages/OfflinePackages.vue')
 const DeviceHealth = () => import('../pages/DeviceHealth.vue')
 const SimulatorPanel = () => import('../pages/SimulatorPanel.vue')
-const EventTimeline = () => import('../pages/EventTimeline.vue')
 const VideoSearch = () => import('../pages/VideoSearch.vue')
 const AiReviewQueue = () => import('../pages/AiReviewQueue.vue')
 const CorrelationView = () => import('../pages/CorrelationView.vue')
 const EvidenceRepository = () => import('../pages/EvidenceRepository.vue')
+const CameraArchive = () => import('../pages/CameraArchive.vue')
 const ExportApprovalQueue = () => import('../pages/ExportApprovalQueue.vue')
 const RedactionQueue = () => import('../pages/RedactionQueue.vue')
 const RetentionDashboard = () => import('../pages/RetentionDashboard.vue')
@@ -127,18 +124,16 @@ const routes = [
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'contractors', name: 'ContractorManagement', component: ContractorManagement, meta: { allowedRoles: ['Admin'] } },
-            { path: 'lane-dashboard', name: 'LaneDashboard', component: LaneDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'plate-review', name: 'PlateReviewQueue', component: PlateReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'barrier-panel', name: 'BarrierPanel', component: BarrierPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'device-topology', name: 'DeviceTopology', component: DeviceTopology, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'provisioning-wizard', name: 'ProvisioningWizard', component: ProvisioningWizard, meta: { allowedRoles: ['Admin'] } },
             { path: 'offline-packages', name: 'OfflinePackages', component: OfflinePackages, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'device-health', name: 'DeviceHealth', component: DeviceHealth, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'simulator-panel', name: 'SimulatorPanel', component: SimulatorPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'event-timeline', name: 'EventTimeline', component: EventTimeline, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'video-search', name: 'VideoSearch', component: VideoSearch, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'ai-review-queue', name: 'AiReviewQueue', component: AiReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'correlation-view', name: 'CorrelationView', component: CorrelationView, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'camera-archive/:id', name: 'CameraArchive', component: CameraArchive, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'evidence-repository', name: 'EvidenceRepository', component: EvidenceRepository, meta: { allowedRoles: ['Admin'] } },
             { path: 'export-approval-queue', name: 'ExportApprovalQueue', component: ExportApprovalQueue, meta: { allowedRoles: ['Admin'] } },
             { path: 'redaction-queue', name: 'RedactionQueue', component: RedactionQueue, meta: { allowedRoles: ['Admin'] } },
@@ -149,7 +144,6 @@ const routes = [
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
-            { path: 'dynamic-qr-scanner', name: 'DynamicQrScanner', component: DynamicQrScanner, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },

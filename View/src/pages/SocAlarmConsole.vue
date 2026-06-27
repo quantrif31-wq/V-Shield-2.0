@@ -39,6 +39,7 @@
             <button type="button" :class="{ active: tab === 'incidents' }" @click="tab = 'incidents'">Incidents ({{ incidents.total }})</button>
             <button type="button" :class="{ active: tab === 'sops' }" @click="tab = 'sops'">SOPs ({{ sopTotal }})</button>
             <button type="button" :class="{ active: tab === 'dispatch' }" @click="tab = 'dispatch'">Dispatch ({{ dispatchTotal }})</button>
+            <button type="button" :class="{ active: tab === 'timeline' }" @click="tab = 'timeline'">Timeline</button>
             <button type="button" :class="{ active: tab === 'intel' }" @click="tab = 'intel'">AI Intel</button>
         </section>
 
@@ -145,6 +146,10 @@
                 </div>
             </div>
             <div v-else class="empty-card">No dispatch tasks found.</div>
+        </section>
+
+        <section v-if="tab === 'timeline'" class="soc-section">
+            <EventTimeline :embedded="true" />
         </section>
 
         <!-- AI INTEL TAB -->
@@ -457,6 +462,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import EventTimeline from './EventTimeline.vue'
 import { socApi } from '../services/socApi'
 
 const loading = ref(false)

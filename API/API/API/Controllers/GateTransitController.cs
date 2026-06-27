@@ -16,12 +16,14 @@ namespace API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IZoneTransitService _zoneTransitService;
         private readonly IUebaService _uebaService;
+        private readonly EvidenceCaptureService _evidenceCapture;
 
-        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService)
+        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService, EvidenceCaptureService evidenceCapture)
         {
             _context = context;
             _zoneTransitService = zoneTransitService;
             _uebaService = uebaService;
+            _evidenceCapture = evidenceCapture;
         }
 
         /// <summary>
@@ -96,8 +98,13 @@ namespace API.Controllers
                         Note = $"Đổi trạng thái xe từ {oldStatus} sang {newStatus}"
                     };
                     _context.AccessLogs.Add(uebaLog1);
-
                     await _context.SaveChangesAsync();
+
+                    var ref1 = $"access-log/{uebaLog1.LogId}";
+                    uebaLog1.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref1, createdByUserId: request.EmployeeId);
+                    uebaLog1.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref1, createdByUserId: request.EmployeeId);
+                    await _context.SaveChangesAsync();
+
                     await transaction.CommitAsync();
 
                     _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, newStatus, DateTime.Now, ZoneTransitSources.AccessLog);
@@ -137,8 +144,13 @@ namespace API.Controllers
                         Note = $"Biển số đang được giữ bởi nhân viên có id là {conflictVehicle.EmployeeId}"
                     };
                     _context.AccessLogs.Add(uebaLog2);
-
                     await _context.SaveChangesAsync();
+
+                    var ref2 = $"access-log/{uebaLog2.LogId}";
+                    uebaLog2.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref2, createdByUserId: request.EmployeeId);
+                    uebaLog2.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref2, createdByUserId: request.EmployeeId);
+                    await _context.SaveChangesAsync();
+
                     await transaction.CommitAsync();
 
                     _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
@@ -173,8 +185,13 @@ namespace API.Controllers
                     Note = "Thêm mới phương tiện và cho vào bãi với trạng thái IN"
                 };
                 _context.AccessLogs.Add(uebaLog3);
-
                 await _context.SaveChangesAsync();
+
+                var ref3 = $"access-log/{uebaLog3.LogId}";
+                uebaLog3.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref3, createdByUserId: request.EmployeeId);
+                uebaLog3.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref3, createdByUserId: request.EmployeeId);
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
@@ -269,8 +286,13 @@ namespace API.Controllers
                     Note = "Thêm mới phương tiện cho khách với trạng thái IN."
                 };
                 _context.AccessLogs.Add(uebaLog);
-
                 await _context.SaveChangesAsync();
+
+                var refNew = $"access-log/{uebaLog.LogId}";
+                uebaLog.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", refNew);
+                uebaLog.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", refNew);
+                await _context.SaveChangesAsync();
+
                 _ = _uebaService.AnalyzeAccessLogAsync(uebaLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
@@ -306,8 +328,13 @@ namespace API.Controllers
                     Note = $"Đổi trạng thái xe của khách từ {oldStatus} sang {newStatus}."
                 };
                 _context.AccessLogs.Add(uebaLog);
-
                 await _context.SaveChangesAsync();
+
+                var refExisting = $"access-log/{uebaLog.LogId}";
+                uebaLog.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", refExisting);
+                uebaLog.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", refExisting);
+                await _context.SaveChangesAsync();
+
                 _ = _uebaService.AnalyzeAccessLogAsync(uebaLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
@@ -469,6 +496,8 @@ namespace API.Controllers
         public int? GuestId { get; set; }
         public int? VisitorDetailId { get; set; }
         public string? QrPayload { get; set; }
+        public string? PlateSnapshotBase64 { get; set; }
+        public string? PlateCropBase64 { get; set; }
     }
 
     public class GateTransitApiResponse

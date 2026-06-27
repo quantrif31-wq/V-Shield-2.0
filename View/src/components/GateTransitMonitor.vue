@@ -1003,7 +1003,7 @@ export default {
         }
       } catch (e) {
         console.error("toggleRuntime", name, e)
-        alert(e?.response?.data?.message || e?.message || "Khong the bat/tat runtime service.")
+        alert(e?.response?.data?.message || e?.message || "Không thể bật/tắt runtime service.")
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false }
         this.setTogglePending(name, false)
@@ -1018,7 +1018,7 @@ export default {
         await updateRuntimeService(name, { autoStart: !this.runtimeAutoStart(name) })
       } catch (e) {
         console.error("toggleRuntimeAutoStart", name, e)
-        alert(e?.response?.data?.message || e?.message || "Khong the cap nhat AutoStart.")
+        alert(e?.response?.data?.message || e?.message || "Không thể cập nhật AutoStart.")
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false }
         await this.refreshDrawerServiceState()
@@ -1077,19 +1077,19 @@ export default {
       const lane = this.activeOpsLane
       const ip = String(lane.qr.cameraIp || "").trim()
       if (!ip) {
-        alert("Chon URL/stream camera QR o tab lan hien tai truoc khi bat dich vu Python.")
+        alert("Chọn URL/stream camera QR ở tab làn hiện tại trước khi bật dịch vụ Python.")
         this.setTogglePending("python_qr", false)
         return
       }
 
       this.settingsQrBusy = true
       try {
-        // Bat tien trinh Python roi mo camera de preview, chua quet ngay.
+        // Bật tiến trình Python rồi mở camera để preview, chưa quét ngay.
         await startPythonQrProcess()
-        // Cho tien trinh khoi dong
+        // Chờ tiến trình khởi động
         await new Promise((r) => setTimeout(r, 2000))
 
-        // Doi QR API san sang roi chi mo camera, reset trang thai de khong tu quet
+        // Đợi QR API sẵn sàng rồi chỉ mở camera, reset trạng thái để không tự quét
         try {
           const startAt = Date.now()
           let qrReady = false
@@ -1120,10 +1120,10 @@ export default {
           this.mountPreview(ln.qr, ln.qr.viewUrl)
         }
         ln.qr.scanRequested = false
-        ln.qr.message = "Preview ready (chua quet)"
+        ln.qr.message = "Preview ready (chưa quét)"
       } catch (e) {
         console.error("applyQrPythonService", e)
-        alert(e?.message || "Khong bat duoc dich vu QR Python.")
+        alert(e?.message || "Không bật được dịch vụ QR Python.")
       } finally {
         this.settingsQrBusy = false
         this.setTogglePending("python_qr", false)
@@ -1172,15 +1172,15 @@ export default {
 
       const ip = String(lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || "").trim()
       if (!ip) {
-        alert("Chon URL/stream camera bien so o tab lan hien tai truoc khi bat dich vu Python.")
+        alert("Chọn URL/stream camera biển số ở tab làn hiện tại trước khi bật dịch vụ Python.")
         this.setTogglePending("python_plate", false)
         return
       }
 
       this.settingsPlateBusy = true
       try {
-        // Bat tien trinh Python cho plate va mo camera ngay de co preview,
-        // nhung chua thuc hien quet cho den khi user bam nut Doc.
+        // Bật tiến trình Python cho plate và mở camera ngay để có preview,
+        // nhưng chưa thực hiện quét cho đến khi người dùng bấm nút Đọc.
         await startPythonPlateProcess()
         await this.waitForPlateApiReady(45000)
         await lane.plateApi.turnOnCamera(ip)
@@ -1191,11 +1191,11 @@ export default {
         lane.plate.currentIp = ip
         lane.plate.cameraRunning = true
         lane.plate.scanActive = false
-        lane.plate.message = "Preview ready (chua quet)"
+        lane.plate.message = "Preview ready (chưa quét)"
         if (!lane.plate.resultTimer) this.startPlateLoop(lane)
       } catch (e) {
         console.error("applyPlatePythonService", e)
-        alert(e?.message || "Khong bat duoc dich vu bien so.")
+        alert(e?.message || "Không bật được dịch vụ biển số.")
       } finally {
         this.settingsPlateBusy = false
         this.setTogglePending("python_plate", false)
@@ -1220,7 +1220,7 @@ export default {
 
       throw new Error(
         lastError?.message ||
-          "Python bien so khoi dong cham hoac that bai (qua thoi gian cho health)."
+          "Python biển số khởi động chậm hoặc thất bại (quá thời gian chờ health)."
       )
     },
 
@@ -3945,8 +3945,6 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
-
-
 
 
 

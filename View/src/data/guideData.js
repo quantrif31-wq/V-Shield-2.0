@@ -705,31 +705,6 @@ export const pageData = [
     ]
   },
   {
-    path: '/dynamic-qr-scanner',
-    label: 'Quét QR động',
-    icon: '📷',
-    roles: ['Admin', 'Bảo vệ'],
-    group: 'AI & Thiết bị',
-    groupIcon: '🤖',
-    mucDich: 'Dùng camera để quét mã QR của khách tại cổng. Xác thực và cho phép ra vào.',
-    steps: [
-      {
-        title: 'Mở camera quét', moTa: 'Bấm nút "Mở Camera quét". Cho phép trình duyệt truy cập camera.',
-        nhapGi: null, bamGi: 'Bấm "Mở Camera quét"',
-        ketQua: 'Camera mở, sẵn sàng quét.'
-      },
-      {
-        title: 'Quét mã QR', moTa: 'Đưa mã QR từ điện thoại của khách trước camera. Hệ thống tự động nhận diện.',
-        nhapGi: null, bamGi: null,
-        ketQua: 'Mã QR được quét. Kết quả xác thực hiện ra.'
-      }
-    ],
-    thanhPhan: [
-      { ten: 'Nút "Mở Camera quét"', yNghia: 'Mở camera để quét QR', ghiChu: null },
-      { ten: 'Khung quét', yNghia: 'Hiển thị camera preview', ghiChu: null }
-    ]
-  },
-  {
     path: '/gate-transit-monitor',
     label: 'Gate Transit - Điều phối thông hành',
     icon: '🚪',
@@ -759,31 +734,6 @@ export const pageData = [
   // ====================================================================
   // NHÓM 5: GIAO THÔNG & BÃI ĐỖ
   // ====================================================================
-  {
-    path: '/lane-dashboard',
-    label: 'Lane Dashboard - Trạng thái làn đường',
-    icon: '🛣️',
-    roles: ['Admin', 'Bảo vệ'],
-    group: 'Giao thông & Bãi đỗ',
-    groupIcon: '🚗',
-    mucDich: 'Xem trạng thái các làn đường ra vào. Làn nào đang hoạt động tốt, làn nào bị lỗi, barrier nào đang mở/đóng.',
-    steps: [
-      {
-        title: 'Xem danh sách làn', moTa: 'Các làn hiển thị dạng card. Mỗi card: tên làn, hướng, trạng thái (Healthy/Degraded), số barrier.',
-        nhapGi: null, bamGi: null,
-        ketQua: 'Biết làn nào đang hoạt động tốt, làn nào có vấn đề.'
-      },
-      {
-        title: 'Xem sự kiện gần đây', moTa: 'Phía dưới là bảng "Recent Lane Events": thời gian, loại sự kiện, biển số.',
-        nhapGi: null, bamGi: null,
-        ketQua: 'Biết các hoạt động gần đây trên các làn.'
-      }
-    ],
-    thanhPhan: [
-      { ten: 'Card làn đường', yNghia: 'Trạng thái từng làn', ghiChu: 'Làn đỏ = degraded' },
-      { ten: 'Bảng Lane Events', yNghia: 'Sự kiện gần đây', ghiChu: null }
-    ]
-  },
   {
     path: '/barrier-panel',
     label: 'Barrier Control - Điều khiển barrier',
@@ -816,32 +766,6 @@ export const pageData = [
       { ten: 'Tab Parking', yNghia: 'Quản lý vé đỗ xe', ghiChu: null }
     ]
   },
-  {
-    path: '/plate-review',
-    label: 'Plate Review - Duyệt biển số AI',
-    icon: '📸',
-    roles: ['Admin', 'Bảo vệ'],
-    group: 'Giao thông & Bãi đỗ',
-    groupIcon: '🚗',
-    mucDich: 'AI nhận diện biển số và đưa ra kết quả. Con người cần kiểm tra lại (review) để xác nhận đúng/sai, giúp AI học cải thiện.',
-    steps: [
-      {
-        title: 'Xem danh sách cần review', moTa: 'Bảng hiển thị: ID, nguồn AI, độ tin cậy (confidence %), trạng thái.',
-        nhapGi: 'Có thể lọc theo trạng thái hoặc nguồn AI', bamGi: null,
-        ketQua: 'Danh sách các kết quả AI cần kiểm tra.'
-      },
-      {
-        title: 'Review', moTa: 'Bấm "Review". Cửa sổ hiện: độ tin cậy, chọn kết quả: Confirmed (đúng), FalsePositive (AI nhầm), FalseNegative (AI bỏ sót), TrainingCandidate (dùng để huấn luyện).',
-        nhapGi: 'Chọn outcome + nhập ghi chú', bamGi: 'Bấm "Review" → "Submit Review"',
-        ketQua: 'Kết quả được lưu, AI sẽ học từ đó.'
-      }
-    ],
-    thanhPhan: [
-      { ten: 'Cột Confidence', yNghia: 'Độ tin cậy của AI (%), càng cao càng chắc', ghiChu: 'Xanh >=80%, Vàng 50-80%, Đỏ <50%' },
-      { ten: 'Nút Review', yNghia: 'Kiểm tra và xác nhận kết quả AI', ghiChu: null }
-    ]
-  },
-
   // ====================================================================
   // NHÓM 6: EVIDENCE & COMPLIANCE
   // ====================================================================
@@ -973,32 +897,6 @@ export const pageData = [
   // ====================================================================
   // NHÓM 7: VIDEO & AI REVIEW
   // ====================================================================
-  {
-    path: '/event-timeline',
-    label: 'Event Timeline - Dòng thời gian sự kiện',
-    icon: '⏱️',
-    roles: ['Admin', 'Bảo vệ'],
-    group: 'Video & AI Review',
-    groupIcon: '🎥',
-    mucDich: 'Xem tất cả sự kiện an ninh theo thời gian. Lọc theo loại, mức độ, biển số. Dùng để điều tra sự cố.',
-    steps: [
-      {
-        title: 'Lọc sự kiện', moTa: 'Nhập loại sự kiện, biển số, chọn mức độ (Info/Medium/High/Critical), chọn loại đối tượng.',
-        nhapGi: 'Nhập event type, plate, chọn severity', bamGi: null,
-        ketQua: 'Danh sách sự kiện phù hợp hiện ra.'
-      },
-      {
-        title: 'Xem chi tiết sự kiện', moTa: 'Bấm vào một dòng sự kiện. Cửa sổ hiện ra với thông tin đầy đủ: loại, mức độ, nguồn, biển số, độ tin cậy, correlation ID.',
-        nhapGi: null, bamGi: 'Bấm vào dòng sự kiện',
-        ketQua: 'Chi tiết sự kiện hiện ra.'
-      }
-    ],
-    thanhPhan: [
-      { ten: 'Các ô lọc', yNghia: 'Event type, plate, severity, subject type', ghiChu: 'Gõ tự động lọc sau 300ms' },
-      { ten: 'Bảng sự kiện', yNghia: 'Mỗi dòng là một sự kiện', ghiChu: 'Bấm vào để xem chi tiết' },
-      { ten: 'Nút Prev/Next', yNghia: 'Chuyển trang', ghiChu: null }
-    ]
-  },
   {
     path: '/video-search',
     label: 'Video Search - Tìm kiếm video',
@@ -1805,7 +1703,7 @@ export const quickGuides = [
       { label: 'Check-in khách tại lễ tân', path: '/reception', icon: '🛎️' },
       { label: 'Xử lý ngoại lệ ra vào', path: '/exceptions', icon: '⚠️' },
       { label: 'Xem lịch sử ra vào', path: '/access-logs', icon: '📋' },
-      { label: 'Xem trạng thái làn đường', path: '/lane-dashboard', icon: '🛣️' },
+      { label: 'Theo dõi cổng ra vào', path: '/gate-transit-monitor', icon: '🛣️' },
     ]
   },
   {

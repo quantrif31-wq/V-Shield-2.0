@@ -2,31 +2,31 @@
     <div class="page-container enterprise-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Company-wide security</span>
-                <h1 class="page-title">Enterprise Security Command</h1>
+                <span class="panel-kicker">An ninh toàn doanh nghiệp</span>
+                <h1 class="page-title">Trung tâm điều hành an ninh doanh nghiệp</h1>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn btn-secondary" :disabled="loading" @click="loadOverview">
-                    Refresh
+                    Làm mới
                 </button>
                 <button type="button" class="btn btn-primary" @click="selectedWorkspace = 'soc'">
-                    Open SOC
+                    Mở SOC
                 </button>
             </div>
         </div>
 
         <section class="readiness-band">
             <div class="readiness-score">
-                <span>Target</span>
+                <span>Mục tiêu</span>
                 <strong>100%</strong>
             </div>
             <div class="readiness-copy">
-                <h2>Renovation control surface</h2>
+                <h2>Bảng điều phối an ninh hợp nhất</h2>
                 <p>{{ statusMessage }}</p>
             </div>
             <div class="readiness-actions">
                 <span class="status-pill" :class="{ danger: loadError }">
-                    {{ loadError ? 'Needs attention' : 'Live' }}
+                    {{ loadError ? 'Cần chú ý' : 'Đang hoạt động' }}
                 </span>
             </div>
         </section>
@@ -84,30 +84,30 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Step-up</span>
-                        <h2 class="panel-title">Privileged action session</h2>
+                        <span class="panel-kicker">Xác minh tăng cường</span>
+                        <h2 class="panel-title">Phiên thao tác đặc quyền</h2>
                     </div>
                     <span class="soft-chip" :class="{ success: stepUp.active }">
-                        {{ stepUp.active ? 'Verified' : 'Required' }}
+                        {{ stepUp.active ? 'Đã xác minh' : 'Bắt buộc' }}
                     </span>
                 </div>
 
                 <form class="form-grid" @submit.prevent="verifyStepUp">
                     <label>
-                        Action
+                        Hành động
                         <select v-model="stepUp.action">
-                            <option value="AllPrivilegedActions">All privileged actions</option>
-                            <option value="UserAdministration">User administration</option>
-                            <option value="AccessPolicyEmergency">Emergency policy</option>
-                            <option value="DeviceConfiguration">Device configuration</option>
-                            <option value="EvidenceExportApproval">Evidence export</option>
-                            <option value="EvidenceRetentionPurge">Evidence purge</option>
-                            <option value="SiteHierarchyBackfill">Site hierarchy backfill</option>
-                            <option value="ReleaseApproval">Release approval</option>
+                            <option value="AllPrivilegedActions">Tất cả thao tác đặc quyền</option>
+                            <option value="UserAdministration">Quản trị người dùng</option>
+                            <option value="AccessPolicyEmergency">Chính sách khẩn cấp</option>
+                            <option value="DeviceConfiguration">Cấu hình thiết bị</option>
+                            <option value="EvidenceExportApproval">Duyệt xuất chứng cứ</option>
+                            <option value="EvidenceRetentionPurge">Dọn xóa lưu giữ chứng cứ</option>
+                            <option value="SiteHierarchyBackfill">Bổ sung phân cấp site</option>
+                            <option value="ReleaseApproval">Phê duyệt phát hành</option>
                         </select>
                     </label>
                     <label>
-                        Password
+                        Mật khẩu
                         <input v-model="stepUp.password" type="password" autocomplete="current-password" />
                     </label>
                     <label>
@@ -115,7 +115,7 @@
                         <input v-model="stepUp.mfaCode" inputmode="numeric" autocomplete="one-time-code" />
                     </label>
                     <button type="submit" class="btn btn-primary" :disabled="busy.stepUp">
-                        Verify
+                        Xác minh
                     </button>
                 </form>
                 <p v-if="stepUp.message" class="inline-message">{{ stepUp.message }}</p>
@@ -126,11 +126,11 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Production guard</span>
-                        <h2 class="panel-title">Configuration health</h2>
+                        <span class="panel-kicker">Kiểm soát vận hành</span>
+                        <h2 class="panel-title">Sức khỏe cấu hình</h2>
                     </div>
                     <span class="soft-chip" :class="{ success: configHealth.status === 'Healthy', danger: configHealth.status === 'Blocked' }">
-                        {{ configHealth.status || 'Unknown' }}
+                        {{ configHealth.status || 'Chưa rõ' }}
                     </span>
                 </div>
                 <div class="finding-list">
@@ -144,35 +144,35 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Foundation</span>
-                        <h2 class="panel-title">Legacy asset backfill</h2>
+                        <span class="panel-kicker">Nền tảng</span>
+                        <h2 class="panel-title">Bổ sung tài sản kế thừa</h2>
                     </div>
                 </div>
                 <form class="form-grid single" @submit.prevent="backfillDefaultSite">
                     <label>
-                        Company code
+                        Mã công ty
                         <input v-model="backfillForm.companyCode" required />
                     </label>
                     <label>
-                        Site code
+                        Mã site
                         <input v-model="backfillForm.siteCode" required />
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.backfill">
-                        Run safe backfill
+                        Chạy bổ sung an toàn
                     </button>
                 </form>
                 <div class="asset-map-summary">
-                    <span>{{ assetMap.gates.length }} gates</span>
-                    <span>{{ assetMap.cameras.length }} cameras</span>
-                    <span>{{ assetMap.vehicles.length }} vehicles</span>
+                    <span>{{ assetMap.gates.length }} cổng</span>
+                    <span>{{ assetMap.cameras.length }} camera</span>
+                    <span>{{ assetMap.vehicles.length }} phương tiện</span>
                 </div>
             </article>
 
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Policy</span>
-                        <h2 class="panel-title">Decision simulator</h2>
+                        <span class="panel-kicker">Chính sách</span>
+                        <h2 class="panel-title">Mô phỏng quyết định</h2>
                     </div>
                     <span v-if="policyResult.result" class="soft-chip" :class="{ danger: policyResult.result === 'Deny', success: policyResult.result === 'Allow' }">
                         {{ policyResult.result }}
@@ -180,11 +180,11 @@
                 </div>
                 <form class="form-grid single" @submit.prevent="simulatePolicy">
                     <label>
-                        Subject ID
+                        ID đối tượng
                         <input v-model.number="policyForm.subjectId" type="number" min="1" required />
                     </label>
                     <label>
-                        Credential
+                        Loại định danh
                         <select v-model="policyForm.credentialType">
                             <option>QR</option>
                             <option>Badge</option>
@@ -192,7 +192,7 @@
                         </select>
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.policy">
-                        Simulate
+                        Mô phỏng
                     </button>
                 </form>
                 <p v-if="policyResult.reason" class="inline-message">{{ policyResult.reason }}</p>
@@ -203,42 +203,42 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Identity</span>
-                        <h2 class="panel-title">Provider and HR import</h2>
+                        <span class="panel-kicker">Định danh</span>
+                        <h2 class="panel-title">Nhà cung cấp và nhập liệu HR</h2>
                     </div>
                 </div>
                 <form class="form-grid" @submit.prevent="saveProvider">
                     <label>
-                        Provider name
+                        Tên nhà cung cấp
                         <input v-model="providerForm.name" required />
                     </label>
                     <label>
-                        Authority
+                        Địa chỉ xác thực
                         <input v-model="providerForm.authority" required />
                     </label>
                     <label>
-                        Client ID
+                        Mã client
                         <input v-model="providerForm.clientId" />
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.provider">
-                        Save provider
+                        Lưu nhà cung cấp
                     </button>
                 </form>
                 <form class="form-grid stacked" @submit.prevent="importUser">
                     <label>
-                        Provider ID
+                        ID nhà cung cấp
                         <input v-model.number="importForm.providerId" type="number" min="1" required />
                     </label>
                     <label>
-                        External subject
+                        Mã định danh ngoài
                         <input v-model="importForm.externalSubject" required />
                     </label>
                     <label>
-                        Username
+                        Tên đăng nhập
                         <input v-model="importForm.username" required />
                     </label>
                     <label>
-                        Full name
+                        Họ và tên
                         <input v-model="importForm.displayName" />
                     </label>
                     <label>
@@ -246,17 +246,17 @@
                         <input v-model="importForm.email" type="email" />
                     </label>
                     <label>
-                        Lifecycle
+                        Vòng đời
                         <select v-model="importForm.lifecycleStatus">
-                            <option>Active</option>
-                            <option>Suspended</option>
-                            <option>Terminated</option>
-                            <option>ContractorActive</option>
-                            <option>ContractorExpired</option>
+                            <option value="Active">Đang hoạt động</option>
+                            <option value="Suspended">Tạm dừng</option>
+                            <option value="Terminated">Đã nghỉ việc</option>
+                            <option value="ContractorActive">Nhà thầu đang hiệu lực</option>
+                            <option value="ContractorExpired">Nhà thầu hết hiệu lực</option>
                         </select>
                     </label>
                     <button type="submit" class="btn btn-primary" :disabled="busy.importUser">
-                        Import user
+                        Nhập người dùng
                     </button>
                 </form>
             </article>
@@ -264,54 +264,54 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Devices</span>
-                        <h2 class="panel-title">Simulator and fault drill</h2>
+                        <span class="panel-kicker">Thiết bị</span>
+                        <h2 class="panel-title">Mô phỏng và diễn tập lỗi</h2>
                     </div>
                 </div>
                 <form class="form-grid" @submit.prevent="createVirtualController">
                     <label>
-                        Controller name
+                        Tên bộ điều khiển
                         <input v-model="deviceForm.name" required />
                     </label>
                     <label>
-                        Protocol
+                        Giao thức
                         <select v-model="deviceForm.protocol">
                             <option>OSDP-Sim</option>
                             <option>ONVIF-Access-Sim</option>
                         </select>
                     </label>
                     <label>
-                        Max credentials
+                        Số định danh tối đa
                         <input v-model.number="deviceForm.maxCredentials" type="number" min="1" />
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.device">
-                        Create simulator
+                        Tạo bộ mô phỏng
                     </button>
                 </form>
                 <form class="form-grid stacked" @submit.prevent="injectFault">
                     <label>
-                        Device ID
+                        ID thiết bị
                         <input v-model.number="faultForm.securityDeviceId" type="number" min="1" required />
                     </label>
                     <label>
-                        Fault
+                        Loại lỗi
                         <select v-model="faultForm.status">
-                            <option>Tamper</option>
-                            <option>Offline</option>
-                            <option>RelayFailure</option>
-                            <option>BarrierStuck</option>
+                            <option value="Tamper">Can thiệp trái phép</option>
+                            <option value="Offline">Mất kết nối</option>
+                            <option value="RelayFailure">Lỗi relay</option>
+                            <option value="BarrierStuck">Barrier kẹt</option>
                         </select>
                     </label>
                     <label>
-                        Severity
+                        Mức độ
                         <select v-model="faultForm.severity">
-                            <option>Medium</option>
-                            <option>High</option>
-                            <option>Critical</option>
+                            <option value="Medium">Trung bình</option>
+                            <option value="High">Cao</option>
+                            <option value="Critical">Nghiêm trọng</option>
                         </select>
                     </label>
                     <button type="submit" class="btn btn-primary" :disabled="busy.fault">
-                        Inject fault
+                        Gây lỗi mô phỏng
                     </button>
                 </form>
             </article>
@@ -322,24 +322,24 @@
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">SOC</span>
-                        <h2 class="panel-title">Alarm intake</h2>
+                        <h2 class="panel-title">Tiếp nhận cảnh báo</h2>
                     </div>
                 </div>
                 <form class="form-grid single" @submit.prevent="createAlarm">
                     <label>
-                        Summary
+                        Tóm tắt
                         <input v-model="alarmForm.summary" required />
                     </label>
                     <label>
-                        Severity
+                        Mức độ
                         <select v-model="alarmForm.severity">
-                            <option>Medium</option>
-                            <option>High</option>
-                            <option>Critical</option>
+                            <option value="Medium">Trung bình</option>
+                            <option value="High">Cao</option>
+                            <option value="Critical">Nghiêm trọng</option>
                         </select>
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.alarm">
-                        Create alarm
+                        Tạo cảnh báo
                     </button>
                 </form>
                 <div v-if="socIntel.summary" class="soc-intel-summary">
@@ -351,21 +351,21 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Recovery</span>
-                        <h2 class="panel-title">Backup drill</h2>
+                        <span class="panel-kicker">Khôi phục</span>
+                        <h2 class="panel-title">Diễn tập sao lưu</h2>
                     </div>
                 </div>
                 <form class="form-grid single" @submit.prevent="startBackup">
                     <label>
-                        Profile
+                        Hồ sơ
                         <select v-model="backupForm.profile">
-                            <option>MediumCompany</option>
-                            <option>LargeCompany</option>
-                            <option>Production</option>
+                            <option value="MediumCompany">Doanh nghiệp vừa</option>
+                            <option value="LargeCompany">Doanh nghiệp lớn</option>
+                            <option value="Production">Môi trường thực</option>
                         </select>
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.backup">
-                        Start backup
+                        Bắt đầu sao lưu
                     </button>
                 </form>
             </article>
@@ -373,22 +373,22 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Release</span>
-                        <h2 class="panel-title">QA evidence</h2>
+                        <span class="panel-kicker">Phát hành</span>
+                        <h2 class="panel-title">Chứng cứ QA</h2>
                     </div>
                 </div>
                 <form class="form-grid single" @submit.prevent="createQaRun">
                     <label>
-                        Test type
+                        Loại kiểm thử
                         <select v-model="qaForm.testType">
-                            <option>E2E</option>
-                            <option>LoadStressSoakChaos</option>
-                            <option>HardwareSimulator</option>
-                            <option>Migration</option>
+                            <option value="E2E">Kiểm thử đầu cuối</option>
+                            <option value="LoadStressSoakChaos">Tải, stress, soak, chaos</option>
+                            <option value="HardwareSimulator">Mô phỏng phần cứng</option>
+                            <option value="Migration">Di trú dữ liệu</option>
                         </select>
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.qa">
-                        Record QA run
+                        Ghi nhận lượt QA
                     </button>
                 </form>
             </article>
@@ -399,21 +399,21 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Restore</span>
-                        <h2 class="panel-title">Restore Drill</h2>
+                        <span class="panel-kicker">Khôi phục</span>
+                        <h2 class="panel-title">Diễn tập khôi phục</h2>
                     </div>
                 </div>
                 <form class="form-grid single" @submit.prevent="startRestore">
                     <label>
-                        Backup Run ID
+                        ID lượt sao lưu
                         <input v-model.number="restoreForm.backupRunId" type="number" required />
                     </label>
                     <label>
-                        Target RTO (minutes)
+                        RTO mục tiêu (phút)
                         <input v-model.number="restoreForm.targetRtoMinutes" type="number" />
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.restore">
-                        {{ busy.restore ? 'Starting...' : 'Start Restore' }}
+                        {{ busy.restore ? 'Đang bắt đầu...' : 'Bắt đầu khôi phục' }}
                     </button>
                 </form>
                 <div v-if="restoreResult" class="success-card" style="margin-top:8px;">{{ restoreResult }}</div>
@@ -421,35 +421,35 @@
             <article v-if="isAdmin" class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Security</span>
-                        <h2 class="panel-title">Security Checks</h2>
+                        <span class="panel-kicker">An ninh</span>
+                        <h2 class="panel-title">Kiểm tra an ninh</h2>
                     </div>
                 </div>
                 <form class="form-grid single" @submit.prevent="recordSecurityCheck">
                     <label>
-                        Check Type
+                        Loại kiểm tra
                         <select v-model="securityForm.checkType">
-                            <option value="PhysicalPatrol">Physical Patrol</option>
-                            <option value="CameraReview">Camera Review</option>
-                            <option value="DoorAudit">Door Audit</option>
-                            <option value="PerimeterCheck">Perimeter Check</option>
-                            <option value="ComplianceAudit">Compliance Audit</option>
+                            <option value="PhysicalPatrol">Tuần tra vật lý</option>
+                            <option value="CameraReview">Rà soát camera</option>
+                            <option value="DoorAudit">Kiểm tra cửa</option>
+                            <option value="PerimeterCheck">Kiểm tra vành đai</option>
+                            <option value="ComplianceAudit">Kiểm tra tuân thủ</option>
                         </select>
                     </label>
                     <label>
-                        Status
+                        Trạng thái
                         <select v-model="securityForm.status">
-                            <option value="Pass">Pass</option>
-                            <option value="Fail">Fail</option>
-                            <option value="Degraded">Degraded</option>
+                            <option value="Pass">Đạt</option>
+                            <option value="Fail">Không đạt</option>
+                            <option value="Degraded">Suy giảm</option>
                         </select>
                     </label>
                     <label>
-                        Notes
+                        Ghi chú
                         <textarea v-model="securityForm.notes" class="form-input" rows="2"></textarea>
                     </label>
                     <button type="submit" class="btn btn-secondary" :disabled="busy.security">
-                        {{ busy.security ? 'Recording...' : 'Record Check' }}
+                        {{ busy.security ? 'Đang ghi nhận...' : 'Ghi nhận kiểm tra' }}
                     </button>
                 </form>
                 <div v-if="securityResult" class="success-card" style="margin-top:8px;">{{ securityResult }}</div>
@@ -457,25 +457,25 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Outbox</span>
-                        <h2 class="panel-title">Outbox & Webhooks</h2>
+                        <span class="panel-kicker">Hàng chờ gửi</span>
+                        <h2 class="panel-title">Outbox và webhook</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form" style="flex-wrap:wrap;">
                     <select v-model="outboxFilter" class="filter-select" style="flex:1;">
-                        <option value="">All</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Failed">Failed</option>
-                        <option value="Delivered">Delivered</option>
+                        <option value="">Tất cả</option>
+                        <option value="Pending">Đang chờ</option>
+                        <option value="Failed">Lỗi</option>
+                        <option value="Delivered">Đã gửi</option>
                     </select>
                     <button class="btn btn-primary btn-sm" :disabled="outboxLoading" @click="loadOutboxEvents">
-                        {{ outboxLoading ? 'Loading...' : 'Load' }}
+                        {{ outboxLoading ? 'Đang tải...' : 'Tải' }}
                     </button>
                 </div>
-                <div v-if="outboxEvents.length === 0" class="empty-card">No outbox events.</div>
+                <div v-if="outboxEvents.length === 0" class="empty-card">Chưa có sự kiện outbox.</div>
                 <div v-else class="table-container" style="max-height:200px;overflow-y:auto;">
                     <table class="data-table">
-                        <thead><tr><th>Type</th><th>Status</th><th>Retry</th></tr></thead>
+                        <thead><tr><th>Loại</th><th>Trạng thái</th><th>Số lần thử lại</th></tr></thead>
                         <tbody>
                             <tr v-for="e in outboxEvents" :key="e.outboxEventId">
                                 <td class="table-sub">{{ (e.eventType || '').substring(0, 20) }}</td>
@@ -493,16 +493,16 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Backups</span>
-                        <h2 class="panel-title">Recent Backup Runs</h2>
+                        <span class="panel-kicker">Sao lưu</span>
+                        <h2 class="panel-title">Các lượt sao lưu gần đây</h2>
                     </div>
-                    <button class="btn btn-sm btn-secondary" :disabled="backupLoading" @click="loadBackupRuns">Refresh</button>
+                    <button class="btn btn-sm btn-secondary" :disabled="backupLoading" @click="loadBackupRuns">Làm mới</button>
                 </div>
-                <div v-if="backupLoading" class="empty-card">Loading...</div>
-                <div v-else-if="backupRuns.length === 0" class="empty-card">No backup runs.</div>
+                <div v-if="backupLoading" class="empty-card">Đang tải...</div>
+                <div v-else-if="backupRuns.length === 0" class="empty-card">Chưa có lượt sao lưu.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Profile</th><th>Status</th><th>Started</th><th>RPO</th></tr></thead>
+                        <thead><tr><th>Hồ sơ</th><th>Trạng thái</th><th>Bắt đầu</th><th>RPO</th></tr></thead>
                         <tbody>
                             <tr v-for="b in backupRuns" :key="b.backupRunId">
                                 <td>{{ b.profile || '—' }}</td>
@@ -517,16 +517,16 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Restore</span>
-                        <h2 class="panel-title">Restore Drills</h2>
+                        <span class="panel-kicker">Khôi phục</span>
+                        <h2 class="panel-title">Các lượt diễn tập khôi phục</h2>
                     </div>
-                    <button class="btn btn-sm btn-secondary" :disabled="restoreLoading" @click="loadRestoreDrills">Refresh</button>
+                    <button class="btn btn-sm btn-secondary" :disabled="restoreLoading" @click="loadRestoreDrills">Làm mới</button>
                 </div>
-                <div v-if="restoreLoading" class="empty-card">Loading...</div>
-                <div v-else-if="restoreDrills.length === 0" class="empty-card">No restore drills.</div>
+                <div v-if="restoreLoading" class="empty-card">Đang tải...</div>
+                <div v-else-if="restoreDrills.length === 0" class="empty-card">Chưa có lượt diễn tập khôi phục.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Status</th><th>RTO Target</th><th>Started</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Trạng thái</th><th>RTO mục tiêu</th><th>Bắt đầu</th></tr></thead>
                         <tbody>
                             <tr v-for="r in restoreDrills" :key="r.restoreDrillId">
                                 <td>{{ r.restoreDrillId }}</td>
@@ -545,34 +545,34 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Intelligence</span>
-                        <h2 class="panel-title">SOC Analytics</h2>
+                        <span class="panel-kicker">Trí tuệ AI</span>
+                        <h2 class="panel-title">Phân tích SOC</h2>
                     </div>
-                    <button type="button" class="btn btn-sm btn-secondary" @click="loadSocIntel">Refresh</button>
+                    <button type="button" class="btn btn-sm btn-secondary" @click="loadSocIntel">Làm mới</button>
                 </div>
                 <div class="soc-stats-grid">
                     <div class="soc-stat">
                         <strong>{{ socIntel.statistics.totalToday }}</strong>
-                        <span>Alarm hom nay</span>
+                        <span>Cảnh báo hôm nay</span>
                         <span class="soc-change" :class="{ up: socIntel.statistics.changePercent > 0, down: socIntel.statistics.changePercent < 0 }">
                             {{ socIntel.statistics.changePercent > 0 ? '+' : '' }}{{ socIntel.statistics.changePercent }}%
                         </span>
                     </div>
                     <div class="soc-stat">
                         <strong class="text-danger">{{ socIntel.statistics.criticalOpenAlarms }}</strong>
-                        <span>Critical dang mo</span>
+                        <span>Nghiêm trọng đang mở</span>
                     </div>
                     <div class="soc-stat">
                         <strong>{{ socIntel.statistics.openAlarms }}</strong>
-                        <span>Tong alarm mo</span>
+                        <span>Tổng cảnh báo mở</span>
                     </div>
                     <div class="soc-stat">
                         <strong>{{ socIntel.statistics.avgResolutionHours }}</strong>
-                        <span>Gio xu ly TB</span>
+                        <span>Giờ xử lý TB</span>
                     </div>
                 </div>
                 <div v-if="Object.keys(socIntel.statistics.bySeverity).length" class="soc-severity-breakdown">
-                    <h4>Phan bo theo muc do</h4>
+                    <h4>Phân bố theo mức độ</h4>
                     <div v-for="(count, sev) in socIntel.statistics.bySeverity" :key="sev" class="severity-bar-row">
                         <span>{{ sev }}</span>
                         <div class="severity-bar-track">
@@ -585,31 +585,31 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Copilot</span>
-                        <h2 class="panel-title">Incident Analysis</h2>
+                        <span class="panel-kicker">Trợ lý AI</span>
+                        <h2 class="panel-title">Phân tích sự cố</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
-                    <input v-model.number="incidentBriefing.incidentId" type="number" min="1" placeholder="Incident ID" class="filter-input" />
+                    <input v-model.number="incidentBriefing.incidentId" type="number" min="1" placeholder="ID sự cố" class="filter-input" />
                     <button class="btn btn-primary btn-sm" :disabled="incidentBriefing.loading" @click="analyzeIncident">
-                        {{ incidentBriefing.loading ? 'Dang phan tich...' : 'Phan tich bang AI' }}
+                        {{ incidentBriefing.loading ? 'Đang phân tích...' : 'Phân tích bằng AI' }}
                     </button>
                 </div>
                 <div v-if="incidentBriefing.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(incidentBriefing.result.severity)">
-                            {{ incidentBriefing.result.severity || 'N/A' }}
+                            {{ incidentBriefing.result.severity || 'Không rõ' }}
                         </span>
-                        <small>Provider: {{ incidentBriefing.result.provider || 'N/A' }}</small>
+                        <small>Nhà cung cấp: {{ incidentBriefing.result.provider || 'Không rõ' }}</small>
                     </div>
                     <p class="brief-summary">{{ incidentBriefing.result.summary }}</p>
                     <div v-if="incidentBriefing.result.reasoningSummary" class="rec-reasoning">
-                        <strong>Phan tich:</strong>
+                        <strong>Phân tích:</strong>
                         <p>{{ incidentBriefing.result.reasoningSummary }}</p>
                     </div>
                     <div v-if="incidentBriefing.result.recommendationId" class="rec-actions">
-                        <button class="btn btn-success btn-sm" @click="approveAi(incidentBriefing.result.recommendationId)">Phe duyet</button>
-                        <button class="btn btn-ghost btn-sm" @click="rejectAi(incidentBriefing.result.recommendationId)">Tu choi</button>
+                        <button class="btn btn-success btn-sm" @click="approveAi(incidentBriefing.result.recommendationId)">Phê duyệt</button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAi(incidentBriefing.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
             </article>
@@ -620,38 +620,38 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Risk Screening</span>
-                        <h2 class="panel-title">Visitor Screening</h2>
+                        <span class="panel-kicker">AI sàng lọc rủi ro</span>
+                        <h2 class="panel-title">Sàng lọc khách</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
-                    <input v-model.number="visitorScreening.visitId" type="number" min="1" placeholder="Visit ID" class="filter-input" />
+                    <input v-model.number="visitorScreening.visitId" type="number" min="1" placeholder="ID lượt thăm" class="filter-input" />
                     <button class="btn btn-primary btn-sm" :disabled="visitorScreening.loading" @click="screenVisitor">
-                        {{ visitorScreening.loading ? 'Dang phan tich...' : 'Phan tich riu ro' }}
+                        {{ visitorScreening.loading ? 'Đang phân tích...' : 'Phân tích rủi ro' }}
                     </button>
                 </div>
                 <div v-if="visitorScreening.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(visitorScreening.result.severity)">
-                            {{ visitorScreening.result.severity || 'N/A' }}
+                            {{ visitorScreening.result.severity || 'Không rõ' }}
                         </span>
-                        <small>Provider: {{ visitorScreening.result.provider || 'N/A' }}</small>
+                        <small>Nhà cung cấp: {{ visitorScreening.result.provider || 'Không rõ' }}</small>
                     </div>
                     <p class="brief-summary">{{ visitorScreening.result.summary }}</p>
                     <div v-if="visitorScreening.result.recommendationId" class="rec-actions">
-                        <button class="btn btn-success btn-sm" @click="approveAi(visitorScreening.result.recommendationId)">Phe duyet</button>
-                        <button class="btn btn-ghost btn-sm" @click="rejectAi(visitorScreening.result.recommendationId)">Tu choi</button>
+                        <button class="btn btn-success btn-sm" @click="approveAi(visitorScreening.result.recommendationId)">Phê duyệt</button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAi(visitorScreening.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Quick actions</span>
-                        <h2 class="panel-title">Screening log</h2>
+                        <span class="panel-kicker">Thao tác nhanh</span>
+                        <h2 class="panel-title">Nhật ký sàng lọc</h2>
                     </div>
                 </div>
-                <div class="empty-card">Cac ket qua phan tich riu ro khach tham se hien o day.</div>
+                <div class="empty-card">Các kết quả phân tích rủi ro khách thăm sẽ hiện ở đây.</div>
             </article>
         </section>
 
@@ -659,38 +659,64 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Risk Screening</span>
-                        <h2 class="panel-title">Vehicle Screening</h2>
+                        <span class="panel-kicker">AI sàng lọc rủi ro</span>
+                        <h2 class="panel-title">Sàng lọc phương tiện</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
-                    <input v-model.number="vehicleScreening.vehicleId" type="number" min="1" placeholder="Vehicle ID" class="filter-input" />
+                    <input v-model.number="vehicleScreening.vehicleId" type="number" min="1" placeholder="ID phương tiện" class="filter-input" />
                     <button class="btn btn-primary btn-sm" :disabled="vehicleScreening.loading" @click="screenVehicle">
-                        {{ vehicleScreening.loading ? 'Dang phan tich...' : 'Phan tich riu ro' }}
+                        {{ vehicleScreening.loading ? 'Đang phân tích...' : 'Phân tích rủi ro' }}
                     </button>
                 </div>
                 <div v-if="vehicleScreening.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(vehicleScreening.result.severity)">
-                            {{ vehicleScreening.result.severity || 'N/A' }}
+                            {{ vehicleScreening.result.severity || 'Không rõ' }}
                         </span>
-                        <small>Provider: {{ vehicleScreening.result.provider || 'N/A' }}</small>
+                        <small>Nhà cung cấp: {{ vehicleScreening.result.provider || 'Không rõ' }}</small>
                     </div>
                     <p class="brief-summary">{{ vehicleScreening.result.summary }}</p>
                     <div v-if="vehicleScreening.result.recommendationId" class="rec-actions">
-                        <button class="btn btn-success btn-sm" @click="approveAi(vehicleScreening.result.recommendationId)">Phe duyet</button>
-                        <button class="btn btn-ghost btn-sm" @click="rejectAi(vehicleScreening.result.recommendationId)">Tu choi</button>
+                        <button class="btn btn-success btn-sm" @click="approveAi(vehicleScreening.result.recommendationId)">Phê duyệt</button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAi(vehicleScreening.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Quick actions</span>
-                        <h2 class="panel-title">Screening log</h2>
+                        <span class="panel-kicker">Sức khỏe làn</span>
+                        <h2 class="panel-title">Tóm tắt vận hành</h2>
+                    </div>
+                    <span class="soft-chip" :class="{ danger: laneHealthSummary.degradedCount > 0, success: laneHealthSummary.degradedCount === 0 }">
+                        {{ laneHealthSummary.degradedCount > 0 ? 'Cần theo dõi' : 'Ổn định' }}
+                    </span>
+                </div>
+                <div v-if="laneHealthSummary.total === 0" class="empty-card">Chưa có làn hoạt động được kết nối.</div>
+                <div v-else class="finding-list">
+                    <div class="finding-row">
+                        <strong>Làn ổn định</strong>
+                        <span>{{ laneHealthSummary.healthyCount }}</span>
+                    </div>
+                    <div class="finding-row">
+                        <strong>Làn cần chú ý</strong>
+                        <span :class="{ fail: laneHealthSummary.degradedCount > 0 }">{{ laneHealthSummary.degradedCount }}</span>
+                    </div>
+                    <div class="finding-row">
+                        <strong>Số barrier đang phủ</strong>
+                        <span>{{ laneHealthSummary.barrierCount }}</span>
+                    </div>
+                    <div v-for="lane in laneHealthFocus" :key="lane.laneId" class="finding-row">
+                        <strong>{{ lane.name || `Làn ${lane.laneId}` }}</strong>
+                        <span :class="{ fail: lane.isDegraded }">
+                            {{ lane.isDegraded ? 'Cần chú ý' : 'Ổn định' }}
+                        </span>
                     </div>
                 </div>
-                <div class="empty-card">Cac ket qua phan tich riu ro phuong tien se hien o day.</div>
+                <p v-if="laneHealthSummary.degradedCount > 0" class="inline-message">
+                    Khu vực cần chú ý: {{ laneHealthSummary.degradedNames.join(', ') }}
+                </p>
             </article>
         </section>
 
@@ -698,58 +724,58 @@
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Phan tich</span>
-                        <h2 class="panel-title">Evidence Analysis</h2>
+                        <span class="panel-kicker">AI phân tích</span>
+                        <h2 class="panel-title">Phân tích chứng cứ</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
-                    <input v-model.number="evidenceAnalysis.evidenceId" type="number" min="1" placeholder="Evidence Item ID" class="filter-input" />
+                    <input v-model.number="evidenceAnalysis.evidenceId" type="number" min="1" placeholder="ID chứng cứ" class="filter-input" />
                     <button class="btn btn-primary btn-sm" :disabled="evidenceAnalysis.loading" @click="analyzeEvidence">
-                        {{ evidenceAnalysis.loading ? 'Dang phan tich...' : 'Phan tich bang AI' }}
+                        {{ evidenceAnalysis.loading ? 'Đang phân tích...' : 'Phân tích bằng AI' }}
                     </button>
                 </div>
                 <div v-if="evidenceAnalysis.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(evidenceAnalysis.result.severity)">
-                            {{ evidenceAnalysis.result.severity || 'N/A' }}
+                            {{ evidenceAnalysis.result.severity || 'Không rõ' }}
                         </span>
-                        <small>Provider: {{ evidenceAnalysis.result.provider || 'N/A' }}</small>
+                        <small>Nhà cung cấp: {{ evidenceAnalysis.result.provider || 'Không rõ' }}</small>
                     </div>
                     <p class="brief-summary">{{ evidenceAnalysis.result.summary }}</p>
                     <div v-if="evidenceAnalysis.result.reasoningSummary" class="rec-reasoning">
-                        <strong>Phan tich:</strong>
+                        <strong>Phân tích:</strong>
                         <p>{{ evidenceAnalysis.result.reasoningSummary }}</p>
                     </div>
                     <div v-if="evidenceAnalysis.result.recommendationId" class="rec-actions">
-                        <button class="btn btn-success btn-sm" @click="approveAi(evidenceAnalysis.result.recommendationId)">Phe duyet</button>
-                        <button class="btn btn-ghost btn-sm" @click="rejectAi(evidenceAnalysis.result.recommendationId)">Tu choi</button>
+                        <button class="btn btn-success btn-sm" @click="approveAi(evidenceAnalysis.result.recommendationId)">Phê duyệt</button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAi(evidenceAnalysis.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Kiem tra</span>
-                        <h2 class="panel-title">Export Request Review</h2>
+                        <span class="panel-kicker">AI kiểm tra</span>
+                        <h2 class="panel-title">Duyệt yêu cầu xuất</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
-                    <input v-model.number="evidenceExport.exportId" type="number" min="1" placeholder="Export Request ID" class="filter-input" />
+                    <input v-model.number="evidenceExport.exportId" type="number" min="1" placeholder="ID yêu cầu xuất" class="filter-input" />
                     <button class="btn btn-primary btn-sm" :disabled="evidenceExport.loading" @click="reviewExport">
-                        {{ evidenceExport.loading ? 'Dang kiem tra...' : 'Kiem tra xuat' }}
+                        {{ evidenceExport.loading ? 'Đang kiểm tra...' : 'Kiểm tra xuất' }}
                     </button>
                 </div>
                 <div v-if="evidenceExport.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(evidenceExport.result.severity)">
-                            {{ evidenceExport.result.severity || 'N/A' }}
+                            {{ evidenceExport.result.severity || 'Không rõ' }}
                         </span>
-                        <small>Provider: {{ evidenceExport.result.provider || 'N/A' }}</small>
+                        <small>Nhà cung cấp: {{ evidenceExport.result.provider || 'Không rõ' }}</small>
                     </div>
                     <p class="brief-summary">{{ evidenceExport.result.summary }}</p>
                     <div v-if="evidenceExport.result.recommendationId" class="rec-actions">
-                        <button class="btn btn-success btn-sm" @click="approveAi(evidenceExport.result.recommendationId)">Phe duyet</button>
-                        <button class="btn btn-ghost btn-sm" @click="rejectAi(evidenceExport.result.recommendationId)">Tu choi</button>
+                        <button class="btn btn-success btn-sm" @click="approveAi(evidenceExport.result.recommendationId)">Phê duyệt</button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAi(evidenceExport.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
             </article>
@@ -760,33 +786,33 @@
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">AI Chinh sach</span>
-                        <h2 class="panel-title">Policy Simulator</h2>
+                        <h2 class="panel-title">Mô phỏng chính sách</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
-                    <input v-model.number="policySimulation.policyId" type="number" min="1" placeholder="Policy Version ID" class="filter-input" />
+                    <input v-model.number="policySimulation.policyId" type="number" min="1" placeholder="ID phiên bản chính sách" class="filter-input" />
                     <button class="btn btn-primary btn-sm" :disabled="policySimulation.loading" @click="simulateAiPolicy">
-                        {{ policySimulation.loading ? 'Dang mo phong...' : 'Mo phong chinh sach' }}
+                        {{ policySimulation.loading ? 'Đang mô phỏng...' : 'Mô phỏng chính sách' }}
                     </button>
                     <button class="btn btn-secondary btn-sm" :disabled="policySimulation.loading" @click="explainAiPolicy">
-                        Giai thich
+                        Giải thích
                     </button>
                 </div>
                 <div v-if="policySimulation.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(policySimulation.result.severity)">
-                            {{ policySimulation.result.severity || 'N/A' }}
+                            {{ policySimulation.result.severity || 'Không rõ' }}
                         </span>
-                        <small>Provider: {{ policySimulation.result.provider || 'N/A' }}</small>
+                        <small>Nhà cung cấp: {{ policySimulation.result.provider || 'Không rõ' }}</small>
                     </div>
                     <p class="brief-summary">{{ policySimulation.result.summary }}</p>
                     <div v-if="policySimulation.result.reasoningSummary" class="rec-reasoning">
-                        <strong>Phan tich:</strong>
+                        <strong>Phân tích:</strong>
                         <p>{{ policySimulation.result.reasoningSummary }}</p>
                     </div>
                     <div v-if="policySimulation.result.recommendationId" class="rec-actions">
-                        <button class="btn btn-success btn-sm" @click="approveAi(policySimulation.result.recommendationId)">Phe duyet</button>
-                        <button class="btn btn-ghost btn-sm" @click="rejectAi(policySimulation.result.recommendationId)">Tu choi</button>
+                        <button class="btn btn-success btn-sm" @click="approveAi(policySimulation.result.recommendationId)">Phê duyệt</button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAi(policySimulation.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
             </article>
@@ -794,18 +820,18 @@
                 <div class="panel-head compact">
                     <div>
                         <span class="panel-kicker">AI Chinh sach</span>
-                        <h2 class="panel-title">Policy Explanation</h2>
+                        <h2 class="panel-title">Giải thích chính sách</h2>
                     </div>
                 </div>
-                <div class="empty-card">Nhap Policy Version ID va chon "Giai thich" de xem phan tich chinh sach bang ngon ngu tu nhien. AI se giai thich muc dich, nguoi bi anh huong, va cac buoc tiep theo.</div>
+                <div class="empty-card">Nhập ID phiên bản chính sách và chọn "Giải thích" để xem phân tích chính sách bằng ngôn ngữ tự nhiên. AI sẽ giải thích mục đích, người bị ảnh hưởng và các bước tiếp theo.</div>
             </article>
         </section>
 
         <section class="ops-panel audit-panel">
             <div class="panel-head compact">
                 <div>
-                    <span class="panel-kicker">Activity</span>
-                    <h2 class="panel-title">Latest local actions</h2>
+                    <span class="panel-kicker">Hoạt động</span>
+                    <h2 class="panel-title">Các thao tác cục bộ gần nhất</h2>
                 </div>
             </div>
             <div v-if="activityLog.length" class="activity-list">
@@ -871,6 +897,7 @@ const eventFeed = reactive({
 const nlQuery = reactive({ queryText: '', loading: false, result: null })
 
 const assetMap = reactive({ gates: [], cameras: [], vehicles: [] })
+const laneHealth = ref([])
 
 const busy = reactive({
     stepUp: false, provider: false, importUser: false, device: false,
@@ -906,79 +933,101 @@ const restoreDrills = ref([])
 
 const statusMessage = computed(() => {
     if (loadError.value) return loadError.value
-    if (loading.value) return 'Refreshing enterprise security data.'
-    return 'Operational views are connected to enterprise APIs and local acceptance gates.'
+    if (loading.value) return 'Đang làm mới dữ liệu an ninh doanh nghiệp.'
+    return 'Các màn hình vận hành đang kết nối với API doanh nghiệp và các cổng kiểm soát nội bộ.'
 })
 
 const headlineMetrics = computed(() => [
-    { label: 'Sites', value: overview.foundation.sites || 0, note: `${overview.foundation.accessPoints || 0} access points` },
-    { label: 'Open alarms', value: overview.soc.openAlarms || 0, note: `${overview.soc.criticalOpenAlarms || 0} critical` },
-    { label: 'Devices', value: overview.devices.devices || 0, note: `${overview.devices.offlinePackages || 0} offline packages` },
-    { label: 'Evidence', value: overview.evidence.evidenceItems || 0, note: `${overview.evidence.pendingExports || 0} pending exports` },
-    { label: 'Outbox', value: overview.operations.pendingOutboxEvents || 0, note: `${overview.operations.failedOutboxEvents || 0} failed` },
-    { label: 'Release gates', value: overview.release.pendingRequiredGates || 0, note: `${overview.release.approvedReleaseCandidates || 0} approved releases` },
+    { label: 'Site', value: overview.foundation.sites || 0, note: `${overview.foundation.accessPoints || 0} điểm truy cập` },
+    { label: 'Cảnh báo mở', value: overview.soc.openAlarms || 0, note: `${overview.soc.criticalOpenAlarms || 0} mức nghiêm trọng` },
+    { label: 'Thiết bị', value: overview.devices.devices || 0, note: `${overview.devices.offlinePackages || 0} gói offline` },
+    { label: 'Chứng cứ', value: overview.evidence.evidenceItems || 0, note: `${overview.evidence.pendingExports || 0} yêu cầu xuất chờ xử lý` },
+    { label: 'Outbox', value: overview.operations.pendingOutboxEvents || 0, note: `${overview.operations.failedOutboxEvents || 0} lỗi` },
+    { label: 'Cổng phát hành', value: overview.release.pendingRequiredGates || 0, note: `${overview.release.approvedReleaseCandidates || 0} bản phát hành đã duyệt` },
 ])
+
+const laneHealthSummary = computed(() => {
+    const lanes = Array.isArray(laneHealth.value) ? laneHealth.value : []
+    const degraded = lanes.filter((lane) => lane?.isDegraded)
+
+    return {
+        total: lanes.length,
+        healthyCount: Math.max(0, lanes.length - degraded.length),
+        degradedCount: degraded.length,
+        barrierCount: lanes.reduce((sum, lane) => sum + Number(lane?.barrierCount || 0), 0),
+        degradedNames: degraded.map((lane) => lane?.name).filter(Boolean).slice(0, 3),
+    }
+})
+
+const laneHealthFocus = computed(() =>
+    [...(Array.isArray(laneHealth.value) ? laneHealth.value : [])]
+        .sort((left, right) => Number(Boolean(right?.isDegraded)) - Number(Boolean(left?.isDegraded)))
+        .slice(0, 4)
+)
 
 const workspaces = computed(() => [
     {
-        id: 'admin', label: 'Admin', kicker: 'Administration', title: 'Foundation and identity',
-        badge: `${overview.identity.activeMappings || 0} active mappings`,
+        id: 'admin', label: 'Quản trị', kicker: 'Quản trị hệ thống', title: 'Nền tảng và định danh',
+        badge: `${overview.identity.activeMappings || 0} ánh xạ đang hoạt động`,
         metrics: [
-            { label: 'Companies', value: overview.foundation.companies || 0 },
-            { label: 'Identity providers', value: overview.identity.enabledProviders || 0 },
-            { label: 'Terminated users', value: overview.identity.terminatedEmployees || 0 },
+            { label: 'Công ty', value: overview.foundation.companies || 0 },
+            { label: 'Nhà cung cấp định danh', value: overview.identity.enabledProviders || 0 },
+            { label: 'Người dùng đã nghỉ việc', value: overview.identity.terminatedEmployees || 0 },
         ],
-        actions: ['Provider', 'HR import', 'Recertification'],
+        actions: ['Nhà cung cấp', 'Nhập HR', 'Tái chứng nhận'],
     },
     {
-        id: 'soc', label: 'SOC', kicker: 'Command center', title: 'Alarms and incidents',
-        badge: `${overview.soc.openIncidents || 0} open incidents`,
+        id: 'soc', label: 'SOC', kicker: 'Trung tâm chỉ huy', title: 'Cảnh báo và sự cố',
+        badge: `${overview.soc.openIncidents || 0} sự cố đang mở`,
         metrics: [
-            { label: 'Open alarms', value: overview.soc.openAlarms || 0 },
-            { label: 'Active SOPs', value: overview.soc.activeSops || 0 },
-            { label: 'Dispatch tasks', value: overview.soc.openDispatchTasks || 0 },
+            { label: 'Cảnh báo mở', value: overview.soc.openAlarms || 0 },
+            { label: 'SOP đang chạy', value: overview.soc.activeSops || 0 },
+            { label: 'Tác vụ điều phối', value: overview.soc.openDispatchTasks || 0 },
         ],
-        actions: ['Acknowledge', 'Dispatch', 'Handover'],
+        actions: ['Xác nhận', 'Điều phối', 'Bàn giao'],
     },
     {
-        id: 'reception', label: 'Reception', kicker: 'Visitor desk', title: 'Visits and watchlists',
-        badge: `${overview.visitorVehicle.watchlistMatches || 0} matches`,
+        id: 'reception', label: 'Lễ tân', kicker: 'Bàn tiếp đón', title: 'Lượt thăm và danh sách theo dõi',
+        badge: `${overview.visitorVehicle.watchlistMatches || 0} kết quả trùng khớp`,
         metrics: [
-            { label: 'Visits', value: overview.visitorVehicle.visits || 0 },
-            { label: 'Credentials', value: overview.visitorVehicle.visitorCredentials || 0 },
-            { label: 'Watchlist entries', value: overview.visitorVehicle.watchlistEntries || 0 },
+            { label: 'Lượt thăm', value: overview.visitorVehicle.visits || 0 },
+            { label: 'Định danh', value: overview.visitorVehicle.visitorCredentials || 0 },
+            { label: 'Mục theo dõi', value: overview.visitorVehicle.watchlistEntries || 0 },
         ],
-        actions: ['Check-in', 'Forms', 'Overstay'],
+        actions: ['Check-in', 'Biểu mẫu', 'Quá giờ'],
     },
     {
-        id: 'gate', label: 'Gate', kicker: 'Vehicle lanes', title: 'Parking and barrier review',
-        badge: `${overview.visitorVehicle.barriers || 0} barriers`,
+        id: 'gate', label: 'Cổng xe', kicker: 'Làn phương tiện', title: 'Bãi xe và barrier',
+        badge: laneHealthSummary.value.degradedCount > 0
+            ? `${laneHealthSummary.value.degradedCount} làn cần chú ý`
+            : `${laneHealthSummary.value.barrierCount || overview.visitorVehicle.barriers || 0} thanh chắn`,
         metrics: [
-            { label: 'Parking permits', value: overview.visitorVehicle.parkingPermits || 0 },
-            { label: 'Lane events', value: overview.visitorVehicle.laneEvents || 0 },
-            { label: 'Barrier commands', value: overview.visitorVehicle.barrierCommands || 0 },
+            { label: 'Giấy phép đỗ xe', value: overview.visitorVehicle.parkingPermits || 0 },
+            { label: 'Làn ổn định', value: laneHealthSummary.value.healthyCount },
+            { label: 'Làn cần chú ý', value: laneHealthSummary.value.degradedCount },
+            { label: 'Lệnh barrier', value: overview.visitorVehicle.barrierCommands || 0 },
         ],
-        actions: ['Plate review', 'Open barrier', 'Exception'],
+        actions: ['Duyệt biển số', 'Mở barrier', 'Ngoại lệ'],
     },
     {
-        id: 'auditor', label: 'Auditor', kicker: 'Governance', title: 'Evidence and compliance',
-        badge: `${overview.evidence.activeLegalHolds || 0} legal holds`,
+        id: 'auditor', label: 'Kiểm soát', kicker: 'Quản trị tuân thủ', title: 'Chứng cứ và tuân thủ',
+        badge: `${overview.evidence.activeLegalHolds || 0} lệnh giữ pháp lý`,
         metrics: [
-            { label: 'Collections', value: overview.evidence.collections || 0 },
-            { label: 'Access logs', value: overview.evidence.accessLogs || 0 },
-            { label: 'Reports', value: overview.evidence.complianceReports || 0 },
+            { label: 'Bộ sưu tập', value: overview.evidence.collections || 0 },
+            { label: 'Nhật ký truy cập', value: overview.evidence.accessLogs || 0 },
+            { label: 'Báo cáo', value: overview.evidence.complianceReports || 0 },
         ],
-        actions: ['Export review', 'Retention', 'Report'],
+        actions: ['Duyệt xuất', 'Lưu giữ', 'Báo cáo'],
     },
     {
-        id: 'ops', label: 'Ops', kicker: 'Resilience', title: 'Backup, restore & security',
-        badge: `${overview.operations.degradedDependencies || 0} degraded`,
+        id: 'ops', label: 'Vận hành', kicker: 'Khả năng phục hồi', title: 'Sao lưu, khôi phục và an ninh',
+        badge: `${overview.operations.degradedDependencies || 0} phụ thuộc suy giảm`,
         metrics: [
-            { label: 'Backups', value: overview.operations.backupRuns || 0 },
-            { label: 'Restore drills', value: overview.operations.restoreDrills || 0 },
-            { label: 'Security checks', value: overview.operations.securityChecks || 0 },
+            { label: 'Sao lưu', value: overview.operations.backupRuns || 0 },
+            { label: 'Diễn tập khôi phục', value: overview.operations.restoreDrills || 0 },
+            { label: 'Kiểm tra an ninh', value: overview.operations.securityChecks || 0 },
         ],
-        actions: ['Outbox', 'Backup', 'Restore', 'Security'],
+        actions: ['Outbox', 'Sao lưu', 'Khôi phục', 'An ninh'],
     },
 ])
 
@@ -992,9 +1041,9 @@ const visibleFindings = computed(() =>
 
 const riskLabel = computed(() => {
     switch (socIntel.overallRisk) {
-        case 'cao': return 'Rui ro cao'
-        case 'trung_binh': return 'Rui ro TB'
-        default: return 'Rui ro thap'
+        case 'cao': return 'Rủi ro cao'
+        case 'trung_binh': return 'Rủi ro trung bình'
+        default: return 'Rủi ro thấp'
     }
 })
 
@@ -1021,9 +1070,10 @@ async function loadOverview() {
         Object.assign(overview.operations, normalizeKeys(operations.data))
         Object.assign(overview.release, normalizeKeys(release.data))
 
-        const [configResult, assetResult] = await Promise.allSettled([
+        const [configResult, assetResult, laneHealthResult] = await Promise.allSettled([
             enterpriseApi.configHealth(),
             enterpriseApi.assetMap(),
+            enterpriseApi.getLaneHealth(),
         ])
         if (configResult.status === 'fulfilled') {
             const normalized = normalizeKeys(configResult.value.data)
@@ -1036,6 +1086,7 @@ async function loadOverview() {
             assetMap.cameras = normalized.cameras || []
             assetMap.vehicles = normalized.vehicles || []
         }
+        laneHealth.value = laneHealthResult.status === 'fulfilled' ? (laneHealthResult.value.data || []) : []
         loadSocIntel()
     } catch (error) {
         loadError.value = error.response?.data?.message || 'Cannot load enterprise security data.'
@@ -1067,9 +1118,9 @@ async function analyzeIncident() {
     try {
         const { data } = await enterpriseAiApi.analyzeIncident(incidentBriefing.incidentId)
         incidentBriefing.result = data
-        pushActivity('AI Incident Briefing', `Incident #${incidentBriefing.incidentId} analyzed`)
+        pushActivity('AI phân tích sự cố', `Đã phân tích sự cố #${incidentBriefing.incidentId}`)
     } catch (error) {
-        incidentBriefing.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null }
+        incidentBriefing.result = { severity: 'Medium', summary: 'Không thể phân tích: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null }
     } finally { incidentBriefing.loading = false }
 }
 
@@ -1080,9 +1131,9 @@ async function analyzeEvidence() {
     try {
         const { data } = await enterpriseAiApi.analyzeEvidence(evidenceAnalysis.evidenceId)
         evidenceAnalysis.result = data
-        pushActivity('AI Evidence Analysis', `Evidence #${evidenceAnalysis.evidenceId} analyzed`)
+        pushActivity('AI phân tích chứng cứ', `Đã phân tích chứng cứ #${evidenceAnalysis.evidenceId}`)
     } catch (error) {
-        evidenceAnalysis.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null }
+        evidenceAnalysis.result = { severity: 'Medium', summary: 'Không thể phân tích: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null }
     } finally { evidenceAnalysis.loading = false }
 }
 
@@ -1093,44 +1144,44 @@ async function reviewExport() {
     try {
         const { data } = await enterpriseAiApi.reviewExportRequest(evidenceExport.exportId)
         evidenceExport.result = data
-        pushActivity('AI Export Review', `Export #${evidenceExport.exportId} reviewed`)
+        pushActivity('AI duyệt yêu cầu xuất', `Đã kiểm tra yêu cầu xuất #${evidenceExport.exportId}`)
     } catch (error) {
-        evidenceExport.result = { severity: 'Medium', summary: 'Khong the kiem tra: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null }
+        evidenceExport.result = { severity: 'Medium', summary: 'Không thể kiểm tra: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null }
     } finally { evidenceExport.loading = false }
 }
 
-async function approveAi(id) { if (!id) return; try { await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phe duyet sau khi xem xet'); pushActivity('AI Recommendation', `Approved #${id}`) } catch {} }
-async function rejectAi(id) { if (!id) return; try { await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Khong dong y'); pushActivity('AI Recommendation', `Rejected #${id}`) } catch {} }
+async function approveAi(id) { if (!id) return; try { await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phê duyệt sau khi xem xét'); pushActivity('Khuyến nghị AI', `Đã phê duyệt #${id}`) } catch {} }
+async function rejectAi(id) { if (!id) return; try { await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Không đồng ý'); pushActivity('Khuyến nghị AI', `Đã từ chối #${id}`) } catch {} }
 
 async function screenVisitor() {
     if (!visitorScreening.visitId) return
     visitorScreening.loading = true; visitorScreening.result = null
-    try { const { data } = await enterpriseAiApi.screenVisitor(visitorScreening.visitId); visitorScreening.result = data; pushActivity('AI Visitor Screening', `Visit #${visitorScreening.visitId} screened`) }
-    catch (error) { visitorScreening.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    try { const { data } = await enterpriseAiApi.screenVisitor(visitorScreening.visitId); visitorScreening.result = data; pushActivity('AI sàng lọc khách', `Đã sàng lọc lượt thăm #${visitorScreening.visitId}`) }
+    catch (error) { visitorScreening.result = { severity: 'Medium', summary: 'Không thể phân tích: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null } }
     finally { visitorScreening.loading = false }
 }
 
 async function screenVehicle() {
     if (!vehicleScreening.vehicleId) return
     vehicleScreening.loading = true; vehicleScreening.result = null
-    try { const { data } = await enterpriseAiApi.screenVehicle(vehicleScreening.vehicleId); vehicleScreening.result = data; pushActivity('AI Vehicle Screening', `Vehicle #${vehicleScreening.vehicleId} screened`) }
-    catch (error) { vehicleScreening.result = { severity: 'Medium', summary: 'Khong the phan tich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    try { const { data } = await enterpriseAiApi.screenVehicle(vehicleScreening.vehicleId); vehicleScreening.result = data; pushActivity('AI sàng lọc phương tiện', `Đã sàng lọc phương tiện #${vehicleScreening.vehicleId}`) }
+    catch (error) { vehicleScreening.result = { severity: 'Medium', summary: 'Không thể phân tích: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null } }
     finally { vehicleScreening.loading = false }
 }
 
 async function simulateAiPolicy() {
     if (!policySimulation.policyId) return
     policySimulation.loading = true; policySimulation.result = null
-    try { const { data } = await enterpriseAiApi.simulatePolicy(policySimulation.policyId); policySimulation.result = data; pushActivity('AI Policy Simulate', `Policy #${policySimulation.policyId} simulated`) }
-    catch (error) { policySimulation.result = { severity: 'Low', summary: 'Khong the mo phong: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    try { const { data } = await enterpriseAiApi.simulatePolicy(policySimulation.policyId); policySimulation.result = data; pushActivity('AI mô phỏng chính sách', `Đã mô phỏng chính sách #${policySimulation.policyId}`) }
+    catch (error) { policySimulation.result = { severity: 'Low', summary: 'Không thể mô phỏng: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null } }
     finally { policySimulation.loading = false }
 }
 
 async function explainAiPolicy() {
     if (!policySimulation.policyId) return
     policySimulation.loading = true; policySimulation.result = null
-    try { const { data } = await enterpriseAiApi.explainPolicy(policySimulation.policyId); policySimulation.result = data; pushActivity('AI Policy Explain', `Policy #${policySimulation.policyId} explained`) }
-    catch (error) { policySimulation.result = { severity: 'Low', summary: 'Khong the giai thich: ' + (error.response?.data?.message || error.message), provider: 'Error', recommendationId: null } }
+    try { const { data } = await enterpriseAiApi.explainPolicy(policySimulation.policyId); policySimulation.result = data; pushActivity('AI giải thích chính sách', `Đã giải thích chính sách #${policySimulation.policyId}`) }
+    catch (error) { policySimulation.result = { severity: 'Low', summary: 'Không thể giải thích: ' + (error.response?.data?.message || error.message), provider: 'Lỗi', recommendationId: null } }
     finally { policySimulation.loading = false }
 }
 
@@ -1142,28 +1193,28 @@ watch(selectedWorkspace, (ws) => {
 async function verifyStepUp() {
     busy.stepUp = true; stepUp.message = ''
     try {
-        const start = await enterpriseApi.stepUpStart(stepUp.action, 'Operator console verification')
+        const start = await enterpriseApi.stepUpStart(stepUp.action, 'Xác minh tại bảng điều phối')
         const verified = await enterpriseApi.stepUpVerify(start.data.sessionId, stepUp.password, stepUp.mfaCode)
         stepUp.sessionId = verified.data.sessionId; stepUp.active = verified.data.active
         enterpriseApi.setStepUpSession(verified.data.sessionId)
-        stepUp.message = 'Verified until ' + formatDateTime(verified.data.expiresAtUtc)
-        pushActivity('Step-up verified', stepUp.action)
+        stepUp.message = 'Đã xác minh đến ' + formatDateTime(verified.data.expiresAtUtc)
+        pushActivity('Đã xác minh tăng cường', stepUp.action)
     } catch (error) {
-        stepUp.active = false; stepUp.message = error.response?.data?.message || 'Verification failed.'
+        stepUp.active = false; stepUp.message = error.response?.data?.message || 'Xác minh thất bại.'
     } finally { busy.stepUp = false }
 }
 
-async function saveProvider() { await runAction('provider', 'Provider saved', () => enterpriseApi.upsertIdentityProvider(providerForm)) }
-async function importUser() { const user = { ...importForm }; const pid = user.providerId; delete user.providerId; await runAction('importUser', 'User import recorded', () => enterpriseApi.importIdentityUsers(pid, [user])) }
-async function createVirtualController() { await runAction('device', 'Virtual controller created', () => enterpriseApi.createVirtualController(deviceForm)) }
-async function injectFault() { await runAction('fault', 'Simulator fault injected', () => enterpriseApi.injectSimulatorFault(faultForm)) }
-async function createAlarm() { await runAction('alarm', 'Alarm created', () => enterpriseApi.createAlarm({ alarmType: 'ManualDrill', severity: alarmForm.severity, summary: alarmForm.summary })) }
-async function startBackup() { await runAction('backup', 'Backup run started', () => enterpriseApi.startBackup({ profile: backupForm.profile, targetRpoMinutes: 15, targetRtoMinutes: 60, notes: 'Started from enterprise console' })) }
-async function createQaRun() { await runAction('qa', 'QA run recorded', () => enterpriseApi.createQaRun({ testType: qaForm.testType, profile: 'MediumCompany', evidenceReference: '/qa/local-enterprise-console', notes: 'Recorded from enterprise console' })) }
-async function backfillDefaultSite() { await runAction('backfill', 'Foundation backfill completed', () => enterpriseApi.backfillDefaultSite(backfillForm)) }
+async function saveProvider() { await runAction('provider', 'Đã lưu nhà cung cấp', () => enterpriseApi.upsertIdentityProvider(providerForm)) }
+async function importUser() { const user = { ...importForm }; const pid = user.providerId; delete user.providerId; await runAction('importUser', 'Đã ghi nhận nhập người dùng', () => enterpriseApi.importIdentityUsers(pid, [user])) }
+async function createVirtualController() { await runAction('device', 'Đã tạo bộ điều khiển mô phỏng', () => enterpriseApi.createVirtualController(deviceForm)) }
+async function injectFault() { await runAction('fault', 'Đã chèn lỗi mô phỏng', () => enterpriseApi.injectSimulatorFault(faultForm)) }
+async function createAlarm() { await runAction('alarm', 'Đã tạo cảnh báo', () => enterpriseApi.createAlarm({ alarmType: 'ManualDrill', severity: alarmForm.severity, summary: alarmForm.summary })) }
+async function startBackup() { await runAction('backup', 'Đã khởi chạy sao lưu', () => enterpriseApi.startBackup({ profile: backupForm.profile, targetRpoMinutes: 15, targetRtoMinutes: 60, notes: 'Khởi chạy từ bảng điều phối doanh nghiệp' })) }
+async function createQaRun() { await runAction('qa', 'Đã ghi nhận lượt QA', () => enterpriseApi.createQaRun({ testType: qaForm.testType, profile: 'MediumCompany', evidenceReference: '/qa/local-enterprise-console', notes: 'Ghi nhận từ bảng điều phối doanh nghiệp' })) }
+async function backfillDefaultSite() { await runAction('backfill', 'Đã hoàn tất bổ sung nền tảng', () => enterpriseApi.backfillDefaultSite(backfillForm)) }
 
 async function simulatePolicy() {
-    await runAction('policy', 'Policy simulation completed', async () => {
+    await runAction('policy', 'Đã hoàn tất mô phỏng chính sách', async () => {
         const response = await enterpriseApi.simulateAccessPolicy({ ...policyForm, evaluatedAtUtc: policyForm.evaluatedAtUtc || new Date().toISOString() })
         policyResult.result = response.data?.result || ''; policyResult.reason = response.data?.reason || ''; policyResult.decisionMode = response.data?.decisionMode || ''
         return response
@@ -1176,10 +1227,10 @@ async function startRestore() {
     busy.restore = true; restoreResult.value = ''
     try {
         await enterpriseApi.startRestore({ backupRunId: restoreForm.backupRunId, targetRtoMinutes: restoreForm.targetRtoMinutes })
-        restoreResult.value = 'Restore drill started!'
+        restoreResult.value = 'Đã bắt đầu diễn tập khôi phục.'
         restoreForm.backupRunId = null
         await loadRestoreDrills()
-    } catch (e) { restoreResult.value = 'Failed: ' + (e.response?.data?.message || e.message) }
+    } catch (e) { restoreResult.value = 'Thất bại: ' + (e.response?.data?.message || e.message) }
     finally { busy.restore = false }
 }
 
@@ -1191,9 +1242,9 @@ async function recordSecurityCheck() {
             status: securityForm.status,
             notes: securityForm.notes || null,
         })
-        securityResult.value = 'Security check recorded!'
+        securityResult.value = 'Đã ghi nhận lượt kiểm tra an ninh.'
         securityForm.notes = ''
-    } catch (e) { securityResult.value = 'Failed: ' + (e.response?.data?.message || e.message) }
+    } catch (e) { securityResult.value = 'Thất bại: ' + (e.response?.data?.message || e.message) }
     finally { busy.security = false }
 }
 
@@ -1232,7 +1283,7 @@ async function runAction(key, title, action) {
         const response = await action()
         pushActivity(title, response.data?.message || JSON.stringify(response.data).slice(0, 140))
         await loadOverview()
-    } catch (error) { pushActivity(title + ' failed', error.response?.data?.message || error.message) }
+    } catch (error) { pushActivity(title + ' thất bại', error.response?.data?.message || error.message) }
     finally { busy[key] = false }
 }
 

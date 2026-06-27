@@ -1,6 +1,6 @@
 <template>
     <div ref="containerRef" class="c3d-container" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
-        <div v-if="!initialized" class="c3d-loading">Dang khoi tao 3D...</div>
+        <div v-if="!initialized" class="c3d-loading">Đang khởi tạo 3D...</div>
 
         <div v-if="siteCards.length" class="c3d-site-dock">
             <button
@@ -1043,7 +1043,7 @@ export default {
                 if (properties.zone) meta.push(`Zone: ${properties.zone}`)
                 if (properties.level) meta.push(`Security level: ${properties.level}`)
             } else if (data.objectType === 'GateMarker') {
-                if (gate) meta.push(`${gate.cameraCount || 0} camera • ${gate.recentAccessCount || 0} su kien / 5 phut`)
+                if (gate) meta.push(`${gate.cameraCount || 0} camera • ${gate.recentAccessCount || 0} sự kiện / 5 phút`)
                 if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera dang offline`)
                 if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
             } else if (data.objectType === 'ParkingArea') {

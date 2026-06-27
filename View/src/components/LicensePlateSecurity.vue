@@ -174,22 +174,22 @@
       <div class="fuzzy-header">
         <span class="fuzzy-title">AI Fuzzy Match</span>
         <button class="btn btn-sm btn-config" @click="runFuzzyMatch" :disabled="fuzzyLoading">
-          {{ fuzzyLoading ? 'Dang phan tich...' : 'Phan tich bien so' }}
+          {{ fuzzyLoading ? 'Đang phân tích...' : 'Phân tích biển số' }}
         </button>
       </div>
 
       <div v-if="fuzzySimilar.length > 0" class="fuzzy-results">
-        <div class="fuzzy-subtitle">Bien so tuong tu trong he thong ({{ fuzzySimilar.length }})</div>
+        <div class="fuzzy-subtitle">Biển số tương tự trong hệ thống ({{ fuzzySimilar.length }})</div>
         <div v-for="r in fuzzySimilar" :key="r.vehicleId" class="fuzzy-row" :class="{ exact: r.isExactMatch }">
           <span class="fuzzy-plate">{{ r.licensePlate }}</span>
           <span class="fuzzy-owner">{{ r.ownerName || '--' }}</span>
           <span class="fuzzy-score">{{ (r.score * 100).toFixed(0) }}%</span>
-          <span v-if="r.isExactMatch" class="badge success">Chinh xac</span>
+          <span v-if="r.isExactMatch" class="badge success">Chính xác</span>
         </div>
       </div>
 
       <div v-if="fuzzyAnomalies.length > 0" class="fuzzy-anomalies">
-        <div class="fuzzy-subtitle">Canh bao bat thuong</div>
+        <div class="fuzzy-subtitle">Cảnh báo bất thường</div>
         <div v-for="a in fuzzyAnomalies" :key="a.type + a.detectedAt" class="anomaly-row" :class="'severity-' + a.severity.toLowerCase()">
           <span class="anomaly-type">{{ a.type }}</span>
           <span class="anomaly-desc">{{ a.description }}</span>
@@ -197,7 +197,7 @@
       </div>
 
       <div v-if="fuzzyDone && fuzzySimilar.length === 0 && fuzzyAnomalies.length === 0" class="fuzzy-none">
-        Khong phat hien bat thuong. Bien so chua tung duoc ghi nhan.
+        Không phát hiện bất thường. Biển số chưa từng được ghi nhận.
       </div>
     </div>
   </div>
@@ -731,7 +731,7 @@ export default {
         this.fuzzySimilar = matchRes.data?.results || []
         this.fuzzyAnomalies = anomalyRes.data?.anomalies || []
       } catch {
-        this.message = 'Loi phan tich bien so'
+        this.message = 'Lỗi phân tích biển số'
       } finally {
         this.fuzzyLoading = false
         this.fuzzyDone = true

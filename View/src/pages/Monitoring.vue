@@ -17,7 +17,14 @@
 
         <div class="cam-list">
           <div v-for="cam in cameras" :key="cam.cameraId" class="cam-item">
-            <span>{{ cam.cameraName }}</span>
+            <div class="cam-item-info">
+              <span>{{ cam.cameraName }}</span>
+              <label class="switch rec-toggle" title="Ghi hình liên tục">
+                <input type="checkbox" :checked="cam.isRecordingEnabled" @change="toggleRec($event, cam)" />
+                <span class="slider"></span>
+              </label>
+              <router-link :to="{ name: 'CameraArchive', params: { id: cam.cameraId } }" class="archive-link" title="Xem lưu trữ">📁</router-link>
+            </div>
             <label class="switch">
               <input type="checkbox" v-model="selectedMap[cam.cameraId]" />
               <span class="slider"></span>
@@ -55,7 +62,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue"
-import { getCameras } from "../services/cameraRuntimeApi"
+import { getCameras, toggleRecording } from "../services/cameraRuntimeApi"
 
 const cameras = ref([])
 const selectedMap = reactive({})
@@ -137,6 +144,17 @@ const toggleSettings = () => {
   showSettings.value = !showSettings.value
 }
 
+const toggleRec = async (event, cam) => {
+  const enabled = event.target.checked
+  try {
+    await toggleRecording(cam.cameraId, enabled, null)
+    cam.isRecordingEnabled = enabled
+  } catch (e) {
+    event.target.checked = !enabled
+    console.error("Lỗi bật/tắt ghi hình:", e)
+  }
+}
+
 onMounted(() => {
   loadCameras()
 })
@@ -184,6 +202,22 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.cam-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-toggle {
+  transform: scale(0.7);
+}
+
+.archive-link {
+  font-size: 18px;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .switch {

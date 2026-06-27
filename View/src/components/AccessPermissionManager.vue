@@ -1,24 +1,24 @@
 <template>
   <div class="page">
     <div class="topbar">
-      <h1>Quan ly quyen vao khu vuc gioi han</h1>
-      <p>Quan ly quyen cho nhan vien va khach duoc moi (dang ky truoc) theo tung khu vuc.</p>
+      <h1>Quản lý quyền vào khu vực giới hạn</h1>
+      <p>Quản lý quyền cho nhân viên và khách được mời (đăng ký trước) theo từng khu vực.</p>
     </div>
 
     <section class="panel tabs-panel">
-      <button class="tab-btn" :class="{ active: activeTab === 'employee' }" @click="switchTab('employee')">Nhan vien</button>
-      <button class="tab-btn" :class="{ active: activeTab === 'visitor' }" @click="switchTab('visitor')">Khach duoc moi</button>
+      <button class="tab-btn" :class="{ active: activeTab === 'employee' }" @click="switchTab('employee')">Nhân viên</button>
+      <button class="tab-btn" :class="{ active: activeTab === 'visitor' }" @click="switchTab('visitor')">Khách được mời</button>
     </section>
 
     <template v-if="activeTab === 'employee'">
       <section class="panel filters">
         <div class="field">
-          <label>Tim nhan vien (Ten hoac ID)</label>
+          <label>Tìm nhân viên (Tên hoặc ID)</label>
           <div class="combo-box">
             <input
               v-model.trim="employeeFilterKeyword"
               type="text"
-              placeholder="Vi du: Nguyen Van A hoac 12"
+              placeholder="Ví dụ: Nguyễn Văn A hoặc 12"
               @focus="showEmployeeFilterDropdown = true"
               @input="handleEmployeeFilterInput"
             />
@@ -36,17 +36,17 @@
         </div>
 
         <div class="field">
-          <label>Loc theo khu vuc duoc phep vao</label>
+          <label>Lọc theo khu vực được phép vào</label>
           <div class="combo-box">
             <input
               v-model.trim="gateFilterKeyword"
               type="text"
-              placeholder="Go ten hoac ID khu vuc"
+              placeholder="Gõ tên hoặc ID khu vực"
               @focus="showGateFilterDropdown = true"
               @input="handleGateFilterInput"
             />
             <ul v-if="showGateFilterDropdown && gateFilterOptions.length" class="combo-menu">
-              <li class="combo-item" @mousedown.prevent="selectAllGateFilter">Tat ca khu vuc</li>
+              <li class="combo-item" @mousedown.prevent="selectAllGateFilter">Tất cả khu vực</li>
               <li
                 v-for="gate in gateFilterOptions"
                 :key="gate.gateId"
@@ -60,14 +60,14 @@
         </div>
 
         <div class="actions">
-          <button class="btn btn-subtle" :disabled="loading" @click="resetFilters">Dat lai</button>
+          <button class="btn btn-subtle" :disabled="loading" @click="resetFilters">Đặt lại</button>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Bang phan quyen theo nhan vien</h2>
-          <span>Tong nhan vien: {{ employees.length }}</span>
+          <h2>Bảng phân quyền theo nhân viên</h2>
+          <span>Tổng nhân viên: {{ employees.length }}</span>
         </div>
 
         <div v-if="errorMessage" class="alert error">{{ errorMessage }}</div>
@@ -77,15 +77,15 @@
           <table class="table">
             <thead>
               <tr>
-                <th>Nhan vien</th>
-                <th>Phong ban / Chuc vu</th>
-                <th>Khu vuc duoc vao</th>
-                <th>Cap quyen nhanh</th>
+                <th>Nhân viên</th>
+                <th>Phòng ban / Chức vụ</th>
+                <th>Khu vực được vào</th>
+                <th>Cấp quyền nhanh</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!loading && employees.length === 0">
-                <td colspan="4" class="empty">Khong co du lieu phu hop voi bo loc hien tai.</td>
+                <td colspan="4" class="empty">Không có dữ liệu phù hợp với bộ lọc hiện tại.</td>
               </tr>
 
               <tr v-for="employee in employees" :key="employee.employeeId">
@@ -94,8 +94,8 @@
                   <div class="sub">ID: {{ employee.employeeId }}</div>
                 </td>
                 <td>
-                  <div class="main">{{ employee.departmentName || 'Chua gan phong ban' }}</div>
-                  <div class="sub">{{ employee.positionName || 'Chua gan chuc vu' }}</div>
+                  <div class="main">{{ employee.departmentName || 'Chưa gán phòng ban' }}</div>
+                  <div class="sub">{{ employee.positionName || 'Chưa gán chức vụ' }}</div>
                 </td>
                 <td>
                   <div v-if="employee.allowedGates?.length" class="chips">
@@ -108,7 +108,7 @@
                       >x</button>
                     </span>
                   </div>
-                  <span v-else class="muted">Chua duoc cap khu vuc nao</span>
+                  <span v-else class="muted">Chưa được cấp khu vực nào</span>
                 </td>
                 <td>
                   <div class="grant-box">
@@ -116,7 +116,7 @@
                       <input
                         v-model.trim="rowGateKeyword[employee.employeeId]"
                         type="text"
-                        placeholder="Tim khu vuc theo ten/ID"
+                        placeholder="Tìm khu vực theo tên/ID"
                         @focus="openRowGateDropdown(employee.employeeId)"
                         @input="handleRowGateInput(employee)"
                       />
@@ -131,7 +131,7 @@
                         </li>
                       </ul>
                     </div>
-                    <button class="btn btn-main btn-sm" :disabled="loading || !rowGateSelection[employee.employeeId]" @click="grantEmployeePermission(employee)">Cap quyen</button>
+                    <button class="btn btn-main btn-sm" :disabled="loading || !rowGateSelection[employee.employeeId]" @click="grantEmployeePermission(employee)">Cấp quyền</button>
                   </div>
                 </td>
               </tr>
@@ -144,12 +144,12 @@
     <template v-else>
       <section class="panel filters">
         <div class="field">
-          <label>Tim khach duoc moi (Ten hoac ID)</label>
+          <label>Tìm khách được mời (Tên hoặc ID)</label>
           <div class="combo-box">
             <input
               v-model.trim="visitorFilterKeyword"
               type="text"
-              placeholder="Vi du: Le Thi B hoac 101"
+              placeholder="Ví dụ: Lê Thị B hoặc 101"
               @focus="showVisitorFilterDropdown = true"
               @input="handleVisitorFilterInput"
             />
@@ -167,17 +167,17 @@
         </div>
 
         <div class="field">
-          <label>Loc theo khu vuc duoc phep vao</label>
+          <label>Lọc theo khu vực được phép vào</label>
           <div class="combo-box">
             <input
               v-model.trim="visitorGateFilterKeyword"
               type="text"
-              placeholder="Go ten hoac ID khu vuc"
+              placeholder="Gõ tên hoặc ID khu vực"
               @focus="showVisitorGateFilterDropdown = true"
               @input="handleVisitorGateFilterInput"
             />
             <ul v-if="showVisitorGateFilterDropdown && visitorGateFilterOptions.length" class="combo-menu">
-              <li class="combo-item" @mousedown.prevent="selectAllVisitorGateFilter">Tat ca khu vuc</li>
+              <li class="combo-item" @mousedown.prevent="selectAllVisitorGateFilter">Tất cả khu vực</li>
               <li
                 v-for="gate in visitorGateFilterOptions"
                 :key="gate.gateId"
@@ -191,14 +191,14 @@
         </div>
 
         <div class="actions">
-          <button class="btn btn-subtle" :disabled="loadingVisitor" @click="resetVisitorFilters">Dat lai</button>
+          <button class="btn btn-subtle" :disabled="loadingVisitor" @click="resetVisitorFilters">Đặt lại</button>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Bang phan quyen theo khach duoc moi</h2>
-          <span>Tong khach: {{ visitors.length }}</span>
+          <h2>Bảng phân quyền theo khách được mời</h2>
+          <span>Tổng khách: {{ visitors.length }}</span>
         </div>
 
         <div v-if="visitorErrorMessage" class="alert error">{{ visitorErrorMessage }}</div>
@@ -208,15 +208,15 @@
           <table class="table">
             <thead>
               <tr>
-                <th>Khach duoc moi</th>
-                <th>Phieu dang ky truoc</th>
-                <th>Khu vuc duoc vao</th>
-                <th>Cap quyen nhanh</th>
+                <th>Khách được mời</th>
+                <th>Phiếu đăng ký trước</th>
+                <th>Khu vực được vào</th>
+                <th>Cấp quyền nhanh</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!loadingVisitor && visitors.length === 0">
-                <td colspan="4" class="empty">Khong co du lieu phu hop voi bo loc hien tai.</td>
+                <td colspan="4" class="empty">Không có dữ liệu phù hợp với bộ lọc hiện tại.</td>
               </tr>
 
               <tr v-for="visitor in visitors" :key="visitor.visitorDetailId">
@@ -225,8 +225,8 @@
                   <div class="sub">ID: {{ visitor.visitorDetailId }}</div>
                 </td>
                 <td>
-                  <div class="main">Registration ID: {{ visitor.registrationId }}</div>
-                  <div class="sub">Trang thai: {{ visitor.registrationStatus || 'N/A' }}</div>
+                  <div class="main">Mã đăng ký: {{ visitor.registrationId }}</div>
+                  <div class="sub">Trạng thái: {{ visitor.registrationStatus || 'Chưa rõ' }}</div>
                 </td>
                 <td>
                   <div v-if="visitor.allowedGates?.length" class="chips">
@@ -239,7 +239,7 @@
                       >x</button>
                     </span>
                   </div>
-                  <span v-else class="muted">Chua duoc cap khu vuc nao</span>
+                  <span v-else class="muted">Chưa được cấp khu vực nào</span>
                 </td>
                 <td>
                   <div class="grant-box">
@@ -247,7 +247,7 @@
                       <input
                         v-model.trim="visitorRowGateKeyword[visitor.visitorDetailId]"
                         type="text"
-                        placeholder="Tim khu vuc theo ten/ID"
+                        placeholder="Tìm khu vực theo tên/ID"
                         @focus="openVisitorRowGateDropdown(visitor.visitorDetailId)"
                         @input="handleVisitorRowGateInput(visitor)"
                       />
@@ -262,7 +262,7 @@
                         </li>
                       </ul>
                     </div>
-                    <button class="btn btn-main btn-sm" :disabled="loadingVisitor || !visitorRowGateSelection[visitor.visitorDetailId]" @click="grantVisitorPermission(visitor)">Cap quyen</button>
+                    <button class="btn btn-main btn-sm" :disabled="loadingVisitor || !visitorRowGateSelection[visitor.visitorDetailId]" @click="grantVisitorPermission(visitor)">Cấp quyền</button>
                   </div>
                 </td>
               </tr>
@@ -336,7 +336,7 @@ function normalizeText(input) {
 function normalizeEmployees(rawItems = []) {
   return rawItems.map((item) => ({
     employeeId: item.employeeId,
-    fullName: item.fullName || `Nhan vien #${item.employeeId}`,
+    fullName: item.fullName || `Nhân viên #${item.employeeId}`,
     departmentName: item.departmentName || '',
     positionName: item.positionName || '',
     allowedGates: Array.isArray(item.allowedGates) ? item.allowedGates : [],
@@ -346,7 +346,7 @@ function normalizeEmployees(rawItems = []) {
 function normalizeVisitors(rawItems = []) {
   return rawItems.map((item) => ({
     visitorDetailId: item.visitorDetailId,
-    fullName: item.fullName || `Khach #${item.visitorDetailId}`,
+    fullName: item.fullName || `Khách #${item.visitorDetailId}`,
     registrationId: item.registrationId,
     registrationStatus: item.registrationStatus,
     allowedGates: Array.isArray(item.allowedGates) ? item.allowedGates : [],
@@ -459,7 +459,7 @@ async function fetchEmployeeMatrix() {
       if (!rowGateDropdownOpen[employee.employeeId]) rowGateDropdownOpen[employee.employeeId] = false
     })
   } catch (error) {
-    errorMessage.value = error?.response?.data?.message || 'Khong tai duoc du lieu phan quyen.'
+    errorMessage.value = error?.response?.data?.message || 'Không tải được dữ liệu phân quyền.'
   } finally {
     loading.value = false
   }
@@ -481,7 +481,7 @@ async function fetchVisitorMatrix() {
       if (!visitorRowGateDropdownOpen[visitor.visitorDetailId]) visitorRowGateDropdownOpen[visitor.visitorDetailId] = false
     })
   } catch (error) {
-    visitorErrorMessage.value = error?.response?.data?.message || 'Khong tai duoc du lieu phan quyen khach.'
+    visitorErrorMessage.value = error?.response?.data?.message || 'Không tải được dữ liệu phân quyền khách.'
   } finally {
     loadingVisitor.value = false
   }
@@ -494,12 +494,12 @@ async function grantEmployeePermission(employee) {
   clearMessages()
   try {
     await setAccessPermission({ EmployeeId: employee.employeeId, GateId: selectedGateId, IsAllowed: true })
-    successMessage.value = `Da cap quyen cho nhan vien ID ${employee.employeeId}.`
+    successMessage.value = `Đã cấp quyền cho nhân viên ID ${employee.employeeId}.`
     await fetchEmployeeMatrix()
     rowGateSelection[employee.employeeId] = ''
     rowGateKeyword[employee.employeeId] = ''
   } catch (error) {
-    errorMessage.value = error?.response?.data?.message || 'Cap quyen that bai.'
+    errorMessage.value = error?.response?.data?.message || 'Cấp quyền thất bại.'
   } finally {
     loading.value = false
   }
@@ -511,10 +511,10 @@ async function revokeEmployeePermission(employee, gate) {
   clearMessages()
   try {
     await deleteEmployeeAccessPermission(employee.employeeId, gate.gateId)
-    successMessage.value = `Da xoa quyen khu vuc cho nhan vien ID ${employee.employeeId}.`
+    successMessage.value = `Đã xóa quyền khu vực cho nhân viên ID ${employee.employeeId}.`
     await fetchEmployeeMatrix()
   } catch (error) {
-    errorMessage.value = error?.response?.data?.message || 'Xoa quyen that bai.'
+    errorMessage.value = error?.response?.data?.message || 'Xóa quyền thất bại.'
   } finally {
     loadingRowKey.value = ''
   }
@@ -527,12 +527,12 @@ async function grantVisitorPermission(visitor) {
   clearVisitorMessages()
   try {
     await setAccessPermission({ VisitorDetailId: visitor.visitorDetailId, GateId: selectedGateId, IsAllowed: true })
-    visitorSuccessMessage.value = `Da cap quyen cho khach ID ${visitor.visitorDetailId}.`
+    visitorSuccessMessage.value = `Đã cấp quyền cho khách ID ${visitor.visitorDetailId}.`
     await fetchVisitorMatrix()
     visitorRowGateSelection[visitor.visitorDetailId] = ''
     visitorRowGateKeyword[visitor.visitorDetailId] = ''
   } catch (error) {
-    visitorErrorMessage.value = error?.response?.data?.message || 'Cap quyen that bai.'
+    visitorErrorMessage.value = error?.response?.data?.message || 'Cấp quyền thất bại.'
   } finally {
     loadingVisitor.value = false
   }
@@ -544,10 +544,10 @@ async function revokeVisitorPermission(visitor, gate) {
   clearVisitorMessages()
   try {
     await deleteVisitorAccessPermission(visitor.visitorDetailId, gate.gateId)
-    visitorSuccessMessage.value = `Da xoa quyen khu vuc cho khach ID ${visitor.visitorDetailId}.`
+    visitorSuccessMessage.value = `Đã xóa quyền khu vực cho khách ID ${visitor.visitorDetailId}.`
     await fetchVisitorMatrix()
   } catch (error) {
-    visitorErrorMessage.value = error?.response?.data?.message || 'Xoa quyen that bai.'
+    visitorErrorMessage.value = error?.response?.data?.message || 'Xóa quyền thất bại.'
   } finally {
     loadingVisitorRowKey.value = ''
   }

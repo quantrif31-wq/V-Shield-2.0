@@ -22,12 +22,14 @@ namespace API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly StaticVisitorQrService _visitorQrService;
         private readonly IZoneTransitService _zoneTransitService;
+        private readonly EvidenceCaptureService _evidenceCapture;
 
-        public QrAccessController(ApplicationDbContext context, StaticVisitorQrService visitorQrService, IZoneTransitService zoneTransitService)
+        public QrAccessController(ApplicationDbContext context, StaticVisitorQrService visitorQrService, IZoneTransitService zoneTransitService, EvidenceCaptureService evidenceCapture)
         {
             _context = context;
             _visitorQrService = visitorQrService;
             _zoneTransitService = zoneTransitService;
+            _evidenceCapture = evidenceCapture;
         }
 
         [HttpPost("scan-access")]
@@ -163,6 +165,13 @@ namespace API.Controllers
 
                 _context.AccessLogs.Add(newLog);
                 await _context.SaveChangesAsync();
+
+                var sourceRef = $"access-log/{newLog.LogId}";
+                newLog.CapturedQrSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.QrSnapshotBase64, "qr-snapshot", sourceRef);
+                newLog.CapturedFaceImageUrl = await _evidenceCapture.CaptureBase64Async(request.FaceSnapshotBase64, "face-crop", sourceRef);
+                newLog.CapturedSnapshotUrl = newLog.CapturedQrSnapshotUrl ?? newLog.CapturedFaceImageUrl;
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 if (targetEmployeeId.HasValue)
@@ -334,6 +343,12 @@ namespace API.Controllers
 
                 _context.AccessLogs.Add(newLog);
                 await _context.SaveChangesAsync();
+
+                var sourceRef = $"access-log/{newLog.LogId}";
+                newLog.CapturedFaceImageUrl = await _evidenceCapture.CaptureBase64Async(request.FaceSnapshotBase64, "face-crop", sourceRef);
+                newLog.CapturedSnapshotUrl = newLog.CapturedFaceImageUrl;
+                await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
 
                 if (request.EmployeeId.HasValue && hasAccess)

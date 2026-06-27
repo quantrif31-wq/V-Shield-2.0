@@ -2,7 +2,7 @@
     <div class="page-container ops-page animate-in dashboard-ops">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Operational overview</span>
+                <span class="panel-kicker">Tổng quan vận hành</span>
                 <h1 class="page-title">Bảng điều phối cho ca trực</h1>
                 <p class="page-subtitle dashboard-subtitle">
                     Gom cảnh báo, hàng chờ xử lý, luồng cổng và mức sẵn sàng hệ thống vào một mặt nhìn
@@ -54,7 +54,7 @@
             <aside class="command-side">
                 <div class="side-head">
                     <span class="panel-kicker">Điểm cần chú ý</span>
-                    <strong>Single operating picture</strong>
+                    <strong>Bức tranh vận hành tổng thể</strong>
                 </div>
 
                 <div class="command-metric-grid">
@@ -76,7 +76,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Work queue</span>
+                        <span class="panel-kicker">Hàng chờ công việc</span>
                         <h2 class="panel-title">Việc cần xử lý trước</h2>
                     </div>
                 </div>
@@ -104,7 +104,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Recent events</span>
+                        <span class="panel-kicker">Sự kiện gần đây</span>
                         <h2 class="panel-title">Dòng sự kiện gần nhất</h2>
                     </div>
                     <router-link to="/access-logs" class="btn btn-secondary btn-sm">Nhật ký</router-link>
@@ -125,7 +125,7 @@
                             </div>
                             <p>{{ activity.subtitle }}</p>
                             <div class="chip-row">
-                                <span class="soft-chip">{{ activity.status || 'Recorded' }}</span>
+                                <span class="soft-chip">{{ activity.status || 'Đã ghi nhận' }}</span>
                                 <span v-if="activity.kind" class="soft-chip">{{ activity.kind }}</span>
                                 <span v-if="activity.meta" class="soft-chip warn">{{ activity.meta }}</span>
                             </div>
@@ -142,7 +142,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Traffic</span>
+                        <span class="panel-kicker">Lưu lượng</span>
                         <h2 class="panel-title">Nhịp ra vào trong tuần</h2>
                     </div>
                     <div class="chip-row">
@@ -172,7 +172,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Site picture</span>
+                        <span class="panel-kicker">Toàn cảnh site</span>
                         <h2 class="panel-title">Hiện diện và phạm vi hệ thống</h2>
                     </div>
                 </div>
@@ -195,7 +195,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Today</span>
+                        <span class="panel-kicker">Hôm nay</span>
                         <h2 class="panel-title">Nhân sự và lịch trong ngày</h2>
                     </div>
                 </div>
@@ -212,7 +212,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">AI summary</span>
+                        <span class="panel-kicker">Tóm tắt AI</span>
                         <h2 class="panel-title">Nhắc việc và xu hướng</h2>
                     </div>
                     <span v-if="intelligenceLoading" class="soft-chip">Đang cập nhật</span>
@@ -246,6 +246,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { getDashboardOverview, getDashboardIntelligence } from '../services/dashboardApi'
+import { enterpriseApi } from '../services/enterpriseSecurityApi'
 import { authState } from '../stores/auth'
 
 const snapshot = ref({
@@ -280,6 +281,7 @@ const snapshot = ref({
 
 const weeklyTraffic = ref([])
 const recentActivities = ref([])
+const laneHealth = ref([])
 const intelligence = ref(null)
 const intelligenceLoading = ref(false)
 const isLoading = ref(true)
@@ -290,6 +292,7 @@ function hasAccess(route) {
     const role = currentRole.value
     const roleAccess = {
         '/soc-console': ['Admin', 'BaoVe'],
+        '/enterprise-security': ['Admin', 'BaoVe'],
         '/gate-transit-monitor': ['Admin', 'BaoVe'],
         '/exceptions': ['Admin', 'BaoVe', 'QuanLy'],
         '/pre-registrations': ['Admin'],
@@ -335,10 +338,24 @@ const generatedAtLabel = computed(() => {
     })
 })
 
+const laneHealthSummary = computed(() => {
+    const lanes = Array.isArray(laneHealth.value) ? laneHealth.value : []
+    const degraded = lanes.filter((lane) => lane?.isDegraded)
+    const healthyCount = Math.max(0, lanes.length - degraded.length)
+
+    return {
+        total: lanes.length,
+        healthyCount,
+        degradedCount: degraded.length,
+        barrierCount: lanes.reduce((sum, lane) => sum + Number(lane?.barrierCount || 0), 0),
+        degradedNames: degraded.map((lane) => lane?.name).filter(Boolean).slice(0, 3),
+    }
+})
+
 const statusBanner = computed(() => {
     if ((snapshot.value.criticalOpenAlarms || 0) > 0 || (snapshot.value.activeEmergencyPasses || 0) > 0) {
         return {
-            kicker: 'Critical attention',
+            kicker: 'Cần ưu tiên',
             title: 'Ca trực đang có hạng mục cần phản ứng ngay',
             message: 'Ưu tiên kiểm tra cảnh báo mức nghiêm trọng, thông hành khẩn cấp và xác nhận không có điểm kiểm soát nào đang bị bỏ ngỏ.',
             chipText: 'Ưu tiên phản ứng',
@@ -346,9 +363,14 @@ const statusBanner = computed(() => {
         }
     }
 
-    if ((snapshot.value.offlineDevices || 0) > 0 || (snapshot.value.pendingInterventions || 0) > 0 || (snapshot.value.dailyExceptions || 0) > 0) {
+    if (
+        (snapshot.value.offlineDevices || 0) > 0 ||
+        (snapshot.value.pendingInterventions || 0) > 0 ||
+        (snapshot.value.dailyExceptions || 0) > 0 ||
+        laneHealthSummary.value.degradedCount > 0
+    ) {
         return {
-            kicker: 'Operator watch',
+            kicker: 'Cần theo dõi',
             title: 'Hệ thống ổn nhưng cần theo dõi sát các điểm phát sinh',
             message: 'Có thiết bị, ngoại lệ hoặc yêu cầu can thiệp đang chờ xử lý. Ca trực nên bám sát hàng chờ thay vì chỉ nhìn số liệu tổng hợp.',
             chipText: 'Theo dõi chủ động',
@@ -357,7 +379,7 @@ const statusBanner = computed(() => {
     }
 
     return {
-        kicker: 'Stable operations',
+        kicker: 'Vận hành ổn định',
         title: 'Tình hình đang yên, phù hợp cho giám sát chủ động',
         message: 'Chưa có tín hiệu khẩn cấp nổi bật. Nên dùng thời gian này để rà soát hàng chờ, sức khỏe thiết bị và bảo đảm các luồng vào/ra giữ đúng chuẩn.',
         chipText: 'Ổn định',
@@ -389,8 +411,16 @@ const commandMetrics = computed(() => [
     {
         label: 'Thiết bị cần chú ý',
         value: (snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0),
-        note: `${snapshot.value.offlineDevices || 0} offline / ${snapshot.value.degradedDevices || 0} degraded`,
+        note: `${snapshot.value.offlineDevices || 0} mất kết nối / ${snapshot.value.degradedDevices || 0} suy giảm`,
         tone: ((snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0)) > 0 ? 'warn' : 'neutral',
+    },
+    {
+        label: 'Làn cần chú ý',
+        value: laneHealthSummary.value.degradedCount,
+        note: laneHealthSummary.value.degradedCount > 0
+            ? laneHealthSummary.value.degradedNames.join(', ')
+            : `${laneHealthSummary.value.healthyCount}/${laneHealthSummary.value.total} làn ổn định`,
+        tone: laneHealthSummary.value.degradedCount > 0 ? 'warn' : 'neutral',
     },
 ])
 
@@ -462,6 +492,16 @@ const priorityQueue = computed(() => [
         tone: ((snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0)) > 0 ? 'warn' : 'neutral',
     },
     {
+        label: 'Sức khỏe làn',
+        value: laneHealthSummary.value.degradedCount,
+        helper: laneHealthSummary.value.degradedCount > 0
+            ? laneHealthSummary.value.degradedNames.join(', ')
+            : `${laneHealthSummary.value.healthyCount}/${laneHealthSummary.value.total} ổn định`,
+        description: 'Tóm tắt những làn không có event mới hoặc barrier đang ở trạng thái cần theo dõi để quản lý bám sát từ mặt nhìn tổng quan.',
+        route: resolveRoute('/enterprise-security', resolveRoute('/gate-transit-monitor', '/exceptions')),
+        tone: laneHealthSummary.value.degradedCount > 0 ? 'warn' : 'neutral',
+    },
+    {
         label: 'Nghỉ phép chờ duyệt',
         value: snapshot.value.pendingLeaveApprovals || 0,
         helper: `${snapshot.value.totalShiftsToday || 0} ca hôm nay`,
@@ -501,6 +541,13 @@ const sitePictureItems = computed(() => [
         label: 'Cổng / làn đang quản lý',
         value: snapshot.value.gatesConfigured || 0,
         hint: 'Điểm kiểm soát trong phạm vi hiện tại',
+    },
+    {
+        label: 'Làn ổn định',
+        value: laneHealthSummary.value.healthyCount,
+        hint: laneHealthSummary.value.degradedCount > 0
+            ? `${laneHealthSummary.value.degradedCount} làn cần chú ý`
+            : 'Không có làn suy giảm',
     },
 ])
 
@@ -567,10 +614,20 @@ async function loadDashboard() {
     isLoading.value = true
     loadError.value = ''
     try {
-        const { data } = await getDashboardOverview()
+        const [overviewResult, laneHealthResult] = await Promise.allSettled([
+            getDashboardOverview(),
+            enterpriseApi.getLaneHealth(),
+        ])
+
+        if (overviewResult.status !== 'fulfilled') {
+            throw overviewResult.reason
+        }
+
+        const { data } = overviewResult.value
         snapshot.value = { ...snapshot.value, ...(data.snapshot || {}) }
         weeklyTraffic.value = data.weeklyTraffic || []
         recentActivities.value = data.recentActivities || []
+        laneHealth.value = laneHealthResult.status === 'fulfilled' ? (laneHealthResult.value.data || []) : []
     } catch (error) {
         console.error('Dashboard load error:', error)
         loadError.value = 'Không thể tải bức tranh vận hành tổng quan.'

@@ -557,13 +557,10 @@ public static class DemoDataSeeder
         UpsertExceptionReason(db, "TAILGATING", "Tailgating or anti-passback anomaly");
 
         foreach (var log in db.AccessLogs.ToList().Where(item =>
-                     item.CapturedFaceImageUrl != null ||
-                     (item.Note ?? string.Empty).Contains("face", StringComparison.OrdinalIgnoreCase)))
+                     item.CapturedFaceImageUrl == null && item.CapturedSnapshotUrl == null))
         {
-            log.CapturedFaceImageUrl = null;
-            log.Note = string.IsNullOrWhiteSpace(log.Note)
-                ? "Demo dynamic QR access event"
-                : log.Note.Replace("face", "dynamic QR", StringComparison.OrdinalIgnoreCase);
+            log.CapturedFaceImageUrl = "/uploads/evidence/demo/face-demo.jpg";
+            log.CapturedSnapshotUrl = "/uploads/evidence/demo/snapshot-demo.jpg";
         }
 
         if (!db.DynamicQrScanLogs.Any() && employees.Count > 0)

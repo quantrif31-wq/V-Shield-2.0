@@ -3,40 +3,40 @@
         <div class="page-header-bar">
             <div>
                 <span class="panel-kicker">UEBA</span>
-                <h1 class="page-title">User & Entity Behavior Analytics</h1>
+                <h1 class="page-title">Phân tích hành vi người dùng và thực thể</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" @click="activeTab = 'profiles'" :class="{ active: activeTab === 'profiles' }">Profiles</button>
-                <button class="btn btn-secondary" @click="activeTab = 'anomalies'" :class="{ active: activeTab === 'anomalies' }">Bat thuong</button>
-                <button class="btn btn-primary" @click="activeTab = 'summary'" :class="{ active: activeTab === 'summary' }">Tong quan</button>
+                <button class="btn btn-secondary" @click="activeTab = 'profiles'" :class="{ active: activeTab === 'profiles' }">Hồ sơ</button>
+                <button class="btn btn-secondary" @click="activeTab = 'anomalies'" :class="{ active: activeTab === 'anomalies' }">Bất thường</button>
+                <button class="btn btn-primary" @click="activeTab = 'summary'" :class="{ active: activeTab === 'summary' }">Tổng quan</button>
             </div>
         </div>
 
         <section v-if="activeTab === 'summary'" class="ops-grid two">
             <article class="ops-panel">
-                <span class="panel-kicker">Overview</span>
-                <h2 class="panel-title">UEBA Dashboard</h2>
-                <div v-if="summaryLoading" class="empty-card">Dang tai...</div>
+                <span class="panel-kicker">Tổng quan</span>
+                <h2 class="panel-title">Bảng điều khiển UEBA</h2>
+                <div v-if="summaryLoading" class="empty-card">Đang tải...</div>
                 <div v-else-if="summary" class="summary-metrics">
                     <div class="metric-tile">
-                        <span class="metric-label">Bat thuong dang mo</span>
+                        <span class="metric-label">Bất thường đang mở</span>
                         <strong class="metric-value">{{ summary.openAnomalies }}</strong>
                     </div>
                     <div class="metric-tile">
-                        <span class="metric-label">Da xu ly hom nay</span>
+                        <span class="metric-label">Đã xử lý hôm nay</span>
                         <strong class="metric-value">{{ summary.resolvedToday }}</strong>
                     </div>
                     <div class="metric-tile">
-                        <span class="metric-label">Profile rui ro cao</span>
+                        <span class="metric-label">Hồ sơ rủi ro cao</span>
                         <strong class="metric-value">{{ summary.highRiskProfiles }}</strong>
                     </div>
                     <div class="metric-tile">
-                        <span class="metric-label">Tong profile</span>
+                        <span class="metric-label">Tổng hồ sơ</span>
                         <strong class="metric-value">{{ summary.totalProfiles }}</strong>
                     </div>
                 </div>
                 <div v-if="summary?.typeDistribution?.length" class="type-dist">
-                    <h3>Phan loai bat thuong</h3>
+                    <h3>Phân loại bất thường</h3>
                     <div v-for="item in summary.typeDistribution" :key="item.type" class="dist-row">
                         <span>{{ typeLabel(item.type) }}</span>
                         <div class="dist-bar-wrapper">
@@ -48,38 +48,38 @@
             </article>
 
             <article class="ops-panel">
-                <span class="panel-kicker">AI Risk Graph</span>
-                <h2 class="panel-title">Giai thich rui ro AI</h2>
-                <div v-if="riskExplaining.loading" class="empty-card">AI dang phan tich...</div>
+                <span class="panel-kicker">Đồ thị rủi ro AI</span>
+                <h2 class="panel-title">Giải thích rủi ro AI</h2>
+                <div v-if="riskExplaining.loading" class="empty-card">AI đang phân tích...</div>
                 <div v-else-if="riskExplaining.result" class="risk-explanation">
                     <div class="rec-header">
                         <span class="soft-chip" :class="riskLevelClass(riskExplaining.result.severity)">
                             {{ riskExplaining.result.severity }}
                         </span>
-                        <small>Confidence: {{ riskExplaining.result.confidence }}</small>
+                        <small>Độ tin cậy: {{ riskExplaining.result.confidence }}</small>
                     </div>
                     <p>{{ riskExplaining.result.summary }}</p>
                     <div v-if="riskExplaining.result.reasoningSummary" class="rec-reasoning">
-                        <strong>Phan tich:</strong>
+                        <strong>Phân tích:</strong>
                         <p>{{ riskExplaining.result.reasoningSummary }}</p>
                     </div>
                     <div class="rec-actions">
                         <button class="btn btn-primary btn-sm" @click="approveAiRisk(riskExplaining.result.recommendationId)">
-                            Duyet
+                            Duyệt
                         </button>
                         <button class="btn btn-ghost btn-sm" @click="rejectAiRisk(riskExplaining.result.recommendationId)">
-                            Tu choi
+                            Từ chối
                         </button>
                     </div>
                 </div>
-                <div v-else class="empty-card">Chon nhan vien o khung ben canh de xem giai thich.</div>
+                <div v-else class="empty-card">Chọn nhân viên ở khung bên cạnh để xem giải thích.</div>
             </article>
 
             <article class="ops-panel">
-                <span class="panel-kicker">High Risk</span>
-                <h2 class="panel-title">Nhan vien can chu y</h2>
-                <div v-if="profilesLoading" class="empty-card">Dang tai...</div>
-                <div v-else-if="profiles.length === 0" class="empty-card">Chua co du lieu profile.</div>
+                <span class="panel-kicker">Rủi ro cao</span>
+                <h2 class="panel-title">Nhân viên cần chú ý</h2>
+                <div v-if="profilesLoading" class="empty-card">Đang tải...</div>
+                <div v-else-if="profiles.length === 0" class="empty-card">Chưa có dữ liệu hồ sơ.</div>
                 <div v-else class="risk-list">
                     <div v-for="profile in profiles.slice(0, 10)" :key="profile.profileId" class="risk-item" :class="riskClass(profile.riskScore)">
                         <div class="risk-head">
@@ -87,12 +87,12 @@
                             <span class="risk-score" :class="riskClass(profile.riskScore)">{{ profile.riskScore }}</span>
                         </div>
                         <div class="risk-meta">
-                            <span>Access: {{ profile.totalAccessCount }}</span>
+                            <span>Lượt vào/ra: {{ profile.totalAccessCount }}</span>
                             <span>Bypass: {{ profile.bypassRate }}%</span>
-                            <span>Cuoi tuan: {{ profile.weekendAccessRatio }}%</span>
+                            <span>Cuối tuần: {{ profile.weekendAccessRatio }}%</span>
                         </div>
                         <div class="risk-actions">
-                            <button class="btn btn-ghost btn-sm" @click="explainRisk(profile.employeeId)">Giai thich AI</button>
+                            <button class="btn btn-ghost btn-sm" @click="explainRisk(profile.employeeId)">Giải thích AI</button>
                         </div>
                     </div>
                 </div>
@@ -102,24 +102,24 @@
         <section v-if="activeTab === 'profiles'" class="card panel">
             <div class="toolbar-shell">
                 <div class="toolbar-filters">
-                    <input v-model="profileSearch" type="text" placeholder="Tim ten hoac employeeId..." class="filter-input" />
-                    <button class="btn btn-secondary" @click="loadProfiles">Tai lai</button>
+                    <input v-model="profileSearch" type="text" placeholder="Tìm tên hoặc employeeId..." class="filter-input" />
+                    <button class="btn btn-secondary" @click="loadProfiles">Tải lại</button>
                 </div>
             </div>
-            <div v-if="profilesLoading" class="empty-card">Dang tai...</div>
-            <div v-else-if="profiles.length === 0" class="empty-card">Chua co profile. Hay tao access log de build baseline.</div>
+            <div v-if="profilesLoading" class="empty-card">Đang tải...</div>
+            <div v-else-if="profiles.length === 0" class="empty-card">Chưa có hồ sơ. Hãy tạo access log để dựng baseline.</div>
             <div v-else class="table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Nhan vien</th>
+                            <th>Nhân viên</th>
                             <th>Access</th>
-                            <th>Bat dau</th>
-                            <th>Ket thuc</th>
-                            <th>Cuoi tuan</th>
+                            <th>Bắt đầu</th>
+                            <th>Kết thúc</th>
+                            <th>Cuối tuần</th>
                             <th>Bypass</th>
                             <th>Risk</th>
-                            <th>Lan cuoi</th>
+                            <th>Lần cuối</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -132,7 +132,7 @@
                             <td>{{ profile.weekendAccessRatio }}%</td>
                             <td>{{ profile.bypassRate }}%</td>
                             <td><span class="risk-score" :class="riskClass(profile.riskScore)">{{ profile.riskScore }}</span></td>
-                            <td>{{ profile.daysSinceLastAccess }} ngay</td>
+                            <td>{{ profile.daysSinceLastAccess }} ngày</td>
                             <td class="table-actions">
                                 <button class="btn btn-ghost btn-sm" @click="explainRisk(profile.employeeId)">AI</button>
                                 <button class="btn btn-ghost btn-sm" @click="rebuild(profile.employeeId)">Rebuild</button>
@@ -147,22 +147,22 @@
             <div class="toolbar-shell">
                 <div class="toolbar-filters">
                     <select v-model="anomalyFilter.severity" class="filter-select" @change="loadAnomalies">
-                        <option value="">Tat ca muc</option>
+                        <option value="">Tất cả mức</option>
                         <option value="cao">Cao</option>
-                        <option value="trung-binh">Trung binh</option>
-                        <option value="thap">Thap</option>
+                        <option value="trung-binh">Trung bình</option>
+                        <option value="thap">Thấp</option>
                     </select>
                     <select v-model="anomalyFilter.status" class="filter-select" @change="loadAnomalies">
-                        <option value="">Tat ca trang thai</option>
-                        <option value="Open">Mo</option>
-                        <option value="Resolved">Da xu ly</option>
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="Open">Mở</option>
+                        <option value="Resolved">Đã xử lý</option>
                         <option value="FalsePositive">False positive</option>
                     </select>
-                    <button class="btn btn-primary" @click="loadAnomalies">Tai</button>
+                    <button class="btn btn-primary" @click="loadAnomalies">Tải</button>
                 </div>
             </div>
-            <div v-if="anomaliesLoading" class="empty-card">Dang tai...</div>
-            <div v-else-if="anomalies.length === 0" class="empty-card">Khong co bat thuong.</div>
+            <div v-if="anomaliesLoading" class="empty-card">Đang tải...</div>
+            <div v-else-if="anomalies.length === 0" class="empty-card">Không có bất thường.</div>
             <div v-else class="anomaly-list">
                 <div v-for="anomaly in anomalies" :key="anomaly.anomalyId" class="anomaly-card" :class="anomaly.severity">
                     <div class="anomaly-head">
@@ -177,7 +177,7 @@
                         <span v-if="anomaly.supportingData" class="anomaly-data">{{ anomaly.supportingData }}</span>
                     </div>
                     <div v-if="anomaly.status === 'Open'" class="anomaly-actions">
-                        <button class="btn btn-primary btn-sm" @click="resolve(anomaly.anomalyId)">Xu ly</button>
+                        <button class="btn btn-primary btn-sm" @click="resolve(anomaly.anomalyId)">Xử lý</button>
                         <button class="btn btn-ghost btn-sm" @click="falsePositive(anomaly.anomalyId)">FP</button>
                     </div>
                 </div>
@@ -227,13 +227,13 @@ const filteredProfiles = computed(() => {
 })
 
 const typeLabel = (type) => ({
-    UnusualTime: 'Gio bat thuong',
-    UnusualGate: 'Cong la',
-    UnusualFrequency: 'Tan suat cao',
-    OutOfHours: 'Ngoai gio',
-    RapidSuccession: 'Lien tiep nhanh',
-    BypassPattern: 'Bypass',
-    FirstTimeAccess: 'Lan dau',
+    UnusualTime: 'Giờ bất thường',
+    UnusualGate: 'Cổng lạ',
+    UnusualFrequency: 'Tần suất cao',
+    OutOfHours: 'Ngoài giờ',
+    RapidSuccession: 'Liên tiếp nhanh',
+    BypassPattern: 'Vượt kiểm soát',
+    FirstTimeAccess: 'Lần đầu',
 })[type] || type
 
 const distributionWidth = (count) => {
@@ -272,7 +272,7 @@ const explainRisk = async (employeeId) => {
         riskExplaining.result = {
             severity: 'Low',
             confidence: 0,
-            summary: `Khong the phan tich: ${error.response?.data?.message || error.message}`,
+            summary: `Không thể phân tích: ${error.response?.data?.message || error.message}`,
             recommendationId: null,
         }
     } finally {
@@ -325,7 +325,7 @@ const rebuild = async (employeeId) => {
 }
 
 const resolve = async (id) => {
-    await resolveUebaAnomaly(id, { resolution: 'Da kiem tra va xu ly.' })
+    await resolveUebaAnomaly(id, { resolution: 'Đã kiểm tra và xử lý.' })
     await Promise.all([loadSummary(), loadAnomalies()])
 }
 
@@ -337,14 +337,14 @@ const falsePositive = async (id) => {
 const approveAiRisk = async (id) => {
     if (!id) return
     const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
-    await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phe duyet sau khi xem xet')
+    await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phê duyệt sau khi xem xét')
     riskExplaining.result = null
 }
 
 const rejectAiRisk = async (id) => {
     if (!id) return
     const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
-    await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Khong dong y voi phan tich')
+    await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Không đồng ý với phân tích')
     riskExplaining.result = null
 }
 

@@ -1,8 +1,8 @@
 <template>
     <section class="card inspector-card" :class="{ compact }">
         <div class="inspector-topline">
-            <span class="panel-kicker">{{ selectedAsset ? 'Focus' : 'Scene' }}</span>
-            <span class="asset-type">{{ selectedAsset ? typeLabel : 'Tong quan 3D' }}</span>
+            <span class="panel-kicker">{{ selectedAsset ? 'Đang xem' : 'Toàn cảnh' }}</span>
+            <span class="asset-type">{{ selectedAsset ? typeLabel : 'Tổng quan 3D' }}</span>
         </div>
 
         <div v-if="selectedAsset" class="asset-hero">
@@ -10,7 +10,7 @@
                 <span></span>
             </div>
             <div class="asset-copy">
-                <strong>{{ selectedAsset.label || 'Asset' }}</strong>
+                <strong>{{ selectedAsset.label || 'Đối tượng' }}</strong>
                 <span>{{ selectedAsset.siteCode }} - {{ selectedAsset.siteName }}</span>
             </div>
         </div>
@@ -18,73 +18,73 @@
         <div v-else class="summary-orbit">
             <div class="orbit-node primary">
                 <strong>{{ summary.siteCount || 0 }}</strong>
-                <span>site</span>
+                <span>khu</span>
             </div>
             <div class="orbit-node">
                 <strong>{{ summary.objectCount || 0 }}</strong>
-                <span>object</span>
+                <span>đối tượng</span>
             </div>
             <div class="orbit-node">
                 <strong>{{ summary.activeGateCount || 0 }}</strong>
-                <span>active</span>
+                <span>hoạt động</span>
             </div>
             <div class="orbit-node warn">
                 <strong>{{ summary.warningGateCount || 0 }}</strong>
-                <span>warn</span>
+                <span>cảnh báo</span>
             </div>
         </div>
 
         <div v-if="selectedAsset" class="signal-row">
             <div v-if="selectedAsset.metrics" class="signal-pill">
                 <strong>{{ selectedAsset.metrics.buildings || 0 }}</strong>
-                <span>toa nha</span>
+                <span>tòa nhà</span>
             </div>
             <div v-if="selectedAsset.metrics" class="signal-pill">
                 <strong>{{ selectedAsset.metrics.gates || 0 }}</strong>
-                <span>cong</span>
+                <span>cổng</span>
             </div>
             <div v-if="selectedAsset.floors" class="signal-pill">
                 <strong>{{ selectedAsset.floors }}</strong>
-                <span>tang</span>
+                <span>tầng</span>
             </div>
             <div v-if="selectedAsset.gate" class="signal-pill">
                 <strong :style="{ color: statusColor(selectedAsset.gate.status) }">{{ selectedAsset.gate.status }}</strong>
-                <span>gate</span>
+                <span>cổng</span>
             </div>
         </div>
 
         <div class="detail-lines">
             <div v-if="selectedAsset?.dimensions" class="detail-line">
-                <span>Khoi tich</span>
+                <span>Khối tích</span>
                 <strong>{{ formatDimensions(selectedAsset.dimensions) }}</strong>
             </div>
             <div v-if="selectedAsset?.properties?.zone" class="detail-line">
-                <span>Zone</span>
+                <span>Vùng</span>
                 <strong>{{ selectedAsset.properties.zone }}</strong>
             </div>
             <div v-if="selectedAsset?.properties?.level" class="detail-line">
-                <span>Security</span>
+                <span>An ninh</span>
                 <strong>{{ selectedAsset.properties.level }}</strong>
             </div>
             <div v-if="selectedAsset?.gate" class="detail-line">
                 <span>Camera</span>
-                <strong>{{ selectedAsset.gate.cameraCount || 0 }} / {{ selectedAsset.gate.offlineCameraCount || 0 }} offline</strong>
+                <strong>{{ selectedAsset.gate.cameraCount || 0 }} / {{ selectedAsset.gate.offlineCameraCount || 0 }} mất kết nối</strong>
             </div>
             <div v-if="selectedAsset?.gate" class="detail-line">
-                <span>Access 5p</span>
+                <span>Lượt vào/ra 5 phút</span>
                 <strong>{{ selectedAsset.gate.recentAccessCount || 0 }}</strong>
             </div>
             <div v-if="selectedAsset?.gate?.lastAccessAt" class="detail-line">
-                <span>Cuoi cung</span>
+                <span>Cuối cùng</span>
                 <strong>{{ formatDateTime(selectedAsset.gate.lastAccessAt) }}</strong>
             </div>
             <div v-if="!selectedAsset" class="detail-line">
-                <span>Offline cam</span>
+                <span>Camera mất kết nối</span>
                 <strong>{{ summary.offlineCameraCount || 0 }}</strong>
             </div>
             <div v-if="!selectedAsset" class="detail-line">
-                <span>Cap nhat</span>
-                <strong>{{ updatedAt ? formatDateTime(updatedAt) : 'Chua co' }}</strong>
+                <span>Cập nhật</span>
+                <strong>{{ updatedAt ? formatDateTime(updatedAt) : 'Chưa có' }}</strong>
             </div>
         </div>
     </section>
@@ -101,16 +101,16 @@ const props = defineProps({
 })
 
 const typeMap = {
-    Site: 'Site',
-    Building: 'Toa nha',
-    GateMarker: 'Cong / lane',
-    ParkingArea: 'Bai do xe',
-    Path: 'Tuyen ket noi',
-    Landmark: 'Canh quan',
+    Site: 'Khu',
+    Building: 'Tòa nhà',
+    GateMarker: 'Cổng / lane',
+    ParkingArea: 'Bãi đỗ xe',
+    Path: 'Tuyến kết nối',
+    Landmark: 'Cảnh quan',
 }
 
 const typeLabel = computed(() => {
-    if (!props.selectedAsset) return 'Scene 3D'
+    if (!props.selectedAsset) return 'Tổng quan 3D'
     return typeMap[props.selectedAsset.objectType] || props.selectedAsset.objectType
 })
 

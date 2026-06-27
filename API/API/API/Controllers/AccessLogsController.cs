@@ -110,7 +110,11 @@ public class AccessLogsController : ControllerBase
                 log.ExceptionReasonId,
                 log.ResultStatus,
                 log.CapturedFaceImageUrl,
-                log.CapturedLicensePlate
+                log.CapturedLicensePlate,
+                log.CapturedSnapshotUrl,
+                log.CapturedPlateCropUrl,
+                log.CapturedFaceCropUrl,
+                log.CapturedQrSnapshotUrl
             })
             .ToListAsync();
 
@@ -131,6 +135,10 @@ public class AccessLogsController : ControllerBase
             bypassToday = bypassCount,
             faceDetectionsToday = logs.Count(log => !string.IsNullOrWhiteSpace(log.CapturedFaceImageUrl)),
             plateDetectionsToday = logs.Count(log => !string.IsNullOrWhiteSpace(log.CapturedLicensePlate)),
+            snapshotEvidenceToday = logs.Count(log => !string.IsNullOrWhiteSpace(log.CapturedSnapshotUrl)),
+            plateCropEvidenceToday = logs.Count(log => !string.IsNullOrWhiteSpace(log.CapturedPlateCropUrl)),
+            faceCropEvidenceToday = logs.Count(log => !string.IsNullOrWhiteSpace(log.CapturedFaceCropUrl)),
+            qrEvidenceToday = logs.Count(log => !string.IsNullOrWhiteSpace(log.CapturedQrSnapshotUrl)),
             vehiclesInside = vehicleInsideCount,
             successRate = logs.Count == 0
                 ? 0
@@ -317,6 +325,10 @@ public class AccessLogsController : ControllerBase
             : "Unknown",
                 CapturedLicensePlate = log.CapturedLicensePlate,
                 CapturedFaceImageUrl = log.CapturedFaceImageUrl,
+                CapturedSnapshotUrl = log.CapturedSnapshotUrl,
+                CapturedPlateCropUrl = log.CapturedPlateCropUrl,
+                CapturedFaceCropUrl = log.CapturedFaceCropUrl,
+                CapturedQrSnapshotUrl = log.CapturedQrSnapshotUrl,
                 ResultStatus = log.ResultStatus,
                 IsBypass = log.IsBypass,
                 ExceptionReasonId = log.ExceptionReasonId,
@@ -344,6 +356,10 @@ public class AccessLogsController : ControllerBase
             item.ActorType,
             item.CapturedLicensePlate,
             item.CapturedFaceImageUrl,
+            item.CapturedSnapshotUrl,
+            item.CapturedPlateCropUrl,
+            item.CapturedFaceCropUrl,
+            item.CapturedQrSnapshotUrl,
             item.ResultStatus,
             item.IsBypass,
             item.ExceptionReasonId,
@@ -371,6 +387,11 @@ public class AccessLogsController : ControllerBase
             return "manual";
         }
 
+        if (!string.IsNullOrWhiteSpace(item.CapturedQrSnapshotUrl))
+        {
+            return "qr";
+        }
+
         if (!string.IsNullOrWhiteSpace(item.CapturedFaceImageUrl) && !string.IsNullOrWhiteSpace(item.CapturedLicensePlate))
         {
             return "face-and-plate";
@@ -384,6 +405,11 @@ public class AccessLogsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(item.CapturedLicensePlate))
         {
             return "plate";
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.CapturedSnapshotUrl))
+        {
+            return "system";
         }
 
         return "system";
@@ -404,6 +430,10 @@ public class AccessLogsController : ControllerBase
         public string? ActorType { get; set; }
         public string? CapturedLicensePlate { get; set; }
         public string? CapturedFaceImageUrl { get; set; }
+        public string? CapturedSnapshotUrl { get; set; }
+        public string? CapturedPlateCropUrl { get; set; }
+        public string? CapturedFaceCropUrl { get; set; }
+        public string? CapturedQrSnapshotUrl { get; set; }
         public string? ResultStatus { get; set; }
         public bool? IsBypass { get; set; }
         public int? ExceptionReasonId { get; set; }

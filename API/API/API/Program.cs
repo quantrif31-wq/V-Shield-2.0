@@ -138,6 +138,7 @@ namespace API
                 return new MemoryRateCounter();
             });
             builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();
+            builder.Services.AddScoped<EvidenceCaptureService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
@@ -163,6 +164,7 @@ namespace API
             {
                 builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
                 builder.Services.AddHostedService<EnterpriseOperationsWorker>();
+                builder.Services.AddHostedService<CameraRecordingService>();
             }
             builder.Services.AddHttpClient();
             builder.Services.AddHttpClient("AiGateway", client =>
