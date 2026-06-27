@@ -63,6 +63,12 @@
   --sidebar-active: linear-gradient(135deg, rgba(15, 124, 130, 0.22), rgba(43, 109, 138, 0.18));
   --sidebar-active-border: rgba(84, 196, 211, 0.32);
 
+  /* Surface aliases (used in enterprise pages) */
+  --surface: #ffffff;
+  --surface-muted: var(--bg-primary);
+  --border-soft: rgba(24, 49, 77, 0.11);
+  --border-default: var(--border-color);
+
   /* Borders */
   --border-color: rgba(24, 49, 77, 0.11);
   --border-color-strong: rgba(24, 49, 77, 0.18);
@@ -616,6 +622,8 @@ ol {
   max-width: 420px;
 }
 
+.form-input,
+.form-select,
 .search-bar input,
 .filter-select,
 .form-group input,
@@ -673,6 +681,27 @@ ol {
   flex-wrap: wrap;
 }
 
+.form-input {
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.form-input:focus {
+  border-color: rgba(15, 124, 130, 0.36);
+  box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  outline: none;
+}
+.form-input::placeholder {
+  color: var(--text-muted);
+}
+
+.form-select,
 .filter-select {
   min-width: 180px;
   padding-right: 42px;

@@ -722,7 +722,7 @@ onMounted(loadItems)
 
 <style scoped>
 .drawer-overlay { display: flex; justify-content: flex-end; }
-.drawer-panel { width: 540px; max-width: 95vw; height: 100vh; margin: 0; border-radius: 0; overflow-y: auto; }
+.drawer-panel { width: 540px; max-width: 95vw; height: 100vh; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg-card-strong); }
 .drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
 .drawer-tabs button { padding: 6px 14px; border: none; background: transparent; color: #51657b; font-size: 13px; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
 .drawer-tabs button:hover { background: #f1f5f9; }

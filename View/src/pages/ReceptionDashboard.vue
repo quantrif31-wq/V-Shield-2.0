@@ -906,6 +906,7 @@ onMounted(loadAll)
     margin: 0;
     border-radius: 0;
     overflow-y: auto;
+    background: var(--bg-card-strong);
 }
 .drawer-tabs {
     display: flex;
