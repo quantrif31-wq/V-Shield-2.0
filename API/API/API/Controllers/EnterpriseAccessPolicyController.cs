@@ -698,6 +698,22 @@ public class EnterpriseAccessPolicyController : ControllerBase
             return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "No active access rule matched.", nowUtc);
         }
 
+        // Zone SecurityLevel enforcement: Restricted/Critical require escalation
+        if (request.SecurityZoneId.HasValue)
+        {
+            var zone = await _context.SecurityZones.FindAsync(request.SecurityZoneId.Value);
+            if (zone != null)
+            {
+                var level = zone.SecurityLevel ?? "Normal";
+                if (level is "Restricted" or "Critical")
+                {
+                    return BuildDecision(
+                        request, activePolicyVersionId, AccessDecisionResults.Review,
+                        $"Zone '{zone.Name}' is {level} — manual approval required.", nowUtc);
+                }
+            }
+        }
+
         return BuildDecision(
             request,
             activePolicyVersionId,
