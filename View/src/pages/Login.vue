@@ -153,7 +153,7 @@
 
                     <div v-if="mfaRequired" class="form-group">
                         <div class="label-row">
-                            <label for="mfa-code">Ma xac thuc 6 so</label>
+                            <label for="mfa-code">Mã xác thực 6 số</label>
                             <span class="field-hint">Authenticator</span>
                         </div>
                         <div class="input-shell">
@@ -168,7 +168,7 @@
                                 type="text"
                                 inputmode="numeric"
                                 maxlength="6"
-                                placeholder="Nhap ma dang hien tren ung dung"
+                                placeholder="Nhập mã đang hiện trên ứng dụng"
                                 autocomplete="one-time-code"
                                 :disabled="loading"
                                 @keydown.enter.prevent="handleLogin"
@@ -178,14 +178,14 @@
 
                     <div v-if="mfaSetupSecret" class="mfa-setup">
                         <div class="mfa-setup-header">
-                            <strong>Thiet lap xac thuc hai lop</strong>
-                            <span>Quet QR bang Authenticator roi nhap ma 6 so.</span>
+                            <strong>Thiết lập xác thực hai lớp</strong>
+                            <span>Quét QR bằng Authenticator rồi nhập mã 6 số.</span>
                         </div>
                         <div v-if="mfaQrDataUrl" class="mfa-qr-frame">
-                            <img :src="mfaQrDataUrl" alt="Ma QR thiet lap MFA" />
+                            <img :src="mfaQrDataUrl" alt="Mã QR thiết lập MFA" />
                         </div>
                         <div class="mfa-manual-key">
-                            <span>Ma thiet lap du phong</span>
+                            <span>Mã thiết lập dự phòng</span>
                             <code>{{ mfaSetupSecret }}</code>
                         </div>
                         <small>{{ mfaSetupUri }}</small>
@@ -329,14 +329,13 @@ async function handleLogin() {
 
     feedbackMessage.value = ''
     feedbackType.value = 'danger'
-
     if (!form.username.trim() || !form.password.trim()) {
         error.value = 'Vui lòng điền đầy đủ thông tin xác thực.'
         return
     }
 
     if (mfaRequired.value && !form.mfaCode.trim()) {
-        error.value = 'Vui long nhap ma xac thuc 6 so.'
+        error.value = 'Vui lòng nhập mã xác thực 6 số.'
         return
     }
 

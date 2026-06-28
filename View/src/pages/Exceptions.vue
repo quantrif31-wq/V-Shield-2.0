@@ -89,7 +89,7 @@
                         <strong class="queue-title">{{ item.subjectName || item.plateText || `Log #${item.sourceLogId}` }}</strong>
                         <div class="queue-meta">
                             <span v-if="item.plateText" class="plate-badge">{{ item.plateText }}</span>
-                            <span>{{ item.gateName || 'Chưa gán cổng' }}</span>
+                            <span>{{ item.gateName || 'Chưa gắn cổng' }}</span>
                         </div>
                         <div class="queue-footer">
                             <span class="severity-badge" :class="`severity-${item.severity}`">{{ severityLabel(item.severity) }}</span>
@@ -274,7 +274,7 @@
                         <strong class="queue-title">{{ item.subjectName || item.plateNumber || `Request #${item.operationalInterventionRequestId}` }}</strong>
                         <div class="queue-meta">
                             <span>{{ priorityLabel(item.priority) }}</span>
-                            <span>{{ item.laneName || item.laneId || 'Không gán lane' }}</span>
+                            <span>{{ item.laneName || item.laneId || 'Không gắn lane' }}</span>
                         </div>
                         <div class="queue-footer">
                             <span class="status-badge" :class="`status-${(item.status || 'Pending').toLowerCase()}`">{{ statusLabel(item.status) }}</span>
@@ -500,12 +500,12 @@ const canManuallyCreateIntervention = computed(() => isAdmin.value || isBaoVe.va
 
 const caseCategories = computed(() => {
     const categories = [
-        { id: 'all', label: 'Tat ca', count: exceptionCases.value.length },
-        { id: 'pending_approval', label: 'Cho phe duyet', count: categoryCount('pending_approval') },
+        { id: 'all', label: 'Tất cả', count: exceptionCases.value.length },
+        { id: 'pending_approval', label: 'Chờ phê duyệt', count: categoryCount('pending_approval') },
         { id: 'manual_override', label: 'Override / bypass', count: categoryCount('manual_override') },
         { id: 'data_mismatch', label: 'Lệch dữ liệu', count: categoryCount('data_mismatch') },
-        { id: 'device_degraded', label: 'Device loi', count: categoryCount('device_degraded') },
-        { id: 'emergency_pass', label: 'Khan cap', count: categoryCount('emergency_pass') },
+        { id: 'device_degraded', label: 'Device lỗi', count: categoryCount('device_degraded') },
+        { id: 'emergency_pass', label: 'Khẩn cấp', count: categoryCount('emergency_pass') },
         { id: 'duress', label: 'Duress', count: categoryCount('duress') },
     ]
 
@@ -552,7 +552,7 @@ const interventionFilters = computed(() => {
     }, {})
 
     return [
-        { value: 'all', label: 'Tat ca', count: interventionRequests.value.length },
+        { value: 'all', label: 'Tất cả', count: interventionRequests.value.length },
         { value: 'Pending', label: 'Chờ xử lý', count: counts.Pending || 0 },
         { value: 'Accepted', label: 'Đã chấp nhận', count: counts.Accepted || 0 },
         { value: 'Executed', label: 'Đã thực thi', count: counts.Executed || 0 },
@@ -583,10 +583,10 @@ function categoryLabel(value) {
     return {
         data_mismatch: 'Lệch dữ liệu',
         manual_override: 'Override',
-        device_degraded: 'Device loi',
-        emergency_pass: 'Khan cap',
+        device_degraded: 'Device lỗi',
+        emergency_pass: 'Khẩn cấp',
         duress: 'Duress',
-        pending_approval: 'Cho phe duyet',
+        pending_approval: 'Chờ phê duyệt',
     }[value] || value
 }
 
@@ -730,7 +730,7 @@ function buildCaseFromException(item) {
             {
                 id: `log-${item.logId}`,
                 type: item.isBypass ? 'warning' : 'system',
-                title: item.exceptionReasonDescription || 'Su kien ngoai le',
+                title: item.exceptionReasonDescription || 'Sự kiện ngoại lệ',
                 description: note || item.resultStatus || 'Không có mô tả bổ sung',
                 timestamp: item.timestamp,
                 actor: item.actorName || '',
@@ -876,8 +876,8 @@ async function runPrimaryCaseAction(item) {
         caseActionMessage.value = isBaoVe.value
             ? `Đã tạo yêu cầu can thiệp #${requestId}.`
             : item.workflowStatus === 'Executed'
-                ? `Da tao va thuc thi yeu cau #${requestId}.`
-                : `Da tao va duyet yeu cau #${requestId}.`
+                ? `Đã tạo và thực thi yêu cầu #${requestId}.`
+                : `Đã tạo và duyệt yêu cầu #${requestId}.`
     } catch (error) {
         caseActionError.value = true
         caseActionMessage.value = error?.response?.data?.message || 'Không thể tạo workflow can thiệp cho case này.'
@@ -973,7 +973,7 @@ async function loadBarrierCommands(item = selectedCase.value) {
         const barriersResponse = await enterpriseApi.getBarriers({ laneId, active: true })
         const barriers = barriersResponse.data || []
         if (!barriers.length) {
-            barrierMessage.value = 'Không có barrier nào được gán với lane này.'
+            barrierMessage.value = 'Không có barrier nào được gắn với lane này.'
             return
         }
 
@@ -1183,7 +1183,7 @@ async function submitInterventionRequest() {
         await loadInterventions()
     } catch (error) {
         createError.value = true
-        createMessage.value = error?.response?.data?.message || 'Gui yeu cau that bai.'
+        createMessage.value = error?.response?.data?.message || 'Gửi yêu cầu thất bại.'
     } finally {
         creating.value = false
     }
@@ -1708,3 +1708,4 @@ onMounted(loadAll)
     }
 }
 </style>
+

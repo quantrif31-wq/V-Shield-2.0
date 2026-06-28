@@ -13,8 +13,8 @@
             >
                 <span class="site-chip-dot" :class="{ warning: site.warningGateCount > 0, critical: site.criticalCount > 0 }"></span>
                 <span class="site-code">{{ site.code }}</span>
-                <span>{{ site.buildingCount }} toa nha ‚Ä¢ {{ site.gateCount }} cong</span>
-                <span>{{ site.criticalCount }} diem critical ‚Ä¢ {{ site.warningGateCount }} canh bao</span>
+                <span>{{ site.buildingCount }} toa nha ï {{ site.gateCount }} cong</span>
+                <span>{{ site.criticalCount }} diem critical ï {{ site.warningGateCount }} canh bao</span>
             </button>
         </div>
 
@@ -497,7 +497,7 @@ export default {
 
             this.addLabel(
                 siteGroup,
-                `${layout.site.code} ‚Ä¢ ${layout.site.name}`,
+                `${layout.site.code} ï ${layout.site.name}`,
                 -layout.width / 2 + 18,
                 8,
                 -layout.depth / 2 + 10,
@@ -1037,13 +1037,13 @@ export default {
             const meta = []
 
             if (data.objectType === 'Site') {
-                meta.push(`${data.metrics?.buildings || 0} toa nha ‚Ä¢ ${data.metrics?.gates || 0} cong`)
+                meta.push(`${data.metrics?.buildings || 0} toa nha ï ${data.metrics?.gates || 0} cong`)
             } else if (data.objectType === 'Building') {
-                meta.push(`${data.floors || 1} tang ‚Ä¢ ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
+                meta.push(`${data.floors || 1} tang ï ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
                 if (properties.zone) meta.push(`Zone: ${properties.zone}`)
                 if (properties.level) meta.push(`Security level: ${properties.level}`)
             } else if (data.objectType === 'GateMarker') {
-                if (gate) meta.push(`${gate.cameraCount || 0} camera ‚Ä¢ ${gate.recentAccessCount || 0} s·ª± ki·ªán / 5 ph√∫t`)
+                if (gate) meta.push(`${gate.cameraCount || 0} camera ï ${gate.recentAccessCount || 0} s·ª± ki·ªán / 5 ph√∫t`)
                 if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera dang offline`)
                 if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
             } else if (data.objectType === 'ParkingArea') {
@@ -1057,10 +1057,10 @@ export default {
             return {
                 visible: true,
                 label: data.label || data.objectType,
-                siteName: `${data.siteCode} ‚Ä¢ ${data.siteName}`,
+                siteName: `${data.siteCode} ï ${data.siteName}`,
                 detail: OBJECT_LABELS[data.objectType] || data.objectType,
                 meta,
-                status: gate ? `Trang thai cong: ${gate.status}` : '',
+                status: gate ? `Tr?ng th·i c?ng: ${gate.status}` : '',
                 statusColor: this.statusColorHex(gate?.status || 'Normal'),
             }
         },
@@ -1852,3 +1852,4 @@ export default {
     }
 }
 </style>
+

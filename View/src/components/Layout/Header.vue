@@ -201,28 +201,28 @@ const routeMeta = {
         description: 'Theo dõi xe đăng ký cố định của nhân viên và trạng thái trong bãi.',
     },
     AttendanceRecords: {
-        title: 'Bang cham cong',
-        description: 'Theo doi check-in/check-out, di tre va tong gio lam theo ngay.',
+        title: 'Bảng chấm công',
+        description: 'Theo dõi check-in/check-out, đi trễ và tổng giờ làm theo ngày.',
     },
     AttendanceWorkSchedules: {
-        title: 'Lich lam viec',
-        description: 'Phan ca va kiem soat trang thai lich lam viec cua nhan vien.',
+        title: 'Lịch làm việc',
+        description: 'Phân ca và kiểm soát trạng thái lịch làm việc của nhân viên.',
     },
     AttendanceShifts: {
-        title: 'Ca lam viec',
-        description: 'Cau hinh khung gio ca, di tre, ve som va nghi giua ca.',
+        title: 'Ca làm việc',
+        description: 'Cấu hình khung giờ ca, đi trễ, về sớm và nghỉ giữa ca.',
     },
     LeaveRequests: {
-        title: 'Don xin nghi',
-        description: 'Gui don nghi, theo doi phe duyet va trang thai xu ly.',
+        title: 'Đơn xin nghỉ',
+        description: 'Gửi đơn nghỉ, theo dõi phê duyệt và trạng thái xử lý.',
     },
     LeaveApprovals: {
-        title: 'Duyet don nghi',
-        description: 'Quan ly/Admin xu ly don nghi cho nhan vien theo phong ban.',
+        title: 'Duyệt đơn nghỉ',
+        description: 'Quản lý/Admin xử lý đơn nghỉ cho nhân viên theo phòng ban.',
     },
     AttendanceReports: {
-        title: 'Bao cao cong',
-        description: 'Thong ke ngay cong, di tre, ve som va tang ca theo thang.',
+        title: 'Báo cáo công',
+        description: 'Thống kê ngày công, đi trễ, về sớm và tăng ca theo tháng.',
     },
     DeviceManagement: {
         title: 'Camera & cổng',
@@ -875,5 +875,6 @@ watch(
     }
 }
 </style>
+
 
 

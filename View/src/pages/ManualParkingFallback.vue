@@ -5,8 +5,8 @@
                 <span class="panel-kicker">Parking Continuity</span>
                 <h1 class="page-title">Manual Parking Fallback</h1>
                 <p class="page-subtitle">
-                    Du phong cho bai xe khi camera hoac QR flow bi te liet. Moi lane yeu cau xac minh dung doi
-                    tuong, QR dong va bien so xe truoc khi cho qua.
+                    Dự phòng cho bãi xe khi camera hoặc QR flow bị tê liệt. Mỗi lane yêu cầu xác minh đúng đối
+                    tượng, QR động và biển số xe trước khi cho qua.
                 </p>
             </div>
             <div class="hero-actions">
@@ -29,7 +29,7 @@
             </article>
         </section>
 
-        <div v-if="loading" class="empty-card">Dang tai lane va parking area...</div>
+        <div v-if="loading" class="empty-card">Đang tải lane và parking area...</div>
         <div v-else class="lane-grid">
             <section v-for="lane in lanes" :key="lane.key" class="lane-shell" :class="lane.resultTone || 'tone-idle'">
                 <div class="lane-shell-glow"></div>
@@ -48,7 +48,7 @@
                     <label class="form-group">
                         <span>Lane map</span>
                         <select v-model="lane.selectedLaneId" class="form-control">
-                            <option :value="null">-- Chon lane --</option>
+                            <option :value="null">-- Chọn lane --</option>
                             <option v-for="opt in laneOptions" :key="opt.laneId" :value="opt.laneId">
                                 {{ opt.name }} ({{ opt.direction || 'IN' }})
                             </option>
@@ -62,7 +62,7 @@
                             :class="{ active: lane.subjectType === 'employee' }"
                             @click="switchLaneType(lane, 'employee')"
                         >
-                            Nhan vien
+                            Nhân viên
                         </button>
                         <button
                             type="button"
@@ -70,30 +70,30 @@
                             :class="{ active: lane.subjectType === 'visitor' }"
                             @click="switchLaneType(lane, 'visitor')"
                         >
-                            Khach
+                            Khách
                         </button>
                     </div>
                 </div>
 
                 <div class="lookup-shell">
                     <label class="form-group">
-                        <span>{{ lane.subjectType === 'employee' ? 'Tim nhan vien' : 'Tim khach' }}</span>
+                        <span>{{ lane.subjectType === 'employee' ? 'Tìm nhân viên' : 'Tìm khách' }}</span>
                         <input
                             v-model="lane.query"
                             type="text"
                             class="form-control"
                             :placeholder="
                                 lane.subjectType === 'employee'
-                                    ? 'Ten hoac ma nhan vien...'
-                                    : 'Ten khach / host / SDT...'
+                                    ? 'Tên hoặc mã nhân viên...'
+                                    : 'Tên khách / host / SDT...'
                             "
                             @input="searchSubjects(lane)"
                         />
                     </label>
 
-                    <div v-if="lane.searching" class="lookup-state">Dang tim doi tuong...</div>
+                    <div v-if="lane.searching" class="lookup-state">Đang tìm đối tượng...</div>
                     <div v-else-if="lane.query.trim().length >= 2 && !lane.searchResults.length" class="lookup-state muted">
-                        Khong tim thay ket qua phu hop.
+                        Không tìm thấy kết quả phù hợp.
                     </div>
 
                     <div v-if="lane.searchResults.length" class="search-dropdown">
@@ -130,26 +130,26 @@
 
                 <div class="entry-grid">
                     <label class="form-group">
-                        <span>Bien so xe</span>
+                        <span>Biển số xe</span>
                         <input v-model.trim="lane.plateNumber" type="text" class="form-control" placeholder="VD: 29A-12345" />
                     </label>
 
                     <label class="form-group">
-                        <span>QR dong</span>
+                        <span>QR động</span>
                         <input
                             v-model.trim="lane.qrPayload"
                             type="text"
                             class="form-control"
-                            placeholder="EMP:... hoac VIS:..."
+                            placeholder="EMP:... hoặc VIS:..."
                             @keyup.enter="verifyLane(lane)"
                         />
                     </label>
                 </div>
 
                 <label v-if="lane.subjectType === 'visitor'" class="form-group">
-                    <span>Parking area (neu can cap permit)</span>
+                    <span>Parking area (nếu cần cấp permit)</span>
                     <select v-model="lane.parkingAreaId" class="form-control">
-                        <option :value="null">-- Bo qua --</option>
+                        <option :value="null">-- Bỏ qua --</option>
                         <option v-for="area in parkingAreas" :key="area.parkingAreaId || area.id" :value="area.parkingAreaId || area.id">
                             {{ area.name }} ({{ area.availableSpots ?? '?' }} spots)
                         </option>
@@ -162,7 +162,7 @@
 
                 <div class="lane-actions">
                     <button class="btn btn-primary" :disabled="lane.busy || !canSubmit(lane)" @click="verifyLane(lane)">
-                        {{ lane.busy ? 'Dang xu ly...' : 'Verify va allow' }}
+                        {{ lane.busy ? 'Đang xử lý...' : 'Xác minh và cho qua' }}
                     </button>
                     <button class="btn btn-secondary" :disabled="lane.busy" @click="resetLane(lane)">Reset lane</button>
                 </div>
@@ -237,8 +237,8 @@ const makeSearchItem = (raw, kind) => {
             initials: buildInitials(name),
             idValue: String(raw.employeeId || ''),
             matchIds: [raw.employeeId].filter(Boolean).map((value) => String(value).trim()),
-            idLabel: 'Ma NV',
-            meta: [raw.department, raw.employeeCode].filter(Boolean).join(' | ') || 'Nhan vien he thong',
+            idLabel: 'Mã NV',
+            meta: [raw.department, raw.employeeCode].filter(Boolean).join(' | ') || 'Nhân viên hệ thống',
             raw,
         }
     }
@@ -254,8 +254,8 @@ const makeSearchItem = (raw, kind) => {
         initials: buildInitials(guestName),
         idValue: visitorIds[0] || '',
         matchIds: visitorIds,
-        idLabel: 'Ma KH',
-        meta: [raw.guestPhone, raw.hostEmployeeName, raw.companyName].filter(Boolean).join(' | ') || 'Khach duoc phe duyet',
+        idLabel: 'Mã KH',
+        meta: [raw.guestPhone, raw.hostEmployeeName, raw.companyName].filter(Boolean).join(' | ') || 'Khách được phê duyệt',
         raw,
     }
 }
@@ -461,7 +461,7 @@ const verifyLane = async (lane) => {
             lane.resultLabel = 'Denied'
             lane.waveLevel = 5
             lane.auditTitle = 'QR mismatch'
-            lane.auditMessage = 'QR dong khong khop doi tuong da chon. Lane event da duoc ghi nhan.'
+            lane.auditMessage = 'QR động không khớp đối tượng đã chọn. Lane event đã được ghi nhận.'
             return
         }
 
@@ -481,16 +481,16 @@ const verifyLane = async (lane) => {
         lane.auditTitle = 'Manual parking pass'
         lane.auditMessage =
             lane.subjectType === 'visitor' && lane.parkingAreaId
-                ? 'Da verify QR, ghi lane event va co gang cap parking permit cho khach.'
-                : 'Da verify QR va ghi lane event cho thao tac gui xe thu cong.'
+                ? 'Đã xác minh QR, ghi lane event và cố gắng cấp parking permit cho khách.'
+                : 'Đã xác minh QR và ghi lane event cho thao tác gửi xe thủ công.'
     } catch (error) {
-        const message = error?.response?.data?.message || error?.message || 'Khong the xac minh QR.'
+        const message = error?.response?.data?.message || error?.message || 'Không thể xác minh QR.'
         lane.error = message
         lane.resultTone = 'tone-deny'
         lane.resultLabel = 'Denied'
         lane.waveLevel = 5
         lane.auditTitle = 'Manual parking blocked'
-        lane.auditMessage = 'Xac minh that bai. Lane event tu choi da duoc ghi nhan neu backend san sang.'
+        lane.auditMessage = 'Xác minh thất bại. Lane event từ chối đã được ghi nhận nếu backend sẵn sàng.'
         try {
             await logLaneEvent(lane, 'MANUAL_PARKING_DENY', `[parking-fallback] error=${message}`)
         } catch (logError) {

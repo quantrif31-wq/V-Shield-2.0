@@ -196,13 +196,13 @@
                             <strong>{{ anomaly.type }}</strong>
                             <p>{{ anomaly.detail }}</p>
                             <div v-if="anomaly.currentCount != null" class="anomaly-metric">
-                                <span>{{ anomaly.currentCount }} hien tai</span>
+                                <span>{{ anomaly.currentCount }} hiện tại</span>
                                 <span v-if="anomaly.expectedCount">| {{ anomaly.expectedCount }} TB</span>
                                 <span v-if="anomaly.deviation">| +{{ anomaly.deviation }}%</span>
                             </div>
                         </div>
                     </div>
-                    <div v-else class="empty-card">Khong phat hien bat thuong.</div>
+                    <div v-else class="empty-card">Không phát hiện bất thường.</div>
                 </article>
             </div>
         </section>

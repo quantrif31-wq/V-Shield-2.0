@@ -1,7 +1,7 @@
 <template>
   <div class="ect-root">
     <div v-if="sortedItems.length === 0" class="ect-empty">
-      <p>Chua co su kien nao cho case nay.</p>
+      <p>Chưa có sự kiện nào cho case này.</p>
     </div>
 
     <div v-else class="ect-timeline">
@@ -25,12 +25,12 @@
             <p v-if="item.description" class="ect-desc">{{ item.description }}</p>
 
             <div v-if="item.actor" class="ect-meta">
-              <span class="ect-meta-label">Nguoi thuc hien:</span>
+              <span class="ect-meta-label">Người thực hiện:</span>
               <span class="ect-meta-value">{{ item.actor }}</span>
             </div>
 
             <div v-if="item.reason" class="ect-meta">
-              <span class="ect-meta-label">Ly do:</span>
+              <span class="ect-meta-label">Lý do:</span>
               <span class="ect-meta-value">{{ item.reason }}</span>
             </div>
 
@@ -80,18 +80,18 @@ export default {
     badgeText(type) {
       const normalized = normalizeType(type)
       const labels = {
-        scan: 'Quet',
+        scan: 'Quét',
         allow: 'Cho qua',
-        deny: 'Tu choi',
-        manual: 'Thu cong',
-        override: 'Override',
+        deny: 'Từ chối',
+        manual: 'Thủ công',
+        override: 'Ghi đè',
         duress: 'Duress',
-        escalate: 'Yeu cau',
-        approve: 'Phe duyet',
-        reject: 'Tu choi duyet',
-        close: 'Dong case',
-        review: 'Hau kiem',
-        system: 'He thong',
+        escalate: 'Yêu cầu',
+        approve: 'Phê duyệt',
+        reject: 'Từ chối duyệt',
+        close: 'Đóng case',
+        review: 'Hậu kiểm',
+        system: 'Hệ thống',
       }
 
       return labels[normalized] || normalized
