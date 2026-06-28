@@ -72,6 +72,51 @@ public class LockerService
         return (true, $"Assigned to compartment {compartment.Code}");
     }
 
+    public async Task<(bool Success, string Message)> AssignCompartmentToFoundItemAsync(
+        int compartmentId,
+        long foundItemReportId,
+        long? evidenceItemId,
+        int userId)
+    {
+        var compartment = await _context.LockerCompartments
+            .Include(c => c.EvidenceItem)
+            .FirstOrDefaultAsync(c => c.LockerCompartmentId == compartmentId);
+
+        if (compartment == null)
+            return (false, "Compartment not found.");
+        if (compartment.Status != "Empty")
+            return (false, $"Compartment is {compartment.Status}.");
+
+        compartment.Status = "Occupied";
+        compartment.EvidenceItemId = evidenceItemId;
+        compartment.OccupiedByUserId = userId;
+        compartment.OccupiedAtUtc = DateTime.UtcNow;
+        compartment.ReleasedAtUtc = null;
+
+        if (evidenceItemId.HasValue)
+        {
+            _context.ChainOfCustodyEntries.Add(new ChainOfCustodyEntry
+            {
+                EvidenceItemId = evidenceItemId.Value,
+                Action = "StoredInLocker",
+                ActorUserId = userId,
+                ToCustodian = $"{compartment.Code}",
+                Note = $"Found item #{foundItemReportId} stored in locker compartment {compartment.Code}"
+            });
+        }
+
+        _context.LockerAccessLogs.Add(new LockerAccessLog
+        {
+            LockerCompartmentId = compartmentId,
+            UserId = userId,
+            Action = "AssignedFoundItem",
+            Purpose = $"Found item #{foundItemReportId} stored"
+        });
+
+        await _context.SaveChangesAsync();
+        return (true, $"Assigned found item to compartment {compartment.Code}");
+    }
+
     public async Task<(bool Success, string Message)> ReleaseCompartmentAsync(int compartmentId, int userId)
     {
         var compartment = await _context.LockerCompartments

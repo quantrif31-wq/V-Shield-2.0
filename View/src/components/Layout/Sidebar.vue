@@ -473,13 +473,6 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe', 'QuanLy'],
             },
             {
-                path: '/policy-engine',
-                label: 'Policy Engine',
-                hint: 'Design, simulate & lockdown',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1"/></svg>',
-                roles: ['Admin'],
-            },
-            {
                 path: '/enterprise-security',
                 label: 'Enterprise Console',
                 hint: 'Workspaces & setup',
@@ -519,13 +512,6 @@ const navGroups = ref([
                 label: 'Redaction Queue',
                 hint: 'Xóa thông tin nhạy cảm',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 5H9l-7 7 7 7h11a2 2 0 002-2V7a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>',
-                roles: ['Admin'],
-            },
-            {
-                path: '/retention-dashboard',
-                label: 'Retention & Legal Hold',
-                hint: 'Chính sách lưu giữ & niêm phong',
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
                 roles: ['Admin'],
             },
         ],
@@ -777,7 +763,14 @@ const navGroups = ref([
         ],
     },
 ])
-const HIDDEN_NAV_PATHS = new Set(['/event-timeline', '/lane-dashboard'])
+const HIDDEN_NAV_PATHS = new Set([
+    '/event-timeline',
+    '/lane-dashboard',
+    '/found-items',
+    '/lost-items',
+    '/claim-approval',
+    '/locker-manager',
+])
 
 const visibleGroups = computed(() =>
     navGroups.value
@@ -1530,6 +1523,7 @@ const refreshFlyoutPosition = () => {
     }
 }
 </style>
+
 
 
 

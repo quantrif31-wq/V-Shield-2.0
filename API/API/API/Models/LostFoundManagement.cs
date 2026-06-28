@@ -8,6 +8,8 @@ public class LostItemReport
     [MaxLength(120)] public string ReporterName { get; set; } = string.Empty;
     [MaxLength(20)] public string ReporterPhone { get; set; } = string.Empty;
     [MaxLength(240)] public string? ReporterEmail { get; set; }
+    [MaxLength(40)] public string? ReporterIdNumber { get; set; }
+    [MaxLength(500)] public string? ReporterPhotoUrl { get; set; }
     [MaxLength(1000)] public string ItemDescription { get; set; } = string.Empty;
     [MaxLength(240)] public string? LastSeenLocation { get; set; }
     public DateTime LostAtUtc { get; set; }
@@ -22,17 +24,22 @@ public class FoundItemReport
 {
     public long FoundItemReportId { get; set; }
     [MaxLength(120)] public string FoundByName { get; set; } = string.Empty;
+    [MaxLength(20)] public string? FoundByPhone { get; set; }
+    [MaxLength(40)] public string? FoundByIdNumber { get; set; }
+    [MaxLength(500)] public string? FinderPhotoUrl { get; set; }
     [MaxLength(240)] public string FoundLocation { get; set; } = string.Empty;
     public DateTime FoundAtUtc { get; set; } = DateTime.UtcNow;
     [MaxLength(1000)] public string ItemDescription { get; set; } = string.Empty;
     [MaxLength(500)] public string? PhotoUrl { get; set; }
     [MaxLength(500)] public string? StorageLocation { get; set; }
     public int? LockerCompartmentId { get; set; }
+    public long? ItemEvidenceId { get; set; }
     [MaxLength(40)] public string Status { get; set; } = "Unclaimed";
     public int? CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? ReturnedAtUtc { get; set; }
     public LockerCompartment? LockerCompartment { get; set; }
+    public EvidenceItem? ItemEvidence { get; set; }
 }
 
 public class ItemMatch
@@ -58,11 +65,19 @@ public class ClaimRequest
     [MaxLength(40)] public string ClaimantIdNumber { get; set; } = string.Empty;
     [MaxLength(20)] public string ClaimantPhone { get; set; } = string.Empty;
     [MaxLength(500)] public string? ProofDocumentUrl { get; set; }
+    [MaxLength(500)] public string? ClaimantPhotoUrl { get; set; }
+    [MaxLength(500)] public string? ItemPhotoUrl { get; set; }
     [MaxLength(40)] public string Status { get; set; } = "Pending";
     public int? ReviewedByUserId { get; set; }
+    [MaxLength(500)] public string? ReviewNote { get; set; }
+    [MaxLength(500)] public string? RejectionReason { get; set; }
     public DateTime RequestedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? ReviewedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
+    public int? CompletedByUserId { get; set; }
+    [MaxLength(120)] public string? WitnessName { get; set; }
+    [MaxLength(1000)] public string? HandoverNote { get; set; }
+    [MaxLength(500)] public string? ReturnPhotoUrl { get; set; }
     public FoundItemReport? FoundItem { get; set; }
     public LostItemReport? LostItem { get; set; }
 }

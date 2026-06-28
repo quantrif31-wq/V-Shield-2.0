@@ -83,11 +83,29 @@ export const enterpriseApi = {
         return http.get('/enterprise/foundation/hierarchy')
     },
     createCompany(payload) { return http.post('/enterprise/foundation/companies', payload) },
+    updateCompany(companyId, payload) { return http.patch(`/enterprise/foundation/companies/${companyId}`, payload) },
+    deleteCompany(companyId) { return http.delete(`/enterprise/foundation/companies/${companyId}`) },
+    restoreCompany(companyId) { return http.patch(`/enterprise/foundation/companies/${companyId}/restore`) },
     createSite(payload) { return http.post('/enterprise/foundation/sites', payload) },
+    updateSite(siteId, payload) { return http.patch(`/enterprise/foundation/sites/${siteId}`, payload) },
+    deleteSite(siteId) { return http.delete(`/enterprise/foundation/sites/${siteId}`) },
+    restoreSite(siteId) { return http.patch(`/enterprise/foundation/sites/${siteId}/restore`) },
     createBuilding(payload) { return http.post('/enterprise/foundation/buildings', payload) },
+    updateBuilding(buildingId, payload) { return http.patch(`/enterprise/foundation/buildings/${buildingId}`, payload) },
+    deleteBuilding(buildingId) { return http.delete(`/enterprise/foundation/buildings/${buildingId}`) },
+    restoreBuilding(buildingId) { return http.patch(`/enterprise/foundation/buildings/${buildingId}/restore`) },
     createFloor(payload) { return http.post('/enterprise/foundation/floors', payload) },
+    updateFloor(floorId, payload) { return http.patch(`/enterprise/foundation/floors/${floorId}`, payload) },
+    deleteFloor(floorId) { return http.delete(`/enterprise/foundation/floors/${floorId}`) },
+    restoreFloor(floorId) { return http.patch(`/enterprise/foundation/floors/${floorId}/restore`) },
     createZone(payload) { return http.post('/enterprise/foundation/zones', payload) },
+    updateZone(zoneId, payload) { return http.patch(`/enterprise/foundation/zones/${zoneId}`, payload) },
+    deleteZone(zoneId) { return http.delete(`/enterprise/foundation/zones/${zoneId}`) },
+    restoreZone(zoneId) { return http.patch(`/enterprise/foundation/zones/${zoneId}/restore`) },
     createAccessPoint(payload) { return http.post('/enterprise/foundation/access-points', payload) },
+    updateAccessPoint(accessPointId, payload) { return http.patch(`/enterprise/foundation/access-points/${accessPointId}`, payload) },
+    deleteAccessPoint(accessPointId) { return http.delete(`/enterprise/foundation/access-points/${accessPointId}`) },
+    restoreAccessPoint(accessPointId) { return http.patch(`/enterprise/foundation/access-points/${accessPointId}/restore`) },
     createDoor(payload) { return http.post('/enterprise/foundation/doors', payload) },
     createLane(payload) { return http.post('/enterprise/foundation/lanes', payload) },
     getPolicyOverview() { return http.get('/enterprise/access-policy/overview') },
@@ -211,10 +229,14 @@ export const enterpriseApi = {
     getCorrelations(params) { return http.get('/enterprise/situational-awareness/correlations', { params }) },
     getCorrelationDetail(correlationId) { return http.get(`/enterprise/situational-awareness/correlations/${correlationId}`) },
     runCorrelation(payload) { return http.post('/enterprise/situational-awareness/correlations/run', payload) },
-    getSiteMaps() { return http.get('/enterprise/situational-awareness/maps') },
+    getSiteMaps(params) { return http.get('/enterprise/situational-awareness/maps', { params }) },
     getMapPlacements(mapId) { return http.get(`/enterprise/situational-awareness/maps/${mapId}/placements`) },
     createSiteMap(payload) { return http.post('/enterprise/situational-awareness/maps', payload) },
     addMapPlacement(mapId, payload) { return http.post(`/enterprise/situational-awareness/maps/${mapId}/placements`, payload) },
+    updateSiteMap(mapId, payload) { return http.patch(`/enterprise/situational-awareness/maps/${mapId}`, payload) },
+    deleteSiteMap(mapId) { return http.delete(`/enterprise/situational-awareness/maps/${mapId}`) },
+    updateMapPlacement(mapId, placementId, payload) { return http.patch(`/enterprise/situational-awareness/maps/${mapId}/placements/${placementId}`, payload) },
+    deleteMapPlacement(mapId, placementId) { return http.delete(`/enterprise/situational-awareness/maps/${mapId}/placements/${placementId}`) },
     // Evidence
     getEvidenceItems(params) { return http.get('/enterprise/evidence/items', { params }) },
     createEvidenceItem(payload) { return http.post('/enterprise/evidence/items', payload) },
@@ -299,19 +321,19 @@ export const zoneAuthorityApi = {
     const query = new URLSearchParams()
     if (params.userId) query.set('userId', params.userId)
     if (params.securityZoneId) query.set('securityZoneId', params.securityZoneId)
-    return enterpriseAxios.get(`/access-policy/zone-authorities?${query}`)
+    return http.get(`/enterprise/access-policy/zone-authorities?${query}`)
   },
   createAuthority(data) {
-    return enterpriseAxios.post('/access-policy/zone-authorities', data)
+    return http.post('/enterprise/access-policy/zone-authorities', data)
   },
   revokeAuthority(id) {
-    return enterpriseAxios.delete(`/access-policy/zone-authorities/${id}`)
+    return http.delete(`/enterprise/access-policy/zone-authorities/${id}`)
   },
   getMyZones() {
-    return enterpriseAxios.get('/access-policy/zone-authorities/my-zones')
+    return http.get('/enterprise/access-policy/zone-authorities/my-zones')
   },
   checkCanOverride(securityZoneId) {
-    return enterpriseAxios.get(`/access-policy/zone-authorities/can-override?securityZoneId=${securityZoneId}`)
+    return http.get(`/enterprise/access-policy/zone-authorities/can-override?securityZoneId=${securityZoneId}`)
   },
 }
 
@@ -321,11 +343,15 @@ export const lostFoundApi = {
     getLostItems(params) { return http.get('/enterprise/lost-found/lost-items', { params }) },
     getLostItem(id) { return http.get(`/enterprise/lost-found/lost-items/${id}`) },
     createLostItem(payload) { return http.post('/enterprise/lost-found/lost-items', payload) },
+    updateLostItem(id, payload) { return http.put(`/enterprise/lost-found/lost-items/${id}`, payload) },
+    deleteLostItem(id) { return http.delete(`/enterprise/lost-found/lost-items/${id}`) },
     closeLostItem(id) { return http.patch(`/enterprise/lost-found/lost-items/${id}/close`) },
     // Found items
     getFoundItems(params) { return http.get('/enterprise/lost-found/found-items', { params }) },
     getFoundItem(id) { return http.get(`/enterprise/lost-found/found-items/${id}`) },
     createFoundItem(payload) { return http.post('/enterprise/lost-found/found-items', payload) },
+    updateFoundItem(id, payload) { return http.put(`/enterprise/lost-found/found-items/${id}`, payload) },
+    deleteFoundItem(id) { return http.delete(`/enterprise/lost-found/found-items/${id}`) },
     // Matching
     getMatchSuggestions() { return http.post('/enterprise/lost-found/match/suggestions') },
     createMatch(payload) { return http.post('/enterprise/lost-found/match', payload) },
@@ -335,12 +361,17 @@ export const lostFoundApi = {
     // Claims
     getClaimRequests(params) { return http.get('/enterprise/lost-found/claim-requests', { params }) },
     createClaimRequest(payload) { return http.post('/enterprise/lost-found/claim-requests', payload) },
-    approveClaimRequest(id) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/approve`) },
-    completeClaimRequest(id) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/complete`) },
+    updateClaimRequest(id, payload) { return http.put(`/enterprise/lost-found/claim-requests/${id}`, payload) },
+    deleteClaimRequest(id) { return http.delete(`/enterprise/lost-found/claim-requests/${id}`) },
+    approveClaimRequest(id, payload) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/approve`, payload || {}) },
+    rejectClaimRequest(id, payload) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/reject`, payload || {}) },
+    completeClaimRequest(id, payload) { return http.patch(`/enterprise/lost-found/claim-requests/${id}/complete`, payload || {}) },
     // Lockers
     getLockerCabinets() { return http.get('/enterprise/lost-found/locker-cabinets') },
     getLockerCabinetDetail(id) { return http.get(`/enterprise/lost-found/locker-cabinets/${id}`) },
     createLockerCabinet(payload) { return http.post('/enterprise/lost-found/locker-cabinets', payload) },
+    updateLockerCabinet(id, payload) { return http.put(`/enterprise/lost-found/locker-cabinets/${id}`, payload) },
+    deleteLockerCabinet(id) { return http.delete(`/enterprise/lost-found/locker-cabinets/${id}`) },
     createCompartments(cabinetId, payload) { return http.post(`/enterprise/lost-found/locker-cabinets/${cabinetId}/compartments`, payload) },
     getAvailableCompartments(params) { return http.get('/enterprise/lost-found/compartments/available', { params }) },
     assignCompartment(id, payload) { return http.post(`/enterprise/lost-found/compartments/${id}/assign`, payload) },

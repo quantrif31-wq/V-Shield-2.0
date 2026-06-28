@@ -21,6 +21,8 @@ public partial class ApplicationDbContext
             entity.Property(e => e.ReporterName).IsRequired().HasMaxLength(120);
             entity.Property(e => e.ReporterPhone).IsRequired().HasMaxLength(20);
             entity.Property(e => e.ReporterEmail).HasMaxLength(240);
+            entity.Property(e => e.ReporterIdNumber).HasMaxLength(40);
+            entity.Property(e => e.ReporterPhotoUrl).HasMaxLength(500);
             entity.Property(e => e.ItemDescription).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.LastSeenLocation).HasMaxLength(240);
             entity.Property(e => e.PhotoUrl).HasMaxLength(500);
@@ -32,6 +34,9 @@ public partial class ApplicationDbContext
         {
             entity.HasKey(e => e.FoundItemReportId);
             entity.Property(e => e.FoundByName).IsRequired().HasMaxLength(120);
+            entity.Property(e => e.FoundByPhone).HasMaxLength(20);
+            entity.Property(e => e.FoundByIdNumber).HasMaxLength(40);
+            entity.Property(e => e.FinderPhotoUrl).HasMaxLength(500);
             entity.Property(e => e.FoundLocation).IsRequired().HasMaxLength(240);
             entity.Property(e => e.ItemDescription).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.PhotoUrl).HasMaxLength(500);
@@ -39,6 +44,7 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
             entity.HasIndex(e => new { e.Status, e.CreatedAtUtc });
             entity.HasOne(e => e.LockerCompartment).WithMany().HasForeignKey(e => e.LockerCompartmentId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.ItemEvidence).WithMany().HasForeignKey(e => e.ItemEvidenceId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ItemMatch>(entity =>
@@ -58,7 +64,14 @@ public partial class ApplicationDbContext
             entity.Property(e => e.ClaimantIdNumber).IsRequired().HasMaxLength(40);
             entity.Property(e => e.ClaimantPhone).IsRequired().HasMaxLength(20);
             entity.Property(e => e.ProofDocumentUrl).HasMaxLength(500);
+            entity.Property(e => e.ClaimantPhotoUrl).HasMaxLength(500);
+            entity.Property(e => e.ItemPhotoUrl).HasMaxLength(500);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.ReviewNote).HasMaxLength(500);
+            entity.Property(e => e.RejectionReason).HasMaxLength(500);
+            entity.Property(e => e.WitnessName).HasMaxLength(120);
+            entity.Property(e => e.HandoverNote).HasMaxLength(1000);
+            entity.Property(e => e.ReturnPhotoUrl).HasMaxLength(500);
             entity.HasOne(e => e.FoundItem).WithMany().HasForeignKey(e => e.FoundItemReportId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.LostItem).WithMany().HasForeignKey(e => e.LostItemReportId).OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => new { e.Status, e.RequestedAtUtc });

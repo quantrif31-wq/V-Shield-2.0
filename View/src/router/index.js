@@ -43,7 +43,6 @@ const UEBA = () => import('../pages/UEBA.vue')
 const SocAlarmConsole = () => import('../pages/SocAlarmConsole.vue')
 const IdentityManagement = () => import('../pages/IdentityManagement.vue')
 const SiteHierarchy = () => import('../pages/SiteHierarchy.vue')
-const PolicyEngine = () => import('../pages/PolicyEngine.vue')
 const ReceptionDashboard = () => import('../pages/ReceptionDashboard.vue')
 const ManualAccessFallback = () => import('../pages/ManualAccessFallback.vue')
 const ManualParkingFallback = () => import('../pages/ManualParkingFallback.vue')
@@ -63,14 +62,9 @@ const EvidenceRepository = () => import('../pages/EvidenceRepository.vue')
 const CameraArchive = () => import('../pages/CameraArchive.vue')
 const ExportApprovalQueue = () => import('../pages/ExportApprovalQueue.vue')
 const RedactionQueue = () => import('../pages/RedactionQueue.vue')
-const RetentionDashboard = () => import('../pages/RetentionDashboard.vue')
 const ComplianceReports = () => import('../pages/ComplianceReports.vue')
 const GuideViewer = () => import('../pages/GuideViewer.vue')
 const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
-const FoundItemRegistry = () => import('../pages/FoundItemRegistry.vue')
-const LostItemList = () => import('../pages/LostItemList.vue')
-const ClaimApproval = () => import('../pages/ClaimApproval.vue')
-const LockerManager = () => import('../pages/LockerManager.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -118,7 +112,6 @@ const routes = [
             { path: 'soc-console', name: 'SocAlarmConsole', component: SocAlarmConsole, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'identity-management', name: 'IdentityManagement', component: IdentityManagement, meta: { allowedRoles: ['Admin'] } },
             { path: 'site-hierarchy', name: 'SiteHierarchy', component: SiteHierarchy, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
-            { path: 'policy-engine', name: 'PolicyEngine', component: PolicyEngine, meta: { allowedRoles: ['Admin'] } },
             { path: 'exceptions', name: 'Exceptions', component: Exceptions, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'pre-registrations', name: 'PreRegistration', component: PreRegistration, meta: { allowedRoles: ['Admin'] } },
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },
@@ -142,15 +135,15 @@ const routes = [
             { path: 'evidence-repository', name: 'EvidenceRepository', component: EvidenceRepository, meta: { allowedRoles: ['Admin'] } },
             { path: 'export-approval-queue', name: 'ExportApprovalQueue', component: ExportApprovalQueue, meta: { allowedRoles: ['Admin'] } },
             { path: 'redaction-queue', name: 'RedactionQueue', component: RedactionQueue, meta: { allowedRoles: ['Admin'] } },
-            { path: 'retention-dashboard', name: 'RetentionDashboard', component: RetentionDashboard, meta: { allowedRoles: ['Admin'] } },
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'guide', name: 'GuideViewer', component: GuideViewer },
             { path: 'lost-found', name: 'LostFoundDashboard', component: LostFoundDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'found-items', name: 'FoundItemRegistry', component: FoundItemRegistry, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'lost-items', name: 'LostItemList', component: LostItemList, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'claim-approval', name: 'ClaimApproval', component: ClaimApproval, meta: { allowedRoles: ['Admin'] } },
-            { path: 'locker-manager', name: 'LockerManager', component: LockerManager, meta: { allowedRoles: ['Admin'] } },
+            { path: 'found-items', name: 'FoundItemRegistry', redirect: { path: '/lost-found', query: { tab: 'found' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'lost-items', name: 'LostItemList', redirect: { path: '/lost-found', query: { tab: 'lost' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'claim-approval', name: 'ClaimApproval', redirect: { path: '/lost-found', query: { tab: 'claim' } }, meta: { allowedRoles: ['Admin'] } },
+            { path: 'locker-manager', name: 'LockerManager', redirect: { path: '/lost-found', query: { tab: 'locker-config' } }, meta: { allowedRoles: ['Admin'] } },
+            { path: 'locker-access-logs', name: 'LockerAccessLogs', redirect: { path: '/lost-found', query: { tab: 'locker' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },

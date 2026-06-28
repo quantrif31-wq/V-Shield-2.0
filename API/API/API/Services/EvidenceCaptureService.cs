@@ -8,6 +8,8 @@ namespace API.Services;
 
 public class EvidenceCaptureService
 {
+    public sealed record CapturedEvidenceResult(long EvidenceItemId, string Url, string HashSha256);
+
     private readonly ApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
 
@@ -18,6 +20,14 @@ public class EvidenceCaptureService
     }
 
     public async Task<string?> CaptureBase64Async(
+        string? base64Data, string evidenceType, string? sourceRef,
+        int? siteId = null, int? createdByUserId = null)
+    {
+        var captured = await CaptureBase64WithRecordAsync(base64Data, evidenceType, sourceRef, siteId, createdByUserId);
+        return captured?.Url;
+    }
+
+    public async Task<CapturedEvidenceResult?> CaptureBase64WithRecordAsync(
         string? base64Data, string evidenceType, string? sourceRef,
         int? siteId = null, int? createdByUserId = null)
     {
@@ -71,7 +81,7 @@ public class EvidenceCaptureService
         });
         await _context.SaveChangesAsync();
 
-        return url;
+        return new CapturedEvidenceResult(item.EvidenceItemId, url, hash);
     }
 
     private static byte[]? DecodeBase64Image(string base64)

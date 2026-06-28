@@ -52,18 +52,42 @@ public class EnterpriseLostFoundController : ControllerBase
             return BadRequest(new { message = "ReporterName is required." });
         if (string.IsNullOrWhiteSpace(request.ReporterPhone))
             return BadRequest(new { message = "ReporterPhone is required." });
+        if (string.IsNullOrWhiteSpace(request.ReporterIdNumber))
+            return BadRequest(new { message = "ReporterIdNumber is required." });
         if (string.IsNullOrWhiteSpace(request.ItemDescription))
             return BadRequest(new { message = "ItemDescription is required." });
+        if (string.IsNullOrWhiteSpace(request.ReporterPhotoUrl) && string.IsNullOrWhiteSpace(request.ReporterPhotoBase64))
+            return BadRequest(new { message = "Reporter photo is required." });
+        if (string.IsNullOrWhiteSpace(request.PhotoUrl) && string.IsNullOrWhiteSpace(request.ItemPhotoBase64))
+            return BadRequest(new { message = "Item photo is required." });
+
+        var itemPhotoUrl = request.PhotoUrl;
+        if (!string.IsNullOrWhiteSpace(request.ItemPhotoBase64))
+        {
+            itemPhotoUrl = await _evidenceCapture.CaptureBase64Async(
+                request.ItemPhotoBase64, "LostFoundLostItem", $"lost-item-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+                createdByUserId: GetCurrentUserId());
+        }
+
+        var reporterPhotoUrl = request.ReporterPhotoUrl;
+        if (!string.IsNullOrWhiteSpace(request.ReporterPhotoBase64))
+        {
+            reporterPhotoUrl = await _evidenceCapture.CaptureBase64Async(
+                request.ReporterPhotoBase64, "LostFoundReporter", $"lost-reporter-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+                createdByUserId: GetCurrentUserId());
+        }
 
         var report = new LostItemReport
         {
             ReporterName = request.ReporterName.Trim(),
             ReporterPhone = request.ReporterPhone.Trim(),
             ReporterEmail = request.ReporterEmail?.Trim(),
+            ReporterIdNumber = request.ReporterIdNumber?.Trim(),
+            ReporterPhotoUrl = reporterPhotoUrl?.Trim(),
             ItemDescription = request.ItemDescription.Trim(),
             LastSeenLocation = request.LastSeenLocation?.Trim(),
             LostAtUtc = request.LostAtUtc,
-            PhotoUrl = request.PhotoUrl?.Trim(),
+            PhotoUrl = itemPhotoUrl?.Trim(),
             Status = "Pending",
             CreatedByUserId = GetCurrentUserId()
         };
@@ -99,6 +123,41 @@ public class EnterpriseLostFoundController : ControllerBase
         return Ok(item);
     }
 
+    [HttpPut("lost-items/{id:long}")]
+    public async Task<IActionResult> UpdateLostItemReport(long id, [FromBody] LostItemReportRequest request)
+    {
+        var item = await _context.LostItemReports.FindAsync(id);
+        if (item == null)
+            return NotFound(new { message = "Lost item report not found." });
+
+        item.ReporterName = request.ReporterName.Trim();
+        item.ReporterPhone = request.ReporterPhone.Trim();
+        item.ReporterEmail = request.ReporterEmail?.Trim();
+        item.ReporterIdNumber = request.ReporterIdNumber?.Trim();
+        item.ItemDescription = request.ItemDescription.Trim();
+        item.LastSeenLocation = request.LastSeenLocation?.Trim();
+        item.LostAtUtc = request.LostAtUtc;
+        item.PhotoUrl = await ResolvePhotoUrlAsync(
+            request.ItemPhotoBase64, request.PhotoUrl, item.PhotoUrl, "LostFoundLostItem", $"lost-item-{id}",
+            GetCurrentUserId());
+        item.ReporterPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ReporterPhotoBase64, request.ReporterPhotoUrl, item.ReporterPhotoUrl, "LostFoundReporter", $"lost-reporter-{id}",
+            GetCurrentUserId());
+        await _context.SaveChangesAsync();
+        return Ok(item);
+    }
+
+    [HttpDelete("lost-items/{id:long}")]
+    public async Task<IActionResult> DeleteLostItemReport(long id)
+    {
+        var item = await _context.LostItemReports.FindAsync(id);
+        if (item == null)
+            return NotFound(new { message = "Lost item report not found." });
+        _context.LostItemReports.Remove(item);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPatch("lost-items/{id:long}/close")]
     public async Task<IActionResult> CloseLostItemReport(long id)
     {
@@ -117,34 +176,69 @@ public class EnterpriseLostFoundController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.FoundByName))
             return BadRequest(new { message = "FoundByName is required." });
+        if (string.IsNullOrWhiteSpace(request.FoundByPhone))
+            return BadRequest(new { message = "FoundByPhone is required." });
+        if (string.IsNullOrWhiteSpace(request.FoundByIdNumber))
+            return BadRequest(new { message = "FoundByIdNumber is required." });
         if (string.IsNullOrWhiteSpace(request.FoundLocation))
             return BadRequest(new { message = "FoundLocation is required." });
         if (string.IsNullOrWhiteSpace(request.ItemDescription))
             return BadRequest(new { message = "ItemDescription is required." });
+        if (string.IsNullOrWhiteSpace(request.FinderPhotoUrl) && string.IsNullOrWhiteSpace(request.FinderPhotoBase64))
+            return BadRequest(new { message = "Finder photo is required." });
+        if (string.IsNullOrWhiteSpace(request.PhotoUrl) && string.IsNullOrWhiteSpace(request.PhotoBase64))
+            return BadRequest(new { message = "Item photo is required." });
 
-        var photoUrl = request.PhotoUrl;
-        if (!string.IsNullOrWhiteSpace(request.PhotoBase64))
+        var photoCapture = await _evidenceCapture.CaptureBase64WithRecordAsync(
+            request.PhotoBase64, "LostFoundFoundItem", $"found-item-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+            createdByUserId: GetCurrentUserId());
+        var photoUrl = photoCapture?.Url ?? request.PhotoUrl;
+        var finderPhotoUrl = request.FinderPhotoUrl;
+        if (!string.IsNullOrWhiteSpace(request.FinderPhotoBase64))
         {
-            photoUrl = await _evidenceCapture.CaptureBase64Async(
-                request.PhotoBase64, "LostFound", $"found-{DateTime.UtcNow:O}",
+            finderPhotoUrl = await _evidenceCapture.CaptureBase64Async(
+                request.FinderPhotoBase64, "LostFoundFinder", $"found-finder-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
                 createdByUserId: GetCurrentUserId());
         }
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
 
         var report = new FoundItemReport
         {
             FoundByName = request.FoundByName.Trim(),
+            FoundByPhone = request.FoundByPhone?.Trim(),
+            FoundByIdNumber = request.FoundByIdNumber?.Trim(),
+            FinderPhotoUrl = finderPhotoUrl?.Trim(),
             FoundLocation = request.FoundLocation.Trim(),
             FoundAtUtc = request.FoundAtUtc,
             ItemDescription = request.ItemDescription.Trim(),
             PhotoUrl = photoUrl?.Trim(),
             StorageLocation = request.StorageLocation?.Trim(),
             LockerCompartmentId = request.LockerCompartmentId,
+            ItemEvidenceId = photoCapture?.EvidenceItemId,
             Status = "Unclaimed",
             CreatedByUserId = GetCurrentUserId()
         };
 
         _context.FoundItemReports.Add(report);
         await _context.SaveChangesAsync();
+
+        if (request.LockerCompartmentId.HasValue)
+        {
+            var (success, message) = await _lockerService.AssignCompartmentToFoundItemAsync(
+                request.LockerCompartmentId.Value,
+                report.FoundItemReportId,
+                report.ItemEvidenceId,
+                GetCurrentUserId() ?? 0);
+
+            if (!success)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(new { message });
+            }
+        }
+
+        await tx.CommitAsync();
         return Ok(report);
     }
 
@@ -157,6 +251,8 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var total = await query.CountAsync();
         var items = await query
+            .Include(f => f.LockerCompartment)
+            .ThenInclude(c => c!.Cabinet)
             .OrderByDescending(f => f.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -176,6 +272,72 @@ public class EnterpriseLostFoundController : ControllerBase
         if (item == null)
             return NotFound(new { message = "Found item report not found." });
         return Ok(item);
+    }
+
+    [HttpPut("found-items/{id:long}")]
+    public async Task<IActionResult> UpdateFoundItemReport(long id, [FromBody] FoundItemReportRequest request)
+    {
+        var item = await _context.FoundItemReports.FindAsync(id);
+        if (item == null)
+            return NotFound(new { message = "Found item report not found." });
+
+        item.FoundByName = request.FoundByName.Trim();
+        item.FoundByPhone = request.FoundByPhone?.Trim();
+        item.FoundByIdNumber = request.FoundByIdNumber?.Trim();
+        item.FoundLocation = request.FoundLocation.Trim();
+        item.FoundAtUtc = request.FoundAtUtc;
+        item.ItemDescription = request.ItemDescription.Trim();
+        if (!string.IsNullOrWhiteSpace(request.PhotoBase64))
+        {
+            var updatedCapture = await _evidenceCapture.CaptureBase64WithRecordAsync(
+                request.PhotoBase64, "LostFoundFoundItem", $"found-item-{id}",
+                createdByUserId: GetCurrentUserId());
+            item.PhotoUrl = updatedCapture?.Url ?? item.PhotoUrl;
+            item.ItemEvidenceId = updatedCapture?.EvidenceItemId ?? item.ItemEvidenceId;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.PhotoUrl))
+        {
+            item.PhotoUrl = request.PhotoUrl.Trim();
+        }
+        item.FinderPhotoUrl = await ResolvePhotoUrlAsync(
+            request.FinderPhotoBase64, request.FinderPhotoUrl, item.FinderPhotoUrl, "LostFoundFinder", $"found-finder-{id}",
+            GetCurrentUserId());
+        item.StorageLocation = request.StorageLocation?.Trim();
+        if (item.LockerCompartmentId != request.LockerCompartmentId)
+        {
+            if (item.LockerCompartmentId.HasValue)
+            {
+                var (releaseSuccess, releaseMessage) = await _lockerService.ReleaseCompartmentAsync(
+                    item.LockerCompartmentId.Value, GetCurrentUserId() ?? 0);
+                if (!releaseSuccess)
+                    return BadRequest(new { message = releaseMessage });
+            }
+
+            item.LockerCompartmentId = request.LockerCompartmentId;
+            if (request.LockerCompartmentId.HasValue)
+            {
+                var (assignSuccess, assignMessage) = await _lockerService.AssignCompartmentToFoundItemAsync(
+                    request.LockerCompartmentId.Value,
+                    item.FoundItemReportId,
+                    item.ItemEvidenceId,
+                    GetCurrentUserId() ?? 0);
+                if (!assignSuccess)
+                    return BadRequest(new { message = assignMessage });
+            }
+        }
+        await _context.SaveChangesAsync();
+        return Ok(item);
+    }
+
+    [HttpDelete("found-items/{id:long}")]
+    public async Task<IActionResult> DeleteFoundItemReport(long id)
+    {
+        var item = await _context.FoundItemReports.FindAsync(id);
+        if (item == null)
+            return NotFound(new { message = "Found item report not found." });
+        _context.FoundItemReports.Remove(item);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost("match/suggestions")]
@@ -260,6 +422,22 @@ public class EnterpriseLostFoundController : ControllerBase
             return BadRequest(new { message = "ClaimantName is required." });
         if (string.IsNullOrWhiteSpace(request.ClaimantIdNumber))
             return BadRequest(new { message = "ClaimantIdNumber is required." });
+        if (string.IsNullOrWhiteSpace(request.ClaimantPhotoUrl) && string.IsNullOrWhiteSpace(request.ClaimantPhotoBase64))
+            return BadRequest(new { message = "Claimant photo is required." });
+        if (string.IsNullOrWhiteSpace(request.ItemPhotoUrl) && string.IsNullOrWhiteSpace(request.ItemPhotoBase64))
+            return BadRequest(new { message = "Claimant item photo is required." });
+        var hasActiveClaim = await _context.ClaimRequests.AnyAsync(c =>
+            c.FoundItemReportId == request.FoundItemReportId &&
+            (c.Status == "Pending" || c.Status == "Approved"));
+        if (hasActiveClaim)
+            return BadRequest(new { message = "Found item already has an active claim request." });
+
+        var claimantPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ClaimantPhotoBase64, request.ClaimantPhotoUrl, null, "LostFoundClaimant", $"claimant-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+            GetCurrentUserId());
+        var claimantItemPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ItemPhotoBase64, request.ItemPhotoUrl, null, "LostFoundClaimItem", $"claim-item-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
+            GetCurrentUserId());
 
         var claim = new ClaimRequest
         {
@@ -269,6 +447,8 @@ public class EnterpriseLostFoundController : ControllerBase
             ClaimantIdNumber = request.ClaimantIdNumber.Trim(),
             ClaimantPhone = request.ClaimantPhone?.Trim() ?? string.Empty,
             ProofDocumentUrl = request.ProofDocumentUrl?.Trim(),
+            ClaimantPhotoUrl = claimantPhotoUrl?.Trim(),
+            ItemPhotoUrl = claimantItemPhotoUrl?.Trim(),
             Status = "Pending"
         };
 
@@ -300,8 +480,114 @@ public class EnterpriseLostFoundController : ControllerBase
         return Ok(claims);
     }
 
+    [HttpPut("claim-requests/{id:long}")]
+    public async Task<IActionResult> UpdateClaimRequest(long id, [FromBody] ClaimRequestRequest request)
+    {
+        var claim = await _context.ClaimRequests
+            .Include(c => c.FoundItem)
+            .FirstOrDefaultAsync(c => c.ClaimRequestId == id);
+
+        if (claim == null)
+            return NotFound(new { message = "Claim request not found." });
+        if (claim.Status is "Approved" or "Completed")
+            return BadRequest(new { message = "Approved or completed claim request cannot be edited." });
+        if (!await _context.FoundItemReports.AnyAsync(f => f.FoundItemReportId == request.FoundItemReportId))
+            return BadRequest(new { message = "Found item report not found." });
+        if (string.IsNullOrWhiteSpace(request.ClaimantName))
+            return BadRequest(new { message = "ClaimantName is required." });
+        if (string.IsNullOrWhiteSpace(request.ClaimantIdNumber))
+            return BadRequest(new { message = "ClaimantIdNumber is required." });
+        if (string.IsNullOrWhiteSpace(request.ClaimantPhotoUrl) && string.IsNullOrWhiteSpace(request.ClaimantPhotoBase64) && string.IsNullOrWhiteSpace(claim.ClaimantPhotoUrl))
+            return BadRequest(new { message = "Claimant photo is required." });
+        if (string.IsNullOrWhiteSpace(request.ItemPhotoUrl) && string.IsNullOrWhiteSpace(request.ItemPhotoBase64) && string.IsNullOrWhiteSpace(claim.ItemPhotoUrl))
+            return BadRequest(new { message = "Claimant item photo is required." });
+
+        var hasActiveClaim = await _context.ClaimRequests.AnyAsync(c =>
+            c.ClaimRequestId != id &&
+            c.FoundItemReportId == request.FoundItemReportId &&
+            (c.Status == "Pending" || c.Status == "Approved"));
+        if (hasActiveClaim)
+            return BadRequest(new { message = "Found item already has an active claim request." });
+
+        var previousFoundItemId = claim.FoundItemReportId;
+        claim.FoundItemReportId = request.FoundItemReportId;
+        claim.LostItemReportId = request.LostItemReportId;
+        claim.ClaimantName = request.ClaimantName.Trim();
+        claim.ClaimantIdNumber = request.ClaimantIdNumber.Trim();
+        claim.ClaimantPhone = request.ClaimantPhone?.Trim() ?? string.Empty;
+        claim.ProofDocumentUrl = request.ProofDocumentUrl?.Trim();
+        claim.ClaimantPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ClaimantPhotoBase64, request.ClaimantPhotoUrl, claim.ClaimantPhotoUrl, "LostFoundClaimant", $"claimant-update-{id}",
+            GetCurrentUserId());
+        claim.ItemPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ItemPhotoBase64, request.ItemPhotoUrl, claim.ItemPhotoUrl, "LostFoundClaimItem", $"claim-item-update-{id}",
+            GetCurrentUserId());
+        claim.Status = "Pending";
+        claim.ReviewedByUserId = null;
+        claim.ReviewedAtUtc = null;
+        claim.ReviewNote = null;
+        claim.RejectionReason = null;
+        claim.CompletedAtUtc = null;
+        claim.CompletedByUserId = null;
+        claim.WitnessName = null;
+        claim.HandoverNote = null;
+        claim.ReturnPhotoUrl = null;
+
+        if (previousFoundItemId != request.FoundItemReportId)
+        {
+            var previousFound = await _context.FoundItemReports.FindAsync(previousFoundItemId);
+            if (previousFound != null && previousFound.Status == "ClaimPending")
+            {
+                var stillHasActiveClaims = await _context.ClaimRequests.AnyAsync(c =>
+                    c.ClaimRequestId != id &&
+                    c.FoundItemReportId == previousFoundItemId &&
+                    (c.Status == "Pending" || c.Status == "Approved"));
+                if (!stillHasActiveClaims)
+                    previousFound.Status = "Unclaimed";
+            }
+        }
+
+        var currentFound = await _context.FoundItemReports.FindAsync(request.FoundItemReportId);
+        if (currentFound != null && currentFound.Status != "Returned")
+            currentFound.Status = "ClaimPending";
+
+        await _context.SaveChangesAsync();
+        return Ok(claim);
+    }
+
+    [HttpDelete("claim-requests/{id:long}")]
+    public async Task<IActionResult> CancelClaimRequest(long id)
+    {
+        var claim = await _context.ClaimRequests.FindAsync(id);
+        if (claim == null)
+            return NotFound(new { message = "Claim request not found." });
+        if (claim.Status == "Completed")
+            return BadRequest(new { message = "Completed claim request cannot be cancelled." });
+
+        claim.Status = "Cancelled";
+        claim.ReviewedByUserId ??= GetCurrentUserId();
+        claim.ReviewedAtUtc ??= DateTime.UtcNow;
+        claim.RejectionReason = string.IsNullOrWhiteSpace(claim.RejectionReason)
+            ? "Claim request cancelled."
+            : claim.RejectionReason;
+
+        var found = await _context.FoundItemReports.FindAsync(claim.FoundItemReportId);
+        if (found != null && found.Status == "ClaimPending")
+        {
+            var hasActiveClaims = await _context.ClaimRequests.AnyAsync(c =>
+                c.ClaimRequestId != id &&
+                c.FoundItemReportId == claim.FoundItemReportId &&
+                (c.Status == "Pending" || c.Status == "Approved"));
+            if (!hasActiveClaims)
+                found.Status = "Unclaimed";
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(claim);
+    }
+
     [HttpPatch("claim-requests/{id:long}/approve")]
-    public async Task<IActionResult> ApproveClaimRequest(long id)
+    public async Task<IActionResult> ApproveClaimRequest(long id, [FromBody] ReviewClaimRequest? request)
     {
         var claim = await _context.ClaimRequests
             .Include(c => c.FoundItem)
@@ -315,13 +601,36 @@ public class EnterpriseLostFoundController : ControllerBase
         claim.Status = "Approved";
         claim.ReviewedByUserId = GetCurrentUserId();
         claim.ReviewedAtUtc = DateTime.UtcNow;
+        claim.ReviewNote = request?.Note?.Trim();
+
+        await _context.SaveChangesAsync();
+        return Ok(claim);
+    }
+
+    [HttpPatch("claim-requests/{id:long}/reject")]
+    public async Task<IActionResult> RejectClaim(long id, [FromBody] RejectClaimRequest request)
+    {
+        var claim = await _context.ClaimRequests.FindAsync(id);
+        if (claim == null)
+            return NotFound(new { message = "Claim request not found." });
+        if (claim.Status != "Pending")
+            return BadRequest(new { message = "Claim request is not pending." });
+
+        claim.Status = "Rejected";
+        claim.ReviewedByUserId = GetCurrentUserId();
+        claim.ReviewedAtUtc = DateTime.UtcNow;
+        claim.RejectionReason = request.Reason?.Trim();
+
+        var found = await _context.FoundItemReports.FindAsync(claim.FoundItemReportId);
+        if (found != null && found.Status == "ClaimPending")
+            found.Status = "Unclaimed";
 
         await _context.SaveChangesAsync();
         return Ok(claim);
     }
 
     [HttpPatch("claim-requests/{id:long}/complete")]
-    public async Task<IActionResult> CompleteClaimRequest(long id)
+    public async Task<IActionResult> CompleteClaimRequest(long id, [FromBody] CompleteClaimRequestRequest request)
     {
         var claim = await _context.ClaimRequests
             .Include(c => c.FoundItem)
@@ -332,9 +641,26 @@ public class EnterpriseLostFoundController : ControllerBase
             return NotFound(new { message = "Claim request not found." });
         if (claim.Status != "Approved")
             return BadRequest(new { message = "Claim request is not approved." });
+        if (string.IsNullOrWhiteSpace(request.HandoverNote))
+            return BadRequest(new { message = "HandoverNote is required." });
+        if (string.IsNullOrWhiteSpace(request.ReturnPhotoUrl) && string.IsNullOrWhiteSpace(request.ReturnPhotoBase64))
+            return BadRequest(new { message = "Return photo is required." });
+
+        claim.ClaimantPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ClaimantPhotoBase64, request.ClaimantPhotoUrl, claim.ClaimantPhotoUrl, "LostFoundClaimant", $"claimant-complete-{id}",
+            GetCurrentUserId());
+        var returnPhotoUrl = await ResolvePhotoUrlAsync(
+            request.ReturnPhotoBase64, request.ReturnPhotoUrl, claim.ReturnPhotoUrl, "LostFoundReturn", $"return-{id}",
+            GetCurrentUserId());
+        if (string.IsNullOrWhiteSpace(claim.ClaimantPhotoUrl))
+            return BadRequest(new { message = "Claimant photo is required before completing handover." });
 
         claim.Status = "Completed";
         claim.CompletedAtUtc = DateTime.UtcNow;
+        claim.CompletedByUserId = GetCurrentUserId();
+        claim.WitnessName = request.WitnessName?.Trim();
+        claim.HandoverNote = request.HandoverNote.Trim();
+        claim.ReturnPhotoUrl = returnPhotoUrl?.Trim();
 
         if (claim.FoundItem != null)
         {
@@ -346,6 +672,19 @@ public class EnterpriseLostFoundController : ControllerBase
                 await _lockerService.ReleaseCompartmentAsync(
                     claim.FoundItem.LockerCompartmentId.Value,
                     GetCurrentUserId() ?? 0);
+            }
+
+            if (claim.FoundItem.ItemEvidenceId.HasValue)
+            {
+                _context.ChainOfCustodyEntries.Add(new ChainOfCustodyEntry
+                {
+                    EvidenceItemId = claim.FoundItem.ItemEvidenceId.Value,
+                    Action = "ReturnedToOwner",
+                    ActorUserId = GetCurrentUserId(),
+                    FromCustodian = claim.FoundItem.StorageLocation ?? claim.FoundItem.LockerCompartment?.Code,
+                    ToCustodian = claim.ClaimantName,
+                    Note = BuildHandoverNote(claim, request)
+                });
             }
         }
 
@@ -361,6 +700,37 @@ public class EnterpriseLostFoundController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok(claim);
+    }
+
+    [HttpPut("locker-cabinets/{id:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateLockerCabinet(int id, [FromBody] LockerCabinetRequest request)
+    {
+        var cabinet = await _context.LockerCabinets.FindAsync(id);
+        if (cabinet == null)
+            return NotFound(new { message = "Cabinet not found." });
+
+        cabinet.Name = request.Name.Trim();
+        cabinet.Location = request.Location?.Trim();
+        cabinet.Description = request.Description?.Trim();
+        await _context.SaveChangesAsync();
+        return Ok(cabinet);
+    }
+
+    [HttpDelete("locker-cabinets/{id:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteLockerCabinet(int id)
+    {
+        var cabinet = await _context.LockerCabinets.FindAsync(id);
+        if (cabinet == null)
+            return NotFound(new { message = "Cabinet not found." });
+        var compartments = await _context.LockerCompartments.Where(c => c.LockerCabinetId == id).ToListAsync();
+        if (compartments.Any(c => c.Status != "Empty"))
+            return BadRequest(new { message = "Cannot delete cabinet with occupied compartments." });
+        _context.LockerCompartments.RemoveRange(compartments);
+        _context.LockerCabinets.Remove(cabinet);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost("locker-cabinets")]
@@ -496,11 +866,86 @@ public class EnterpriseLostFoundController : ControllerBase
         return int.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 
-    public sealed record LostItemReportRequest(string ReporterName, string ReporterPhone, string? ReporterEmail, string ItemDescription, string? LastSeenLocation, DateTime LostAtUtc, string? PhotoUrl);
-    public sealed record FoundItemReportRequest(string FoundByName, string FoundLocation, DateTime FoundAtUtc, string ItemDescription, string? PhotoUrl, string? PhotoBase64, string? StorageLocation, int? LockerCompartmentId);
+    private async Task<string?> ResolvePhotoUrlAsync(
+        string? photoBase64,
+        string? requestedUrl,
+        string? currentUrl,
+        string evidenceType,
+        string sourceRef,
+        int? currentUserId)
+    {
+        if (!string.IsNullOrWhiteSpace(photoBase64))
+        {
+            return await _evidenceCapture.CaptureBase64Async(
+                photoBase64,
+                evidenceType,
+                sourceRef,
+                createdByUserId: currentUserId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestedUrl))
+            return requestedUrl.Trim();
+
+        return currentUrl?.Trim();
+    }
+
+    private static string BuildHandoverNote(ClaimRequest claim, CompleteClaimRequestRequest request)
+    {
+        var parts = new List<string>
+        {
+            $"Claimant: {claim.ClaimantName}",
+            $"ID: {claim.ClaimantIdNumber}",
+            $"Phone: {claim.ClaimantPhone}",
+            $"Handover note: {request.HandoverNote.Trim()}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.WitnessName))
+            parts.Add($"Witness: {request.WitnessName.Trim()}");
+
+        return string.Join(" | ", parts);
+    }
+
+    public sealed record LostItemReportRequest(
+        string ReporterName,
+        string ReporterPhone,
+        string? ReporterEmail,
+        string? ReporterIdNumber,
+        string? ReporterPhotoUrl,
+        string? ReporterPhotoBase64,
+        string ItemDescription,
+        string? LastSeenLocation,
+        DateTime LostAtUtc,
+        string? PhotoUrl,
+        string? ItemPhotoBase64);
+    public sealed record FoundItemReportRequest(
+        string FoundByName,
+        string? FoundByPhone,
+        string? FoundByIdNumber,
+        string? FinderPhotoUrl,
+        string? FinderPhotoBase64,
+        string FoundLocation,
+        DateTime FoundAtUtc,
+        string ItemDescription,
+        string? PhotoUrl,
+        string? PhotoBase64,
+        string? StorageLocation,
+        int? LockerCompartmentId);
     public sealed record CreateMatchRequest(long LostItemReportId, long FoundItemReportId, double ConfidenceScore, string? Note);
-    public sealed record ClaimRequestRequest(long FoundItemReportId, long? LostItemReportId, string ClaimantName, string ClaimantIdNumber, string? ClaimantPhone, string? ProofDocumentUrl);
+    public sealed record ClaimRequestRequest(
+        long FoundItemReportId,
+        long? LostItemReportId,
+        string ClaimantName,
+        string ClaimantIdNumber,
+        string? ClaimantPhone,
+        string? ProofDocumentUrl,
+        string? ClaimantPhotoUrl,
+        string? ClaimantPhotoBase64,
+        string? ItemPhotoUrl,
+        string? ItemPhotoBase64);
     public sealed record LockerCabinetRequest(string Name, string? Location, string? Description);
     public sealed record CreateCompartmentsRequest(List<string> Codes);
     public sealed record AssignCompartmentRequest(long EvidenceItemId);
+    public sealed record RejectClaimRequest(string? Reason);
+    public sealed record ReviewClaimRequest(string? Note);
+    public sealed record CompleteClaimRequestRequest(string? ClaimantPhotoUrl, string? ClaimantPhotoBase64, string? ReturnPhotoUrl, string? ReturnPhotoBase64, string? WitnessName, string HandoverNote);
 }
