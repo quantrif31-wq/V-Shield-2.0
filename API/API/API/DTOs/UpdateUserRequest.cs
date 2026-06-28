@@ -7,13 +7,13 @@ public class UpdateUserRequest
     [MaxLength(100)]
     public string? FullName { get; set; }
 
-    /// <summary>Admin | Staff | BaoVe</summary>
-    [RegularExpression("^(Admin|Staff|BaoVe)$", ErrorMessage = "Role phải là Admin, Staff hoặc BaoVe")]
+    /// <summary>Admin | Staff | BaoVe | QuanLy | LeTan</summary>
+    [RegularExpression("^(Admin|Staff|BaoVe|QuanLy|LeTan)$", ErrorMessage = "Role phai la Admin, Staff, BaoVe, QuanLy hoac LeTan")]
     public string? Role { get; set; }
 
     public bool? IsActive { get; set; }
 
-    /// <summary>Để trống nếu không muốn đổi mật khẩu</summary>
+    /// <summary>De trong neu khong muon doi mat khau</summary>
     [MinLength(6)]
     public string? Password { get; set; }
 

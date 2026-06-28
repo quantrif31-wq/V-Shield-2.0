@@ -166,6 +166,50 @@ public class ParkingPermit
     public Visit? Visit { get; set; }
 }
 
+public static class ReceptionInteractionTypes
+{
+    public const string HostContact = "HostContact";
+    public const string VisitorSupport = "VisitorSupport";
+    public const string SecurityDispatch = "SecurityDispatch";
+    public const string ParkingInquiry = "ParkingInquiry";
+    public const string LostFoundSupport = "LostFoundSupport";
+    public const string Wayfinding = "Wayfinding";
+    public const string FollowUp = "FollowUp";
+}
+
+public static class ReceptionInteractionStatuses
+{
+    public const string Open = "Open";
+    public const string InProgress = "InProgress";
+    public const string Resolved = "Resolved";
+    public const string Escalated = "Escalated";
+    public const string Cancelled = "Cancelled";
+}
+
+public class ReceptionInteraction
+{
+    public long ReceptionInteractionId { get; set; }
+    public int? VisitId { get; set; }
+    public long? LostItemReportId { get; set; }
+    public long? FoundItemReportId { get; set; }
+    [MaxLength(60)] public string InteractionType { get; set; } = ReceptionInteractionTypes.VisitorSupport;
+    [MaxLength(200)] public string Summary { get; set; } = string.Empty;
+    [MaxLength(2000)] public string? DetailNote { get; set; }
+    [MaxLength(180)] public string? ContactPersonName { get; set; }
+    [MaxLength(80)] public string? ContactPersonPhone { get; set; }
+    [MaxLength(40)] public string? RelatedVehiclePlate { get; set; }
+    [MaxLength(40)] public string Status { get; set; } = ReceptionInteractionStatuses.Open;
+    public bool SecurityRequested { get; set; }
+    [MaxLength(1000)] public string? ResolutionNote { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAtUtc { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public int? UpdatedByUserId { get; set; }
+    public Visit? Visit { get; set; }
+    public LostItemReport? LostItemReport { get; set; }
+    public FoundItemReport? FoundItemReport { get; set; }
+}
+
 public class SecurityBarrier
 {
     public int BarrierId { get; set; }

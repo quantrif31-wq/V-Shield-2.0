@@ -11,7 +11,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/visitor-vehicle")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin,BaoVe,LeTan")]
 public class EnterpriseVisitorVehicleController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -38,6 +38,193 @@ public class EnterpriseVisitorVehicleController : ControllerBase
             Barriers = await _context.Barriers.CountAsync(),
             LaneEvents = await _context.LaneEvents.CountAsync()
         });
+    }
+
+    [HttpGet("reception/overview")]
+    public async Task<IActionResult> GetReceptionOverview()
+    {
+        var now = DateTime.UtcNow;
+        var startOfDay = now.Date;
+        var endOfDay = startOfDay.AddDays(1);
+
+        var pendingArrivalStatuses = new[] { VisitStatuses.Invited, VisitStatuses.Approved };
+        var activeStatuses = new[] { VisitStatuses.CheckedIn, VisitStatuses.Overstay };
+
+        return Ok(new
+        {
+            TodayVisits = await _context.Visits.CountAsync(v => v.ExpectedInUtc >= startOfDay && v.ExpectedInUtc < endOfDay),
+            PendingArrivals = await _context.Visits.CountAsync(v => pendingArrivalStatuses.Contains(v.Status) && v.ExpectedInUtc >= startOfDay && v.ExpectedInUtc < endOfDay),
+            ActiveVisitors = await _context.Visits.CountAsync(v => activeStatuses.Contains(v.Status)),
+            OverdueVisitors = await _context.Visits.CountAsync(v => activeStatuses.Contains(v.Status) && v.ExpectedOutUtc < now),
+            LateArrivalsNeedFollowUp = await _context.Visits.CountAsync(v => pendingArrivalStatuses.Contains(v.Status) && v.ExpectedInUtc < now),
+            OpenSecurityRequests = await _context.ReceptionInteractions.CountAsync(i =>
+                i.SecurityRequested &&
+                (i.Status == ReceptionInteractionStatuses.Open ||
+                 i.Status == ReceptionInteractionStatuses.InProgress ||
+                 i.Status == ReceptionInteractionStatuses.Escalated)),
+            LostFoundCases = await _context.LostItemReports.CountAsync(l => l.Status == "Pending") +
+                             await _context.FoundItemReports.CountAsync(f => f.Status == "Unclaimed")
+        });
+    }
+
+    [HttpGet("reception/board")]
+    public async Task<IActionResult> GetReceptionBoard([FromQuery] string? search)
+    {
+        var now = DateTime.UtcNow;
+        var startOfDay = now.Date;
+        var endOfDay = startOfDay.AddDays(1);
+        var pendingArrivalStatuses = new[] { VisitStatuses.Invited, VisitStatuses.Approved };
+        var activeStatuses = new[] { VisitStatuses.CheckedIn, VisitStatuses.Overstay };
+
+        var baseQuery = _context.Visits
+            .AsNoTracking()
+            .Include(v => v.HostEmployee)
+            .Include(v => v.Site)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var keyword = search.Trim();
+            baseQuery = baseQuery.Where(v =>
+                v.VisitorName.Contains(keyword) ||
+                (v.VisitorPhone != null && v.VisitorPhone.Contains(keyword)) ||
+                (v.VisitorEmail != null && v.VisitorEmail.Contains(keyword)) ||
+                (v.HostEmployee != null && v.HostEmployee.FullName.Contains(keyword)));
+        }
+
+        var arrivals = await baseQuery
+            .Where(v => v.ExpectedInUtc >= startOfDay && v.ExpectedInUtc < endOfDay)
+            .OrderBy(v => v.ExpectedInUtc)
+            .Take(100)
+            .ToListAsync();
+
+        var overdue = await baseQuery
+            .Where(v => activeStatuses.Contains(v.Status) && v.ExpectedOutUtc < now)
+            .OrderBy(v => v.ExpectedOutUtc)
+            .Take(50)
+            .ToListAsync();
+
+        var lateArrivals = await baseQuery
+            .Where(v => pendingArrivalStatuses.Contains(v.Status) && v.ExpectedInUtc < now)
+            .OrderBy(v => v.ExpectedInUtc)
+            .Take(50)
+            .ToListAsync();
+
+        var activeVisitors = await baseQuery
+            .Where(v => activeStatuses.Contains(v.Status))
+            .OrderBy(v => v.ExpectedOutUtc)
+            .Take(50)
+            .ToListAsync();
+
+        var recentInteractions = await _context.ReceptionInteractions
+            .AsNoTracking()
+            .OrderByDescending(i => i.CreatedAtUtc)
+            .Take(20)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            arrivals,
+            overdue,
+            lateArrivals,
+            activeVisitors,
+            recentInteractions
+        });
+    }
+
+    [HttpGet("reception/lost-found")]
+    public async Task<IActionResult> GetReceptionLostFound([FromQuery] string? search)
+    {
+        var keyword = search?.Trim();
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return Ok(new
+            {
+                lostItems = Array.Empty<object>(),
+                foundItems = Array.Empty<object>()
+            });
+        }
+
+        var lostItems = await _context.LostItemReports
+            .AsNoTracking()
+            .Where(item =>
+                item.ReporterName.Contains(keyword) ||
+                (item.ReporterPhone != null && item.ReporterPhone.Contains(keyword)) ||
+                (item.ReporterIdNumber != null && item.ReporterIdNumber.Contains(keyword)) ||
+                item.ItemDescription.Contains(keyword))
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Take(20)
+            .ToListAsync();
+
+        var foundItems = await _context.FoundItemReports
+            .AsNoTracking()
+            .Where(item =>
+                item.FoundByName.Contains(keyword) ||
+                (item.FoundByPhone != null && item.FoundByPhone.Contains(keyword)) ||
+                (item.FoundByIdNumber != null && item.FoundByIdNumber.Contains(keyword)) ||
+                item.ItemDescription.Contains(keyword))
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Take(20)
+            .ToListAsync();
+
+        return Ok(new { lostItems, foundItems });
+    }
+
+    [HttpGet("reception/interactions")]
+    public async Task<IActionResult> GetReceptionInteractions([FromQuery] int? visitId, [FromQuery] string? status)
+    {
+        var query = _context.ReceptionInteractions.AsNoTracking().AsQueryable();
+        if (visitId.HasValue)
+            query = query.Where(item => item.VisitId == visitId.Value);
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(item => item.Status == status);
+
+        var items = await query
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Take(100)
+            .ToListAsync();
+
+        return Ok(items);
+    }
+
+    [HttpPost("reception/interactions")]
+    public async Task<IActionResult> CreateReceptionInteraction([FromBody] ReceptionInteractionRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Summary))
+            return BadRequest(new { message = "Summary is required." });
+
+        if (request.VisitId.HasValue && !await _context.Visits.AnyAsync(v => v.VisitId == request.VisitId.Value))
+            return BadRequest(new { message = "Visit not found." });
+
+        if (request.LostItemReportId.HasValue && !await _context.LostItemReports.AnyAsync(item => item.LostItemReportId == request.LostItemReportId.Value))
+            return BadRequest(new { message = "Lost item report not found." });
+
+        if (request.FoundItemReportId.HasValue && !await _context.FoundItemReports.AnyAsync(item => item.FoundItemReportId == request.FoundItemReportId.Value))
+            return BadRequest(new { message = "Found item report not found." });
+
+        var interaction = new ReceptionInteraction
+        {
+            VisitId = request.VisitId,
+            LostItemReportId = request.LostItemReportId,
+            FoundItemReportId = request.FoundItemReportId,
+            InteractionType = string.IsNullOrWhiteSpace(request.InteractionType) ? ReceptionInteractionTypes.VisitorSupport : request.InteractionType.Trim(),
+            Summary = request.Summary.Trim(),
+            DetailNote = request.DetailNote?.Trim(),
+            ContactPersonName = request.ContactPersonName?.Trim(),
+            ContactPersonPhone = request.ContactPersonPhone?.Trim(),
+            RelatedVehiclePlate = request.RelatedVehiclePlate?.Trim(),
+            Status = string.IsNullOrWhiteSpace(request.Status) ? ReceptionInteractionStatuses.Open : request.Status.Trim(),
+            SecurityRequested = request.SecurityRequested,
+            ResolutionNote = request.ResolutionNote?.Trim(),
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow,
+            CreatedByUserId = GetCurrentUserId(),
+            UpdatedByUserId = GetCurrentUserId()
+        };
+
+        _context.ReceptionInteractions.Add(interaction);
+        await _context.SaveChangesAsync();
+        return Ok(interaction);
     }
 
     [HttpGet("visits")]
@@ -94,8 +281,39 @@ public class EnterpriseVisitorVehicleController : ControllerBase
         var formAcceptances = await _context.VisitorFormAcceptances
             .Include(a => a.Template)
             .Where(a => a.VisitId == visitId).ToListAsync();
+        var latestParkingPermit = await _context.ParkingPermits
+            .Include(p => p.ParkingArea)
+            .Include(p => p.Vehicle)
+            .Where(p => p.VisitId == visitId && !p.IsRevoked)
+            .OrderByDescending(p => p.ValidToUtc)
+            .FirstOrDefaultAsync();
+        var latestLaneEvent = latestParkingPermit?.VehicleId == null
+            ? null
+            : await _context.LaneEvents
+                .Include(e => e.Lane)
+                .Where(e => e.VehicleId == latestParkingPermit.VehicleId)
+                .OrderByDescending(e => e.OccurredAtUtc)
+                .FirstOrDefaultAsync();
+        var interactions = await _context.ReceptionInteractions
+            .Where(i => i.VisitId == visitId)
+            .OrderByDescending(i => i.CreatedAtUtc)
+            .Take(20)
+            .ToListAsync();
 
-        return Ok(new { visit, credentials, checkIn, formAcceptances });
+        return Ok(new
+        {
+            visit,
+            credentials,
+            checkIn,
+            formAcceptances,
+            receptionContext = new
+            {
+                latestParkingPermit,
+                latestLaneEvent,
+                interactions,
+                currentPresence = checkIn?.CheckedInAtUtc != null && checkIn.CheckedOutAtUtc == null ? "OnSite" : "OffSite"
+            }
+        });
     }
 
     [HttpGet("visits/overstays")]
@@ -112,6 +330,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("watchlist-entries")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetWatchlistEntries([FromQuery] bool? active, [FromQuery] string? entityType)
     {
         var query = _context.WatchlistEntries.AsQueryable();
@@ -124,6 +343,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("watchlist-matches")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetWatchlistMatches(
         [FromQuery] string? status,
         [FromQuery] string? severity,
@@ -285,6 +505,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("visits/{visitId:int}/credentials")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> IssueVisitorCredential(int visitId, [FromBody] VisitorCredentialRequest request)
     {
         var visit = await _context.Visits.FindAsync(visitId);
@@ -426,6 +647,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPatch("watchlist-matches/{matchId:int}/review")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> ReviewWatchlistMatch(int matchId, [FromBody] WatchlistReviewRequest request)
     {
         var match = await _context.WatchlistMatches.FindAsync(matchId);
@@ -441,7 +663,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("parking-areas")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateParkingArea([FromBody] ParkingAreaRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -460,6 +682,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("parking-permits")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateParkingPermit([FromBody] ParkingPermitRequest request)
     {
         if (!await _context.ParkingAreas.AnyAsync(area => area.ParkingAreaId == request.ParkingAreaId))
@@ -483,7 +706,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("barriers")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> CreateBarrier([FromBody] BarrierRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -502,6 +725,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("barriers/{barrierId:int}/commands")]
+    [Authorize(Roles = "Admin,BaoVe")]
     [RequireStepUp(PrivilegedActions.DeviceConfiguration)]
     public async Task<IActionResult> RecordBarrierCommand(int barrierId, [FromBody] BarrierCommandRequest request)
     {
@@ -545,6 +769,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("lane-events")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> RecordLaneEvent([FromBody] LaneEventRequest request)
     {
         var laneEvent = new LaneEvent
@@ -592,6 +817,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("barriers")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetBarriers([FromQuery] int? laneId, [FromQuery] bool? active)
     {
         var query = _context.Barriers.Include(b => b.Lane).AsQueryable();
@@ -601,6 +827,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("barriers/{barrierId:int}/commands")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetBarrierCommands(int barrierId, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
     {
         if (!await _context.Barriers.AnyAsync(b => b.BarrierId == barrierId))
@@ -612,6 +839,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("lane-events")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetLaneEvents(
         [FromQuery] int? laneId,
         [FromQuery] int? vehicleId,
@@ -629,6 +857,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("lane-health")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetLaneHealth()
     {
         var lanes = await _context.Lanes.Where(l => l.IsActive).ToListAsync();
@@ -660,7 +889,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPost("barriers/{barrierId:int}/simulate")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> SimulateBarrierCommand(int barrierId, [FromBody] SimulateBarrierRequest request)
     {
         var barrier = await _context.Barriers.FindAsync(barrierId);
@@ -691,6 +920,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpGet("adjudications")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> GetAdjudications(
         [FromQuery] string? status,
         [FromQuery] string? aiSource,
@@ -706,6 +936,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     }
 
     [HttpPatch("adjudications/{adjudicationId:int}/review")]
+    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> ReviewAdjudication(int adjudicationId, [FromBody] AdjudicationReviewRequest request)
     {
         var item = await _context.AiAdjudicationItems.FindAsync(adjudicationId);
@@ -762,4 +993,17 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public sealed record RevokeContractorRequest(string? Reason);
     public sealed record SimulateBarrierRequest(string? Command, string? Reason);
     public sealed record AdjudicationReviewRequest(string? Status, string? Outcome, string? ReviewNote);
+    public sealed record ReceptionInteractionRequest(
+        int? VisitId,
+        long? LostItemReportId,
+        long? FoundItemReportId,
+        string? InteractionType,
+        string Summary,
+        string? DetailNote,
+        string? ContactPersonName,
+        string? ContactPersonPhone,
+        string? RelatedVehiclePlate,
+        string? Status,
+        bool SecurityRequested,
+        string? ResolutionNote);
 }

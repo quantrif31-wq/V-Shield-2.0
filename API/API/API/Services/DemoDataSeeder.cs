@@ -1123,6 +1123,7 @@ public static class DemoDataSeeder
 
         UpsertDemoUser(db, "admin", "Admin", "Quan tri vien", "Admin@123", null, now, resetPassword: false);
         UpsertDemoUser(db, "manager", "QuanLy", "Quan ly van hanh", "Manager@123", managerEmployee?.EmployeeId, now, resetPassword: true);
+        UpsertDemoUser(db, "letan1", "LeTan", "Le tan sanh chinh", "LeTan@123", employees.Skip(3).FirstOrDefault()?.EmployeeId ?? managerEmployee?.EmployeeId, now, resetPassword: true);
 
         for (var i = 0; i < 3; i++)
         {

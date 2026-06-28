@@ -72,6 +72,7 @@ function landingRouteForRole(role) {
     if (role === 'Staff') return { name: ROUTE_NAME_DYNAMIC_QR_GENERATOR }
     if (role === 'BaoVe') return { name: 'GateTransitMonitor' }
     if (role === 'QuanLy') return { name: 'Exceptions' }
+    if (role === 'LeTan') return { name: 'ReceptionDashboard' }
     return { name: 'Dashboard' }
 }
 
@@ -116,7 +117,7 @@ const routes = [
             { path: 'pre-registrations', name: 'PreRegistration', component: PreRegistration, meta: { allowedRoles: ['Admin'] } },
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },
             { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'] } },
             { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'parking-kiosk', name: 'ManualParkingFallback', component: ManualParkingFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },

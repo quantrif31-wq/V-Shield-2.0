@@ -60,6 +60,7 @@
                         <option value="">Tất cả vai trò</option>
                         <option value="Admin">Admin</option>
                         <option value="QuanLy">Quản lý</option>
+                        <option value="LeTan">Lễ tân</option>
                         <option value="Staff">Nhân viên</option>
                         <option value="BaoVe">Bảo vệ</option>
                     </select>
@@ -215,6 +216,7 @@
                                     <select v-model="modalForm.role" class="sleek-select" required>
                                         <option value="Admin">Admin</option>
                                         <option value="QuanLy">Quản lý</option>
+                                        <option value="LeTan">Lễ tân</option>
                                         <option value="Staff">Nhân viên</option>
                                         <option value="BaoVe">Bảo vệ</option>
                                     </select>
@@ -298,7 +300,7 @@ const modalForm = reactive({
     username: '',
     password: '',
     fullName: '',
-    role: 'Staff',
+    role: 'LeTan',
     isActive: true,
     employeeId: null
 })
@@ -406,7 +408,7 @@ function openCreateModal() {
     isEditing.value = false
     editingId.value = null
     modalError.value = ''
-    Object.assign(modalForm, { username: '', password: '', fullName: '', role: 'Staff', isActive: true, employeeId: null })
+    Object.assign(modalForm, { username: '', password: '', fullName: '', role: 'LeTan', isActive: true, employeeId: null })
     employeeSearchText.value = ''
     showEmployeeDropdown.value = false
     fetchEmployeesList()
@@ -483,12 +485,12 @@ const getAvatarColor = (str) => {
 }
 
 function getRoleLabel(role) {
-    const map = { Admin: 'Admin', QuanLy: 'Quản lý', Staff: 'Nhân viên', BaoVe: 'Bảo vệ' }
+    const map = { Admin: 'Admin', QuanLy: 'Quản lý', LeTan: 'Lễ tân', Staff: 'Nhân viên', BaoVe: 'Bảo vệ' }
     return map[role] || role
 }
 
 function getRoleBadgeClass(role) {
-    const map = { Admin: 'admin', QuanLy: 'staff', Staff: 'staff', BaoVe: 'guard' }
+    const map = { Admin: 'admin', QuanLy: 'staff', LeTan: 'staff', Staff: 'staff', BaoVe: 'guard' }
     return map[role] || 'staff'
 }
 

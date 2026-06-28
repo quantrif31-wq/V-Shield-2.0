@@ -20,7 +20,7 @@ public class AppUser
     [MaxLength(100)]
     public string? FullName { get; set; }
 
-    /// <summary>Admin | Staff | BaoVe</summary>
+    /// <summary>Admin | Staff | BaoVe | QuanLy | LeTan</summary>
     [Required]
     [MaxLength(20)]
     public string Role { get; set; } = "Staff";

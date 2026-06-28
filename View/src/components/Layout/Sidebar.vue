@@ -412,10 +412,10 @@ const navGroups = ref([
             },
             {
                 path: '/reception',
-                label: 'Reception',
-                hint: 'Check-in, walk-in, overstays',
+                label: 'Lễ tân',
+                hint: 'Hỗ trợ khách, tra cứu xe, đồ thất lạc',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><circle cx="12" cy="10" r="2"/></svg>',
-                roles: ['Admin', 'BaoVe'],
+                roles: ['Admin', 'BaoVe', 'LeTan'],
             },
             {
                 path: '/kiosk',

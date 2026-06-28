@@ -89,7 +89,7 @@ namespace API
                     .Build();
                 options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
                 options.AddPolicy("RuntimeOperator", policy => policy.RequireRole("Admin", "BaoVe"));
-                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "Staff"));
+                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "Staff", "LeTan"));
             });
 
             builder.Services.AddMemoryCache();
@@ -190,7 +190,7 @@ namespace API
                 {
                     Title = "V-Shield API",
                     Version = "v1",
-                    Description = "API quan ly he thong V-Shield voi phan quyen Admin/Staff/BaoVe"
+                    Description = "API quan ly he thong V-Shield voi phan quyen Admin/Staff/BaoVe/QuanLy/LeTan"
                 });
 
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

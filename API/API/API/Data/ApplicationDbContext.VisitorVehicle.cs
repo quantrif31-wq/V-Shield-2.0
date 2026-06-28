@@ -14,6 +14,7 @@ public partial class ApplicationDbContext
     public DbSet<WatchlistMatch> WatchlistMatches { get; set; }
     public DbSet<ParkingArea> ParkingAreas { get; set; }
     public DbSet<ParkingPermit> ParkingPermits { get; set; }
+    public DbSet<ReceptionInteraction> ReceptionInteractions { get; set; }
     public DbSet<SecurityBarrier> Barriers { get; set; }
     public DbSet<LaneEvent> LaneEvents { get; set; }
     public DbSet<BarrierCommandAudit> BarrierCommandAudits { get; set; }
@@ -99,6 +100,24 @@ public partial class ApplicationDbContext
             entity.HasOne(e => e.ParkingArea).WithMany().HasForeignKey(e => e.ParkingAreaId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Vehicle).WithMany().HasForeignKey(e => e.VehicleId).OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.Visit).WithMany().HasForeignKey(e => e.VisitId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ReceptionInteraction>(entity =>
+        {
+            entity.HasKey(e => e.ReceptionInteractionId);
+            entity.Property(e => e.InteractionType).IsRequired().HasMaxLength(60);
+            entity.Property(e => e.Summary).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DetailNote).HasMaxLength(2000);
+            entity.Property(e => e.ContactPersonName).HasMaxLength(180);
+            entity.Property(e => e.ContactPersonPhone).HasMaxLength(80);
+            entity.Property(e => e.RelatedVehiclePlate).HasMaxLength(40);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.ResolutionNote).HasMaxLength(1000);
+            entity.HasIndex(e => new { e.Status, e.CreatedAtUtc });
+            entity.HasIndex(e => new { e.VisitId, e.CreatedAtUtc });
+            entity.HasOne(e => e.Visit).WithMany().HasForeignKey(e => e.VisitId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.LostItemReport).WithMany().HasForeignKey(e => e.LostItemReportId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.FoundItemReport).WithMany().HasForeignKey(e => e.FoundItemReportId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<SecurityBarrier>(entity =>
