@@ -71,6 +71,7 @@ const GuideViewer = () => import('../pages/GuideViewer.vue')
 const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
 const Chat = () => import('../pages/Chat.vue')
 const NotificationRuleEditor = () => import('../pages/NotificationRuleEditor.vue')
+const IncidentMapPage = () => import('../pages/IncidentMapPage.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -152,6 +153,7 @@ const routes = [
             { path: 'import-export-history', name: 'ImportExportHistory', component: ImportExportHistory, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
             { path: 'enterprise-security', name: 'EnterpriseSecurityOperations', component: EnterpriseSecurityOperations, meta: { allowedRoles: ['Admin'] } },
             { path: 'soc-console', name: 'SocAlarmConsole', component: SocAlarmConsole, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'incident-map/:alarmId?', name: 'IncidentMap', component: IncidentMapPage, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'identity-management', name: 'IdentityManagement', component: IdentityManagement, meta: { allowedRoles: ['Admin'] } },
             { path: 'site-hierarchy', name: 'SiteHierarchy', component: SiteHierarchy, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
             { path: 'exceptions', name: 'Exceptions', component: Exceptions, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },

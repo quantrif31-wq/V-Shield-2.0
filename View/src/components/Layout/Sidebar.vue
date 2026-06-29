@@ -385,6 +385,13 @@ const navGroups = ref([
                 roles: ['Admin', 'BaoVe'],
             },
             {
+                path: '/incident-map',
+                label: 'Bản đồ sự cố',
+                hint: 'Định vị alarm trên bản đồ + chỉ đường',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="10" r="3"/><path d="M12 21s-8-4-8-10a8 8 0 0116 0c0 6-8 10-8 10z"/></svg>',
+                roles: ['Admin', 'BaoVe', 'QuanLy'],
+            },
+            {
                 path: '/qr-access-monitor',
                 label: 'Quét xác nhận vào cổng',
                 hint: 'Quét QR để xác nhận cho phép vào',
