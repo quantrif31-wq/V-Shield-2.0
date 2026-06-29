@@ -28,6 +28,13 @@ public class Notification
     [MaxLength(500)]
     public string? ActionUrl { get; set; }
 
+    public decimal? Latitude { get; set; }
+
+    public decimal? Longitude { get; set; }
+
+    [MaxLength(200)]
+    public string? LocationLabel { get; set; }
+
     public bool IsRead { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

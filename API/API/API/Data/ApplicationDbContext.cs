@@ -276,6 +276,8 @@ public partial class ApplicationDbContext : DbContext
         modelBuilder.Entity<Gate>(entity =>
         {
             entity.HasKey(e => e.GateId).HasName("PK__Gate__9582C65020BEEB76");
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
         });
 
         modelBuilder.Entity<GuestProfile>(entity =>

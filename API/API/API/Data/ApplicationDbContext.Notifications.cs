@@ -24,6 +24,8 @@ public partial class ApplicationDbContext
 
             entity.HasIndex(e => new { e.RecipientUserId, e.IsRead, e.CreatedAt });
             entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
         });
 
         modelBuilder.Entity<NotificationRule>(entity =>

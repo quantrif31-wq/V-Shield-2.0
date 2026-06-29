@@ -103,6 +103,8 @@ public class EmergencyPass
     public int? SecurityZoneId { get; set; }
     [MaxLength(120)] public string? LaneReference { get; set; }
     [MaxLength(160)] public string? LaneName { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
     [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
     [MaxLength(40)] public string Status { get; set; } = "Active";
     [MaxLength(80)] public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
@@ -186,6 +188,8 @@ public class DuressEvent
     public int? SiteId { get; set; }
     [MaxLength(40)] public string CredentialType { get; set; } = "Unknown";
     [MaxLength(200)] public string? Description { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
     public bool IsAcknowledged { get; set; }
     public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? AcknowledgedAtUtc { get; set; }

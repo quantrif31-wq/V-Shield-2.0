@@ -25,6 +25,10 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Severity).IsRequired().HasMaxLength(40);
             entity.Property(e => e.State).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Summary).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Altitude).HasColumnType("decimal(10,4)");
+            entity.Property(e => e.Accuracy).HasColumnType("decimal(10,4)");
             entity.HasIndex(e => new { e.State, e.Severity, e.CreatedAtUtc });
         });
 
@@ -79,6 +83,8 @@ public partial class ApplicationDbContext
         {
             entity.HasKey(e => e.DispatchTaskId);
             entity.Property(e => e.LocationText).IsRequired().HasMaxLength(160);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
             entity.Property(e => e.Priority).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Instructions).IsRequired().HasMaxLength(2000);

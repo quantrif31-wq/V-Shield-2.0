@@ -18,6 +18,10 @@ public partial class Gate
     [StringLength(200)]
     public string? Location { get; set; }
 
+    public decimal? Latitude { get; set; }
+
+    public decimal? Longitude { get; set; }
+
     [InverseProperty("Gate")]
     public virtual ICollection<AccessLog> AccessLogs { get; set; } = new List<AccessLog>();
 

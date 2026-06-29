@@ -119,18 +119,31 @@ public static class DemoDataSeeder
 
         var sites = new[]
         {
-            new Site { CompanyId = company.CompanyId, Name = "Head Office - Ha Noi", Code = "HN-HQ", Address = "Cau Giay, Ha Noi", CreatedAtUtc = now.AddMonths(-18) },
-            new Site { CompanyId = company.CompanyId, Name = "Factory Campus - Bac Ninh", Code = "BN-FAC", Address = "VSIP Bac Ninh", CreatedAtUtc = now.AddMonths(-16) },
-            new Site { CompanyId = company.CompanyId, Name = "Logistics Hub - Hai Phong", Code = "HP-LOG", Address = "Dinh Vu, Hai Phong", CreatedAtUtc = now.AddMonths(-12) }
+            new Site { CompanyId = company.CompanyId, Name = "Head Office - Ha Noi", Code = "HN-HQ", Address = "Cau Giay, Ha Noi", Latitude = 21.028511m, Longitude = 105.804817m, CreatedAtUtc = now.AddMonths(-18) },
+            new Site { CompanyId = company.CompanyId, Name = "Factory Campus - Bac Ninh", Code = "BN-FAC", Address = "VSIP Bac Ninh", Latitude = 21.186111m, Longitude = 106.076389m, CreatedAtUtc = now.AddMonths(-16) },
+            new Site { CompanyId = company.CompanyId, Name = "Logistics Hub - Hai Phong", Code = "HP-LOG", Address = "Dinh Vu, Hai Phong", Latitude = 20.866667m, Longitude = 106.684722m, CreatedAtUtc = now.AddMonths(-12) }
         };
         db.Sites.AddRange(sites);
         db.SaveChanges();
 
         var buildings = new List<Building>();
+        var buildingCoords = new Dictionary<string, (decimal lat, decimal lng)>
+        {
+            ["HN-HQ-ADM"] = (21.0286m, 105.8049m),
+            ["HN-HQ-OPS"] = (21.0287m, 105.8052m),
+            ["BN-FAC-ADM"] = (21.1862m, 106.0764m),
+            ["BN-FAC-OPS"] = (21.1860m, 106.0760m),
+            ["HP-LOG-ADM"] = (20.8668m, 106.6848m),
+            ["HP-LOG-OPS"] = (20.8665m, 106.6845m),
+        };
         foreach (var site in sites)
         {
-            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Administration", Code = $"{site.Code}-ADM" });
-            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Operations", Code = $"{site.Code}-OPS" });
+            var admCode = $"{site.Code}-ADM";
+            var opsCode = $"{site.Code}-OPS";
+            var (admLat, admLng) = buildingCoords.GetValueOrDefault(admCode, (site.Latitude ?? 0, site.Longitude ?? 0));
+            var (opsLat, opsLng) = buildingCoords.GetValueOrDefault(opsCode, (site.Latitude ?? 0, site.Longitude ?? 0));
+            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Administration", Code = admCode, Latitude = admLat, Longitude = admLng });
+            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Operations", Code = opsCode, Latitude = opsLat, Longitude = opsLng });
         }
         db.Buildings.AddRange(buildings);
         db.SaveChanges();
@@ -195,11 +208,11 @@ public static class DemoDataSeeder
 
         var gates = new[]
         {
-            new Gate { GateName = "HN Main Gate", Location = "Head office front gate" },
-            new Gate { GateName = "HN Basement Parking", Location = "Head office B1 ramp" },
-            new Gate { GateName = "BN Employee Gate", Location = "Factory employee entrance" },
-            new Gate { GateName = "BN Truck Gate", Location = "Factory logistics lane" },
-            new Gate { GateName = "HP Warehouse Gate", Location = "Logistics hub gate" }
+            new Gate { GateName = "HN Main Gate", Location = "Head office front gate", Latitude = 21.0284m, Longitude = 105.8045m },
+            new Gate { GateName = "HN Basement Parking", Location = "Head office B1 ramp", Latitude = 21.0283m, Longitude = 105.8049m },
+            new Gate { GateName = "BN Employee Gate", Location = "Factory employee entrance", Latitude = 21.1860m, Longitude = 106.0765m },
+            new Gate { GateName = "BN Truck Gate", Location = "Factory logistics lane", Latitude = 21.1858m, Longitude = 106.0761m },
+            new Gate { GateName = "HP Warehouse Gate", Location = "Logistics hub gate", Latitude = 20.8666m, Longitude = 106.6849m }
         };
         db.Gates.AddRange(gates);
         db.SaveChanges();
@@ -773,8 +786,99 @@ public static class DemoDataSeeder
         }
 
         SeedCampus3DScene(db, sites, now);
+        SeedGeolocationDemoData(db, now);
         SeedDemoNotifications(db, now);
         db.SaveChanges();
+    }
+
+    private static void SeedGeolocationDemoData(ApplicationDbContext db, DateTime now)
+    {
+        var sites = db.Sites.Where(s => s.Latitude == null).ToList();
+        foreach (var site in sites)
+        {
+            switch (site.Code)
+            {
+                case "HN-HQ": site.Latitude = 21.028511m; site.Longitude = 105.804817m; break;
+                case "BN-FAC": site.Latitude = 21.186111m; site.Longitude = 106.076389m; break;
+                case "HP-LOG": site.Latitude = 20.866667m; site.Longitude = 106.684722m; break;
+            }
+        }
+
+        var buildings = db.Buildings.Where(b => b.Latitude == null).ToList();
+        foreach (var building in buildings)
+        {
+            switch (building.Code)
+            {
+                case "HN-HQ-ADM": building.Latitude = 21.0286m; building.Longitude = 105.8049m; building.TotalFloors = 5; break;
+                case "HN-HQ-OPS": building.Latitude = 21.0287m; building.Longitude = 105.8052m; building.TotalFloors = 3; break;
+                case "BN-FAC-ADM": building.Latitude = 21.1862m; building.Longitude = 106.0764m; building.TotalFloors = 4; break;
+                case "BN-FAC-OPS": building.Latitude = 21.1860m; building.Longitude = 106.0760m; building.TotalFloors = 2; break;
+                case "HP-LOG-ADM": building.Latitude = 20.8668m; building.Longitude = 106.6848m; building.TotalFloors = 3; break;
+                case "HP-LOG-OPS": building.Latitude = 20.8665m; building.Longitude = 106.6845m; building.TotalFloors = 1; break;
+            }
+        }
+
+        var gatesList = db.Gates.Where(g => g.Latitude == null).ToList();
+        foreach (var gate in gatesList)
+        {
+            switch (gate.GateName)
+            {
+                case "HN Main Gate": gate.Latitude = 21.0284m; gate.Longitude = 105.8045m; break;
+                case "HN Basement Parking": gate.Latitude = 21.0283m; gate.Longitude = 105.8049m; break;
+                case "BN Employee Gate": gate.Latitude = 21.1860m; gate.Longitude = 106.0765m; break;
+                case "BN Truck Gate": gate.Latitude = 21.1858m; gate.Longitude = 106.0761m; break;
+                case "HP Warehouse Gate": gate.Latitude = 20.8666m; gate.Longitude = 106.6849m; break;
+            }
+        }
+
+        var accessPoints = db.AccessPoints.Where(ap => ap.Latitude == null).ToList();
+        foreach (var ap in accessPoints)
+        {
+            ap.Latitude = 21.0285m;
+            ap.Longitude = 105.8048m;
+        }
+
+        if (!db.IndoorPathNodes.Any())
+        {
+            var hnAdm = db.Buildings.FirstOrDefault(b => b.Code == "HN-HQ-ADM");
+            if (hnAdm != null)
+            {
+                var floors = db.FacilityFloors.Where(f => f.BuildingId == hnAdm.BuildingId).OrderBy(f => f.SortOrder).ToList();
+                var nodes = new List<IndoorPathNode>();
+
+                void AddNode(int floorSort, string label, string type, decimal x, decimal y, decimal z, bool isExit)
+                {
+                    var floor = floors.FirstOrDefault(f => f.SortOrder == floorSort);
+                    nodes.Add(new IndoorPathNode
+                    {
+                        BuildingId = hnAdm.BuildingId,
+                        FacilityFloorId = floor?.FacilityFloorId,
+                        Label = label,
+                        NodeType = type,
+                        X = x, Y = y, Z = z,
+                        IsEmergencyExit = isExit,
+                        NeighborsJson = "[]"
+                    });
+                }
+
+                AddNode(1, "Lối vào chính (F1)", "Entrance", 0m, 0m, 0m, false);
+                AddNode(1, "Hành lang chính F1", "Corridor", 3m, 0m, 0m, false);
+                AddNode(1, "Cầu thang A (F1→F2)", "Stair", 7m, 0m, 0m, true);
+                AddNode(1, "Thang máy chính (F1)", "Elevator", 3m, 3m, 0m, false);
+                AddNode(1, "Phòng Bảo vệ (SOC)", "Room", 1m, 2m, 0m, false);
+                AddNode(2, "Cầu thang A (F2)", "Stair", 7m, 0m, 3m, true);
+                AddNode(2, "Hành lang chính F2", "Corridor", 3m, 0m, 3m, false);
+                AddNode(2, "Thang máy chính (F2)", "Elevator", 3m, 3m, 3m, false);
+                AddNode(2, "Phòng Họp A (F2)", "Room", 1m, 1m, 3m, false);
+                AddNode(2, "Phòng IT (F2)", "Room", 5m, 0m, 3m, false);
+                AddNode(3, "Thang máy chính (F3)", "Elevator", 3m, 3m, 6m, false);
+                AddNode(3, "Hành lang chính F3", "Corridor", 3m, 0m, 6m, false);
+                AddNode(3, "Văn phòng Giám đốc", "Room", 1m, 1m, 6m, false);
+                AddNode(3, "Phòng Hành chính", "Room", 5m, 0m, 6m, false);
+
+                db.IndoorPathNodes.AddRange(nodes);
+            }
+        }
     }
 
     private static void SeedDemoNotifications(ApplicationDbContext db, DateTime now)

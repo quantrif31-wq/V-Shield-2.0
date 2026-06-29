@@ -277,6 +277,7 @@ public partial class ApplicationDbContext
         ConfigureGuardZoneAuthority(modelBuilder);
         ConfigureUserOperationalScope(modelBuilder);
         ConfigureRateLimiting(modelBuilder);
+        ConfigureGeolocationModels(modelBuilder);
     }
 
     private static void ConfigureRateLimiting(ModelBuilder modelBuilder)

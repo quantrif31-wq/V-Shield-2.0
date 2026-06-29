@@ -112,6 +112,8 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
             entity.Property(e => e.CorrelationId).IsRequired().HasMaxLength(80);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
             entity.HasIndex(e => new { e.Status, e.ValidToUtc });
             entity.HasIndex(e => e.CorrelationId).IsUnique();
             entity.HasOne(e => e.ApprovedByUser)
@@ -174,6 +176,8 @@ public partial class ApplicationDbContext
             entity.HasKey(e => e.DuressEventId);
             entity.Property(e => e.CredentialType).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Description).HasMaxLength(200);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
             entity.HasIndex(e => new { e.SiteId, e.OccurredAtUtc });
             entity.HasOne(e => e.Site)
                 .WithMany()
