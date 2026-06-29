@@ -14,6 +14,7 @@ import com.vshield.mobile.data.model.ChatCallState
 import com.vshield.mobile.ui.navigation.BottomNavBar
 import com.vshield.mobile.ui.navigation.NavGraph
 import com.vshield.mobile.ui.navigation.Screen
+import com.vshield.mobile.ui.screen.AlarmOverlay
 import com.vshield.mobile.ui.screen.CallOverlay
 import com.vshield.mobile.ui.theme.VShieldTheme
 import com.vshield.mobile.viewmodel.AuthViewModel
@@ -61,6 +62,7 @@ fun VShieldMainScreen() {
 
     val isInCall = chatState.callState !is ChatCallState.Idle
     val showCallOverlay = isInCall
+    val activeAlarm = notifState.activeAlarm
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -101,7 +103,12 @@ fun VShieldMainScreen() {
                 }
             )
 
-            if (showCallOverlay) {
+            if (activeAlarm != null) {
+                AlarmOverlay(
+                    alarm = activeAlarm,
+                    onAcknowledge = { notificationViewModel.acknowledgeAlarm() }
+                )
+            } else if (showCallOverlay) {
                 CallOverlay(chatViewModel = chatViewModel)
             }
         }

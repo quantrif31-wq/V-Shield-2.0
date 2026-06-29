@@ -8,15 +8,24 @@ import com.vshield.mobile.data.NotificationSignalRClient
 import com.vshield.mobile.data.RetrofitClient
 import com.vshield.mobile.data.TokenManager
 import com.vshield.mobile.data.model.NotificationItem
+import com.vshield.mobile.service.NotificationAlarmService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+data class AlarmInfo(
+    val notificationId: Int,
+    val title: String,
+    val message: String,
+    val eventType: String
+)
 
 data class NotificationUiState(
     val isConnected: Boolean = false,
     val notifications: List<NotificationItem> = emptyList(),
     val isLoading: Boolean = false,
     val unreadCount: Int = 0,
+    val activeAlarm: AlarmInfo? = null,
     val error: String? = null
 )
 
@@ -26,6 +35,7 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     val uiState: StateFlow<NotificationUiState> = _uiState
 
     private var signalRClient: NotificationSignalRClient? = null
+    private val alarmService = NotificationAlarmService(getApplication())
 
     fun initialize() {
         val token = RetrofitClient.getToken()
@@ -61,6 +71,24 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
                 notifications = listOf(item) + _uiState.value.notifications,
                 unreadCount = _uiState.value.unreadCount + 1
             )
+
+            val isAlarm = notif.eventType?.startsWith("Alarm") == true
+            val title = notif.title ?: if (isAlarm) "Báo động khẩn cấp" else "Thông báo mới"
+            val message = notif.message ?: ""
+
+            if (isAlarm) {
+                alarmService.startAlarm(title, message)
+                _uiState.value = _uiState.value.copy(
+                    activeAlarm = AlarmInfo(
+                        notificationId = notif.notificationId,
+                        title = title,
+                        message = message,
+                        eventType = notif.eventType ?: ""
+                    )
+                )
+            } else {
+                alarmService.playNotificationOnce(title, message)
+            }
         }
 
         client.onUnreadCountUpdated = { count ->
@@ -130,6 +158,13 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun acknowledgeAlarm() {
+        val alarm = _uiState.value.activeAlarm ?: return
+        alarmService.stopAlarm()
+        markRead(alarm.notificationId)
+        _uiState.value = _uiState.value.copy(activeAlarm = null)
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
@@ -137,5 +172,6 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
     override fun onCleared() {
         super.onCleared()
         signalRClient?.disconnect()
+        alarmService.stopAll()
     }
 }
