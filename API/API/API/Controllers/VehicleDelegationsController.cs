@@ -14,11 +14,13 @@ public class VehicleDelegationsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IAttendancePermissionService _permissionService;
+    private readonly INotificationService _notificationService;
 
-    public VehicleDelegationsController(ApplicationDbContext context, IAttendancePermissionService permissionService)
+    public VehicleDelegationsController(ApplicationDbContext context, IAttendancePermissionService permissionService, INotificationService notificationService)
     {
         _context = context;
         _permissionService = permissionService;
+        _notificationService = notificationService;
     }
 
     [HttpPost]
@@ -54,6 +56,14 @@ public class VehicleDelegationsController : ControllerBase
 
         _context.VehicleDelegations.Add(delegation);
         await _context.SaveChangesAsync();
+
+        var fromEmployee = await _context.Employees.FindAsync(fromEmployeeId.Value);
+        var fromName = fromEmployee?.FullName ?? "";
+        _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Created",
+            "Yêu cầu điều xe mới",
+            $"{fromName} muốn điều xe {vehicle.LicensePlate} cho bạn.",
+            "VehicleDelegation", delegation.VehicleDelegationId.ToString(),
+            "/vehicle-transfer");
 
         return Ok(delegation);
     }
@@ -169,6 +179,19 @@ public class VehicleDelegationsController : ControllerBase
         delegation.Vehicle.EmployeeId = delegation.ToEmployeeId;
 
         await _context.SaveChangesAsync();
+
+        var delegationWithNav = await _context.VehicleDelegations
+            .Include(d => d.FromEmployee).Include(d => d.Vehicle)
+            .FirstOrDefaultAsync(d => d.VehicleDelegationId == id);
+        if (delegationWithNav != null)
+        {
+            _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Approved",
+                "Yêu cầu điều xe đã được chấp nhận",
+                $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã chấp nhận điều xe {delegationWithNav.Vehicle?.LicensePlate}.",
+                "VehicleDelegation", id.ToString(),
+                "/vehicle-transfer");
+        }
+
         return Ok(new { message = "Da chap thuan uy quyen xe." });
     }
 
@@ -190,6 +213,19 @@ public class VehicleDelegationsController : ControllerBase
         delegation.RespondedAtUtc = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        var delegationWithNav = await _context.VehicleDelegations
+            .Include(d => d.FromEmployee).Include(d => d.Vehicle)
+            .FirstOrDefaultAsync(d => d.VehicleDelegationId == id);
+        if (delegationWithNav != null)
+        {
+            _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Rejected",
+                "Yêu cầu điều xe bị từ chối",
+                $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã từ chối điều xe {delegationWithNav.Vehicle?.LicensePlate}.",
+                "VehicleDelegation", id.ToString(),
+                "/vehicle-transfer");
+        }
+
         return Ok(new { message = "Da tu choi uy quyen xe." });
     }
 

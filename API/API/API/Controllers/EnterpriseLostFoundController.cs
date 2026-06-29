@@ -18,19 +18,22 @@ public class EnterpriseLostFoundController : ControllerBase
     private readonly LockerService _lockerService;
     private readonly EvidenceCaptureService _evidenceCapture;
     private readonly UserOperationalScopeService _scopeService;
+    private readonly INotificationService _notificationService;
 
     public EnterpriseLostFoundController(
         ApplicationDbContext context,
         LostFoundMatchingService matchingService,
         LockerService lockerService,
         EvidenceCaptureService evidenceCapture,
-        UserOperationalScopeService scopeService)
+        UserOperationalScopeService scopeService,
+        INotificationService notificationService)
     {
         _context = context;
         _matchingService = matchingService;
         _lockerService = lockerService;
         _evidenceCapture = evidenceCapture;
         _scopeService = scopeService;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -515,6 +518,11 @@ public class EnterpriseLostFoundController : ControllerBase
         if (found != null) found.Status = "ClaimPending";
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.LostFound.ClaimCreated",
+            "Yêu cầu nhận đồ mới",
+            $"Có yêu cầu nhận đồ mới cần xem xét.",
+            "LostFound", claim.ClaimRequestId.ToString(),
+            "/lost-found");
         return Ok(claim);
     }
 
@@ -649,6 +657,11 @@ public class EnterpriseLostFoundController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.LostFound.ClaimCancelled",
+            "Yêu cầu nhận đồ đã hủy",
+            $"Yêu cầu nhận đồ đã bị hủy.",
+            "LostFound", claim.ClaimRequestId.ToString(),
+            "/lost-found");
         return Ok(claim);
     }
 
@@ -673,6 +686,11 @@ public class EnterpriseLostFoundController : ControllerBase
         claim.ReviewNote = request?.Note?.Trim();
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.LostFound.ClaimApproved",
+            "Yêu cầu nhận đồ đã được duyệt",
+            $"Yêu cầu nhận đồ đã được duyệt, vui lòng đến quầy lễ tân nhận.",
+            "LostFound", claim.ClaimRequestId.ToString(),
+            "/lost-found");
         return Ok(claim);
     }
 
@@ -698,6 +716,11 @@ public class EnterpriseLostFoundController : ControllerBase
             found.Status = "Unclaimed";
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.LostFound.ClaimRejected",
+            "Yêu cầu nhận đồ bị từ chối",
+            $"Yêu cầu nhận đồ bị từ chối.",
+            "LostFound", claim.ClaimRequestId.ToString(),
+            "/lost-found");
         return Ok(claim);
     }
 
@@ -774,6 +797,11 @@ public class EnterpriseLostFoundController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.LostFound.ClaimCompleted",
+            "Bàn giao đồ hoàn tất",
+            $"Việc bàn giao đồ đã hoàn tất.",
+            "LostFound", claim.ClaimRequestId.ToString(),
+            "/lost-found");
         return Ok(claim);
     }
 

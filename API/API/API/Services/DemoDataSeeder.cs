@@ -37,10 +37,39 @@ public static class DemoDataSeeder
             return;
         }
 
+        SeedDefaultNotificationRules(db);
         Seed(db);
         ReconcileOperationalDemoData(db);
         EnsureUebaDemoData(db);
         Console.WriteLine("[OK] Demo data seeded for medium/large company scenario.");
+    }
+
+    private static void SeedDefaultNotificationRules(ApplicationDbContext db)
+    {
+        if (db.NotificationRules.Any()) return;
+
+        db.NotificationRules.AddRange(
+            // === ALARMS ===
+            new NotificationRule { EventType = "Alarm.Duress", SeverityMin = "Critical", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Alarm.Duress", SeverityMin = "Critical", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Alarm.EmergencyPass", SeverityMin = "Critical", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Alarm.EmergencyPass", SeverityMin = "Critical", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Alarm.DeviceOffline", SeverityMin = "High", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Alarm.VisitorOverstay", SeverityMin = "Medium", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Alarm.Generic", SeverityMin = "Critical", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Alarm.Generic", SeverityMin = "Critical", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Alarm.Generic", SeverityMin = "High", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = false },
+            // === APPROVALS ===
+            new NotificationRule { EventType = "Approval.LeaveRequest.Submitted", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Approval.LeaveRequest.Submitted", RecipientRole = "QuanLy", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Approval.LeaveRequest.Submitted", RecipientRole = "NhanSu", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Approval.Intervention.Created", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Approval.Intervention.Created", RecipientRole = "QuanLy", NotifyWeb = true, NotifyMobile = true },
+            new NotificationRule { EventType = "Approval.LostFoundClaim.Created", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Approval.EvidenceExport.Created", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = false },
+            new NotificationRule { EventType = "Approval.EvidenceRedaction.Created", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = false }
+        );
+        db.SaveChanges();
     }
 
     public static object ResetOperationalScenarios(ApplicationDbContext db)

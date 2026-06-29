@@ -70,6 +70,7 @@ const ComplianceReports = () => import('../pages/ComplianceReports.vue')
 const GuideViewer = () => import('../pages/GuideViewer.vue')
 const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
 const Chat = () => import('../pages/Chat.vue')
+const NotificationRuleEditor = () => import('../pages/NotificationRuleEditor.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -229,6 +230,12 @@ const routes = [
                 name: 'Settings',
                 component: Settings,
                 meta: { allowedRoles: ['Admin'] },
+            },
+            {
+                path: 'settings/notification-rules',
+                name: 'NotificationRules',
+                component: NotificationRuleEditor,
+                meta: { allowedRoles: ['Admin', 'QuanLy'] },
             },
         ],
     },

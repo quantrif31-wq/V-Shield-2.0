@@ -569,6 +569,7 @@ public partial class ApplicationDbContext : DbContext
         });
         OnModelCreatingPartial(modelBuilder);
         ConfigureChatModels(modelBuilder);
+        ConfigureNotificationModels(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);

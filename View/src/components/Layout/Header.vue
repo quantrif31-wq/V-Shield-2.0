@@ -110,6 +110,7 @@
                             :key="notification.id"
                             class="notification-item"
                             :class="{ unread: !notification.read }"
+                            @click="handleNotificationClick(notification)"
                         >
                             <div class="notification-icon" :class="notification.type">
                                 <svg v-if="notification.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -143,6 +144,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authState, logout } from '../../stores/auth'
+import {
+    getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead,
+    connectNotificationHub, disconnectNotificationHub, onNotification
+} from '../../services/notificationApi'
 
 defineProps({
     collapsed: Boolean,
@@ -288,31 +293,49 @@ const roleLabel = computed(() => {
     return map[authState.user?.role] || authState.user?.role || 'Tài khoản hệ thống'
 })
 
-const notifications = ref([
-    {
-        id: 1,
-        message: 'Có bản ghi ngoại lệ mới cần kiểm tra trong mục Xử lý ngoại lệ.',
-        time: '5 phút trước',
-        type: 'warning',
-        read: false,
-    },
-    {
-        id: 2,
-        message: 'Hệ thống đã đồng bộ danh sách hẹn trước và dashboard sáng nay.',
-        time: '15 phút trước',
-        type: 'success',
-        read: false,
-    },
-    {
-        id: 3,
-        message: 'Camera và cổng đã được map lại theo danh mục nghiệp vụ mới.',
-        time: '1 giờ trước',
-        type: 'info',
-        read: true,
-    },
-])
+const notifications = ref([])
+const unreadCount = ref(0)
 
-const unreadCount = computed(() => notifications.value.filter((item) => !item.read).length)
+async function loadNotifications() {
+    try {
+        const res = await getNotifications(0, 50)
+        const items = res.data || []
+        notifications.value = items.map(n => ({
+            id: n.notificationId,
+            message: n.message,
+            time: formatTimeAgo(n.createdAt),
+            type: mapEventType(n.eventType),
+            read: n.isRead,
+            actionUrl: n.actionUrl,
+        }))
+    } catch (_) {}
+}
+
+async function loadUnreadCount() {
+    try {
+        const res = await getUnreadCount()
+        unreadCount.value = res.data?.count || 0
+    } catch (_) {}
+}
+
+function mapEventType(eventType) {
+    if (!eventType) return 'info'
+    if (eventType.startsWith('Alarm')) return 'warning'
+    if (eventType.includes('Approved') || eventType.includes('Executed') || eventType.includes('Completed')) return 'success'
+    return 'info'
+}
+
+function formatTimeAgo(dateStr) {
+    if (!dateStr) return ''
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Vừa xong'
+    if (mins < 60) return `${mins} phút trước`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs} giờ trước`
+    const days = Math.floor(hrs / 24)
+    return `${days} ngày trước`
+}
 
 function updateTime() {
     const now = new Date()
@@ -344,7 +367,21 @@ function toggleUserMenu() {
 }
 
 function markAllRead() {
+    markAllNotificationsRead()
     notifications.value = notifications.value.map((item) => ({ ...item, read: true }))
+    unreadCount.value = 0
+}
+
+function handleNotificationClick(notification) {
+    if (!notification.read) {
+        markNotificationRead(notification.id)
+        notification.read = true
+        unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    if (notification.actionUrl) {
+        router.push(notification.actionUrl)
+    }
+    showNotifications.value = false
 }
 
 async function handleLogout() {
@@ -360,15 +397,35 @@ function handleDocumentClick(event) {
 
 let timer = null
 
-onMounted(() => {
+onMounted(async () => {
     updateTime()
     timer = setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
+    await loadNotifications()
+    await loadUnreadCount()
+    try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+        if (token) {
+            await connectNotificationHub(token)
+            onNotification((n) => {
+                notifications.value.unshift({
+                    id: n.notificationId,
+                    message: n.message,
+                    time: formatTimeAgo(n.createdAt),
+                    type: mapEventType(n.eventType),
+                    read: false,
+                    actionUrl: n.actionUrl,
+                })
+                unreadCount.value++
+            })
+        }
+    } catch (_) {}
 })
 
 onUnmounted(() => {
     clearInterval(timer)
     document.removeEventListener('click', handleDocumentClick)
+    disconnectNotificationHub()
 })
 
 watch(

@@ -17,12 +17,14 @@ public class EnterpriseSocController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ISocIntelligenceService _socIntel;
     private readonly ISocIncidentCopilotService _incidentCopilot;
+    private readonly INotificationService _notificationService;
 
-    public EnterpriseSocController(ApplicationDbContext context, ISocIntelligenceService socIntel, ISocIncidentCopilotService incidentCopilot)
+    public EnterpriseSocController(ApplicationDbContext context, ISocIntelligenceService socIntel, ISocIncidentCopilotService incidentCopilot, INotificationService notificationService)
     {
         _context = context;
         _socIntel = socIntel;
         _incidentCopilot = incidentCopilot;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -87,6 +89,9 @@ public class EnterpriseSocController : ControllerBase
 
         _context.Alarms.Add(alarm);
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Alarm.Generic", alarm.Severity == "Critical" ? "Báo động khẩn cấp" : "Báo động mới",
+            alarm.Summary, "Alarm", alarm.AlarmId.ToString(), "/soc-console");
 
         _ = FireAndForgetClassifyAsync(alarm.AlarmId);
 

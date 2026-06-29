@@ -19,15 +19,18 @@ public class EnterpriseEvidenceController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IEvidenceAiAssistantService _evidenceAi;
+    private readonly INotificationService _notificationService;
 
     public EnterpriseEvidenceController(
         ApplicationDbContext context,
         IConfiguration configuration,
-        IEvidenceAiAssistantService evidenceAi)
+        IEvidenceAiAssistantService evidenceAi,
+        INotificationService notificationService)
     {
         _context = context;
         _configuration = configuration;
         _evidenceAi = evidenceAi;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -419,6 +422,11 @@ public class EnterpriseEvidenceController : ControllerBase
 
         _context.EvidenceExportRequests.Add(export);
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.ExportRequested",
+            "Yêu cầu xuất bằng chứng mới",
+            $"Có yêu cầu xuất bằng chứng mới cần phê duyệt.",
+            "Evidence", export.EvidenceExportRequestId.ToString(),
+            "/evidence");
         return Ok(export);
     }
 
@@ -463,6 +471,11 @@ public class EnterpriseEvidenceController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.ExportApproved",
+            "Yêu cầu xuất bằng chứng đã được duyệt",
+            $"Yêu cầu xuất bằng chứng đã được duyệt.",
+            "Evidence", export.EvidenceExportRequestId.ToString(),
+            "/evidence");
         return Ok(export);
     }
 
@@ -485,6 +498,11 @@ public class EnterpriseEvidenceController : ControllerBase
 
         _context.RedactionRequests.Add(redaction);
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionRequested",
+            "Yêu cầu che dữ liệu mới",
+            $"Có yêu cầu che dữ liệu mới cần phê duyệt.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -501,6 +519,11 @@ public class EnterpriseEvidenceController : ControllerBase
         redaction.ApprovedAtUtc = DateTime.UtcNow;
         redaction.ApprovedByUserId = GetCurrentUserId();
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionApproved",
+            "Yêu cầu che dữ liệu đã được duyệt",
+            $"Yêu cầu che dữ liệu đã được duyệt.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -519,6 +542,11 @@ public class EnterpriseEvidenceController : ControllerBase
         redaction.PerformedByUserId = GetCurrentUserId();
         redaction.RedactedStorageReference = request.RedactedStorageReference.Trim();
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionPerformed",
+            "Che dữ liệu đã hoàn tất",
+            $"Việc che dữ liệu đã được thực hiện.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -534,6 +562,11 @@ public class EnterpriseEvidenceController : ControllerBase
         redaction.VerifiedAtUtc = DateTime.UtcNow;
         redaction.VerifiedByUserId = GetCurrentUserId();
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionVerified",
+            "Che dữ liệu đã được xác nhận",
+            $"Việc che dữ liệu đã được xác nhận.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 

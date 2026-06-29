@@ -15,11 +15,13 @@ public class EnterpriseInterventionController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ZoneAuthorityService _zoneAuthority;
+    private readonly INotificationService _notificationService;
 
-    public EnterpriseInterventionController(ApplicationDbContext context, ZoneAuthorityService zoneAuthority)
+    public EnterpriseInterventionController(ApplicationDbContext context, ZoneAuthorityService zoneAuthority, INotificationService notificationService)
     {
         _context = context;
         _zoneAuthority = zoneAuthority;
+        _notificationService = notificationService;
     }
 
     /// <summary>
@@ -104,6 +106,12 @@ public class EnterpriseInterventionController : ControllerBase
 
         _context.OperationalInterventionRequests.Add(item);
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Approval.Intervention.Created",
+            "Yêu cầu can thiệp mới",
+            $"Can thiệp {item.InterventionType} cần được phê duyệt.",
+            "Intervention", item.OperationalInterventionRequestId.ToString(),
+            "/intervention");
 
         return Ok(item);
     }
@@ -191,6 +199,13 @@ public class EnterpriseInterventionController : ControllerBase
             item.Note = request.Note.Trim();
 
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Approval.Intervention.Accepted",
+            "Yêu cầu can thiệp đã được chấp nhận",
+            $"Can thiệp {item.InterventionType} của bạn đã được chấp nhận.",
+            "Intervention", item.OperationalInterventionRequestId.ToString(),
+            "/intervention");
+
         return Ok(item);
     }
 
@@ -220,6 +235,13 @@ public class EnterpriseInterventionController : ControllerBase
         item.RejectionReason = request.Note.Trim();
 
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Approval.Intervention.Rejected",
+            "Yêu cầu can thiệp bị từ chối",
+            $"Can thiệp {item.InterventionType} bị từ chối.",
+            "Intervention", item.OperationalInterventionRequestId.ToString(),
+            "/intervention");
+
         return Ok(item);
     }
 
@@ -320,6 +342,13 @@ public class EnterpriseInterventionController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Approval.Intervention.Executed",
+            "Yêu cầu can thiệp đã được thực thi",
+            $"Can thiệp {item.InterventionType} đã được thực thi.",
+            "Intervention", item.OperationalInterventionRequestId.ToString(),
+            "/intervention");
+
         return Ok(new { request = item, effect });
     }
 

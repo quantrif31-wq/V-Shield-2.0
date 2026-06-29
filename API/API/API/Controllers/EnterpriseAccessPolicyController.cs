@@ -16,11 +16,13 @@ public class EnterpriseAccessPolicyController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ZoneAuthorityService _zoneAuthority;
+    private readonly INotificationService _notificationService;
 
-    public EnterpriseAccessPolicyController(ApplicationDbContext context, ZoneAuthorityService zoneAuthority)
+    public EnterpriseAccessPolicyController(ApplicationDbContext context, ZoneAuthorityService zoneAuthority, INotificationService notificationService)
     {
         _context = context;
         _zoneAuthority = zoneAuthority;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -401,6 +403,10 @@ public class EnterpriseAccessPolicyController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        await _notificationService.NotifyEventAsync("Alarm.EmergencyPass", "Vượt cổng khẩn cấp",
+            $"Xe/người vượt cổng khẩn cấp: {request.SubjectName}",
+            "Alarm", null, "/soc-console");
+
         pass.LaneEventId = laneEvent.LaneEventId;
         pass.AlarmId = alarm.AlarmId;
         await _context.SaveChangesAsync();
@@ -590,6 +596,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
         });
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Alarm.Duress", "Báo động uy hiếp",
+            $"Phát hiện uy hiếp tại access point {request.AccessPointId}. Nhân viên: {request.EmployeeId}",
+            "Alarm", null, "/soc-console");
         return Ok(duress);
     }
 

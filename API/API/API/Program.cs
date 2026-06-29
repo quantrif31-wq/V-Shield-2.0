@@ -143,6 +143,7 @@ namespace API
             builder.Services.AddScoped<LockerService>();
             builder.Services.AddScoped<ZoneAuthorityService>();
             builder.Services.AddScoped<UserOperationalScopeService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
@@ -309,6 +310,7 @@ namespace API
             app.MapControllers();
             app.MapHub<EmployeeStatsHub>("/hubs/employee-stats").RequireAuthorization();
             app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
+            app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
             app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" })).AllowAnonymous();
             app.MapGet("/health/live", () => Results.Ok(new
             {
