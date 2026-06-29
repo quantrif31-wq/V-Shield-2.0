@@ -28,4 +28,23 @@ public class VehicleDelegationModelTests
         employeeForeignKeys.Should().HaveCount(2);
         employeeForeignKeys.Should().OnlyContain(foreignKey => foreignKey.DeleteBehavior == DeleteBehavior.Restrict);
     }
+
+    [Fact]
+    public void VehicleDelegation_VehicleRelation_ShouldRemainCascadeDelete()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        using var dbContext = new ApplicationDbContext(options);
+
+        var entityType = dbContext.Model.FindEntityType(typeof(VehicleDelegation));
+        entityType.Should().NotBeNull();
+
+        var vehicleForeignKey = entityType!
+            .GetForeignKeys()
+            .Single(foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(Vehicle));
+
+        vehicleForeignKey.DeleteBehavior.Should().Be(DeleteBehavior.Cascade);
+    }
 }
