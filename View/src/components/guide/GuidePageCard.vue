@@ -78,7 +78,7 @@ const roleColor = (r) => ({
   Admin: '#3b82f6',
   'Bảo vệ': '#10b981',
   'Quản lý': '#8b5cf6',
-  'Nhân viên': '#f59e0b',
+  'Lễ tân': '#f59e0b',
 }[r] || '#6b7280')
 </script>
 

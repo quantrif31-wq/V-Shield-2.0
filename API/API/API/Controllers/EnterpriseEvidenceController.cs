@@ -583,10 +583,21 @@ public class EnterpriseEvidenceController : ControllerBase
     }
 
     [HttpGet("collections")]
-    public async Task<IActionResult> GetEvidenceCollections([FromQuery] string? status)
+    public async Task<IActionResult> GetEvidenceCollections([FromQuery] string? status, [FromQuery] long? evidenceItemId, [FromQuery] int? pageSize)
     {
         var query = _context.EvidenceCollections.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(c => c.Status == status.Trim());
+        if (evidenceItemId.HasValue)
+        {
+            query = query.Where(collection =>
+                _context.EvidenceCollectionItems.Any(link =>
+                    link.EvidenceCollectionId == collection.EvidenceCollectionId &&
+                    link.EvidenceItemId == evidenceItemId.Value));
+        }
+
+        if (pageSize.HasValue && pageSize.Value > 0)
+            query = query.Take(Math.Min(pageSize.Value, 100));
+
         var collections = await query.OrderByDescending(c => c.CreatedAtUtc).ToListAsync();
         return Ok(collections);
     }
@@ -632,10 +643,12 @@ public class EnterpriseEvidenceController : ControllerBase
     }
 
     [HttpGet("legal-holds")]
-    public async Task<IActionResult> GetLegalHolds([FromQuery] string? status)
+    public async Task<IActionResult> GetLegalHolds([FromQuery] string? status, [FromQuery] long? evidenceItemId, [FromQuery] long? evidenceCollectionId)
     {
         var query = _context.LegalHolds.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(h => h.Status == status.Trim());
+        if (evidenceItemId.HasValue) query = query.Where(h => h.EvidenceItemId == evidenceItemId.Value);
+        if (evidenceCollectionId.HasValue) query = query.Where(h => h.EvidenceCollectionId == evidenceCollectionId.Value);
         var holds = await query.OrderByDescending(h => h.AppliedAtUtc).ToListAsync();
         return Ok(holds);
     }

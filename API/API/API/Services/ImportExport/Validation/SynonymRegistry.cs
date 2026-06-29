@@ -82,7 +82,6 @@ public class SynonymRegistry
         AddSynonym("khong", "false"); AddSynonym("inactive", "false"); AddSynonym("", "false");
 
         AddSynonym("admin", "Admin"); AddSynonym("quan tri", "Admin"); AddSynonym("quan tri vien", "Admin");
-        AddSynonym("staff", "Staff"); AddSynonym("nhan vien", "Staff"); AddSynonym("nv", "Staff"); AddSynonym("employee", "Staff");
         AddSynonym("quan ly", "QuanLy"); AddSynonym("manager", "QuanLy");
         AddSynonym("bao ve", "BaoVe"); AddSynonym("baove", "BaoVe"); AddSynonym("security", "BaoVe"); AddSynonym("guard", "BaoVe");
         AddSynonym("le tan", "LeTan"); AddSynonym("letan", "LeTan"); AddSynonym("reception", "LeTan"); AddSynonym("receptionist", "LeTan");

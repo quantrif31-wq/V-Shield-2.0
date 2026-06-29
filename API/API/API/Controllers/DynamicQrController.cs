@@ -14,7 +14,7 @@ namespace API.Controllers
 {
     [Route("api/dynamic-qr")]
     [ApiController]
-    [Authorize(Roles = "Admin,Staff,BaoVe")]
+    [Authorize]
     public class DynamicQrController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -39,6 +39,7 @@ namespace API.Controllers
         /// </summary>
         [HttpPost("generate")]
         [EnableRateLimiting("ops")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GenerateDynamicQr([FromBody] GenerateDynamicQrRequest request)
         {
             if (request == null || request.EmployeeId <= 0)
@@ -126,6 +127,7 @@ namespace API.Controllers
         /// </summary>
         [HttpPost("verify")]
         [EnableRateLimiting("ops")]
+        [Authorize(Roles = "Admin,BaoVe")]
         public async Task<IActionResult> VerifyDynamicQr([FromBody] VerifyDynamicQrRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.QrPayload))

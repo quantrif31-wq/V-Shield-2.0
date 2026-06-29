@@ -5,7 +5,8 @@
   },
   "roles": {
     "Admin": ["admin", "ADMIN", "quản trị", "quản trị viên", "quantri", "quantrivien"],
-    "Staff": ["staff", "STAFF", "nhân viên", "nhan vien", "nhanvien", "nv", "employee"],
+    "QuanLy": ["quản lý", "quan ly", "manager", "supervisor"],
+    "LeTan": ["lễ tân", "le tan", "letan", "reception", "receptionist"],
     "BaoVe": ["baove", "bảo vệ", "BẢO VỆ", "security", "guard"]
   },
   "departments": {

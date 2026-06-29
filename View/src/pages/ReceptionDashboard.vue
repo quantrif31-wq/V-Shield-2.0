@@ -11,7 +11,7 @@
 
                 <div class="hero-actions">
                     <button class="btn btn-primary" :disabled="loading" @click="loadAll">Làm mới toàn bộ</button>
-                    <button class="btn btn-secondary" @click="activeTab = 'lost-found'">Tra cứu đồ thất lạc</button>
+                    <button class="btn btn-secondary" @click="openLostFoundWorkspace()">Tra cứu đồ thất lạc</button>
                 </div>
             </div>
 
@@ -205,54 +205,28 @@
                     </div>
 
                     <div v-else class="lost-found-layout">
-                        <div class="lost-found-header">
+                        <div class="lost-found-handoff ops-panel">
                             <div>
-                                <div class="section-title">Tra cứu đồ thất lạc tại quầy</div>
-                                <div class="text-muted">Tìm nhanh theo tên người báo, người nhặt hoặc mô tả đồ vật.</div>
-                            </div>
-                            <div class="lost-found-toolbar">
-                                <input
-                                    v-model="lostFoundQuery"
-                                    type="text"
-                                    class="form-control"
-                                    placeholder="Ví dụ: ví da, Nguyễn Văn B, 090..."
-                                    @keyup.enter="loadLostFound"
-                                />
-                                <button class="btn btn-secondary" @click="loadLostFound">Tra cứu</button>
-                            </div>
-                        </div>
-
-                        <div class="case-columns">
-                            <div class="case-column">
-                                <div class="case-column-title">Báo mất</div>
-                                <div v-if="lostFoundLoading" class="empty-card">Đang tra cứu...</div>
-                                <div v-else-if="lostFound.lostItems.length === 0" class="empty-card">Chưa có kết quả báo mất phù hợp.</div>
-                                <button
-                                    v-for="item in lostFound.lostItems"
-                                    :key="`lost-${item.lostItemReportId}`"
-                                    class="case-card"
-                                    @click="openInteractionForLostFound('LostFoundSupport', `Hỗ trợ tra cứu báo mất #${item.lostItemReportId}`, item)"
-                                >
-                                    <strong>{{ item.itemDescription }}</strong>
-                                    <span>{{ item.reporterName }} - {{ item.reporterPhone }}</span>
-                                    <span class="text-muted">{{ item.lastSeenLocation || 'Chưa ghi vị trí cuối' }}</span>
-                                </button>
+                                <div class="section-title">Đồ thất lạc đã chuyển sang màn hình chuyên dụng</div>
+                                <div class="text-muted">
+                                    Lễ tân chỉ cần mở đúng phân hệ để tra cứu, cập nhật, xác minh và theo dõi việc trao trả minh bạch hơn.
+                                </div>
                             </div>
 
-                            <div class="case-column">
-                                <div class="case-column-title">Đồ tìm thấy</div>
-                                <div v-if="lostFoundLoading" class="empty-card">Đang tra cứu...</div>
-                                <div v-else-if="lostFound.foundItems.length === 0" class="empty-card">Chưa có kết quả đồ tìm thấy phù hợp.</div>
-                                <button
-                                    v-for="item in lostFound.foundItems"
-                                    :key="`found-${item.foundItemReportId}`"
-                                    class="case-card"
-                                    @click="openInteractionForLostFound('LostFoundSupport', `Hỗ trợ tra cứu đồ nhặt được #${item.foundItemReportId}`, item)"
-                                >
-                                    <strong>{{ item.itemDescription }}</strong>
-                                    <span>{{ item.foundByName }} - {{ item.foundByPhone }}</span>
-                                    <span class="text-muted">{{ item.foundLocation || 'Chưa ghi vị trí nhặt được' }}</span>
-                                </button>
+                            <div class="handoff-metrics">
+                                <div class="handoff-metric">
+                                    <strong>{{ overview.lostFoundCases || 0 }}</strong>
+                                    <span>Vụ việc đang mở</span>
+                                </div>
+                                <div class="handoff-metric">
+                                    <strong>{{ overview.openSecurityRequests || 0 }}</strong>
+                                    <span>Phối hợp liên quan</span>
+                                </div>
+                            </div>
+
+                            <div class="handoff-actions">
+                                <button class="btn btn-primary" @click="openLostFoundWorkspace()">Mở quản lý đồ thất lạc</button>
+                                <button class="btn btn-secondary" @click="openLostFoundWorkspace('claim')">Mở khu trao trả</button>
                             </div>
                         </div>
                     </div>
@@ -526,8 +500,13 @@ const tabCounts = computed(() => ({
     arrivals: board.arrivals.length,
     overdue: board.overdue.length,
     'follow-up': board.lateArrivals.length,
-    'lost-found': (lostFound.lostItems?.length || 0) + (lostFound.foundItems?.length || 0),
+    'lost-found': overview.value.lostFoundCases || 0,
 }))
+
+function openLostFoundWorkspace(tab = '') {
+    const target = tab ? `/lost-found?tab=${tab}` : '/lost-found'
+    window.location.assign(target)
+}
 
 async function loadAll() {
     await Promise.all([loadOverview(), loadBoard()])
@@ -1223,6 +1202,47 @@ onMounted(loadAll)
     color: var(--text-muted);
 }
 
+.lost-found-handoff {
+    display: grid;
+    gap: 18px;
+    padding: 24px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, #fffdf8 0%, #f5ecde 100%);
+    border: 1px solid rgba(35, 49, 63, 0.08);
+}
+
+.handoff-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.handoff-metric {
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.78);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.handoff-metric strong {
+    font-size: 1.9rem;
+    line-height: 1;
+    color: var(--reception-ink);
+}
+
+.handoff-metric span {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+
+.handoff-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
 .lost-found-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1302,7 +1322,8 @@ onMounted(loadAll)
     .profile-grid,
     .quick-actions,
     .case-columns,
-    .form-grid {
+    .form-grid,
+    .handoff-metrics {
         grid-template-columns: 1fr;
     }
 

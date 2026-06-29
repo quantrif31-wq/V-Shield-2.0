@@ -281,9 +281,9 @@ const userInitial = computed(() => {
 const roleLabel = computed(() => {
     const map = {
         Admin: 'Quản trị viên',
-        Staff: 'Nhân viên vận hành',
         BaoVe: 'Bảo vệ trực cổng',
         QuanLy: 'Quản lý vận hành',
+        LeTan: 'Lễ tân',
     }
     return map[authState.user?.role] || authState.user?.role || 'Tài khoản hệ thống'
 })
@@ -875,6 +875,5 @@ watch(
     }
 }
 </style>
-
 
 

@@ -132,7 +132,7 @@ const suggestions = [
   { id: 'guide', icon: '📖', label: 'Hướng dẫn sử dụng phần mềm', text: 'Hướng dẫn tôi sử dụng phần mềm V-Shield' },
   { id: 'admin', icon: '🔐', label: 'Admin có thể làm gì?', text: 'Tôi là Admin, tôi có thể làm gì trên V-Shield?' },
   { id: 'baove', icon: '🛡️', label: 'Bảo vệ cần làm gì?', text: 'Tôi là Bảo vệ, cần làm những gì khi trực cổng?' },
-  { id: 'staff', icon: '👤', label: 'Nhân viên cần biết', text: 'Tôi là Nhân viên, sử dụng V-Shield như thế nào?' },
+  { id: 'reception', icon: '🛎️', label: 'Lễ tân cần biết', text: 'Tôi là Lễ tân, cần dùng V-Shield như thế nào?' },
   { id: 'quanly', icon: '📊', label: 'Quản lý vận hành', text: 'Tôi là Quản lý, các chức năng dành cho tôi?' },
   { id: 'manual', icon: '⌨️', label: 'Xử lý khi QR lỗi', text: 'Làm thế nào để xử lý thủ công khi QR hoặc camera lỗi?' },
 ]
@@ -195,8 +195,8 @@ function handleGuideResponse(userMessage) {
     return
   }
 
-  if (msg.includes('nhân viên') || msg.includes('staff') || msg.includes('employee')) {
-    addMessage('ai', `👤 <strong>Quyền hạn của Nhân viên</strong><br><br>Nhân viên (Staff) có thể sử dụng:<br><br>• 📱 Tạo QR động để qua cổng<br>• 🕐 Bảng chấm công cá nhân<br>• 📝 Gửi đơn xin nghỉ<br>• 📅 Xem lịch làm việc<br>• 👥 Mời khách thăm<br>• 🗺️ Bản đồ khuôn viên<br><br>👉 <a href="/guide" class="chat-link">Xem hướng dẫn cho Nhân viên →</a>`)
+  if (msg.includes('lễ tân') || msg.includes('le tan') || msg.includes('letan') || msg.includes('reception')) {
+    addMessage('ai', `🛎️ <strong>Quyền hạn của Lễ tân</strong><br><br>Lễ tân có thể sử dụng:<br><br>• 🏪 Đón tiếp và check-in khách tại quầy<br>• 🔎 Tra cứu khách còn trong khuôn viên hay đã quá giờ<br>• 🎒 Tìm đồ thất lạc và theo dõi việc trao trả<br>• 🚗 Kiểm tra xe khách còn trong bãi không<br>• 🛡️ Gọi Bảo vệ hỗ trợ khi có tình huống phát sinh<br>• 📋 Xem các màn hình cần thiết để hỗ trợ khách nhanh chóng<br><br>👉 <a href="/guide" class="chat-link">Xem hướng dẫn cho Lễ tân →</a>`)
     return
   }
 
@@ -211,7 +211,7 @@ function handleGuideResponse(userMessage) {
   }
 
   if (msg.includes('qr') || msg.includes('mã')) {
-    addMessage('ai', `📱 <strong>QR Động</strong><br><br>QR động là mã QR thay đổi theo chu kỳ (mặc định 30s), tăng cường bảo mật.<br><br><strong>Nhân viên:</strong> Đăng nhập → tự động vào trang QR → giữ màn hình để quét tại cổng.<br><br><strong>Admin:</strong> Vào Tạo QR động, nhập Employee ID, bấm "Phát QR realtime".<br><br>👉 Vào <a href="/dynamic-qr-generator" class="chat-link">Tạo QR động</a> ngay.`)
+    addMessage('ai', `📱 <strong>QR Động</strong><br><br>QR động là mã QR thay đổi theo chu kỳ (mặc định 30s), tăng cường bảo mật.<br><br><strong>Người dùng được cấp quyền:</strong> Đăng nhập → mở trang QR → giữ màn hình để quét tại cổng.<br><br><strong>Admin:</strong> Vào Tạo QR động, nhập Employee ID, bấm "Phát QR realtime".<br><br>👉 Vào <a href="/dynamic-qr-generator" class="chat-link">Tạo QR động</a> ngay.`)
     return
   }
 

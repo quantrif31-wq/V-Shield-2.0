@@ -137,20 +137,66 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateSiteMap([FromBody] SiteMapRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.AssetReference))
-            return BadRequest(new { message = "Name and asset reference are required." });
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { message = "Name is required." });
+
+        if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
+            return BadRequest(new { message = "Site does not exist." });
+
+        var assetReference = string.IsNullOrWhiteSpace(request.AssetReference)
+            ? $"site-map:{request.SiteId?.ToString() ?? "global"}:{request.Name.Trim().ToLowerInvariant().Replace(' ', '-')}"
+            : request.AssetReference.Trim();
 
         var map = new SiteMap
         {
             SiteId = request.SiteId,
             Name = request.Name.Trim(),
-            AssetReference = request.AssetReference.Trim(),
+            AssetReference = assetReference,
             CoordinateSystem = string.IsNullOrWhiteSpace(request.CoordinateSystem) ? "Normalized" : request.CoordinateSystem.Trim()
         };
 
         _context.SiteMaps.Add(map);
         await _context.SaveChangesAsync();
         return Ok(map);
+    }
+
+    [HttpPatch("maps/{mapId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateSiteMap(int mapId, [FromBody] SiteMapPatchRequest request)
+    {
+        var map = await _context.SiteMaps.FirstOrDefaultAsync(m => m.SiteMapId == mapId);
+        if (map == null)
+            return NotFound(new { message = "Map not found." });
+
+        if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
+            return BadRequest(new { message = "Site does not exist." });
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+            map.Name = request.Name.Trim();
+        if (request.SiteId.HasValue)
+            map.SiteId = request.SiteId.Value;
+        if (request.AssetReference != null && !string.IsNullOrWhiteSpace(request.AssetReference))
+            map.AssetReference = request.AssetReference.Trim();
+        if (!string.IsNullOrWhiteSpace(request.CoordinateSystem))
+            map.CoordinateSystem = request.CoordinateSystem.Trim();
+        if (request.IsActive.HasValue)
+            map.IsActive = request.IsActive.Value;
+
+        await _context.SaveChangesAsync();
+        return Ok(map);
+    }
+
+    [HttpDelete("maps/{mapId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteSiteMap(int mapId)
+    {
+        var map = await _context.SiteMaps.FirstOrDefaultAsync(m => m.SiteMapId == mapId);
+        if (map == null)
+            return NotFound(new { message = "Map not found." });
+
+        _context.SiteMaps.Remove(map);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost("maps/{mapId:int}/placements")]
@@ -173,6 +219,38 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
         _context.MapDevicePlacements.Add(placement);
         await _context.SaveChangesAsync();
         return Ok(placement);
+    }
+
+    [HttpPatch("maps/{mapId:int}/placements/{placementId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateMapPlacement(int mapId, int placementId, [FromBody] MapPlacementPatchRequest request)
+    {
+        var placement = await _context.MapDevicePlacements.FirstOrDefaultAsync(p => p.SiteMapId == mapId && p.MapDevicePlacementId == placementId);
+        if (placement == null)
+            return NotFound(new { message = "Placement not found." });
+
+        placement.SecurityDeviceId = request.SecurityDeviceId ?? placement.SecurityDeviceId;
+        placement.CameraId = request.CameraId ?? placement.CameraId;
+        placement.X = request.X ?? placement.X;
+        placement.Y = request.Y ?? placement.Y;
+        if (!string.IsNullOrWhiteSpace(request.IconType))
+            placement.IconType = request.IconType.Trim();
+
+        await _context.SaveChangesAsync();
+        return Ok(placement);
+    }
+
+    [HttpDelete("maps/{mapId:int}/placements/{placementId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteMapPlacement(int mapId, int placementId)
+    {
+        var placement = await _context.MapDevicePlacements.FirstOrDefaultAsync(p => p.SiteMapId == mapId && p.MapDevicePlacementId == placementId);
+        if (placement == null)
+            return NotFound(new { message = "Placement not found." });
+
+        _context.MapDevicePlacements.Remove(placement);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPost("ai-adjudications")]
@@ -440,9 +518,13 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     }
 
     [HttpGet("maps")]
-    public async Task<IActionResult> GetSiteMaps()
+    public async Task<IActionResult> GetSiteMaps([FromQuery] int? siteId)
     {
-        var maps = await _context.SiteMaps.AsNoTracking().OrderBy(m => m.Name).ToListAsync();
+        var query = _context.SiteMaps.AsNoTracking().AsQueryable();
+        if (siteId.HasValue)
+            query = query.Where(m => m.SiteId == siteId.Value);
+
+        var maps = await query.OrderBy(m => m.Name).ToListAsync();
         return Ok(maps);
     }
 
@@ -452,10 +534,23 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
         if (!await _context.SiteMaps.AnyAsync(m => m.SiteMapId == mapId))
             return NotFound(new { message = "Map not found." });
         var placements = await _context.MapDevicePlacements
+            .Include(p => p.SecurityDevice)
+            .Include(p => p.Camera)
             .Where(p => p.SiteMapId == mapId)
             .OrderBy(p => p.IconType).ThenBy(p => p.Y)
             .ToListAsync();
-        return Ok(placements);
+        return Ok(placements.Select(p => new
+        {
+            p.MapDevicePlacementId,
+            p.SiteMapId,
+            p.SecurityDeviceId,
+            securityDeviceName = p.SecurityDevice != null ? p.SecurityDevice.Name : null,
+            p.CameraId,
+            cameraName = p.Camera != null ? p.Camera.CameraName : null,
+            x = p.X,
+            y = p.Y,
+            p.IconType
+        }));
     }
 
     private int? GetCurrentUserId()
@@ -467,8 +562,10 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public sealed record SecurityEventRequest(string? SourceType, string? SourceId, string EventType, string? Severity, int? SiteId, int? SecurityZoneId, int? AccessPointId, string? SubjectType, int? SubjectId, int? VehicleId, string? PlateText, decimal? Confidence, string? CorrelationId, string? Summary, DateTime? OccurredAtUtc);
     public sealed record CorrelationRunRequest(DateTime? SinceUtc, int MinimumEvents);
     public sealed record VideoBookmarkRequest(long? SecurityEventId, int? CameraId, string? ArtifactReference, DateTime StartUtc, DateTime EndUtc, string? Note);
-    public sealed record SiteMapRequest(int? SiteId, string Name, string AssetReference, string? CoordinateSystem);
+    public sealed record SiteMapRequest(int? SiteId, string Name, string? AssetReference, string? CoordinateSystem);
+    public sealed record SiteMapPatchRequest(int? SiteId, string? Name, string? AssetReference, string? CoordinateSystem, bool? IsActive);
     public sealed record MapPlacementRequest(int? SecurityDeviceId, int? CameraId, decimal X, decimal Y, string? IconType);
+    public sealed record MapPlacementPatchRequest(int? SecurityDeviceId, int? CameraId, decimal? X, decimal? Y, string? IconType);
     public sealed record AiAdjudicationRequest(long? SecurityEventId, string? AiSource, string? ModelVersion, decimal? Confidence);
     public sealed record AiReviewRequest(string? Outcome, string? ReviewNote);
     public sealed record AiMetricRequest(string? AiSource, string MetricName, decimal MetricValue, string? Notes);

@@ -351,7 +351,7 @@ public partial class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.UserId);
             entity.HasIndex(e => e.Username).IsUnique();
-            entity.Property(e => e.Role).HasDefaultValue("Staff");
+            entity.Property(e => e.Role).HasDefaultValue("LeTan");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getutcdate())");
             entity.Property(e => e.TokenVersion).HasDefaultValue(0);

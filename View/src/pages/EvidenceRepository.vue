@@ -6,12 +6,24 @@
                 <h1 class="page-title">Evidence Repository</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" @click="showCreateItem = true">+ Evidence</button>
-                <button class="btn btn-secondary" @click="showCollections = true">Collections</button>
-                <button class="btn btn-primary" @click="loadItems">Refresh</button>
+                <template v-if="activeRepoTab === 'items'">
+                    <button class="btn btn-secondary" @click="showCreateItem = true">+ Evidence</button>
+                    <button class="btn btn-secondary" @click="showCollections = true">Collections</button>
+                </template>
+                <template v-else>
+                    <button class="btn btn-secondary" @click="showPolicyComposer = !showPolicyComposer">
+                        {{ showPolicyComposer ? 'Close Policy Form' : '+ Retention Policy' }}
+                    </button>
+                    <button class="btn btn-secondary" @click="runRetentionDryRun">Dry Run</button>
+                </template>
+                <button class="btn btn-primary" @click="refreshCurrentView">Refresh</button>
             </div>
         </div>
-        <section class="ops-grid one">
+        <div class="repo-tabs">
+            <button :class="{ active: activeRepoTab === 'items' }" @click="activeRepoTab = 'items'">Evidence Items</button>
+            <button :class="{ active: activeRepoTab === 'governance' }" @click="activeRepoTab = 'governance'">Retention & Legal Hold</button>
+        </div>
+        <section v-if="activeRepoTab === 'items'" class="ops-grid one">
             <article class="ops-panel">
                 <div class="panel-head">
                     <div><span class="panel-kicker">Items</span><h2 class="panel-title">Evidence Items</h2></div>
@@ -70,6 +82,135 @@
                 </div>
             </article>
         </section>
+        <section v-else class="ops-grid two">
+            <article class="ops-panel">
+                <div class="panel-head">
+                    <div>
+                        <span class="panel-kicker">Governance</span>
+                        <h2 class="panel-title">Retention Policies</h2>
+                    </div>
+                    <div class="panel-actions">
+                        <span class="soft-chip muted">{{ retentionPolicies.length }} policies</span>
+                    </div>
+                </div>
+                <div v-if="showPolicyComposer" class="policy-composer">
+                    <div class="form-row two">
+                        <div class="form-group">
+                            <label>Policy Name</label>
+                            <input v-model="policyForm.name" class="form-control" placeholder="e.g. Incident video retention" />
+                        </div>
+                        <div class="form-group">
+                            <label>Evidence Type</label>
+                            <select v-model="policyForm.evidenceType" class="form-control">
+                                <option value="Any">Any</option>
+                                <option value="Document">Document</option>
+                                <option value="Image">Image</option>
+                                <option value="Video">Video</option>
+                                <option value="Log">Log</option>
+                                <option value="Report">Report</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row three">
+                        <div class="form-group">
+                            <label>Retention Category</label>
+                            <input v-model="policyForm.retentionCategory" class="form-control" placeholder="Default, Incident, Privacy" />
+                        </div>
+                        <div class="form-group">
+                            <label>Retention Days</label>
+                            <input v-model.number="policyForm.retentionDays" type="number" min="1" class="form-control" />
+                        </div>
+                        <div class="form-group">
+                            <label>Purge Mode</label>
+                            <select v-model="policyForm.purgeMode" class="form-control">
+                                <option value="ReviewRequired">ReviewRequired</option>
+                                <option value="Auto">Auto</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label class="checkbox-row">
+                        <input v-model="policyForm.isActive" type="checkbox" />
+                        <span>Activate immediately</span>
+                    </label>
+                    <div class="chip-row">
+                        <button class="btn btn-sm btn-secondary" @click="resetPolicyForm">Reset</button>
+                        <button class="btn btn-sm btn-primary" :disabled="policySaving || !policyForm.name || !policyForm.retentionDays" @click="submitRetentionPolicy">
+                            {{ policySaving ? 'Saving...' : 'Create Policy' }}
+                        </button>
+                    </div>
+                </div>
+                <div v-if="governanceMessage" class="alert" :class="governanceMessageType === 'success' ? 'alert-success' : 'alert-danger'" style="margin-bottom:12px;">
+                    {{ governanceMessage }}
+                </div>
+                <div v-if="loadingPolicies" class="empty-card">Loading...</div>
+                <div v-else-if="retentionPolicies.length === 0" class="empty-card">No retention policies yet.</div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Days</th><th>Purge Mode</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <tr v-for="policy in retentionPolicies" :key="policy.retentionPolicyId">
+                                <td>{{ policy.name }}</td>
+                                <td>{{ policy.evidenceType }}</td>
+                                <td>{{ policy.retentionCategory }}</td>
+                                <td>{{ policy.retentionDays }}</td>
+                                <td><span class="badge badge-info">{{ policy.purgeMode }}</span></td>
+                                <td><span class="badge" :class="policy.isActive ? 'badge-success' : 'badge-secondary'">{{ policy.isActive ? 'Active' : 'Inactive' }}</span></td>
+                                <td>
+                                    <button
+                                        class="btn btn-sm"
+                                        :class="policy.isActive ? 'btn-warning' : 'btn-success'"
+                                        @click="toggleRetentionPolicy(policy, !policy.isActive)"
+                                    >
+                                        {{ policy.isActive ? 'Deactivate' : 'Activate' }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="ops-panel">
+                <div class="panel-head">
+                    <div>
+                        <span class="panel-kicker">Protection</span>
+                        <h2 class="panel-title">Active Legal Holds</h2>
+                    </div>
+                    <div class="panel-actions">
+                        <span class="soft-chip success">{{ legalHolds.length }} active</span>
+                    </div>
+                </div>
+                <div class="governance-note">
+                    Legal hold vẫn có thể áp dụng ngay trong chi tiết từng evidence. Khu vực này là nơi theo dõi và gỡ hold đang hoạt động một cách tập trung.
+                </div>
+                <div v-if="loadingHolds" class="empty-card">Loading...</div>
+                <div v-else-if="legalHolds.length === 0" class="empty-card">No active legal holds.</div>
+                <div v-else class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Scope</th><th>Reason</th><th>Applied</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <tr v-for="hold in legalHolds" :key="hold.legalHoldId">
+                                <td>{{ hold.legalHoldId }}</td>
+                                <td>{{ formatHoldScope(hold) }}</td>
+                                <td class="table-sub">{{ (hold.reason || '').substring(0, 60) || '—' }}</td>
+                                <td class="table-sub">{{ new Date(hold.appliedAtUtc).toLocaleString() }}</td>
+                                <td><button class="btn btn-warning btn-sm" @click="releaseHoldFromGovernance(hold)">Release</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <div v-if="dryRunResult" class="modal-overlay" @click.self="dryRunResult = null">
+            <div class="modal-box wide-modal">
+                <h3>Retention Dry Run</h3>
+                <pre class="dry-run-output">{{ JSON.stringify(dryRunResult, null, 2) }}</pre>
+                <div class="modal-actions">
+                    <button class="btn btn-danger" :disabled="purgeBusy" @click="confirmGovernancePurge">Purge Listed Items</button>
+                    <button class="btn btn-secondary" @click="dryRunResult = null">Close</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Evidence Detail Drawer -->
         <Teleport to="body">
@@ -403,6 +544,7 @@ const loading = ref(true)
 const page = ref(1)
 const totalPages = ref(1)
 const filters = reactive({ evidenceType: '', privacyLabel: '', isLegalHold: '' })
+const activeRepoTab = ref('items')
 
 // Detail drawer tabs
 const activeDetailTab = ref('overview')
@@ -454,6 +596,26 @@ const showAddToCollection = ref(false)
 const collectionForm = ref({ name: '', description: '' })
 const addToCollectionForm = ref({ evidenceItemId: null })
 
+// Governance
+const retentionPolicies = ref([])
+const legalHolds = ref([])
+const loadingPolicies = ref(false)
+const loadingHolds = ref(false)
+const governanceMessage = ref('')
+const governanceMessageType = ref('success')
+const showPolicyComposer = ref(false)
+const policySaving = ref(false)
+const dryRunResult = ref(null)
+const purgeBusy = ref(false)
+const policyForm = ref({
+    name: '',
+    evidenceType: 'Any',
+    retentionCategory: 'Default',
+    retentionDays: 90,
+    purgeMode: 'ReviewRequired',
+    isActive: true,
+})
+
 const detailTabs = [
     { key: 'overview', label: 'Overview' },
     { key: 'custody', label: 'Custody' },
@@ -473,6 +635,150 @@ async function loadItems() {
         totalPages.value = Math.ceil((res.data.total || 0) / 50) || 1
     } catch { items.value = [] }
     finally { loading.value = false }
+}
+
+async function refreshCurrentView() {
+    if (activeRepoTab.value === 'governance') {
+        await loadGovernance()
+        return
+    }
+    await loadItems()
+}
+
+async function loadGovernance() {
+    await Promise.all([loadRetentionPolicies(), loadLegalHolds()])
+}
+
+async function loadRetentionPolicies() {
+    loadingPolicies.value = true
+    try {
+        const res = await enterpriseApi.getRetentionPolicies()
+        retentionPolicies.value = Array.isArray(res.data) ? res.data : []
+    } catch {
+        retentionPolicies.value = []
+    } finally {
+        loadingPolicies.value = false
+    }
+}
+
+async function loadLegalHolds() {
+    loadingHolds.value = true
+    try {
+        const res = await enterpriseApi.getLegalHolds({ status: 'Active' })
+        legalHolds.value = Array.isArray(res.data) ? res.data : (res.data?.items || [])
+    } catch {
+        legalHolds.value = []
+    } finally {
+        loadingHolds.value = false
+    }
+}
+
+function resetPolicyForm() {
+    policyForm.value = {
+        name: '',
+        evidenceType: 'Any',
+        retentionCategory: 'Default',
+        retentionDays: 90,
+        purgeMode: 'ReviewRequired',
+        isActive: true,
+    }
+}
+
+async function submitRetentionPolicy() {
+    if (!policyForm.value.name || !policyForm.value.retentionDays) return
+    policySaving.value = true
+    governanceMessage.value = ''
+    governanceMessageType.value = 'success'
+    try {
+        await enterpriseApi.createRetentionPolicy({
+            name: policyForm.value.name,
+            evidenceType: policyForm.value.evidenceType,
+            retentionCategory: policyForm.value.retentionCategory,
+            retentionDays: policyForm.value.retentionDays,
+            purgeMode: policyForm.value.purgeMode,
+            isActive: policyForm.value.isActive,
+        })
+        governanceMessage.value = 'Đã tạo retention policy.'
+        showPolicyComposer.value = false
+        resetPolicyForm()
+        await loadRetentionPolicies()
+    } catch (e) {
+        governanceMessageType.value = 'error'
+        governanceMessage.value = e.response?.data?.message || 'Không thể tạo retention policy.'
+    } finally {
+        policySaving.value = false
+    }
+}
+
+async function toggleRetentionPolicy(policy, isActive) {
+    governanceMessage.value = ''
+    governanceMessageType.value = 'success'
+    try {
+        await enterpriseApi.updateRetentionPolicy(policy.retentionPolicyId, { isActive })
+        governanceMessage.value = isActive ? 'Đã kích hoạt retention policy.' : 'Đã tắt retention policy.'
+        await loadRetentionPolicies()
+    } catch (e) {
+        governanceMessageType.value = 'error'
+        governanceMessage.value = e.response?.data?.message || 'Không thể cập nhật retention policy.'
+    }
+}
+
+async function runRetentionDryRun() {
+    governanceMessage.value = ''
+    governanceMessageType.value = 'success'
+    try {
+        const res = await enterpriseApi.dryRunRetention({ asOfUtc: new Date().toISOString(), limit: 100 })
+        dryRunResult.value = res.data
+    } catch {
+        alert('Dry run failed')
+    }
+}
+
+async function confirmGovernancePurge() {
+    if (!confirm('This will purge evidence items. This action requires step-up MFA. Continue?')) return
+    purgeBusy.value = true
+    try {
+        const ids = dryRunResult.value?.candidates?.map(candidate => candidate.evidenceItemId) || []
+        if (ids.length === 0) {
+            governanceMessageType.value = 'error'
+            governanceMessage.value = 'Dry run hiện chưa có evidence nào đủ điều kiện purge.'
+            dryRunResult.value = null
+            return
+        }
+        await enterpriseApi.purgeEvidence({ evidenceItemIds: ids, reason: 'Retention policy purge' })
+        dryRunResult.value = null
+        governanceMessageType.value = 'success'
+        governanceMessage.value = 'Đã purge các evidence đủ điều kiện theo retention policy.'
+        await Promise.all([loadItems(), loadGovernance()])
+    } catch {
+        alert('Purge failed')
+    } finally {
+        purgeBusy.value = false
+    }
+}
+
+function formatHoldScope(hold) {
+    if (hold.evidenceItemId) return `Evidence #${hold.evidenceItemId}`
+    if (hold.evidenceCollectionId) return `Collection #${hold.evidenceCollectionId}`
+    return 'Unknown'
+}
+
+async function releaseHoldFromGovernance(hold) {
+    const reason = prompt(`Release reason for legal hold #${hold.legalHoldId}:`)
+    if (!reason) return
+    governanceMessage.value = ''
+    governanceMessageType.value = 'success'
+    try {
+        await enterpriseApi.releaseLegalHold(hold.legalHoldId, { reason })
+        governanceMessage.value = `Đã gỡ legal hold #${hold.legalHoldId}.`
+        if (detail.value?.evidenceItemId && hold.evidenceItemId === detail.value.evidenceItemId) {
+            detail.value.isLegalHold = false
+        }
+        await Promise.all([loadItems(), loadLegalHolds()])
+    } catch (e) {
+        governanceMessageType.value = 'error'
+        governanceMessage.value = e.response?.data?.message || 'Không thể gỡ legal hold.'
+    }
 }
 
 async function viewDetail(item) {
@@ -717,10 +1023,20 @@ function privacyClass(l) {
     return 'badge-info'
 }
 
-onMounted(loadItems)
+onMounted(async () => {
+    await Promise.all([loadItems(), loadGovernance()])
+})
 </script>
 
 <style scoped>
+.repo-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.repo-tabs button { border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+.repo-tabs button.active { background: #0f766e; border-color: #0f766e; color: #fff; }
+.policy-composer { margin-bottom: 16px; padding: 16px; border: 1px solid #dbe4ee; border-radius: 14px; background: linear-gradient(180deg, #f8fbff 0%, #f3f8f6 100%); }
+.form-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.checkbox-row { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #475569; font-size: 13px; }
+.governance-note { margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; font-size: 13px; line-height: 1.5; }
+.dry-run-output { max-height: 320px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 14px; font-size: 12px; }
 .drawer-overlay { display: flex; justify-content: flex-end; }
 .drawer-panel { width: 540px; max-width: 95vw; height: 100vh; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg-card-strong); }
 .drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }

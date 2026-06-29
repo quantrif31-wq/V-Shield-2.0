@@ -31,7 +31,7 @@
           </div>
           <div class="ov-card">
             <h3>👥 4 vai trò người dùng</h3>
-            <p><strong>Admin</strong>: Làm được tất cả. <strong>Bảo vệ</strong>: Coi camera, check-in khách. <strong>Quản lý</strong>: Xem báo cáo. <strong>Nhân viên</strong>: Tạo QR, chấm công.</p>
+            <p><strong>Admin</strong>: Toàn quyền. <strong>Bảo vệ</strong>: giám sát và xử lý tại cổng. <strong>Quản lý</strong>: theo dõi báo cáo và phê duyệt. <strong>Lễ tân</strong>: đón tiếp khách, tra cứu và hỗ trợ tìm đồ thất lạc.</p>
           </div>
           <div class="ov-card">
             <h3>📱 Các phương thức xác thực</h3>
@@ -77,7 +77,7 @@
           <h4>💡 Bắt đầu từ đâu?</h4>
           <ol>
             <li><strong>Đăng nhập</strong> bằng tài khoản được cấp.</li>
-            <li>Nếu bạn là <strong>Nhân viên</strong>: QR ra vào sẽ tự động hiện ra.</li>
+            <li>Nếu bạn là <strong>Lễ tân</strong>: mở Reception để đón khách, tra cứu xe và xử lý đồ thất lạc.</li>
             <li>Nếu bạn là <strong>Bảo vệ</strong>: Mở màn hình Giám sát để xem camera.</li>
             <li>Nếu bạn là <strong>Quản lý</strong>: Xem Dashboard để nắm tình hình.</li>
             <li>Nếu bạn là <strong>Admin</strong>: Vào Cài đặt để cấu hình hệ thống.</li>

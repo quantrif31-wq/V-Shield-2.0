@@ -15,7 +15,7 @@ public class UserImportHandler : EntityImportHandlerBase
     [
         new() { FieldName = "Username", DisplayName = "Ten dang nhap", DataType = "string", IsRequired = true, Description = "Ten tai khoan" },
         new() { FieldName = "FullName", DisplayName = "Ho ten", DataType = "string", Description = "Ten day du" },
-        new() { FieldName = "Role", DisplayName = "Vai tro", DataType = "string", Description = "Admin / Staff / BaoVe / QuanLy / LeTan", AllowedValues = ["Admin", "Staff", "BaoVe", "QuanLy", "LeTan"] },
+        new() { FieldName = "Role", DisplayName = "Vai tro", DataType = "string", Description = "Admin / BaoVe / QuanLy / LeTan", AllowedValues = ["Admin", "BaoVe", "QuanLy", "LeTan"] },
         new() { FieldName = "IsActive", DisplayName = "Kich hoat", DataType = "bool", Description = "true = Kich hoat, false = Vo hieu" },
         new() { FieldName = "EmployeeEmail", DisplayName = "Email nhan vien", DataType = "string", Description = "Gan voi nhan vien qua Email" },
     ];
@@ -32,8 +32,8 @@ public class UserImportHandler : EntityImportHandlerBase
             errors.Add(MakeError(rowIndex, "Username", $"Ten dang nhap '{username}' da ton tai"));
 
         var role = GetString(row, "Role");
-        if (!string.IsNullOrWhiteSpace(role) && role is not ("Admin" or "Staff" or "BaoVe" or "QuanLy" or "LeTan"))
-            errors.Add(MakeError(rowIndex, "Role", $"Vai tro khong hop le: '{role}'. Chap nhan: Admin, Staff, BaoVe, QuanLy, LeTan"));
+        if (!string.IsNullOrWhiteSpace(role) && role is not ("Admin" or "BaoVe" or "QuanLy" or "LeTan"))
+            errors.Add(MakeError(rowIndex, "Role", $"Vai tro khong hop le: '{role}'. Chap nhan: Admin, BaoVe, QuanLy, LeTan"));
 
         return errors;
     }
@@ -58,7 +58,7 @@ public class UserImportHandler : EntityImportHandlerBase
             Username = GetString(row, "Username") ?? "",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
             FullName = GetString(row, "FullName"),
-            Role = GetString(row, "Role") ?? "Staff",
+            Role = GetString(row, "Role") ?? "LeTan",
             IsActive = GetBool(row, "IsActive") ?? true,
             EmployeeId = empId,
         };

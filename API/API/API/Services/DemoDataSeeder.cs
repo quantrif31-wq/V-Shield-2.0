@@ -503,6 +503,7 @@ public static class DemoDataSeeder
         var now = DateTime.UtcNow;
         var employees = db.Employees
             .Include(employee => employee.Department)
+            .Include(employee => employee.Position)
             .OrderBy(employee => employee.EmployeeId)
             .ToList();
 
@@ -1107,29 +1108,53 @@ public static class DemoDataSeeder
 
     private static void EnsureDemoUserAccounts(ApplicationDbContext db, List<Employee> employees, DateTime now)
     {
-        var securityEmployees = employees
-            .Where(employee => employee.Department != null &&
-                               employee.Department.Name.Contains("Security", StringComparison.OrdinalIgnoreCase))
+        var activeEmployees = employees
+            .Where(employee => employee.Status == true)
             .OrderBy(employee => employee.EmployeeId)
             .ToList();
-        if (securityEmployees.Count == 0)
+
+        if (activeEmployees.Count == 0)
+            return;
+
+        var assignedEmployeeIds = new HashSet<int>();
+
+        var adminEmployee = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsManagerCandidate, 1).FirstOrDefault()
+                            ?? SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, _ => true, 1).FirstOrDefault();
+
+        var managerEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsManagerCandidate, 4);
+        var guardEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsGuardCandidate, 16);
+        var receptionEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsReceptionCandidate, 2);
+
+        UpsertDemoUser(
+            db,
+            "admin",
+            "Admin",
+            adminEmployee?.FullName ?? "Quan tri vien",
+            "Admin@123",
+            adminEmployee?.EmployeeId,
+            now,
+            resetPassword: false);
+
+        for (var i = 0; i < managerEmployees.Count; i++)
         {
-            securityEmployees = employees.OrderBy(employee => employee.EmployeeId).Take(4).ToList();
+            var employee = managerEmployees[i];
+            var username = i == 0 ? "manager" : $"quanly{i + 1}";
+            UpsertDemoUser(db, username, "QuanLy", employee.FullName, "Manager@123", employee.EmployeeId, now, resetPassword: true);
         }
 
-        var managerEmployee = employees.FirstOrDefault(employee => employee.Email == "employee002@vshield-demo.vn")
-                              ?? employees.Skip(1).FirstOrDefault()
-                              ?? employees.FirstOrDefault();
-
-        UpsertDemoUser(db, "admin", "Admin", "Quan tri vien", "Admin@123", null, now, resetPassword: false);
-        UpsertDemoUser(db, "manager", "QuanLy", "Quan ly van hanh", "Manager@123", managerEmployee?.EmployeeId, now, resetPassword: true);
-        UpsertDemoUser(db, "letan1", "LeTan", "Le tan sanh chinh", "LeTan@123", employees.Skip(3).FirstOrDefault()?.EmployeeId ?? managerEmployee?.EmployeeId, now, resetPassword: true);
-
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < guardEmployees.Count; i++)
         {
-            var employee = securityEmployees.ElementAtOrDefault(i) ?? employees.ElementAtOrDefault(i);
-            UpsertDemoUser(db, $"baove{i + 1}", "BaoVe", $"Bao ve ca {i + 1}", "BaoVe@123", employee?.EmployeeId, now, resetPassword: true);
+            var employee = guardEmployees[i];
+            UpsertDemoUser(db, $"baove{i + 1}", "BaoVe", employee.FullName, "BaoVe@123", employee.EmployeeId, now, resetPassword: true);
         }
+
+        for (var i = 0; i < receptionEmployees.Count; i++)
+        {
+            var employee = receptionEmployees[i];
+            UpsertDemoUser(db, $"letan{i + 1}", "LeTan", employee.FullName, "LeTan@123", employee.EmployeeId, now, resetPassword: true);
+        }
+
+        BackfillDemoUserEmployeeLinks(db, activeEmployees);
     }
 
     private static void UpsertDemoUser(
@@ -1160,10 +1185,13 @@ public static class DemoDataSeeder
             return;
         }
 
+        var roleChanged = !string.Equals(user.Role, role, StringComparison.OrdinalIgnoreCase);
+        var employeeChanged = user.EmployeeId != employeeId;
+
         user.Role = role;
-        user.FullName = string.IsNullOrWhiteSpace(user.FullName) ? fullName : user.FullName;
+        user.FullName = fullName;
         user.IsActive = true;
-        user.EmployeeId ??= employeeId;
+        user.EmployeeId = employeeId;
 
         if (resetPassword && !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
         {
@@ -1171,6 +1199,106 @@ public static class DemoDataSeeder
             user.LastPasswordChangedAtUtc = now;
             user.TokenVersion++;
         }
+
+        if (roleChanged || employeeChanged)
+            user.TokenVersion++;
+    }
+
+    private static List<Employee> SelectEmployeesForRole(
+        List<Employee> employees,
+        HashSet<int> assignedEmployeeIds,
+        Func<Employee, bool> preferredPredicate,
+        int take)
+    {
+        var selected = employees
+            .Where(employee => !assignedEmployeeIds.Contains(employee.EmployeeId))
+            .Where(preferredPredicate)
+            .Take(take)
+            .ToList();
+
+        if (selected.Count < take)
+        {
+            var fallback = employees
+                .Where(employee => !assignedEmployeeIds.Contains(employee.EmployeeId))
+                .Where(employee => selected.All(item => item.EmployeeId != employee.EmployeeId))
+                .Take(take - selected.Count)
+                .ToList();
+
+            selected.AddRange(fallback);
+        }
+
+        foreach (var employee in selected)
+            assignedEmployeeIds.Add(employee.EmployeeId);
+
+        return selected;
+    }
+
+    private static void BackfillDemoUserEmployeeLinks(ApplicationDbContext db, List<Employee> employees)
+    {
+        var employeeIdByName = employees
+            .Where(employee => !string.IsNullOrWhiteSpace(employee.FullName))
+            .GroupBy(employee => employee.FullName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.First().EmployeeId, StringComparer.OrdinalIgnoreCase);
+
+        var usedEmployeeIds = db.AppUsers
+            .Where(user => user.EmployeeId.HasValue)
+            .Select(user => user.EmployeeId!.Value)
+            .ToHashSet();
+
+        foreach (var user in db.AppUsers.Where(user => !user.EmployeeId.HasValue).ToList())
+        {
+            if (string.IsNullOrWhiteSpace(user.FullName))
+                continue;
+
+            if (!employeeIdByName.TryGetValue(user.FullName.Trim(), out var employeeId))
+                continue;
+
+            if (usedEmployeeIds.Contains(employeeId))
+                continue;
+
+            user.EmployeeId = employeeId;
+            user.TokenVersion++;
+            usedEmployeeIds.Add(employeeId);
+        }
+    }
+
+    private static bool IsGuardCandidate(Employee employee)
+    {
+        var department = employee.Department?.Name ?? string.Empty;
+        var position = employee.Position?.Name ?? string.Empty;
+
+        return department.Contains("Bảo vệ", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Security", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Bảo vệ", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Security", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsManagerCandidate(Employee employee)
+    {
+        var department = employee.Department?.Name ?? string.Empty;
+        var position = employee.Position?.Name ?? string.Empty;
+
+        return department.Contains("Executive", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Human Resources", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Nhân sự", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Director", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Manager", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Supervisor", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Trưởng", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsReceptionCandidate(Employee employee)
+    {
+        var department = employee.Department?.Name ?? string.Empty;
+        var position = employee.Position?.Name ?? string.Empty;
+
+        return department.Contains("Human Resources", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Nhân sự", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Executive", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Kỹ thuật", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Supervisor", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Nhân viên", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void EnsureEmployeeDynamicQrs(ApplicationDbContext db, List<Employee> employees, DateTime now)

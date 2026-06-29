@@ -46,7 +46,7 @@ const roles = [
   { id: 'Admin', label: 'Admin' },
   { id: 'Bảo vệ', label: 'Bảo vệ' },
   { id: 'Quản lý', label: 'Quản lý' },
-  { id: 'Nhân viên', label: 'Nhân viên' },
+  { id: 'Lễ tân', label: 'Lễ tân' },
 ]
 
 const chipColor = (id) => ({
@@ -54,7 +54,7 @@ const chipColor = (id) => ({
   Admin: '#3b82f6',
   'Bảo vệ': '#10b981',
   'Quản lý': '#8b5cf6',
-  'Nhân viên': '#f59e0b',
+  'Lễ tân': '#f59e0b',
 }[id] || '#6b7280')
 </script>
 

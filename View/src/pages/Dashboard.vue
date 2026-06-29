@@ -297,7 +297,7 @@ function hasAccess(route) {
         '/exceptions': ['Admin', 'BaoVe', 'QuanLy'],
         '/pre-registrations': ['Admin'],
         '/device-health': ['Admin', 'BaoVe'],
-        '/attendance/leave-approvals': ['Admin', 'Staff'],
+        '/attendance/leave-approvals': ['Admin', 'QuanLy'],
         '/access-logs': ['Admin', 'BaoVe', 'QuanLy'],
     }
 

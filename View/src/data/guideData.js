@@ -281,7 +281,7 @@ export const pageData = [
     ]
   },
   {
-    path: '/policy-engine',
+    path: '/enterprise-security',
     label: 'Policy Engine - Máy tạo chính sách ra vào',
     icon: '📜',
     roles: ['Admin'],
@@ -484,10 +484,10 @@ export const pageData = [
     path: '/host-visitor',
     label: 'Mời khách - Host Portal',
     icon: '✉️',
-    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    roles: ['Admin', 'Quản lý', 'Bảo vệ', 'Lễ tân'],
     group: 'Quản lý Khách thăm',
     groupIcon: '👤',
-    mucDich: 'Nhân viên mời khách đến công ty. Tạo lời mời, cấp QR cho khách.',
+    mucDich: 'Người dùng được phân quyền có thể mời khách đến công ty. Tạo lời mời, cấp QR cho khách.',
     steps: [
       {
         title: 'Tạo lời mời', moTa: 'Bấm "New Invitation". Nhập tên khách, SĐT, email, giờ đến/đi. Bấm "Send Invitation".',
@@ -682,13 +682,13 @@ export const pageData = [
     path: '/dynamic-qr-generator',
     label: 'Tạo QR động',
     icon: '📱',
-    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    roles: ['Admin', 'Quản lý', 'Bảo vệ', 'Lễ tân'],
     group: 'AI & Thiết bị',
     groupIcon: '🤖',
     mucDich: 'Tạo mã QR thay đổi liên tục (động) để quét tại cổng. Mỗi mã QR chỉ có thời gian sống ngắn, tăng tính bảo mật.',
     steps: [
       {
-        title: 'Nhân viên: QR tự động', moTa: 'Nếu bạn là nhân viên, sau khi đăng nhập, QR của bạn sẽ tự động hiện ra. Chỉ cần giữ màn hình trước camera quét QR tại cổng.',
+        title: 'Người dùng: QR tự động', moTa: 'Nếu tài khoản của bạn được cấp quyền dùng QR, sau khi đăng nhập bạn có thể mở trang này để hiển thị mã QR của mình. Chỉ cần giữ màn hình trước camera quét QR tại cổng.',
         nhapGi: null, bamGi: null,
         ketQua: 'Mã QR hiển thị, tự động làm mới. Có countdown thời gian sống.'
       },
@@ -776,23 +776,29 @@ export const pageData = [
     roles: ['Admin'],
     group: 'Evidence & Compliance',
     groupIcon: '📁',
-    mucDich: 'Lưu trữ tất cả bằng chứng (ảnh, video, log) liên quan đến an ninh. Mỗi vật chứng có hash để đảm bảo không bị sửa đổi, và có lịch sử "chain of custody" (ai đã xem/sử dụng).',
+    mucDich: 'Nơi quản lý tập trung evidence, chain of custody, retention policy và legal hold. Thay vì tách rời nhiều màn hình, toàn bộ vòng đời evidence được gom về cùng một khu vực.',
     steps: [
       {
-        title: 'Lọc danh sách', moTa: 'Dùng các ô chọn: loại evidence (Document/Image/Video/Log), mức độ bảo mật (Privacy Label), legal hold.',
-        nhapGi: 'Chọn các điều kiện lọc', bamGi: null,
-        ketQua: 'Danh sách các vật chứng phù hợp.'
+        title: 'Lọc danh sách evidence', moTa: 'Dùng các bộ lọc theo loại evidence, mức độ nhạy cảm và trạng thái legal hold.',
+        nhapGi: 'Chọn điều kiện lọc', bamGi: null,
+        ketQua: 'Danh sách hiển thị đúng các evidence cần xem.'
       },
       {
-        title: 'Xem chi tiết', moTa: 'Bấm "Detail". Cửa sổ hiện: loại, nguồn, hash, privacy label, và "Custody Timeline" - ai đã xem, khi nào.',
+        title: 'Xem chi tiết evidence', moTa: 'Mở Detail để xem nguồn dữ liệu, hash, nhãn riêng tư, lịch sử custody và các thao tác theo từng evidence.',
         nhapGi: null, bamGi: 'Bấm "Detail"',
-        ketQua: 'Thông tin đầy đủ vật chứng và lịch sử custody.'
+        ketQua: 'Có thể kiểm tra tính toàn vẹn và xử lý evidence ngay tại chỗ.'
+      },
+      {
+        title: 'Quản lý Retention & Legal Hold', moTa: 'Chuyển sang tab Retention & Legal Hold để tạo retention policy, xem legal hold đang hoạt động, chạy dry-run và purge theo policy.',
+        nhapGi: null, bamGi: 'Mở tab "Retention & Legal Hold"',
+        ketQua: 'Toàn bộ quản trị vòng đời evidence nằm trong cùng một view.'
       }
     ],
     thanhPhan: [
-      { ten: 'Các ô lọc', yNghia: 'Lọc theo loại, mức bảo mật, legal hold', ghiChu: null },
-      { ten: 'Hash SHA256', yNghia: 'Dấu vân tay số, đảm bảo không bị sửa', ghiChu: null },
-      { ten: 'Custody Timeline', yNghia: 'Ai đã xem/sử dụng vật chứng', ghiChu: 'Quan trọng cho kiểm toán' }
+      { ten: 'Bộ lọc evidence', yNghia: 'Lọc theo loại, độ nhạy cảm và legal hold', ghiChu: null },
+      { ten: 'Hash SHA256', yNghia: 'Dấu vân tay số để kiểm tra tính toàn vẹn', ghiChu: null },
+      { ten: 'Custody timeline', yNghia: 'Lịch sử truy cập và bàn giao evidence', ghiChu: 'Quan trọng cho kiểm toán' },
+      { ten: 'Tab Retention & Legal Hold', yNghia: 'Quản lý retention policy, legal hold và purge theo policy', ghiChu: 'Đã gộp từ retention-dashboard' }
     ]
   },
   {
@@ -842,31 +848,6 @@ export const pageData = [
     thanhPhan: [
       { ten: 'Nút Perform redaction', yNghia: 'Thực hiện che thông tin', ghiChu: null },
       { ten: 'Nút Verify', yNghia: 'Kiểm tra kết quả redaction', ghiChu: null }
-    ]
-  },
-  {
-    path: '/retention-dashboard',
-    label: 'Retention & Legal Hold - Lưu giữ & niêm phong',
-    icon: '🔒',
-    roles: ['Admin'],
-    group: 'Evidence & Compliance',
-    groupIcon: '📁',
-    mucDich: 'Quản lý chính sách lưu giữ dữ liệu. Mỗi loại evidence có thời gian lưu khác nhau. Legal Hold: niêm phong evidence không được xóa khi có yêu cầu pháp lý.',
-    steps: [
-      {
-        title: 'Xem chính sách lưu giữ', moTa: 'Bảng: loại evidence, thời gian lưu, số lượng, ngày xóa tiếp theo.',
-        nhapGi: null, bamGi: null,
-        ketQua: 'Biết evidence nào sắp đến hạn xóa.'
-      },
-      {
-        title: 'Quản lý Legal Hold', moTa: 'Danh sách legal hold đang hoạt động. Evidence trong legal hold sẽ không bị xóa dù hết hạn lưu.',
-        nhapGi: null, bamGi: null,
-        ketQua: 'Đảm bảo evidence quan trọng không bị xóa.'
-      }
-    ],
-    thanhPhan: [
-      { ten: 'Retention policies', yNghia: 'Chính sách lưu giữ', ghiChu: null },
-      { ten: 'Legal holds', yNghia: 'Niêm phong pháp lý', ghiChu: 'Không cho xóa dù hết hạn' }
     ]
   },
   {
@@ -1111,7 +1092,7 @@ export const pageData = [
     path: '/campus-map',
     label: 'Bản đồ khuôn viên',
     icon: '🗺️',
-    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    roles: ['Admin', 'Quản lý', 'Bảo vệ', 'Lễ tân'],
     group: 'Tổng quan & Giám sát',
     groupIcon: '📊',
     mucDich: 'Bản đồ tương tác của khuôn viên. Xem vị trí các tòa nhà, cổng, camera trên bản đồ. Trạng thái thiết bị hiển thị realtime.',
@@ -1269,13 +1250,13 @@ export const pageData = [
     path: '/attendance/records',
     label: 'Bảng chấm công',
     icon: '📅',
-    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    roles: ['Admin', 'Quản lý', 'Bảo vệ', 'Lễ tân'],
     group: 'Tổng quan & Giám sát',
     groupIcon: '📊',
     mucDich: 'Xem bảng chấm công của bạn hoặc của nhân viên (Admin). Hiển thị giờ vào, giờ ra, tổng giờ làm, trạng thái (đi đúng giờ/trễ/vắng).',
     steps: [
       {
-        title: 'Xem chấm công của tôi', moTa: 'Nếu là Nhân viên: mở trang này sẽ thấy bảng chấm công của chính bạn trong tháng. Các ô màu xanh = đi đúng giờ, vàng = trễ, đỏ = vắng.',
+        title: 'Xem chấm công của tôi', moTa: 'Nếu tài khoản của bạn được dùng chức năng chấm công, mở trang này sẽ thấy bảng chấm công của chính bạn trong tháng. Các ô màu xanh = đi đúng giờ, vàng = trễ, đỏ = vắng.',
         nhapGi: null, bamGi: null,
         ketQua: 'Biết tình trạng đi làm của bạn.'
       },
@@ -1330,10 +1311,10 @@ export const pageData = [
     path: '/attendance/leave-requests',
     label: 'Đơn xin nghỉ phép',
     icon: '📝',
-    roles: ['Admin', 'Nhân viên'],
+    roles: ['Admin', 'Quản lý', 'Bảo vệ', 'Lễ tân'],
     group: 'Tổng quan & Giám sát',
     groupIcon: '📊',
-    mucDich: 'Tạo đơn xin nghỉ phép. Nhân viên gửi đơn, Quản lý/Admin duyệt hoặc từ chối. Xem số ngày phép còn lại.',
+    mucDich: 'Tạo đơn xin nghỉ phép. Người dùng gửi đơn, Quản lý/Admin duyệt hoặc từ chối. Xem số ngày phép còn lại.',
     steps: [
       {
         title: 'Tạo đơn mới', moTa: 'Bấm "Tạo đơn mới". Chọn loại nghỉ: Nghỉ phép năm, Nghỉ bệnh, Nghỉ việc riêng. Chọn ngày bắt đầu và kết thúc. Nhập lý do. Bấm "Gửi đơn".',
@@ -1361,7 +1342,7 @@ export const pageData = [
     path: '/attendance/work-schedules',
     label: 'Lịch làm việc',
     icon: '🗓️',
-    roles: ['Admin', 'Nhân viên', 'Bảo vệ'],
+    roles: ['Admin', 'Quản lý'],
     group: 'Tổng quan & Giám sát',
     groupIcon: '📊',
     mucDich: 'Xem lịch làm việc theo ca. Biết hôm nay ai làm ca nào, giờ nào vào, giờ nào ra.',
@@ -1398,7 +1379,7 @@ export const pageData = [
       {
         title: 'Duyệt hoặc từ chối', moTa: 'Bấm "Duyệt" (xanh) để đồng ý, "Từ chối" (đỏ) để không đồng ý. Có thể nhập ghi chú kèm theo.',
         nhapGi: 'Nhập ghi chú (nếu có)', bamGi: 'Bấm "Duyệt" hoặc "Từ chối"',
-        ketQua: 'Đơn được xử lý. Nhân viên nhận thông báo.'
+        ketQua: 'Đơn được xử lý. Người gửi đơn nhận thông báo.'
       }
     ],
     thanhPhan: [
@@ -1692,7 +1673,7 @@ export const roles = [
   { id: 'Admin', label: 'Admin' },
   { id: 'Bảo vệ', label: 'Bảo vệ' },
   { id: 'Quản lý', label: 'Quản lý' },
-  { id: 'Nhân viên', label: 'Nhân viên' },
+  { id: 'Lễ tân', label: 'Lễ tân' },
 ]
 
 export const quickGuides = [
@@ -1707,12 +1688,12 @@ export const quickGuides = [
     ]
   },
   {
-    role: 'Nhân viên',
+    role: 'Lễ tân',
     tasks: [
-      { label: 'Tạo QR ra vào', path: '/dynamic-qr-generator', icon: '📱' },
-      { label: 'Xem bảng chấm công', path: '/attendance/records', icon: '📅' },
-      { label: 'Gửi đơn xin nghỉ phép', path: '/attendance/leave-requests', icon: '📝' },
+      { label: 'Đón khách tại quầy lễ tân', path: '/reception', icon: '🛎️' },
+      { label: 'Tìm đồ thất lạc', path: '/lost-found', icon: '🎒' },
       { label: 'Mời khách đến công ty', path: '/host-visitor', icon: '✉️' },
+      { label: 'Tra cứu xe khách trong bãi', path: '/reception', icon: '🚗' },
       { label: 'Xem bản đồ khuôn viên', path: '/campus-map', icon: '🗺️' },
     ]
   },
@@ -1730,7 +1711,7 @@ export const quickGuides = [
     tasks: [
       { label: 'Cấu hình hệ thống', path: '/settings', icon: '⚙️' },
       { label: 'Quản lý nhân viên', path: '/employees', icon: '👥' },
-      { label: 'Tạo & duyệt chính sách', path: '/policy-engine', icon: '📜' },
+      { label: 'Tạo & duyệt chính sách', path: '/enterprise-security', icon: '📜' },
       { label: 'Xử lý cảnh báo SOC', path: '/soc-console', icon: '🚨' },
       { label: 'Xem nhật ký kiểm toán', path: '/system-audit-logs', icon: '📜' },
       { label: 'Quản lý thiết bị', path: '/device-management', icon: '📡' },
@@ -1749,11 +1730,11 @@ export const faqs = [
   },
   {
     q: 'Làm thế nào để tạo mã QR ra vào?',
-    a: 'Nhân viên: sau khi đăng nhập, QR tự động hiện ra. Admin: vào Tạo QR động, nhập Employee ID, bấm "Phát QR realtime".'
+    a: 'Người dùng được cấp quyền QR có thể mở trang Tạo QR động để hiển thị mã của mình. Admin vào Tạo QR động, nhập Employee ID và bấm "Phát QR realtime".'
   },
   {
     q: 'Sự khác nhau giữa các vai trò?',
-    a: 'Admin: toàn quyền. Bảo vệ: giám sát camera, check-in khách, xử lý ngoại lệ. Quản lý: báo cáo, duyệt đơn. Nhân viên: QR, chấm công, mời khách.'
+    a: 'Admin: toàn quyền. Bảo vệ: giám sát camera, check-in khách, xử lý ngoại lệ. Quản lý: báo cáo, duyệt đơn. Lễ tân: đón khách, tra cứu thông tin và hỗ trợ đồ thất lạc.'
   },
   {
     q: 'Làm thế nào để thêm nhân viên mới?',
@@ -1772,3 +1753,4 @@ export const faqs = [
     a: 'Vào Tra cứu vào/ra. Chọn "Từ ngày" và "Đến ngày" (hôm qua). Có thể lọc thêm theo cổng. Bấm "Áp dụng lọc".'
   }
 ]
+

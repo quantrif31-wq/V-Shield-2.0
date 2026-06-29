@@ -7,8 +7,8 @@ public class UpdateUserRequest
     [MaxLength(100)]
     public string? FullName { get; set; }
 
-    /// <summary>Admin | Staff | BaoVe | QuanLy | LeTan</summary>
-    [RegularExpression("^(Admin|Staff|BaoVe|QuanLy|LeTan)$", ErrorMessage = "Role phai la Admin, Staff, BaoVe, QuanLy hoac LeTan")]
+    /// <summary>Admin | QuanLy | BaoVe | LeTan</summary>
+    [RegularExpression("^(Admin|BaoVe|QuanLy|LeTan)$", ErrorMessage = "Role phai la Admin, BaoVe, QuanLy hoac LeTan")]
     public string? Role { get; set; }
 
     public bool? IsActive { get; set; }

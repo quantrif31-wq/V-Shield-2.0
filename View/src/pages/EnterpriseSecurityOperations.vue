@@ -168,35 +168,6 @@
                 </div>
             </article>
 
-            <article v-if="isAdmin" class="ops-panel">
-                <div class="panel-head compact">
-                    <div>
-                        <span class="panel-kicker">Chính sách</span>
-                        <h2 class="panel-title">Mô phỏng quyết định</h2>
-                    </div>
-                    <span v-if="policyResult.result" class="soft-chip" :class="{ danger: policyResult.result === 'Deny', success: policyResult.result === 'Allow' }">
-                        {{ policyResult.result }}
-                    </span>
-                </div>
-                <form class="form-grid single" @submit.prevent="simulatePolicy">
-                    <label>
-                        ID đối tượng
-                        <input v-model.number="policyForm.subjectId" type="number" min="1" required />
-                    </label>
-                    <label>
-                        Loại định danh
-                        <select v-model="policyForm.credentialType">
-                            <option>QR</option>
-                            <option>Badge</option>
-                            <option>EmergencyOverride</option>
-                        </select>
-                    </label>
-                    <button type="submit" class="btn btn-secondary" :disabled="busy.policy">
-                        Mô phỏng
-                    </button>
-                </form>
-                <p v-if="policyResult.reason" class="inline-message">{{ policyResult.reason }}</p>
-            </article>
         </section>
 
         <section class="ops-grid two">
@@ -782,11 +753,157 @@
         </section>
 
         <section v-if="selectedWorkspace === 'admin'" class="ops-grid two">
+            <article class="ops-panel policy-admin-panel">
+                <div class="panel-head compact">
+                    <div>
+                        <span class="panel-kicker">Access Policy Governance</span>
+                        <h2 class="panel-title">Quản trị policy truy cập</h2>
+                    </div>
+                    <span class="soft-chip">{{ overview.policy.policyVersions || 0 }} phiên bản</span>
+                </div>
+
+                <div class="workspace-tabs policy-tabs">
+                    <button type="button" :class="{ active: policyAdminTab === 'simulate' }" @click="policyAdminTab = 'simulate'">Mô phỏng</button>
+                    <button type="button" :class="{ active: policyAdminTab === 'versions' }" @click="policyAdminTab = 'versions'; loadPolicyVersions()">Phiên bản</button>
+                    <button type="button" :class="{ active: policyAdminTab === 'rules' }" @click="policyAdminTab = 'rules'; loadPolicyRules()">Luật truy cập</button>
+                </div>
+
+                <div v-if="policyAdminMessage" class="inline-message">{{ policyAdminMessage }}</div>
+
+                <div v-if="policyAdminTab === 'simulate'" class="policy-admin-body">
+                    <form class="form-grid single" @submit.prevent="simulatePolicy">
+                        <label>
+                            ID đối tượng
+                            <input v-model.number="policyForm.subjectId" type="number" min="1" required />
+                        </label>
+                        <label>
+                            Loại định danh
+                            <select v-model="policyForm.credentialType">
+                                <option>QR</option>
+                                <option>Badge</option>
+                                <option>EmergencyOverride</option>
+                            </select>
+                        </label>
+                        <button type="submit" class="btn btn-secondary" :disabled="busy.policy">
+                            Mô phỏng quyết định
+                        </button>
+                    </form>
+                    <div v-if="policyResult.reason" class="policy-result-card">
+                        <div class="rec-header">
+                            <span class="soft-chip" :class="{ danger: policyResult.result === 'Deny', success: policyResult.result === 'Allow' }">
+                                {{ policyResult.result || 'Chưa có kết quả' }}
+                            </span>
+                            <small>Chế độ: {{ policyResult.decisionMode || 'Simulation' }}</small>
+                        </div>
+                        <p class="brief-summary">{{ policyResult.reason }}</p>
+                    </div>
+                </div>
+
+                <div v-else-if="policyAdminTab === 'versions'" class="policy-admin-body">
+                    <form class="form-grid single" @submit.prevent="createPolicyVersion">
+                        <label>
+                            Tên phiên bản policy
+                            <input v-model.trim="policyVersionForm.name" required />
+                        </label>
+                        <label>
+                            Tóm tắt thay đổi
+                            <textarea v-model.trim="policyVersionForm.changeSummary"></textarea>
+                        </label>
+                        <button type="submit" class="btn btn-secondary" :disabled="policyGovernanceLoading || !policyVersionForm.name">
+                            Tạo phiên bản mới
+                        </button>
+                    </form>
+
+                    <div v-if="policyGovernanceLoading && policyVersions.length === 0" class="empty-card">Đang tải phiên bản policy...</div>
+                    <div v-else-if="policyVersions.length === 0" class="empty-card">Chưa có phiên bản policy nào.</div>
+                    <div v-else class="version-list">
+                        <div v-for="version in policyVersions" :key="version.accessPolicyVersionId" class="version-row">
+                            <div class="version-info">
+                                <strong>{{ version.name }}</strong>
+                                <span class="version-meta">Trạng thái: {{ version.status }} · {{ version.rules ?? version.ruleCount ?? 0 }} luật</span>
+                            </div>
+                            <div class="version-badges">
+                                <span class="badge" :class="statusClass(version.status)">{{ version.status }}</span>
+                                <button v-if="version.status === 'Draft'" class="btn btn-xs btn-secondary" :disabled="policyGovernanceLoading" @click="submitPolicyVersion(version)">Submit</button>
+                                <button v-if="version.status === 'PendingApproval'" class="btn btn-xs btn-primary" :disabled="policyGovernanceLoading" @click="approvePolicyVersion(version)">Approve</button>
+                                <button v-if="version.status === 'Approved'" class="btn btn-xs btn-success" :disabled="policyGovernanceLoading" @click="activatePolicyVersion(version)">Activate</button>
+                                <button v-if="version.status === 'Active'" class="btn btn-xs btn-secondary" :disabled="policyGovernanceLoading" @click="retirePolicyVersion(version)">Retire</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="policy-admin-body">
+                    <form class="form-grid" @submit.prevent="createPolicyRule">
+                        <label>
+                            Loại đối tượng
+                            <select v-model="policyRuleForm.subjectType">
+                                <option>Employee</option>
+                                <option>Visitor</option>
+                                <option>Contractor</option>
+                            </select>
+                        </label>
+                        <label>
+                            Loại định danh
+                            <select v-model="policyRuleForm.credentialType">
+                                <option>Any</option>
+                                <option>QR</option>
+                                <option>Bio</option>
+                                <option>Card</option>
+                            </select>
+                        </label>
+                        <label>
+                            Subject ID
+                            <input v-model.number="policyRuleForm.subjectId" type="number" min="1" />
+                        </label>
+                        <label>
+                            Access Level ID
+                            <input v-model.number="policyRuleForm.accessLevelId" type="number" min="1" required />
+                        </label>
+                        <label>
+                            Site ID
+                            <input v-model.number="policyRuleForm.siteId" type="number" min="1" />
+                        </label>
+                        <label>
+                            Zone ID
+                            <input v-model.number="policyRuleForm.securityZoneId" type="number" min="1" />
+                        </label>
+                        <label>
+                            Access Point ID
+                            <input v-model.number="policyRuleForm.accessPointId" type="number" min="1" />
+                        </label>
+                        <label class="checkbox-row">
+                            <input v-model="policyRuleForm.allowAccess" type="checkbox" />
+                            <span>Cho phép truy cập</span>
+                        </label>
+                        <button type="submit" class="btn btn-secondary" :disabled="policyGovernanceLoading || !policyRuleForm.accessLevelId">
+                            Tạo luật truy cập
+                        </button>
+                    </form>
+
+                    <div v-if="policyGovernanceLoading && policyRules.length === 0" class="empty-card">Đang tải luật policy...</div>
+                    <div v-else-if="policyRules.length === 0" class="empty-card">Chưa có luật truy cập nào.</div>
+                    <div v-else class="rule-list">
+                        <div v-for="rule in policyRules" :key="rule.accessRuleId" class="rule-row">
+                            <div class="rule-info">
+                                <strong>{{ rule.allowAccess ? 'ALLOW' : 'DENY' }}</strong>
+                                <span class="rule-detail">{{ rule.subjectType }}:{{ rule.subjectId || '*' }} · {{ rule.credentialType }}</span>
+                            </div>
+                            <div class="rule-scope">
+                                <span v-if="rule.siteId">Site {{ rule.siteId }}</span>
+                                <span v-if="rule.securityZoneId">Zone {{ rule.securityZoneId }}</span>
+                                <span v-if="rule.accessPointId">Point {{ rule.accessPointId }}</span>
+                            </div>
+                            <span class="badge" :class="rule.isActive ? 'badge-green' : 'badge-gray'">{{ rule.isActive ? 'Active' : 'Inactive' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </article>
             <article class="ops-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">AI Chinh sach</span>
-                        <h2 class="panel-title">Mô phỏng chính sách</h2>
+                        <span class="panel-kicker">AI Chính sách</span>
+                        <h2 class="panel-title">Phân tích và giải thích policy</h2>
                     </div>
                 </div>
                 <div class="incident-brief-form">
@@ -815,15 +932,9 @@
                         <button class="btn btn-ghost btn-sm" @click="rejectAi(policySimulation.result.recommendationId)">Từ chối</button>
                     </div>
                 </div>
-            </article>
-            <article class="ops-panel">
-                <div class="panel-head compact">
-                    <div>
-                        <span class="panel-kicker">AI Chinh sach</span>
-                        <h2 class="panel-title">Giải thích chính sách</h2>
-                    </div>
+                <div v-else class="empty-card">
+                    Nhập ID phiên bản chính sách để xem mô phỏng hoặc giải thích bằng ngôn ngữ tự nhiên.
                 </div>
-                <div class="empty-card">Nhập ID phiên bản chính sách và chọn "Giải thích" để xem phân tích chính sách bằng ngôn ngữ tự nhiên. AI sẽ giải thích mục đích, người bị ảnh hưởng và các bước tiếp theo.</div>
             </article>
         </section>
 
@@ -908,7 +1019,7 @@ const busy = reactive({
 const stepUp = reactive({ action: 'AllPrivilegedActions', password: '', mfaCode: '', sessionId: null, active: false, message: '' })
 
 const providerForm = reactive({ name: 'Corporate IdP', protocol: 'OIDC', authority: 'https://idp.company.local', clientId: 'v-shield', isEnabled: true })
-const importForm = reactive({ providerId: 1, externalSubject: 'employee-001', username: 'employee.001', displayName: 'Employee 001', email: 'employee.001@company.local', phone: '', role: 'Staff', lifecycleStatus: 'Active', primarySiteId: null })
+const importForm = reactive({ providerId: 1, externalSubject: 'employee-001', username: 'employee.001', displayName: 'Employee 001', email: 'employee.001@company.local', phone: '', role: 'LeTan', lifecycleStatus: 'Active', primarySiteId: null })
 const deviceForm = reactive({ name: 'Virtual Controller 01', protocol: 'OSDP-Sim', direction: 'Entry', maxCredentials: 50000 })
 const faultForm = reactive({ securityDeviceId: null, status: 'Tamper', severity: 'High', message: 'Operator drill' })
 const alarmForm = reactive({ summary: 'Manual SOC drill alarm', severity: 'High' })
@@ -917,6 +1028,25 @@ const qaForm = reactive({ testType: 'LoadStressSoakChaos' })
 const backfillForm = reactive({ companyName: 'V-Shield Company', companyCode: 'VSHIELD', siteName: 'Headquarters', siteCode: 'HQ', timeZoneId: 'Asia/Ho_Chi_Minh' })
 const policyForm = reactive({ subjectType: 'Employee', subjectId: 1, siteId: null, securityZoneId: null, accessPointId: null, credentialType: 'QR', allowHolidayAccess: false, evaluatedAtUtc: null })
 const policyResult = reactive({ result: '', reason: '', decisionMode: '' })
+const policyAdminTab = ref('simulate')
+const policyGovernanceLoading = ref(false)
+const policyAdminMessage = ref('')
+const policyVersions = ref([])
+const policyRules = ref([])
+const policyVersionForm = reactive({ name: '', changeSummary: '' })
+const policyRuleForm = reactive({
+    subjectType: 'Employee',
+    credentialType: 'Any',
+    subjectId: null,
+    accessLevelId: null,
+    accessGroupId: null,
+    siteId: null,
+    securityZoneId: null,
+    accessPointId: null,
+    accessScheduleId: null,
+    allowAccess: true,
+    isActive: true,
+})
 
 // Ops workspace state
 const restoreForm = reactive({ backupRunId: null, targetRtoMinutes: 60 })
@@ -1188,6 +1318,7 @@ async function explainAiPolicy() {
 watch(selectedWorkspace, (ws) => {
     if (ws === 'soc') { loadSocIntel() }
     if (ws === 'ops') { loadBackupRuns(); loadRestoreDrills(); loadOutboxEvents() }
+    if (ws === 'admin') { refreshPolicyGovernance() }
 })
 
 async function verifyStepUp() {
@@ -1219,6 +1350,160 @@ async function simulatePolicy() {
         policyResult.result = response.data?.result || ''; policyResult.reason = response.data?.reason || ''; policyResult.decisionMode = response.data?.decisionMode || ''
         return response
     })
+}
+
+function statusClass(status) {
+    const map = {
+        Draft: 'badge-gray',
+        PendingApproval: 'badge-yellow',
+        Approved: 'badge-blue',
+        Active: 'badge-green',
+        Retired: 'badge-gray',
+    }
+    return map[status] || 'badge-gray'
+}
+
+async function loadPolicyVersions() {
+    policyGovernanceLoading.value = true
+    try {
+        const response = await enterpriseApi.getPolicyVersions()
+        policyVersions.value = response.data || []
+    } catch {
+        policyVersions.value = []
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function loadPolicyRules() {
+    policyGovernanceLoading.value = true
+    try {
+        const response = await enterpriseApi.getAccessRules()
+        policyRules.value = response.data || []
+    } catch {
+        policyRules.value = []
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function refreshPolicyGovernance(activeTab = policyAdminTab.value) {
+    if (activeTab === 'versions') {
+        await loadPolicyVersions()
+        return
+    }
+
+    if (activeTab === 'rules') {
+        await loadPolicyRules()
+        return
+    }
+
+    await Promise.all([loadPolicyVersions(), loadPolicyRules()])
+}
+
+async function createPolicyVersion() {
+    if (!policyVersionForm.name) return
+    policyGovernanceLoading.value = true
+    policyAdminMessage.value = ''
+    try {
+        await enterpriseApi.createPolicyVersion({
+            name: policyVersionForm.name,
+            changeSummary: policyVersionForm.changeSummary,
+        })
+        policyVersionForm.name = ''
+        policyVersionForm.changeSummary = ''
+        policyAdminMessage.value = 'Đã tạo phiên bản policy mới.'
+        await loadPolicyVersions()
+        await loadOverview()
+    } catch (error) {
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể tạo phiên bản policy.'
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function submitPolicyVersion(version) {
+    policyGovernanceLoading.value = true
+    policyAdminMessage.value = ''
+    try {
+        await enterpriseApi.submitPolicyVersion(version.accessPolicyVersionId)
+        policyAdminMessage.value = `Đã submit phiên bản ${version.name}.`
+        await loadPolicyVersions()
+        await loadOverview()
+    } catch (error) {
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể submit phiên bản.'
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function approvePolicyVersion(version) {
+    policyGovernanceLoading.value = true
+    policyAdminMessage.value = ''
+    try {
+        await enterpriseApi.approvePolicyVersion(version.accessPolicyVersionId, { note: 'Approved from enterprise console' })
+        policyAdminMessage.value = `Đã phê duyệt phiên bản ${version.name}.`
+        await loadPolicyVersions()
+        await loadOverview()
+    } catch (error) {
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể phê duyệt phiên bản.'
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function activatePolicyVersion(version) {
+    policyGovernanceLoading.value = true
+    policyAdminMessage.value = ''
+    try {
+        await enterpriseApi.activatePolicyVersion(version.accessPolicyVersionId)
+        policyAdminMessage.value = `Đã kích hoạt phiên bản ${version.name}.`
+        await loadPolicyVersions()
+        await loadOverview()
+    } catch (error) {
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể kích hoạt phiên bản.'
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function retirePolicyVersion(version) {
+    policyGovernanceLoading.value = true
+    policyAdminMessage.value = ''
+    try {
+        await enterpriseApi.retirePolicyVersion(version.accessPolicyVersionId)
+        policyAdminMessage.value = `Đã retire phiên bản ${version.name}.`
+        await loadPolicyVersions()
+        await loadOverview()
+    } catch (error) {
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể retire phiên bản.'
+    } finally {
+        policyGovernanceLoading.value = false
+    }
+}
+
+async function createPolicyRule() {
+    if (!policyRuleForm.accessLevelId) return
+    policyGovernanceLoading.value = true
+    policyAdminMessage.value = ''
+    try {
+        await enterpriseApi.createAccessRule({ ...policyRuleForm })
+        policyRuleForm.subjectId = null
+        policyRuleForm.accessLevelId = null
+        policyRuleForm.accessGroupId = null
+        policyRuleForm.siteId = null
+        policyRuleForm.securityZoneId = null
+        policyRuleForm.accessPointId = null
+        policyRuleForm.accessScheduleId = null
+        policyRuleForm.allowAccess = true
+        policyAdminMessage.value = 'Đã tạo luật truy cập mới.'
+        await loadPolicyRules()
+        await loadOverview()
+    } catch (error) {
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể tạo luật truy cập.'
+    } finally {
+        policyGovernanceLoading.value = false
+    }
 }
 
 // --- Ops workspace actions ---
@@ -1298,7 +1583,12 @@ function normalizeKeys(data) {
 
 function formatDateTime(value) { if (!value) return ''; return new Date(value).toLocaleString() }
 
-onMounted(loadOverview)
+onMounted(async () => {
+    await loadOverview()
+    if (isAdmin.value) {
+        await refreshPolicyGovernance()
+    }
+})
 </script>
 
 <style scoped>
@@ -1322,11 +1612,31 @@ onMounted(loadOverview)
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .form-grid.stacked { margin-top: 18px; }
 .form-grid.single { grid-template-columns: 1fr; }
+.checkbox-row { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; }
+.checkbox-row input { width: 18px; min-height: 18px; }
 .form-grid label { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
 .form-grid input, .form-grid select, .form-grid textarea { width: 100%; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-primary); }
 .form-grid textarea { padding: 8px 12px; min-height: 60px; }
 .form-grid button { align-self: end; }
 .inline-message { margin: 12px 0 0; color: var(--text-secondary); }
+.policy-admin-panel { display: flex; flex-direction: column; gap: 14px; }
+.policy-tabs { gap: 8px; }
+.policy-tabs button { min-height: 36px; padding: 0 14px; }
+.policy-admin-body { display: flex; flex-direction: column; gap: 14px; }
+.policy-result-card { padding: 14px; border-radius: 14px; background: var(--surface-muted); border: 1px solid var(--border-soft); }
+.version-list, .rule-list { display: flex; flex-direction: column; gap: 8px; }
+.version-row, .rule-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--surface-muted); }
+.version-info, .rule-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.version-meta, .rule-detail { font-size: 0.8rem; color: var(--text-muted); }
+.version-badges { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.rule-scope { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.78rem; color: var(--text-secondary); }
+.badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; font-weight: 700; }
+.badge-green { background: rgba(34,197,94,.15); color: #16a34a; }
+.badge-gray { background: rgba(100,116,139,.15); color: #64748b; }
+.badge-yellow { background: rgba(234,179,8,.15); color: #a16207; }
+.badge-blue { background: rgba(59,130,246,.15); color: #2563eb; }
+.btn-xs { min-height: 30px; padding: 0 10px; font-size: 0.75rem; border-radius: 9px; }
+.btn-success { background: #16a34a; color: #fff; }
 .finding-list { display: grid; gap: 8px; }
 .finding-row, .asset-map-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; padding: 8px 0; border-top: 1px solid var(--border-soft); }
 .finding-row:first-child { border-top: none; }

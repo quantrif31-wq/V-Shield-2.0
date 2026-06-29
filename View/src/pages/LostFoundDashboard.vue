@@ -94,10 +94,10 @@ const stats = reactive({
 const suggestions = ref([])
 
 const allTabs = [
-    { key: 'overview', label: 'Tổng quan', roles: ['Admin', 'BaoVe'] },
-    { key: 'found', label: 'Đồ tìm thấy', roles: ['Admin', 'BaoVe'] },
-    { key: 'lost', label: 'Báo mất đồ', roles: ['Admin', 'BaoVe'] },
-    { key: 'claim', label: 'Trao trả', roles: ['Admin'] },
+    { key: 'overview', label: 'Tổng quan', roles: ['Admin', 'BaoVe', 'LeTan'] },
+    { key: 'found', label: 'Đồ tìm thấy', roles: ['Admin', 'BaoVe', 'LeTan'] },
+    { key: 'lost', label: 'Báo mất đồ', roles: ['Admin', 'BaoVe', 'LeTan'] },
+    { key: 'claim', label: 'Trao trả', roles: ['Admin', 'BaoVe', 'LeTan'] },
     { key: 'locker', label: 'Nhật ký locker', roles: ['Admin', 'BaoVe'] },
     { key: 'locker-config', label: 'Tủ locker', roles: ['Admin'] }
 ]

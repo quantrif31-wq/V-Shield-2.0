@@ -189,7 +189,7 @@ public class EnterpriseIdentityController : ControllerBase
                 Username = username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(18))),
                 FullName = name ?? username,
-                Role = "Staff",
+                Role = "LeTan",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 LastPasswordChangedAtUtc = DateTime.UtcNow
@@ -515,7 +515,7 @@ public class EnterpriseIdentityController : ControllerBase
             "BaoVe" => "BaoVe",
             "QuanLy" => "QuanLy",
             "LeTan" => "LeTan",
-            _ => "Staff"
+            _ => "LeTan"
         };
     }
 

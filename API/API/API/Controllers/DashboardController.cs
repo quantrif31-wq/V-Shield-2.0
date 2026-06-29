@@ -9,7 +9,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
-[Authorize(Roles = "Admin,BaoVe,QuanLy")]
+[Authorize(Roles = "Admin,QuanLy")]
 public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

@@ -2,10 +2,11 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <h1>Quản lý tủ locker</h1>
-            <button class="btn btn-primary" @click="showCabinetForm = true">+ Thêm tủ</button>
+            <button class="btn btn-primary" @click="openCreateCabinet">+ Thêm tủ</button>
         </div>
 
-        <section class="ops-grid one">
+        <div v-if="loading" class="loading-spinner">Đang tải...</div>
+        <section v-else class="ops-grid one">
             <article class="ops-panel" v-for="cabinet in cabinets" :key="cabinet.lockerCabinetId">
                 <div class="ops-panel-header">
                     <h3>{{ cabinet.name }}</h3>
@@ -21,6 +22,9 @@
                 </div>
                 <div class="form-actions" style="margin-top:0.75rem">
                     <button class="btn btn-sm btn-secondary" @click="showAddCompartments(cabinet)">+ Thêm ngăn</button>
+                    <button class="btn btn-sm btn-secondary" @click="openEditCabinet(cabinet)">Sửa tủ</button>
+                    <button class="btn btn-sm btn-danger" @click="deleteCabinet(cabinet)">Xóa tủ</button>
+                    <router-link to="/locker-access-logs" class="btn btn-sm btn-info">Nhật ký</router-link>
                 </div>
             </article>
         </section>
@@ -28,12 +32,12 @@
         <Teleport to="body">
             <div v-if="showCabinetForm" class="modal-overlay" @click.self="showCabinetForm = false">
                 <div class="modal-panel">
-                    <h3>Thêm tủ locker</h3>
+                    <h3>{{ editingCabinet ? 'Sửa tủ locker' : 'Thêm tủ locker' }}</h3>
                     <div class="form-group"><label>Tên tủ *</label><input v-model="cabinetForm.name" class="form-control" /></div>
                     <div class="form-group"><label>Vị trí</label><input v-model="cabinetForm.location" class="form-control" /></div>
                     <div class="form-group"><label>Mô tả</label><textarea v-model="cabinetForm.description" class="form-control" rows="2"></textarea></div>
                     <div class="form-actions">
-                        <button class="btn btn-primary" @click="submitCabinet">{{ submitting ? 'Đang lưu...' : 'Lưu' }}</button>
+                        <button class="btn btn-primary" @click="submitCabinet" :disabled="submitting">{{ submitting ? 'Đang lưu...' : 'Lưu' }}</button>
                         <button class="btn btn-secondary" @click="showCabinetForm = false">Hủy</button>
                     </div>
                 </div>
@@ -47,7 +51,7 @@
                         <textarea v-model="compartmentCodes" class="form-control" rows="3" placeholder="A1,A2,B1,B2"></textarea>
                     </div>
                     <div class="form-actions">
-                        <button class="btn btn-primary" @click="submitCompartments">{{ submitting ? 'Đang lưu...' : 'Lưu' }}</button>
+                        <button class="btn btn-primary" @click="submitCompartments" :disabled="submitting">{{ submitting ? 'Đang lưu...' : 'Lưu' }}</button>
                         <button class="btn btn-secondary" @click="showCompartmentForm = false">Hủy</button>
                     </div>
                 </div>
@@ -69,50 +73,78 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { lostFoundApi } from '../services/enterpriseSecurityApi'
 
 const cabinets = ref([])
 const compartments = ref([])
+const loading = ref(false)
 const showCabinetForm = ref(false)
 const showCompartmentForm = ref(false)
 const selectedCabinet = ref(null)
 const selectedComp = ref(null)
 const compartmentCodes = ref('')
 const submitting = ref(false)
+const editingCabinet = ref(null)
 const cabinetForm = reactive({ name: '', location: '', description: '' })
 
 onMounted(loadData)
 
 async function loadData() {
+    loading.value = true
     try {
         const res = await lostFoundApi.getLockerCabinets()
         cabinets.value = res.data || []
-        const all = []
-        for (const c of cabinets.value) {
-            try {
-                const detail = await lostFoundApi.getLockerCabinetDetail(c.lockerCabinetId)
-                all.push(...(detail.data.compartments || []))
-            } catch (e) { /* ignore */ }
-        }
-        compartments.value = all
+        const ids = cabinets.value.map(c => c.lockerCabinetId)
+        const all = await Promise.all(ids.map(id =>
+            lostFoundApi.getLockerCabinetDetail(id).then(r => r.data.compartments || []).catch(() => [])
+        ))
+        compartments.value = all.flat()
     } catch (e) { console.error(e) }
+    finally { loading.value = false }
 }
 
 function compartmentsByCabinet(cabinetId) {
     return compartments.value.filter(c => c.lockerCabinetId === cabinetId)
 }
 
+function openCreateCabinet() {
+    editingCabinet.value = null
+    cabinetForm.name = ''; cabinetForm.location = ''; cabinetForm.description = ''
+    showCabinetForm.value = true
+}
+
+function openEditCabinet(cabinet) {
+    editingCabinet.value = cabinet
+    cabinetForm.name = cabinet.name
+    cabinetForm.location = cabinet.location || ''
+    cabinetForm.description = cabinet.description || ''
+    showCabinetForm.value = true
+}
+
 async function submitCabinet() {
     if (!cabinetForm.name) { alert('Tên tủ là bắt buộc.'); return }
     submitting.value = true
     try {
-        await lostFoundApi.createLockerCabinet({ name: cabinetForm.name, location: cabinetForm.location || null, description: cabinetForm.description || null })
+        if (editingCabinet.value) {
+            await lostFoundApi.updateLockerCabinet(editingCabinet.value.lockerCabinetId, {
+                name: cabinetForm.name, location: cabinetForm.location || null, description: cabinetForm.description || null
+            })
+        } else {
+            await lostFoundApi.createLockerCabinet({ name: cabinetForm.name, location: cabinetForm.location || null, description: cabinetForm.description || null })
+        }
         showCabinetForm.value = false
-        cabinetForm.name = ''; cabinetForm.location = ''; cabinetForm.description = ''
         await loadData()
     } catch (e) { alert('Lỗi: ' + (e.response?.data?.message || e.message)) }
     finally { submitting.value = false }
+}
+
+async function deleteCabinet(cabinet) {
+    if (!confirm(`Xóa tủ "${cabinet.name}"? Chỉ xóa được nếu tất cả ngăn đều trống.`)) return
+    try {
+        await lostFoundApi.deleteLockerCabinet(cabinet.lockerCabinetId)
+        await loadData()
+    } catch (e) { alert('Lỗi: ' + (e.response?.data?.message || e.message)) }
 }
 
 function showAddCompartments(cabinet) {
@@ -155,4 +187,5 @@ async function releaseCompartment(comp) {
 .compartment.occupied { border-color: var(--warning); background: rgba(255,193,7,0.08); }
 .comp-code { font-weight: 700; font-size: 1.1rem; }
 .comp-status { font-size: 0.7rem; color: var(--text-secondary); }
+.loading-spinner { text-align: center; padding: 2rem; color: var(--text-secondary); }
 </style>

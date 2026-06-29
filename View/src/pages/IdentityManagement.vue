@@ -77,7 +77,7 @@
                         </label>
                         <label>
                             User rows (one per line: ExternalSubject, Username, DisplayName, Email, Role)
-                            <textarea v-model="importUser.raw" rows="6" placeholder="sub-001,john.doe,John Doe,john@example.com,Staff"></textarea>
+                            <textarea v-model="importUser.raw" rows="6" placeholder="sub-001,john.doe,John Doe,john@example.com,LeTan"></textarea>
                         </label>
                         <button type="button" class="btn btn-primary btn-sm" :disabled="!importUser.providerId || !importUser.raw" @click="doImportUsers">Import Users</button>
                     </div>

@@ -240,6 +240,8 @@ public class AccessLogsController : ControllerBase
         [FromQuery] string? query = null,
         [FromQuery] bool? isSuccess = null,
         [FromQuery] string? actionType = null,
+        [FromQuery] string? entityName = null,
+        [FromQuery] string? entityId = null,
         [FromQuery] DateTime? dateFrom = null,
         [FromQuery] DateTime? dateTo = null)
     {
@@ -261,6 +263,16 @@ public class AccessLogsController : ControllerBase
         {
             var action = actionType.Trim().ToUpper();
             q = q.Where(x => x.ActionType.ToUpper() == action);
+        }
+        if (!string.IsNullOrWhiteSpace(entityName))
+        {
+            var targetEntityName = entityName.Trim();
+            q = q.Where(x => x.EntityName == targetEntityName);
+        }
+        if (!string.IsNullOrWhiteSpace(entityId))
+        {
+            var targetEntityId = entityId.Trim();
+            q = q.Where(x => x.EntityId == targetEntityId);
         }
         if (dateFrom.HasValue) q = q.Where(x => x.TimestampUtc >= dateFrom.Value);
         if (dateTo.HasValue) q = q.Where(x => x.TimestampUtc < dateTo.Value.Date.AddDays(1));
