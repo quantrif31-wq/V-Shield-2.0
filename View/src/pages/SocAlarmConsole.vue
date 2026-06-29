@@ -77,7 +77,12 @@
                         <strong>{{ alarm.alarmType }}</strong>
                         <p>{{ alarm.summary }}</p>
                     </div>
-                    <div class="alarm-time">{{ formatTime(alarm.createdAtUtc) }}</div>
+                    <div class="alarm-actions">
+                        <span class="alarm-time">{{ formatTime(alarm.createdAtUtc) }}</span>
+                        <router-link v-if="alarm.latitude" :to="'/incident-map/' + alarm.alarmId" class="btn-map-icon" title="Xem trên bản đồ" @click.stop>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="10" r="3"/><path d="M12 21s-8-4-8-10a8 8 0 0116 0c0 6-8 10-8 10z"/></svg>
+                        </router-link>
+                    </div>
                 </div>
             </div>
             <div v-else class="empty-card">No alarms found.</div>
@@ -862,6 +867,32 @@ onMounted(loadAll)
     white-space: nowrap;
 }
 
+.alarm-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.btn-map-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.15s;
+}
+
+.btn-map-icon:hover {
+    background: rgba(71, 163, 212, 0.12);
+    color: #8cd4ff;
+    border-color: #8cd4ff;
+}
+
 .pagination {
     display: flex;
     align-items: center;
@@ -1184,6 +1215,7 @@ onMounted(loadAll)
 
 @media (max-width: 700px) {
     .alarm-row { grid-template-columns: 1fr; }
+    .alarm-actions { flex-direction: row; }
     .detail-grid { grid-template-columns: 1fr; }
     .soc-stats-grid { grid-template-columns: 1fr; }
     .ops-grid.two { grid-template-columns: 1fr; }

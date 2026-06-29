@@ -130,7 +130,12 @@
 
                             <div class="notification-content">
                                 <p>{{ notification.message }}</p>
-                                <span class="notification-time">{{ notification.time }}</span>
+                                <div class="notification-meta">
+                                    <span class="notification-time">{{ notification.time }}</span>
+                                    <router-link v-if="notification.latitude && notification.referenceType === 'Alarm'" :to="'/incident-map/' + notification.referenceId" class="notif-map-link" title="Xem trên bản đồ" @click.stop>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="10" r="3"/><path d="M12 21s-8-4-8-10a8 8 0 0116 0c0 6-8 10-8 10z"/></svg>
+                                    </router-link>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -301,12 +306,17 @@ async function loadNotifications() {
         const res = await getNotifications(0, 50)
         const items = res.data || []
         notifications.value = items.map(n => ({
-            id: n.notificationId,
-            message: n.message,
+            id: n.id,
+            message: n.body ? (n.title + ': ' + n.body) : n.title,
             time: formatTimeAgo(n.createdAt),
-            type: mapEventType(n.eventType),
+            type: mapEventType(n.category),
             read: n.isRead,
             actionUrl: n.actionUrl,
+            latitude: n.latitude,
+            longitude: n.longitude,
+            locationLabel: n.locationLabel,
+            referenceId: n.referenceId,
+            referenceType: n.referenceType,
         }))
     } catch (_) {}
 }
@@ -409,12 +419,17 @@ onMounted(async () => {
             await connectNotificationHub(token)
             onNotification((n) => {
                 notifications.value.unshift({
-                    id: n.notificationId,
-                    message: n.message,
+                    id: n.id,
+                    message: n.body ? (n.title + ': ' + n.body) : n.title,
                     time: formatTimeAgo(n.createdAt),
-                    type: mapEventType(n.eventType),
+                    type: mapEventType(n.category),
                     read: false,
                     actionUrl: n.actionUrl,
+                    latitude: n.latitude,
+                    longitude: n.longitude,
+                    locationLabel: n.locationLabel,
+                    referenceId: n.referenceId,
+                    referenceType: n.referenceType,
                 })
                 unreadCount.value++
             })
@@ -863,11 +878,35 @@ watch(
     line-height: 1.45;
 }
 
-.notification-time {
-    display: block;
+.notification-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-top: 6px;
+}
+
+.notification-time {
     color: var(--text-muted);
     font-size: 0.76rem;
+}
+
+.notif-map-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid var(--border-soft);
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all 0.15s;
+}
+
+.notif-map-link:hover {
+    background: rgba(71, 163, 212, 0.12);
+    color: #8cd4ff;
+    border-color: #8cd4ff;
 }
 
 .dropdown-enter-active,
