@@ -56,7 +56,7 @@ public class NotificationService : INotificationService
 
             var notifications = userIds.Select(uid => new Notification
             {
-                RecipientUserId = uid, Title = title, Body = body, Category = category,
+                RecipientUserId = uid, Title = title, Body = body, Category = category ?? "System",
                 ReferenceType = referenceType, ReferenceId = referenceId, ActionUrl = actionUrl,
                 Latitude = latitude, Longitude = longitude, LocationLabel = locationLabel,
                 CreatedAt = DateTime.UtcNow
@@ -93,7 +93,7 @@ public class NotificationService : INotificationService
         {
             var notifications = userIds.Select(uid => new Notification
             {
-                RecipientUserId = uid, Title = title, Body = body, Category = category,
+                RecipientUserId = uid, Title = title, Body = body, Category = category ?? "System",
                 ReferenceType = referenceType, ReferenceId = referenceId, ActionUrl = actionUrl,
                 Latitude = latitude, Longitude = longitude, LocationLabel = locationLabel,
                 CreatedAt = DateTime.UtcNow

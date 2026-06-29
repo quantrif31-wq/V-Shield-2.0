@@ -59,7 +59,7 @@ public class VehicleDelegationsController : ControllerBase
 
         var fromEmployee = await _context.Employees.FindAsync(fromEmployeeId.Value);
         var fromName = fromEmployee?.FullName ?? "";
-        _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Created",
+        await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Created",
             "Yêu cầu điều xe mới",
             $"{fromName} muốn điều xe {vehicle.LicensePlate} cho bạn.",
             "VehicleDelegation", delegation.VehicleDelegationId.ToString(),
@@ -185,7 +185,7 @@ public class VehicleDelegationsController : ControllerBase
             .FirstOrDefaultAsync(d => d.VehicleDelegationId == id);
         if (delegationWithNav != null)
         {
-            _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Approved",
+            await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Approved",
                 "Yêu cầu điều xe đã được chấp nhận",
                 $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã chấp nhận điều xe {delegationWithNav.Vehicle?.LicensePlate}.",
                 "VehicleDelegation", id.ToString(),
@@ -219,7 +219,7 @@ public class VehicleDelegationsController : ControllerBase
             .FirstOrDefaultAsync(d => d.VehicleDelegationId == id);
         if (delegationWithNav != null)
         {
-            _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Rejected",
+            await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Rejected",
                 "Yêu cầu điều xe bị từ chối",
                 $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã từ chối điều xe {delegationWithNav.Vehicle?.LicensePlate}.",
                 "VehicleDelegation", id.ToString(),

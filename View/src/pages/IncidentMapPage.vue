@@ -41,7 +41,6 @@
 
 <script>
 import { socApi } from '../services/socApi'
-import { notificationApi } from '../services/notificationApi'
 import AlarmMap from '../components/maplibre/AlarmMap.vue'
 import IndoorPathViewer from '../components/campus-map/IndoorPathViewer.vue'
 

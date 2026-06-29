@@ -189,7 +189,7 @@ public class LeaveRequestsController : ControllerBase
         _context.LeaveRequests.Add(leaveRequest);
         await _context.SaveChangesAsync();
         var requesterName = await _context.Employees.Where(e => e.EmployeeId == targetEmployeeId.Value).Select(e => e.FullName).FirstOrDefaultAsync() ?? "Nhân viên";
-        _notificationService.NotifyEventAsync("Approval.LeaveRequest.Submitted",
+        await _notificationService.NotifyEventAsync("Approval.LeaveRequest.Submitted",
             $"Đơn nghỉ phép mới từ {requesterName}",
             $"{requesterName} xin nghỉ {request.LeaveType} từ {startDate:dd/MM} đến {endDate:dd/MM}: {request.Reason}",
             "LeaveRequest", leaveRequest.LeaveRequestId.ToString(),
@@ -247,7 +247,7 @@ public class LeaveRequestsController : ControllerBase
 
         await _context.SaveChangesAsync();
         var approverName = await _context.Employees.Where(e => e.EmployeeId == leaveRequest.EmployeeId).Select(e => e.FullName).FirstOrDefaultAsync() ?? "";
-        _notificationService.NotifyEventAsync("Approval.LeaveRequest.Approved",
+        await _notificationService.NotifyEventAsync("Approval.LeaveRequest.Approved",
             "Đơn nghỉ phép đã được duyệt",
             $"Đơn nghỉ phép {leaveRequest.LeaveType} từ {leaveRequest.StartDate:dd/MM} đến {leaveRequest.EndDate:dd/MM} đã được duyệt.",
             "LeaveRequest", leaveRequest.LeaveRequestId.ToString(),
@@ -278,7 +278,7 @@ public class LeaveRequestsController : ControllerBase
         leaveRequest.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        _notificationService.NotifyEventAsync("Approval.LeaveRequest.Rejected",
+        await _notificationService.NotifyEventAsync("Approval.LeaveRequest.Rejected",
             "Đơn nghỉ phép bị từ chối",
             $"Đơn nghỉ phép {leaveRequest.LeaveType} từ {leaveRequest.StartDate:dd/MM} đến {leaveRequest.EndDate:dd/MM} bị từ chối. Lý do: {request.RejectReason}",
             "LeaveRequest", leaveRequest.LeaveRequestId.ToString(),

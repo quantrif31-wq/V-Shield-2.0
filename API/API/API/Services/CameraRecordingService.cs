@@ -56,7 +56,7 @@ public class CameraRecordingService : BackgroundService
                 }
 
                 await ScanAndRecordSegments(db, stoppingToken);
-                CleanupOldRecordings(db, stoppingToken);
+                await CleanupOldRecordings(db, stoppingToken);
             }
             catch when (!stoppingToken.IsCancellationRequested)
             {
@@ -116,6 +116,8 @@ public class CameraRecordingService : BackgroundService
 
     private async Task MonitorProcess(RecordingProcess rp)
     {
+        if (rp.Process == null) return;
+
         try
         {
             var stderr = await rp.Process.StandardError.ReadToEndAsync();
