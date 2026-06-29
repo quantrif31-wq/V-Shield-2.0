@@ -46,4 +46,23 @@ interface ApiService {
 
     @GET("api/schedules/my")
     suspend fun getMySchedule(): Response<ScheduleResponse>
+
+    @GET("api/chat/contacts")
+    suspend fun getChatContacts(): Response<ContactsResponse>
+
+    @GET("api/chat/conversations")
+    suspend fun getConversations(): Response<ConversationsResponse>
+
+    @POST("api/chat/conversations")
+    suspend fun createConversation(@Body request: CreateConversationRequest): Response<ApiResponse<CreateConversationResponse>>
+
+    @GET("api/chat/conversations/{id}/messages")
+    suspend fun getConversationMessages(
+        @Path("id") conversationId: Int,
+        @Query("skip") skip: Int = 0,
+        @Query("take") take: Int = 50
+    ): Response<MessagesResponse>
+
+    @POST("api/chat/conversations/{id}/read")
+    suspend fun markConversationRead(@Path("id") conversationId: Int): Response<MarkReadResponse>
 }

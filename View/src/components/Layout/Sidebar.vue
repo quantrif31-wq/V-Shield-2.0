@@ -729,6 +729,13 @@ const navGroups = ref([
         label: 'Nhân viên',
         items: [
             {
+                path: '/chat',
+                label: 'Liên lạc nội bộ',
+                hint: 'Chat và gọi điện nội bộ',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8"/><path d="M8 13h6"/></svg>',
+                roles: ['Admin', 'NhanVien', 'NhanSu', 'QuanLy', 'BaoVe', 'LeTan'],
+            },
+            {
                 path: '/my-dynamic-qr',
                 label: 'QR cá nhân',
                 hint: 'Mã QR động ra vào cổng',

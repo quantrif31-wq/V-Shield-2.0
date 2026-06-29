@@ -2,10 +2,12 @@ package com.vshield.mobile.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.QrCodeScanner
@@ -32,6 +34,12 @@ sealed class BottomNavItem(
         selectedIcon = Icons.Filled.DirectionsCar,
         unselectedIcon = Icons.Outlined.DirectionsCar
     )
+    data object Chat : BottomNavItem(
+        route = "chat",
+        title = "Trò chuyện",
+        selectedIcon = Icons.Filled.Chat,
+        unselectedIcon = Icons.Outlined.Chat
+    )
     data object Leave : BottomNavItem(
         route = "leave",
         title = "Nghỉ phép",
@@ -49,6 +57,7 @@ sealed class BottomNavItem(
 val bottomNavItems = listOf(
     BottomNavItem.Home,
     BottomNavItem.Transfer,
+    BottomNavItem.Chat,
     BottomNavItem.Leave,
     BottomNavItem.Profile
 )
@@ -56,6 +65,7 @@ val bottomNavItems = listOf(
 @Composable
 fun BottomNavBar(
     currentRoute: String?,
+    chatUnreadCount: Int = 0,
     onItemClick: (BottomNavItem) -> Unit
 ) {
     NavigationBar {
@@ -65,10 +75,23 @@ fun BottomNavBar(
                 selected = selected,
                 onClick = { onItemClick(item) },
                 icon = {
-                    Icon(
-                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                        contentDescription = item.title
-                    )
+                    if (item is BottomNavItem.Chat && chatUnreadCount > 0) {
+                        BadgedBox(badge = {
+                            Badge { Text(
+                                if (chatUnreadCount > 99) "99+" else chatUnreadCount.toString()
+                            ) }
+                        }) {
+                            Icon(
+                                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                contentDescription = item.title
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                            contentDescription = item.title
+                        )
+                    }
                 },
                 label = { Text(item.title) },
                 colors = NavigationBarItemDefaults.colors(

@@ -69,6 +69,7 @@ const RedactionQueue = () => import('../pages/RedactionQueue.vue')
 const ComplianceReports = () => import('../pages/ComplianceReports.vue')
 const GuideViewer = () => import('../pages/GuideViewer.vue')
 const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
+const Chat = () => import('../pages/Chat.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -196,6 +197,7 @@ const routes = [
             { path: 'profile', name: 'MyProfile', component: MyProfile, meta: { allowedRoles: ['NhanVien', 'NhanSu'] } },
             { path: 'vehicle-transfer', name: 'VehicleTransfer', component: VehicleTransfer, meta: { allowedRoles: ['NhanVien'] } },
             { path: 'my-dynamic-qr', name: 'MyDynamicQr', component: DynamicQrGenerator, meta: { allowedRoles: ['NhanVien', 'NhanSu'] } },
+            { path: 'chat', name: 'Chat', component: Chat, meta: { allowedRoles: ['Admin', 'NhanVien', 'NhanSu', 'QuanLy', 'BaoVe', 'LeTan'] } },
             { path: 'attendance/records', name: 'AttendanceRecords', component: AttendanceRecords, meta: { allowedRoles: ['Admin'] } },
             { path: 'attendance/work-schedules', name: 'AttendanceWorkSchedules', component: AttendanceWorkSchedules, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' } },
             { path: 'attendance/shifts', name: 'AttendanceShifts', component: AttendanceShifts, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' } },

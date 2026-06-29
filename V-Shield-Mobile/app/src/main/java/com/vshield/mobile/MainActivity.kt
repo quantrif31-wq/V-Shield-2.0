@@ -4,19 +4,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.vshield.mobile.data.model.ChatCallState
 import com.vshield.mobile.ui.navigation.BottomNavBar
 import com.vshield.mobile.ui.navigation.NavGraph
 import com.vshield.mobile.ui.navigation.Screen
+import com.vshield.mobile.ui.screen.CallOverlay
 import com.vshield.mobile.ui.theme.VShieldTheme
 import com.vshield.mobile.viewmodel.AuthViewModel
+import com.vshield.mobile.viewmodel.ChatViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,25 +34,33 @@ class MainActivity : ComponentActivity() {
 fun VShieldMainScreen() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
+    val chatViewModel: ChatViewModel = viewModel()
     val authState by authViewModel.uiState.collectAsState()
+    val chatState by chatViewModel.uiState.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     val isLoggedIn = authState.isLoggedIn
 
-    val showBottomBar = isLoggedIn && currentRoute in listOf(
+    val mainRoutes = listOf(
         Screen.Home.route,
         Screen.Transfer.route,
+        Screen.Chat.route,
         Screen.Leave.route,
         Screen.Profile.route
     )
+    val showBottomBar = isLoggedIn && currentRoute in mainRoutes
+
+    val isInCall = chatState.callState !is ChatCallState.Idle
+    val showCallOverlay = isInCall
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            if (showBottomBar) {
+            if (showBottomBar && !showCallOverlay) {
                 BottomNavBar(
                     currentRoute = currentRoute,
+                    chatUnreadCount = chatViewModel.totalUnreadCount(),
                     onItemClick = { item ->
                         if (currentRoute != item.route) {
                             navController.navigate(item.route) {
@@ -65,15 +74,26 @@ fun VShieldMainScreen() {
             }
         }
     ) { innerPadding ->
-        NavGraph(
-            navController = navController,
-            startDestination = if (isLoggedIn) Screen.Home.route else Screen.Login.route,
-            onSessionExpired = {
-                authViewModel.logout()
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(0) { inclusive = true }
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+            NavGraph(
+                navController = navController,
+                chatViewModel = chatViewModel,
+                startDestination = if (isLoggedIn) Screen.Home.route else Screen.Login.route,
+                onSessionExpired = {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onStartCall = { targetId, targetName ->
+                    val conv = chatState.currentConversation
+                    chatViewModel.startCall(targetId, targetName, conv?.conversationId)
                 }
+            )
+
+            if (showCallOverlay) {
+                CallOverlay(chatViewModel = chatViewModel)
             }
-        )
+        }
     }
 }

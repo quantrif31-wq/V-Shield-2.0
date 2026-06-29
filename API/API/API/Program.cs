@@ -308,6 +308,7 @@ namespace API
 
             app.MapControllers();
             app.MapHub<EmployeeStatsHub>("/hubs/employee-stats").RequireAuthorization();
+            app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
             app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" })).AllowAnonymous();
             app.MapGet("/health/live", () => Results.Ok(new
             {

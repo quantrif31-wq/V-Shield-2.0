@@ -568,6 +568,7 @@ public partial class ApplicationDbContext : DbContext
                   .HasDefaultValueSql("(getutcdate())");
         });
         OnModelCreatingPartial(modelBuilder);
+        ConfigureChatModels(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
