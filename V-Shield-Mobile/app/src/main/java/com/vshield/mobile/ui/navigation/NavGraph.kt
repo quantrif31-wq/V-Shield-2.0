@@ -21,6 +21,10 @@ sealed class Screen(val route: String) {
     data object Leave : Screen("leave")
     data object Profile : Screen("profile")
     data object Notifications : Screen("notifications")
+    data object AlarmMap : Screen("alarmMap/{latitude}/{longitude}?label={label}") {
+        fun createRoute(lat: Double, lng: Double, label: String? = null) =
+            "alarmMap/$lat/$lng" + (label?.let { "?label=$it" } ?: "")
+    }
 }
 
 @Composable
@@ -83,7 +87,28 @@ fun NavGraph(
         composable(Screen.Notifications.route) {
             NotificationScreen(
                 notificationViewModel = notificationViewModel,
-                onSessionExpired = onSessionExpired
+                onSessionExpired = onSessionExpired,
+                onViewMap = { lat, lng, label ->
+                    navController.navigate(Screen.AlarmMap.createRoute(lat, lng, label))
+                }
+            )
+        }
+        composable(
+            route = Screen.AlarmMap.route,
+            arguments = listOf(
+                navArgument("latitude") { type = NavType.StringType },
+                navArgument("longitude") { type = NavType.StringType },
+                navArgument("label") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
+        ) { backStackEntry ->
+            val lat = backStackEntry.arguments?.getString("latitude")?.toDoubleOrNull() ?: 0.0
+            val lng = backStackEntry.arguments?.getString("longitude")?.toDoubleOrNull() ?: 0.0
+            val label = backStackEntry.arguments?.getString("label")
+            AlarmMapScreen(
+                latitude = lat,
+                longitude = lng,
+                locationLabel = label,
+                onBack = { navController.popBackStack() }
             )
         }
     }

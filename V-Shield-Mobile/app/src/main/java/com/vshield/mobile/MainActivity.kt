@@ -106,7 +106,18 @@ fun VShieldMainScreen() {
             if (activeAlarm != null) {
                 AlarmOverlay(
                     alarm = activeAlarm,
-                    onAcknowledge = { notificationViewModel.acknowledgeAlarm() }
+                    onAcknowledge = { notificationViewModel.acknowledgeAlarm() },
+                    onViewMap = if (activeAlarm.latitude != null && activeAlarm.longitude != null) {
+                        {
+                            navController.navigate(
+                                Screen.AlarmMap.createRoute(
+                                    activeAlarm.latitude,
+                                    activeAlarm.longitude,
+                                    activeAlarm.locationLabel
+                                )
+                            )
+                        }
+                    } else null
                 )
             } else if (showCallOverlay) {
                 CallOverlay(chatViewModel = chatViewModel)

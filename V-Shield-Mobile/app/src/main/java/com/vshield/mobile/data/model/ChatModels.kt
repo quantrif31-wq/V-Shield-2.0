@@ -143,6 +143,9 @@ data class SignalRNotification(
     val entityType: String?,
     val entityId: String?,
     val actionUrl: String?,
+    val latitude: Double?,
+    val longitude: Double?,
+    val locationLabel: String?,
     val createdAt: String?,
     val isRead: Boolean
 )
@@ -155,6 +158,9 @@ data class NotificationItem(
     @SerializedName("entityType") val entityType: String?,
     @SerializedName("entityId") val entityId: String?,
     @SerializedName("actionUrl") val actionUrl: String?,
+    @SerializedName("latitude") val latitude: Double?,
+    @SerializedName("longitude") val longitude: Double?,
+    @SerializedName("locationLabel") val locationLabel: String?,
     @SerializedName("createdAt") val createdAt: String?,
     @SerializedName("isRead") val isRead: Boolean
 )

@@ -17,7 +17,10 @@ data class AlarmInfo(
     val notificationId: Int,
     val title: String,
     val message: String,
-    val eventType: String
+    val eventType: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationLabel: String? = null
 )
 
 data class NotificationUiState(
@@ -64,6 +67,9 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
                 entityType = notif.entityType,
                 entityId = notif.entityId,
                 actionUrl = notif.actionUrl,
+                latitude = notif.latitude,
+                longitude = notif.longitude,
+                locationLabel = notif.locationLabel,
                 createdAt = notif.createdAt,
                 isRead = false
             )
@@ -83,7 +89,10 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
                         notificationId = notif.notificationId,
                         title = title,
                         message = message,
-                        eventType = notif.eventType ?: ""
+                        eventType = notif.eventType ?: "",
+                        latitude = notif.latitude,
+                        longitude = notif.longitude,
+                        locationLabel = notif.locationLabel
                     )
                 )
             } else {

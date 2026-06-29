@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,7 @@ import com.vshield.mobile.viewmodel.NotificationViewModel
 @Composable
 fun NotificationScreen(
     onSessionExpired: () -> Unit,
+    onViewMap: ((Double, Double, String?) -> Unit)? = null,
     notificationViewModel: NotificationViewModel = viewModel()
 ) {
     val uiState by notificationViewModel.uiState.collectAsState()
@@ -89,7 +91,10 @@ fun NotificationScreen(
                 items(uiState.notifications, key = { it.notificationId }) { item ->
                     NotificationCard(
                         notification = item,
-                        onClick = { notificationViewModel.markRead(item.notificationId) }
+                        onClick = { notificationViewModel.markRead(item.notificationId) },
+                        onViewMap = if (item.latitude != null && item.longitude != null) {
+                            { onViewMap?.invoke(item.latitude, item.longitude, item.locationLabel) }
+                        } else null
                     )
                 }
             }
@@ -100,7 +105,8 @@ fun NotificationScreen(
 @Composable
 private fun NotificationCard(
     notification: NotificationItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onViewMap: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier
@@ -147,11 +153,27 @@ private fun NotificationCard(
                     )
                 }
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    text = formatTime(notification.createdAt),
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = formatTime(notification.createdAt),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (onViewMap != null) {
+                        IconButton(
+                            onClick = onViewMap,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.LocationOn,
+                                contentDescription = "Xem bản đồ",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }

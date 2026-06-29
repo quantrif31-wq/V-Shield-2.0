@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -23,7 +24,8 @@ import com.vshield.mobile.viewmodel.AlarmInfo
 @Composable
 fun AlarmOverlay(
     alarm: AlarmInfo,
-    onAcknowledge: () -> Unit
+    onAcknowledge: () -> Unit,
+    onViewMap: (() -> Unit)? = null
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "alarm")
     val scale by infiniteTransition.animateFloat(
@@ -98,7 +100,26 @@ fun AlarmOverlay(
                     color = Color(0xFF999999)
                 )
 
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(16.dp))
+
+                if (onViewMap != null && alarm.latitude != null && alarm.longitude != null) {
+                    OutlinedButton(
+                        onClick = onViewMap,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFCC0000)
+                        )
+                    ) {
+                        Icon(Icons.Filled.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Xem vị trí trên bản đồ", fontSize = 14.sp)
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 Button(
                     onClick = onAcknowledge,
