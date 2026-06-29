@@ -18,23 +18,17 @@ public class AccessGatewayLoadTests
     public AccessGatewayLoadTests(ITestOutputHelper output)
     {
         _output = output;
-        _config = new LoadTestConfiguration
-        {
-            BaseUrl = Environment.GetEnvironmentVariable("LOAD_TEST_URL") ?? "http://localhost:5107",
-            AuthToken = Environment.GetEnvironmentVariable("LOAD_TEST_ADMIN_TOKEN") ?? string.Empty,
-            DefaultDurationSeconds = 30,
-            DefaultConcurrency = 5
-        };
+        _config = LoadTestEnvironment.CreateConfiguration(defaultDurationSeconds: 30, defaultConcurrency: 5);
         _runner = new LoadTestRunner(_config);
     }
 
-    private const string SkipMessage = "Requires running API server at LOAD_TEST_URL (default http://localhost:5107) with seeded gate/QR data. Use --filter \"Category=LoadTest\" to run.";
+    private const string SkipMessage = "Requires a reachable API with seeded gate and QR data. Use scripts/run-load-tests.ps1 or set ENABLE_LOAD_TESTS=true before running Category=LoadTest.";
 
     /// <summary>
     /// Pilot profile: 10 gates x 1 scan/sec = 10 RPS sustained for 60s.
     /// Simulates normal workday traffic at a small site.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task GateTransitScan_PilotProfile()
     {
         var stats = await _runner.RunPostAsync(
@@ -65,7 +59,7 @@ public class AccessGatewayLoadTests
     /// Medium company profile: 50 gates x 2 scans/sec = 100 RPS peak.
     /// Simulates shift change rush hour.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task GateTransitScan_MediumBurst()
     {
         var stats = await _runner.RunPostAsync(
@@ -90,7 +84,7 @@ public class AccessGatewayLoadTests
     /// <summary>
     /// QR access verification under sustained load.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task QrAccessVerify_LoadTest()
     {
         var stats = await _runner.RunPostAsync(
@@ -116,7 +110,7 @@ public class AccessGatewayLoadTests
     /// <summary>
     /// Barrier command audit under load - simulates gate operators issuing open/close commands.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task BarrierCommand_LoadTest()
     {
         var stats = await _runner.RunPostAsync(

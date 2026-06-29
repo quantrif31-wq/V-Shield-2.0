@@ -18,23 +18,17 @@ public class EnterpriseLoadTests
     public EnterpriseLoadTests(ITestOutputHelper output)
     {
         _output = output;
-        _config = new LoadTestConfiguration
-        {
-            BaseUrl = Environment.GetEnvironmentVariable("LOAD_TEST_URL") ?? "http://localhost:5107",
-            AuthToken = Environment.GetEnvironmentVariable("LOAD_TEST_ADMIN_TOKEN") ?? string.Empty,
-            DefaultDurationSeconds = 30,
-            DefaultConcurrency = 5
-        };
+        _config = LoadTestEnvironment.CreateConfiguration(defaultDurationSeconds: 30, defaultConcurrency: 5);
         _runner = new LoadTestRunner(_config);
     }
 
-    private const string SkipMessage = "Requires running API server at LOAD_TEST_URL (default http://localhost:5107) with seeded enterprise data. Use --filter \"Category=LoadTest\" to run.";
+    private const string SkipMessage = "Requires a reachable API with seeded enterprise data. Use scripts/run-load-tests.ps1 or set ENABLE_LOAD_TESTS=true before running Category=LoadTest.";
 
     /// <summary>
     /// SOC alarm queue - operators polling for new alarms.
     /// Simulates the SOC monitoring page refreshing.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task SocOverview_LoadTest()
     {
         var stats = await _runner.RunGetAsync(
@@ -52,7 +46,7 @@ public class EnterpriseLoadTests
     /// <summary>
     /// Evidence overview - auditor reading evidence summary.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task EvidenceOverview_LoadTest()
     {
         var stats = await _runner.RunGetAsync(
@@ -70,7 +64,7 @@ public class EnterpriseLoadTests
     /// <summary>
     /// Operations overview - operations dashboard.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task OperationsOverview_LoadTest()
     {
         var stats = await _runner.RunGetAsync(
@@ -88,7 +82,7 @@ public class EnterpriseLoadTests
     /// <summary>
     /// Release readiness overview - release manager dashboard.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task ReleaseReadinessOverview_LoadTest()
     {
         var stats = await _runner.RunGetAsync(
@@ -105,7 +99,7 @@ public class EnterpriseLoadTests
     /// <summary>
     /// Alarm creation burst - simulates many alarms firing simultaneously during an incident.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task AlarmCreation_BurstTest()
     {
         var stats = await _runner.RunPostAsync(
@@ -131,7 +125,7 @@ public class EnterpriseLoadTests
     /// <summary>
     /// Evidence item creation burst - simulates cameras generating many evidence records.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task EvidenceCreation_BurstTest()
     {
         var stats = await _runner.RunPostAsync(
@@ -160,7 +154,7 @@ public class EnterpriseLoadTests
     /// <summary>
     /// Mixed workload: simulate a SOC operator's typical workflow.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task SocOperator_SimulatedWorkflow()
     {
         // Multi-step user simulation - alarms, overview, incidents

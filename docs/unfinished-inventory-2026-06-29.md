@@ -12,7 +12,7 @@
 
 ## Con mo sau khi da xac minh build/test
 
-### 1. Load test van dang bi skip
+### 1. Load test da co profile chay, nhung van can moi truong that
 
 Tinh trang:
 - `API/API/API.Tests/LoadTesting/AuthLoadTests.cs`
@@ -20,13 +20,14 @@ Tinh trang:
 - `API/API/API.Tests/LoadTesting/EnterpriseLoadTests.cs`
 - `API/API/API.Tests/LoadTesting/StressSoakChaosTests.cs`
 
-Ly do:
-- Can moi truong API dang chay, du lieu seed va token/mau phu hop.
-- Chua duoc dua vao quy trinh kiem tra thuong xuyen.
+Tinh trang hien tai:
+- Cac load test da duoc doi sang co che bat bang `ENABLE_LOAD_TESTS=true`.
+- Da co script `scripts/run-load-tests.ps1` va tai lieu `docs/load-test-profile.md`.
+- Van can moi truong API dang chay, du lieu seed va token/mau phu hop neu muon chay that.
 
 Huong xu ly tiep:
-- Tao script chuan de dung local stack va nap bien moi truong `LOAD_TEST_*`.
-- Tach mot profile test rieng de co the bat/tat load test co chu dich.
+- Dua profile nay vao pipeline rieng neu muon chay dinh ky.
+- Chuan hoa seed data va token mau de ket qua giua cac lan chay on dinh hon.
 
 ### 2. Con can theo doi mot canh bao build tu thu vien ben thu ba
 
@@ -47,6 +48,7 @@ Huong xu ly tiep:
 - `API.Tests` da duoc dua vao `API/API/API.slnx` de chay `dotnet test` o muc solution.
 - Frontend da tach them chunk cho `IncidentMapPage` va cau hinh `manualChunks` trong `View/vite.config.js`.
 - Android da duoc don cac warning deprecated chinh quanh secure storage, SignalR request body va icon auto-mirrored.
+- Load test da khong con bi khoa bang `Skip` cung; da co co che opt-in va script chay rieng.
 
 ## Ket qua xac minh moi nhat
 
@@ -57,5 +59,5 @@ Huong xu ly tiep:
 
 ## Uu tien tiep theo de dat muc "san pham sach hon"
 
-1. Chuan hoa va kich hoat duoc load-test profile thay vi de `Skip` hoan toan.
+1. Dua load-test profile vao pipeline hoac moi truong staging co seed data on dinh.
 2. Theo doi canh bao build tu `@microsoft/signalr` khi nang cap dependency.

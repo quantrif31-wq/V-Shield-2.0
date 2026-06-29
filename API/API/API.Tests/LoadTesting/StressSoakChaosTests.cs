@@ -30,13 +30,7 @@ public class StressSoakChaosTests
     public StressSoakChaosTests(ITestOutputHelper output)
     {
         _output = output;
-        _config = new LoadTestConfiguration
-        {
-            BaseUrl = Environment.GetEnvironmentVariable("LOAD_TEST_URL") ?? "http://localhost:5107",
-            AuthToken = Environment.GetEnvironmentVariable("LOAD_TEST_ADMIN_TOKEN") ?? string.Empty,
-            DefaultDurationSeconds = 30,
-            DefaultConcurrency = 5
-        };
+        _config = LoadTestEnvironment.CreateConfiguration(defaultDurationSeconds: 30, defaultConcurrency: 5);
         _runner = new LoadTestRunner(_config);
     }
 
@@ -50,7 +44,7 @@ public class StressSoakChaosTests
     /// Simulates 50 concurrent login attempts per second for 30 seconds.
     /// Expectation: P95 latency under 2s, error rate under 2%.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Stress_LoginStorm_MediumProfile()
     {
         _output.WriteLine("=== STRESS-1: Login Storm (Medium Profile) ===");
@@ -77,7 +71,7 @@ public class StressSoakChaosTests
     /// Simulates a burst of gate transit events during rush hour.
     /// 30 concurrent POSTs/sec to gate-transit/scan for 30 seconds.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Stress_AccessEventBurst()
     {
         _output.WriteLine("=== STRESS-2: Access Event Burst ===");
@@ -108,7 +102,7 @@ public class StressSoakChaosTests
     /// Simulates many alarms firing during a major incident.
     /// 40 concurrent alarm creations per second.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Stress_AlarmBurst()
     {
         _output.WriteLine("=== STRESS-3: Alarm Burst ===");
@@ -140,7 +134,7 @@ public class StressSoakChaosTests
     /// STRESS-4: Evidence export burst.
     /// Simulates multiple auditors requesting evidence exports simultaneously.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Stress_EvidenceExportBurst()
     {
         _output.WriteLine("=== STRESS-4: Evidence Export Burst ===");
@@ -168,7 +162,7 @@ public class StressSoakChaosTests
     /// Simulates container orchestration probes hitting /health/live aggressively.
     /// 100 concurrent requests per second (typical for large Kubernetes clusters).
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Stress_HealthCheckHighConcurrency()
     {
         _output.WriteLine("=== STRESS-5: Health Check High Concurrency ===");
@@ -194,7 +188,7 @@ public class StressSoakChaosTests
     /// Mix of reads and writes to simulate normal operations over time.
     /// Detects memory leaks, connection pool exhaustion, or gradual degradation.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Soak_SustainedWorkload_2Min()
     {
         _output.WriteLine("=== SOAK-1: Sustained Workload (2 min) ===");
@@ -256,7 +250,7 @@ public class StressSoakChaosTests
     /// Verifies that the API returns controlled degraded responses when the DB is down
     /// (using timeout/short-circuit behavior), without crashing the process.
     /// </summary>
-    [Fact(Skip = SkipMessage + " Also requires ability to restart DB or use a dead connection string.")]
+    [LoadTestFact(SkipMessage + " Also requires ability to restart DB or use a dead connection string.", LoadTestEnvironment.BaseUrlVariable)]
     public async Task Chaos_DatabaseRestart()
     {
         _output.WriteLine("=== CHAOS-1: Database Restart Simulation ===");
@@ -288,7 +282,7 @@ public class StressSoakChaosTests
     /// Verifies that when AI/runtime wrappers are unavailable, the API returns
     /// controlled degraded responses instead of crashing.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Chaos_RuntimeOutage()
     {
         _output.WriteLine("=== CHAOS-2: Runtime Dependency Outage ===");
@@ -318,7 +312,7 @@ public class StressSoakChaosTests
     /// Verifies that the API has proper timeout handling and doesn't hang indefinitely
     /// when downstream dependencies are slow. Uses HttpClient timeout via CancellationToken.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Chaos_HighLatencyTimeout()
     {
         _output.WriteLine("=== CHAOS-3: High Latency / Timeout ===");
@@ -361,7 +355,7 @@ public class StressSoakChaosTests
     /// Simulates the outbox queue being flooded.
     /// Verifies that the system can process a backlog without crashing.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Chaos_QueueBacklogRecovery()
     {
         _output.WriteLine("=== CHAOS-4: Queue Backlog Recovery ===");
@@ -400,7 +394,7 @@ public class StressSoakChaosTests
     /// Combines invalid auth tokens, nonexistent endpoints, and high concurrency
     /// to simulate what happens during a DDoS or scanning attack.
     /// </summary>
-    [Fact(Skip = SkipMessage)]
+    [LoadTestFact(SkipMessage, LoadTestEnvironment.BaseUrlVariable)]
     public async Task Chaos_MixedFailureModes()
     {
         _output.WriteLine("=== CHAOS-5: Mixed Failure Modes ===");
