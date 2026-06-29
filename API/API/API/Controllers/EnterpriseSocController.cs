@@ -84,14 +84,20 @@ public class EnterpriseSocController : ControllerBase
             Severity = string.IsNullOrWhiteSpace(request.Severity) ? "Medium" : request.Severity.Trim(),
             State = "New",
             Summary = request.Summary.Trim(),
-            SiteId = request.SiteId
+            SiteId = request.SiteId,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            Altitude = request.Altitude,
+            Accuracy = request.Accuracy,
+            SourceDeviceId = request.SourceDeviceId
         };
 
         _context.Alarms.Add(alarm);
         await _context.SaveChangesAsync();
 
         await _notificationService.NotifyEventAsync("Alarm.Generic", alarm.Severity == "Critical" ? "Báo động khẩn cấp" : "Báo động mới",
-            alarm.Summary, "Alarm", alarm.AlarmId.ToString(), "/soc-console");
+            alarm.Summary, "Alarm", alarm.AlarmId.ToString(), "/soc-console",
+            request.Latitude, request.Longitude, null);
 
         _ = FireAndForgetClassifyAsync(alarm.AlarmId);
 
@@ -659,7 +665,8 @@ public class EnterpriseSocController : ControllerBase
     }
 
     public sealed record AlarmRuleRequest(string Name, string EventType, string? Severity, bool IsActive);
-    public sealed record AlarmRequest(long? SecurityEventId, string? AlarmType, string? Severity, string Summary, int? SiteId);
+    public sealed record AlarmRequest(long? SecurityEventId, string? AlarmType, string? Severity, string Summary, int? SiteId,
+        decimal? Latitude, decimal? Longitude, decimal? Altitude, decimal? Accuracy, string? SourceDeviceId);
     public sealed record AlarmAssignmentRequest(int? AssignedToUserId, string? Note);
     public sealed record AlarmCommentRequest(string Comment);
     public sealed record CloseRequest(string? Note);

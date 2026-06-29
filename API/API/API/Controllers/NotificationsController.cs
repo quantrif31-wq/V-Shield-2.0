@@ -46,6 +46,9 @@ public class NotificationsController : ControllerBase
                 n.ReferenceType,
                 n.ReferenceId,
                 n.ActionUrl,
+                n.Latitude,
+                n.Longitude,
+                n.LocationLabel,
                 n.IsRead,
                 n.CreatedAt,
                 n.ReadAt

@@ -898,7 +898,7 @@ public static class DemoDataSeeder
         {
             demoNotifications.Add(new Notification
             {
-                RecipientUserId = adminUser.UserId, Title = "Báo động uy hiếp", Body = "Phát hiện uy hiếp tại Access Point #12 — Nhân viên Nguyễn Văn An", Category = "Alarm", ReferenceType = "Alarm", CreatedAt = now.AddMinutes(-5), IsRead = false
+                RecipientUserId = adminUser.UserId, Title = "Báo động uy hiếp", Body = "Phát hiện uy hiếp tại Access Point #12 — Nhân viên Nguyễn Văn An", Category = "Alarm", ReferenceType = "Alarm", Latitude = 21.0285m, Longitude = 105.8048m, LocationLabel = "Tòa nhà HN Admin - Tầng 1", CreatedAt = now.AddMinutes(-5), IsRead = false
             });
             demoNotifications.Add(new Notification
             {
@@ -922,11 +922,11 @@ public static class DemoDataSeeder
         {
             demoNotifications.Add(new Notification
             {
-                RecipientUserId = guardUser.UserId, Title = "Báo động khẩn cấp", Body = "Vượt cổng khẩn cấp tại cổng HN Main Gate — xe 29A-12345", Category = "Alarm", ReferenceType = "Alarm", CreatedAt = now.AddMinutes(-10), IsRead = false
+                RecipientUserId = guardUser.UserId, Title = "Báo động khẩn cấp", Body = "Vượt cổng khẩn cấp tại cổng HN Main Gate — xe 29A-12345", Category = "Alarm", ReferenceType = "Alarm", Latitude = 21.0284m, Longitude = 105.8045m, LocationLabel = "Cổng chính HN - Cầu Giấy", CreatedAt = now.AddMinutes(-10), IsRead = false
             });
             demoNotifications.Add(new Notification
             {
-                RecipientUserId = guardUser.UserId, Title = "Cảnh báo thiết bị ngoại tuyến", Body = "Camera HN-B1-Parking mất kết nối hơn 5 phút.", Category = "Alarm", ReferenceType = "Alarm", CreatedAt = now.AddMinutes(-20), IsRead = false
+                RecipientUserId = guardUser.UserId, Title = "Cảnh báo thiết bị ngoại tuyến", Body = "Camera HN-B1-Parking mất kết nối hơn 5 phút.", Category = "Alarm", ReferenceType = "Alarm", Latitude = 21.0283m, Longitude = 105.8049m, LocationLabel = "HN Tầng hầm B1", CreatedAt = now.AddMinutes(-20), IsRead = false
             });
             demoNotifications.Add(new Notification
             {

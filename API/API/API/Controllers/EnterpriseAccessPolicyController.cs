@@ -356,6 +356,8 @@ public class EnterpriseAccessPolicyController : ControllerBase
             LaneReference = request.LaneReference?.Trim(),
             LaneName = request.LaneName?.Trim(),
             Reason = request.Reason.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
             ApprovedByUserId = userId.Value,
             ValidFromUtc = now,
             ValidToUtc = now.AddMinutes(durationMinutes)
@@ -397,6 +399,8 @@ public class EnterpriseAccessPolicyController : ControllerBase
                 SiteId = request.SiteId,
                 CredentialType = "EmergencyOverride",
                 Description = $"Duress override at {request.LaneName ?? "unknown lane"} — {request.Reason}",
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
                 OccurredAtUtc = DateTime.UtcNow
             });
         }
@@ -405,7 +409,8 @@ public class EnterpriseAccessPolicyController : ControllerBase
 
         await _notificationService.NotifyEventAsync("Alarm.EmergencyPass", "Vượt cổng khẩn cấp",
             $"Xe/người vượt cổng khẩn cấp: {request.SubjectName}",
-            "Alarm", null, "/soc-console");
+            "Alarm", null, "/soc-console",
+            request.Latitude, request.Longitude, request.LaneName);
 
         pass.LaneEventId = laneEvent.LaneEventId;
         pass.AlarmId = alarm.AlarmId;
@@ -582,6 +587,8 @@ public class EnterpriseAccessPolicyController : ControllerBase
             SiteId = request.SiteId,
             CredentialType = request.CredentialType ?? "Unknown",
             Description = request.Description?.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
             OccurredAtUtc = DateTime.UtcNow
         };
         _context.DuressEvents.Add(duress);
@@ -598,7 +605,8 @@ public class EnterpriseAccessPolicyController : ControllerBase
         await _context.SaveChangesAsync();
         await _notificationService.NotifyEventAsync("Alarm.Duress", "Báo động uy hiếp",
             $"Phát hiện uy hiếp tại access point {request.AccessPointId}. Nhân viên: {request.EmployeeId}",
-            "Alarm", null, "/soc-console");
+            "Alarm", null, "/soc-console",
+            request.Latitude, request.Longitude, null);
         return Ok(duress);
     }
 
@@ -887,7 +895,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
         string? LaneName,
         string? Direction,
         string Reason,
-        int DurationMinutes);
+        int DurationMinutes,
+        decimal? Latitude,
+        decimal? Longitude);
     public sealed record EmergencyStateRequest(string? State, int? SiteId, int? SecurityZoneId, int? AccessPointId, string? Reason);
     public sealed record AntiPassbackResetRequest(string SubjectType, int SubjectId, int? SecurityZoneId, string? Reason);
     public sealed record OccupancyRequest(int? SiteId, int? SecurityZoneId, int Count, int? MaxAllowed);
@@ -913,5 +923,6 @@ public class EnterpriseAccessPolicyController : ControllerBase
         string? LegacyReason);
     public sealed record PolicyVersionRequest(string Name, string? ChangeSummary);
     public sealed record PolicyApprovalRequest(string? Note);
-    public sealed record DuressEventRequest(int? UserId, int? EmployeeId, int? AccessPointId, int? SecurityZoneId, int? SiteId, string? CredentialType, string? Description);
+    public sealed record DuressEventRequest(int? UserId, int? EmployeeId, int? AccessPointId, int? SecurityZoneId, int? SiteId, string? CredentialType, string? Description,
+        decimal? Latitude, decimal? Longitude);
 }

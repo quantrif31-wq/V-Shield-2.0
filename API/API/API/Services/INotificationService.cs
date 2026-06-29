@@ -8,7 +8,10 @@ public interface INotificationService
         string? body = null,
         string? referenceType = null,
         string? referenceId = null,
-        string? actionUrl = null
+        string? actionUrl = null,
+        decimal? latitude = null,
+        decimal? longitude = null,
+        string? locationLabel = null
     );
 
     Task NotifyUsersAsync(
@@ -18,7 +21,10 @@ public interface INotificationService
         string? category = "System",
         string? referenceType = null,
         string? referenceId = null,
-        string? actionUrl = null
+        string? actionUrl = null,
+        decimal? latitude = null,
+        decimal? longitude = null,
+        string? locationLabel = null
     );
 
     Task NotifyRolesAsync(
@@ -28,7 +34,10 @@ public interface INotificationService
         string? category = "System",
         string? referenceType = null,
         string? referenceId = null,
-        string? actionUrl = null
+        string? actionUrl = null,
+        decimal? latitude = null,
+        decimal? longitude = null,
+        string? locationLabel = null
     );
 
     Task NotifyAllAsync(
@@ -37,6 +46,9 @@ public interface INotificationService
         string? category = "System",
         string? referenceType = null,
         string? referenceId = null,
-        string? actionUrl = null
+        string? actionUrl = null,
+        decimal? latitude = null,
+        decimal? longitude = null,
+        string? locationLabel = null
     );
 }

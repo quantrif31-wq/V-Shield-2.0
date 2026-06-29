@@ -144,6 +144,7 @@ namespace API
             builder.Services.AddScoped<ZoneAuthorityService>();
             builder.Services.AddScoped<UserOperationalScopeService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IRoutingService, RoutingService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
