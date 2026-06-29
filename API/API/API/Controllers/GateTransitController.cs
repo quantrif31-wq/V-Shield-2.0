@@ -131,41 +131,86 @@ namespace API.Controllers
                         }));
                 }
 
-                // 2. Nếu chưa có đúng cặp đó, kiểm tra biển có đang thuộc người khác và đang IN không
-                var conflictVehicle = samePlateVehicles.FirstOrDefault(v =>
-                    v.EmployeeId != request.EmployeeId &&
-                    NormalizeParkingStatus(v.ParkingStatus) == "IN");
+                // 2. Nếu biển thuộc người khác
+                var otherVehicle = samePlateVehicles.FirstOrDefault(v =>
+                    v.EmployeeId != request.EmployeeId);
 
-                if (conflictVehicle != null)
+                if (otherVehicle != null)
                 {
-                    var uebaLog2 = new AccessLog
+                    // 2a. Xe đang IN trong bãi → conflict
+                    if (NormalizeParkingStatus(otherVehicle.ParkingStatus) == "IN")
+                    {
+                        var uebaLog2 = new AccessLog
+                        {
+                            Timestamp = DateTime.Now,
+                            Direction = "IN",
+                            GateId = request.GateId,
+                            CameraId = request.CameraId,
+                            CapturedLicensePlate = normalizedPlate,
+                            EmployeeId = request.EmployeeId,
+                            RegistrationId = null,
+                            ResultStatus = "FAILED",
+                            IsBypass = false,
+                            Note = $"Biển số đang được giữ bởi nhân viên có id là {otherVehicle.EmployeeId}"
+                        };
+                        _context.AccessLogs.Add(uebaLog2);
+                        await _context.SaveChangesAsync();
+
+                        var ref2 = $"access-log/{uebaLog2.LogId}";
+                        uebaLog2.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref2, createdByUserId: request.EmployeeId);
+                        uebaLog2.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref2, createdByUserId: request.EmployeeId);
+                        await _context.SaveChangesAsync();
+
+                        await transaction.CommitAsync();
+
+                        _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
+                        _ = _uebaService.AnalyzeAccessLogAsync(uebaLog2);
+
+                        return Conflict(GateTransitApiResponse.CreateError(
+                            $"Biển số đang được giữ bởi 1 nhân viên có id là {otherVehicle.EmployeeId}."));
+                    }
+
+                    // 2b. Xe đang OUT (không trong bãi) → cho phép nhận xe, gán lại chủ mới
+                    otherVehicle.EmployeeId = request.EmployeeId;
+                    otherVehicle.ParkingStatus = "IN";
+
+                    var uebaLog2b = new AccessLog
                     {
                         Timestamp = DateTime.Now,
                         Direction = "IN",
                         GateId = request.GateId,
                         CameraId = request.CameraId,
-                        CapturedLicensePlate = normalizedPlate,
+                        CapturedLicensePlate = otherVehicle.LicensePlate,
                         EmployeeId = request.EmployeeId,
                         RegistrationId = null,
-                        ResultStatus = "FAILED",
+                        ResultStatus = "SUCCESS",
                         IsBypass = false,
-                        Note = $"Biển số đang được giữ bởi nhân viên có id là {conflictVehicle.EmployeeId}"
+                        Note = $"Nhận xe từ nhân viên {otherVehicle.EmployeeId}, chuyển chủ sở hữu tạm thời"
                     };
-                    _context.AccessLogs.Add(uebaLog2);
+                    _context.AccessLogs.Add(uebaLog2b);
                     await _context.SaveChangesAsync();
 
-                    var ref2 = $"access-log/{uebaLog2.LogId}";
-                    uebaLog2.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref2, createdByUserId: request.EmployeeId);
-                    uebaLog2.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref2, createdByUserId: request.EmployeeId);
+                    var ref2b = $"access-log/{uebaLog2b.LogId}";
+                    uebaLog2b.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref2b, createdByUserId: request.EmployeeId);
+                    uebaLog2b.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref2b, createdByUserId: request.EmployeeId);
                     await _context.SaveChangesAsync();
 
                     await transaction.CommitAsync();
 
                     _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
-                    _ = _uebaService.AnalyzeAccessLogAsync(uebaLog2);
+                    _ = _uebaService.AnalyzeAccessLogAsync(uebaLog2b);
 
-                    return Conflict(GateTransitApiResponse.CreateError(
-                        $"Biển số đang được giữ bởi 1 nhân viên có id là {conflictVehicle.EmployeeId}."));
+                    return Ok(GateTransitApiResponse.CreateSuccess(
+                        $"Đã nhận xe và gán chủ mới.",
+                        new
+                        {
+                            otherVehicle.VehicleId,
+                            otherVehicle.LicensePlate,
+                            otherVehicle.EmployeeId,
+                            otherVehicle.VehicleTypeId,
+                            otherVehicle.Description,
+                            otherVehicle.ParkingStatus
+                        }));
                 }
 
                 var newVehicle = new Vehicle

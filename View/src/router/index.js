@@ -8,6 +8,10 @@ const Dashboard = () => import('../pages/Dashboard.vue')
 const AboutProject = () => import('../pages/AboutProject.vue')
 const Employees = () => import('../pages/Employees.vue')
 const Vehicles = () => import('../pages/Vehicles.vue')
+const MyVehicles = () => import('../pages/MyVehicles.vue')
+const MySchedule = () => import('../pages/MySchedule.vue')
+const MyProfile = () => import('../pages/MyProfile.vue')
+const VehicleTransfer = () => import('../pages/VehicleTransfer.vue')
 const AccessLogs = () => import('../pages/AccessLogs.vue')
 const Monitoring = () => import('../pages/Monitoring.vue')
 const Settings = () => import('../pages/Settings.vue')
@@ -100,6 +104,14 @@ function landingRouteForRole(role) {
         if (userCanAccessTask(user, 'lost-found')) return { name: 'LostFoundDashboard' }
     }
 
+    if (role === 'NhanVien') {
+        return { name: 'MyProfile' }
+    }
+
+    if (role === 'NhanSu') {
+        return { name: 'Employees' }
+    }
+
     return { name: 'Dashboard' }
 }
 
@@ -177,13 +189,18 @@ const routes = [
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin'], keepAlive: true } },
             { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access', keepAlive: true } },
             { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'restricted-zone', keepAlive: true } },
-            { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },
+            { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin', 'NhanSu'] } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
+            { path: 'my-vehicles', name: 'MyVehicles', component: MyVehicles, meta: { allowedRoles: ['NhanVien'] } },
+            { path: 'my-schedule', name: 'MySchedule', component: MySchedule, meta: { allowedRoles: ['NhanVien'] } },
+            { path: 'profile', name: 'MyProfile', component: MyProfile, meta: { allowedRoles: ['NhanVien', 'NhanSu'] } },
+            { path: 'vehicle-transfer', name: 'VehicleTransfer', component: VehicleTransfer, meta: { allowedRoles: ['NhanVien'] } },
+            { path: 'my-dynamic-qr', name: 'MyDynamicQr', component: DynamicQrGenerator, meta: { allowedRoles: ['NhanVien', 'NhanSu'] } },
             { path: 'attendance/records', name: 'AttendanceRecords', component: AttendanceRecords, meta: { allowedRoles: ['Admin'] } },
             { path: 'attendance/work-schedules', name: 'AttendanceWorkSchedules', component: AttendanceWorkSchedules, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' } },
             { path: 'attendance/shifts', name: 'AttendanceShifts', component: AttendanceShifts, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' } },
-            { path: 'attendance/leave-requests', name: 'LeaveRequests', component: LeaveRequests, meta: { allowedRoles: ['Admin'] } },
-            { path: 'attendance/leave-approvals', name: 'LeaveApprovals', component: LeaveApprovals, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'approvals' } },
+            { path: 'attendance/leave-requests', name: 'LeaveRequests', component: LeaveRequests, meta: { allowedRoles: ['Admin', 'NhanVien'] } },
+            { path: 'attendance/leave-approvals', name: 'LeaveApprovals', component: LeaveApprovals, meta: { allowedRoles: ['Admin', 'QuanLy', 'NhanSu'], taskKey: 'approvals' } },
             { path: 'attendance/reports', name: 'AttendanceReports', component: AttendanceReports, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'reports' } },
             { path: 'campus-map', name: 'CampusMap', component: CampusMapPage, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
             { path: 'device-management', name: 'DeviceManagement', component: DeviceManagement, meta: { allowedRoles: ['Admin'], keepAlive: true } },
@@ -203,7 +220,7 @@ const routes = [
                 path: 'users',
                 name: 'UserManagement',
                 component: UserManagement,
-                meta: { requiresAdmin: true, allowedRoles: ['Admin'] },
+                meta: { allowedRoles: ['Admin', 'NhanSu'] },
             },
             {
                 path: 'settings',

@@ -12,7 +12,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,NhanSu")]
 public class UsersController : ControllerBase
 {
     private static readonly HashSet<string> SupportedRoles = new(StringComparer.OrdinalIgnoreCase)
@@ -20,7 +20,9 @@ public class UsersController : ControllerBase
         "Admin",
         "QuanLy",
         "BaoVe",
-        "LeTan"
+        "LeTan",
+        "NhanVien",
+        "NhanSu"
     };
 
     private readonly ApplicationDbContext _context;
@@ -104,6 +106,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
@@ -162,6 +165,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest request)
     {
@@ -231,6 +235,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("scope-reference")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetOperationalScopeReference()
     {
         var sites = await _context.Sites
@@ -271,6 +276,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id:int}/operational-scopes")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetOperationalScopes(int id)
     {
         if (!await _context.AppUsers.AnyAsync(user => user.UserId == id))
@@ -305,6 +311,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:int}/operational-scopes")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> ReplaceOperationalScopes(int id, [FromBody] List<OperationalScopeUpsertRequest>? request)
     {
@@ -387,6 +394,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{id}/mfa/reset")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> ResetMfa(int id)
     {
@@ -414,6 +422,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Delete(int id)
     {
@@ -429,6 +438,30 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    [HttpPatch("{id}/lock")]
+    public async Task<IActionResult> LockUser(int id)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        user.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Da khoa tai khoan." });
+    }
+
+    [HttpPatch("{id}/unlock")]
+    public async Task<IActionResult> UnlockUser(int id)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        user.IsActive = true;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Da mo khoa tai khoan." });
     }
 
     private static string NormalizeUsernameInvariant(string username) =>

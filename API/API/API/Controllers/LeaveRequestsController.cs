@@ -293,6 +293,9 @@ public class LeaveRequestsController : ControllerBase
         if (_permissionService.IsAdmin(User))
             return query;
 
+        if (User.IsInRole("NhanSu"))
+            return query;
+
         if (await _permissionService.IsManagerAsync(User))
         {
             var deptId = await _permissionService.GetUserDepartmentIdAsync(User);
@@ -314,6 +317,6 @@ public class LeaveRequestsController : ControllerBase
     }
 
     private async Task<bool> EnsureCanApproveAsync() =>
-        _permissionService.IsAdmin(User) || await _permissionService.IsManagerAsync(User);
+        _permissionService.IsAdmin(User) || await _permissionService.IsManagerAsync(User) || User.IsInRole("NhanSu");
 }
 

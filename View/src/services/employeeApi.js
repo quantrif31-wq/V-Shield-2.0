@@ -2,6 +2,7 @@ import http from './http'
 
 export const getAll = (params = {}) => http.get('/Employees', { params })
 export const getById = (id) => http.get(`/Employees/${id}`)
+export const getMyProfile = () => http.get('/Employees/me')
 export const create = (data) => http.post('/Employees', data)
 export const update = (id, data) => http.put(`/Employees/${id}`, data)
 export const deleteEmployee = (id) => http.delete(`/Employees/${id}`)

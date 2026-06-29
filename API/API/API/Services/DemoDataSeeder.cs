@@ -1124,6 +1124,8 @@ public static class DemoDataSeeder
         var managerEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsManagerCandidate, 4);
         var guardEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsGuardCandidate, 16);
         var receptionEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsReceptionCandidate, 2);
+        var nhanSuEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsNhanSuCandidate, 2);
+        var nhanVienEmployees = SelectEmployeesForRole(activeEmployees, assignedEmployeeIds, IsNhanVienCandidate, 5);
 
         UpsertDemoUser(
             db,
@@ -1152,6 +1154,18 @@ public static class DemoDataSeeder
         {
             var employee = receptionEmployees[i];
             UpsertDemoUser(db, $"letan{i + 1}", "LeTan", employee.FullName, "LeTan@123", employee.EmployeeId, now, resetPassword: true);
+        }
+
+        for (var i = 0; i < nhanSuEmployees.Count; i++)
+        {
+            var employee = nhanSuEmployees[i];
+            UpsertDemoUser(db, $"nhansu{i + 1}", "NhanSu", employee.FullName, "HR@123", employee.EmployeeId, now, resetPassword: true);
+        }
+
+        for (var i = 0; i < nhanVienEmployees.Count; i++)
+        {
+            var employee = nhanVienEmployees[i];
+            UpsertDemoUser(db, $"nhanvien{i + 1}", "NhanVien", employee.FullName, "Staff@123", employee.EmployeeId, now, resetPassword: true);
         }
 
         BackfillDemoUserEmployeeLinks(db, activeEmployees);
@@ -1300,6 +1314,19 @@ public static class DemoDataSeeder
                || position.Contains("Supervisor", StringComparison.OrdinalIgnoreCase)
                || position.Contains("Nhân viên", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool IsNhanSuCandidate(Employee employee)
+    {
+        var department = employee.Department?.Name ?? string.Empty;
+        var position = employee.Position?.Name ?? string.Empty;
+
+        return department.Contains("Human Resources", StringComparison.OrdinalIgnoreCase)
+               || department.Contains("Nhân sự", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("HR", StringComparison.OrdinalIgnoreCase)
+               || position.Contains("Nhân sự", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsNhanVienCandidate(Employee employee) => true;
 
     private static void EnsureEmployeeDynamicQrs(ApplicationDbContext db, List<Employee> employees, DateTime now)
     {

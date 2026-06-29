@@ -13,7 +13,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,NhanSu")]
 public class EmployeesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -74,7 +74,39 @@ public class EmployeesController : ControllerBase
         return Ok(employees);
     }
 
-    /// <summary>Láº¥y thÃ´ng tin 1 nhÃ¢n viÃªn theo ID (chá»‰ Admin)</summary>
+    /// <summary>Láº¥y thÃ´ng tin nhÃ¢n viÃªn hiá»‡n táº¡i (NhanVien/NhanSu/Admin)</summary>
+    [HttpGet("me")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetMyProfile()
+    {
+        var employeeIdClaim = User.FindFirstValue("employeeId");
+        if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out var employeeId))
+            return Unauthorized(new { message = "Tai khoan chua lien ket nhan vien." });
+
+        var e = await _context.Employees
+            .Include(x => x.Department)
+            .Include(x => x.Position)
+            .FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+
+        if (e == null)
+            return NotFound(new { message = "Khong tim thay thong tin nhan vien." });
+
+        return Ok(new EmployeeResponse
+        {
+            EmployeeId = e.EmployeeId,
+            FullName = e.FullName,
+            Phone = e.Phone,
+            Email = e.Email,
+            FaceImageUrl = e.FaceImageUrl,
+            Status = e.Status,
+            DepartmentId = e.DepartmentId,
+            DepartmentName = e.Department?.Name,
+            PositionId = e.PositionId,
+            PositionName = e.Position?.Name
+        });
+    }
+
+    /// <summary>Láº¥y thÃ´ng tin 1 nhÃ¢n viÃªn theo ID (chá»‰ Admin/NhanSu)</summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -131,6 +163,24 @@ public class EmployeesController : ControllerBase
 
         _context.Employees.Add(employee);
         await _context.SaveChangesAsync();
+
+        // Auto-provision AppUser khi táº¡o nhÃ¢n viÃªn má»›i
+        if (!await _context.AppUsers.AnyAsync(u => u.EmployeeId == employee.EmployeeId))
+        {
+            var appUser = new AppUser
+            {
+                Username = $"nv{employee.EmployeeId}",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Staff@123"),
+                FullName = employee.FullName,
+                Role = "NhanVien",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                LastPasswordChangedAtUtc = DateTime.UtcNow,
+                EmployeeId = employee.EmployeeId
+            };
+            _context.AppUsers.Add(appUser);
+            await _context.SaveChangesAsync();
+        }
 
         // Load navigation properties sau khi save
         await _context.Entry(employee).Reference(e => e.Department).LoadAsync();
