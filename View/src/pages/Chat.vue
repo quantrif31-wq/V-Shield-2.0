@@ -4,6 +4,9 @@
       <div class="sidebar-tabs">
         <button :class="{ active: activeTab === 'conversations' }" @click="activeTab = 'conversations'">Hội thoại</button>
         <button :class="{ active: activeTab === 'contacts' }" @click="activeTab = 'contacts'">Danh bạ</button>
+        <button v-if="activeTab === 'contacts'" style="margin-left:auto;padding:8px 10px;font-size:12px;border:none;background:none;cursor:pointer;color:#1976D2;" @click="showFilters = !showFilters">
+          <i class="fas fa-filter"></i>
+        </button>
       </div>
 
       <div class="sidebar-search">
@@ -29,12 +32,26 @@
         </div>
 
         <div v-if="activeTab === 'contacts'" class="contact-list">
+          <div v-if="showFilters" class="contact-filters">
+            <select v-model="filterDepartment" @change="onSearch">
+              <option value="">Tất cả phòng ban</option>
+              <option v-for="dept in departments" :key="dept" :value="dept">{{ dept }}</option>
+            </select>
+            <select v-model="filterPosition" @change="onSearch">
+              <option value="">Tất cả chức vụ</option>
+              <option v-for="pos in positions" :key="pos" :value="pos">{{ pos }}</option>
+            </select>
+          </div>
           <div v-for="contact in filteredContacts" :key="contact.employeeId"
-            class="contact-item" @click="startConversation(contact)">
-            <div class="contact-avatar">{{ contact.fullName.charAt(0).toUpperCase() }}</div>
+            class="contact-item" @click="startConversation(contact)" :title="`Phòng: ${contact.departmentName || '--'} | Chức vụ: ${contact.positionName || '--'}`">
+            <div class="contact-avatar" :style="{ background: getAvatarColor(contact.fullName) }">{{ contact.fullName.charAt(0).toUpperCase() }}</div>
             <div class="contact-info">
               <div class="contact-name">{{ contact.fullName }}</div>
               <div class="contact-dept">{{ contact.departmentName || '' }}</div>
+              <div class="contact-meta">
+                <span v-if="contact.positionName" class="contact-position">{{ contact.positionName }}</span>
+                <span v-if="contact.email" class="contact-email">{{ contact.email }}</span>
+              </div>
             </div>
           </div>
           <div v-if="filteredContacts.length === 0" class="empty-state">Không tìm thấy</div>
@@ -123,6 +140,9 @@ export default {
       typingTimeout: null,
       currentConvTitle: '',
       currentConvParticipants: '',
+      showFilters: false,
+      filterDepartment: '',
+      filterPosition: '',
     }
   },
   computed: {
@@ -135,10 +155,30 @@ export default {
         return title.toLowerCase().includes(q)
       })
     },
+    departments() {
+      return [...new Set(this.contacts.map(c => c.departmentName).filter(Boolean))]
+    },
+    positions() {
+      return [...new Set(this.contacts.map(c => c.positionName).filter(Boolean))]
+    },
     filteredContacts() {
-      if (!this.searchQuery) return this.contacts
-      const q = this.searchQuery.toLowerCase()
-      return this.contacts.filter(c => c.fullName.toLowerCase().includes(q))
+      let result = this.contacts
+      const q = this.searchQuery?.toLowerCase()
+      if (q) {
+        result = result.filter(c =>
+          c.fullName.toLowerCase().includes(q) ||
+          (c.departmentName || '').toLowerCase().includes(q) ||
+          (c.positionName || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q)
+        )
+      }
+      if (this.filterDepartment) {
+        result = result.filter(c => c.departmentName === this.filterDepartment)
+      }
+      if (this.filterPosition) {
+        result = result.filter(c => c.positionName === this.filterPosition)
+      }
+      return result
     }
   },
   async mounted() {
@@ -275,6 +315,12 @@ export default {
     getInitials(conv) {
       const name = conv.title || this.getParticipantNames(conv)
       return name.charAt(0).toUpperCase()
+    },
+    getAvatarColor(name) {
+      const colors = ['#1976D2','#388E3C','#D32F2F','#F57C00','#7B1FA2','#00796B','#5C6BC0','#E64A19','#C2185B','#303F9F']
+      let hash = 0
+      for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+      return colors[Math.abs(hash) % colors.length]
     },
     getParticipantNames(conv) {
       if (!conv.participants) return 'Hội thoại'
@@ -429,6 +475,43 @@ export default {
   font-size: 12px;
   color: #999;
   margin-top: 2px;
+}
+
+.contact-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.contact-position {
+  font-size: 11px;
+  color: #1976D2;
+  background: #e3f2fd;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.contact-email {
+  font-size: 11px;
+  color: #999;
+}
+
+.contact-filters {
+  padding: 8px 12px;
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.contact-filters select {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  outline: none;
+  background: white;
 }
 
 .conv-meta {
