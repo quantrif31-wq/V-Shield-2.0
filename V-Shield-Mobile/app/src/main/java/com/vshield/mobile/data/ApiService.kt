@@ -1,0 +1,49 @@
+package com.vshield.mobile.data
+
+import com.vshield.mobile.data.model.*
+import retrofit2.Response
+import retrofit2.http.*
+
+interface ApiService {
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
+
+    @GET("api/employees/me")
+    suspend fun getMyProfile(): Response<ApiResponse<EmployeeInfo>>
+
+    @GET("api/employees/lookup")
+    suspend fun lookupEmployees(@Query("q") query: String): Response<EmployeeLookupResponse>
+
+    @POST("api/dynamic-qr/my")
+    suspend fun getMyQr(): Response<QrResponse>
+
+    @GET("api/vehicles/my-vehicles")
+    suspend fun getMyVehicles(): Response<MyVehiclesResponse>
+
+    @GET("api/vehicle-delegations/outgoing")
+    suspend fun getOutgoingDelegations(): Response<DelegationListResponse>
+
+    @GET("api/vehicle-delegations/incoming")
+    suspend fun getIncomingDelegations(): Response<DelegationListResponse>
+
+    @POST("api/vehicle-delegations")
+    suspend fun createDelegation(@Body request: CreateDelegationRequest): Response<DelegationResponse>
+
+    @PUT("api/vehicle-delegations/{id}/approve")
+    suspend fun approveDelegation(@Path("id") id: Int): Response<DelegationResponse>
+
+    @PUT("api/vehicle-delegations/{id}/reject")
+    suspend fun rejectDelegation(@Path("id") id: Int): Response<DelegationResponse>
+
+    @GET("api/leave-requests/my")
+    suspend fun getMyLeaveRequests(): Response<LeaveRequestResponse>
+
+    @POST("api/leave-requests")
+    suspend fun createLeaveRequest(@Body request: CreateLeaveRequest): Response<ApiResponse<EmptyData>>
+
+    @GET("api/leave-requests/leave-types")
+    suspend fun getLeaveTypes(): Response<LeaveTypeResponse>
+
+    @GET("api/schedules/my")
+    suspend fun getMySchedule(): Response<ScheduleResponse>
+}
