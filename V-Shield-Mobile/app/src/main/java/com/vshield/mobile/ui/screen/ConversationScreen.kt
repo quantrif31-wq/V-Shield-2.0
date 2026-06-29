@@ -9,7 +9,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import com.vshield.mobile.data.model.ChatMessageInfo
 import com.vshield.mobile.data.model.ConversationInfo
 import com.vshield.mobile.viewmodel.ChatViewModel
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -40,7 +42,6 @@ fun ConversationScreen(
 ) {
     val uiState by chatViewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
 
     var messageText by remember { mutableStateOf("") }
@@ -89,7 +90,7 @@ fun ConversationScreen(
                         chatViewModel.setCurrentConversation(null)
                         onBack()
                     }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
                 actions = {
@@ -98,7 +99,7 @@ fun ConversationScreen(
                             val target = otherParticipants.first()
                             onStartCall(target.employeeId, target.fullName)
                         }) {
-                            Icon(Icons.Default.Phone, contentDescription = "Gọi")
+                    Icon(Icons.Filled.Phone, contentDescription = "Gọi")
                         }
                     }
                 }
@@ -175,7 +176,7 @@ fun ConversationScreen(
                     },
                     enabled = messageText.isNotBlank()
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "Gửi")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gửi")
                 }
             }
         }
@@ -192,8 +193,6 @@ private fun MessageBubble(
         else MaterialTheme.colorScheme.surfaceVariant
     val textColor = if (isMine) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onSurfaceVariant
-    val alignment = if (isMine) Alignment.End else Alignment.Start
-
     Column(
         modifier = Modifier
             .fillMaxWidth()

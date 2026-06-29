@@ -26,6 +26,7 @@ import com.vshield.mobile.viewmodel.NotificationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun NotificationScreen(
     onSessionExpired: () -> Unit,
     onViewMap: ((Double, Double, String?) -> Unit)? = null,

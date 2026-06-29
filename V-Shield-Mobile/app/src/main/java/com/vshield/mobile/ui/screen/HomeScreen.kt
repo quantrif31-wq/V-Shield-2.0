@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -20,6 +21,7 @@ import com.vshield.mobile.ui.theme.*
 import com.vshield.mobile.viewmodel.QrViewModel
 
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun HomeScreen(
     onSessionExpired: () -> Unit,
     qrViewModel: QrViewModel = viewModel()
@@ -118,6 +120,10 @@ fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                            }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))

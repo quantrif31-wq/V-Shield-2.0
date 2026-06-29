@@ -1,14 +1,14 @@
 package com.vshield.mobile.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
@@ -39,8 +39,8 @@ sealed class BottomNavItem(
     data object Chat : BottomNavItem(
         route = "chat",
         title = "Trò chuyện",
-        selectedIcon = Icons.Filled.Chat,
-        unselectedIcon = Icons.Outlined.Chat
+        selectedIcon = Icons.AutoMirrored.Filled.Chat,
+        unselectedIcon = Icons.AutoMirrored.Outlined.Chat
     )
     data object Notifications : BottomNavItem(
         route = "notifications",

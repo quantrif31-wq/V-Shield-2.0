@@ -24,6 +24,7 @@ class NotificationAlarmService(private val context: Context) {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun playNotificationOnce(title: String?, message: String?) {
         stopNotificationSound()
         try {
@@ -43,6 +44,7 @@ class NotificationAlarmService(private val context: Context) {
         vibrateOnce()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun startAlarm(title: String, message: String) {
         stopAlarm()
 

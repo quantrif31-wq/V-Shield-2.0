@@ -28,48 +28,25 @@ Huong xu ly tiep:
 - Tao script chuan de dung local stack va nap bien moi truong `LOAD_TEST_*`.
 - Tach mot profile test rieng de co the bat/tat load test co chu dich.
 
-### 2. Frontend con can toi uu chunk lon
+### 2. Con can theo doi mot canh bao build tu thu vien ben thu ba
 
 Tinh trang:
-- `npm run build` van canh bao chunk lon hon 500 kB.
-- Cum chunk lon nhat hien tai nam quanh `IncidentMapPage`, `campusMapApi`, `GateTransitMonitor`.
+- Frontend da duoc tach chunk cho cac man hinh map nang va khong con canh bao chunk vuot nguong mac dinh.
+- `npm run build` van hien mot canh bao Rollup lien quan toi comment `/*#__PURE__*/` trong goi `@microsoft/signalr`.
 
 Anh huong:
 - Khong chan build.
-- Co the lam tang thoi gian tai trang dau tien hoac route nang.
+- Day la canh bao tu dependency, khong phai loi logic cua ung dung.
 
 Huong xu ly tiep:
-- Tach them dynamic import cho cac map/workspace nang.
-- Can nhac `manualChunks` trong Vite config cho map, signalr va module enterprise lon.
+- Theo doi khi nang cap `@microsoft/signalr`.
+- Chi can can thiep them neu muon build log sach hon hoan toan.
 
-### 3. Android con warning deprecated/unused
+## Cac muc da dong trong dot nay
 
-Tinh trang:
-- `V-Shield-Mobile/app/src/main/java/com/vshield/mobile/data/TokenManager.kt`
-- `V-Shield-Mobile/app/src/main/java/com/vshield/mobile/security/SecureStorage.kt`
-- `V-Shield-Mobile/app/src/main/java/com/vshield/mobile/ui/navigation/BottomNavBar.kt`
-- `V-Shield-Mobile/app/src/main/java/com/vshield/mobile/ui/screen/*`
-
-Anh huong:
-- Build van thanh cong.
-- Day la no ky thuat, chua phai loi chuc nang.
-
-Huong xu ly tiep:
-- Chuyen tu `MasterKeys` sang API hien tai cua `androidx.security`.
-- Doi icon deprecated sang `Icons.AutoMirrored.*`.
-- Don cac parameter/variable khong dung.
-
-### 4. Load test solution-level chua tu dong chay
-
-Tinh trang:
-- `API/API/API.slnx` hien chi chua `API/API.csproj`.
-- Test project van chay duoc khi goi truc tiep `API.Tests.csproj`, nhung chua nam trong solution file.
-
-Anh huong:
-- De gay hieu nham rang da test day du khi chi build/test o muc solution.
-
-Huong xu ly tiep:
-- Can nhac them `API.Tests` vao `API.slnx` neu muon solution-level check bao phu hon.
+- `API.Tests` da duoc dua vao `API/API/API.slnx` de chay `dotnet test` o muc solution.
+- Frontend da tach them chunk cho `IncidentMapPage` va cau hinh `manualChunks` trong `View/vite.config.js`.
+- Android da duoc don cac warning deprecated chinh quanh secure storage, SignalR request body va icon auto-mirrored.
 
 ## Ket qua xac minh moi nhat
 
@@ -80,7 +57,5 @@ Huong xu ly tiep:
 
 ## Uu tien tiep theo de dat muc "san pham sach hon"
 
-1. Giam chunk frontend lon o cac route map va workspace nang.
-2. Don warning deprecated trong Android de tranh no ky thuat tang them.
-3. Chuan hoa va kich hoat duoc load-test profile thay vi de `Skip` hoan toan.
-4. Dua test project vao `API.slnx` neu muon quy trinh kiem tra dong bo hon.
+1. Chuan hoa va kich hoat duoc load-test profile thay vi de `Skip` hoan toan.
+2. Theo doi canh bao build tu `@microsoft/signalr` khi nang cap dependency.

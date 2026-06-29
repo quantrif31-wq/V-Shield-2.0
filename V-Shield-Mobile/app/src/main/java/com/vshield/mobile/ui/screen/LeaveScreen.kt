@@ -21,6 +21,7 @@ import com.vshield.mobile.viewmodel.LeaveViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun LeaveScreen(
     onSessionExpired: () -> Unit,
     leaveViewModel: LeaveViewModel = viewModel()
@@ -224,7 +225,7 @@ private fun CreateLeaveDialog(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                         shape = RoundedCornerShape(12.dp)
                     )
                     ExposedDropdownMenu(

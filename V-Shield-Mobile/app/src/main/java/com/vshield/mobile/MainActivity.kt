@@ -3,6 +3,7 @@ package com.vshield.mobile
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
@@ -85,7 +86,11 @@ fun VShieldMainScreen() {
             }
         }
     ) { innerPadding ->
-        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
             NavGraph(
                 navController = navController,
                 chatViewModel = chatViewModel,

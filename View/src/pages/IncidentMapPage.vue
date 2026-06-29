@@ -40,9 +40,11 @@
 </template>
 
 <script>
+import { defineAsyncComponent } from 'vue'
 import { socApi } from '../services/socApi'
-import AlarmMap from '../components/maplibre/AlarmMap.vue'
-import IndoorPathViewer from '../components/campus-map/IndoorPathViewer.vue'
+
+const AlarmMap = defineAsyncComponent(() => import('../components/maplibre/AlarmMap.vue'))
+const IndoorPathViewer = defineAsyncComponent(() => import('../components/campus-map/IndoorPathViewer.vue'))
 
 export default {
   name: 'IncidentMapPage',

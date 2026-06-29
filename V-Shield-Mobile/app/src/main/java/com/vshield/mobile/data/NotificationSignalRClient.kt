@@ -7,6 +7,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.*
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 class NotificationSignalRClient(
@@ -57,7 +58,7 @@ class NotificationSignalRClient(
             val request = Request.Builder()
                 .url(negotiateUrl)
                 .addHeader("Authorization", "Bearer $accessToken")
-                .post(RequestBody.create(null, ""))
+                .post("".toRequestBody(null))
                 .build()
 
             val response = client.newCall(request).execute()

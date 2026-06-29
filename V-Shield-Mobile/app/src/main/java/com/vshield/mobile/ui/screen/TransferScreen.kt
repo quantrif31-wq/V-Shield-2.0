@@ -24,6 +24,7 @@ import com.vshield.mobile.viewmodel.TransferViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun TransferScreen(
     onSessionExpired: () -> Unit,
     transferViewModel: TransferViewModel = viewModel()
