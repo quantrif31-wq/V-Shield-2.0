@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.vshield.mobile.ui.screen.*
 import com.vshield.mobile.viewmodel.ChatViewModel
+import com.vshield.mobile.viewmodel.NotificationViewModel
 
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
@@ -19,12 +20,14 @@ sealed class Screen(val route: String) {
     }
     data object Leave : Screen("leave")
     data object Profile : Screen("profile")
+    data object Notifications : Screen("notifications")
 }
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
     chatViewModel: ChatViewModel,
+    notificationViewModel: NotificationViewModel,
     startDestination: String,
     onSessionExpired: () -> Unit,
     onStartCall: (Int, String) -> Unit
@@ -76,6 +79,12 @@ fun NavGraph(
         }
         composable(Screen.Profile.route) {
             ProfileScreen(onSessionExpired = onSessionExpired)
+        }
+        composable(Screen.Notifications.route) {
+            NotificationScreen(
+                notificationViewModel = notificationViewModel,
+                onSessionExpired = onSessionExpired
+            )
         }
     }
 }

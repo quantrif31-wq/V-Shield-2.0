@@ -4,11 +4,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.*
@@ -40,6 +42,12 @@ sealed class BottomNavItem(
         selectedIcon = Icons.Filled.Chat,
         unselectedIcon = Icons.Outlined.Chat
     )
+    data object Notifications : BottomNavItem(
+        route = "notifications",
+        title = "Thông báo",
+        selectedIcon = Icons.Filled.Notifications,
+        unselectedIcon = Icons.Outlined.Notifications
+    )
     data object Leave : BottomNavItem(
         route = "leave",
         title = "Nghỉ phép",
@@ -58,6 +66,7 @@ val bottomNavItems = listOf(
     BottomNavItem.Home,
     BottomNavItem.Transfer,
     BottomNavItem.Chat,
+    BottomNavItem.Notifications,
     BottomNavItem.Leave,
     BottomNavItem.Profile
 )
@@ -66,6 +75,7 @@ val bottomNavItems = listOf(
 fun BottomNavBar(
     currentRoute: String?,
     chatUnreadCount: Int = 0,
+    notificationUnreadCount: Int = 0,
     onItemClick: (BottomNavItem) -> Unit
 ) {
     NavigationBar {
@@ -75,10 +85,15 @@ fun BottomNavBar(
                 selected = selected,
                 onClick = { onItemClick(item) },
                 icon = {
-                    if (item is BottomNavItem.Chat && chatUnreadCount > 0) {
+                    val badgeCount = when (item) {
+                        is BottomNavItem.Chat -> chatUnreadCount
+                        is BottomNavItem.Notifications -> notificationUnreadCount
+                        else -> 0
+                    }
+                    if (badgeCount > 0) {
                         BadgedBox(badge = {
                             Badge { Text(
-                                if (chatUnreadCount > 99) "99+" else chatUnreadCount.toString()
+                                if (badgeCount > 99) "99+" else badgeCount.toString()
                             ) }
                         }) {
                             Icon(

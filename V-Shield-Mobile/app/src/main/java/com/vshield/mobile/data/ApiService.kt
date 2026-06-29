@@ -65,4 +65,20 @@ interface ApiService {
 
     @POST("api/chat/conversations/{id}/read")
     suspend fun markConversationRead(@Path("id") conversationId: Int): Response<MarkReadResponse>
+
+    // Notification endpoints
+    @GET("api/notifications")
+    suspend fun getNotifications(
+        @Query("skip") skip: Int = 0,
+        @Query("take") take: Int = 50
+    ): Response<NotificationsListResponse>
+
+    @GET("api/notifications/unread-count")
+    suspend fun getUnreadCount(): Response<ApiResponse<UnreadCountResponse>>
+
+    @POST("api/notifications/{id}/read")
+    suspend fun markNotificationRead(@Path("id") id: Int): Response<ApiResponse<EmptyData>>
+
+    @POST("api/notifications/read-all")
+    suspend fun markAllNotificationsRead(): Response<ApiResponse<EmptyData>>
 }

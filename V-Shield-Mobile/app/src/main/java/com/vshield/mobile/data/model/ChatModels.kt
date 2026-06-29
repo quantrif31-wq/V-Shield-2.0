@@ -134,6 +134,40 @@ data class SignalRCallEnded(
     val conversationId: Int?
 )
 
+// Notification models
+data class SignalRNotification(
+    val notificationId: Int,
+    val eventType: String?,
+    val title: String?,
+    val message: String?,
+    val entityType: String?,
+    val entityId: String?,
+    val actionUrl: String?,
+    val createdAt: String?,
+    val isRead: Boolean
+)
+
+data class NotificationItem(
+    @SerializedName("notificationId") val notificationId: Int,
+    @SerializedName("eventType") val eventType: String?,
+    @SerializedName("title") val title: String?,
+    @SerializedName("message") val message: String?,
+    @SerializedName("entityType") val entityType: String?,
+    @SerializedName("entityId") val entityId: String?,
+    @SerializedName("actionUrl") val actionUrl: String?,
+    @SerializedName("createdAt") val createdAt: String?,
+    @SerializedName("isRead") val isRead: Boolean
+)
+
+data class UnreadCountResponse(
+    @SerializedName("count") val count: Int
+)
+
+data class NotificationsListResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data") val data: List<NotificationItem>?
+)
+
 sealed class ChatCallState {
     data object Idle : ChatCallState()
     data class Incoming(

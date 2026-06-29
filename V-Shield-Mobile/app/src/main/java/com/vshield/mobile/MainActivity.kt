@@ -18,6 +18,7 @@ import com.vshield.mobile.ui.screen.CallOverlay
 import com.vshield.mobile.ui.theme.VShieldTheme
 import com.vshield.mobile.viewmodel.AuthViewModel
 import com.vshield.mobile.viewmodel.ChatViewModel
+import com.vshield.mobile.viewmodel.NotificationViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,8 +36,10 @@ fun VShieldMainScreen() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val chatViewModel: ChatViewModel = viewModel()
+    val notificationViewModel: NotificationViewModel = viewModel()
     val authState by authViewModel.uiState.collectAsState()
     val chatState by chatViewModel.uiState.collectAsState()
+    val notifState by notificationViewModel.uiState.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -46,9 +49,14 @@ fun VShieldMainScreen() {
         Screen.Home.route,
         Screen.Transfer.route,
         Screen.Chat.route,
+        Screen.Notifications.route,
         Screen.Leave.route,
         Screen.Profile.route
     )
+
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) notificationViewModel.initialize()
+    }
     val showBottomBar = isLoggedIn && currentRoute in mainRoutes
 
     val isInCall = chatState.callState !is ChatCallState.Idle
@@ -61,6 +69,7 @@ fun VShieldMainScreen() {
                 BottomNavBar(
                     currentRoute = currentRoute,
                     chatUnreadCount = chatViewModel.totalUnreadCount(),
+                    notificationUnreadCount = notifState.unreadCount,
                     onItemClick = { item ->
                         if (currentRoute != item.route) {
                             navController.navigate(item.route) {
@@ -78,6 +87,7 @@ fun VShieldMainScreen() {
             NavGraph(
                 navController = navController,
                 chatViewModel = chatViewModel,
+                notificationViewModel = notificationViewModel,
                 startDestination = if (isLoggedIn) Screen.Home.route else Screen.Login.route,
                 onSessionExpired = {
                     authViewModel.logout()
