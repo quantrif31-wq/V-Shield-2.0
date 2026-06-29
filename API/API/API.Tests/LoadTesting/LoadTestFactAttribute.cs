@@ -63,13 +63,13 @@ public sealed class LoadTestFactAttribute : FactAttribute
             reasons.Add($"Missing environment variables: {string.Join(", ", missingVariables)}.");
         }
 
-        if (!string.IsNullOrWhiteSpace(additionalRequirement))
-        {
-            reasons.Add(additionalRequirement);
-        }
-
         if (reasons.Count > 0)
         {
+            if (!string.IsNullOrWhiteSpace(additionalRequirement))
+            {
+                reasons.Add(additionalRequirement);
+            }
+
             Skip = string.Join(" ", reasons);
         }
     }

@@ -33,13 +33,13 @@ namespace API.Data.Migrations
                         column: x => x.FromEmployeeId,
                         principalTable: "Employee",
                         principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_VehicleDelegations_Employee_ToEmployeeId",
                         column: x => x.ToEmployeeId,
                         principalTable: "Employee",
                         principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_VehicleDelegations_Vehicle_VehicleId",
                         column: x => x.VehicleId,

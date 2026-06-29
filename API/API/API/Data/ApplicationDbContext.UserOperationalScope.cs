@@ -21,7 +21,7 @@ public partial class ApplicationDbContext
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.CreatedByUser)
                 .WithMany()

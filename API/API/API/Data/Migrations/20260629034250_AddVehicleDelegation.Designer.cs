@@ -8479,13 +8479,13 @@ namespace API.Data.Migrations
                     b.HasOne("API.Models.Employee", "FromEmployee")
                         .WithMany("OutgoingDelegations")
                         .HasForeignKey("FromEmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("API.Models.Employee", "ToEmployee")
                         .WithMany("IncomingDelegations")
                         .HasForeignKey("ToEmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("API.Models.Vehicle", "Vehicle")

@@ -8396,7 +8396,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -8875,13 +8875,13 @@ namespace API.Migrations
                     b.HasOne("API.Models.Employee", "FromEmployee")
                         .WithMany("OutgoingDelegations")
                         .HasForeignKey("FromEmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("API.Models.Employee", "ToEmployee")
                         .WithMany("IncomingDelegations")
                         .HasForeignKey("ToEmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("API.Models.Vehicle", "Vehicle")

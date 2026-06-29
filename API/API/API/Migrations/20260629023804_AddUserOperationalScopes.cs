@@ -57,7 +57,7 @@ namespace API.Migrations
                         column: x => x.UserId,
                         principalTable: "AppUsers",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_UserOperationalScopes_Gate_GateId",
                         column: x => x.GateId,

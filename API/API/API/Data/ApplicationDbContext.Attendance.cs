@@ -261,6 +261,7 @@ public partial class ApplicationDbContext
         ConfigureCompanySecurityFoundation(modelBuilder);
         ConfigureAccessPolicyEngine(modelBuilder);
         ConfigureVisitorVehicleOperations(modelBuilder);
+        ConfigureVehicleDelegation(modelBuilder);
         ConfigureDeviceProtocolOperations(modelBuilder);
         ConfigureSituationalAwareness(modelBuilder);
         ConfigureSocIncidentOperations(modelBuilder);

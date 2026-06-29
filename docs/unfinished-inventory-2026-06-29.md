@@ -49,11 +49,14 @@ Huong xu ly tiep:
 - Frontend da tach them chunk cho `IncidentMapPage` va cau hinh `manualChunks` trong `View/vite.config.js`.
 - Android da duoc don cac warning deprecated chinh quanh secure storage, SignalR request body va icon auto-mirrored.
 - Load test da khong con bi khoa bang `Skip` cung; da co co che opt-in va script chay rieng.
+- Backend startup da qua duoc 2 migration loi `multiple cascade paths` o `UserOperationalScopes` va `VehicleDelegations`.
 
 ## Ket qua xac minh moi nhat
 
 - Backend: `dotnet build API/API/API/API.csproj --nologo` pass sach.
-- Backend tests: `dotnet test API/API/API.Tests/API.Tests.csproj --nologo` pass `114`, skip `27`.
+- Backend tests: `dotnet test API/API/API.slnx --nologo` pass `116`, skip `27`.
+- Backend startup thuc te: `GET /health/live` tra `200` sau khi migrate local SQL Server.
+- Load-test smoke thuc te: `HealthEndpoint_HighConcurrency` pass khi bat `ENABLE_LOAD_TESTS=true`.
 - Frontend: `npm run build` pass.
 - Android: `V-Shield-Mobile\\gradlew.bat assembleDebug` pass.
 
