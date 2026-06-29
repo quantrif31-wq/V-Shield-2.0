@@ -72,6 +72,8 @@ export async function login(username, password, mfaCode = null) {
         employeeId: data.employeeId,
         mfaEnabled: data.mfaEnabled,
         mfaRequired: data.mfaRequired,
+        hasOperationalScopeAssignments: !!data.hasOperationalScopeAssignments,
+        operationalTaskKeys: data.operationalTaskKeys || [],
     }
 
     writeAuthState(data.token, state.user, data.refreshToken)
@@ -116,6 +118,8 @@ export async function fetchUser() {
             employeeId: res.data.employeeId,
             mfaEnabled: res.data.mfaEnabled,
             mfaRequired: res.data.mfaRequired,
+            hasOperationalScopeAssignments: !!res.data.hasOperationalScopeAssignments,
+            operationalTaskKeys: res.data.operationalTaskKeys || [],
         }
         writeAuthState(state.token, state.user, state.refreshToken)
         return true

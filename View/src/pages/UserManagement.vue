@@ -61,7 +61,6 @@
                         <option value="Admin">Admin</option>
                         <option value="QuanLy">Quản lý</option>
                         <option value="LeTan">Lễ tân</option>
-                        <option value="Staff">Nhân viên</option>
                         <option value="BaoVe">Bảo vệ</option>
                     </select>
                     <select class="minimal-select" v-model="filterStatus">
@@ -123,6 +122,9 @@
                             <td class="text-muted" style="font-size: 0.85rem;">{{ formatDate(user.createdAt) }}</td>
                             <td class="text-right">
                                 <div class="action-menu">
+                                    <button class="icon-btn" title="Phạm vi công việc" @click="openScopeModal(user)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
+                                    </button>
                                     <button class="icon-btn" title="Chỉnh sửa" @click="openEditModal(user)">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                     </button>
@@ -217,7 +219,6 @@
                                         <option value="Admin">Admin</option>
                                         <option value="QuanLy">Quản lý</option>
                                         <option value="LeTan">Lễ tân</option>
-                                        <option value="Staff">Nhân viên</option>
                                         <option value="BaoVe">Bảo vệ</option>
                                     </select>
                                 </div>
@@ -274,12 +275,94 @@
                 </div>
             </div>
         </transition>
+
+        <transition name="modal">
+            <div v-if="showScopeModal" class="modal-backdrop" @click.self="closeScopeModal">
+                <div class="modern-modal" style="max-width: 980px;">
+                    <div class="modal-top">
+                        <h3>Phạm vi công việc: {{ scopeTarget?.fullName || scopeTarget?.username }}</h3>
+                        <button class="icon-close" @click="closeScopeModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="scope-note">Vai trò quyết định được làm loại việc gì. Phạm vi bên dưới quyết định được làm ở đâu. Nếu chưa gán phạm vi, tài khoản vẫn tạm chạy theo quyền vai trò cũ.</p>
+                        <div v-if="scopeError" class="error-box"><span>{{ scopeError }}</span></div>
+                        <div v-if="scopeLoading" class="empty-layout" style="padding: 28px;">
+                            <div class="spinner-lg"></div>
+                            <p>Đang tải phạm vi công việc...</p>
+                        </div>
+                        <template v-else>
+                            <div class="scope-toolbar">
+                                <div class="scope-summary">
+                                    <span class="badge-role" :class="getRoleBadgeClass(scopeTarget?.role)">{{ getRoleLabel(scopeTarget?.role) }}</span>
+                                    <span class="text-muted">{{ scopeItems.length }} dòng phạm vi</span>
+                                </div>
+                                <button class="btn btn-secondary" @click="addScopeRow">Thêm dòng</button>
+                            </div>
+
+                            <div class="scope-table-wrap">
+                                <table class="sleek-table scope-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tác vụ</th>
+                                            <th>Site</th>
+                                            <th>Cổng</th>
+                                            <th>Làn</th>
+                                            <th>Khu giới hạn</th>
+                                            <th>Quyền</th>
+                                            <th>Ghi chú</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-if="scopeItems.length === 0">
+                                            <td colspan="8" class="empty-layout" style="padding: 24px;">Chưa có dòng phạm vi nào.</td>
+                                        </tr>
+                                        <tr v-for="(scope, index) in scopeItems" :key="scope.localId">
+                                            <td>
+                                                <select v-model="scope.taskKey" class="sleek-select">
+                                                    <option value="">Chọn tác vụ</option>
+                                                    <option v-for="task in scopeTaskOptions" :key="task.value" :value="task.value">{{ task.label }}</option>
+                                                </select>
+                                            </td>
+                                            <td><select v-model="scope.siteId" class="sleek-select"><option value="">Tất cả</option><option v-for="site in scopeReference.sites" :key="site.siteId" :value="String(site.siteId)">{{ site.name }}</option></select></td>
+                                            <td><select v-model="scope.gateId" class="sleek-select"><option value="">Tất cả</option><option v-for="gate in scopeReference.gates" :key="gate.gateId" :value="String(gate.gateId)">{{ gate.name }}</option></select></td>
+                                            <td><select v-model="scope.laneId" class="sleek-select"><option value="">Tất cả</option><option v-for="lane in scopeReference.lanes" :key="lane.laneId" :value="String(lane.laneId)">{{ lane.name }}</option></select></td>
+                                            <td><select v-model="scope.securityZoneId" class="sleek-select"><option value="">Tất cả</option><option v-for="zone in scopeReference.zones" :key="zone.securityZoneId" :value="String(zone.securityZoneId)">{{ zone.name }}</option></select></td>
+                                            <td>
+                                                <div class="scope-toggle-col">
+                                                    <label><input v-model="scope.canView" type="checkbox" /> Xem</label>
+                                                    <label><input v-model="scope.canManage" type="checkbox" /> Xử lý</label>
+                                                </div>
+                                            </td>
+                                            <td><input v-model="scope.note" type="text" class="sleek-input" placeholder="Ghi chú phân công" /></td>
+                                            <td class="text-right">
+                                                <button class="icon-btn action-reject" @click="removeScopeRow(index)">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="modal-actions mt-4">
+                                <button class="btn btn-secondary" @click="closeScopeModal">Đóng</button>
+                                <button class="btn btn-primary" :disabled="scopeSaving" @click="saveScopes">
+                                    <span v-if="scopeSaving" class="spinner-sm"></span>
+                                    Lưu phạm vi
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </transition>
     </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { getAll, create, update, deleteUser } from '../services/userApi'
+import { getAll, create, update, deleteUser, getOperationalScopeReference, getOperationalScopes, replaceOperationalScopes } from '../services/userApi'
 import { getAll as getAllEmployees } from '../services/employeeApi'
 
 const users = ref([])
@@ -312,13 +395,26 @@ const showEmployeeDropdown = ref(false)
 const employeeSearchText = ref('')
 const comboBoxRef = ref(null)
 
+const assignedEmployeeIds = computed(() =>
+    new Set(
+        users.value
+            .filter(user => user.employeeId && (!isEditing.value || user.userId !== editingId.value))
+            .map(user => user.employeeId)
+    )
+)
+
 const filteredEmployees = computed(() => {
     const q = employeeSearchText.value.toLowerCase().trim()
-    if (!q) return employeesList.value
-    return employeesList.value.filter(e =>
-        e.fullName.toLowerCase().includes(q) ||
-        (e.phone && e.phone.includes(q)) ||
-        (e.email && e.email.toLowerCase().includes(q))
+    const availableEmployees = employeesList.value.filter(employee =>
+        !assignedEmployeeIds.value.has(employee.employeeId)
+    )
+
+    if (!q) return availableEmployees
+
+    return availableEmployees.filter(employee =>
+        employee.fullName.toLowerCase().includes(q) ||
+        (employee.phone && employee.phone.includes(q)) ||
+        (employee.email && employee.email.toLowerCase().includes(q))
     )
 })
 
@@ -340,6 +436,7 @@ function onEmployeeSearchInput() {
     // If user edits text after selecting, clear fullName so they must re-select
     if (modalForm.fullName && employeeSearchText.value !== modalForm.fullName) {
         modalForm.fullName = ''
+        modalForm.employeeId = null
     }
 }
 
@@ -367,6 +464,21 @@ function handleClickOutside(e) {
 // Delete modal
 const showDeleteModal = ref(false)
 const deleteTarget = ref(null)
+const showScopeModal = ref(false)
+const scopeLoading = ref(false)
+const scopeSaving = ref(false)
+const scopeError = ref('')
+const scopeTarget = ref(null)
+const scopeItems = ref([])
+const scopeReferenceLoaded = ref(false)
+const scopeReference = reactive({
+    tasksByRole: {},
+    sites: [],
+    gates: [],
+    lanes: [],
+    zones: []
+})
+let scopeRowSeed = 1
 
 // Computed
 const activeCount = computed(() => users.value.filter(u => u.isActive).length)
@@ -383,6 +495,25 @@ const filteredUsers = computed(() => {
             (filterStatus.value === 'inactive' && !u.isActive)
         return matchSearch && matchRole && matchStatus
     })
+})
+
+const scopeTaskOptions = computed(() => {
+    const role = scopeTarget.value?.role
+    const tasks = role ? scopeReference.tasksByRole?.[role] || [] : []
+    const labels = {
+        monitoring: 'Giám sát an ninh',
+        'gate-transit': 'Thông hành cổng/làn',
+        'qr-access': 'Quét QR vào cổng',
+        parking: 'Gửi xe/tra xe',
+        'restricted-zone': 'Khu vực giới hạn',
+        reception: 'Lễ tân/tiếp đón',
+        'guest-support': 'Hỗ trợ khách/hồ sơ khách',
+        'lost-found': 'Đồ thất lạc',
+        reports: 'Báo cáo',
+        approvals: 'Phê duyệt',
+        metadata: 'Metadata/danh mục'
+    }
+    return tasks.map(task => ({ value: task, label: labels[task] || task }))
 })
 
 // Fetch users
@@ -485,12 +616,97 @@ const getAvatarColor = (str) => {
 }
 
 function getRoleLabel(role) {
-    const map = { Admin: 'Admin', QuanLy: 'Quản lý', LeTan: 'Lễ tân', Staff: 'Nhân viên', BaoVe: 'Bảo vệ' }
+    const map = { Admin: 'Admin', QuanLy: 'Quản lý', LeTan: 'Lễ tân', BaoVe: 'Bảo vệ' }
     return map[role] || role
 }
 
+async function ensureScopeReference() {
+    if (scopeReferenceLoaded.value) return
+    const res = await getOperationalScopeReference()
+    scopeReference.tasksByRole = res.data?.tasksByRole || {}
+    scopeReference.sites = res.data?.sites || []
+    scopeReference.gates = res.data?.gates || []
+    scopeReference.lanes = res.data?.lanes || []
+    scopeReference.zones = res.data?.zones || []
+    scopeReferenceLoaded.value = true
+}
+
+function mapScopeToUi(item = {}) {
+    return {
+        localId: `scope_${scopeRowSeed++}`,
+        taskKey: item.taskKey || '',
+        siteId: item.siteId != null ? String(item.siteId) : '',
+        gateId: item.gateId != null ? String(item.gateId) : '',
+        laneId: item.laneId != null ? String(item.laneId) : '',
+        securityZoneId: item.securityZoneId != null ? String(item.securityZoneId) : '',
+        canView: item.canView !== false,
+        canManage: item.canManage !== false,
+        note: item.note || ''
+    }
+}
+
+function addScopeRow() {
+    scopeItems.value.push(mapScopeToUi())
+}
+
+function removeScopeRow(index) {
+    scopeItems.value.splice(index, 1)
+}
+
+async function openScopeModal(user) {
+    scopeTarget.value = user
+    scopeError.value = ''
+    scopeLoading.value = true
+    showScopeModal.value = true
+    try {
+        await ensureScopeReference()
+        const res = await getOperationalScopes(user.userId)
+        scopeItems.value = Array.isArray(res.data) ? res.data.map(mapScopeToUi) : []
+    } catch (err) {
+        scopeError.value = err.response?.data?.message || 'Không thể tải phạm vi công việc'
+        scopeItems.value = []
+    } finally {
+        scopeLoading.value = false
+    }
+}
+
+function closeScopeModal() {
+    showScopeModal.value = false
+    scopeTarget.value = null
+    scopeItems.value = []
+    scopeError.value = ''
+}
+
+async function saveScopes() {
+    if (!scopeTarget.value) return
+    scopeSaving.value = true
+    scopeError.value = ''
+    try {
+        const payload = scopeItems.value
+            .filter(item => item.taskKey)
+            .map(item => ({
+                taskKey: item.taskKey,
+                siteId: item.siteId ? Number(item.siteId) : null,
+                gateId: item.gateId ? Number(item.gateId) : null,
+                laneId: item.laneId ? Number(item.laneId) : null,
+                securityZoneId: item.securityZoneId ? Number(item.securityZoneId) : null,
+                canView: !!item.canView,
+                canManage: !!item.canManage,
+                note: item.note?.trim() || null
+            }))
+
+        await replaceOperationalScopes(scopeTarget.value.userId, payload)
+        await fetchUsers()
+        closeScopeModal()
+    } catch (err) {
+        scopeError.value = err.response?.data?.message || 'Không thể lưu phạm vi công việc'
+    } finally {
+        scopeSaving.value = false
+    }
+}
+
 function getRoleBadgeClass(role) {
-    const map = { Admin: 'admin', QuanLy: 'staff', LeTan: 'staff', Staff: 'staff', BaoVe: 'guard' }
+    const map = { Admin: 'admin', QuanLy: 'manager', LeTan: 'reception', BaoVe: 'guard' }
     return map[role] || 'staff'
 }
 
@@ -557,6 +773,8 @@ onUnmounted(() => {
 
 .badge-role { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px; border: 1px solid transparent; }
 .badge-role.admin { background: rgba(168, 85, 247, 0.1); color: #a855f7; border-color: rgba(168, 85, 247, 0.2); }
+.badge-role.manager { background: rgba(245, 158, 11, 0.12); color: #d97706; border-color: rgba(245, 158, 11, 0.24); }
+.badge-role.reception { background: rgba(14, 165, 233, 0.12); color: #0284c7; border-color: rgba(14, 165, 233, 0.24); }
 .badge-role.staff { background: rgba(16, 121, 196, 0.1); color: var(--accent-primary); border-color: rgba(16, 121, 196, 0.2); }
 .badge-role.guard { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border-color: rgba(16, 185, 129, 0.2); }
 
@@ -603,6 +821,13 @@ onUnmounted(() => {
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
 .modal-actions.centered { justify-content: center; }
 .warning-icon svg { width: 48px; height: 48px; color: var(--accent-danger); margin-bottom: 16px; }
+.scope-note { color: var(--text-secondary); margin: 0 0 16px; }
+.scope-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.scope-summary { display: flex; align-items: center; gap: 10px; }
+.scope-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 12px; }
+.scope-table th, .scope-table td { padding: 12px 14px; }
+.scope-toggle-col { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-secondary); }
+.scope-toggle-col input { margin-right: 6px; }
 
 .text-right { text-align: right; }
 .text-center { text-align: center; }

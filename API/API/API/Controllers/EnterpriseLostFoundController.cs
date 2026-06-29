@@ -10,29 +10,35 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/lost-found")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin,BaoVe,LeTan")]
 public class EnterpriseLostFoundController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly LostFoundMatchingService _matchingService;
     private readonly LockerService _lockerService;
     private readonly EvidenceCaptureService _evidenceCapture;
+    private readonly UserOperationalScopeService _scopeService;
 
     public EnterpriseLostFoundController(
         ApplicationDbContext context,
         LostFoundMatchingService matchingService,
         LockerService lockerService,
-        EvidenceCaptureService evidenceCapture)
+        EvidenceCaptureService evidenceCapture,
+        UserOperationalScopeService scopeService)
     {
         _context = context;
         _matchingService = matchingService;
         _lockerService = lockerService;
         _evidenceCapture = evidenceCapture;
+        _scopeService = scopeService;
     }
 
     [HttpGet("overview")]
     public async Task<IActionResult> GetOverview()
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         return Ok(new
         {
             PendingLostItems = await _context.LostItemReports.CountAsync(l => l.Status == "Pending"),
@@ -48,6 +54,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("lost-items")]
     public async Task<IActionResult> CreateLostItemReport([FromBody] LostItemReportRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.ReporterName))
             return BadRequest(new { message = "ReporterName is required." });
         if (string.IsNullOrWhiteSpace(request.ReporterPhone))
@@ -100,6 +109,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("lost-items")]
     public async Task<IActionResult> GetLostItemReports([FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var query = _context.LostItemReports.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(l => l.Status == status.Trim());
@@ -117,6 +129,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("lost-items/{id:long}")]
     public async Task<IActionResult> GetLostItemReport(long id)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
             return NotFound(new { message = "Lost item report not found." });
@@ -126,6 +141,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPut("lost-items/{id:long}")]
     public async Task<IActionResult> UpdateLostItemReport(long id, [FromBody] LostItemReportRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
             return NotFound(new { message = "Lost item report not found." });
@@ -150,6 +168,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpDelete("lost-items/{id:long}")]
     public async Task<IActionResult> DeleteLostItemReport(long id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
             return NotFound(new { message = "Lost item report not found." });
@@ -161,6 +182,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPatch("lost-items/{id:long}/close")]
     public async Task<IActionResult> CloseLostItemReport(long id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
             return NotFound(new { message = "Lost item report not found." });
@@ -174,6 +198,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("found-items")]
     public async Task<IActionResult> CreateFoundItemReport([FromBody] FoundItemReportRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.FoundByName))
             return BadRequest(new { message = "FoundByName is required." });
         if (string.IsNullOrWhiteSpace(request.FoundByPhone))
@@ -245,6 +272,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("found-items")]
     public async Task<IActionResult> GetFoundItemReports([FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var query = _context.FoundItemReports.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(f => f.Status == status.Trim());
@@ -264,6 +294,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("found-items/{id:long}")]
     public async Task<IActionResult> GetFoundItemReport(long id)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var item = await _context.FoundItemReports
             .Include(f => f.LockerCompartment)
             .ThenInclude(c => c!.Cabinet)
@@ -277,6 +310,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPut("found-items/{id:long}")]
     public async Task<IActionResult> UpdateFoundItemReport(long id, [FromBody] FoundItemReportRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var item = await _context.FoundItemReports.FindAsync(id);
         if (item == null)
             return NotFound(new { message = "Found item report not found." });
@@ -332,6 +368,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpDelete("found-items/{id:long}")]
     public async Task<IActionResult> DeleteFoundItemReport(long id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var item = await _context.FoundItemReports.FindAsync(id);
         if (item == null)
             return NotFound(new { message = "Found item report not found." });
@@ -343,6 +382,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("match/suggestions")]
     public async Task<IActionResult> GetMatchSuggestions()
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var suggestions = await _matchingService.GetSuggestionsAsync();
         return Ok(suggestions);
     }
@@ -350,6 +392,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("match")]
     public async Task<IActionResult> CreateMatch([FromBody] CreateMatchRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         if (!await _context.LostItemReports.AnyAsync(l => l.LostItemReportId == request.LostItemReportId))
             return BadRequest(new { message = "Lost item report not found." });
         if (!await _context.FoundItemReports.AnyAsync(f => f.FoundItemReportId == request.FoundItemReportId))
@@ -379,6 +424,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("match/{id:long}/confirm")]
     public async Task<IActionResult> ConfirmMatch(long id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var success = await _matchingService.ConfirmMatchAsync(id, GetCurrentUserId() ?? 0);
         if (!success)
             return BadRequest(new { message = "Match not found or already processed." });
@@ -388,6 +436,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("match/{id:long}/reject")]
     public async Task<IActionResult> RejectMatch(long id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var success = await _matchingService.RejectMatchAsync(id, GetCurrentUserId() ?? 0);
         if (!success)
             return BadRequest(new { message = "Match not found or already processed." });
@@ -397,6 +448,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("matches")]
     public async Task<IActionResult> GetMatches([FromQuery] string? status)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var query = _context.ItemMatches
             .Include(m => m.LostItem)
             .Include(m => m.FoundItem)
@@ -416,6 +470,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("claim-requests")]
     public async Task<IActionResult> CreateClaimRequest([FromBody] ClaimRequestRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         if (!await _context.FoundItemReports.AnyAsync(f => f.FoundItemReportId == request.FoundItemReportId))
             return BadRequest(new { message = "Found item report not found." });
         if (string.IsNullOrWhiteSpace(request.ClaimantName))
@@ -464,6 +521,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("claim-requests")]
     public async Task<IActionResult> GetClaimRequests([FromQuery] string? status)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var query = _context.ClaimRequests
             .Include(c => c.FoundItem)
             .Include(c => c.LostItem)
@@ -483,6 +543,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPut("claim-requests/{id:long}")]
     public async Task<IActionResult> UpdateClaimRequest(long id, [FromBody] ClaimRequestRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var claim = await _context.ClaimRequests
             .Include(c => c.FoundItem)
             .FirstOrDefaultAsync(c => c.ClaimRequestId == id);
@@ -558,6 +621,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpDelete("claim-requests/{id:long}")]
     public async Task<IActionResult> CancelClaimRequest(long id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var claim = await _context.ClaimRequests.FindAsync(id);
         if (claim == null)
             return NotFound(new { message = "Claim request not found." });
@@ -589,6 +655,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPatch("claim-requests/{id:long}/approve")]
     public async Task<IActionResult> ApproveClaimRequest(long id, [FromBody] ReviewClaimRequest? request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var claim = await _context.ClaimRequests
             .Include(c => c.FoundItem)
             .FirstOrDefaultAsync(c => c.ClaimRequestId == id);
@@ -610,6 +679,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPatch("claim-requests/{id:long}/reject")]
     public async Task<IActionResult> RejectClaim(long id, [FromBody] RejectClaimRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var claim = await _context.ClaimRequests.FindAsync(id);
         if (claim == null)
             return NotFound(new { message = "Claim request not found." });
@@ -632,6 +704,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPatch("claim-requests/{id:long}/complete")]
     public async Task<IActionResult> CompleteClaimRequest(long id, [FromBody] CompleteClaimRequestRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var claim = await _context.ClaimRequests
             .Include(c => c.FoundItem)
             .ThenInclude(f => f!.LockerCompartment)
@@ -706,6 +781,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateLockerCabinet(int id, [FromBody] LockerCabinetRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var cabinet = await _context.LockerCabinets.FindAsync(id);
         if (cabinet == null)
             return NotFound(new { message = "Cabinet not found." });
@@ -721,6 +799,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteLockerCabinet(int id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var cabinet = await _context.LockerCabinets.FindAsync(id);
         if (cabinet == null)
             return NotFound(new { message = "Cabinet not found." });
@@ -737,6 +818,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateLockerCabinet([FromBody] LockerCabinetRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { message = "Name is required." });
 
@@ -756,6 +840,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("locker-cabinets")]
     public async Task<IActionResult> GetLockerCabinets()
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var cabinets = await _context.LockerCabinets
             .AsNoTracking()
             .OrderBy(c => c.Name)
@@ -767,6 +854,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("locker-cabinets/{id:int}")]
     public async Task<IActionResult> GetLockerCabinetDetail(int id)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var cabinet = await _context.LockerCabinets.FindAsync(id);
         if (cabinet == null)
             return NotFound(new { message = "Cabinet not found." });
@@ -784,6 +874,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateCompartments(int id, [FromBody] CreateCompartmentsRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         if (!await _context.LockerCabinets.AnyAsync(c => c.LockerCabinetId == id))
             return NotFound(new { message = "Cabinet not found." });
         if (request.Codes == null || request.Codes.Count == 0)
@@ -813,6 +906,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("compartments/available")]
     public async Task<IActionResult> GetAvailableCompartments([FromQuery] int? cabinetId)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         if (cabinetId.HasValue)
         {
             var available = await _lockerService.GetAvailableCompartmentsAsync(cabinetId.Value);
@@ -832,6 +928,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("compartments/{id:int}/assign")]
     public async Task<IActionResult> AssignCompartment(int id, [FromBody] AssignCompartmentRequest request)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var (success, message) = await _lockerService.AssignCompartmentAsync(
             id, request.EvidenceItemId, GetCurrentUserId() ?? 0);
 
@@ -844,6 +943,9 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpPost("compartments/{id:int}/release")]
     public async Task<IActionResult> ReleaseCompartment(int id)
     {
+        if (!await CanAccessLostFoundAsync(requireManage: true))
+            return Forbid();
+
         var (success, message) = await _lockerService.ReleaseCompartmentAsync(
             id, GetCurrentUserId() ?? 0);
 
@@ -856,8 +958,19 @@ public class EnterpriseLostFoundController : ControllerBase
     [HttpGet("access-logs")]
     public async Task<IActionResult> GetLockerAccessLogs([FromQuery] int? compartmentId, [FromQuery] int limit = 100)
     {
+        if (!await CanAccessLostFoundAsync())
+            return Forbid();
+
         var logs = await _lockerService.GetAccessLogsAsync(compartmentId, limit);
         return Ok(logs);
+    }
+
+    private Task<bool> CanAccessLostFoundAsync(bool requireManage = false)
+    {
+        return _scopeService.CanAccessAsync(
+            User,
+            UserOperationalScopeService.TaskLostFound,
+            requireManage: requireManage);
     }
 
     private int? GetCurrentUserId()

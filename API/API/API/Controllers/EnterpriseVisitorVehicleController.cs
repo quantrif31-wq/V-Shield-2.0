@@ -16,11 +16,13 @@ public class EnterpriseVisitorVehicleController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IVisitorVehicleRiskScreeningService _screening;
+    private readonly UserOperationalScopeService _scopeService;
 
-    public EnterpriseVisitorVehicleController(ApplicationDbContext context, IVisitorVehicleRiskScreeningService screening)
+    public EnterpriseVisitorVehicleController(ApplicationDbContext context, IVisitorVehicleRiskScreeningService screening, UserOperationalScopeService scopeService)
     {
         _context = context;
         _screening = screening;
+        _scopeService = scopeService;
     }
 
     [HttpGet("overview")]
@@ -43,6 +45,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     [HttpGet("reception/overview")]
     public async Task<IActionResult> GetReceptionOverview()
     {
+        if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskReception, requireManage: false))
+            return Forbid();
+
         var now = DateTime.UtcNow;
         var startOfDay = now.Date;
         var endOfDay = startOfDay.AddDays(1);
@@ -70,6 +75,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     [HttpGet("reception/board")]
     public async Task<IActionResult> GetReceptionBoard([FromQuery] string? search)
     {
+        if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskReception, requireManage: false))
+            return Forbid();
+
         var now = DateTime.UtcNow;
         var startOfDay = now.Date;
         var endOfDay = startOfDay.AddDays(1);
@@ -135,6 +143,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     [HttpGet("reception/lost-found")]
     public async Task<IActionResult> GetReceptionLostFound([FromQuery] string? search)
     {
+        if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskLostFound, requireManage: false))
+            return Forbid();
+
         var keyword = search?.Trim();
         if (string.IsNullOrWhiteSpace(keyword))
         {
@@ -173,6 +184,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     [HttpGet("reception/interactions")]
     public async Task<IActionResult> GetReceptionInteractions([FromQuery] int? visitId, [FromQuery] string? status)
     {
+        if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskReception, requireManage: false))
+            return Forbid();
+
         var query = _context.ReceptionInteractions.AsNoTracking().AsQueryable();
         if (visitId.HasValue)
             query = query.Where(item => item.VisitId == visitId.Value);
@@ -190,6 +204,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     [HttpPost("reception/interactions")]
     public async Task<IActionResult> CreateReceptionInteraction([FromBody] ReceptionInteractionRequest request)
     {
+        if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskReception, requireManage: true))
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.Summary))
             return BadRequest(new { message = "Summary is required." });
 

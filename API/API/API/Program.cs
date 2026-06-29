@@ -89,7 +89,7 @@ namespace API
                     .Build();
                 options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
                 options.AddPolicy("RuntimeOperator", policy => policy.RequireRole("Admin", "BaoVe"));
-                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "Staff", "LeTan"));
+                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "LeTan"));
             });
 
             builder.Services.AddMemoryCache();
@@ -142,6 +142,7 @@ namespace API
             builder.Services.AddScoped<LostFoundMatchingService>();
             builder.Services.AddScoped<LockerService>();
             builder.Services.AddScoped<ZoneAuthorityService>();
+            builder.Services.AddScoped<UserOperationalScopeService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
@@ -190,7 +191,7 @@ namespace API
                 {
                     Title = "V-Shield API",
                     Version = "v1",
-                    Description = "API quan ly he thong V-Shield voi phan quyen Admin/Staff/BaoVe/QuanLy/LeTan"
+                    Description = "API quan ly he thong V-Shield voi phan quyen Admin/QuanLy/BaoVe/LeTan"
                 });
 
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

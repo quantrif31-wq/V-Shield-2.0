@@ -12,4 +12,6 @@ public class UserResponse
     public bool MfaEnabled { get; set; }
     public bool MfaRequired { get; set; }
     public DateTime? LastLoginAtUtc { get; set; }
+    public bool HasOperationalScopeAssignments { get; set; }
+    public List<string> OperationalTaskKeys { get; set; } = new();
 }

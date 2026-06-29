@@ -17,13 +17,15 @@ namespace API.Controllers
         private readonly IZoneTransitService _zoneTransitService;
         private readonly IUebaService _uebaService;
         private readonly EvidenceCaptureService _evidenceCapture;
+        private readonly UserOperationalScopeService _scopeService;
 
-        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService, EvidenceCaptureService evidenceCapture)
+        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService, EvidenceCaptureService evidenceCapture, UserOperationalScopeService scopeService)
         {
             _context = context;
             _zoneTransitService = zoneTransitService;
             _uebaService = uebaService;
             _evidenceCapture = evidenceCapture;
+            _scopeService = scopeService;
         }
 
         /// <summary>
@@ -52,6 +54,12 @@ namespace API.Controllers
             if (request.EmployeeId <= 0)
             {
                 return BadRequest(GateTransitApiResponse.CreateError("EmployeeId không hợp lệ."));
+            }
+
+            if (request.GateId.HasValue &&
+                !await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, gateId: request.GateId, requireManage: true))
+            {
+                return Forbid();
             }
 
             var employee = await _context.Employees
@@ -245,6 +253,12 @@ namespace API.Controllers
             if (visitor == null)
                 return NotFound("Không tìm thấy khách đã được xác nhận trong bảng Visitor_Details.");
 
+            if (request.GateId.HasValue &&
+                !await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, gateId: request.GateId, requireManage: true))
+            {
+                return Forbid();
+            }
+
             var normalizedPlate = NormalizeLicensePlate(request.LicensePlate);
             if (string.IsNullOrWhiteSpace(normalizedPlate))
                 return BadRequest("Biển số không hợp lệ.");
@@ -345,6 +359,9 @@ namespace API.Controllers
         [HttpGet("vehicle-by-employee/{employeeId:int}")]
         public async Task<IActionResult> GetVehiclesByEmployee(int employeeId)
         {
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskParking, requireManage: false))
+                return Forbid();
+
             var employeeExists = await _context.Employees
                 .AnyAsync(e => e.EmployeeId == employeeId);
 
@@ -372,6 +389,9 @@ namespace API.Controllers
         [HttpGet("vehicle-by-plate/{licensePlate}")]
         public async Task<IActionResult> GetVehicleByPlate(string licensePlate)
         {
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskParking, requireManage: false))
+                return Forbid();
+
             var normalizedPlate = NormalizeLicensePlate(licensePlate);
 
             if (string.IsNullOrWhiteSpace(normalizedPlate))
@@ -407,6 +427,9 @@ namespace API.Controllers
         [HttpGet("logs-by-plate/{licensePlate}")]
         public async Task<IActionResult> GetLogsByPlate(string licensePlate)
         {
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, requireManage: false))
+                return Forbid();
+
             var normalizedPlate = NormalizeLicensePlate(licensePlate);
 
             if (string.IsNullOrWhiteSpace(normalizedPlate))
@@ -442,6 +465,9 @@ namespace API.Controllers
         [HttpGet("logs-by-employee/{employeeId:int}")]
         public async Task<IActionResult> GetLogsByEmployee(int employeeId)
         {
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, requireManage: false))
+                return Forbid();
+
             var employeeExists = await _context.Employees
                 .AnyAsync(e => e.EmployeeId == employeeId);
 

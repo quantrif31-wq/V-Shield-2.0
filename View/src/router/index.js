@@ -68,11 +68,38 @@ const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
+function userCanAccessTask(user, taskKey) {
+    if (!user) return false
+    if (user.role === 'Admin') return true
+    if (!taskKey || !user.hasOperationalScopeAssignments) return true
+    return (user.operationalTaskKeys || []).includes(taskKey)
+}
+
 function landingRouteForRole(role) {
-    if (role === 'Staff') return { name: ROUTE_NAME_DYNAMIC_QR_GENERATOR }
-    if (role === 'BaoVe') return { name: 'GateTransitMonitor' }
-    if (role === 'QuanLy') return { name: 'Exceptions' }
-    if (role === 'LeTan') return { name: 'ReceptionDashboard' }
+    const user = authState.user
+
+    if (role === 'BaoVe') {
+        if (userCanAccessTask(user, 'monitoring')) return { name: 'Monitoring' }
+        if (userCanAccessTask(user, 'gate-transit')) return { name: 'GateTransitMonitor' }
+        if (userCanAccessTask(user, 'qr-access')) return { name: 'QrAccessMonitor' }
+        if (userCanAccessTask(user, 'parking')) return { name: 'Vehicles' }
+        if (userCanAccessTask(user, 'restricted-zone')) return { name: 'AccessPermissionManager' }
+        if (userCanAccessTask(user, 'lost-found')) return { name: 'LostFoundDashboard' }
+    }
+
+    if (role === 'QuanLy') {
+        if (userCanAccessTask(user, 'reports')) return { name: 'AttendanceReports' }
+        if (userCanAccessTask(user, 'approvals')) return { name: 'LeaveApprovals' }
+        if (userCanAccessTask(user, 'metadata')) return { name: 'SiteHierarchy' }
+        return { name: 'Dashboard' }
+    }
+
+    if (role === 'LeTan') {
+        if (userCanAccessTask(user, 'reception')) return { name: 'ReceptionDashboard' }
+        if (userCanAccessTask(user, 'guest-support')) return { name: 'GuestProfiles' }
+        if (userCanAccessTask(user, 'lost-found')) return { name: 'LostFoundDashboard' }
+    }
+
     return { name: 'Dashboard' }
 }
 
@@ -103,32 +130,32 @@ const routes = [
             { path: '', redirect: () => {
                 return landingRouteForRole(authState.user?.role)
             }},
-            { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
-            { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'], keepAlive: true } },
+            { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
+            { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring', keepAlive: true } },
             { path: 'access-logs', name: 'AccessLogs', component: AccessLogs, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'ueba', name: 'UEBA', component: UEBA, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'system-audit-logs', name: 'SystemAuditLogs', component: SystemAuditLogs, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
             { path: 'import-export-history', name: 'ImportExportHistory', component: ImportExportHistory, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
-            { path: 'enterprise-security', name: 'EnterpriseSecurityOperations', component: EnterpriseSecurityOperations, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'enterprise-security', name: 'EnterpriseSecurityOperations', component: EnterpriseSecurityOperations, meta: { allowedRoles: ['Admin'] } },
             { path: 'soc-console', name: 'SocAlarmConsole', component: SocAlarmConsole, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'identity-management', name: 'IdentityManagement', component: IdentityManagement, meta: { allowedRoles: ['Admin'] } },
             { path: 'site-hierarchy', name: 'SiteHierarchy', component: SiteHierarchy, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
             { path: 'exceptions', name: 'Exceptions', component: Exceptions, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'pre-registrations', name: 'PreRegistration', component: PreRegistration, meta: { allowedRoles: ['Admin'] } },
             { path: 'registration-links', name: 'RegistrationLinks', component: RegistrationLinks, meta: { allowedRoles: ['Admin'] } },
-            { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'] } },
-            { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'parking-kiosk', name: 'ManualParkingFallback', component: ManualParkingFallback, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
+            { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'guest-support' } },
+            { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
+            { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access' } },
+            { path: 'parking-kiosk', name: 'ManualParkingFallback', component: ManualParkingFallback, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
+            { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'guest-support' } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'contractors', name: 'ContractorManagement', component: ContractorManagement, meta: { allowedRoles: ['Admin'] } },
             { path: 'barrier-panel', name: 'BarrierPanel', component: BarrierPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'device-topology', name: 'DeviceTopology', component: DeviceTopology, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'device-topology', name: 'DeviceTopology', component: DeviceTopology, meta: { allowedRoles: ['Admin'] } },
             { path: 'provisioning-wizard', name: 'ProvisioningWizard', component: ProvisioningWizard, meta: { allowedRoles: ['Admin'] } },
-            { path: 'offline-packages', name: 'OfflinePackages', component: OfflinePackages, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'device-health', name: 'DeviceHealth', component: DeviceHealth, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'simulator-panel', name: 'SimulatorPanel', component: SimulatorPanel, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'offline-packages', name: 'OfflinePackages', component: OfflinePackages, meta: { allowedRoles: ['Admin'] } },
+            { path: 'device-health', name: 'DeviceHealth', component: DeviceHealth, meta: { allowedRoles: ['Admin'] } },
+            { path: 'simulator-panel', name: 'SimulatorPanel', component: SimulatorPanel, meta: { allowedRoles: ['Admin'] } },
             { path: 'video-search', name: 'VideoSearch', component: VideoSearch, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'ai-review-queue', name: 'AiReviewQueue', component: AiReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
             { path: 'correlation-view', name: 'CorrelationView', component: CorrelationView, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
@@ -139,38 +166,38 @@ const routes = [
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'guide', name: 'GuideViewer', component: GuideViewer },
-            { path: 'lost-found', name: 'LostFoundDashboard', component: LostFoundDashboard, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'found-items', name: 'FoundItemRegistry', redirect: { path: '/lost-found', query: { tab: 'found' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'lost-items', name: 'LostItemList', redirect: { path: '/lost-found', query: { tab: 'lost' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
-            { path: 'claim-approval', name: 'ClaimApproval', redirect: { path: '/lost-found', query: { tab: 'claim' } }, meta: { allowedRoles: ['Admin'] } },
-            { path: 'locker-manager', name: 'LockerManager', redirect: { path: '/lost-found', query: { tab: 'locker-config' } }, meta: { allowedRoles: ['Admin'] } },
-            { path: 'locker-access-logs', name: 'LockerAccessLogs', redirect: { path: '/lost-found', query: { tab: 'locker' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'lost-found', name: 'LostFoundDashboard', component: LostFoundDashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
+            { path: 'found-items', name: 'FoundItemRegistry', redirect: { path: '/lost-found', query: { tab: 'found' } }, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
+            { path: 'lost-items', name: 'LostItemList', redirect: { path: '/lost-found', query: { tab: 'lost' } }, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
+            { path: 'claim-approval', name: 'ClaimApproval', redirect: { path: '/lost-found', query: { tab: 'claim' } }, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
+            { path: 'locker-manager', name: 'LockerManager', redirect: { path: '/lost-found', query: { tab: 'locker-config' } }, meta: { allowedRoles: ['Admin'], taskKey: 'lost-found' } },
+            { path: 'locker-access-logs', name: 'LockerAccessLogs', redirect: { path: '/lost-found', query: { tab: 'locker' } }, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'lost-found' } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'], keepAlive: true } },
-            { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
-            { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'gate-transit', keepAlive: true } },
+            { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin'], keepAlive: true } },
+            { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access', keepAlive: true } },
+            { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'restricted-zone', keepAlive: true } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin'] } },
-            { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
-            { path: 'attendance/records', name: 'AttendanceRecords', component: AttendanceRecords, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe', 'QuanLy'] } },
-            { path: 'attendance/work-schedules', name: 'AttendanceWorkSchedules', component: AttendanceWorkSchedules, meta: { allowedRoles: ['Admin', 'Staff'] } },
-            { path: 'attendance/shifts', name: 'AttendanceShifts', component: AttendanceShifts, meta: { allowedRoles: ['Admin', 'Staff'] } },
-            { path: 'attendance/leave-requests', name: 'LeaveRequests', component: LeaveRequests, meta: { allowedRoles: ['Admin', 'Staff'] } },
-            { path: 'attendance/leave-approvals', name: 'LeaveApprovals', component: LeaveApprovals, meta: { allowedRoles: ['Admin', 'Staff'] } },
-            { path: 'attendance/reports', name: 'AttendanceReports', component: AttendanceReports, meta: { allowedRoles: ['Admin', 'Staff', 'QuanLy'] } },
-            { path: 'campus-map', name: 'CampusMap', component: CampusMapPage, meta: { allowedRoles: ['Admin', 'Staff', 'BaoVe'] } },
-            { path: 'device-management', name: 'DeviceManagement', component: DeviceManagement, meta: { allowedRoles: ['Admin', 'BaoVe'], keepAlive: true } },
+            { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
+            { path: 'attendance/records', name: 'AttendanceRecords', component: AttendanceRecords, meta: { allowedRoles: ['Admin'] } },
+            { path: 'attendance/work-schedules', name: 'AttendanceWorkSchedules', component: AttendanceWorkSchedules, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' } },
+            { path: 'attendance/shifts', name: 'AttendanceShifts', component: AttendanceShifts, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' } },
+            { path: 'attendance/leave-requests', name: 'LeaveRequests', component: LeaveRequests, meta: { allowedRoles: ['Admin'] } },
+            { path: 'attendance/leave-approvals', name: 'LeaveApprovals', component: LeaveApprovals, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'approvals' } },
+            { path: 'attendance/reports', name: 'AttendanceReports', component: AttendanceReports, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'reports' } },
+            { path: 'campus-map', name: 'CampusMap', component: CampusMapPage, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
+            { path: 'device-management', name: 'DeviceManagement', component: DeviceManagement, meta: { allowedRoles: ['Admin'], keepAlive: true } },
             {
                 path: 'system-catalog',
                 name: 'SystemCatalog',
                 component: SystemCatalog,
-                meta: { allowedRoles: ['Admin', 'QuanLy'] },
+                meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' },
             },
             {
                 path: 'departments-positions',
                 name: 'DepartmentPosition',
                 component: DepartmentPosition,
-                meta: { allowedRoles: ['Admin', 'QuanLy'] },
+                meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' },
             },
             {
                 path: 'users',
@@ -216,6 +243,14 @@ router.beforeEach((to, from, next) => {
         const currentRole = authState.user?.role
         if (!allowedRoles.includes(currentRole)) {
             return next(landingRouteForRole(currentRole))
+        }
+    }
+
+    const requiredTaskKey = to.matched.find(matchedRoute => matchedRoute.meta.taskKey)?.meta.taskKey
+    if (requiredTaskKey) {
+        const currentUser = authState.user
+        if (!userCanAccessTask(currentUser, requiredTaskKey)) {
+            return next(landingRouteForRole(currentUser?.role))
         }
     }
 

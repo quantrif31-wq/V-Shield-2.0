@@ -23,13 +23,15 @@ namespace API.Controllers
         private readonly StaticVisitorQrService _visitorQrService;
         private readonly IZoneTransitService _zoneTransitService;
         private readonly EvidenceCaptureService _evidenceCapture;
+        private readonly UserOperationalScopeService _scopeService;
 
-        public QrAccessController(ApplicationDbContext context, StaticVisitorQrService visitorQrService, IZoneTransitService zoneTransitService, EvidenceCaptureService evidenceCapture)
+        public QrAccessController(ApplicationDbContext context, StaticVisitorQrService visitorQrService, IZoneTransitService zoneTransitService, EvidenceCaptureService evidenceCapture, UserOperationalScopeService scopeService)
         {
             _context = context;
             _visitorQrService = visitorQrService;
             _zoneTransitService = zoneTransitService;
             _evidenceCapture = evidenceCapture;
+            _scopeService = scopeService;
         }
 
         [HttpPost("scan-access")]
@@ -262,6 +264,9 @@ namespace API.Controllers
             if (gate == null)
                 return NotFound(GateTransitApiResponse.CreateError("Cổng không tồn tại."));
 
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskQrAccess, gateId: request.GateId, requireManage: true))
+                return Forbid();
+
             if (request.EmployeeId == null && request.VisitorDetailId == null)
                 return BadRequest(GateTransitApiResponse.CreateError("Phải cung cấp mã nhân viên hoặc mã khách."));
 
@@ -420,6 +425,17 @@ namespace API.Controllers
                 !string.Equals(currentUser.Role, "BaoVe", StringComparison.OrdinalIgnoreCase))
             {
                 return (false, "Tai khoan khong co quyen su dung camera nay.", null);
+            }
+
+            var canAccessScope = await _scopeService.CanAccessAsync(
+                User,
+                UserOperationalScopeService.TaskQrAccess,
+                gateId: camera.GateId,
+                requireManage: true);
+
+            if (!canAccessScope)
+            {
+                return (false, "Tai khoan khong duoc phan cong van hanh cong nay.", null);
             }
 
             return (true, null, camera);
