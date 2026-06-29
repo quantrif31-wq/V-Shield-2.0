@@ -773,7 +773,108 @@ public static class DemoDataSeeder
         }
 
         SeedCampus3DScene(db, sites, now);
+        SeedDemoNotifications(db, now);
         db.SaveChanges();
+    }
+
+    private static void SeedDemoNotifications(ApplicationDbContext db, DateTime now)
+    {
+        if (db.Notifications.Any()) return;
+
+        var adminUser = db.AppUsers.FirstOrDefault(u => u.Role == "Admin");
+        var managerUser = db.AppUsers.FirstOrDefault(u => u.Role == "QuanLy");
+        var guardUser = db.AppUsers.FirstOrDefault(u => u.Role == "BaoVe");
+        var receptionUser = db.AppUsers.FirstOrDefault(u => u.Role == "LeTan");
+        var nhanVienUser = db.AppUsers.FirstOrDefault(u => u.Role == "NhanVien");
+        var nhanSuUser = db.AppUsers.FirstOrDefault(u => u.Role == "NhanSu");
+
+        var demoNotifications = new List<Notification>();
+
+        if (adminUser != null)
+        {
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = adminUser.UserId, Title = "Báo động uy hiếp", Body = "Phát hiện uy hiếp tại Access Point #12 — Nhân viên Nguyễn Văn An", Category = "Alarm", ReferenceType = "Alarm", CreatedAt = now.AddMinutes(-5), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = adminUser.UserId, Title = "Yêu cầu xuất bằng chứng mới", Body = "Nhân viên Trần Thị Bình yêu cầu xuất video camera #HN-CAM-03", Category = "Approval", ReferenceType = "Evidence", CreatedAt = now.AddMinutes(-30), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = adminUser.UserId, Title = "Đơn nghỉ phép mới", Body = "Nhân viên Lê Văn Cường xin nghỉ ốm từ 30/06 đến 01/07", Category = "Approval", ReferenceType = "LeaveRequest", ReferenceId = "42", ActionUrl = "/attendance/leave-approvals", CreatedAt = now.AddHours(-2), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = adminUser.UserId, Title = "Yêu cầu nhận đồ thất lạc", Body = "Có yêu cầu nhận lại điện thoại iPhone từ tủ đồ #L3", Category = "Approval", ReferenceType = "LostFound", CreatedAt = now.AddHours(-4), IsRead = true, ReadAt = now.AddHours(-3)
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = adminUser.UserId, Title = "Hệ thống đồng bộ thành công", Body = "Đồng bộ danh sách hẹn trước và dashboard hoàn tất.", Category = "System", CreatedAt = now.AddHours(-8), IsRead = true, ReadAt = now.AddHours(-7)
+            });
+        }
+
+        if (guardUser != null)
+        {
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = guardUser.UserId, Title = "Báo động khẩn cấp", Body = "Vượt cổng khẩn cấp tại cổng HN Main Gate — xe 29A-12345", Category = "Alarm", ReferenceType = "Alarm", CreatedAt = now.AddMinutes(-10), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = guardUser.UserId, Title = "Cảnh báo thiết bị ngoại tuyến", Body = "Camera HN-B1-Parking mất kết nối hơn 5 phút.", Category = "Alarm", ReferenceType = "Alarm", CreatedAt = now.AddMinutes(-20), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = guardUser.UserId, Title = "Yêu cầu can thiệp mới", Body = "Yêu cầu can thiệp tại khu vực Production Zone — loại Emergency.", Category = "Approval", ReferenceType = "Intervention", CreatedAt = now.AddHours(-1), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = guardUser.UserId, Title = "Thiết bị phục hồi", Body = "Camera BN-Employee-Gate đã kết nối lại.", Category = "System", CreatedAt = now.AddHours(-3), IsRead = true, ReadAt = now.AddHours(-2)
+            });
+        }
+
+        if (managerUser != null)
+        {
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = managerUser.UserId, Title = "Đơn nghỉ phép cần duyệt", Body = "Nhân viên Phạm Thị Dung xin nghỉ phép năm 3 ngày từ 05/07.", Category = "Approval", ReferenceType = "LeaveRequest", ActionUrl = "/attendance/leave-approvals", CreatedAt = now.AddMinutes(-45), IsRead = false
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = managerUser.UserId, Title = "Yêu cầu can thiệp cần phê duyệt", Body = "Bảo vệ yêu cầu can thiệp tại khu vực hạn chế.", Category = "Approval", ReferenceType = "Intervention", CreatedAt = now.AddHours(-2), IsRead = true, ReadAt = now.AddHours(-1)
+            });
+        }
+
+        if (nhanVienUser != null)
+        {
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = nhanVienUser.UserId, Title = "Đơn nghỉ phép đã được duyệt", Body = "Đơn nghỉ phép của bạn từ 28/06 đến 29/06 đã được duyệt.", Category = "Approval", ReferenceType = "LeaveRequest", ActionUrl = "/attendance/my-leave-requests", CreatedAt = now.AddHours(-3), IsRead = true, ReadAt = now.AddHours(-2)
+            });
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = nhanVienUser.UserId, Title = "Yêu cầu điều xe đã được chấp nhận", Body = "Anh/chị Hoàng Văn E đã chấp nhận điều xe 29A-67890 cho bạn.", Category = "Approval", ReferenceType = "VehicleDelegation", CreatedAt = now.AddHours(-6), IsRead = true, ReadAt = now.AddHours(-5)
+            });
+        }
+
+        if (receptionUser != null)
+        {
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = receptionUser.UserId, Title = "Khách đến lễ tân", Body = "Khách Nguyễn Thị Hương đã đến — vui lòng hỗ trợ làm thủ tục.", Category = "System", CreatedAt = now.AddMinutes(-15), IsRead = false
+            });
+        }
+
+        if (nhanSuUser != null)
+        {
+            demoNotifications.Add(new Notification
+            {
+                RecipientUserId = nhanSuUser.UserId, Title = "Đơn nghỉ phép cần xem xét", Body = "Nhân viên Đặng Văn Khoa xin nghỉ chế độ 5 ngày.", Category = "Approval", ReferenceType = "LeaveRequest", CreatedAt = now.AddHours(-1), IsRead = false
+            });
+        }
+
+        db.Notifications.AddRange(demoNotifications);
     }
 
     private static void SeedCampus3DScene(ApplicationDbContext db, List<Site> sites, DateTime now)

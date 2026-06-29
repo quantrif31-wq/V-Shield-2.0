@@ -161,7 +161,7 @@ class NotificationSignalRClient(
         if (args.size() == 0) return
 
         when (target) {
-            "ReceiveNotification" -> {
+            "NewNotification" -> {
                 val data = gson.fromJson(args[0], SignalRNotification::class.java)
                 scope.launch { onNotificationReceived?.invoke(data) }
             }

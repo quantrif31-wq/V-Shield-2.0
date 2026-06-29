@@ -19,7 +19,7 @@ export async function connectNotificationHub(token) {
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build()
 
-  connection.on('ReceiveNotification', (notification) => {
+  connection.on('NewNotification', (notification) => {
     notificationCallbacks.forEach(cb => cb(notification))
   })
 
