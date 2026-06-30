@@ -247,7 +247,10 @@ export default {
     },
     handleNewMessage(msg) {
       if (msg.conversationId === this.selectedConvId) {
-        const existingMessageIndex = this.messages.findIndex(existing => existing.messageId === msg.messageId)
+        const existingMessageIndex = this.messages.findIndex(existing =>
+          existing.messageId === msg.messageId ||
+          (msg.clientMessageId && existing.clientMessageId === msg.clientMessageId)
+        )
         if (existingMessageIndex !== -1) {
           this.messages.splice(existingMessageIndex, 1, {
             ...this.messages[existingMessageIndex],
@@ -262,8 +265,10 @@ export default {
 
         const pendingIndex = this.messages.findIndex(existing =>
           existing.pending &&
-          this.isOwnMessage(msg) &&
-          existing.content === msg.content
+          (
+            (msg.clientMessageId && existing.clientMessageId === msg.clientMessageId) ||
+            (this.isOwnMessage(msg) && existing.content === msg.content)
+          )
         )
         if (pendingIndex !== -1) {
           this.messages.splice(pendingIndex, 1, {
@@ -345,10 +350,12 @@ export default {
       if (!content || !this.selectedConvId) return
       this.sendError = ''
       this.messageText = ''
+      const clientMessageId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       const tempMessage = {
         messageId: `temp-${Date.now()}`,
         conversationId: this.selectedConvId,
         senderId: this.myEmployeeId,
+        clientMessageId,
         senderName: this.user?.fullName || this.user?.username || 'Bạn',
         content,
         messageType: 'Text',
@@ -361,11 +368,17 @@ export default {
       this.$nextTick(() => this.scrollToBottom())
 
       try {
-        const result = await chatApi.sendMessage(this.selectedConvId, content)
-        if (result?.data?.data) {
-          const index = this.messages.findIndex(m => m.messageId === tempMessage.messageId)
+        const result = await chatApi.sendMessage(this.selectedConvId, content, 'Text', null, clientMessageId)
+        if (result?.data) {
+          const index = this.messages.findIndex(m =>
+            m.messageId === tempMessage.messageId ||
+            m.clientMessageId === clientMessageId
+          )
           if (index !== -1) {
-            this.messages.splice(index, 1, result.data.data)
+            this.messages.splice(index, 1, {
+              ...result.data,
+              pending: false,
+            })
           }
         }
         await this.loadData()

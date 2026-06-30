@@ -13,6 +13,14 @@ let callCallbacks = []
 let callResponseCallbacks = []
 let callEndedCallbacks = []
 
+function createClientMessageId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export function getConnection() {
   return connection
 }
@@ -114,7 +122,7 @@ export function onCallEnded(callback) {
   return () => { callEndedCallbacks = callEndedCallbacks.filter(c => c !== callback) }
 }
 
-export async function sendMessage(conversationId, content, messageType = 'Text', signalingData = null) {
+export async function sendMessage(conversationId, content, messageType = 'Text', signalingData = null, clientMessageId = createClientMessageId()) {
   const trimmedContent = String(content || '').trim()
   if (!trimmedContent) {
     return null
@@ -122,18 +130,21 @@ export async function sendMessage(conversationId, content, messageType = 'Text',
 
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
     try {
-      await connection.invoke('SendMessage', conversationId, trimmedContent, messageType, signalingData)
-      return { deliveredVia: 'hub' }
+      const payload = await connection.invoke('SendMessage', conversationId, trimmedContent, messageType, signalingData, clientMessageId)
+      return { deliveredVia: 'hub', data: payload, clientMessageId }
     } catch (error) {
       console.warn('Chat hub send failed, falling back to HTTP.', error)
     }
   }
 
-  return http.post(`/chat/conversations/${conversationId}/messages`, {
+  const response = await http.post(`/chat/conversations/${conversationId}/messages`, {
     content: trimmedContent,
     messageType,
+    clientMessageId,
     signalingData,
   })
+
+  return { deliveredVia: 'http', data: response.data?.data || null, raw: response, clientMessageId }
 }
 
 export async function markRead(conversationId) {

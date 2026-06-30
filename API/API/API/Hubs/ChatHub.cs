@@ -43,15 +43,46 @@ public class ChatHub : Hub
         await base.OnConnectedAsync();
     }
 
-    public async Task SendMessage(int conversationId, string content, string messageType = "Text", string? signalingData = null)
+    public async Task<object?> SendMessage(int conversationId, string content, string messageType = "Text", string? signalingData = null, string? clientMessageId = null)
     {
         var empId = GetEmployeeId();
-        if (empId <= 0 || string.IsNullOrWhiteSpace(content)) return;
+        if (empId <= 0 || string.IsNullOrWhiteSpace(content)) return null;
 
         var isParticipant = await _db.ChatParticipants
             .AnyAsync(p => p.ConversationId == conversationId && p.EmployeeId == empId);
 
-        if (!isParticipant) return;
+        if (!isParticipant) return null;
+
+        var normalizedClientMessageId = string.IsNullOrWhiteSpace(clientMessageId)
+            ? null
+            : clientMessageId.Trim();
+
+        if (normalizedClientMessageId != null)
+        {
+            var existingMessage = await _db.ChatMessages
+                .AsNoTracking()
+                .Where(m => m.ConversationId == conversationId &&
+                            m.SenderId == empId &&
+                            m.ClientMessageId == normalizedClientMessageId)
+                .Select(m => new
+                {
+                    m.MessageId,
+                    m.ConversationId,
+                    m.SenderId,
+                    senderName = m.Sender.FullName,
+                    m.Content,
+                    m.MessageType,
+                    m.ClientMessageId,
+                    m.SignalingData,
+                    m.SentAt,
+                    m.IsRead,
+                    m.ReadAt
+                })
+                .FirstOrDefaultAsync();
+
+            if (existingMessage != null)
+                return existingMessage;
+        }
 
         var msg = new ChatMessage
         {
@@ -59,6 +90,7 @@ public class ChatHub : Hub
             SenderId = empId,
             Content = content,
             MessageType = messageType,
+            ClientMessageId = normalizedClientMessageId,
             SignalingData = signalingData,
             SentAt = DateTime.UtcNow
         };
@@ -71,18 +103,23 @@ public class ChatHub : Hub
             .Select(e => new { e.EmployeeId, e.FullName })
             .FirstAsync();
 
-        await Clients.Group($"conv_{conversationId}").SendAsync("ReceiveMessage", new
+        var payload = new
         {
             msg.MessageId,
             msg.ConversationId,
             msg.SenderId,
-            sender.FullName,
+            senderName = sender.FullName,
             msg.Content,
             msg.MessageType,
+            msg.ClientMessageId,
             msg.SignalingData,
             msg.SentAt,
-            msg.IsRead
-        });
+            msg.IsRead,
+            msg.ReadAt
+        };
+
+        await Clients.Group($"conv_{conversationId}").SendAsync("ReceiveMessage", payload);
+        return payload;
     }
 
     public async Task MarkRead(int conversationId)

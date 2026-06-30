@@ -17,6 +17,7 @@ public partial class ApplicationDbContext
             entity.HasKey(e => e.MessageId);
             entity.Property(e => e.Content).HasMaxLength(2000);
             entity.Property(e => e.MessageType).HasMaxLength(20);
+            entity.Property(e => e.ClientMessageId).HasMaxLength(64);
             entity.HasOne(e => e.Conversation)
                   .WithMany(c => c.Messages)
                   .HasForeignKey(e => e.ConversationId)
@@ -27,6 +28,9 @@ public partial class ApplicationDbContext
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.ConversationId);
             entity.HasIndex(e => e.SentAt);
+            entity.HasIndex(e => new { e.ConversationId, e.SenderId, e.ClientMessageId })
+                  .IsUnique()
+                  .HasFilter("[ClientMessageId] IS NOT NULL");
         });
 
         modelBuilder.Entity<ChatConversation>(entity =>

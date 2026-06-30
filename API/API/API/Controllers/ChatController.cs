@@ -170,6 +170,7 @@ public class ChatController : ControllerBase
                 senderName = m.Sender.FullName,
                 m.Content,
                 m.MessageType,
+                m.ClientMessageId,
                 m.SignalingData,
                 m.SentAt,
                 m.IsRead,
@@ -196,6 +197,37 @@ public class ChatController : ControllerBase
         if (!isParticipant)
             return Forbid();
 
+        var clientMessageId = string.IsNullOrWhiteSpace(request.ClientMessageId)
+            ? null
+            : request.ClientMessageId.Trim();
+
+        if (clientMessageId != null)
+        {
+            var existingMessage = await _db.ChatMessages
+                .AsNoTracking()
+                .Where(m => m.ConversationId == conversationId &&
+                            m.SenderId == empId &&
+                            m.ClientMessageId == clientMessageId)
+                .Select(m => new
+                {
+                    m.MessageId,
+                    m.ConversationId,
+                    m.SenderId,
+                    senderName = m.Sender.FullName,
+                    m.Content,
+                    m.MessageType,
+                    m.ClientMessageId,
+                    m.SignalingData,
+                    m.SentAt,
+                    m.IsRead,
+                    m.ReadAt
+                })
+                .FirstOrDefaultAsync();
+
+            if (existingMessage != null)
+                return Ok(new { success = true, data = existingMessage, deduplicated = true });
+        }
+
         var now = DateTime.UtcNow;
         var message = new ChatMessage
         {
@@ -203,6 +235,7 @@ public class ChatController : ControllerBase
             SenderId = empId,
             Content = request.Content.Trim(),
             MessageType = string.IsNullOrWhiteSpace(request.MessageType) ? "Text" : request.MessageType.Trim(),
+            ClientMessageId = clientMessageId,
             SignalingData = request.SignalingData,
             SentAt = now
         };
@@ -223,6 +256,7 @@ public class ChatController : ControllerBase
             senderName,
             message.Content,
             message.MessageType,
+            message.ClientMessageId,
             message.SignalingData,
             message.SentAt,
             message.IsRead,
@@ -274,5 +308,6 @@ public class SendMessageRequest
 {
     public string Content { get; set; } = string.Empty;
     public string? MessageType { get; set; }
+    public string? ClientMessageId { get; set; }
     public string? SignalingData { get; set; }
 }

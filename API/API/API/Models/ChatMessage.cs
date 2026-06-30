@@ -28,6 +28,9 @@ public class ChatMessage
     [MaxLength(20)]
     public string MessageType { get; set; } = "Text";
 
+    [MaxLength(64)]
+    public string? ClientMessageId { get; set; }
+
     /// <summary>
     /// Dùng cho WebRTC signaling payload (CallOffer, CallAnswer, IceCandidate)
     /// </summary>
