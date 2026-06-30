@@ -1,30 +1,42 @@
 package com.vshield.mobile.data
 
-import com.vshield.mobile.data.model.*
+import com.vshield.mobile.data.model.LoginData
+import com.vshield.mobile.data.model.LoginRequest
 
 class AuthRepository(
     private val tokenManager: TokenManager
 ) {
-    suspend fun login(username: String, password: String): Result<LoginData> {
+    suspend fun login(username: String, password: String, mfaCode: String? = null): Result<LoginData> {
         return try {
             val response = RetrofitClient.apiService.login(
-                LoginRequest(username, password)
+                LoginRequest(username, password, mfaCode)
             )
-            if (response.isSuccessful && response.body()?.success == true) {
-                val data = response.body()!!.data!!
+            val data = response.body()
+
+            if (response.isSuccessful && data != null && data.token.isNotBlank()) {
                 tokenManager.saveToken(data.token)
                 data.refreshToken?.let { tokenManager.saveRefreshToken(it) }
                 data.employeeId?.let { tokenManager.saveEmployeeId(it) }
-                data.roles?.let { tokenManager.saveRoles(it.toSet()) }
+                data.role?.let { tokenManager.saveRoles(setOf(it)) }
                 RetrofitClient.setToken(data.token)
                 Result.success(data)
+            } else if (response.isSuccessful && data?.requiresMfa == true) {
+                Result.failure(
+                    Exception(
+                        data.message ?: if (data.requiresMfaSetup) {
+                            "Tai khoan can thiet lap xac thuc hai lop tren web truoc khi dang nhap mobile."
+                        } else {
+                            "Tai khoan yeu cau ma xac thuc hai lop. Phien ban mobile hien chua ho tro buoc nay."
+                        }
+                    )
+                )
             } else {
                 Result.failure(
-                    Exception(response.body()?.message ?: "Đăng nhập thất bại")
+                    Exception(data?.message ?: "Dang nhap that bai")
                 )
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Kết nối thất bại: ${e.message}"))
+            Result.failure(Exception("Ket noi that bai: ${e.message}"))
         }
     }
 

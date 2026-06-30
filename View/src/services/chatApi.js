@@ -1,7 +1,8 @@
 import http from './http'
 import * as signalR from '@microsoft/signalr'
+import { API_ORIGIN } from '../config/api'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || API_ORIGIN
 
 let connection = null
 let messageCallbacks = []
@@ -138,21 +139,21 @@ export async function endCall(targetEmployeeId, conversationId = null) {
 
 // REST API
 export function getContacts() {
-  return http.get('/api/chat/contacts')
+  return http.get('/chat/contacts')
 }
 
 export function getConversations() {
-  return http.get('/api/chat/conversations')
+  return http.get('/chat/conversations')
 }
 
 export function createConversation(employeeIds, title = null) {
-  return http.post('/api/chat/conversations', { employeeIds, title })
+  return http.post('/chat/conversations', { employeeIds, title })
 }
 
 export function getMessages(conversationId, skip = 0, take = 50) {
-  return http.get(`/api/chat/conversations/${conversationId}/messages?skip=${skip}&take=${take}`)
+  return http.get(`/chat/conversations/${conversationId}/messages?skip=${skip}&take=${take}`)
 }
 
 export function markConversationRead(conversationId) {
-  return http.post(`/api/chat/conversations/${conversationId}/read`)
+  return http.post(`/chat/conversations/${conversationId}/read`)
 }

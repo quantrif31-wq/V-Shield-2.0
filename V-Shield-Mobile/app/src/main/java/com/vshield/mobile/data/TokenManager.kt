@@ -31,6 +31,10 @@ class TokenManager(context: Context) {
 
     fun getRefreshToken(): String? = sharedPreferences.getString(KEY_REFRESH_TOKEN, null)
 
+    fun clearRefreshToken() {
+        sharedPreferences.edit().remove(KEY_REFRESH_TOKEN).apply()
+    }
+
     fun saveEmployeeId(employeeId: Int) {
         sharedPreferences.edit().putInt(KEY_EMPLOYEE_ID, employeeId).apply()
     }

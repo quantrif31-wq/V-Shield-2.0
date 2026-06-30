@@ -1335,6 +1335,24 @@ async function verifyStepUp() {
     } finally { busy.stepUp = false }
 }
 
+async function loadStepUpStatus() {
+    try {
+        const response = await enterpriseApi.getStepUpStatus(stepUp.action, stepUp.sessionId || undefined)
+        stepUp.sessionId = response.data?.sessionId || null
+        stepUp.active = !!response.data?.active
+        stepUp.message = stepUp.active && response.data?.expiresAtUtc
+            ? 'Đã xác minh đến ' + formatDateTime(response.data.expiresAtUtc)
+            : ''
+
+        if (stepUp.sessionId) {
+            enterpriseApi.setStepUpSession(stepUp.sessionId)
+        }
+    } catch {
+        stepUp.active = false
+        stepUp.message = ''
+    }
+}
+
 async function saveProvider() { await runAction('provider', 'Đã lưu nhà cung cấp', () => enterpriseApi.upsertIdentityProvider(providerForm)) }
 async function importUser() { const user = { ...importForm }; const pid = user.providerId; delete user.providerId; await runAction('importUser', 'Đã ghi nhận nhập người dùng', () => enterpriseApi.importIdentityUsers(pid, [user])) }
 async function createVirtualController() { await runAction('device', 'Đã tạo bộ điều khiển mô phỏng', () => enterpriseApi.createVirtualController(deviceForm)) }
@@ -1585,6 +1603,7 @@ function formatDateTime(value) { if (!value) return ''; return new Date(value).t
 
 onMounted(async () => {
     await loadOverview()
+    await loadStepUpStatus()
     if (isAdmin.value) {
         await refreshPolicyGovernance()
     }

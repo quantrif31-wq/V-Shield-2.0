@@ -40,7 +40,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>
                 </div>
                 <div class="stat-details">
-                    <div class="stat-val">{{ employees.length }}</div>
+                    <div class="stat-val">{{ employeeSummary.totalEmployees || employees.length }}</div>
                     <div class="stat-lbl">Tổng số</div>
                 </div>
             </div>
@@ -342,6 +342,7 @@ import { API_ORIGIN } from '../config/api'
 import ImportModal from '../components/import-export/ImportModal.vue'
 import ExportModal from '../components/import-export/ExportModal.vue'
 import { validateVietnameseName, normalizeVietnameseName } from '../utils/nameValidator'
+import { getSummary as getEmployeeSummary } from '../services/statisticsApi'
 
 const route = useRoute()
 const API_BASE = API_ORIGIN
@@ -357,6 +358,11 @@ const showExportModal = ref(false)
 const filterStatus = ref('')
 const protectedAvatarUrls = ref({})
 const brokenEmployeeAvatarIds = ref({})
+const employeeSummary = ref({
+    totalEmployees: 0,
+    activeEmployees: 0,
+    inactiveEmployees: 0,
+})
 
 const showModal = ref(false)
 const isEditing = ref(false)
@@ -406,6 +412,7 @@ function showToast(message, type = 'success') {
 function onImportComplete(result) {
     showImportModal.value = false
     fetchEmployees()
+    fetchEmployeeSummary()
     showToast(`Import hoàn tất: ${result.successCount} thành công${result.errorCount > 0 ? `, ${result.errorCount} lỗi` : ''}`, result.errorCount > 0 ? 'error' : 'success')
 }
 
@@ -419,8 +426,8 @@ const paginatedEmployees = computed(() => {
 const pagStart = computed(() => employees.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize + 1)
 const pagEnd = computed(() => Math.min(currentPage.value * pageSize, employees.value.length))
 
-const activeCount = computed(() => employees.value.filter(e => e.status).length)
-const inactiveCount = computed(() => employees.value.filter(e => !e.status).length)
+const activeCount = computed(() => employeeSummary.value.activeEmployees || employees.value.filter(e => e.status).length)
+const inactiveCount = computed(() => employeeSummary.value.inactiveEmployees || employees.value.filter(e => !e.status).length)
 
 let searchTimer = null
 function debouncedFetch() {
@@ -442,6 +449,23 @@ async function fetchEmployees() {
     } catch (err) {
         loadError.value = 'Không thể kết nối đến máy chủ.'
     } finally { loading.value = false }
+}
+
+async function fetchEmployeeSummary() {
+    try {
+        const summary = await getEmployeeSummary()
+        employeeSummary.value = {
+            totalEmployees: summary?.totalEmployees || 0,
+            activeEmployees: summary?.activeEmployees || 0,
+            inactiveEmployees: summary?.inactiveEmployees || 0,
+        }
+    } catch {
+        employeeSummary.value = {
+            totalEmployees: employees.value.length,
+            activeEmployees: employees.value.filter((item) => item.status).length,
+            inactiveEmployees: employees.value.filter((item) => !item.status).length,
+        }
+    }
 }
 
 function openCreateModal() {
@@ -501,7 +525,7 @@ async function handleSubmit() {
         
         if (uploadMode.value === 'file' && faceFile.value && employeeId) await uploadFace(employeeId, faceFile.value)
         showToast(isEditing.value ? 'Đã lưu thay đổi' : 'Đã tạo hồ sơ nhân sự')
-        closeModal(); await fetchEmployees()
+        closeModal(); await Promise.all([fetchEmployees(), fetchEmployeeSummary()])
     } catch (err) { modalError.value = err.response?.data?.message || 'Có lỗi khi lưu dữ liệu' } 
     finally { saving.value = false }
 }
@@ -523,7 +547,7 @@ async function handleFaceUpload(id, e) {
 function confirmDelete(emp) { deleteTarget.value = emp; modalError.value = ''; showDeleteModal.value = true }
 async function handleDelete() {
     saving.value = true; modalError.value = ''
-    try { await deleteEmployee(deleteTarget.value.employeeId); showDeleteModal.value = false; showToast('Đã xóa dữ liệu nhân sự'); await fetchEmployees() } 
+    try { await deleteEmployee(deleteTarget.value.employeeId); showDeleteModal.value = false; showToast('Đã xóa dữ liệu nhân sự'); await Promise.all([fetchEmployees(), fetchEmployeeSummary()]) } 
     catch (err) { modalError.value = 'Mất kết nối nội bộ' } finally { saving.value = false }
 }
 
@@ -569,7 +593,7 @@ function releaseProtectedAvatars() {
 onMounted(async () => {
     if (route.query.search) { searchQuery.value = route.query.search }
     try { const [dRes, pRes] = await Promise.all([getDepartments(), getPositions()]); departments.value = dRes.data; positions.value = pRes.data } catch {}
-    fetchEmployees()
+    await Promise.all([fetchEmployees(), fetchEmployeeSummary()])
 })
 
 onBeforeUnmount(() => {

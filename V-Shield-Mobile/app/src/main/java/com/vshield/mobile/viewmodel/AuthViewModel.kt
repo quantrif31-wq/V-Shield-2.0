@@ -42,11 +42,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun login(username: String, password: String, saveBiometric: Boolean = false) {
+    fun login(username: String, password: String, mfaCode: String = "", saveBiometric: Boolean = false) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            val result = authRepository.login(username, password)
+            val result = authRepository.login(
+                username = username,
+                password = password,
+                mfaCode = mfaCode.trim().ifBlank { null }
+            )
             result.fold(
                 onSuccess = {
                     if (saveBiometric && biometricAuthManager.isAvailable()) {
@@ -77,7 +81,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         biometricAuthManager.authenticate(
             activity = activity,
             onSuccess = {
-                login(credentials.first, credentials.second)
+                login(credentials.first, credentials.second, "")
             },
             onError = { error ->
                 _uiState.value = _uiState.value.copy(error = error)

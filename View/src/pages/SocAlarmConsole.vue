@@ -466,10 +466,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import EventTimeline from './EventTimeline.vue'
 import { socApi } from '../services/socApi'
 
+const route = useRoute()
 const loading = ref(false)
 const tab = ref('alarms')
 const intel = reactive({ summary: '', statistics: {}, anomalies: [] })
@@ -520,6 +522,13 @@ const riskClass = computed(() => {
     if (overview.openAlarms > 10) return 'warn'
     return 'success'
 })
+
+const syncTabFromRoute = () => {
+    const candidate = typeof route.query.tab === 'string' ? route.query.tab : ''
+    if (['alarms', 'incidents', 'sops', 'dispatch', 'timeline', 'intel'].includes(candidate)) {
+        tab.value = candidate
+    }
+}
 
 async function loadAll() {
     loading.value = true
@@ -715,7 +724,12 @@ function formatTime(val) {
     return new Date(val).toLocaleString()
 }
 
-onMounted(loadAll)
+watch(() => route.query.tab, syncTabFromRoute)
+
+onMounted(async () => {
+    syncTabFromRoute()
+    await loadAll()
+})
 </script>
 
 <style scoped>

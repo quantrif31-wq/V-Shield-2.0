@@ -8,6 +8,9 @@ interface ApiService {
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
+    @POST("api/auth/refresh")
+    suspend fun refresh(@Body request: RefreshTokenRequest): Response<LoginResponse>
+
     @GET("api/employees/me")
     suspend fun getMyProfile(): Response<ApiResponse<EmployeeInfo>>
 

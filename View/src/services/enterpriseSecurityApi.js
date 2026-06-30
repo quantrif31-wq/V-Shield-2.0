@@ -61,6 +61,9 @@ export const enterpriseApi = {
     stepUpVerify(sessionId, password, mfaCode) {
         return http.post('/Auth/step-up/verify', { sessionId, password, mfaCode })
     },
+    getStepUpStatus(action, sessionId) {
+        return http.get('/Auth/step-up/status', { params: { action, sessionId } })
+    },
     upsertIdentityProvider(payload) {
         return http.post('/enterprise/identity/providers', payload)
     },

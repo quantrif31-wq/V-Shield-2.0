@@ -1,7 +1,8 @@
 import http from './http'
 import * as signalR from '@microsoft/signalr'
+import { API_ORIGIN } from '../config/api'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || API_ORIGIN
 
 let connection = null
 let notificationCallbacks = []
@@ -55,38 +56,38 @@ export function onUnreadCountChanged(callback) {
 
 // REST API endpoints
 export function getNotifications(skip = 0, take = 50) {
-  return http.get('/api/notifications', { params: { skip, take } })
+  return http.get('/notifications', { params: { skip, take } })
 }
 
 export function getUnreadCount() {
-  return http.get('/api/notifications/unread-count')
+  return http.get('/notifications/unread-count')
 }
 
 export function markNotificationRead(id) {
-  return http.post(`/api/notifications/${id}/read`)
+  return http.post(`/notifications/${id}/read`)
 }
 
 export function markAllNotificationsRead() {
-  return http.post('/api/notifications/read-all')
+  return http.post('/notifications/read-all')
 }
 
 // Notification Rules API
 export function getNotificationRules() {
-  return http.get('/api/notification-rules')
+  return http.get('/notification-rules')
 }
 
 export function createNotificationRule(rule) {
-  return http.post('/api/notification-rules', rule)
+  return http.post('/notification-rules', rule)
 }
 
 export function updateNotificationRule(id, rule) {
-  return http.put(`/api/notification-rules/${id}`, rule)
+  return http.put(`/notification-rules/${id}`, rule)
 }
 
 export function deleteNotificationRule(id) {
-  return http.delete(`/api/notification-rules/${id}`)
+  return http.delete(`/notification-rules/${id}`)
 }
 
 export function getRuleSuggestions(role) {
-  return http.get('/api/notification-rules/suggestions', { params: { role } })
+  return http.get('/notification-rules/suggestions', { params: { role } })
 }

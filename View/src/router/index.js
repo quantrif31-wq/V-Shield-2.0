@@ -50,6 +50,7 @@ const SiteHierarchy = () => import('../pages/SiteHierarchy.vue')
 const ReceptionDashboard = () => import('../pages/ReceptionDashboard.vue')
 const ManualAccessFallback = () => import('../pages/ManualAccessFallback.vue')
 const ManualParkingFallback = () => import('../pages/ManualParkingFallback.vue')
+const KioskCheckIn = () => import('../pages/KioskCheckIn.vue')
 const HostVisitorPage = () => import('../pages/HostVisitorPage.vue')
 const WatchlistQueue = () => import('../pages/WatchlistQueue.vue')
 const ContractorManagement = () => import('../pages/ContractorManagement.vue')
@@ -72,6 +73,11 @@ const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
 const Chat = () => import('../pages/Chat.vue')
 const NotificationRuleEditor = () => import('../pages/NotificationRuleEditor.vue')
 const IncidentMapPage = () => import('../pages/IncidentMapPage.vue')
+const OperationsDashboard = () => import('../pages/OperationsDashboard.vue')
+const SIEMExportStatus = () => import('../pages/SIEMExportStatus.vue')
+const BackupRestoreDrillDashboard = () => import('../pages/BackupRestoreDrillDashboard.vue')
+const WebhookDeliveryViewer = () => import('../pages/WebhookDeliveryViewer.vue')
+const VulnerabilityReleaseGateStatus = () => import('../pages/VulnerabilityReleaseGateStatus.vue')
 
 const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 
@@ -162,6 +168,7 @@ const routes = [
             { path: 'guest-profiles', name: 'GuestProfiles', component: GuestProfiles, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'guest-support' } },
             { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
             { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access' } },
+            { path: 'kiosk-checkin', name: 'KioskCheckIn', component: KioskCheckIn, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
             { path: 'parking-kiosk', name: 'ManualParkingFallback', component: ManualParkingFallback, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'guest-support' } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
@@ -182,6 +189,8 @@ const routes = [
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'] } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
             { path: 'guide', name: 'GuideViewer', component: GuideViewer },
+            { path: 'event-timeline', redirect: { path: '/soc-console', query: { tab: 'timeline' } }, meta: { allowedRoles: ['Admin', 'BaoVe'] } },
+            { path: 'lane-dashboard', redirect: { path: '/gate-transit-monitor' }, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'gate-transit' } },
             { path: 'lost-found', name: 'LostFoundDashboard', component: LostFoundDashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
             { path: 'found-items', name: 'FoundItemRegistry', redirect: { path: '/lost-found', query: { tab: 'found' } }, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
             { path: 'lost-items', name: 'LostItemList', redirect: { path: '/lost-found', query: { tab: 'lost' } }, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },
@@ -239,6 +248,11 @@ const routes = [
                 component: NotificationRuleEditor,
                 meta: { allowedRoles: ['Admin', 'QuanLy'] },
             },
+            { path: 'operations-dashboard', name: 'OperationsDashboard', component: OperationsDashboard, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
+            { path: 'siem-export-status', name: 'SIEMExportStatus', component: SIEMExportStatus, meta: { allowedRoles: ['Admin'] } },
+            { path: 'backup-restore-drill', name: 'BackupRestoreDrillDashboard', component: BackupRestoreDrillDashboard, meta: { allowedRoles: ['Admin'] } },
+            { path: 'webhook-delivery-viewer', name: 'WebhookDeliveryViewer', component: WebhookDeliveryViewer, meta: { allowedRoles: ['Admin'] } },
+            { path: 'vulnerability-release-gate', name: 'VulnerabilityReleaseGateStatus', component: VulnerabilityReleaseGateStatus, meta: { allowedRoles: ['Admin'] } },
         ],
     },
 ]

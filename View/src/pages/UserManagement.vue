@@ -128,6 +128,9 @@
                                     <button class="icon-btn" title="Chỉnh sửa" @click="openEditModal(user)">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                     </button>
+                                    <button class="icon-btn" title="Đặt lại MFA" @click="handleResetMfa(user)" :disabled="!user.mfaEnabled">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="4"/></svg>
+                                    </button>
                                     <button class="icon-btn action-reject" title="Xóa" @click="confirmDelete(user)">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                                     </button>
@@ -362,7 +365,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { getAll, create, update, deleteUser, getOperationalScopeReference, getOperationalScopes, replaceOperationalScopes } from '../services/userApi'
+import { getAll, create, update, deleteUser, resetMfa, getOperationalScopeReference, getOperationalScopes, replaceOperationalScopes } from '../services/userApi'
 import { getAll as getAllEmployees } from '../services/employeeApi'
 
 const users = ref([])
@@ -618,6 +621,25 @@ const getAvatarColor = (str) => {
 function getRoleLabel(role) {
     const map = { Admin: 'Admin', QuanLy: 'Quản lý', LeTan: 'Lễ tân', BaoVe: 'Bảo vệ' }
     return map[role] || role
+}
+
+async function handleResetMfa(user) {
+    if (!user?.userId || !user.mfaEnabled) return
+
+    const confirmed = window.confirm(`Đặt lại MFA cho tài khoản ${user.username}? Người dùng sẽ phải thiết lập lại ở lần đăng nhập tiếp theo.`)
+    if (!confirmed) return
+
+    saving.value = true
+    modalError.value = ''
+
+    try {
+        await resetMfa(user.userId)
+        await fetchUsers()
+    } catch (err) {
+        modalError.value = err.response?.data?.message || 'Không thể đặt lại MFA cho tài khoản này'
+    } finally {
+        saving.value = false
+    }
 }
 
 async function ensureScopeReference() {

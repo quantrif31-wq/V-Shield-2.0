@@ -143,7 +143,7 @@
                         <router-link
                             v-for="item in group.items"
                             :key="item.path"
-                            :to="item.path"
+                            :to="resolveNavTarget(item.path)"
                             class="nav-item"
                             :class="{ active: route.path === item.path }"
                             @click="handleSidebarNavClick"
@@ -175,7 +175,7 @@
                 <router-link
                     v-for="item in activeFlyoutItems"
                     :key="`flyout_${item.path}`"
-                    :to="item.path"
+                    :to="resolveNavTarget(item.path)"
                     class="nav-item"
                     :class="{ active: route.path === item.path }"
                     @click="handleSidebarNavClick"
@@ -866,10 +866,45 @@ const navGroups = ref([
                 roles: ['Admin', 'NhanSu'],
             },
             {
-                path: '/settings?tab=camera',
+                path: '/settings',
                 label: 'Quản trị camera',
                 hint: 'Quản lý tất cả camera giám sát',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M15 15h2"/><path d="M19 15v5"/><path d="M14 19h5"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/operations-dashboard',
+                label: 'Operations Dashboard',
+                hint: 'Toàn cảnh vận hành enterprise',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 2 4-6"/></svg>',
+                roles: ['Admin', 'QuanLy'],
+            },
+            {
+                path: '/siem-export-status',
+                label: 'SIEM Export',
+                hint: 'Theo dõi xuất log sang hệ thống ngoài',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/backup-restore-drill',
+                label: 'Backup & Restore',
+                hint: 'Theo dõi backup và diễn tập khôi phục',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 10-3.51 7.09"/><path d="M21 3v6h-6"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/webhook-delivery-viewer',
+                label: 'Webhook Delivery',
+                hint: 'Giám sát subscription và gửi sự kiện',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 12h4"/><path d="M13 11l3-4"/><path d="M13 13l3 4"/></svg>',
+                roles: ['Admin'],
+            },
+            {
+                path: '/vulnerability-release-gate',
+                label: 'Release Gate',
+                hint: 'Kiểm tra an toàn trước khi phát hành',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>',
                 roles: ['Admin'],
             },
         ],
@@ -1022,6 +1057,14 @@ const handleSearchResultClick = (result) => {
     if (props.isMobile) {
         emit('close-mobile')
     }
+}
+
+const resolveNavTarget = (path) => {
+    if (path === '/settings') {
+        return { path, query: { tab: 'camera' } }
+    }
+
+    return path
 }
 
 const handleSearchOutsideClick = (event) => {
@@ -1635,5 +1678,3 @@ const refreshFlyoutPosition = () => {
     }
 }
 </style>
-
-

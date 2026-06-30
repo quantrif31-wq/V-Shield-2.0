@@ -17,6 +17,7 @@ class VShieldApp : Application() {
             osmdroidTileCache = cacheDir.resolve("tiles")
         }
         tokenManager = TokenManager(this)
+        RetrofitClient.init(tokenManager)
         restoreSession()
     }
 

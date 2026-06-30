@@ -40,6 +40,7 @@ fun LoginScreen(
 
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var mfaCode by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var saveBiometric by remember { mutableStateOf(false) }
 
@@ -160,6 +161,29 @@ fun LoginScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = mfaCode,
+                        onValueChange = {
+                            mfaCode = it.filter(Char::isDigit).take(6)
+                        },
+                        label = { Text("Mã xác thực 2 lớp (nếu có)") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Lock, contentDescription = null)
+                        },
+                        supportingText = {
+                            Text("Nhập 6 số từ ứng dụng Authenticator nếu tài khoản của bạn yêu cầu.")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.NumberPassword,
+                            imeAction = ImeAction.Done
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
                     if (uiState.hasBiometric) {
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -181,7 +205,7 @@ fun LoginScreen(
 
                     Button(
                         onClick = {
-                            authViewModel.login(username, password, saveBiometric)
+                            authViewModel.login(username, password, mfaCode, saveBiometric)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
