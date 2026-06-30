@@ -277,7 +277,7 @@ namespace API
             {
                 EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
                 DemoDataSeeder.EnsureSeeded(app.Services, builder.Configuration, app.Environment);
-                EnsureGo2RtcProcessRunning(app.Services);
+                EnsureGo2RtcRuntimeSynchronized(app.Services);
             }
 
             if (app.Environment.IsDevelopment())
@@ -574,11 +574,12 @@ namespace API
             throw new InvalidOperationException("Production security configuration is unsafe. " + string.Join(" | ", failures));
         }
 
-        private static void EnsureGo2RtcProcessRunning(IServiceProvider services)
+        private static void EnsureGo2RtcRuntimeSynchronized(IServiceProvider services)
         {
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
 
             try
             {
@@ -608,18 +609,37 @@ namespace API
                 yaml.AppendLine("  origin: \"*\"");
                 yaml.AppendLine("webrtc:");
                 yaml.AppendLine("  listen: \":8555\"");
+                var candidates = ResolveStartupGo2RtcCandidates(config).ToList();
+                if (candidates.Count > 0)
+                {
+                    yaml.AppendLine("  candidates:");
+                }
+                foreach (var candidate in candidates)
+                {
+                    yaml.AppendLine($"    - {candidate}");
+                }
                 yaml.AppendLine("  ice_servers:");
                 yaml.AppendLine("    - urls:");
                 yaml.AppendLine("        - stun:stun.l.google.com:19302");
 
-                var basePath = Directory.GetCurrentDirectory();
-                var aiRootFolderName = config["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
-                var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64"));
+                var yamlPath = ResolveStartupGo2RtcYamlPath(config);
+                var yamlDirectory = Path.GetDirectoryName(yamlPath);
+                if (!string.IsNullOrWhiteSpace(yamlDirectory) && !Directory.Exists(yamlDirectory))
+                {
+                    Directory.CreateDirectory(yamlDirectory);
+                }
+                File.WriteAllText(yamlPath, yaml.ToString());
+
+                if (IsDockerRuntimeMode(config))
+                {
+                    TryReloadGo2RtcByHttp(httpClientFactory, config);
+                    return;
+                }
+
+                var go2rtcPath = Path.GetDirectoryName(yamlPath) ?? string.Empty;
                 var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
-                var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
                 if (!Directory.Exists(go2rtcPath) || !File.Exists(exePath)) return;
 
-                File.WriteAllText(yamlPath, yaml.ToString());
                 foreach (var proc in Process.GetProcessesByName("go2rtc")) proc.Kill();
                 Process.Start(new ProcessStartInfo
                 {
@@ -631,6 +651,60 @@ namespace API
             catch
             {
                 // Startup should not crash if go2rtc is unavailable.
+            }
+        }
+
+        private static bool IsDockerRuntimeMode(IConfiguration configuration)
+        {
+            var mode = (configuration["Runtime:Mode"] ?? "local").Trim().ToLowerInvariant();
+            return mode == "docker";
+        }
+
+        private static string ResolveStartupGo2RtcYamlPath(IConfiguration configuration)
+        {
+            var configured = configuration["Go2Rtc:ConfigPath"];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured.Trim();
+            }
+
+            var basePath = Directory.GetCurrentDirectory();
+            var aiRootFolderName = configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Runtime";
+            var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64"));
+            return Path.Combine(go2rtcPath, "go2rtc.yaml");
+        }
+
+        private static IEnumerable<string> ResolveStartupGo2RtcCandidates(IConfiguration configuration)
+        {
+            var configured = configuration["Go2Rtc:WebRtcCandidates"];
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return Array.Empty<string>();
+            }
+
+            return configured
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(value => !string.IsNullOrWhiteSpace(value));
+        }
+
+        private static void TryReloadGo2RtcByHttp(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        {
+            var reloadUrl = (configuration["Go2Rtc:ReloadUrl"] ?? "http://go2rtc:1984/api/restart").Trim();
+            if (string.IsNullOrWhiteSpace(reloadUrl))
+            {
+                return;
+            }
+
+            try
+            {
+                using var http = httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(5);
+                using var req = new HttpRequestMessage(HttpMethod.Post, reloadUrl);
+                using var _ = http.Send(req);
+            }
+            catch
+            {
+                // Docker mode: do not crash startup if go2rtc reload endpoint is unavailable.
             }
         }
 

@@ -702,12 +702,34 @@ namespace API.Controllers
         private string ResolvePublicAppBaseUrl()
         {
             var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
-            if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
+            if (!string.IsNullOrWhiteSpace(configuredFrontendUrl) &&
+                !ShouldPreferRequestBaseUrl(configuredFrontendUrl))
             {
                 return NormalizeBaseUrl(configuredFrontendUrl);
             }
 
             return NormalizeBaseUrl($"{Request.Scheme}://{Request.Host}");
+        }
+
+        private bool ShouldPreferRequestBaseUrl(string configuredFrontendUrl)
+        {
+            if (!IsDockerMode())
+            {
+                return false;
+            }
+
+            if (!Uri.TryCreate(configuredFrontendUrl.Trim(), UriKind.Absolute, out var configuredUri))
+            {
+                return false;
+            }
+
+            var requestHost = Request.Host.Host?.Trim();
+            if (string.IsNullOrWhiteSpace(requestHost))
+            {
+                return false;
+            }
+
+            return IsLoopbackHost(configuredUri.Host) && !IsLoopbackHost(requestHost);
         }
 
         private static string NormalizeBaseUrl(string value) =>

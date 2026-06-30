@@ -1351,10 +1351,13 @@ public static class DemoDataSeeder
 
         if (!db.CameraPlates.Any())
         {
-            db.CameraPlates.AddRange(db.Cameras
-                .Where(camera => string.Equals(camera.CameraType, "Plate", StringComparison.OrdinalIgnoreCase))
+            var plateCameras = db.Cameras
+                .Where(camera => camera.CameraType == "Plate")
                 .OrderBy(camera => camera.CameraId)
                 .Take(8)
+                .ToList();
+
+            db.CameraPlates.AddRange(plateCameras
                 .Select((camera, index) => new CameraPlate
                 {
                     CameraIP = $"10.20.{camera.CameraId % 10}.{20 + index}",

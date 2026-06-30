@@ -467,7 +467,8 @@ public class DeviceManagementController : ControllerBase
     private string ResolvePublicApplicationBaseUrl()
     {
         var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
-        if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
+        if (!string.IsNullOrWhiteSpace(configuredFrontendUrl) &&
+            !ShouldPreferRequestBaseUrl(configuredFrontendUrl))
         {
             return NormalizeUrlBase(configuredFrontendUrl);
         }
@@ -475,8 +476,35 @@ public class DeviceManagementController : ControllerBase
         return NormalizeUrlBase($"{Request.Scheme}://{Request.Host}");
     }
 
+    private bool ShouldPreferRequestBaseUrl(string configuredFrontendUrl)
+    {
+        if (!IsDockerMode())
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(configuredFrontendUrl.Trim(), UriKind.Absolute, out var configuredUri))
+        {
+            return false;
+        }
+
+        var requestHost = Request.Host.Host?.Trim();
+        if (string.IsNullOrWhiteSpace(requestHost))
+        {
+            return false;
+        }
+
+        return IsLoopbackHost(configuredUri.Host) && !IsLoopbackHost(requestHost);
+    }
+
     private static string NormalizeUrlBase(string value) =>
         value.Trim().TrimEnd('/');
+
+    private static bool IsLoopbackHost(string host) =>
+        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("::1", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("[::1]", StringComparison.OrdinalIgnoreCase);
 
     private async Task TryReloadGo2RtcRuntimeAsync()
     {
@@ -651,10 +679,6 @@ public class DeviceManagementController : ControllerBase
         return new[] { $"{requestHost}:{port}" };
     }
 
-    private static bool IsLoopbackHost(string host) =>
-        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-        host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-        host.Equals("::1", StringComparison.OrdinalIgnoreCase);
 }
 
 

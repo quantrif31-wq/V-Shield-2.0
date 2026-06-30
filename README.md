@@ -311,7 +311,7 @@ Dung cho VPS Ubuntu khi chi can stack web:
 - ASP.NET API
 - SQL Server
 
-Khong keo theo camera public, Cloudflared, AI runtime hay APK/mobile.
+Khong keo theo go2rtc, camera public, Cloudflared, AI runtime hay APK/mobile.
 
 Lenh chay:
 
@@ -324,6 +324,7 @@ Luu y:
 
 - Frontend VPS proxy same-origin cho `/api` va `/hubs`
 - API va SQL chi mo noi bo container trong mode VPS
+- Compose VPS khong chay service go2rtc hay AI
 - Dien day du secret trong `.env.vps` truoc khi deploy
 
 Tai lieu bo sung:
