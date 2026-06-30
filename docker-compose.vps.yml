@@ -35,6 +35,8 @@ services:
       Authentication__RequireMfaForRoles__1: "BaoVe"
       RateLimiting__Backend: "SqlServer"
       Runtime__Mode: docker
+      DemoData__Enabled: "${DEMO_DATA_ENABLED:-true}"
+      DemoData__AllowInProduction: "${DEMO_DATA_ALLOW_IN_PRODUCTION:-false}"
       Security__EnableHttpsRedirection: "${SECURITY_ENABLE_HTTPS_REDIRECTION:-false}"
       Security__GatewayHeadersManagedByProxy: "${SECURITY_GATEWAY_HEADERS_MANAGED_BY_PROXY:-true}"
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"

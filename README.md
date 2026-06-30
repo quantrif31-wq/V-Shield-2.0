@@ -326,6 +326,7 @@ Luu y:
 - API va SQL chi mo noi bo container trong mode VPS
 - Compose VPS khong chay service go2rtc hay AI
 - Dat `APP_FRONTEND_URL`, `APP_PUBLIC_HOSTNAME` va `SECURITY_GATEWAY_HEADERS_MANAGED_BY_PROXY=true` dung theo moi truong public that
+- Neu can demo du lieu mau tren VPS, dat `DEMO_DATA_ALLOW_IN_PRODUCTION=true` truoc khi chay lai compose
 - Dien day du secret trong `.env.vps` truoc khi deploy
 
 Tai lieu bo sung:
