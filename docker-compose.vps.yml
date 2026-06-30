@@ -39,6 +39,7 @@ services:
       DemoData__AllowInProduction: "${DEMO_DATA_ALLOW_IN_PRODUCTION:-false}"
       Security__EnableHttpsRedirection: "${SECURITY_ENABLE_HTTPS_REDIRECTION:-false}"
       Security__GatewayHeadersManagedByProxy: "${SECURITY_GATEWAY_HEADERS_MANAGED_BY_PROXY:-true}"
+      DataProtection__KeyRingPath: "/var/app/data-protection"
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
       AppSettings__AllowedOrigins__0: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
       AppSettings__AllowedOrigins__1: "${APP_FRONTEND_URL_ALT:-}"
@@ -47,6 +48,8 @@ services:
       Cloudflared__PublicHostname: "${APP_PUBLIC_HOSTNAME:-160.250.4.187}"
     expose:
       - "5107"
+    volumes:
+      - vshield_data_protection:/var/app/data-protection
     depends_on:
       db:
         condition: service_healthy
@@ -82,3 +85,4 @@ services:
 
 volumes:
   vshield_mssql_data:
+  vshield_data_protection:

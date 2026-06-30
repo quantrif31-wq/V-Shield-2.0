@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using API.Data;
@@ -11,6 +12,7 @@ using API.Services.AI;
 using API.Services.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +27,7 @@ namespace API
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            ConfigureDataProtection(builder);
 
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -523,6 +526,19 @@ namespace API
             {
                 db.SaveChanges();
             }
+        }
+
+        private static void ConfigureDataProtection(WebApplicationBuilder builder)
+        {
+            var configuredPath = builder.Configuration["DataProtection:KeyRingPath"];
+            var keyRingPath = string.IsNullOrWhiteSpace(configuredPath)
+                ? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtection")
+                : configuredPath;
+
+            Directory.CreateDirectory(keyRingPath);
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath))
+                .SetApplicationName("VShield");
         }
 
         private static string NormalizeUsernameInvariant(string username) =>
