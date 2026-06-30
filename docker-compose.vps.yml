@@ -67,6 +67,10 @@ services:
     container_name: vshield-frontend
     environment:
       API_PROXY_BASE: "http://api:5107"
+      QR_PROXY_BASE: "http://api:5107"
+      PLATE_PROXY_BASE: "http://api:5107"
+      FACE_PROXY_BASE: "http://api:5107"
+      GO2RTC_PROXY_BASE: "http://api:5107"
     ports:
       - "${APP_HTTP_PORT:-80}:80"
     depends_on:
