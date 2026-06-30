@@ -199,13 +199,24 @@ export default {
       const normalized = Number(value)
       return Number.isNaN(normalized) ? String(value) : normalized
     },
+    normalizeText(value) {
+      return String(value || '').trim().toLowerCase()
+    },
     isSameEmployee(left, right) {
       const normalizedLeft = this.normalizeEmployeeId(left)
       const normalizedRight = this.normalizeEmployeeId(right)
       return normalizedLeft !== null && normalizedLeft === normalizedRight
     },
     isOwnMessage(message) {
-      return this.isSameEmployee(message?.senderId, this.myEmployeeId)
+      if (this.isSameEmployee(message?.senderId, this.myEmployeeId)) {
+        return true
+      }
+
+      const senderName = this.normalizeText(message?.senderName)
+      const currentFullName = this.normalizeText(this.user?.fullName)
+      const currentUsername = this.normalizeText(this.user?.username)
+
+      return !!senderName && (senderName === currentFullName || senderName === currentUsername)
     },
     async loadData() {
       try {
@@ -236,13 +247,30 @@ export default {
     },
     handleNewMessage(msg) {
       if (msg.conversationId === this.selectedConvId) {
+        const existingMessageIndex = this.messages.findIndex(existing => existing.messageId === msg.messageId)
+        if (existingMessageIndex !== -1) {
+          this.messages.splice(existingMessageIndex, 1, {
+            ...this.messages[existingMessageIndex],
+            ...msg,
+            pending: false,
+          })
+          this.$nextTick(() => this.scrollToBottom())
+          chatApi.markRead(this.selectedConvId)
+          this.loadData()
+          return
+        }
+
         const pendingIndex = this.messages.findIndex(existing =>
           existing.pending &&
-          this.isSameEmployee(existing.senderId, msg.senderId) &&
+          this.isOwnMessage(msg) &&
           existing.content === msg.content
         )
         if (pendingIndex !== -1) {
-          this.messages.splice(pendingIndex, 1, msg)
+          this.messages.splice(pendingIndex, 1, {
+            ...this.messages[pendingIndex],
+            ...msg,
+            pending: false,
+          })
         } else {
           this.messages.push(msg)
         }
