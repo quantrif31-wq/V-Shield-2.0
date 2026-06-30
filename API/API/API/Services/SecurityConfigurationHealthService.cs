@@ -46,7 +46,7 @@ public sealed class SecurityConfigurationHealthService : ISecurityConfigurationH
         AddConnectionStringFindings(configuration, findings, isProduction);
         AddEvidenceSigningFindings(configuration, findings, isProduction);
         AddRateLimitFindings(configuration, findings, isProduction);
-        AddGatewayHeaderFindings(findings, isProduction);
+        AddGatewayHeaderFindings(configuration, findings, isProduction);
 
         var status = findings.Any(finding => finding.Status == SecurityConfigurationFindingStatuses.Fail)
             ? SecurityConfigurationHealthStatuses.Blocked
@@ -352,15 +352,25 @@ public sealed class SecurityConfigurationHealthService : ISecurityConfigurationH
     }
 
     private static void AddGatewayHeaderFindings(
+        IConfiguration configuration,
         ICollection<SecurityConfigurationFinding> findings,
         bool isProduction)
     {
+        var gatewayHeadersManagedByProxy = configuration.GetValue<bool>("Security:GatewayHeadersManagedByProxy");
+        if (gatewayHeadersManagedByProxy)
+        {
+            findings.Add(Pass(
+                "gateway.securityHeaders",
+                "Reverse proxy gateway security headers are explicitly managed for this deployment."));
+            return;
+        }
+
         findings.Add(isProduction
             ? FailOrWarn(
                 "gateway.securityHeaders",
                 true,
                 "API adds baseline security headers, but production CSP/HSTS should be enforced at the edge gateway too.",
-                "Configure CSP, HSTS preload, TLS policy and upload/static-file policy at the reverse proxy.")
+                "Configure CSP, HSTS preload, TLS policy and upload/static-file policy at the reverse proxy, or set Security__GatewayHeadersManagedByProxy=true once enforced.")
             : new SecurityConfigurationFinding(
                 "gateway.securityHeaders",
                 SecurityConfigurationFindingSeverities.Medium,
