@@ -218,6 +218,45 @@ export default {
 
       return !!senderName && (senderName === currentFullName || senderName === currentUsername)
     },
+    buildMessageDedupKey(message) {
+      if (!message) return null
+
+      if (message.messageId !== null && message.messageId !== undefined && !String(message.messageId).startsWith('temp-')) {
+        return `message:${message.messageId}`
+      }
+
+      if (message.clientMessageId) {
+        const senderId = this.normalizeEmployeeId(message.senderId)
+        return `client:${message.conversationId}:${senderId}:${message.clientMessageId}`
+      }
+
+      const senderId = this.normalizeEmployeeId(message.senderId)
+      const senderName = this.normalizeText(message.senderName)
+      const content = this.normalizeText(message.content)
+      const messageType = String(message.messageType || 'Text').trim()
+      const sentAt = message.sentAt ? new Date(message.sentAt).toISOString() : ''
+
+      return `fallback:${message.conversationId}:${senderId ?? senderName}:${messageType}:${content}:${sentAt}`
+    },
+    deduplicateMessages(messages) {
+      const uniqueMessages = []
+      const seen = new Set()
+
+      for (const message of messages || []) {
+        const dedupKey = this.buildMessageDedupKey(message)
+        if (dedupKey && seen.has(dedupKey)) {
+          continue
+        }
+
+        if (dedupKey) {
+          seen.add(dedupKey)
+        }
+
+        uniqueMessages.push(message)
+      }
+
+      return uniqueMessages
+    },
     async loadData() {
       try {
         const [convRes, contactRes] = await Promise.all([
@@ -324,7 +363,7 @@ export default {
 
       try {
         const res = await chatApi.getMessages(conv.conversationId)
-        this.messages = res.data?.data || []
+        this.messages = this.deduplicateMessages(res.data?.data || [])
         this.$nextTick(() => this.scrollToBottom())
       } catch (e) {
         console.error(e)
