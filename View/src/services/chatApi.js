@@ -3,6 +3,7 @@ import * as signalR from '@microsoft/signalr'
 import { API_ORIGIN } from '../config/api'
 
 const API_URL = import.meta.env.VITE_API_URL || API_ORIGIN
+const AUTH_TOKEN_KEY = 'v_shield_token'
 
 let connection = null
 let messageCallbacks = []
@@ -16,14 +17,20 @@ export function getConnection() {
   return connection
 }
 
+function readAuthToken() {
+  return sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || ''
+}
+
 export async function connectChatHub(token) {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
     return connection
   }
 
+  const accessToken = token || readAuthToken()
+
   connection = new signalR.HubConnectionBuilder()
     .withUrl(`${API_URL}/hubs/chat`, {
-      accessTokenFactory: () => token
+      accessTokenFactory: () => accessToken
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build()
@@ -69,6 +76,12 @@ export function disconnectChatHub() {
     connection.stop()
     connection = null
   }
+  messageCallbacks = []
+  typingCallbacks = []
+  readCallbacks = []
+  callCallbacks = []
+  callResponseCallbacks = []
+  callEndedCallbacks = []
 }
 
 export function onMessage(callback) {
@@ -102,15 +115,34 @@ export function onCallEnded(callback) {
 }
 
 export async function sendMessage(conversationId, content, messageType = 'Text', signalingData = null) {
-  if (connection && connection.state === signalR.HubConnectionState.Connected) {
-    await connection.invoke('SendMessage', conversationId, content, messageType, signalingData)
+  const trimmedContent = String(content || '').trim()
+  if (!trimmedContent) {
+    return null
   }
+
+  if (connection && connection.state === signalR.HubConnectionState.Connected) {
+    try {
+      await connection.invoke('SendMessage', conversationId, trimmedContent, messageType, signalingData)
+      return { deliveredVia: 'hub' }
+    } catch (error) {
+      console.warn('Chat hub send failed, falling back to HTTP.', error)
+    }
+  }
+
+  return http.post(`/chat/conversations/${conversationId}/messages`, {
+    content: trimmedContent,
+    messageType,
+    signalingData,
+  })
 }
 
 export async function markRead(conversationId) {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
     await connection.invoke('MarkRead', conversationId)
+    return
   }
+
+  return markConversationRead(conversationId)
 }
 
 export async function sendTyping(conversationId) {

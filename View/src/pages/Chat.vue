@@ -101,6 +101,8 @@
       </div>
 
       <div class="typing-indicator" v-if="typingUser">{{ typingUser }} đang nhập...</div>
+      <div class="chat-warning" v-else-if="!hubConnected">Realtime đang tạm mất kết nối, hệ thống sẽ tự động gửi qua API.</div>
+      <div class="chat-error" v-if="sendError">{{ sendError }}</div>
 
       <div class="chat-input">
         <input v-model="messageText" placeholder="Nhập tin nhắn..."
@@ -143,6 +145,8 @@ export default {
       showFilters: false,
       filterDepartment: '',
       filterPosition: '',
+      sendError: '',
+      hubConnected: false,
     }
   },
   computed: {
@@ -204,8 +208,8 @@ export default {
     },
     async connectSignalR() {
       try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-        await chatApi.connectChatHub(token)
+        await chatApi.connectChatHub()
+        this.hubConnected = true
         chatApi.onMessage(this.handleNewMessage)
         chatApi.onTyping(this.handleTyping)
         chatApi.onRead(this.handleRead)
@@ -213,12 +217,22 @@ export default {
         chatApi.onCallResponse(this.handleCallResponse)
         chatApi.onCallEnded(this.handleCallEnded)
       } catch (e) {
+        this.hubConnected = false
         console.error('Failed to connect chat hub', e)
       }
     },
     handleNewMessage(msg) {
       if (msg.conversationId === this.selectedConvId) {
-        this.messages.push(msg)
+        const pendingIndex = this.messages.findIndex(existing =>
+          existing.pending &&
+          existing.senderId === msg.senderId &&
+          existing.content === msg.content
+        )
+        if (pendingIndex !== -1) {
+          this.messages.splice(pendingIndex, 1, msg)
+        } else {
+          this.messages.push(msg)
+        }
         this.$nextTick(() => this.scrollToBottom())
         chatApi.markRead(this.selectedConvId)
       }
@@ -260,6 +274,7 @@ export default {
       this.currentConvParticipants = this.getParticipantNames(conv)
       this.messages = []
       this.messageText = ''
+      this.sendError = ''
 
       try {
         const res = await chatApi.getMessages(conv.conversationId)
@@ -287,8 +302,38 @@ export default {
     async sendMessage() {
       const content = this.messageText.trim()
       if (!content || !this.selectedConvId) return
+      this.sendError = ''
       this.messageText = ''
-      await chatApi.sendMessage(this.selectedConvId, content)
+      const tempMessage = {
+        messageId: `temp-${Date.now()}`,
+        conversationId: this.selectedConvId,
+        senderId: this.myEmployeeId,
+        senderName: this.user?.fullName || this.user?.username || 'Bạn',
+        content,
+        messageType: 'Text',
+        sentAt: new Date().toISOString(),
+        isRead: false,
+        pending: true,
+      }
+
+      this.messages.push(tempMessage)
+      this.$nextTick(() => this.scrollToBottom())
+
+      try {
+        const result = await chatApi.sendMessage(this.selectedConvId, content)
+        if (result?.data?.data) {
+          const index = this.messages.findIndex(m => m.messageId === tempMessage.messageId)
+          if (index !== -1) {
+            this.messages.splice(index, 1, result.data.data)
+          }
+        }
+        await this.loadData()
+      } catch (e) {
+        this.messages = this.messages.filter(m => m.messageId !== tempMessage.messageId)
+        this.messageText = content
+        this.sendError = e?.response?.data?.message || 'Không gửi được tin nhắn. Vui lòng thử lại.'
+        console.error(e)
+      }
     },
     onTyping() {
       if (this.selectedConvId) {
@@ -681,6 +726,20 @@ export default {
   font-size: 12px;
   color: #999;
   font-style: italic;
+}
+
+.chat-warning,
+.chat-error {
+  padding: 4px 20px 0;
+  font-size: 12px;
+}
+
+.chat-warning {
+  color: #8a6d3b;
+}
+
+.chat-error {
+  color: #c62828;
 }
 
 .chat-input {

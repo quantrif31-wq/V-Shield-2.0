@@ -1,5 +1,7 @@
 using API.Data;
 using API.Models;
+using API.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +14,12 @@ namespace API.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
+    private readonly IHubContext<ChatHub> _chatHub;
 
-    public ChatController(ApplicationDbContext db)
+    public ChatController(ApplicationDbContext db, IHubContext<ChatHub> chatHub)
     {
         _db = db;
+        _chatHub = chatHub;
     }
 
     private int GetEmployeeId()
@@ -177,6 +181,60 @@ public class ChatController : ControllerBase
     }
 
     /// <summary>
+    /// Gửi tin nhắn vào một hội thoại qua HTTP, dùng làm đường dự phòng khi realtime chưa sẵn sàng.
+    /// </summary>
+    [HttpPost("conversations/{conversationId}/messages")]
+    public async Task<IActionResult> SendMessage(int conversationId, [FromBody] SendMessageRequest request)
+    {
+        var empId = GetEmployeeId();
+        if (string.IsNullOrWhiteSpace(request.Content))
+            return BadRequest(new { success = false, message = "Nội dung tin nhắn không được để trống." });
+
+        var isParticipant = await _db.ChatParticipants
+            .AnyAsync(p => p.ConversationId == conversationId && p.EmployeeId == empId);
+
+        if (!isParticipant)
+            return Forbid();
+
+        var now = DateTime.UtcNow;
+        var message = new ChatMessage
+        {
+            ConversationId = conversationId,
+            SenderId = empId,
+            Content = request.Content.Trim(),
+            MessageType = string.IsNullOrWhiteSpace(request.MessageType) ? "Text" : request.MessageType.Trim(),
+            SignalingData = request.SignalingData,
+            SentAt = now
+        };
+
+        _db.ChatMessages.Add(message);
+        await _db.SaveChangesAsync();
+
+        var senderName = await _db.Employees
+            .Where(e => e.EmployeeId == empId)
+            .Select(e => e.FullName)
+            .FirstOrDefaultAsync() ?? "Người dùng";
+
+        var payload = new
+        {
+            message.MessageId,
+            message.ConversationId,
+            message.SenderId,
+            senderName,
+            message.Content,
+            message.MessageType,
+            message.SignalingData,
+            message.SentAt,
+            message.IsRead,
+            message.ReadAt
+        };
+
+        await _chatHub.Clients.Group($"conv_{conversationId}").SendAsync("ReceiveMessage", payload);
+
+        return Ok(new { success = true, data = payload });
+    }
+
+    /// <summary>
     /// Đánh dấu đã đọc tất cả tin nhắn trong hội thoại
     /// </summary>
     [HttpPost("conversations/{conversationId}/read")]
@@ -210,4 +268,11 @@ public class CreateConversationRequest
 {
     public List<int> EmployeeIds { get; set; } = new();
     public string? Title { get; set; }
+}
+
+public class SendMessageRequest
+{
+    public string Content { get; set; } = string.Empty;
+    public string? MessageType { get; set; }
+    public string? SignalingData { get; set; }
 }
