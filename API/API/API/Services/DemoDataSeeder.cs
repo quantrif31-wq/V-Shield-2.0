@@ -788,6 +788,16 @@ public static class DemoDataSeeder
         SeedCampus3DScene(db, sites, now);
         SeedGeolocationDemoData(db, now);
         SeedDemoNotifications(db, now);
+        SeedRegistrationLinks(db, employees, now);
+        SeedVisitorJourneyData(db, now);
+        SeedWatchlistAndReceptionData(db, now);
+        SeedContractorAndDelegationData(db, employees, now);
+        SeedCameraTelemetryData(db, now);
+        SeedEvidenceGovernanceData(db, now);
+        SeedAccessPolicyAndEmergencyData(db, employees, now);
+        SeedLostFoundAndLockerData(db, now);
+        SeedSocAwarenessAndChatData(db, employees, now);
+        SeedOperationalReadinessData(db, now);
         db.SaveChanges();
     }
 
@@ -979,6 +989,1748 @@ public static class DemoDataSeeder
         }
 
         db.Notifications.AddRange(demoNotifications);
+    }
+
+    private static void SeedRegistrationLinks(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        if (db.RegistrationLinks.Any() || employees.Count == 0)
+            return;
+
+        var hosts = employees
+            .Where(employee => employee.Status == true)
+            .OrderBy(employee => employee.EmployeeId)
+            .Take(24)
+            .ToList();
+
+        db.RegistrationLinks.AddRange(hosts.Select((employee, index) => new RegistrationLink
+        {
+            HostEmployeeId = employee.EmployeeId,
+            Token = $"DEMOHOST{employee.EmployeeId:X6}{index:X2}",
+            CreatedAt = now.AddDays(-(index % 12 + 1)),
+            ExpiredAt = now.AddDays(index % 6 - 2).AddHours(18),
+            IsUsed = index % 4 == 0
+        }));
+    }
+
+    private static void SeedVisitorJourneyData(ApplicationDbContext db, DateTime now)
+    {
+        if (!db.VisitorFormTemplates.Any())
+        {
+            db.VisitorFormTemplates.AddRange(
+                new VisitorFormTemplate
+                {
+                    Name = "Visitor NDA Standard",
+                    FormType = "NDA",
+                    Version = 3,
+                    Body = "Visitor agrees to keep confidential all operational, production and security information observed on site.",
+                    IsActive = true
+                },
+                new VisitorFormTemplate
+                {
+                    Name = "Factory Safety Briefing",
+                    FormType = "Safety",
+                    Version = 2,
+                    Body = "Visitor confirms PPE rules, escort requirements and emergency assembly instructions before entering production zones.",
+                    IsActive = true
+                });
+        }
+
+        if (!db.VisitorCheckIns.Any())
+        {
+            var visits = db.Visits
+                .OrderByDescending(visit => visit.ExpectedInUtc)
+                .Take(28)
+                .ToList();
+            var users = db.AppUsers
+                .Where(user => user.Role == "LeTan" || user.Role == "BaoVe")
+                .OrderBy(user => user.UserId)
+                .ToList();
+
+            if (visits.Count > 0)
+            {
+                db.VisitorCheckIns.AddRange(visits.Select((visit, index) =>
+                {
+                    var operatorUserId = users.Count == 0 ? (int?)null : users[index % users.Count].UserId;
+                    var checkedInAt = visit.ExpectedInUtc.AddMinutes(index % 5 == 0 ? 18 : -5 + index % 11);
+                    var status = index % 7 == 0 ? VisitStatuses.Overstay :
+                        index % 4 == 0 ? VisitStatuses.CheckedOut :
+                        VisitStatuses.CheckedIn;
+
+                    visit.Status = status;
+
+                    return new VisitorCheckIn
+                    {
+                        VisitId = visit.VisitId,
+                        CheckedInAtUtc = checkedInAt,
+                        CheckedOutAtUtc = status == VisitStatuses.CheckedOut ? checkedInAt.AddHours(1 + index % 3) : null,
+                        CheckedInByUserId = operatorUserId,
+                        CheckedOutByUserId = status == VisitStatuses.CheckedOut ? operatorUserId : null,
+                        IdDocumentType = index % 3 == 0 ? "CitizenId" : "Passport",
+                        IdDocumentReference = $"DOC-{visit.VisitId:0000}-{index:000}",
+                        VerificationStatus = index % 6 == 0 ? "ManualReview" : "Verified"
+                    };
+                }));
+            }
+        }
+
+        if (!db.VisitorFormAcceptances.Any())
+        {
+            var templates = db.VisitorFormTemplates.OrderBy(template => template.VisitorFormTemplateId).ToList();
+            var visits = db.Visits
+                .Where(visit => visit.NdaRequired || visit.SafetyBriefingRequired || visit.Status == VisitStatuses.CheckedIn || visit.Status == VisitStatuses.CheckedOut)
+                .OrderBy(visit => visit.VisitId)
+                .Take(18)
+                .ToList();
+
+            if (templates.Count > 0 && visits.Count > 0)
+            {
+                db.VisitorFormAcceptances.AddRange(visits.SelectMany((visit, index) =>
+                {
+                    var acceptedBy = visit.VisitorName;
+                    var acceptances = new List<VisitorFormAcceptance>
+                    {
+                        new()
+                        {
+                            VisitId = visit.VisitId,
+                            VisitorFormTemplateId = templates[0].VisitorFormTemplateId,
+                            AcceptedAtUtc = visit.ExpectedInUtc.AddMinutes(-15),
+                            AcceptedByName = acceptedBy
+                        }
+                    };
+
+                    if (templates.Count > 1 && (visit.SafetyBriefingRequired || index % 3 == 0))
+                    {
+                        acceptances.Add(new VisitorFormAcceptance
+                        {
+                            VisitId = visit.VisitId,
+                            VisitorFormTemplateId = templates[1].VisitorFormTemplateId,
+                            AcceptedAtUtc = visit.ExpectedInUtc.AddMinutes(-10),
+                            AcceptedByName = acceptedBy
+                        });
+                    }
+
+                    return acceptances;
+                }));
+            }
+        }
+    }
+
+    private static void SeedWatchlistAndReceptionData(ApplicationDbContext db, DateTime now)
+    {
+        if (!db.WatchlistEntries.Any())
+        {
+            db.WatchlistEntries.AddRange(
+                new WatchlistEntry
+                {
+                    EntityType = "Person",
+                    DisplayName = "Tran Van Kiem Tra",
+                    Identifier = "ID-ALERT-001",
+                    Severity = "High",
+                    Reason = "Repeated attempts to enter restricted areas using expired visitor credentials.",
+                    CreatedAtUtc = now.AddDays(-21)
+                },
+                new WatchlistEntry
+                {
+                    EntityType = "Vehicle",
+                    DisplayName = "Truck nghi van logistics",
+                    Identifier = "99C-67890",
+                    Severity = "Critical",
+                    Reason = "Flagged by logistics audit for mismatched manifest and gate events.",
+                    CreatedAtUtc = now.AddDays(-14)
+                },
+                new WatchlistEntry
+                {
+                    EntityType = "Person",
+                    DisplayName = "Guest overstay recurrent",
+                    Identifier = "VIS-OVERSTAY-003",
+                    Severity = "Medium",
+                    Reason = "Multiple overstay incidents in the previous 30 days.",
+                    CreatedAtUtc = now.AddDays(-9)
+                });
+        }
+
+        if (!db.WatchlistMatches.Any())
+        {
+            var entries = db.WatchlistEntries.OrderBy(entry => entry.WatchlistEntryId).ToList();
+            var visits = db.Visits.OrderByDescending(visit => visit.ExpectedInUtc).Take(10).ToList();
+            var vehicles = db.Vehicles.OrderBy(vehicle => vehicle.VehicleId).Take(12).ToList();
+            var reviewers = db.AppUsers.Where(user => user.Role == "BaoVe" || user.Role == "Admin").OrderBy(user => user.UserId).ToList();
+
+            if (entries.Count > 0)
+            {
+                var matches = new List<WatchlistMatch>();
+                if (visits.Count > 0)
+                {
+                    matches.Add(new WatchlistMatch
+                    {
+                        WatchlistEntryId = entries[0].WatchlistEntryId,
+                        VisitId = visits[0].VisitId,
+                        Status = "Escalated",
+                        ReviewNote = "Reception confirmed ID mismatch and escalated to security shift lead.",
+                        MatchedAtUtc = now.AddHours(-8),
+                        ReviewedAtUtc = now.AddHours(-7),
+                        ReviewedByUserId = reviewers.FirstOrDefault()?.UserId
+                    });
+                }
+
+                if (entries.Count > 1 && vehicles.Count > 0)
+                {
+                    matches.Add(new WatchlistMatch
+                    {
+                        WatchlistEntryId = entries[1].WatchlistEntryId,
+                        VehicleId = vehicles[^1].VehicleId,
+                        Status = "Pending",
+                        ReviewNote = "Vehicle queued for manual lane inspection on next arrival.",
+                        MatchedAtUtc = now.AddHours(-3)
+                    });
+                }
+
+                if (entries.Count > 2 && visits.Count > 1)
+                {
+                    matches.Add(new WatchlistMatch
+                    {
+                        WatchlistEntryId = entries[2].WatchlistEntryId,
+                        VisitId = visits[1].VisitId,
+                        Status = "Resolved",
+                        ReviewNote = "Host validated prolonged visit due to extended audit meeting.",
+                        MatchedAtUtc = now.AddDays(-1),
+                        ReviewedAtUtc = now.AddHours(-12),
+                        ReviewedByUserId = reviewers.Skip(1).FirstOrDefault()?.UserId ?? reviewers.FirstOrDefault()?.UserId
+                    });
+                }
+
+                db.WatchlistMatches.AddRange(matches);
+            }
+        }
+
+        if (!db.ReceptionInteractions.Any())
+        {
+            var visits = db.Visits.OrderByDescending(visit => visit.ExpectedInUtc).Take(16).ToList();
+            var users = db.AppUsers.Where(user => user.Role == "LeTan" || user.Role == "BaoVe").OrderBy(user => user.UserId).ToList();
+
+            if (visits.Count > 0)
+            {
+                db.ReceptionInteractions.AddRange(visits.Select((visit, index) => new ReceptionInteraction
+                {
+                    VisitId = visit.VisitId,
+                    InteractionType = (index % 5) switch
+                    {
+                        0 => ReceptionInteractionTypes.HostContact,
+                        1 => ReceptionInteractionTypes.VisitorSupport,
+                        2 => ReceptionInteractionTypes.SecurityDispatch,
+                        3 => ReceptionInteractionTypes.ParkingInquiry,
+                        _ => ReceptionInteractionTypes.Wayfinding
+                    },
+                    Summary = index % 5 == 2
+                        ? $"Escort support requested for {visit.VisitorName}"
+                        : $"Front desk handled visitor workflow for {visit.VisitorName}",
+                    DetailNote = index % 5 == 2
+                        ? "Visitor requested access to restricted production zone and required escort dispatch."
+                        : "Reception verified booking, host status and parking guidance.",
+                    ContactPersonName = visit.VisitorName,
+                    ContactPersonPhone = visit.VisitorPhone,
+                    RelatedVehiclePlate = index % 3 == 0 ? $"51H-{61000 + index * 17}" : null,
+                    Status = index % 6 == 0 ? ReceptionInteractionStatuses.Escalated :
+                        index % 4 == 0 ? ReceptionInteractionStatuses.Resolved :
+                        ReceptionInteractionStatuses.InProgress,
+                    SecurityRequested = index % 5 == 2,
+                    ResolutionNote = index % 4 == 0 ? "Issue closed after host confirmation and exit verification." : null,
+                    CreatedAtUtc = now.AddHours(-(index + 2)),
+                    UpdatedAtUtc = now.AddHours(-(index % 3)),
+                    CreatedByUserId = users.Count == 0 ? (int?)null : users[index % users.Count].UserId,
+                    UpdatedByUserId = users.Count == 0 ? (int?)null : users[index % users.Count].UserId
+                }));
+            }
+        }
+    }
+
+    private static void SeedContractorAndDelegationData(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        if (!db.Contractors.Any())
+        {
+            var contractorEmployees = employees
+                .Where(employee => string.Equals(employee.LifecycleStatus, EmployeeLifecycleStates.ContractorActive, StringComparison.OrdinalIgnoreCase))
+                .Take(12)
+                .ToList();
+            var siteIds = db.Sites.OrderBy(site => site.SiteId).Select(site => site.SiteId).ToList();
+
+            db.Contractors.AddRange(contractorEmployees.Select((employee, index) => new Contractor
+            {
+                EmployeeId = employee.EmployeeId,
+                FullName = employee.FullName,
+                Company = (index % 3) switch
+                {
+                    0 => "An Binh Fire Safety Co.",
+                    1 => "North Star Facility Services",
+                    _ => "Delta Industrial Maintenance"
+                },
+                Phone = employee.Phone,
+                Email = employee.Email,
+                ContractFromUtc = now.AddDays(-(60 + index * 3)),
+                ContractToUtc = now.AddDays(index % 4 == 0 ? 7 : 45 + index * 2),
+                Status = index % 5 == 0 ? ContractorStatuses.Expiring : ContractorStatuses.Active,
+                SiteId = employee.PrimarySiteId ?? siteIds.ElementAtOrDefault(index % Math.Max(siteIds.Count, 1)),
+                RequiredTraining = index % 2 == 0 ? "PPE, Lockout/Tagout, Visitor escort" : "Electrical safety, confined-space awareness",
+                AccessReviewCompleted = index % 3 != 0,
+                AccessReviewDateUtc = index % 3 != 0 ? now.AddDays(-(index + 2)) : null,
+                CreatedAtUtc = now.AddDays(-(90 - index))
+            }));
+        }
+
+        if (!db.VehicleDelegations.Any())
+        {
+            var vehicles = db.Vehicles.Where(vehicle => vehicle.EmployeeId.HasValue).OrderBy(vehicle => vehicle.VehicleId).Take(14).ToList();
+            if (vehicles.Count > 0)
+            {
+                var delegations = new List<VehicleDelegation>();
+                foreach (var (vehicle, index) in vehicles.Select((vehicle, index) => (vehicle, index)))
+                {
+                    var fromEmployeeId = vehicle.EmployeeId!.Value;
+                    var toEmployee = employees.FirstOrDefault(employee =>
+                        employee.EmployeeId != fromEmployeeId &&
+                        employee.PrimarySiteId == vehicle.SiteId &&
+                        employee.Status == true);
+                    if (toEmployee == null)
+                        continue;
+
+                    delegations.Add(new VehicleDelegation
+                    {
+                        VehicleId = vehicle.VehicleId,
+                        FromEmployeeId = fromEmployeeId,
+                        ToEmployeeId = toEmployee.EmployeeId,
+                        Reason = index % 3 == 0
+                            ? "On-call support coverage for late shift"
+                            : index % 3 == 1
+                                ? "Inter-site document transfer and branch visit"
+                                : "Temporary replacement while assigned vehicle is in maintenance",
+                        Status = (index % 5) switch
+                        {
+                            0 => DelegationStatuses.Pending,
+                            1 => DelegationStatuses.Rejected,
+                            2 => DelegationStatuses.Revoked,
+                            _ => DelegationStatuses.Approved
+                        },
+                        RequestedAtUtc = now.AddDays(-(index + 1)),
+                        RespondedAtUtc = index % 5 == 0 ? null : now.AddDays(-index).AddHours(4)
+                    });
+                }
+
+                db.VehicleDelegations.AddRange(delegations);
+            }
+        }
+    }
+
+    private static void SeedCameraTelemetryData(ApplicationDbContext db, DateTime now)
+    {
+        if (!db.RecordedSegments.Any())
+        {
+            var cameras = db.Cameras.OrderBy(camera => camera.CameraId).Take(10).ToList();
+            var segments = new List<RecordedSegment>();
+
+            foreach (var camera in cameras)
+            {
+                for (var i = 0; i < 6; i++)
+                {
+                    var startedAt = now.AddHours(-(camera.CameraId % 5 * 6 + i + 1));
+                    var durationMinutes = 20 + i * 5;
+                    segments.Add(new RecordedSegment
+                    {
+                        CameraId = camera.CameraId,
+                        StartedAt = startedAt,
+                        EndedAt = startedAt.AddMinutes(durationMinutes),
+                        FilePath = $"/var/lib/vshield/recordings/cam-{camera.CameraId:000}/segment-{startedAt:yyyyMMddHHmm}.mp4",
+                        FileSizeBytes = 18_000_000 + i * 2_500_000,
+                        DurationSeconds = durationMinutes * 60,
+                        StorageUrl = $"demo://recordings/cam-{camera.CameraId:000}/segment-{startedAt:yyyyMMddHHmm}.mp4"
+                    });
+                }
+            }
+
+            db.RecordedSegments.AddRange(segments);
+        }
+
+        if (!db.CameraPlates.Any())
+        {
+            db.CameraPlates.AddRange(db.Cameras
+                .Where(camera => string.Equals(camera.CameraType, "Plate", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(camera => camera.CameraId)
+                .Take(8)
+                .Select((camera, index) => new CameraPlate
+                {
+                    CameraIP = $"10.20.{camera.CameraId % 10}.{20 + index}",
+                    PlateNumber = index % 3 == 0 ? $"51H-{70000 + index * 13}" : $"29A-{30000 + index * 17}",
+                    X1 = 80 + index * 3,
+                    Y1 = 120 + index * 2,
+                    X2 = 280 + index * 4,
+                    Y2 = 200 + index * 3,
+                    LastUpdate = now.AddMinutes(-(index + 1) * 4)
+                }));
+        }
+    }
+
+    private static void SeedEvidenceGovernanceData(ApplicationDbContext db, DateTime now)
+    {
+        var evidenceItems = db.EvidenceItems.OrderBy(item => item.EvidenceItemId).ToList();
+        var adminUser = db.AppUsers.FirstOrDefault(user => user.Role == "Admin");
+        var guardUser = db.AppUsers.FirstOrDefault(user => user.Role == "BaoVe");
+
+        if (!db.EvidenceCollections.Any() && evidenceItems.Count > 0)
+        {
+            db.EvidenceCollections.AddRange(
+                new EvidenceCollection
+                {
+                    Name = "Investigation bundle - Gate anomaly",
+                    Purpose = "Investigation",
+                    Status = "Open",
+                    CreatedByUserId = adminUser?.UserId,
+                    CreatedAtUtc = now.AddDays(-2)
+                },
+                new EvidenceCollection
+                {
+                    Name = "Weekly compliance sample",
+                    Purpose = "Compliance",
+                    Status = "Locked",
+                    CreatedByUserId = adminUser?.UserId,
+                    CreatedAtUtc = now.AddDays(-7),
+                    BundleHash = new string('c', 64)
+                });
+            db.SaveChanges();
+        }
+
+        var collections = db.EvidenceCollections.OrderBy(collection => collection.EvidenceCollectionId).ToList();
+        if (!db.EvidenceCollectionItems.Any() && collections.Count > 0 && evidenceItems.Count > 0)
+        {
+            db.EvidenceCollectionItems.AddRange(evidenceItems.Take(4).Select((item, index) => new EvidenceCollectionItem
+            {
+                EvidenceCollectionId = collections[index % collections.Count].EvidenceCollectionId,
+                EvidenceItemId = item.EvidenceItemId,
+                AddedAtUtc = now.AddHours(-(index + 4))
+            }));
+        }
+
+        if (!db.EvidenceAccessLogs.Any() && evidenceItems.Count > 0)
+        {
+            db.EvidenceAccessLogs.AddRange(evidenceItems.Take(5).Select((item, index) => new EvidenceAccessLog
+            {
+                EvidenceItemId = item.EvidenceItemId,
+                UserId = index % 2 == 0 ? adminUser?.UserId : guardUser?.UserId,
+                AccessType = index % 3 == 0 ? "Download" : "Read",
+                Purpose = index % 3 == 0 ? "Incident review export preparation" : "Routine verification and audit spot-check",
+                AccessedAtUtc = now.AddHours(-(index + 1))
+            }));
+        }
+
+        if (!db.RetentionPolicies.Any())
+        {
+            db.RetentionPolicies.AddRange(
+                new RetentionPolicy
+                {
+                    Name = "Incident evidence 2 years",
+                    EvidenceType = "Snapshot",
+                    RetentionCategory = "Incident",
+                    RetentionDays = 730,
+                    PurgeMode = "ReviewRequired",
+                    IsActive = true
+                },
+                new RetentionPolicy
+                {
+                    Name = "Operational recordings 90 days",
+                    EvidenceType = "Recording",
+                    RetentionCategory = "Operational",
+                    RetentionDays = 90,
+                    PurgeMode = "AutoAfterReview",
+                    IsActive = true
+                });
+        }
+
+        if (!db.ChainOfCustodyEntries.Any() && evidenceItems.Count > 0)
+        {
+            db.ChainOfCustodyEntries.AddRange(evidenceItems.Take(3).SelectMany((item, index) => new[]
+            {
+                new ChainOfCustodyEntry
+                {
+                    EvidenceItemId = item.EvidenceItemId,
+                    Action = "Registered",
+                    ActorUserId = guardUser?.UserId,
+                    ToCustodian = "Security Operations Center",
+                    HashAfter = item.HashSha256,
+                    Note = "Evidence captured from automated security workflow.",
+                    CreatedAtUtc = now.AddHours(-(18 - index))
+                },
+                new ChainOfCustodyEntry
+                {
+                    EvidenceItemId = item.EvidenceItemId,
+                    Action = "Transferred",
+                    ActorUserId = adminUser?.UserId,
+                    FromCustodian = "Security Operations Center",
+                    ToCustodian = "Compliance Office",
+                    HashBefore = item.HashSha256,
+                    HashAfter = item.HashSha256,
+                    Note = "Transferred for monthly compliance spot-check.",
+                    CreatedAtUtc = now.AddHours(-(12 - index))
+                }
+            }));
+        }
+
+        if (!db.EvidenceExportRequests.Any() && evidenceItems.Count > 0)
+        {
+            db.EvidenceExportRequests.AddRange(
+                new EvidenceExportRequest
+                {
+                    EvidenceItemId = evidenceItems[0].EvidenceItemId,
+                    Purpose = "Share with internal incident commander",
+                    Recipient = "soc-commander@vshield-demo.vn",
+                    Status = "Approved",
+                    RequestedByUserId = guardUser?.UserId,
+                    ApprovedByUserId = adminUser?.UserId,
+                    RequestedAtUtc = now.AddHours(-10),
+                    ApprovedAtUtc = now.AddHours(-9),
+                    ExportHash = new string('d', 64),
+                    Watermark = "DEMO-CONFIDENTIAL",
+                    SignatureReference = "sig://demo/export/001"
+                },
+                new EvidenceExportRequest
+                {
+                    EvidenceCollectionId = collections.FirstOrDefault()?.EvidenceCollectionId,
+                    Purpose = "Weekly compliance packet review",
+                    Recipient = "compliance@vshield-demo.vn",
+                    Status = "PendingApproval",
+                    RequestedByUserId = adminUser?.UserId,
+                    RequestedAtUtc = now.AddHours(-2)
+                });
+        }
+
+        if (!db.RedactionRequests.Any() && evidenceItems.Count > 1)
+        {
+            db.RedactionRequests.AddRange(
+                new RedactionRequest
+                {
+                    EvidenceItemId = evidenceItems[1].EvidenceItemId,
+                    Reason = "Mask visitor personal data before training use.",
+                    PrivacyLabel = "PersonalData",
+                    Status = "Verified",
+                    RequestedByUserId = adminUser?.UserId,
+                    ApprovedByUserId = adminUser?.UserId,
+                    PerformedByUserId = guardUser?.UserId,
+                    VerifiedByUserId = adminUser?.UserId,
+                    RequestedAtUtc = now.AddHours(-16),
+                    ApprovedAtUtc = now.AddHours(-15),
+                    PerformedAtUtc = now.AddHours(-14),
+                    VerifiedAtUtc = now.AddHours(-13),
+                    RedactedStorageReference = "demo://evidence/redacted/manual-pass-51c-33333.jpg"
+                });
+        }
+
+        if (!db.LegalHolds.Any() && evidenceItems.Count > 0 && collections.Count > 0)
+        {
+            db.LegalHolds.Add(new LegalHold
+            {
+                EvidenceCollectionId = collections[0].EvidenceCollectionId,
+                Reason = "Preserve bundle pending internal investigation closure.",
+                Status = "Active",
+                AppliedByUserId = adminUser?.UserId,
+                AppliedAtUtc = now.AddHours(-6)
+            });
+        }
+
+        if (!db.ComplianceReportRuns.Any())
+        {
+            db.ComplianceReportRuns.AddRange(
+                new ComplianceReportRun
+                {
+                    ReportType = "EvidenceRetention",
+                    PeriodStartUtc = now.AddDays(-30),
+                    PeriodEndUtc = now,
+                    Status = "Completed",
+                    OutputReference = "demo://compliance/retention-2026-06.pdf",
+                    RequestedByUserId = adminUser?.UserId,
+                    CreatedAtUtc = now.AddHours(-20),
+                    CompletedAtUtc = now.AddHours(-19)
+                },
+                new ComplianceReportRun
+                {
+                    ReportType = "WatchlistAndVisitorAudit",
+                    PeriodStartUtc = now.AddDays(-7),
+                    PeriodEndUtc = now,
+                    Status = "Completed",
+                    OutputReference = "demo://compliance/watchlist-visitor-2026-week26.pdf",
+                    RequestedByUserId = adminUser?.UserId,
+                    CreatedAtUtc = now.AddHours(-11),
+                    CompletedAtUtc = now.AddHours(-10)
+                });
+        }
+    }
+
+    private static void SeedAccessPolicyAndEmergencyData(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        if (!db.AccessSchedules.Any())
+        {
+            db.AccessSchedules.AddRange(
+                new AccessSchedule
+                {
+                    Name = "Office Hours",
+                    StartTime = new TimeSpan(7, 30, 0),
+                    EndTime = new TimeSpan(19, 0, 0),
+                    DaysOfWeek = "Mon,Tue,Wed,Thu,Fri",
+                    IsActive = true
+                },
+                new AccessSchedule
+                {
+                    Name = "Factory Shift 24x6",
+                    StartTime = TimeSpan.Zero,
+                    EndTime = new TimeSpan(23, 59, 0),
+                    DaysOfWeek = "Mon,Tue,Wed,Thu,Fri,Sat",
+                    IsActive = true
+                },
+                new AccessSchedule
+                {
+                    Name = "Weekend Emergency",
+                    StartTime = TimeSpan.Zero,
+                    EndTime = new TimeSpan(23, 59, 0),
+                    DaysOfWeek = "Sat,Sun",
+                    IsActive = true
+                });
+        }
+
+        var sites = db.Sites.OrderBy(site => site.SiteId).ToList();
+        if (!db.HolidayCalendars.Any() && sites.Count > 0)
+        {
+            db.HolidayCalendars.AddRange(sites.SelectMany((site, index) => new[]
+            {
+                new HolidayCalendar
+                {
+                    SiteId = site.SiteId,
+                    Name = $"{site.Code} National Day",
+                    HolidayDate = new DateTime(now.Year, 9, 2),
+                    Note = "National holiday staffing mode"
+                },
+                new HolidayCalendar
+                {
+                    SiteId = site.SiteId,
+                    Name = $"{site.Code} Fire Drill",
+                    HolidayDate = now.Date.AddDays(10 + index),
+                    Note = "Site-wide exercise with temporary schedule override"
+                }
+            }));
+        }
+
+        if (!db.AccessLevels.Any())
+        {
+            db.AccessLevels.AddRange(
+                new AccessLevel { Name = "General Staff", Code = "GENERAL", Description = "Office and common operational areas", RequiresApproval = false, IsActive = true },
+                new AccessLevel { Name = "Restricted Operations", Code = "RESTRICTED", Description = "Restricted production and logistics zones", RequiresApproval = true, IsActive = true },
+                new AccessLevel { Name = "SOC Critical", Code = "SOC_CRIT", Description = "SOC room and server zones", RequiresApproval = true, IsActive = true });
+        }
+
+        if (!db.AccessGroups.Any())
+        {
+            db.AccessGroups.AddRange(
+                new AccessGroup { Name = "HQ Office Staff", Code = "HQ_OFFICE", IsActive = true },
+                new AccessGroup { Name = "Factory Operations", Code = "FACTORY_OPS", IsActive = true },
+                new AccessGroup { Name = "Security Response", Code = "SECURITY_RESP", IsActive = true });
+        }
+
+        db.SaveChanges();
+
+        var schedules = db.AccessSchedules.OrderBy(schedule => schedule.AccessScheduleId).ToList();
+        var levels = db.AccessLevels.OrderBy(level => level.AccessLevelId).ToList();
+        var groups = db.AccessGroups.OrderBy(group => group.AccessGroupId).ToList();
+        var zones = db.SecurityZones.OrderBy(zone => zone.SecurityZoneId).ToList();
+        var accessPoints = db.AccessPoints.OrderBy(accessPoint => accessPoint.AccessPointId).ToList();
+        var adminUser = db.AppUsers.FirstOrDefault(user => user.Role == "Admin");
+        var guardUsers = db.AppUsers.Where(user => user.Role == "BaoVe").OrderBy(user => user.UserId).Take(4).ToList();
+
+        if (!db.AccessPolicyVersions.Any())
+        {
+            db.AccessPolicyVersions.AddRange(
+                new AccessPolicyVersion
+                {
+                    Name = "2026-Q2 Baseline Policy",
+                    Status = "Active",
+                    ChangeSummary = "Normalized employee access, stricter SOC zone controls and dynamic QR fallback.",
+                    CreatedAtUtc = now.AddDays(-45),
+                    SubmittedAtUtc = now.AddDays(-44),
+                    ApprovedAtUtc = now.AddDays(-43),
+                    ActivatedAtUtc = now.AddDays(-42),
+                    CreatedByUserId = adminUser?.UserId,
+                    ApprovedByUserId = adminUser?.UserId
+                },
+                new AccessPolicyVersion
+                {
+                    Name = "2026-Q3 Visitor Tightening",
+                    Status = "Draft",
+                    ChangeSummary = "Adds escort-required visitor rules for production and logistics after-hours visits.",
+                    CreatedAtUtc = now.AddDays(-5),
+                    CreatedByUserId = adminUser?.UserId
+                });
+            db.SaveChanges();
+        }
+
+        var policyVersions = db.AccessPolicyVersions.OrderBy(policy => policy.AccessPolicyVersionId).ToList();
+        if (!db.AccessRules.Any() && levels.Count > 0 && groups.Count > 0 && schedules.Count > 0 && zones.Count > 0 && accessPoints.Count > 0)
+        {
+            var activePolicyId = policyVersions.FirstOrDefault(policy => policy.Status == "Active")?.AccessPolicyVersionId;
+            var rules = new List<AccessRule>();
+            if (sites.Count > 0)
+            {
+                rules.Add(new AccessRule
+                {
+                    AccessPolicyVersionId = activePolicyId,
+                    AccessLevelId = levels[0].AccessLevelId,
+                    AccessGroupId = groups[0].AccessGroupId,
+                    SiteId = sites[0].SiteId,
+                    SecurityZoneId = zones.First().SecurityZoneId,
+                    AccessPointId = accessPoints.First().AccessPointId,
+                    AccessScheduleId = schedules[0].AccessScheduleId,
+                    SubjectType = "Group",
+                    CredentialType = "DynamicQr",
+                    AllowAccess = true,
+                    ValidFromUtc = now.AddDays(-60),
+                    IsActive = true
+                });
+            }
+
+            if (sites.Count > 1 && zones.Count > 2)
+            {
+                rules.Add(new AccessRule
+                {
+                    AccessPolicyVersionId = activePolicyId,
+                    AccessLevelId = levels[Math.Min(1, levels.Count - 1)].AccessLevelId,
+                    AccessGroupId = groups[Math.Min(1, groups.Count - 1)].AccessGroupId,
+                    SiteId = sites[1].SiteId,
+                    SecurityZoneId = zones[2].SecurityZoneId,
+                    AccessPointId = accessPoints[Math.Min(2, accessPoints.Count - 1)].AccessPointId,
+                    AccessScheduleId = schedules[Math.Min(1, schedules.Count - 1)].AccessScheduleId,
+                    SubjectType = "Group",
+                    CredentialType = "DynamicQrAndPlate",
+                    AllowAccess = true,
+                    ValidFromUtc = now.AddDays(-60),
+                    IsActive = true
+                });
+            }
+
+            if (zones.Count > 0)
+            {
+                rules.Add(new AccessRule
+                {
+                    AccessPolicyVersionId = activePolicyId,
+                    AccessLevelId = levels[^1].AccessLevelId,
+                    AccessGroupId = groups[^1].AccessGroupId,
+                    SiteId = sites.FirstOrDefault()?.SiteId,
+                    SecurityZoneId = zones.Last().SecurityZoneId,
+                    AccessPointId = accessPoints.Last().AccessPointId,
+                    AccessScheduleId = schedules[0].AccessScheduleId,
+                    SubjectType = "Role",
+                    CredentialType = "Any",
+                    AllowAccess = true,
+                    ValidFromUtc = now.AddDays(-60),
+                    IsActive = true
+                });
+            }
+
+            db.AccessRules.AddRange(rules);
+        }
+
+        if (!db.TemporaryAccessGrants.Any() && employees.Count > 0 && accessPoints.Count > 0)
+        {
+            db.TemporaryAccessGrants.AddRange(employees
+                .Where(employee => employee.Status == true)
+                .Take(6)
+                .Select((employee, index) => new TemporaryAccessGrant
+                {
+                    SubjectType = "Employee",
+                    SubjectId = employee.EmployeeId,
+                    SiteId = employee.PrimarySiteId,
+                    SecurityZoneId = zones[index % zones.Count].SecurityZoneId,
+                    AccessPointId = accessPoints[index % accessPoints.Count].AccessPointId,
+                    ValidFromUtc = now.AddHours(-(index + 1)),
+                    ValidToUtc = now.AddHours(8 + index),
+                    Reason = index % 2 == 0 ? "Temporary audit escort extension" : "Maintenance window access override",
+                    ApprovedByUserId = adminUser?.UserId,
+                    IsRevoked = index == 5
+                }));
+        }
+
+        if (!db.AccessDecisions.Any() && policyVersions.Count > 0 && employees.Count > 0)
+        {
+            var activePolicy = policyVersions.First();
+            db.AccessDecisions.AddRange(employees.Take(16).Select((employee, index) => new AccessDecision
+            {
+                AccessPolicyVersionId = activePolicy.AccessPolicyVersionId,
+                SubjectType = "Employee",
+                SubjectId = employee.EmployeeId,
+                SiteId = employee.PrimarySiteId,
+                SecurityZoneId = zones[index % zones.Count].SecurityZoneId,
+                AccessPointId = accessPoints[index % accessPoints.Count].AccessPointId,
+                CredentialType = index % 3 == 0 ? "DynamicQrAndPlate" : "DynamicQr",
+                Result = index % 7 == 0 ? AccessDecisionResults.Review : index % 5 == 0 ? AccessDecisionResults.Deny : AccessDecisionResults.Allow,
+                Reason = index % 7 == 0 ? "Policy shadow mismatch for after-hours access." :
+                    index % 5 == 0 ? "Denied due to schedule mismatch and zone restriction." :
+                    "Access granted under active policy baseline.",
+                DecisionMode = index % 7 == 0 ? "Shadow" : "Enforced",
+                LegacyResult = index % 5 == 0 ? "Denied" : "Granted",
+                ShadowMismatch = index % 7 == 0,
+                EvaluatedAtUtc = now.AddMinutes(-(index * 12 + 5)),
+                EvaluatedByUserId = index % 4 == 0 ? adminUser?.UserId : null
+            }));
+        }
+
+        if (!db.AntiPassbackStates.Any() && employees.Count > 0)
+        {
+            db.AntiPassbackStates.AddRange(employees.Take(12).Select((employee, index) => new AntiPassbackState
+            {
+                SubjectType = "Employee",
+                SubjectId = employee.EmployeeId,
+                SecurityZoneId = zones[index % zones.Count].SecurityZoneId,
+                State = index % 5 == 0 ? "Inside" : index % 4 == 0 ? "Violation" : "Outside",
+                UpdatedAtUtc = now.AddMinutes(-(index * 9)),
+                IsViolated = index % 4 == 0,
+                ResetReason = index % 4 == 0 ? "Manual reset after tailgating review." : null
+            }));
+        }
+
+        if (!db.OccupancySnapshots.Any() && sites.Count > 0 && zones.Count > 0)
+        {
+            db.OccupancySnapshots.AddRange(sites.SelectMany((site, siteIndex) =>
+                zones.Where(zone => zone.SiteId == site.SiteId).Take(3).Select((zone, zoneIndex) => new OccupancySnapshot
+                {
+                    SiteId = site.SiteId,
+                    SecurityZoneId = zone.SecurityZoneId,
+                    Count = 12 + siteIndex * 18 + zoneIndex * 7,
+                    MaxAllowed = zone.IsRestricted ? 40 : 120,
+                    CapturedAtUtc = now.AddMinutes(-(siteIndex * 20 + zoneIndex * 8))
+                })));
+        }
+
+        if (!db.DuressEvents.Any() && employees.Count > 0)
+        {
+            db.DuressEvents.AddRange(employees.Take(3).Select((employee, index) => new DuressEvent
+            {
+                UserId = guardUsers.ElementAtOrDefault(index)?.UserId,
+                EmployeeId = employee.EmployeeId,
+                AccessPointId = accessPoints[index % accessPoints.Count].AccessPointId,
+                SecurityZoneId = zones[index % zones.Count].SecurityZoneId,
+                SiteId = employee.PrimarySiteId,
+                CredentialType = "PanicQr",
+                Description = index == 0
+                    ? "Guard triggered duress during manual verification with aggressive driver."
+                    : "Silent duress drill scenario for SOC readiness validation.",
+                Latitude = 21.0284m + index / 1000m,
+                Longitude = 105.8045m + index / 1000m,
+                IsAcknowledged = index > 0,
+                OccurredAtUtc = now.AddMinutes(-(45 + index * 11)),
+                AcknowledgedAtUtc = index > 0 ? now.AddMinutes(-(32 + index * 9)) : null,
+                AcknowledgedByUserId = index > 0 ? adminUser?.UserId : null
+            }));
+        }
+
+        if (!db.EmergencyStates.Any() && sites.Count > 0)
+        {
+            db.EmergencyStates.AddRange(
+                new EmergencyState
+                {
+                    State = "Normal",
+                    SiteId = sites[0].SiteId,
+                    SecurityZoneId = zones.FirstOrDefault(zone => zone.SiteId == sites[0].SiteId)?.SecurityZoneId,
+                    AccessPointId = accessPoints.FirstOrDefault(point => point.SiteId == sites[0].SiteId)?.AccessPointId,
+                    Reason = "Routine operational baseline.",
+                    IsActive = true,
+                    StartedAtUtc = now.AddDays(-3),
+                    CreatedByUserId = adminUser?.UserId
+                },
+                new EmergencyState
+                {
+                    State = "Drill",
+                    SiteId = sites.Last().SiteId,
+                    SecurityZoneId = zones.Last().SecurityZoneId,
+                    AccessPointId = accessPoints.Last().AccessPointId,
+                    Reason = "Warehouse evacuation tabletop exercise.",
+                    IsActive = false,
+                    StartedAtUtc = now.AddDays(-2),
+                    EndedAtUtc = now.AddDays(-2).AddHours(1),
+                    CreatedByUserId = adminUser?.UserId
+                });
+        }
+    }
+
+    private static void SeedLostFoundAndLockerData(ApplicationDbContext db, DateTime now)
+    {
+        var receptionUser = db.AppUsers.FirstOrDefault(user => user.Role == "LeTan");
+        var adminUser = db.AppUsers.FirstOrDefault(user => user.Role == "Admin");
+
+        if (!db.LockerCabinets.Any())
+        {
+            db.LockerCabinets.AddRange(
+                new LockerCabinet
+                {
+                    Name = "Reception Locker A",
+                    Location = "HN reception back office",
+                    Description = "Primary lost & found storage near front desk",
+                    IsActive = true,
+                    CreatedAtUtc = now.AddDays(-30)
+                },
+                new LockerCabinet
+                {
+                    Name = "Factory Security Locker",
+                    Location = "BN guard post storage room",
+                    Description = "Restricted holding cabinet for production-site valuables",
+                    IsActive = true,
+                    CreatedAtUtc = now.AddDays(-24)
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.LockerCompartments.Any())
+        {
+            var cabinets = db.LockerCabinets.OrderBy(cabinet => cabinet.LockerCabinetId).ToList();
+            db.LockerCompartments.AddRange(cabinets.SelectMany((cabinet, cabinetIndex) =>
+                Enumerable.Range(1, 4).Select(slot => new LockerCompartment
+                {
+                    LockerCabinetId = cabinet.LockerCabinetId,
+                    Code = $"{(cabinetIndex == 0 ? "A" : "F")}{slot:00}",
+                    Status = slot == 1 ? "Occupied" : slot == 4 ? "Maintenance" : "Empty"
+                })));
+            db.SaveChanges();
+        }
+
+        var compartments = db.LockerCompartments.OrderBy(compartment => compartment.LockerCompartmentId).ToList();
+
+        if (!db.LostItemReports.Any())
+        {
+            db.LostItemReports.AddRange(
+                new LostItemReport
+                {
+                    ReporterName = "Nguyen Thi Huong",
+                    ReporterPhone = "0912345678",
+                    ReporterEmail = "huong.visitor@example.com",
+                    ReporterIdNumber = "079123456789",
+                    ItemDescription = "Black iPhone 14 with blue protective case and staff meeting notes.",
+                    LastSeenLocation = "HN reception seating area",
+                    LostAtUtc = now.AddHours(-14),
+                    PhotoUrl = "/uploads/evidence/demo/lost-phone.jpg",
+                    Status = "Matched",
+                    CreatedByUserId = receptionUser?.UserId,
+                    CreatedAtUtc = now.AddHours(-13)
+                },
+                new LostItemReport
+                {
+                    ReporterName = "Tran Van Binh",
+                    ReporterPhone = "0988112233",
+                    ReporterEmail = "binh.contractor@example.com",
+                    ReporterIdNumber = "051998877665",
+                    ItemDescription = "Company access card in red holder.",
+                    LastSeenLocation = "BN employee gate locker table",
+                    LostAtUtc = now.AddHours(-9),
+                    PhotoUrl = "/uploads/evidence/demo/lost-badge.jpg",
+                    Status = "Open",
+                    CreatedByUserId = receptionUser?.UserId,
+                    CreatedAtUtc = now.AddHours(-8)
+                });
+            db.SaveChanges();
+        }
+
+        var evidenceItem = db.EvidenceItems.OrderBy(item => item.EvidenceItemId).FirstOrDefault();
+        if (!db.FoundItemReports.Any())
+        {
+            db.FoundItemReports.AddRange(
+                new FoundItemReport
+                {
+                    FoundByName = "Le Thi Lan",
+                    FoundByPhone = "0903123123",
+                    FoundByIdNumber = "034455667788",
+                    FoundLocation = "HN reception sofa zone",
+                    FoundAtUtc = now.AddHours(-12),
+                    ItemDescription = "Black iPhone 14 with lock screen showing Nguyen Thi Huong.",
+                    PhotoUrl = "/uploads/evidence/demo/found-phone.jpg",
+                    StorageLocation = "Reception Locker A / A01",
+                    LockerCompartmentId = compartments.FirstOrDefault()?.LockerCompartmentId,
+                    ItemEvidenceId = evidenceItem?.EvidenceItemId,
+                    Status = "Matched",
+                    CreatedByUserId = receptionUser?.UserId,
+                    CreatedAtUtc = now.AddHours(-11)
+                },
+                new FoundItemReport
+                {
+                    FoundByName = "Pham Quoc Huy",
+                    FoundByPhone = "0911223344",
+                    FoundByIdNumber = "066677788899",
+                    FoundLocation = "BN employee gate tray",
+                    FoundAtUtc = now.AddHours(-6),
+                    ItemDescription = "RFID badge with faded red lanyard.",
+                    PhotoUrl = "/uploads/evidence/demo/found-badge.jpg",
+                    StorageLocation = "Factory Security Locker / F02",
+                    LockerCompartmentId = compartments.Skip(1).FirstOrDefault()?.LockerCompartmentId,
+                    Status = "Unclaimed",
+                    CreatedByUserId = adminUser?.UserId,
+                    CreatedAtUtc = now.AddHours(-5)
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.ItemMatches.Any())
+        {
+            var lost = db.LostItemReports.OrderBy(item => item.LostItemReportId).ToList();
+            var found = db.FoundItemReports.OrderBy(item => item.FoundItemReportId).ToList();
+            if (lost.Count > 0 && found.Count > 0)
+            {
+                db.ItemMatches.Add(new ItemMatch
+                {
+                    LostItemReportId = lost[0].LostItemReportId,
+                    FoundItemReportId = found[0].FoundItemReportId,
+                    ConfidenceScore = 0.96,
+                    MatchedByUserId = adminUser?.UserId,
+                    MatchedAtUtc = now.AddHours(-10),
+                    Status = "Confirmed",
+                    Note = "Color, device model and owner lock screen details all matched."
+                });
+            }
+        }
+
+        if (!db.ClaimRequests.Any())
+        {
+            var lost = db.LostItemReports.OrderBy(item => item.LostItemReportId).ToList();
+            var found = db.FoundItemReports.OrderBy(item => item.FoundItemReportId).ToList();
+            if (found.Count > 0)
+            {
+                db.ClaimRequests.AddRange(
+                    new ClaimRequest
+                    {
+                        FoundItemReportId = found[0].FoundItemReportId,
+                        LostItemReportId = lost.FirstOrDefault()?.LostItemReportId,
+                        ClaimantName = "Nguyen Thi Huong",
+                        ClaimantIdNumber = "079123456789",
+                        ClaimantPhone = "0912345678",
+                        ProofDocumentUrl = "/uploads/evidence/demo/claim-proof-phone.pdf",
+                        ClaimantPhotoUrl = "/uploads/evidence/demo/claimant-huong.jpg",
+                        ItemPhotoUrl = "/uploads/evidence/demo/found-phone.jpg",
+                        Status = "Approved",
+                        ReviewedByUserId = adminUser?.UserId,
+                        ReviewNote = "IMEI and lock-screen identification confirmed.",
+                        RequestedAtUtc = now.AddHours(-9),
+                        ReviewedAtUtc = now.AddHours(-8),
+                        CompletedAtUtc = now.AddHours(-7),
+                        CompletedByUserId = receptionUser?.UserId,
+                        WitnessName = "Le Thi Lan",
+                        HandoverNote = "Returned at reception with witness and ID verification complete.",
+                        ReturnPhotoUrl = "/uploads/evidence/demo/return-phone.jpg"
+                    },
+                    new ClaimRequest
+                    {
+                        FoundItemReportId = found.Last().FoundItemReportId,
+                        ClaimantName = "Tran Van Binh",
+                        ClaimantIdNumber = "051998877665",
+                        ClaimantPhone = "0988112233",
+                        ProofDocumentUrl = "/uploads/evidence/demo/claim-proof-badge.pdf",
+                        ClaimantPhotoUrl = "/uploads/evidence/demo/claimant-binh.jpg",
+                        ItemPhotoUrl = "/uploads/evidence/demo/found-badge.jpg",
+                        Status = "Pending",
+                        RequestedAtUtc = now.AddHours(-2)
+                    });
+            }
+        }
+
+        if (!db.LockerAccessLogs.Any() && compartments.Count > 0)
+        {
+            db.LockerAccessLogs.AddRange(
+                new LockerAccessLog
+                {
+                    LockerCompartmentId = compartments[0].LockerCompartmentId,
+                    UserId = receptionUser?.UserId,
+                    Action = "StoreItem",
+                    Purpose = "Stored found iPhone pending owner verification.",
+                    Timestamp = now.AddHours(-11)
+                },
+                new LockerAccessLog
+                {
+                    LockerCompartmentId = compartments[0].LockerCompartmentId,
+                    UserId = adminUser?.UserId,
+                    Action = "ReviewAccess",
+                    Purpose = "Compliance witness review before approved handover.",
+                    Timestamp = now.AddHours(-8)
+                },
+                new LockerAccessLog
+                {
+                    LockerCompartmentId = compartments[0].LockerCompartmentId,
+                    UserId = receptionUser?.UserId,
+                    Action = "ReleaseItem",
+                    Purpose = "Released approved claim item to verified owner.",
+                    Timestamp = now.AddHours(-7)
+                });
+        }
+    }
+
+    private static void SeedSocAwarenessAndChatData(ApplicationDbContext db, List<Employee> employees, DateTime now)
+    {
+        var sites = db.Sites.OrderBy(site => site.SiteId).ToList();
+        var zones = db.SecurityZones.OrderBy(zone => zone.SecurityZoneId).ToList();
+        var accessPoints = db.AccessPoints.OrderBy(point => point.AccessPointId).ToList();
+        var cameras = db.Cameras.OrderBy(camera => camera.CameraId).ToList();
+        var devices = db.SecurityDevices.OrderBy(device => device.SecurityDeviceId).ToList();
+        var adminUser = db.AppUsers.FirstOrDefault(user => user.Role == "Admin");
+        var guardUser = db.AppUsers.FirstOrDefault(user => user.Role == "BaoVe");
+        var managerUser = db.AppUsers.FirstOrDefault(user => user.Role == "QuanLy");
+
+        if (!db.SecurityEvents.Any() && sites.Count > 0 && zones.Count > 0 && accessPoints.Count > 0)
+        {
+            var vehicles = db.Vehicles.OrderBy(vehicle => vehicle.VehicleId).Take(4).ToList();
+            db.SecurityEvents.AddRange(new[]
+            {
+                new SecurityEvent
+                {
+                    SourceType = "LaneEvent",
+                    SourceId = "DEMO-LANE-001",
+                    EventType = "TailgatingSuspected",
+                    Severity = "High",
+                    SiteId = sites[0].SiteId,
+                    SecurityZoneId = zones[0].SecurityZoneId,
+                    AccessPointId = accessPoints[0].AccessPointId,
+                    SubjectType = "Employee",
+                    SubjectId = employees.FirstOrDefault()?.EmployeeId,
+                    Confidence = 0.84m,
+                    Summary = "Two people entered through one turnstile cycle during peak entry window.",
+                    OccurredAtUtc = now.AddMinutes(-58),
+                    SiteNameSnapshot = sites[0].Name,
+                    SecurityZoneNameSnapshot = zones[0].Name,
+                    AccessPointNameSnapshot = accessPoints[0].Name
+                },
+                new SecurityEvent
+                {
+                    SourceType = "PlateCamera",
+                    SourceId = "DEMO-PLATE-002",
+                    EventType = "ManifestMismatch",
+                    Severity = "Critical",
+                    SiteId = sites.Last().SiteId,
+                    SecurityZoneId = zones.Last().SecurityZoneId,
+                    AccessPointId = accessPoints.Last().AccessPointId,
+                    SubjectType = "Vehicle",
+                    VehicleId = vehicles.LastOrDefault()?.VehicleId,
+                    PlateText = vehicles.LastOrDefault()?.LicensePlate,
+                    Confidence = 0.92m,
+                    Summary = "Truck entered logistics lane with plate tied to a suspended manifest.",
+                    OccurredAtUtc = now.AddMinutes(-34),
+                    SiteNameSnapshot = sites.Last().Name,
+                    SecurityZoneNameSnapshot = zones.Last().Name,
+                    AccessPointNameSnapshot = accessPoints.Last().Name
+                }
+            });
+            db.SaveChanges();
+        }
+
+        var securityEvents = db.SecurityEvents.OrderBy(item => item.SecurityEventId).ToList();
+        if (!db.EventCorrelations.Any() && securityEvents.Count > 0)
+        {
+            db.EventCorrelations.AddRange(
+                new EventCorrelation
+                {
+                    CorrelationId = securityEvents[0].CorrelationId,
+                    RuleName = "Tailgating + anti-passback correlation",
+                    Severity = "High",
+                    Summary = "Correlated tailgating, anti-passback violation and manual review in the same 10-minute window.",
+                    CreatedAtUtc = now.AddMinutes(-50)
+                },
+                new EventCorrelation
+                {
+                    CorrelationId = securityEvents.Last().CorrelationId,
+                    RuleName = "Vehicle anomaly bundle",
+                    Severity = "Critical",
+                    Summary = "Linked manifest mismatch with watchlist and lane override activity.",
+                    CreatedAtUtc = now.AddMinutes(-28)
+                });
+        }
+
+        if (!db.VideoBookmarks.Any() && securityEvents.Count > 0 && cameras.Count > 0)
+        {
+            db.VideoBookmarks.AddRange(securityEvents.Select((securityEvent, index) => new VideoBookmark
+            {
+                SecurityEventId = securityEvent.SecurityEventId,
+                CameraId = cameras[index % cameras.Count].CameraId,
+                ArtifactReference = $"demo://video-bookmarks/event-{securityEvent.SecurityEventId:000}.mp4",
+                StartUtc = securityEvent.OccurredAtUtc.AddMinutes(-2),
+                EndUtc = securityEvent.OccurredAtUtc.AddMinutes(3),
+                Note = "Pinned clip segment for investigation and dispatch briefing."
+            }));
+        }
+
+        if (!db.SiteMaps.Any() && sites.Count > 0)
+        {
+            db.SiteMaps.AddRange(sites.Select(site => new SiteMap
+            {
+                SiteId = site.SiteId,
+                Name = $"{site.Code} Operations Map",
+                AssetReference = $"demo://maps/{site.Code.ToLowerInvariant()}-operations.svg",
+                CoordinateSystem = "Normalized",
+                IsActive = true
+            }));
+            db.SaveChanges();
+        }
+
+        if (!db.MapDevicePlacements.Any())
+        {
+            var maps = db.SiteMaps.OrderBy(map => map.SiteMapId).ToList();
+            if (maps.Count > 0)
+            {
+                var placements = new List<MapDevicePlacement>();
+                foreach (var (map, index) in maps.Select((map, index) => (map, index)))
+                {
+                    var siteCameras = cameras.Skip(index).Take(2).ToList();
+                    foreach (var (camera, cameraIndex) in siteCameras.Select((camera, cameraIndex) => (camera, cameraIndex)))
+                    {
+                        placements.Add(new MapDevicePlacement
+                        {
+                            SiteMapId = map.SiteMapId,
+                            CameraId = camera.CameraId,
+                            X = 0.18m + index * 0.11m + cameraIndex * 0.09m,
+                            Y = 0.22m + cameraIndex * 0.14m,
+                            IconType = "Camera"
+                        });
+                    }
+
+                    foreach (var (device, deviceIndex) in devices.Take(2).Select((device, deviceIndex) => (device, deviceIndex)))
+                    {
+                        placements.Add(new MapDevicePlacement
+                        {
+                            SiteMapId = map.SiteMapId,
+                            SecurityDeviceId = device.SecurityDeviceId,
+                            X = 0.42m + index * 0.1m + deviceIndex * 0.08m,
+                            Y = 0.3m + deviceIndex * 0.16m,
+                            IconType = "Reader"
+                        });
+                    }
+                }
+
+                db.MapDevicePlacements.AddRange(placements);
+            }
+        }
+
+        if (!db.AlarmRules.Any())
+        {
+            db.AlarmRules.AddRange(
+                new AlarmRule { Name = "Tailgating escalation", EventType = "TailgatingSuspected", Severity = "High", IsActive = true },
+                new AlarmRule { Name = "Manifest mismatch critical", EventType = "ManifestMismatch", Severity = "Critical", IsActive = true },
+                new AlarmRule { Name = "Visitor overstay watchdog", EventType = "VisitorOverstay", Severity = "Medium", IsActive = true });
+        }
+
+        if (!db.SopTemplates.Any())
+        {
+            db.SopTemplates.AddRange(
+                new SopTemplate
+                {
+                    Name = "Tailgating response SOP",
+                    AlarmType = "Generic",
+                    Version = 2,
+                    ChecklistJson = "[\"Confirm camera clip\",\"Contact nearest guard\",\"Check anti-passback state\",\"Log outcome\"]",
+                    IsActive = true
+                },
+                new SopTemplate
+                {
+                    Name = "Vehicle anomaly dispatch SOP",
+                    AlarmType = "DeviceOffline",
+                    Version = 1,
+                    ChecklistJson = "[\"Stop vehicle safely\",\"Verify manifest\",\"Open incident if unresolved\",\"Collect export evidence\"]",
+                    IsActive = true
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.Incidents.Any())
+        {
+            var primaryAlarm = db.Alarms.OrderByDescending(alarm => alarm.AlarmId).FirstOrDefault();
+            db.Incidents.AddRange(
+                new Incident
+                {
+                    Title = "Tailgating investigation at HQ",
+                    Severity = "High",
+                    Status = "InProgress",
+                    PrimaryAlarmId = primaryAlarm?.AlarmId,
+                    OwnerUserId = adminUser?.UserId,
+                    Outcome = "Guard interview pending and badge replay review in progress.",
+                    OpenedAtUtc = now.AddMinutes(-54)
+                },
+                new Incident
+                {
+                    Title = "Logistics manifest mismatch",
+                    Severity = "Critical",
+                    Status = "Open",
+                    PrimaryAlarmId = primaryAlarm?.AlarmId,
+                    OwnerUserId = managerUser?.UserId,
+                    Outcome = "Escalated to logistics and SOC for physical verification.",
+                    OpenedAtUtc = now.AddMinutes(-30)
+                });
+            db.SaveChanges();
+        }
+
+        var incidents = db.Incidents.OrderBy(incident => incident.IncidentId).ToList();
+        if (!db.AlarmComments.Any())
+        {
+            var alarms = db.Alarms.OrderByDescending(alarm => alarm.AlarmId).Take(2).ToList();
+            db.AlarmComments.AddRange(alarms.Select((alarm, index) => new AlarmComment
+            {
+                AlarmId = alarm.AlarmId,
+                UserId = index % 2 == 0 ? adminUser?.UserId : guardUser?.UserId,
+                Comment = index % 2 == 0
+                    ? "SOC confirmed supporting video and requested guard dispatch."
+                    : "Field guard acknowledged alarm and is approaching the location.",
+                CreatedAtUtc = now.AddMinutes(-(26 - index * 4))
+            }));
+        }
+
+        if (!db.SopExecutions.Any() && incidents.Count > 0)
+        {
+            var templates = db.SopTemplates.OrderBy(template => template.SopTemplateId).ToList();
+            db.SopExecutions.AddRange(incidents.Select((incident, index) => new SopExecution
+            {
+                IncidentId = incident.IncidentId,
+                SopTemplateId = templates[index % templates.Count].SopTemplateId,
+                Status = index == 0 ? "InProgress" : "Completed",
+                CompletedStepsJson = index == 0
+                    ? "[\"Confirm camera clip\",\"Contact nearest guard\"]"
+                    : "[\"Stop vehicle safely\",\"Verify manifest\",\"Collect export evidence\"]",
+                ExecutedByUserId = guardUser?.UserId,
+                StartedAtUtc = incident.OpenedAtUtc.AddMinutes(2),
+                CompletedAtUtc = index == 0 ? null : incident.OpenedAtUtc.AddMinutes(18)
+            }));
+        }
+
+        if (!db.IncidentTimelineItems.Any() && incidents.Count > 0)
+        {
+            db.IncidentTimelineItems.AddRange(incidents.SelectMany((incident, index) => new[]
+            {
+                new IncidentTimelineItem
+                {
+                    IncidentId = incident.IncidentId,
+                    ItemType = "Created",
+                    Text = $"Incident opened for {incident.Title}.",
+                    UserId = adminUser?.UserId,
+                    CreatedAtUtc = incident.OpenedAtUtc
+                },
+                new IncidentTimelineItem
+                {
+                    IncidentId = incident.IncidentId,
+                    ItemType = "Dispatch",
+                    Text = index == 0 ? "Nearest guard dispatched to HQ turnstile." : "Logistics gate frozen for manifest verification.",
+                    UserId = guardUser?.UserId,
+                    CreatedAtUtc = incident.OpenedAtUtc.AddMinutes(6)
+                },
+                new IncidentTimelineItem
+                {
+                    IncidentId = incident.IncidentId,
+                    ItemType = "Evidence",
+                    Text = "Relevant clips and audit artifacts bookmarked for case review.",
+                    UserId = adminUser?.UserId,
+                    CreatedAtUtc = incident.OpenedAtUtc.AddMinutes(11)
+                }
+            }));
+        }
+
+        if (!db.DispatchTasks.Any() && incidents.Count > 0)
+        {
+            db.DispatchTasks.AddRange(incidents.Select((incident, index) => new DispatchTask
+            {
+                IncidentId = incident.IncidentId,
+                SiteId = sites[index % sites.Count].SiteId,
+                LocationText = index == 0 ? "HQ turnstile bank A" : "HP logistics gate lane 2",
+                Latitude = 21.0284m + index / 100m,
+                Longitude = 105.8045m + index / 100m,
+                Priority = index == 0 ? "High" : "Critical",
+                Status = index == 0 ? "InProgress" : "Open",
+                AssignedGuardUserId = guardUser?.UserId,
+                Instructions = index == 0
+                    ? "Interview involved staff, preserve QR audit and inspect anti-passback state."
+                    : "Hold vehicle safely, verify manifest, escalate discrepancies immediately.",
+                CreatedAtUtc = now.AddMinutes(-(40 - index * 5)),
+                CompletedAtUtc = index == 0 ? null : now.AddMinutes(-12)
+            }));
+        }
+
+        if (!db.ShiftHandovers.Any() && sites.Count > 0)
+        {
+            var nextGuard = db.AppUsers.Where(user => user.Role == "BaoVe").OrderBy(user => user.UserId).Skip(1).FirstOrDefault();
+            db.ShiftHandovers.Add(new ShiftHandover
+            {
+                SiteId = sites[0].SiteId,
+                FromUserId = guardUser?.UserId,
+                ToUserId = nextGuard?.UserId,
+                Summary = "Watchlist vehicle remains pending verification, one contractor badge issue unresolved, and HQ tailgating case remains under review.",
+                CreatedAtUtc = now.AddHours(-1)
+            });
+        }
+
+        if (!db.EmergencyMusterSnapshots.Any() && sites.Count > 0)
+        {
+            var musterPoints = db.MusterPoints.OrderBy(point => point.MusterPointId).ToList();
+            db.EmergencyMusterSnapshots.AddRange(sites.Select((site, index) => new EmergencyMusterSnapshot
+            {
+                SiteId = site.SiteId,
+                MusterPointId = musterPoints.ElementAtOrDefault(index)?.MusterPointId,
+                KnownOnsite = 120 + index * 45,
+                AccountedFor = 118 + index * 44,
+                VisitorsOnsite = 6 + index,
+                UnaccountedFor = index == 1 ? 3 : 1,
+                CapturedAtUtc = now.AddDays(-1).AddMinutes(index * 15)
+            }));
+        }
+
+        if (!db.ClipRequests.Any() && securityEvents.Count > 0 && cameras.Count > 0)
+        {
+            db.ClipRequests.AddRange(securityEvents.Select((securityEvent, index) => new ClipRequest
+            {
+                CameraId = cameras[index % cameras.Count].CameraId,
+                SecurityEventId = securityEvent.SecurityEventId,
+                StartUtc = securityEvent.OccurredAtUtc.AddMinutes(-2),
+                EndUtc = securityEvent.OccurredAtUtc.AddMinutes(4),
+                RequestedBy = index % 2 == 0 ? "SOC Analyst" : "Security Manager",
+                Status = index % 2 == 0 ? "Exported" : "Approved",
+                RetentionCategory = "Incident",
+                ExportReference = index % 2 == 0 ? $"demo://clips/security-event-{securityEvent.SecurityEventId:000}.mp4" : null,
+                Note = "Clip requested for correlation review and briefing package.",
+                CreatedAtUtc = securityEvent.OccurredAtUtc.AddMinutes(3),
+                ApprovedAtUtc = securityEvent.OccurredAtUtc.AddMinutes(7),
+                ExportedAtUtc = index % 2 == 0 ? securityEvent.OccurredAtUtc.AddMinutes(12) : null
+            }));
+        }
+
+        if (!db.ChatConversations.Any() && employees.Count >= 4)
+        {
+            var conversation = new ChatConversation
+            {
+                CreatedAt = now.AddHours(-6),
+                Title = "SOC Shift Coordination"
+            };
+            db.ChatConversations.Add(conversation);
+            db.SaveChanges();
+
+            var participants = employees.Take(4).ToList();
+            db.ChatParticipants.AddRange(participants.Select((employee, index) => new ChatParticipant
+            {
+                ConversationId = conversation.ConversationId,
+                EmployeeId = employee.EmployeeId,
+                LastReadAt = now.AddMinutes(-(15 - index * 2))
+            }));
+
+            db.ChatMessages.AddRange(new[]
+            {
+                new ChatMessage
+                {
+                    ConversationId = conversation.ConversationId,
+                    SenderId = participants[0].EmployeeId,
+                    Content = "Tailgating clip is uploaded. Need one guard to verify badge owner near turnstile A.",
+                    SentAt = now.AddHours(-5).AddMinutes(42),
+                    IsRead = true,
+                    ReadAt = now.AddHours(-5).AddMinutes(30),
+                    MessageType = "Text"
+                },
+                new ChatMessage
+                {
+                    ConversationId = conversation.ConversationId,
+                    SenderId = participants[1].EmployeeId,
+                    Content = "Dispatch acknowledged. Approaching location now and will report back in 5 minutes.",
+                    SentAt = now.AddHours(-5).AddMinutes(35),
+                    IsRead = true,
+                    ReadAt = now.AddHours(-5).AddMinutes(22),
+                    MessageType = "Text"
+                },
+                new ChatMessage
+                {
+                    ConversationId = conversation.ConversationId,
+                    SenderId = participants[2].EmployeeId,
+                    Content = "Manifest mismatch vehicle is still queued at HP gate. Export package requested.",
+                    SentAt = now.AddHours(-2).AddMinutes(18),
+                    IsRead = false,
+                    MessageType = "Text"
+                }
+            });
+        }
+    }
+
+    private static void SeedOperationalReadinessData(ApplicationDbContext db, DateTime now)
+    {
+        if (!db.OutboxEvents.Any())
+        {
+            db.OutboxEvents.AddRange(
+                new OutboxEvent
+                {
+                    EventType = "Alarm.Created",
+                    AggregateType = "Alarm",
+                    AggregateId = "DEMO-ALARM-001",
+                    PayloadJson = "{\"alarmType\":\"Tailgating\",\"severity\":\"High\"}",
+                    Status = "Dispatched",
+                    RetryCount = 0,
+                    NextAttemptAtUtc = null,
+                    CreatedAtUtc = now.AddHours(-4),
+                    DispatchedAtUtc = now.AddHours(-4).AddMinutes(1)
+                },
+                new OutboxEvent
+                {
+                    EventType = "Visit.Overstay",
+                    AggregateType = "Visit",
+                    AggregateId = "DEMO-VISIT-004",
+                    PayloadJson = "{\"status\":\"Overstay\",\"minutes\":37}",
+                    Status = "Pending",
+                    RetryCount = 1,
+                    NextAttemptAtUtc = now.AddMinutes(20),
+                    CreatedAtUtc = now.AddMinutes(-35)
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.WebhookSubscriptions.Any())
+        {
+            db.WebhookSubscriptions.AddRange(
+                new WebhookSubscription
+                {
+                    Name = "SOC event bridge",
+                    TargetUrl = "https://ops.example.internal/hooks/vshield/soc",
+                    SecretReference = "secret://webhooks/soc-event-bridge",
+                    EventTypes = "Alarm.Created,Incident.Updated,Visit.Overstay",
+                    IsActive = true,
+                    CreatedAtUtc = now.AddDays(-20)
+                },
+                new WebhookSubscription
+                {
+                    Name = "Compliance export notifier",
+                    TargetUrl = "https://governance.example.internal/hooks/vshield/export",
+                    SecretReference = "secret://webhooks/compliance-export",
+                    EventTypes = "EvidenceExport.Approved,Retention.ReportReady",
+                    IsActive = true,
+                    CreatedAtUtc = now.AddDays(-11)
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.WebhookDeliveries.Any())
+        {
+            var subscription = db.WebhookSubscriptions.OrderBy(item => item.WebhookSubscriptionId).FirstOrDefault();
+            var outbox = db.OutboxEvents.OrderBy(item => item.OutboxEventId).FirstOrDefault();
+            if (subscription != null)
+            {
+                db.WebhookDeliveries.AddRange(
+                    new WebhookDelivery
+                    {
+                        WebhookSubscriptionId = subscription.WebhookSubscriptionId,
+                        OutboxEventId = outbox?.OutboxEventId,
+                        Status = "Delivered",
+                        AttemptCount = 1,
+                        LastAttemptAtUtc = now.AddHours(-4).AddMinutes(1),
+                        ResponseStatusCode = 202,
+                        ResponseBody = "{\"accepted\":true}",
+                        Signature = "sig-demo-delivered",
+                        CreatedAtUtc = now.AddHours(-4)
+                    },
+                    new WebhookDelivery
+                    {
+                        WebhookSubscriptionId = subscription.WebhookSubscriptionId,
+                        OutboxEventId = db.OutboxEvents.OrderByDescending(item => item.OutboxEventId).FirstOrDefault()?.OutboxEventId,
+                        Status = "Retrying",
+                        AttemptCount = 2,
+                        LastAttemptAtUtc = now.AddMinutes(-5),
+                        ResponseStatusCode = 503,
+                        ResponseBody = "temporary upstream unavailable",
+                        Signature = "sig-demo-retry",
+                        CreatedAtUtc = now.AddMinutes(-30)
+                    });
+            }
+        }
+
+        if (!db.RuntimeDependencyHealths.Any())
+        {
+            db.RuntimeDependencyHealths.AddRange(
+                new RuntimeDependencyHealth
+                {
+                    DependencyName = "sql-primary",
+                    DependencyType = "Database",
+                    Status = "Healthy",
+                    LatencyMs = 18,
+                    Message = "Primary SQL latency within target.",
+                    ObservedAtUtc = now.AddMinutes(-3)
+                },
+                new RuntimeDependencyHealth
+                {
+                    DependencyName = "go2rtc",
+                    DependencyType = "Streaming",
+                    Status = "Degraded",
+                    LatencyMs = 240,
+                    Message = "Occasional restart delay observed during camera config reload.",
+                    ObservedAtUtc = now.AddMinutes(-6)
+                },
+                new RuntimeDependencyHealth
+                {
+                    DependencyName = "notification-webhook-bridge",
+                    DependencyType = "Webhook",
+                    Status = "Warning",
+                    LatencyMs = 510,
+                    Message = "Upstream compliance bridge returned intermittent 503 responses.",
+                    ObservedAtUtc = now.AddMinutes(-12)
+                });
+        }
+
+        if (!db.BackupRuns.Any())
+        {
+            db.BackupRuns.AddRange(
+                new BackupRun
+                {
+                    Profile = "Production-like",
+                    Status = "Completed",
+                    StartedAtUtc = now.AddDays(-1).AddHours(-2),
+                    CompletedAtUtc = now.AddDays(-1).AddHours(-1).AddMinutes(14),
+                    BackupReference = "demo://backup/sql/accesscontroldb-2026-06-29.bak",
+                    SizeBytes = 3_250_000_000,
+                    TargetRpoMinutes = 30,
+                    TargetRtoMinutes = 120,
+                    Verified = true,
+                    Notes = "Nightly backup finished and checksum verified."
+                },
+                new BackupRun
+                {
+                    Profile = "Production-like",
+                    Status = "Completed",
+                    StartedAtUtc = now.AddDays(-2).AddHours(-2),
+                    CompletedAtUtc = now.AddDays(-2).AddHours(-1).AddMinutes(9),
+                    BackupReference = "demo://backup/sql/accesscontroldb-2026-06-28.bak",
+                    SizeBytes = 3_180_000_000,
+                    TargetRpoMinutes = 30,
+                    TargetRtoMinutes = 120,
+                    Verified = true,
+                    Notes = "Retention chain consistent with previous backup."
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.RestoreDrills.Any())
+        {
+            var backupRun = db.BackupRuns.OrderByDescending(run => run.BackupRunId).FirstOrDefault();
+            db.RestoreDrills.Add(new RestoreDrill
+            {
+                BackupRunId = backupRun?.BackupRunId,
+                Profile = "Production-like",
+                Status = "Completed",
+                StartedAtUtc = now.AddDays(-1).AddHours(1),
+                CompletedAtUtc = now.AddDays(-1).AddHours(2).AddMinutes(8),
+                MeasuredRpoMinutes = 11,
+                MeasuredRtoMinutes = 68,
+                Passed = true,
+                Findings = "Restore drill passed; one post-restore webhook secret rebind step remains manual."
+            });
+        }
+
+        if (!db.SecurityOperationsChecks.Any())
+        {
+            db.SecurityOperationsChecks.AddRange(
+                new SecurityOperationsCheck
+                {
+                    CheckType = "Runbook",
+                    Name = "SOC shift start checklist",
+                    Status = "Passed",
+                    Evidence = "demo://runbooks/soc-shift-start-ack-2026-06-30.pdf",
+                    CheckedAtUtc = now.AddHours(-7)
+                },
+                new SecurityOperationsCheck
+                {
+                    CheckType = "Resilience",
+                    Name = "Webhook retry queue review",
+                    Status = "NeedsAttention",
+                    Evidence = "Delivery queue contains 1 retrying subscription.",
+                    CheckedAtUtc = now.AddHours(-1)
+                });
+        }
+
+        if (!db.QaTestRuns.Any())
+        {
+            db.QaTestRuns.AddRange(
+                new QaTestRun
+                {
+                    TestType = "Regression",
+                    Profile = "MediumCompany",
+                    Status = "Completed",
+                    PassedCount = 182,
+                    FailedCount = 0,
+                    EvidenceReference = "demo://qa/regression-2026-06-29.html",
+                    StartedAtUtc = now.AddDays(-1).AddHours(-6),
+                    CompletedAtUtc = now.AddDays(-1).AddHours(-4),
+                    Notes = "Core web flows, access control and evidence governance all passed."
+                },
+                new QaTestRun
+                {
+                    TestType = "Smoke",
+                    Profile = "WebOnlyVps",
+                    Status = "Completed",
+                    PassedCount = 34,
+                    FailedCount = 0,
+                    EvidenceReference = "demo://qa/vps-smoke-2026-06-30.html",
+                    StartedAtUtc = now.AddHours(-3),
+                    CompletedAtUtc = now.AddHours(-2).AddMinutes(35),
+                    Notes = "VPS web-only compose sanity run completed."
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.ReleaseCandidates.Any())
+        {
+            db.ReleaseCandidates.AddRange(
+                new ReleaseCandidate
+                {
+                    Version = "2.0.0-rc3",
+                    Status = "Approved",
+                    MigrationId = "20260629071320_AddGeolocationSystem",
+                    BuildReference = "build://vshield/2.0.0-rc3",
+                    CreatedByUserId = db.AppUsers.FirstOrDefault(user => user.Role == "Admin")?.UserId,
+                    ApprovedByUserId = db.AppUsers.FirstOrDefault(user => user.Role == "Admin")?.UserId,
+                    CreatedAtUtc = now.AddDays(-2),
+                    ApprovedAtUtc = now.AddDays(-1)
+                });
+            db.SaveChanges();
+        }
+
+        if (!db.ReleaseGateChecks.Any())
+        {
+            var candidate = db.ReleaseCandidates.OrderByDescending(item => item.ReleaseCandidateId).FirstOrDefault();
+            if (candidate != null)
+            {
+                db.ReleaseGateChecks.AddRange(
+                    new ReleaseGateCheck
+                    {
+                        ReleaseCandidateId = candidate.ReleaseCandidateId,
+                        GateName = "Security configuration review",
+                        Status = "Passed",
+                        Required = true,
+                        EvidenceReference = "demo://release/security-review-rc3.pdf",
+                        Notes = "JWT, MFA and evidence signing configuration reviewed.",
+                        VerifiedByUserId = candidate.ApprovedByUserId,
+                        VerifiedAtUtc = now.AddDays(-1).AddHours(1)
+                    },
+                    new ReleaseGateCheck
+                    {
+                        ReleaseCandidateId = candidate.ReleaseCandidateId,
+                        GateName = "Web-only VPS smoke deployment",
+                        Status = "Passed",
+                        Required = true,
+                        EvidenceReference = "demo://release/vps-smoke-rc3.txt",
+                        Notes = "Frontend, API and SQL stack reached healthy state with same-origin proxy.",
+                        VerifiedByUserId = candidate.ApprovedByUserId,
+                        VerifiedAtUtc = now.AddHours(-2)
+                    });
+            }
+        }
+
+        if (!db.RunbookAcknowledgements.Any())
+        {
+            db.RunbookAcknowledgements.AddRange(
+                new RunbookAcknowledgement
+                {
+                    RunbookName = "SOC Incident Triage",
+                    RoleName = "BaoVe",
+                    AcknowledgedByUserId = db.AppUsers.FirstOrDefault(user => user.Role == "BaoVe")?.UserId,
+                    EvidenceReference = "demo://runbooks/soc-triage-ack.pdf",
+                    AcknowledgedAtUtc = now.AddDays(-3)
+                },
+                new RunbookAcknowledgement
+                {
+                    RunbookName = "Evidence Export Approval",
+                    RoleName = "Admin",
+                    AcknowledgedByUserId = db.AppUsers.FirstOrDefault(user => user.Role == "Admin")?.UserId,
+                    EvidenceReference = "demo://runbooks/evidence-export-ack.pdf",
+                    AcknowledgedAtUtc = now.AddDays(-5)
+                });
+        }
     }
 
     private static void SeedCampus3DScene(ApplicationDbContext db, List<Site> sites, DateTime now)

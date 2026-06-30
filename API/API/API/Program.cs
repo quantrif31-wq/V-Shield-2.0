@@ -11,6 +11,7 @@ using API.Services.AI;
 using API.Services.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -184,6 +185,15 @@ namespace API
                 {
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor |
+                    ForwardedHeaders.XForwardedProto |
+                    ForwardedHeaders.XForwardedHost;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
 
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -276,6 +286,7 @@ namespace API
                 app.UseSwaggerUI();
             }
 
+            app.UseForwardedHeaders();
             app.UseMiddleware<CorrelationIdMiddleware>();
             app.UseMiddleware<SafeExceptionHandlingMiddleware>();
             app.UseSecurityHeaders();
@@ -283,7 +294,7 @@ namespace API
             {
                 app.UseHsts();
             }
-            if (!app.Environment.IsEnvironment("Testing"))
+            if (ShouldUseHttpsRedirection(app.Configuration, app.Environment))
             {
                 app.UseHttpsRedirection();
             }
@@ -621,6 +632,14 @@ namespace API
             {
                 // Startup should not crash if go2rtc is unavailable.
             }
+        }
+
+        private static bool ShouldUseHttpsRedirection(IConfiguration configuration, IHostEnvironment environment)
+        {
+            if (environment.IsEnvironment("Testing"))
+                return false;
+
+            return configuration.GetValue("Security:EnableHttpsRedirection", true);
         }
     }
 

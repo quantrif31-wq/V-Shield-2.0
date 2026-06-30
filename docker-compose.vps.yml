@@ -1,0 +1,84 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: vshield-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in your environment or .env.vps file}"
+    expose:
+      - "1433"
+    volumes:
+      - vshield_mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in your environment or .env.vps file}", "-Q", "SELECT 1", "-C"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./API/API
+      dockerfile: Dockerfile
+    container_name: vshield-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5107
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=${SQL_DATABASE:-AccessControlDB};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in your environment or .env.vps file};Encrypt=True;TrustServerCertificate=True;"
+      VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:?Set VSHIELD_JWT_SECRET in your environment or .env.vps file}"
+      JwtSettings__Issuer: "${JWT_ISSUER:-VShieldAPI-VPS}"
+      JwtSettings__Audience: "${JWT_AUDIENCE:-VShieldClient-VPS}"
+      VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:?Set VSHIELD_SEED_ADMIN_USERNAME in your environment or .env.vps file}"
+      VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:?Set VSHIELD_SEED_ADMIN_PASSWORD in your environment or .env.vps file}"
+      VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY: "${VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY:?Set VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY in your environment or .env.vps file}"
+      Authentication__RequireMfaForRoles__0: "Admin"
+      Authentication__RequireMfaForRoles__1: "BaoVe"
+      RateLimiting__Backend: "SqlServer"
+      Runtime__Mode: docker
+      Security__EnableHttpsRedirection: "${SECURITY_ENABLE_HTTPS_REDIRECTION:-false}"
+      AppSettings__FrontendUrl: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
+      AppSettings__AllowedOrigins__0: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
+      AppSettings__AllowedOrigins__1: "${APP_FRONTEND_URL_ALT:-}"
+      AppSettings__Go2RtcPublicBaseUrl: "${APP_GO2RTC_PUBLIC_BASE_URL:-http://127.0.0.1:1984}"
+      AppSettings__AllowCrossOriginGo2RtcFrame: "${APP_ALLOW_CROSS_ORIGIN_GO2RTC_FRAME:-false}"
+      Go2Rtc__ConfigPath: "${GO2RTC_CONFIG_PATH:-/runtime/go2rtc/go2rtc.yaml}"
+      Go2Rtc__ReloadUrl: "${GO2RTC_RELOAD_URL:-http://127.0.0.1:1984/api/restart}"
+      Go2Rtc__WebRtcCandidates: "${GO2RTC_WEBRTC_CANDIDATES:-}"
+      Go2Rtc__WebRtcPort: "${GO2RTC_WEBRTC_PORT:-8555}"
+      Go2Rtc__StreamMode: "${GO2RTC_STREAM_MODE:-webrtc}"
+    expose:
+      - "5107"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./runtime/go2rtc:/runtime/go2rtc
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5107/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./View
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-/api}"
+        VITE_QR_API_BASE_URL: "${VITE_QR_API_BASE_URL:-/api}"
+        VITE_PLATE_API_BASE_URL: "${VITE_PLATE_API_BASE_URL:-/api}"
+        VITE_FACE_API_BASE_URL: "${VITE_FACE_API_BASE_URL:-/api}"
+    container_name: vshield-frontend
+    environment:
+      API_PROXY_BASE: "http://api:5107"
+      GO2RTC_PROXY_BASE: "${GO2RTC_PROXY_BASE:-http://127.0.0.1:1984}"
+    ports:
+      - "${APP_HTTP_PORT:-80}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  vshield_mssql_data:

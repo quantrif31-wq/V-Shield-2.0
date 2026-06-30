@@ -280,3 +280,52 @@ Khong hardcode domain trong code nua.
 ```powershell
 .\manage.ps1 -Action status
 ```
+## Deployment modes
+
+Project hien co 2 mode trien khai chinh:
+
+### Local full
+
+Dung cho may local/noi bo khi can day du thanh phan:
+
+- Vue frontend
+- ASP.NET API
+- SQL Server
+- go2rtc
+- Cloudflared tunnel neu can
+- AI runtime theo profile
+
+Lenh chay:
+
+```powershell
+docker compose up -d --build
+docker compose --profile ai up -d --build
+docker compose --profile ai-heavy up -d --build
+```
+
+### VPS web-only
+
+Dung cho VPS Ubuntu khi chi can stack web:
+
+- Vue frontend
+- ASP.NET API
+- SQL Server
+
+Khong keo theo camera public, Cloudflared, AI runtime hay APK/mobile.
+
+Lenh chay:
+
+```powershell
+Copy-Item .env.vps.example .env.vps
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
+
+Luu y:
+
+- Frontend VPS proxy same-origin cho `/api` va `/hubs`
+- API va SQL chi mo noi bo container trong mode VPS
+- Dien day du secret trong `.env.vps` truoc khi deploy
+
+Tai lieu bo sung:
+
+- `docs/WEB_DEPLOYMENT_MODES.md`
