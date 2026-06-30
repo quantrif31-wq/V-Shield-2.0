@@ -15,10 +15,10 @@ public class CreateUserRequest
     [MaxLength(100)]
     public string? FullName { get; set; }
 
-    /// <summary>Admin | Staff | BaoVe</summary>
+    /// <summary>Admin | QuanLy | BaoVe | LeTan</summary>
     [Required]
-    [RegularExpression("^(Admin|Staff|BaoVe)$", ErrorMessage = "Role phải là Admin, Staff hoặc BaoVe")]
-    public string Role { get; set; } = "Staff";
+    [RegularExpression("^(Admin|BaoVe|QuanLy|LeTan)$", ErrorMessage = "Role phai la Admin, BaoVe, QuanLy hoac LeTan")]
+    public string Role { get; set; } = "LeTan";
 
     public int? EmployeeId { get; set; }
 }

@@ -11,6 +11,11 @@ public class Alarm
     [MaxLength(40)] public string State { get; set; } = "New";
     [MaxLength(2000)] public string Summary { get; set; } = string.Empty;
     public int? SiteId { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public decimal? Altitude { get; set; }
+    public decimal? Accuracy { get; set; }
+    [MaxLength(120)] public string? SourceDeviceId { get; set; }
     public int? AssignedToUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? AcknowledgedAtUtc { get; set; }
@@ -90,6 +95,8 @@ public class DispatchTask
     public long? IncidentId { get; set; }
     public int? SiteId { get; set; }
     [MaxLength(160)] public string LocationText { get; set; } = string.Empty;
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
     [MaxLength(40)] public string Priority { get; set; } = "Medium";
     [MaxLength(40)] public string Status { get; set; } = "Open";
     public int? AssignedGuardUserId { get; set; }

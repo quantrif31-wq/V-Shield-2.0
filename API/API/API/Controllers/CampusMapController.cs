@@ -270,6 +270,165 @@ public class CampusMapController : ControllerBase
         });
     }
 
+    [HttpGet("scene3d")]
+    public async Task<IActionResult> GetScene3D(CancellationToken cancellationToken)
+    {
+        var objects = await _context.Campus3DObjects
+            .AsNoTracking()
+            .Include(o => o.Site)
+            .Where(o => o.IsActive)
+            .OrderBy(o => o.SiteId)
+            .ThenBy(o => o.ObjectType)
+            .ToListAsync(cancellationToken);
+
+        var gateIds = objects.Where(o => o.ObjectType == "GateMarker").Select(o => o.SiteId).ToList();
+        var realtime = await _realtimeService.BuildSnapshotAsync(DateTime.Now, cancellationToken);
+
+        var sites = await _context.Sites
+            .AsNoTracking()
+            .Select(s => new { s.SiteId, s.Name, s.Code })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new
+        {
+            sites = sites.Select(s => new
+            {
+                siteId = s.SiteId,
+                name = s.Name,
+                code = s.Code,
+                objects = objects.Where(o => o.SiteId == s.SiteId).Select(o => new
+                {
+                    id = o.Id,
+                    type = o.ObjectType,
+                    label = o.Label,
+                    posX = o.PositionX,
+                    posZ = o.PositionZ,
+                    posY = o.PositionY,
+                    width = o.Width,
+                    length = o.Length,
+                    height = o.Height,
+                    floors = o.Floors,
+                    rotation = o.Rotation,
+                    color = o.Color,
+                    properties = o.PropertiesJson,
+                    isActive = o.IsActive
+                })
+            }),
+            gates = realtime.Gates.Select(g => new
+            {
+                gateId = g.GateId,
+                gateName = g.GateName,
+                status = g.Status,
+                cameraCount = g.CameraCount,
+                offlineCameraCount = g.OfflineCameraCount,
+                lastAccessAt = g.LastAccessAt,
+                recentAccessCount = g.RecentAccessCount
+            }),
+            summary = new
+            {
+                siteCount = sites.Count,
+                objectCount = objects.Count,
+                onlineGates = realtime.Summary.ActiveGateCount,
+                warningGates = realtime.Summary.WarningGateCount,
+                offlineCameras = realtime.Summary.OfflineCameraCount
+            },
+            updatedAt = realtime.UpdatedAt
+        });
+    }
+
+    [HttpPost("scene3d/objects")]
+    public async Task<IActionResult> CreateSceneObject(
+        [FromBody] Campus3DObjectUpsertRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await CanEditAsync()) return Forbid();
+
+        var validation = await ValidateSceneObjectRequestAsync(request, cancellationToken);
+        if (validation != null) return validation;
+
+        var entity = new Campus3DObject
+        {
+            SiteId = request.SiteId,
+            ObjectType = request.ObjectType.Trim(),
+            Label = request.Label.Trim(),
+            PositionX = request.PositionX,
+            PositionY = request.PositionY,
+            PositionZ = request.PositionZ,
+            Width = request.Width,
+            Length = request.Length,
+            Height = request.Height,
+            Floors = request.Floors,
+            Rotation = request.Rotation,
+            Color = string.IsNullOrWhiteSpace(request.Color) ? null : request.Color.Trim(),
+            PropertiesJson = string.IsNullOrWhiteSpace(request.PropertiesJson) ? null : request.PropertiesJson.Trim(),
+            IsActive = request.IsActive ?? true,
+        };
+
+        _context.Campus3DObjects.Add(entity);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Ok(BuildSceneObjectPayload(entity));
+    }
+
+    [HttpPatch("scene3d/objects/{objectId:int}")]
+    public async Task<IActionResult> UpdateSceneObject(
+        int objectId,
+        [FromBody] Campus3DObjectPatchRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await CanEditAsync()) return Forbid();
+
+        var entity = await _context.Campus3DObjects.FirstOrDefaultAsync(o => o.Id == objectId, cancellationToken);
+        if (entity == null)
+            return NotFound(new { message = "3D object not found." });
+
+        if (request.SiteId.HasValue)
+        {
+            var siteExists = await _context.Sites.AsNoTracking().AnyAsync(s => s.SiteId == request.SiteId.Value, cancellationToken);
+            if (!siteExists)
+                return BadRequest(new { message = "Site does not exist." });
+            entity.SiteId = request.SiteId.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ObjectType))
+            entity.ObjectType = request.ObjectType.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Label))
+            entity.Label = request.Label.Trim();
+
+        entity.PositionX = request.PositionX ?? entity.PositionX;
+        entity.PositionY = request.PositionY ?? entity.PositionY;
+        entity.PositionZ = request.PositionZ ?? entity.PositionZ;
+        entity.Width = request.Width ?? entity.Width;
+        entity.Length = request.Length ?? entity.Length;
+        entity.Height = request.Height ?? entity.Height;
+        entity.Floors = request.Floors ?? entity.Floors;
+        entity.Rotation = request.Rotation ?? entity.Rotation;
+        entity.Color = request.Color != null ? request.Color.Trim() : entity.Color;
+        entity.PropertiesJson = request.PropertiesJson != null ? request.PropertiesJson.Trim() : entity.PropertiesJson;
+        entity.IsActive = request.IsActive ?? entity.IsActive;
+
+        var numericError = ValidateSceneObjectNumbers(entity.Width, entity.Length, entity.Height);
+        if (numericError != null)
+            return BadRequest(new { message = numericError });
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(BuildSceneObjectPayload(entity));
+    }
+
+    [HttpDelete("scene3d/objects/{objectId:int}")]
+    public async Task<IActionResult> DeleteSceneObject(int objectId, CancellationToken cancellationToken)
+    {
+        if (!await CanEditAsync()) return Forbid();
+
+        var entity = await _context.Campus3DObjects.FirstOrDefaultAsync(o => o.Id == objectId, cancellationToken);
+        if (entity == null)
+            return NotFound(new { message = "3D object not found." });
+
+        _context.Campus3DObjects.Remove(entity);
+        await _context.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("realtime")]
     public async Task<IActionResult> GetRealtime(CancellationToken cancellationToken)
     {
@@ -308,6 +467,56 @@ public class CampusMapController : ControllerBase
         }
 
         return null;
+    }
+
+    private async Task<IActionResult?> ValidateSceneObjectRequestAsync(
+        Campus3DObjectUpsertRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.ObjectType))
+            return BadRequest(new { message = "ObjectType is required." });
+        if (string.IsNullOrWhiteSpace(request.Label))
+            return BadRequest(new { message = "Label is required." });
+
+        var siteExists = await _context.Sites.AsNoTracking().AnyAsync(s => s.SiteId == request.SiteId, cancellationToken);
+        if (!siteExists)
+            return BadRequest(new { message = "Site does not exist." });
+
+        var numericError = ValidateSceneObjectNumbers(request.Width, request.Length, request.Height);
+        if (numericError != null)
+            return BadRequest(new { message = numericError });
+
+        return null;
+    }
+
+    private static string? ValidateSceneObjectNumbers(decimal width, decimal length, decimal height)
+    {
+        if (width <= 0) return "Width must be greater than 0.";
+        if (length <= 0) return "Length must be greater than 0.";
+        if (height <= 0) return "Height must be greater than 0.";
+        return null;
+    }
+
+    private static object BuildSceneObjectPayload(Campus3DObject entity)
+    {
+        return new
+        {
+            id = entity.Id,
+            siteId = entity.SiteId,
+            type = entity.ObjectType,
+            label = entity.Label,
+            posX = entity.PositionX,
+            posY = entity.PositionY,
+            posZ = entity.PositionZ,
+            width = entity.Width,
+            length = entity.Length,
+            height = entity.Height,
+            floors = entity.Floors,
+            rotation = entity.Rotation,
+            color = entity.Color,
+            properties = entity.PropertiesJson,
+            isActive = entity.IsActive
+        };
     }
 
     private static CampusMapLayout BuildDefaultLayoutEntity(int gateId, int index)
@@ -355,4 +564,36 @@ public class CampusMapController : ControllerBase
         _logger.LogDebug("CampusMapController cannot parse current user id from claims.");
         return null;
     }
+
+    public sealed record Campus3DObjectUpsertRequest(
+        int SiteId,
+        string ObjectType,
+        string Label,
+        decimal PositionX,
+        decimal PositionY,
+        decimal PositionZ,
+        decimal Width,
+        decimal Length,
+        decimal Height,
+        int? Floors,
+        decimal Rotation,
+        string? Color,
+        string? PropertiesJson,
+        bool? IsActive);
+
+    public sealed record Campus3DObjectPatchRequest(
+        int? SiteId,
+        string? ObjectType,
+        string? Label,
+        decimal? PositionX,
+        decimal? PositionY,
+        decimal? PositionZ,
+        decimal? Width,
+        decimal? Length,
+        decimal? Height,
+        int? Floors,
+        decimal? Rotation,
+        string? Color,
+        string? PropertiesJson,
+        bool? IsActive);
 }

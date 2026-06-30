@@ -15,11 +15,13 @@ public class LeaveRequestsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IAttendancePermissionService _permissionService;
+    private readonly INotificationService _notificationService;
 
-    public LeaveRequestsController(ApplicationDbContext context, IAttendancePermissionService permissionService)
+    public LeaveRequestsController(ApplicationDbContext context, IAttendancePermissionService permissionService, INotificationService notificationService)
     {
         _context = context;
         _permissionService = permissionService;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -186,6 +188,12 @@ public class LeaveRequestsController : ControllerBase
 
         _context.LeaveRequests.Add(leaveRequest);
         await _context.SaveChangesAsync();
+        var requesterName = await _context.Employees.Where(e => e.EmployeeId == targetEmployeeId.Value).Select(e => e.FullName).FirstOrDefaultAsync() ?? "Nhân viên";
+        await _notificationService.NotifyEventAsync("Approval.LeaveRequest.Submitted",
+            $"Đơn nghỉ phép mới từ {requesterName}",
+            $"{requesterName} xin nghỉ {request.LeaveType} từ {startDate:dd/MM} đến {endDate:dd/MM}: {request.Reason}",
+            "LeaveRequest", leaveRequest.LeaveRequestId.ToString(),
+            "/attendance/leave-approvals");
         return CreatedAtAction(nameof(GetById), new { id = leaveRequest.LeaveRequestId }, leaveRequest);
     }
 
@@ -238,6 +246,12 @@ public class LeaveRequestsController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        var approverName = await _context.Employees.Where(e => e.EmployeeId == leaveRequest.EmployeeId).Select(e => e.FullName).FirstOrDefaultAsync() ?? "";
+        await _notificationService.NotifyEventAsync("Approval.LeaveRequest.Approved",
+            "Đơn nghỉ phép đã được duyệt",
+            $"Đơn nghỉ phép {leaveRequest.LeaveType} từ {leaveRequest.StartDate:dd/MM} đến {leaveRequest.EndDate:dd/MM} đã được duyệt.",
+            "LeaveRequest", leaveRequest.LeaveRequestId.ToString(),
+            "/attendance/my-leave-requests");
         return Ok(new { message = "Da duyet don nghi.", leaveRequestId = id });
     }
 
@@ -264,6 +278,11 @@ public class LeaveRequestsController : ControllerBase
         leaveRequest.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.LeaveRequest.Rejected",
+            "Đơn nghỉ phép bị từ chối",
+            $"Đơn nghỉ phép {leaveRequest.LeaveType} từ {leaveRequest.StartDate:dd/MM} đến {leaveRequest.EndDate:dd/MM} bị từ chối. Lý do: {request.RejectReason}",
+            "LeaveRequest", leaveRequest.LeaveRequestId.ToString(),
+            "/attendance/my-leave-requests");
         return Ok(new { message = "Da tu choi don nghi.", leaveRequestId = id });
     }
 
@@ -293,6 +312,9 @@ public class LeaveRequestsController : ControllerBase
         if (_permissionService.IsAdmin(User))
             return query;
 
+        if (User.IsInRole("NhanSu"))
+            return query;
+
         if (await _permissionService.IsManagerAsync(User))
         {
             var deptId = await _permissionService.GetUserDepartmentIdAsync(User);
@@ -314,6 +336,6 @@ public class LeaveRequestsController : ControllerBase
     }
 
     private async Task<bool> EnsureCanApproveAsync() =>
-        _permissionService.IsAdmin(User) || await _permissionService.IsManagerAsync(User);
+        _permissionService.IsAdmin(User) || await _permissionService.IsManagerAsync(User) || User.IsInRole("NhanSu");
 }
 

@@ -8,7 +8,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/guest-profiles")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin,LeTan")]
 public class GuestProfilesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

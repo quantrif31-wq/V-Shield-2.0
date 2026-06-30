@@ -39,6 +39,7 @@ else:
 
 API_PORT = int(os.getenv("PORT", 5001))
 WINDOW_NAME = "FACEID SINGLE-READ LOCK MODE"
+HEADLESS_MODE = os.getenv("HEADLESS_MODE", "1").strip().lower() not in {"0", "false", "no"}
 
 THRESHOLD = 0.35
 CONFIRM_FRAMES = 5
@@ -1499,7 +1500,12 @@ def main():
     api_thread = threading.Thread(target=run_api_server, daemon=True)
     api_thread.start()
 
-    debug_view_loop()
+    if HEADLESS_MODE:
+        print("Headless mode enabled. GUI preview loop is disabled.")
+        while not stop_event.is_set():
+            time.sleep(0.5)
+    else:
+        debug_view_loop()
 
     with api_lock:
         close_camera()

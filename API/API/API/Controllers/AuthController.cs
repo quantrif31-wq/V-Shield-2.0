@@ -3,6 +3,7 @@ using API.Data;
 using API.DTOs;
 using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,15 +19,18 @@ public class AuthController : ControllerBase
     private readonly Services.IAuthenticationService _authService;
     private readonly Services.IStepUpService _stepUpService;
     private readonly ApplicationDbContext _context;
+    private readonly UserOperationalScopeService _scopeService;
 
     public AuthController(
         Services.IAuthenticationService AuthenticationService,
         Services.IStepUpService stepUpService,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        UserOperationalScopeService scopeService)
     {
         _authService = AuthenticationService;
         _stepUpService = stepUpService;
         _context = context;
+        _scopeService = scopeService;
     }
 
     /// <summary>Đăng nhập và nhận JWT token</summary>
@@ -97,6 +101,11 @@ public class AuthController : ControllerBase
         if (user == null)
             return NotFound();
 
+        var hasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId);
+        var operationalTaskKeys = hasOperationalScopeAssignments
+            ? await _scopeService.GetActiveTaskKeysAsync(user.UserId)
+            : new List<string>();
+
         return Ok(new UserResponse
         {
             UserId = user.UserId,
@@ -108,7 +117,9 @@ public class AuthController : ControllerBase
             EmployeeId = user.EmployeeId,
             MfaEnabled = user.MfaEnabled,
             MfaRequired = _authService.RequiresMfa(user),
-            LastLoginAtUtc = user.LastLoginAtUtc
+            LastLoginAtUtc = user.LastLoginAtUtc,
+            HasOperationalScopeAssignments = hasOperationalScopeAssignments,
+            OperationalTaskKeys = operationalTaskKeys
         });
     }
 

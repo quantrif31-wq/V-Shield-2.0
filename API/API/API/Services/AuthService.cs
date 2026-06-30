@@ -24,19 +24,22 @@ public class AuthenticationService : IAuthenticationService
     private readonly IMemoryCache _cache;
     private readonly TotpService _totpService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly UserOperationalScopeService _scopeService;
 
     public AuthenticationService(
         ApplicationDbContext context,
         IConfiguration config,
         IMemoryCache cache,
         TotpService totpService,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        UserOperationalScopeService scopeService)
     {
         _context = context;
         _config = config;
         _cache = cache;
         _totpService = totpService;
         _httpContextAccessor = httpContextAccessor;
+        _scopeService = scopeService;
     }
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -158,6 +161,10 @@ public class AuthenticationService : IAuthenticationService
 
     public bool RequiresMfa(AppUser user)
     {
+        if (_config.GetValue("Authentication:DemoBypassMfa", false) &&
+            _config.GetValue("DemoData:Enabled", false))
+            return false;
+
         var configuredRoles = _config.GetSection("Authentication:RequireMfaForRoles").Get<string[]>();
         var roles = configuredRoles is { Length: > 0 }
             ? configuredRoles
@@ -312,6 +319,11 @@ public class AuthenticationService : IAuthenticationService
         user.LastLoginAtUtc = now;
         await _context.SaveChangesAsync();
 
+        var hasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId);
+        var operationalTaskKeys = hasOperationalScopeAssignments
+            ? await _scopeService.GetActiveTaskKeysAsync(user.UserId)
+            : new List<string>();
+
         return new LoginResponse
         {
             UserId = user.UserId,
@@ -322,7 +334,9 @@ public class AuthenticationService : IAuthenticationService
             Role = user.Role,
             EmployeeId = user.EmployeeId,
             ExpiresAt = expiresAt,
-            RefreshTokenExpiresAt = refreshExpiresAt
+            RefreshTokenExpiresAt = refreshExpiresAt,
+            HasOperationalScopeAssignments = hasOperationalScopeAssignments,
+            OperationalTaskKeys = operationalTaskKeys
         };
     }
 

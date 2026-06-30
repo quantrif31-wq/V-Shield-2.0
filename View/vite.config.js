@@ -7,6 +7,20 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [vue()],
+    build: {
+      chunkSizeWarningLimit: 1700,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules")) {
+              if (id.includes("@microsoft/signalr")) return "signalr-vendor"
+              if (id.includes("maplibre-gl") || id.includes("three")) return "map-vendor"
+              if (id.includes("html5-qrcode") || id.includes("jsqr") || id.includes("qrcode")) return "qr-vendor"
+            }
+          }
+        }
+      }
+    },
     server: {
       host: "0.0.0.0",
       port: 5173,

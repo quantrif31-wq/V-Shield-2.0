@@ -110,6 +110,7 @@
                             :key="notification.id"
                             class="notification-item"
                             :class="{ unread: !notification.read }"
+                            @click="handleNotificationClick(notification)"
                         >
                             <div class="notification-icon" :class="notification.type">
                                 <svg v-if="notification.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -129,7 +130,12 @@
 
                             <div class="notification-content">
                                 <p>{{ notification.message }}</p>
-                                <span class="notification-time">{{ notification.time }}</span>
+                                <div class="notification-meta">
+                                    <span class="notification-time">{{ notification.time }}</span>
+                                    <router-link v-if="notification.latitude && notification.referenceType === 'Alarm'" :to="'/incident-map/' + notification.referenceId" class="notif-map-link" title="Xem trên bản đồ" @click.stop>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="10" r="3"/><path d="M12 21s-8-4-8-10a8 8 0 0116 0c0 6-8 10-8 10z"/></svg>
+                                    </router-link>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -143,6 +149,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authState, logout } from '../../stores/auth'
+import {
+    getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead,
+    connectNotificationHub, disconnectNotificationHub, onNotification
+} from '../../services/notificationApi'
 
 defineProps({
     collapsed: Boolean,
@@ -201,28 +211,28 @@ const routeMeta = {
         description: 'Theo dõi xe đăng ký cố định của nhân viên và trạng thái trong bãi.',
     },
     AttendanceRecords: {
-        title: 'Bang cham cong',
-        description: 'Theo doi check-in/check-out, di tre va tong gio lam theo ngay.',
+        title: 'Bảng chấm công',
+        description: 'Theo dõi check-in/check-out, đi trễ và tổng giờ làm theo ngày.',
     },
     AttendanceWorkSchedules: {
-        title: 'Lich lam viec',
-        description: 'Phan ca va kiem soat trang thai lich lam viec cua nhan vien.',
+        title: 'Lịch làm việc',
+        description: 'Phân ca và kiểm soát trạng thái lịch làm việc của nhân viên.',
     },
     AttendanceShifts: {
-        title: 'Ca lam viec',
-        description: 'Cau hinh khung gio ca, di tre, ve som va nghi giua ca.',
+        title: 'Ca làm việc',
+        description: 'Cấu hình khung giờ ca, đi trễ, về sớm và nghỉ giữa ca.',
     },
     LeaveRequests: {
-        title: 'Don xin nghi',
-        description: 'Gui don nghi, theo doi phe duyet va trang thai xu ly.',
+        title: 'Đơn xin nghỉ',
+        description: 'Gửi đơn nghỉ, theo dõi phê duyệt và trạng thái xử lý.',
     },
     LeaveApprovals: {
-        title: 'Duyet don nghi',
-        description: 'Quan ly/Admin xu ly don nghi cho nhan vien theo phong ban.',
+        title: 'Duyệt đơn nghỉ',
+        description: 'Quản lý/Admin xử lý đơn nghỉ cho nhân viên theo phòng ban.',
     },
     AttendanceReports: {
-        title: 'Bao cao cong',
-        description: 'Thong ke ngay cong, di tre, ve som va tang ca theo thang.',
+        title: 'Báo cáo công',
+        description: 'Thống kê ngày công, đi trễ, về sớm và tăng ca theo tháng.',
     },
     DeviceManagement: {
         title: 'Camera & cổng',
@@ -230,7 +240,7 @@ const routeMeta = {
     },
     Biometrics: {
         title: 'Dữ liệu nhận diện',
-        description: 'Kiểm tra model, video khuôn mặt và độ phủ dữ liệu AI theo từng nhân sự.',
+        description: 'Khu vực legacy không sử dụng trong luồng demo QR động.',
     },
     UserManagement: {
         title: 'Tài khoản & phân quyền',
@@ -281,38 +291,61 @@ const userInitial = computed(() => {
 const roleLabel = computed(() => {
     const map = {
         Admin: 'Quản trị viên',
-        Staff: 'Nhân viên vận hành',
         BaoVe: 'Bảo vệ trực cổng',
         QuanLy: 'Quản lý vận hành',
+        LeTan: 'Lễ tân',
     }
     return map[authState.user?.role] || authState.user?.role || 'Tài khoản hệ thống'
 })
 
-const notifications = ref([
-    {
-        id: 1,
-        message: 'Có bản ghi ngoại lệ mới cần kiểm tra trong mục Xử lý ngoại lệ.',
-        time: '5 phút trước',
-        type: 'warning',
-        read: false,
-    },
-    {
-        id: 2,
-        message: 'Hệ thống đã đồng bộ danh sách hẹn trước và dashboard sáng nay.',
-        time: '15 phút trước',
-        type: 'success',
-        read: false,
-    },
-    {
-        id: 3,
-        message: 'Camera và cổng đã được map lại theo danh mục nghiệp vụ mới.',
-        time: '1 giờ trước',
-        type: 'info',
-        read: true,
-    },
-])
+const notifications = ref([])
+const unreadCount = ref(0)
 
-const unreadCount = computed(() => notifications.value.filter((item) => !item.read).length)
+async function loadNotifications() {
+    try {
+        const res = await getNotifications(0, 50)
+        const items = res.data || []
+        notifications.value = items.map(n => ({
+            id: n.id,
+            message: n.body ? (n.title + ': ' + n.body) : n.title,
+            time: formatTimeAgo(n.createdAt),
+            type: mapEventType(n.category),
+            read: n.isRead,
+            actionUrl: n.actionUrl,
+            latitude: n.latitude,
+            longitude: n.longitude,
+            locationLabel: n.locationLabel,
+            referenceId: n.referenceId,
+            referenceType: n.referenceType,
+        }))
+    } catch (_) {}
+}
+
+async function loadUnreadCount() {
+    try {
+        const res = await getUnreadCount()
+        unreadCount.value = res.data?.count || 0
+    } catch (_) {}
+}
+
+function mapEventType(eventType) {
+    if (!eventType) return 'info'
+    if (eventType.startsWith('Alarm')) return 'warning'
+    if (eventType.includes('Approved') || eventType.includes('Executed') || eventType.includes('Completed')) return 'success'
+    return 'info'
+}
+
+function formatTimeAgo(dateStr) {
+    if (!dateStr) return ''
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Vừa xong'
+    if (mins < 60) return `${mins} phút trước`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs} giờ trước`
+    const days = Math.floor(hrs / 24)
+    return `${days} ngày trước`
+}
 
 function updateTime() {
     const now = new Date()
@@ -344,7 +377,21 @@ function toggleUserMenu() {
 }
 
 function markAllRead() {
+    markAllNotificationsRead()
     notifications.value = notifications.value.map((item) => ({ ...item, read: true }))
+    unreadCount.value = 0
+}
+
+function handleNotificationClick(notification) {
+    if (!notification.read) {
+        markNotificationRead(notification.id)
+        notification.read = true
+        unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    if (notification.actionUrl) {
+        router.push(notification.actionUrl)
+    }
+    showNotifications.value = false
 }
 
 async function handleLogout() {
@@ -360,15 +407,40 @@ function handleDocumentClick(event) {
 
 let timer = null
 
-onMounted(() => {
+onMounted(async () => {
     updateTime()
     timer = setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
+    await loadNotifications()
+    await loadUnreadCount()
+    try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+        if (token) {
+            await connectNotificationHub(token)
+            onNotification((n) => {
+                notifications.value.unshift({
+                    id: n.id,
+                    message: n.body ? (n.title + ': ' + n.body) : n.title,
+                    time: formatTimeAgo(n.createdAt),
+                    type: mapEventType(n.category),
+                    read: false,
+                    actionUrl: n.actionUrl,
+                    latitude: n.latitude,
+                    longitude: n.longitude,
+                    locationLabel: n.locationLabel,
+                    referenceId: n.referenceId,
+                    referenceType: n.referenceType,
+                })
+                unreadCount.value++
+            })
+        }
+    } catch (_) {}
 })
 
 onUnmounted(() => {
     clearInterval(timer)
     document.removeEventListener('click', handleDocumentClick)
+    disconnectNotificationHub()
 })
 
 watch(
@@ -401,7 +473,7 @@ watch(
 }
 
 .app-header.collapsed {
-    left: calc(var(--sidebar-collapsed-width) + 18px);
+    left: 0;
 }
 
 .header-left {
@@ -414,7 +486,7 @@ watch(
 .menu-toggle {
     width: 44px;
     height: 44px;
-    display: none;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 14px;
@@ -422,6 +494,13 @@ watch(
     background: rgba(255, 255, 255, 0.76);
     color: var(--text-secondary);
     flex-shrink: 0;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(84, 196, 211, 0.3);
 }
 
 .menu-toggle svg {
@@ -799,11 +878,35 @@ watch(
     line-height: 1.45;
 }
 
-.notification-time {
-    display: block;
+.notification-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-top: 6px;
+}
+
+.notification-time {
     color: var(--text-muted);
     font-size: 0.76rem;
+}
+
+.notif-map-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 1px solid var(--border-soft);
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all 0.15s;
+}
+
+.notif-map-link:hover {
+    background: rgba(71, 163, 212, 0.12);
+    color: #8cd4ff;
+    border-color: #8cd4ff;
 }
 
 .dropdown-enter-active,
@@ -834,10 +937,6 @@ watch(
         right: 12px;
         height: var(--header-height);
         padding: 14px 16px;
-    }
-
-    .menu-toggle {
-        display: inline-flex;
     }
 
     .time-chip {

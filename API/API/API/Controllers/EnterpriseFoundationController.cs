@@ -92,6 +92,9 @@ public class EnterpriseFoundationController : ControllerBase
                 Zones = site.Zones.OrderBy(zone => zone.Name).Select(zone => new
                 {
                     zone.SecurityZoneId,
+                    zone.SiteId,
+                    zone.BuildingId,
+                    zone.FacilityFloorId,
                     zone.Name,
                     zone.Code,
                     zone.SecurityLevel,
@@ -108,6 +111,75 @@ public class EnterpriseFoundationController : ControllerBase
                 })
             })
         }));
+    }
+
+    [HttpGet("hierarchy/search")]
+    public async Task<IActionResult> SearchHierarchy([FromQuery] string? type, [FromQuery] string? q)
+    {
+        if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(q))
+            return Ok(Array.Empty<object>());
+
+        var term = q.Trim().ToUpperInvariant();
+        var results = new List<object>();
+
+        switch (type.ToLowerInvariant())
+        {
+            case "company":
+                results.AddRange(await _context.Companies
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { x.CompanyId, x.Name, x.Code, EntityType = "Company", ParentId = (int?)null, ParentName = (string?)null })
+                    .ToListAsync());
+                break;
+            case "site":
+                results.AddRange(await _context.Sites
+                    .Include(x => x.Company)
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { SiteId = x.SiteId, x.Name, x.Code, EntityType = "Site", ParentId = (int?)x.CompanyId, ParentName = x.Company!.Name })
+                    .ToListAsync());
+                break;
+            case "building":
+                results.AddRange(await _context.Buildings
+                    .Include(x => x.Site)
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { BuildingId = x.BuildingId, x.Name, x.Code, EntityType = "Building", ParentId = (int?)x.SiteId, ParentName = x.Site!.Name })
+                    .ToListAsync());
+                break;
+            case "zone":
+                results.AddRange(await _context.SecurityZones
+                    .Include(x => x.Site)
+                    .Where(x => x.Name.ToUpper().Contains(term) || x.Code.ToUpper().Contains(term))
+                    .Select(x => new { x.SecurityZoneId, x.Name, x.Code, EntityType = "Zone", ParentId = (int?)x.SiteId, ParentName = x.Site!.Name })
+                    .ToListAsync());
+                break;
+            default:
+                results.AddRange(await _context.AccessPoints
+                    .Include(x => x.Site)
+                    .Where(x => x.Name.ToUpper().Contains(term) || (type == "accesspoint" || type == "all"))
+                    .Take(50)
+                    .Select(x => new { x.AccessPointId, x.Name, Type = x.Type, EntityType = "AccessPoint", ParentId = (int?)x.SiteId, ParentName = x.Site!.Name })
+                    .ToListAsync());
+                break;
+        }
+
+        return Ok(results.Take(50));
+    }
+
+    [HttpGet("backfill/status")]
+    public async Task<IActionResult> GetBackfillStatus()
+    {
+        var assetMap = await _backfillService.GetAssetMapAsync();
+        return Ok(new
+        {
+            GatesMapped = assetMap.Gates.Count(g => g.SiteId.HasValue),
+            GatesUnmapped = assetMap.Gates.Count(g => !g.SiteId.HasValue),
+            CamerasMapped = assetMap.Cameras.Count(c => c.SiteId.HasValue),
+            CamerasUnmapped = assetMap.Cameras.Count(c => !c.SiteId.HasValue),
+            VehiclesMapped = assetMap.Vehicles.Count(v => v.SiteId.HasValue),
+            VehiclesUnmapped = assetMap.Vehicles.Count(v => !v.SiteId.HasValue),
+            TotalGates = assetMap.Gates.Count,
+            TotalCameras = assetMap.Cameras.Count,
+            TotalVehicles = assetMap.Vehicles.Count
+        });
     }
 
     [HttpGet("asset-map")]
@@ -147,6 +219,48 @@ public class EnterpriseFoundationController : ControllerBase
         return CreatedAtAction(nameof(GetHierarchy), new { id = company.CompanyId }, company);
     }
 
+    [HttpPatch("companies/{companyId:int}")]
+    public async Task<IActionResult> UpdateCompany(int companyId, [FromBody] CompanyPatchRequest request)
+    {
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId);
+        if (company == null)
+            return NotFound(new { message = "Company not found." });
+
+        var validation = ValidateNameCode(request.Name, request.Code);
+        if (validation != null) return validation;
+
+        company.Name = request.Name.Trim();
+        company.Code = request.Code.Trim();
+        company.IsActive = request.IsActive;
+
+        await _context.SaveChangesAsync();
+        return Ok(company);
+    }
+
+    [HttpDelete("companies/{companyId:int}")]
+    public async Task<IActionResult> DeleteCompany(int companyId)
+    {
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId);
+        if (company == null)
+            return NotFound(new { message = "Company not found." });
+
+        company.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(company);
+    }
+
+    [HttpPatch("companies/{companyId:int}/restore")]
+    public async Task<IActionResult> RestoreCompany(int companyId)
+    {
+        var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId);
+        if (company == null)
+            return NotFound(new { message = "Company not found." });
+
+        company.IsActive = true;
+        await _context.SaveChangesAsync();
+        return Ok(company);
+    }
+
     [HttpPost("sites")]
     public async Task<IActionResult> CreateSite([FromBody] SiteRequest request)
     {
@@ -166,6 +280,54 @@ public class EnterpriseFoundationController : ControllerBase
         };
 
         _context.Sites.Add(site);
+        await _context.SaveChangesAsync();
+        return Ok(site);
+    }
+
+    [HttpPatch("sites/{siteId:int}")]
+    public async Task<IActionResult> UpdateSite(int siteId, [FromBody] SitePatchRequest request)
+    {
+        var site = await _context.Sites.FirstOrDefaultAsync(s => s.SiteId == siteId);
+        if (site == null)
+            return NotFound(new { message = "Site not found." });
+
+        if (request.CompanyId.HasValue && !await _context.Companies.AnyAsync(c => c.CompanyId == request.CompanyId.Value))
+            return BadRequest(new { message = "Company does not exist." });
+
+        var validation = ValidateNameCode(request.Name, request.Code);
+        if (validation != null) return validation;
+
+        site.CompanyId = request.CompanyId ?? site.CompanyId;
+        site.Name = request.Name.Trim();
+        site.Code = request.Code.Trim();
+        site.Address = request.Address?.Trim();
+        site.TimeZoneId = string.IsNullOrWhiteSpace(request.TimeZoneId) ? site.TimeZoneId : request.TimeZoneId.Trim();
+        site.IsActive = request.IsActive;
+
+        await _context.SaveChangesAsync();
+        return Ok(site);
+    }
+
+    [HttpDelete("sites/{siteId:int}")]
+    public async Task<IActionResult> DeleteSite(int siteId)
+    {
+        var site = await _context.Sites.FirstOrDefaultAsync(s => s.SiteId == siteId);
+        if (site == null)
+            return NotFound(new { message = "Site not found." });
+
+        site.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(site);
+    }
+
+    [HttpPatch("sites/{siteId:int}/restore")]
+    public async Task<IActionResult> RestoreSite(int siteId)
+    {
+        var site = await _context.Sites.FirstOrDefaultAsync(s => s.SiteId == siteId);
+        if (site == null)
+            return NotFound(new { message = "Site not found." });
+
+        site.IsActive = true;
         await _context.SaveChangesAsync();
         return Ok(site);
     }
@@ -191,6 +353,52 @@ public class EnterpriseFoundationController : ControllerBase
         return Ok(building);
     }
 
+    [HttpPatch("buildings/{buildingId:int}")]
+    public async Task<IActionResult> UpdateBuilding(int buildingId, [FromBody] BuildingPatchRequest request)
+    {
+        var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
+        if (building == null)
+            return NotFound(new { message = "Building not found." });
+
+        if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
+            return BadRequest(new { message = "Site does not exist." });
+
+        var validation = ValidateNameCode(request.Name, request.Code);
+        if (validation != null) return validation;
+
+        building.SiteId = request.SiteId ?? building.SiteId;
+        building.Name = request.Name.Trim();
+        building.Code = request.Code.Trim();
+        building.IsActive = request.IsActive;
+
+        await _context.SaveChangesAsync();
+        return Ok(building);
+    }
+
+    [HttpDelete("buildings/{buildingId:int}")]
+    public async Task<IActionResult> DeleteBuilding(int buildingId)
+    {
+        var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
+        if (building == null)
+            return NotFound(new { message = "Building not found." });
+
+        building.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(building);
+    }
+
+    [HttpPatch("buildings/{buildingId:int}/restore")]
+    public async Task<IActionResult> RestoreBuilding(int buildingId)
+    {
+        var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
+        if (building == null)
+            return NotFound(new { message = "Building not found." });
+
+        building.IsActive = true;
+        await _context.SaveChangesAsync();
+        return Ok(building);
+    }
+
     [HttpPost("floors")]
     public async Task<IActionResult> CreateFloor([FromBody] FloorRequest request)
     {
@@ -209,6 +417,53 @@ public class EnterpriseFoundationController : ControllerBase
         };
 
         _context.FacilityFloors.Add(floor);
+        await _context.SaveChangesAsync();
+        return Ok(floor);
+    }
+
+    [HttpPatch("floors/{floorId:int}")]
+    public async Task<IActionResult> UpdateFloor(int floorId, [FromBody] FloorPatchRequest request)
+    {
+        var floor = await _context.FacilityFloors.FirstOrDefaultAsync(f => f.FacilityFloorId == floorId);
+        if (floor == null)
+            return NotFound(new { message = "Floor not found." });
+
+        if (request.BuildingId.HasValue && !await _context.Buildings.AnyAsync(b => b.BuildingId == request.BuildingId.Value))
+            return BadRequest(new { message = "Building does not exist." });
+
+        var validation = ValidateNameCode(request.Name, request.Code);
+        if (validation != null) return validation;
+
+        floor.BuildingId = request.BuildingId ?? floor.BuildingId;
+        floor.Name = request.Name.Trim();
+        floor.Code = request.Code.Trim();
+        floor.SortOrder = request.SortOrder;
+        floor.IsActive = request.IsActive;
+
+        await _context.SaveChangesAsync();
+        return Ok(floor);
+    }
+
+    [HttpDelete("floors/{floorId:int}")]
+    public async Task<IActionResult> DeleteFloor(int floorId)
+    {
+        var floor = await _context.FacilityFloors.FirstOrDefaultAsync(f => f.FacilityFloorId == floorId);
+        if (floor == null)
+            return NotFound(new { message = "Floor not found." });
+
+        floor.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(floor);
+    }
+
+    [HttpPatch("floors/{floorId:int}/restore")]
+    public async Task<IActionResult> RestoreFloor(int floorId)
+    {
+        var floor = await _context.FacilityFloors.FirstOrDefaultAsync(f => f.FacilityFloorId == floorId);
+        if (floor == null)
+            return NotFound(new { message = "Floor not found." });
+
+        floor.IsActive = true;
         await _context.SaveChangesAsync();
         return Ok(floor);
     }
@@ -238,6 +493,60 @@ public class EnterpriseFoundationController : ControllerBase
         return Ok(zone);
     }
 
+    [HttpPatch("zones/{zoneId:int}")]
+    public async Task<IActionResult> UpdateZone(int zoneId, [FromBody] ZonePatchRequest request)
+    {
+        var zone = await _context.SecurityZones.FirstOrDefaultAsync(z => z.SecurityZoneId == zoneId);
+        if (zone == null)
+            return NotFound(new { message = "Zone not found." });
+
+        if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
+            return BadRequest(new { message = "Site does not exist." });
+        if (request.BuildingId.HasValue && !await _context.Buildings.AnyAsync(b => b.BuildingId == request.BuildingId.Value))
+            return BadRequest(new { message = "Building does not exist." });
+        if (request.FacilityFloorId.HasValue && !await _context.FacilityFloors.AnyAsync(f => f.FacilityFloorId == request.FacilityFloorId.Value))
+            return BadRequest(new { message = "Floor does not exist." });
+
+        var validation = ValidateNameCode(request.Name, request.Code);
+        if (validation != null) return validation;
+
+        zone.SiteId = request.SiteId ?? zone.SiteId;
+        zone.BuildingId = request.BuildingId;
+        zone.FacilityFloorId = request.FacilityFloorId;
+        zone.Name = request.Name.Trim();
+        zone.Code = request.Code.Trim();
+        zone.SecurityLevel = string.IsNullOrWhiteSpace(request.SecurityLevel) ? "Normal" : request.SecurityLevel.Trim();
+        zone.IsRestricted = request.IsRestricted;
+        zone.IsActive = request.IsActive;
+
+        await _context.SaveChangesAsync();
+        return Ok(zone);
+    }
+
+    [HttpDelete("zones/{zoneId:int}")]
+    public async Task<IActionResult> DeleteZone(int zoneId)
+    {
+        var zone = await _context.SecurityZones.FirstOrDefaultAsync(z => z.SecurityZoneId == zoneId);
+        if (zone == null)
+            return NotFound(new { message = "Zone not found." });
+
+        zone.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(zone);
+    }
+
+    [HttpPatch("zones/{zoneId:int}/restore")]
+    public async Task<IActionResult> RestoreZone(int zoneId)
+    {
+        var zone = await _context.SecurityZones.FirstOrDefaultAsync(z => z.SecurityZoneId == zoneId);
+        if (zone == null)
+            return NotFound(new { message = "Zone not found." });
+
+        zone.IsActive = true;
+        await _context.SaveChangesAsync();
+        return Ok(zone);
+    }
+
     [HttpPost("access-points")]
     public async Task<IActionResult> CreateAccessPoint([FromBody] AccessPointRequest request)
     {
@@ -257,6 +566,55 @@ public class EnterpriseFoundationController : ControllerBase
         };
 
         _context.AccessPoints.Add(accessPoint);
+        await _context.SaveChangesAsync();
+        return Ok(accessPoint);
+    }
+
+    [HttpPatch("access-points/{accessPointId:int}")]
+    public async Task<IActionResult> UpdateAccessPoint(int accessPointId, [FromBody] AccessPointPatchRequest request)
+    {
+        var accessPoint = await _context.AccessPoints.FirstOrDefaultAsync(a => a.AccessPointId == accessPointId);
+        if (accessPoint == null)
+            return NotFound(new { message = "Access point not found." });
+
+        if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
+            return BadRequest(new { message = "Site does not exist." });
+        if (request.SecurityZoneId.HasValue && !await _context.SecurityZones.AnyAsync(z => z.SecurityZoneId == request.SecurityZoneId.Value))
+            return BadRequest(new { message = "Security zone does not exist." });
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { message = "Name is required." });
+
+        accessPoint.SiteId = request.SiteId ?? accessPoint.SiteId;
+        accessPoint.SecurityZoneId = request.SecurityZoneId;
+        accessPoint.Name = request.Name.Trim();
+        accessPoint.Type = string.IsNullOrWhiteSpace(request.Type) ? "Door" : request.Type.Trim();
+        accessPoint.DirectionMode = string.IsNullOrWhiteSpace(request.DirectionMode) ? "Bidirectional" : request.DirectionMode.Trim();
+        accessPoint.IsActive = request.IsActive;
+
+        await _context.SaveChangesAsync();
+        return Ok(accessPoint);
+    }
+
+    [HttpDelete("access-points/{accessPointId:int}")]
+    public async Task<IActionResult> DeleteAccessPoint(int accessPointId)
+    {
+        var accessPoint = await _context.AccessPoints.FirstOrDefaultAsync(a => a.AccessPointId == accessPointId);
+        if (accessPoint == null)
+            return NotFound(new { message = "Access point not found." });
+
+        accessPoint.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(accessPoint);
+    }
+
+    [HttpPatch("access-points/{accessPointId:int}/restore")]
+    public async Task<IActionResult> RestoreAccessPoint(int accessPointId)
+    {
+        var accessPoint = await _context.AccessPoints.FirstOrDefaultAsync(a => a.AccessPointId == accessPointId);
+        if (accessPoint == null)
+            return NotFound(new { message = "Access point not found." });
+
+        accessPoint.IsActive = true;
         await _context.SaveChangesAsync();
         return Ok(accessPoint);
     }
@@ -480,11 +838,17 @@ public class EnterpriseFoundationController : ControllerBase
     }
 
     public sealed record CompanyRequest(string Name, string Code);
+    public sealed record CompanyPatchRequest(string Name, string Code, bool IsActive);
     public sealed record SiteRequest(int CompanyId, string Name, string Code, string? Address, string? TimeZoneId);
+    public sealed record SitePatchRequest(int? CompanyId, string Name, string Code, string? Address, string? TimeZoneId, bool IsActive);
     public sealed record BuildingRequest(int SiteId, string Name, string Code);
+    public sealed record BuildingPatchRequest(int? SiteId, string Name, string Code, bool IsActive);
     public sealed record FloorRequest(int BuildingId, string Name, string Code, int SortOrder);
+    public sealed record FloorPatchRequest(int? BuildingId, string Name, string Code, int SortOrder, bool IsActive);
     public sealed record ZoneRequest(int SiteId, int? BuildingId, int? FacilityFloorId, string Name, string Code, string? SecurityLevel, bool IsRestricted);
+    public sealed record ZonePatchRequest(int? SiteId, int? BuildingId, int? FacilityFloorId, string Name, string Code, string? SecurityLevel, bool IsRestricted, bool IsActive);
     public sealed record AccessPointRequest(int SiteId, int? SecurityZoneId, string Name, string? Type, string? DirectionMode);
+    public sealed record AccessPointPatchRequest(int? SiteId, int? SecurityZoneId, string Name, string? Type, string? DirectionMode, bool IsActive);
     public sealed record DoorRequest(int AccessPointId, string Name, string? DoorMode);
     public sealed record LaneRequest(int SiteId, int? GateId, int? AccessPointId, string Name, string? Direction);
     public sealed record MusterPointRequest(int SiteId, string Name, string? LocationNote, int? Capacity);

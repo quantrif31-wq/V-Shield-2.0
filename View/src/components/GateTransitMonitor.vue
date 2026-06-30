@@ -255,6 +255,16 @@
               >
                 Xác nhận
               </button>
+              <button
+                class="btn btn-dock btn-decision"
+                :disabled="
+                  lane.loading ||
+                    (!lane.qr.employeeId && !lane.qr.guestId && !lane.plate.confirmedPlate)
+                "
+                @click="openDecisionDrawer(lane)"
+              >
+                Quyết định
+              </button>
             </div>
           </div>
         </div>
@@ -512,6 +522,48 @@
       </aside>
     </div>
   </div>
+
+  <!-- Decision Drawer -->
+  <DecisionDrawer
+    :visible="decisionDrawerVisible"
+    :lane-name="decisionLane?.name || ''"
+    :subject-name="(decisionLane ? (decisionLane.qr.employeeName || 'Khách') : '')"
+    :subject-id="(decisionLane ? (decisionLane.qr.guestId || decisionLane.qr.employeeId || '') : '')"
+    :subject-type="(decisionLane ? (decisionLane.qr.guestId ? 'GUEST' : 'EMPLOYEE') : '')"
+    :plate-number="(decisionLane ? (decisionLane.plate.confirmedPlate || decisionLane.plate.lastRawPlate || '') : '')"
+    :qr-payload="(decisionLane ? (decisionLane.qr.qrPayload || decisionLane.qr.activeSessionPayload || '') : '')"
+    :warnings="decisionWarnings"
+    :can-allow="getActionPermissions(decisionLane)['allow']"
+    :can-deny="getActionPermissions(decisionLane)['deny']"
+    :can-manual="getActionPermissions(decisionLane)['manual']"
+    :can-unified-emergency="getActionPermissions(decisionLane)['unifiedEmergency']"
+    :can-escalate="getActionPermissions(decisionLane)['escalate']"
+    :loading="false"
+    @close="closeDecisionDrawer"
+    @action="handleDecisionAction"
+  />
+
+  <!-- Step-Up Modal -->
+  <StepUpModal
+    :visible="stepUpVisible"
+    action-label="Kích hoạt trạng thái khẩn cấp"
+    action-description="Hành động này sẽ ghi đè tất cả quy tắc access policy. Chỉ Admin mới được thực hiện."
+    severity="critical"
+    :require-mfa="true"
+    @cancel="onStepUpCancelled"
+    @confirmed="onStepUpConfirmed"
+  />
+
+  <!-- Audit Receipt Toast -->
+  <AuditReceiptToast
+    :visible="auditToast.visible"
+    :type="auditToast.type"
+    :title="auditToast.title"
+    :message="auditToast.message"
+    :receipt-id="auditToast.receiptId"
+    :timestamp="auditToast.timestamp"
+    @dismiss="dismissAuditToast"
+  />
 </template>
 
 <script>
@@ -526,6 +578,11 @@ import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRunt
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce, QR_API_BASE_URL } from "../services/dynamicQrScannerApi"
 import { PLATE_API_BASE_URL } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
+import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
+import { authState, hasRole } from "../stores/auth"
+import DecisionDrawer from "./shared/DecisionDrawer.vue"
+import StepUpModal from "./shared/StepUpModal.vue"
+import AuditReceiptToast from "./shared/AuditReceiptToast.vue"
 function createQrModule(defaultScannerDevice) {
   return {
     cameraIp: "",
@@ -630,6 +687,7 @@ function createPlateModule() {
 
 export default {
   name: "VShieldGateMinimalQr",
+  components: { DecisionDrawer, StepUpModal, AuditReceiptToast },
 
   data() {
     return {
@@ -668,7 +726,24 @@ export default {
       settingsCameraSimulatorBusy: false,
       runtimeServices: [],
       runtimeBusy: {},
-      uiTogglePending: {}
+      uiTogglePending: {},
+      // Decision drawer state
+      decisionDrawerVisible: false,
+      decisionLaneId: null,
+      // Step-up modal state
+      stepUpVisible: false,
+      stepUpAction: null,
+      stepUpLaneId: null,
+      // Audit receipt toast state
+      auditToast: {
+        visible: false,
+        type: 'success',
+        title: '',
+        message: '',
+        receiptId: '',
+        timestamp: '',
+      },
+      userZoneIds: [],
     }
   },
 
@@ -704,12 +779,62 @@ export default {
       } catch {
         return ""
       }
-    }
+    },
+
+    currentRole() {
+      return authState.user?.role || 'BaoVe'
+    },
+    isAdmin() {
+      return this.currentRole === 'Admin'
+    },
+    isBaoVe() {
+      return this.currentRole === 'BaoVe'
+    },
+    isQuanLy() {
+      return this.currentRole === 'QuanLy'
+    },
+
+    decisionLane() {
+      if (!this.decisionLaneId) return null
+      return this.lanes.find((l) => l.id === this.decisionLaneId) || null
+    },
+
+    decisionWarnings() {
+      const lane = this.decisionLane
+      if (!lane) return []
+      const warnings = []
+      // Anti-passback check
+      if (lane.plate.confirmedPlate) {
+        warnings.push({
+          severity: 'warn',
+          text: 'Cảnh báo: Biển số đã được quét gần đây. Kiểm tra anti-passback.',
+          icon: '&#9888;'
+        })
+      }
+      // QR alert
+      if (lane.qr.alert) {
+        warnings.push({
+          severity: 'critical',
+          text: 'QR không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại.',
+          icon: '&#9940;'
+        })
+      }
+      // General alert
+      if (lane.qr.message && lane.qr.message.includes('hết hạn')) {
+        warnings.push({
+          severity: 'warn',
+          text: 'Phiên QR đã hết hạn. Cần quét lại.',
+          icon: '&#9888;'
+        })
+      }
+      return warnings
+    },
   },
 
   async mounted() {
   document.body.classList.add("gate-transit-compact")
-  await this.loadCameraList() // 🔥 THÊM
+  await this.loadCameraList()
+  await this.fetchUserZones()
 
   for (const lane of this.lanes) {
     lane.qr.destroyed = false
@@ -878,7 +1003,7 @@ export default {
         }
       } catch (e) {
         console.error("toggleRuntime", name, e)
-        alert(e?.response?.data?.message || e?.message || "Khong the bat/tat runtime service.")
+        alert(e?.response?.data?.message || e?.message || "Không thể bật/tắt runtime service.")
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false }
         this.setTogglePending(name, false)
@@ -893,7 +1018,7 @@ export default {
         await updateRuntimeService(name, { autoStart: !this.runtimeAutoStart(name) })
       } catch (e) {
         console.error("toggleRuntimeAutoStart", name, e)
-        alert(e?.response?.data?.message || e?.message || "Khong the cap nhat AutoStart.")
+        alert(e?.response?.data?.message || e?.message || "Không thể cập nhật AutoStart.")
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false }
         await this.refreshDrawerServiceState()
@@ -952,19 +1077,19 @@ export default {
       const lane = this.activeOpsLane
       const ip = String(lane.qr.cameraIp || "").trim()
       if (!ip) {
-        alert("Chon URL/stream camera QR o tab lan hien tai truoc khi bat dich vu Python.")
+        alert("Chọn URL/stream camera QR ở tab làn hiện tại trước khi bật dịch vụ Python.")
         this.setTogglePending("python_qr", false)
         return
       }
 
       this.settingsQrBusy = true
       try {
-        // Bat tien trinh Python roi mo camera de preview, chua quet ngay.
+        // Bật tiến trình Python rồi mở camera để preview, chưa quét ngay.
         await startPythonQrProcess()
-        // Cho tien trinh khoi dong
+        // Chờ tiến trình khởi động
         await new Promise((r) => setTimeout(r, 2000))
 
-        // Doi QR API san sang roi chi mo camera, reset trang thai de khong tu quet
+        // Đợi QR API sẵn sàng rồi chỉ mở camera, reset trạng thái để không tự quét
         try {
           const startAt = Date.now()
           let qrReady = false
@@ -995,10 +1120,10 @@ export default {
           this.mountPreview(ln.qr, ln.qr.viewUrl)
         }
         ln.qr.scanRequested = false
-        ln.qr.message = "Preview ready (chua quet)"
+        ln.qr.message = "Preview ready (chưa quét)"
       } catch (e) {
         console.error("applyQrPythonService", e)
-        alert(e?.message || "Khong bat duoc dich vu QR Python.")
+        alert(e?.message || "Không bật được dịch vụ QR Python.")
       } finally {
         this.settingsQrBusy = false
         this.setTogglePending("python_qr", false)
@@ -1047,15 +1172,15 @@ export default {
 
       const ip = String(lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || "").trim()
       if (!ip) {
-        alert("Chon URL/stream camera bien so o tab lan hien tai truoc khi bat dich vu Python.")
+        alert("Chọn URL/stream camera biển số ở tab làn hiện tại trước khi bật dịch vụ Python.")
         this.setTogglePending("python_plate", false)
         return
       }
 
       this.settingsPlateBusy = true
       try {
-        // Bat tien trinh Python cho plate va mo camera ngay de co preview,
-        // nhung chua thuc hien quet cho den khi user bam nut Doc.
+        // Bật tiến trình Python cho plate và mở camera ngay để có preview,
+        // nhưng chưa thực hiện quét cho đến khi người dùng bấm nút Đọc.
         await startPythonPlateProcess()
         await this.waitForPlateApiReady(45000)
         await lane.plateApi.turnOnCamera(ip)
@@ -1066,11 +1191,11 @@ export default {
         lane.plate.currentIp = ip
         lane.plate.cameraRunning = true
         lane.plate.scanActive = false
-        lane.plate.message = "Preview ready (chua quet)"
+        lane.plate.message = "Preview ready (chưa quét)"
         if (!lane.plate.resultTimer) this.startPlateLoop(lane)
       } catch (e) {
         console.error("applyPlatePythonService", e)
-        alert(e?.message || "Khong bat duoc dich vu bien so.")
+        alert(e?.message || "Không bật được dịch vụ biển số.")
       } finally {
         this.settingsPlateBusy = false
         this.setTogglePending("python_plate", false)
@@ -1095,7 +1220,7 @@ export default {
 
       throw new Error(
         lastError?.message ||
-          "Python bien so khoi dong cham hoac that bai (qua thoi gian cho health)."
+          "Python biển số khởi động chậm hoặc thất bại (quá thời gian chờ health)."
       )
     },
 
@@ -2437,6 +2562,396 @@ lane.qr.scanRequested = true
     lane.loading = false
   }
 },
+    // ================= DECISION DRAWER ACTIONS =================
+
+    openDecisionDrawer(lane) {
+      this.decisionLaneId = lane.id
+      this.decisionDrawerVisible = true
+    },
+
+    closeDecisionDrawer() {
+      this.decisionDrawerVisible = false
+      this.decisionLaneId = null
+    },
+
+    buildDecisionSubjectInfo(lane) {
+      if (!lane) return { name: '', id: '', type: '', plate: '', qr: '' }
+      const isGuest = !!lane.qr.guestId
+      return {
+        name: lane.qr.employeeName || lane.qr.employeeName || 'Khách',
+        id: isGuest ? lane.qr.guestId : lane.qr.employeeId,
+        type: isGuest ? 'GUEST' : 'EMPLOYEE',
+        plate: lane.plate.confirmedPlate || lane.plate.lastRawPlate || '',
+        qr: lane.qr.qrPayload || lane.qr.activeSessionPayload || '',
+      }
+    },
+
+    canBaoVeAction(actionType) {
+      // BaoVe permissions per the plan's role matrix
+      const baoVeAllowed = ['allow', 'deny', 'manual', 'override', 'duress', 'escalate']
+      return baoVeAllowed.includes(actionType)
+    },
+
+    canAdminAction(actionType) {
+      // Admin can do everything
+      return true
+    },
+
+    async fetchUserZones() {
+      if (this.currentRole === 'Admin') return
+      try {
+        const res = await zoneAuthorityApi.getMyZones()
+        this.userZoneIds = (res.data || []).map(z => z.securityZoneId)
+      } catch {
+        this.userZoneIds = []
+      }
+    },
+
+    getActionPermissions(lane) {
+      const role = this.currentRole
+      const isReady = lane && ((!!lane.qr.employeeId || !!lane.qr.guestId) || !!lane.plate.confirmedPlate)
+      const roleOk = role === 'Admin' || role === 'BaoVe'
+      let zoneOk = true
+      if (role === 'BaoVe' && lane && (lane.siteId || lane.securityZoneId)) {
+        if (lane.securityZoneId) {
+          zoneOk = this.userZoneIds.includes(lane.securityZoneId)
+        }
+      }
+      const permissions = {
+        allow: isReady && roleOk,
+        deny: isReady && roleOk,
+        manual: roleOk,
+        unifiedEmergency: isReady && roleOk && zoneOk,
+        escalate: isReady && roleOk,
+      }
+      return permissions
+    },
+
+    async handleDecisionAction(action) {
+      if (!this.decisionLane) return
+      const lane = this.decisionLane
+      const { type, reason, responsibility, details } = action
+
+      try {
+        switch (type) {
+          case 'allow':
+            await this.executeAllow(lane, reason)
+            break
+          case 'deny':
+            await this.executeDeny(lane, reason)
+            break
+          case 'manual':
+            await this.executeManual(lane, reason, details)
+            break
+          case 'override':
+            await this.executeOverride(lane, reason, responsibility)
+            break
+          case 'duress':
+            await this.executeDuress(lane, reason, responsibility)
+            break
+          case 'escalate':
+            await this.executeEscalate(lane, reason)
+            break
+          case 'unified_emergency':
+            await this.executeUnifiedEmergency(lane, reason, details, responsibility, action._duress)
+            break
+          case 'emergency':
+            await this.executeEmergency(lane, reason, details, responsibility)
+            break
+        }
+      } catch (e) {
+        this.showAuditToast('danger', 'Thất bại', e?.response?.data?.message || e?.message || 'Xử lý thất bại', '')
+      } finally {
+        this.closeDecisionDrawer()
+      }
+    },
+
+    async executeAllow(lane, reason) {
+      const licensePlate = String(lane.plate.confirmedPlate || '').trim()
+      const isGuest = !!lane.qr.guestId
+      const employeeId = Number(lane.qr.employeeId || 0)
+      const visitorDetailId = Number(lane.qr.guestId || 0)
+
+      if (!licensePlate) throw new Error('Chưa có biển số')
+      if (!isGuest && !employeeId) throw new Error('Chưa có Employee ID')
+
+      const payload = {
+        LicensePlate: licensePlate,
+        GateId: lane.gateId || null,
+        CameraId: lane.cameraId || null,
+      }
+      if (isGuest) {
+        payload.VisitorDetailId = visitorDetailId
+        payload.QrPayload = lane.qr.qrPayload || lane.qr.activeSessionPayload || ''
+      } else {
+        payload.EmployeeId = employeeId
+      }
+
+      const res = isGuest ? await scanGuest(payload) : await scanGate(payload)
+
+      // Record lane event
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
+          eventType: 'ACCESS_GRANTED',
+          direction: 'IN',
+          plateText: licensePlate,
+          note: reason || 'Cho qua bình thường',
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      const receiptId = res.data?.receiptId || `RCP-${Date.now()}`
+      this.showAuditToast('success', 'Cho qua thành công', `Xe ${licensePlate} đã được cho qua.`, receiptId)
+    },
+
+    async executeDeny(lane, reason) {
+      // Record lane event as denied
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
+          eventType: 'ACCESS_DENIED',
+          direction: 'IN',
+          plateText: lane.plate.confirmedPlate || '',
+          note: reason || 'Từ chối',
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      this.clearQrState(lane.qr)
+      this.clearPlateState(lane.plate)
+      this.showAuditToast('warning', 'Đã từ chối', `Từ chối: ${reason || 'Không có lý do'}.`, `RCP-${Date.now()}`)
+    },
+
+    async executeManual(lane, reason, details = {}) {
+      const plate = String(details?.plateNumber || lane.plate.confirmedPlate || lane.plate.lastRawPlate || '').trim()
+      const subjectName = String(details?.subjectName || lane.qr.employeeName || '').trim()
+      const subjectId = String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || '').trim()
+      if (!subjectName && !plate) throw new Error('Cần nhập họ tên/đơn vị hoặc biển số để vận hành thủ công.')
+
+      const response = await enterpriseApi.recordLaneEvent({
+        laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
+        eventType: 'MANUAL_PASS',
+        direction: 'IN',
+        plateText: plate,
+        note: `[manual] ${subjectName}; subjectId=${subjectId}; reason=${reason}`,
+      })
+
+      this.showAuditToast('success', 'Đã cho qua thủ công', `${subjectName || plate} đã được cho qua và ghi nhận trách nhiệm.`, `MAN-${response.data?.laneEventId || Date.now()}`)
+    },
+
+    async executeOverride(lane, reason, responsibility) {
+      // Override with responsibility - requires step-up for risk mitigation
+      const licensePlate = String(lane.plate.confirmedPlate || '').trim()
+      const isGuest = !!lane.qr.guestId
+      const employeeId = Number(lane.qr.employeeId || 0)
+
+      if (!licensePlate) throw new Error('Chưa có biển số')
+
+      const payload = {
+        LicensePlate: licensePlate,
+        GateId: lane.gateId || null,
+        CameraId: lane.cameraId || null,
+        Responsibility: true,
+        Reason: reason || 'Override không có lý do',
+      }
+      if (isGuest) {
+        payload.VisitorDetailId = Number(lane.qr.guestId || 0)
+        payload.QrPayload = lane.qr.qrPayload || lane.qr.activeSessionPayload || ''
+      } else {
+        payload.EmployeeId = employeeId
+      }
+
+      const res = isGuest ? await scanGuest(payload) : await scanGate(payload)
+
+      // Record lane event
+      try {
+        await enterpriseApi.recordLaneEvent({
+          laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
+          eventType: 'OVERRIDE',
+          direction: 'IN',
+          plateText: licensePlate,
+          note: `Override - ${reason} - Responsibility: ${responsibility}`,
+        })
+      } catch (e) {
+        console.warn('recordLaneEvent failed:', e)
+      }
+
+      const receiptId = res.data?.receiptId || `RCP-OVR-${Date.now()}`
+      this.showAuditToast('warning', 'Override thành công', `Cho qua có trách nhiệm: ${licensePlate}.`, receiptId)
+    },
+
+    async executeDuress(lane, reason, responsibility) {
+      // Record duress event
+      try {
+        const res = await enterpriseApi.recordDuressEvent({
+          userId: authState.user?.userId || null,
+          employeeId: authState.user?.employeeId || null,
+          accessPointId: null,
+          siteId: lane.siteId || null,
+          securityZoneId: lane.securityZoneId || null,
+          credentialType: 'DynamicQR',
+          description: `${lane.name || 'Gate'}: ${reason || 'Ghi nhận duress'}`,
+        })
+        const receiptId = res.data?.duressEventId || `DRS-${Date.now()}`
+        this.showAuditToast('danger', 'ĐÃ GHI NHẬN DURESS', 'Tín hiệu ép buộc đã được gửi đến trung tâm giám sát. Hỗ trợ sẽ được điều động.', receiptId)
+      } catch (e) {
+        console.error('recordDuressEvent failed:', e)
+        // Fallback: still show alert with local receipt
+        this.showAuditToast('danger', 'DURESS (Offline)', 'Không thể gửi tín hiệu đến server. Đã lưu local. Vui lòng báo ngay quản lý.', `DRS-LOCAL-${Date.now()}`)
+      }
+    },
+
+    async executeEscalate(lane, reason) {
+      // Create an intervention request via Phase G API
+      try {
+        const isGuest = !!lane.qr.guestId
+        const res = await enterpriseApi.createInterventionRequest({
+          interventionType: 'other',
+          reason: reason || 'Yêu cầu can thiệp từ lane',
+          siteId: lane.siteId || null,
+          securityZoneId: lane.securityZoneId || null,
+          laneId: String(lane.id || ''),
+          laneName: String(lane.name || ''),
+          subjectName: String(lane.qr.employeeName || 'Khách'),
+          subjectId: String(isGuest ? lane.qr.guestId : lane.qr.employeeId || ''),
+          subjectType: isGuest ? 'GUEST' : 'EMPLOYEE',
+          plateNumber: String(lane.plate.confirmedPlate || lane.plate.lastRawPlate || ''),
+          qrPayload: String(lane.qr.qrPayload || lane.qr.activeSessionPayload || ''),
+          priority: 'medium',
+          expiresInMinutes: 240,
+        })
+
+        // Also record lane event for audit trail
+        try {
+          await enterpriseApi.recordLaneEvent({
+            laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
+            eventType: 'ESCALATION_REQUEST',
+            direction: 'IN',
+            plateText: lane.plate.confirmedPlate || '',
+            note: `Yêu cầu can thiệp #${res.data?.operationalInterventionRequestId}: ${reason || 'Không có lý do'}`,
+          })
+        } catch (e) {
+          console.warn('recordLaneEvent failed:', e)
+        }
+
+        const requestId = res.data?.operationalInterventionRequestId || ''
+        this.showAuditToast('info', 'Đã gửi yêu cầu can thiệp',
+          `Yêu cầu #${requestId} đã được gửi đến Admin. Lý do: ${reason}`,
+          `IR-${requestId || Date.now()}`)
+      } catch (e) {
+        console.error('createInterventionRequest failed:', e)
+        this.showAuditToast('danger', 'Gửi yêu cầu thất bại',
+          e?.response?.data?.message || e?.message || 'Không thể gửi yêu cầu can thiệp.',
+          'ERR-' + Date.now())
+      }
+    },
+
+    async executeUnifiedEmergency(lane, reason, details = {}, responsibility, isDuress = false) {
+      if (!responsibility) throw new Error('Phải xác nhận trách nhiệm trước khi cấp quyền khẩn cấp.')
+      const subjectName = String(details?.subjectName || lane.qr.employeeName || lane.qr.guestName || 'Đối tượng khẩn cấp').trim()
+      const plateNumber = String(details?.plateNumber || lane.plate.confirmedPlate || lane.plate.lastRawPlate || '').trim()
+
+      try {
+        const response = await enterpriseApi.createEmergencyPass({
+          subjectType: lane.qr.guestId ? 'Guest' : 'Person',
+          subjectId: String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || ''),
+          subjectName,
+          plateNumber,
+          siteId: lane.siteId || null,
+          securityZoneId: lane.securityZoneId || null,
+          laneReference: String(lane.id || ''),
+          laneName: String(lane.name || ''),
+          direction: 'Entry',
+          reason,
+          durationMinutes: 30,
+        }, isDuress)
+
+        const pass = response.data?.emergencyPass
+        const receiptId = isDuress
+          ? `DRS-${pass?.emergencyPassId || Date.now()}`
+          : `EMG-${pass?.emergencyPassId || Date.now()}`
+
+        this.showAuditToast('danger', 'Đã cấp quyền khẩn cấp',
+          `${subjectName}${plateNumber ? ` - ${plateNumber}` : ''} được phép qua ngay.`,
+          receiptId)
+      } catch (e) {
+        this.showAuditToast('danger', 'Cấp quyền thất bại',
+          e?.response?.data?.message || e?.message || 'Không thể cấp quyền khẩn cấp.',
+          'ERR-' + Date.now())
+      }
+    },
+
+    async executeEmergency(lane, reason, details = {}, responsibility) {
+      // Only Admin can execute emergency directly
+      if (!this.isAdmin) {
+        this.showAuditToast('warning', 'Không có quyền', 'Chỉ Admin mới có quyền cấp quyền khẩn cấp. Vui lòng gửi yêu cầu.', '')
+        return
+      }
+
+      if (!responsibility) throw new Error('Phải xác nhận trách nhiệm trước khi cấp quyền khẩn cấp.')
+      const subjectName = String(details?.subjectName || lane.qr.employeeName || 'Đối tượng khẩn cấp').trim()
+      const plateNumber = String(details?.plateNumber || lane.plate.confirmedPlate || lane.plate.lastRawPlate || '').trim()
+      const response = await enterpriseApi.createEmergencyPass({
+        subjectType: lane.qr.guestId ? 'Guest' : 'EmergencyService',
+        subjectId: String(details?.subjectId || lane.qr.employeeId || lane.qr.guestId || ''),
+        subjectName,
+        plateNumber,
+        siteId: lane.siteId || null,
+        securityZoneId: lane.securityZoneId || null,
+        laneReference: String(lane.id || ''),
+        laneName: String(lane.name || ''),
+        direction: 'Entry',
+        reason,
+        durationMinutes: 30,
+      })
+      const pass = response.data?.emergencyPass
+      this.showAuditToast('danger', 'Đã cấp thông hành khẩn cấp', `${subjectName}${plateNumber ? ` - ${plateNumber}` : ''} được phép qua ngay. Cảnh báo toàn công ty đã phát.`, `EMG-${pass?.emergencyPassId || Date.now()}`)
+    },
+
+    async onStepUpConfirmed(result) {
+      const lane = this.lanes.find((l) => l.id === this.stepUpLaneId)
+      if (!lane || !this.stepUpAction) return
+
+      try {
+        const res = await enterpriseApi.createEmergencyState({
+          reason: this.stepUpAction.reason,
+          stepUpSessionId: result.sessionId,
+        })
+        const receiptId = res.data?.emergencyStateId || `EMG-${Date.now()}`
+        this.showAuditToast('danger', 'Trạng thái khẩn cấp đã kích hoạt', 'Quyền khẩn cấp đã được cấp. Tất cả các quy tắc đã được ghi đè.', receiptId)
+      } catch (e) {
+        this.showAuditToast('danger', 'Thất bại', e?.response?.data?.message || e?.message || 'Không thể kích hoạt trạng thái khẩn cấp.', '')
+      } finally {
+        this.stepUpVisible = false
+        this.stepUpAction = null
+        this.stepUpLaneId = null
+      }
+    },
+
+    onStepUpCancelled() {
+      this.stepUpVisible = false
+      this.stepUpAction = null
+      this.stepUpLaneId = null
+    },
+
+    showAuditToast(type, title, message, receiptId) {
+      this.auditToast = {
+        visible: true,
+        type,
+        title,
+        message,
+        receiptId,
+        timestamp: new Date().toLocaleString('vi-VN'),
+      }
+    },
+
+    dismissAuditToast() {
+      this.auditToast.visible = false
+    },
+
     // ================= CAMERA SEARCH =================
 
 async loadCameraList() {
@@ -2927,6 +3442,14 @@ selectCamera(cam, lane, type) {
 
 .btn-confirm {
   background: #111827;
+}
+
+.btn-decision {
+  background: #7c3aed;
+}
+
+.btn-decision:hover:not(:disabled) {
+  background: #6d28d9;
 }
 
 .ip-row {
@@ -3478,11 +4001,6 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
-
-
-
-
-
 
 
 

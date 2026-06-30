@@ -15,7 +15,7 @@
                 <button class="btn btn-secondary" @click="deriveNow(null)" :disabled="actionLoading">
                     Tổng hợp từ zone
                 </button>
-                <button class="btn btn-secondary" @click="showToast('TODO: tích hợp export Excel ở backend/export service', 'error')">
+                <button class="btn btn-secondary" @click="exportAttendanceExcel" :disabled="!attendances.length">
                     Xuất Excel
                 </button>
                 <button class="btn btn-ghost" @click="openAnomalyPanel">
@@ -359,6 +359,79 @@ const toLocalDatetimeInput = (value) => {
     const dt = new Date(value)
     const pad = (n) => String(n).padStart(2, '0')
     return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+}
+
+const escapeHtml = (value) => String(value ?? '--')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const exportAttendanceExcel = () => {
+    if (!attendances.value.length) {
+        showToast('Không có dữ liệu để xuất.', 'error')
+        return
+    }
+
+    const headers = [
+        'Nhân viên',
+        'Phòng ban',
+        'Ngày',
+        'Ca làm',
+        'Check-in',
+        'Check-out',
+        'Đi trễ (phút)',
+        'Về sớm (phút)',
+        'Tăng ca (giờ)',
+        'Tổng giờ',
+        'Trạng thái',
+        'Nguồn',
+        'Trong zone'
+    ]
+
+    const rows = attendances.value.map((item) => [
+        item.employeeName,
+        item.departmentName || '--',
+        formatDate(item.workDate),
+        item.shiftName || 'Ngoài lịch',
+        formatDateTime(item.checkIn),
+        formatDateTime(item.checkOut),
+        item.lateMinutes ?? 0,
+        item.earlyLeaveMinutes ?? 0,
+        Number(item.overtimeHours || 0).toFixed(2),
+        Number(item.totalWorkingHours || 0).toFixed(2),
+        statusLabel(item.status),
+        item.source || '--',
+        item.isZoneDerived ? `${Number(item.zoneDwellTime || 0).toFixed(1)}h` : '--'
+    ])
+
+    const tableHtml = `
+        <table>
+            <thead>
+                <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+                ${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+        </table>
+    `
+
+    const blob = new Blob(
+        [`\ufeff<html><head><meta charset="utf-8" /></head><body>${tableHtml}</body></html>`],
+        { type: 'application/vnd.ms-excel;charset=utf-8;' }
+    )
+
+    const link = document.createElement('a')
+    const from = filters.fromDate || 'tu-ngay'
+    const to = filters.toDate || 'den-ngay'
+    link.href = URL.createObjectURL(blob)
+    link.download = `attendance-${from}-${to}.xls`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+    showToast('Đã xuất file Excel.')
 }
 
 const loadLookup = async () => {

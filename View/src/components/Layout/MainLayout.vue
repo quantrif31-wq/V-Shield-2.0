@@ -8,8 +8,6 @@
         }"
     >
         <div class="shell-background" aria-hidden="true">
-            <div class="shell-glow shell-glow-a"></div>
-            <div class="shell-glow shell-glow-b"></div>
             <div class="shell-grid"></div>
         </div>
 
@@ -35,6 +33,7 @@
                 :is-mobile="isMobile"
                 @toggle-sidebar="handleSidebarToggle"
             />
+            <GlobalEmergencyBanner />
 
             <main class="main-content">
                 <div class="content-shell">
@@ -47,6 +46,7 @@
                 </div>
             </main>
         </div>
+        <AIChatBot />
     </div>
 </template>
 
@@ -54,6 +54,9 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
+import AIChatBot from '../AIChatBot.vue'
+import GlobalEmergencyBanner from '../shared/GlobalEmergencyBanner.vue'
+import { startSecurityAlertPolling, stopSecurityAlertPolling } from '../../services/securityAlertBus'
 
 const isMobile = ref(false)
 const desktopCollapsed = ref(false)
@@ -80,10 +83,12 @@ function handleSidebarToggle() {
 onMounted(() => {
     syncViewport()
     window.addEventListener('resize', syncViewport)
+    startSecurityAlertPolling()
 })
 
 onUnmounted(() => {
     window.removeEventListener('resize', syncViewport)
+    stopSecurityAlertPolling()
 })
 </script>
 
@@ -98,29 +103,6 @@ onUnmounted(() => {
     inset: 0;
     pointer-events: none;
     z-index: 0;
-}
-
-.shell-glow {
-    position: absolute;
-    border-radius: 999px;
-    filter: blur(90px);
-    opacity: 0.3;
-}
-
-.shell-glow-a {
-    width: 420px;
-    height: 420px;
-    top: 72px;
-    right: -120px;
-    background: rgba(84, 196, 211, 0.38);
-}
-
-.shell-glow-b {
-    width: 360px;
-    height: 360px;
-    bottom: -80px;
-    left: 18%;
-    background: rgba(216, 155, 55, 0.18);
 }
 
 .shell-grid {
@@ -144,8 +126,8 @@ onUnmounted(() => {
     transition: margin-left var(--transition-slow);
 }
 
-.nav-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed-width);
+.nav-collapsed {
+    --sidebar-width: 0px;
 }
 
 .content-shell {

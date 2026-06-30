@@ -10,7 +10,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/device-management")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize(Roles = "Admin")]
 public class DeviceManagementController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -94,7 +94,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPost("cameras")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateCamera([FromBody] UpsertCameraRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
@@ -133,7 +133,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPut("cameras/{id:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateCamera(int id, [FromBody] UpsertCameraRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.CameraName))
@@ -173,7 +173,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpDelete("cameras/{id:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteCamera(int id)
     {
         var camera = await _context.Cameras
@@ -233,7 +233,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPost("gates")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateGate([FromBody] UpsertGateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
@@ -259,7 +259,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpPut("gates/{id:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateGate(int id, [FromBody] UpsertGateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.GateName))
@@ -287,7 +287,7 @@ public class DeviceManagementController : ControllerBase
     }
 
     [HttpDelete("gates/{id:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteGate(int id)
     {
         var gate = await _context.Gates
@@ -467,7 +467,8 @@ public class DeviceManagementController : ControllerBase
     private string ResolvePublicApplicationBaseUrl()
     {
         var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
-        if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
+        if (!string.IsNullOrWhiteSpace(configuredFrontendUrl) &&
+            !ShouldPreferRequestBaseUrl(configuredFrontendUrl))
         {
             return NormalizeUrlBase(configuredFrontendUrl);
         }
@@ -475,8 +476,35 @@ public class DeviceManagementController : ControllerBase
         return NormalizeUrlBase($"{Request.Scheme}://{Request.Host}");
     }
 
+    private bool ShouldPreferRequestBaseUrl(string configuredFrontendUrl)
+    {
+        if (!IsDockerMode())
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(configuredFrontendUrl.Trim(), UriKind.Absolute, out var configuredUri))
+        {
+            return false;
+        }
+
+        var requestHost = Request.Host.Host?.Trim();
+        if (string.IsNullOrWhiteSpace(requestHost))
+        {
+            return false;
+        }
+
+        return IsLoopbackHost(configuredUri.Host) && !IsLoopbackHost(requestHost);
+    }
+
     private static string NormalizeUrlBase(string value) =>
         value.Trim().TrimEnd('/');
+
+    private static bool IsLoopbackHost(string host) =>
+        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("::1", StringComparison.OrdinalIgnoreCase) ||
+        host.Equals("[::1]", StringComparison.OrdinalIgnoreCase);
 
     private async Task TryReloadGo2RtcRuntimeAsync()
     {
@@ -651,10 +679,6 @@ public class DeviceManagementController : ControllerBase
         return new[] { $"{requestHost}:{port}" };
     }
 
-    private static bool IsLoopbackHost(string host) =>
-        host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-        host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-        host.Equals("::1", StringComparison.OrdinalIgnoreCase);
 }
 
 

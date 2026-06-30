@@ -17,12 +17,14 @@ public class EnterpriseSocController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ISocIntelligenceService _socIntel;
     private readonly ISocIncidentCopilotService _incidentCopilot;
+    private readonly INotificationService _notificationService;
 
-    public EnterpriseSocController(ApplicationDbContext context, ISocIntelligenceService socIntel, ISocIncidentCopilotService incidentCopilot)
+    public EnterpriseSocController(ApplicationDbContext context, ISocIntelligenceService socIntel, ISocIncidentCopilotService incidentCopilot, INotificationService notificationService)
     {
         _context = context;
         _socIntel = socIntel;
         _incidentCopilot = incidentCopilot;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -82,11 +84,20 @@ public class EnterpriseSocController : ControllerBase
             Severity = string.IsNullOrWhiteSpace(request.Severity) ? "Medium" : request.Severity.Trim(),
             State = "New",
             Summary = request.Summary.Trim(),
-            SiteId = request.SiteId
+            SiteId = request.SiteId,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            Altitude = request.Altitude,
+            Accuracy = request.Accuracy,
+            SourceDeviceId = request.SourceDeviceId
         };
 
         _context.Alarms.Add(alarm);
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Alarm.Generic", alarm.Severity == "Critical" ? "Báo động khẩn cấp" : "Báo động mới",
+            alarm.Summary, "Alarm", alarm.AlarmId.ToString(), "/soc-console",
+            request.Latitude, request.Longitude, null);
 
         _ = FireAndForgetClassifyAsync(alarm.AlarmId);
 
@@ -394,6 +405,144 @@ public class EnterpriseSocController : ControllerBase
         return Ok(snapshot);
     }
 
+    [HttpGet("alarms")]
+    public async Task<IActionResult> GetAlarms(
+        [FromQuery] string? state, [FromQuery] string? severity,
+        [FromQuery] string? alarmType, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var query = _context.Alarms.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(state))
+            query = query.Where(a => a.State == state);
+        if (!string.IsNullOrWhiteSpace(severity))
+            query = query.Where(a => a.Severity == severity);
+        if (!string.IsNullOrWhiteSpace(alarmType))
+            query = query.Where(a => a.AlarmType == alarmType);
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(a => a.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("alarms/{alarmId:long}")]
+    public async Task<IActionResult> GetAlarm(long alarmId)
+    {
+        var alarm = await _context.Alarms.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.AlarmId == alarmId);
+        if (alarm == null)
+            return NotFound(new { message = "Alarm not found." });
+        return Ok(alarm);
+    }
+
+    [HttpGet("alarms/{alarmId:long}/comments")]
+    public async Task<IActionResult> GetAlarmComments(long alarmId)
+    {
+        if (!await _context.Alarms.AnyAsync(a => a.AlarmId == alarmId))
+            return NotFound(new { message = "Alarm not found." });
+
+        var comments = await _context.AlarmComments.AsNoTracking()
+            .Where(c => c.AlarmId == alarmId)
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .ToListAsync();
+        return Ok(comments);
+    }
+
+    [HttpGet("incidents")]
+    public async Task<IActionResult> GetIncidents(
+        [FromQuery] string? status, [FromQuery] string? severity,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var query = _context.Incidents.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(i => i.Status == status);
+        if (!string.IsNullOrWhiteSpace(severity))
+            query = query.Where(i => i.Severity == severity);
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(i => i.OpenedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("incidents/{incidentId:long}")]
+    public async Task<IActionResult> GetIncident(long incidentId)
+    {
+        var incident = await _context.Incidents.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.IncidentId == incidentId);
+        if (incident == null)
+            return NotFound(new { message = "Incident not found." });
+        return Ok(incident);
+    }
+
+    [HttpGet("incidents/{incidentId:long}/items")]
+    public async Task<IActionResult> GetIncidentTimelineItems(long incidentId)
+    {
+        if (!await _context.Incidents.AnyAsync(i => i.IncidentId == incidentId))
+            return NotFound(new { message = "Incident not found." });
+
+        var items = await _context.IncidentTimelineItems.AsNoTracking()
+            .Where(t => t.IncidentId == incidentId)
+            .OrderByDescending(t => t.CreatedAtUtc)
+            .ToListAsync();
+        return Ok(items);
+    }
+
+    [HttpGet("sop-templates")]
+    public async Task<IActionResult> GetSopTemplates([FromQuery] bool? activeOnly)
+    {
+        var query = _context.SopTemplates.AsNoTracking();
+        if (activeOnly == true)
+            query = query.Where(t => t.IsActive);
+        return Ok(await query.OrderBy(t => t.Name).ToListAsync());
+    }
+
+    [HttpGet("sop-executions")]
+    public async Task<IActionResult> GetSopExecutions(
+        [FromQuery] string? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var query = _context.SopExecutions.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(e => e.Status == status);
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(e => e.StartedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("dispatch-tasks")]
+    public async Task<IActionResult> GetDispatchTasks(
+        [FromQuery] string? status, [FromQuery] string? priority,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var query = _context.DispatchTasks.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(t => t.Status == status);
+        if (!string.IsNullOrWhiteSpace(priority))
+            query = query.Where(t => t.Priority == priority);
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(t => t.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
     [HttpGet("intelligence")]
     public async Task<IActionResult> GetIntelligence()
     {
@@ -516,7 +665,8 @@ public class EnterpriseSocController : ControllerBase
     }
 
     public sealed record AlarmRuleRequest(string Name, string EventType, string? Severity, bool IsActive);
-    public sealed record AlarmRequest(long? SecurityEventId, string? AlarmType, string? Severity, string Summary, int? SiteId);
+    public sealed record AlarmRequest(long? SecurityEventId, string? AlarmType, string? Severity, string Summary, int? SiteId,
+        decimal? Latitude, decimal? Longitude, decimal? Altitude, decimal? Accuracy, string? SourceDeviceId);
     public sealed record AlarmAssignmentRequest(int? AssignedToUserId, string? Note);
     public sealed record AlarmCommentRequest(string Comment);
     public sealed record CloseRequest(string? Note);

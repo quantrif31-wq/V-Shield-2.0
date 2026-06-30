@@ -9,6 +9,9 @@
         public string? StreamUrl { get; set; }
         public string? UrlView { get; set; }
 
+        public bool IsRecordingEnabled { get; set; }
+        public int RecordingRetentionDays { get; set; }
+
         public string? GateName { get; set; }
     }
 }

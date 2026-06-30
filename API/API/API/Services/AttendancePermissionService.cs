@@ -52,7 +52,7 @@ public class AttendancePermissionService : IAttendancePermissionService
         if (IsAdmin(user)) return true;
 
         var role = GetCurrentRole(user);
-        if (!string.Equals(role, "Staff", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(role, "QuanLy", StringComparison.OrdinalIgnoreCase))
             return false;
 
         var employeeId = GetCurrentEmployeeId(user);

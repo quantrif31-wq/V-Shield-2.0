@@ -1,6 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using API.DTOs;
 using API.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Services.ImportExport;
 
@@ -9,15 +9,15 @@ public class UserImportHandler : EntityImportHandlerBase
     public UserImportHandler(IServiceScopeFactory scopeFactory) : base(scopeFactory) { }
 
     public override string EntityType => "AppUser";
-    public override string DisplayName => "Người dùng";
+    public override string DisplayName => "Nguoi dung";
 
     public override List<TemplateFieldInfo> GetTemplateFields() =>
     [
-        new() { FieldName = "Username", DisplayName = "Tên đăng nhập", DataType = "string", IsRequired = true, Description = "Tên tài khoản" },
-        new() { FieldName = "FullName", DisplayName = "Họ tên", DataType = "string", Description = "Tên đầy đủ" },
-        new() { FieldName = "Role", DisplayName = "Vai trò", DataType = "string", Description = "Admin / Staff / BaoVe / QuanLy", AllowedValues = ["Admin", "Staff", "BaoVe", "QuanLy"] },
-        new() { FieldName = "IsActive", DisplayName = "Kích hoạt", DataType = "bool", Description = "true = Kích hoạt, false = Vô hiệu" },
-        new() { FieldName = "EmployeeEmail", DisplayName = "Email nhân viên", DataType = "string", Description = "Gắn với nhân viên qua Email" },
+        new() { FieldName = "Username", DisplayName = "Ten dang nhap", DataType = "string", IsRequired = true, Description = "Ten tai khoan" },
+        new() { FieldName = "FullName", DisplayName = "Ho ten", DataType = "string", Description = "Ten day du" },
+        new() { FieldName = "Role", DisplayName = "Vai tro", DataType = "string", Description = "Admin / BaoVe / QuanLy / LeTan", AllowedValues = ["Admin", "BaoVe", "QuanLy", "LeTan"] },
+        new() { FieldName = "IsActive", DisplayName = "Kich hoat", DataType = "bool", Description = "true = Kich hoat, false = Vo hieu" },
+        new() { FieldName = "EmployeeEmail", DisplayName = "Email nhan vien", DataType = "string", Description = "Gan voi nhan vien qua Email" },
     ];
 
     public override async Task<List<ImportErrorDetail>> ValidateRowAsync(Dictionary<string, object?> row, int rowIndex, ImportValidationContext context)
@@ -25,15 +25,15 @@ public class UserImportHandler : EntityImportHandlerBase
         var errors = new List<ImportErrorDetail>();
         var username = GetString(row, "Username");
         if (string.IsNullOrWhiteSpace(username))
-            errors.Add(MakeError(rowIndex, "Username", "Tên đăng nhập không được để trống"));
+            errors.Add(MakeError(rowIndex, "Username", "Ten dang nhap khong duoc de trong"));
 
         await using var db = await CreateDbContextAsync();
         if (!string.IsNullOrWhiteSpace(username) && await db.AppUsers.AnyAsync(u => u.Username == username))
-            errors.Add(MakeError(rowIndex, "Username", $"Tên đăng nhập '{username}' đã tồn tại"));
+            errors.Add(MakeError(rowIndex, "Username", $"Ten dang nhap '{username}' da ton tai"));
 
         var role = GetString(row, "Role");
-        if (!string.IsNullOrWhiteSpace(role) && role is not ("Admin" or "Staff" or "BaoVe" or "QuanLy"))
-            errors.Add(MakeError(rowIndex, "Role", $"Vai trò không hợp lệ: '{role}'. Chấp nhận: Admin, Staff, BaoVe, QuanLy"));
+        if (!string.IsNullOrWhiteSpace(role) && role is not ("Admin" or "BaoVe" or "QuanLy" or "LeTan"))
+            errors.Add(MakeError(rowIndex, "Role", $"Vai tro khong hop le: '{role}'. Chap nhan: Admin, BaoVe, QuanLy, LeTan"));
 
         return errors;
     }
@@ -47,7 +47,8 @@ public class UserImportHandler : EntityImportHandlerBase
         if (!string.IsNullOrWhiteSpace(empEmail))
         {
             var emp = await db.Employees.FirstOrDefaultAsync(e => e.Email == empEmail);
-            if (emp != null) empId = emp.EmployeeId;
+            if (emp != null)
+                empId = emp.EmployeeId;
         }
 
         var defaultPassword = Environment.GetEnvironmentVariable("VSHIELD_IMPORT_DEFAULT_PASSWORD") ?? "VShield@123";
@@ -57,7 +58,7 @@ public class UserImportHandler : EntityImportHandlerBase
             Username = GetString(row, "Username") ?? "",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword),
             FullName = GetString(row, "FullName"),
-            Role = GetString(row, "Role") ?? "Staff",
+            Role = GetString(row, "Role") ?? "LeTan",
             IsActive = GetBool(row, "IsActive") ?? true,
             EmployeeId = empId,
         };
@@ -67,28 +68,27 @@ public class UserImportHandler : EntityImportHandlerBase
         return user;
     }
 
-    public override async Task<Dictionary<string, object?>> EntityToDictionaryAsync(object entity)
+    public override Task<Dictionary<string, object?>> EntityToDictionaryAsync(object entity)
     {
-        var u = (AppUser)entity;
-        return new Dictionary<string, object?>
+        var user = (AppUser)entity;
+        return Task.FromResult(new Dictionary<string, object?>
         {
-            ["UserId"] = u.UserId,
-            ["Username"] = u.Username,
-            ["FullName"] = u.FullName,
-            ["Role"] = u.Role,
-            ["IsActive"] = u.IsActive,
-            ["EmployeeEmail"] = u.Employee?.Email,
-        };
+            ["UserId"] = user.UserId,
+            ["Username"] = user.Username,
+            ["FullName"] = user.FullName,
+            ["Role"] = user.Role,
+            ["IsActive"] = user.IsActive,
+            ["EmployeeEmail"] = user.Employee?.Email,
+        });
     }
 
     public override async Task<List<Dictionary<string, object?>>> ExportDataAsync(ExportRequest request)
     {
         await using var db = await CreateDbContextAsync();
-        var query = db.AppUsers.Include(u => u.Employee).AsQueryable();
-        var list = await query.ToListAsync();
+        var users = await db.AppUsers.Include(u => u.Employee).ToListAsync();
         var result = new List<Dictionary<string, object?>>();
-        foreach (var item in list)
-            result.Add(await EntityToDictionaryAsync(item));
+        foreach (var user in users)
+            result.Add(await EntityToDictionaryAsync(user));
         return result;
     }
 }

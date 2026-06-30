@@ -129,6 +129,7 @@
                             <th>Cổng / Camera</th>
                             <th>Biển số</th>
                             <th>Phương thức</th>
+                            <th>Bằng chứng</th>
                             <th>Trạng thái</th>
                             <th>Ghi chú</th>
                         </tr>
@@ -157,6 +158,23 @@
                             </td>
                             <td>
                                 <span class="soft-chip" :class="methodClass(item.method)">{{ methodLabel(item.method) }}</span>
+                            </td>
+                            <td>
+                                <div class="evidence-thumbs">
+                                    <a v-if="item.capturedSnapshotUrl" :href="item.capturedSnapshotUrl" target="_blank" class="evidence-thumb" title="Snapshot camera">
+                                        <img :src="item.capturedSnapshotUrl" alt="snapshot" loading="lazy" />
+                                    </a>
+                                    <a v-if="item.capturedPlateCropUrl" :href="item.capturedPlateCropUrl" target="_blank" class="evidence-thumb" title="Cropped plate">
+                                        <img :src="item.capturedPlateCropUrl" alt="plate" loading="lazy" />
+                                    </a>
+                                    <a v-if="item.capturedFaceCropUrl" :href="item.capturedFaceCropUrl" target="_blank" class="evidence-thumb" title="Cropped face">
+                                        <img :src="item.capturedFaceCropUrl" alt="face" loading="lazy" />
+                                    </a>
+                                    <a v-if="item.capturedQrSnapshotUrl" :href="item.capturedQrSnapshotUrl" target="_blank" class="evidence-thumb" title="QR snapshot">
+                                        <img :src="item.capturedQrSnapshotUrl" alt="qr" loading="lazy" />
+                                    </a>
+                                    <span v-if="!item.capturedSnapshotUrl && !item.capturedPlateCropUrl && !item.capturedFaceCropUrl && !item.capturedQrSnapshotUrl" class="table-sub">Không có</span>
+                                </div>
                             </td>
                             <td>
                                 <div class="chip-row">
@@ -323,6 +341,7 @@ function methodLabel(value) {
         face: 'Khuôn mặt',
         plate: 'Biển số',
         manual: 'Thủ công',
+        qr: 'QR Code',
         'face-and-plate': 'Khuôn mặt + biển số',
         system: 'Hệ thống',
     }
@@ -332,7 +351,7 @@ function methodLabel(value) {
 function methodClass(value) {
     if (value === 'manual') return 'danger'
     if (value === 'plate') return 'warn'
-    if (value === 'face') return 'success'
+    if (value === 'face' || value === 'qr') return 'success'
     return ''
 }
 
@@ -518,6 +537,35 @@ onMounted(async () => {
     font-family: var(--font-heading);
     font-size: 0.84rem;
     font-weight: 700;
+}
+
+.evidence-thumbs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.evidence-thumb {
+    display: block;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(24, 49, 77, 0.12);
+    transition: transform 0.15s;
+}
+
+.evidence-thumb:hover {
+    transform: scale(2.5);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.evidence-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .note-cell {

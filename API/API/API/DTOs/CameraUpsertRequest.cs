@@ -6,5 +6,7 @@ namespace API.DTOs
         public int? GateId { get; set; }
         public string? CameraType { get; set; }
         public string? StreamUrl { get; set; }
+        public bool? IsRecordingEnabled { get; set; }
+        public int? RecordingRetentionDays { get; set; }
     }
 }

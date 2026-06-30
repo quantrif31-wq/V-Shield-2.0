@@ -92,6 +92,32 @@ public class TemporaryAccessGrant
     public AppUser? ApprovedByUser { get; set; }
 }
 
+public class EmergencyPass
+{
+    public long EmergencyPassId { get; set; }
+    [MaxLength(40)] public string SubjectType { get; set; } = "Person";
+    [MaxLength(80)] public string? SubjectId { get; set; }
+    [MaxLength(240)] public string SubjectName { get; set; } = string.Empty;
+    [MaxLength(40)] public string? PlateNumber { get; set; }
+    public int? SiteId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    [MaxLength(120)] public string? LaneReference { get; set; }
+    [MaxLength(160)] public string? LaneName { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    [MaxLength(1000)] public string Reason { get; set; } = string.Empty;
+    [MaxLength(40)] public string Status { get; set; } = "Active";
+    [MaxLength(80)] public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
+    public int ApprovedByUserId { get; set; }
+    public DateTime ValidFromUtc { get; set; } = DateTime.UtcNow;
+    public DateTime ValidToUtc { get; set; }
+    public long? AlarmId { get; set; }
+    public long? LaneEventId { get; set; }
+    public AppUser? ApprovedByUser { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
+}
+
 public class AccessPolicyVersion
 {
     public int AccessPolicyVersionId { get; set; }
@@ -150,6 +176,26 @@ public class OccupancySnapshot
     public int Count { get; set; }
     public int? MaxAllowed { get; set; }
     public DateTime CapturedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class DuressEvent
+{
+    public long DuressEventId { get; set; }
+    public int? UserId { get; set; }
+    public int? EmployeeId { get; set; }
+    public int? AccessPointId { get; set; }
+    public int? SecurityZoneId { get; set; }
+    public int? SiteId { get; set; }
+    [MaxLength(40)] public string CredentialType { get; set; } = "Unknown";
+    [MaxLength(200)] public string? Description { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public bool IsAcknowledged { get; set; }
+    public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? AcknowledgedAtUtc { get; set; }
+    public int? AcknowledgedByUserId { get; set; }
+    public Site? Site { get; set; }
+    public SecurityZone? SecurityZone { get; set; }
 }
 
 public class EmergencyState

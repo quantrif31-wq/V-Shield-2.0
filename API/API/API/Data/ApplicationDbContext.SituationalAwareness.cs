@@ -12,6 +12,7 @@ public partial class ApplicationDbContext
     public DbSet<MapDevicePlacement> MapDevicePlacements { get; set; }
     public DbSet<AiAdjudicationItem> AiAdjudicationItems { get; set; }
     public DbSet<AiPerformanceMetric> AiPerformanceMetrics { get; set; }
+    public DbSet<ClipRequest> ClipRequests { get; set; }
 
     private static void ConfigureSituationalAwareness(ModelBuilder modelBuilder)
     {
@@ -73,6 +74,16 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
             entity.Property(e => e.Confidence).HasColumnType("decimal(9,6)");
             entity.HasIndex(e => new { e.AiSource, e.Status, e.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<ClipRequest>(entity =>
+        {
+            entity.HasKey(e => e.ClipRequestId);
+            entity.Property(e => e.RequestedBy).HasMaxLength(160);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.RetentionCategory).HasMaxLength(40);
+            entity.Property(e => e.ExportReference).HasMaxLength(300);
+            entity.HasIndex(e => new { e.Status, e.CreatedAtUtc });
         });
 
         modelBuilder.Entity<AiPerformanceMetric>(entity =>

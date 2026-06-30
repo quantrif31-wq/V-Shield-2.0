@@ -208,6 +208,11 @@ namespace API.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<string>("CapturedFaceCropUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("CapturedFaceCropURL");
+
                     b.Property<string>("CapturedFaceImageUrl")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)")
@@ -216,6 +221,21 @@ namespace API.Migrations
                     b.Property<string>("CapturedLicensePlate")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("CapturedPlateCropUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("CapturedPlateCropURL");
+
+                    b.Property<string>("CapturedQrSnapshotUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("CapturedQrSnapshotURL");
+
+                    b.Property<string>("CapturedSnapshotUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("CapturedSnapshotURL");
 
                     b.Property<string>("Direction")
                         .IsRequired()
@@ -315,6 +335,12 @@ namespace API.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1037,6 +1063,9 @@ namespace API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AlarmId"));
 
+                    b.Property<decimal?>("Accuracy")
+                        .HasColumnType("decimal(10,4)");
+
                     b.Property<DateTime?>("AcknowledgedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -1044,6 +1073,9 @@ namespace API.Migrations
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
+
+                    b.Property<decimal?>("Altitude")
+                        .HasColumnType("decimal(10,4)");
 
                     b.Property<int?>("AssignedToUserId")
                         .HasColumnType("int");
@@ -1053,6 +1085,12 @@ namespace API.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
 
                     b.Property<long?>("SecurityEventId")
                         .HasColumnType("bigint");
@@ -1064,6 +1102,10 @@ namespace API.Migrations
 
                     b.Property<int?>("SiteId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SourceDeviceId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -1238,7 +1280,7 @@ namespace API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("Staff");
+                        .HasDefaultValue("LeTan");
 
                     b.Property<int>("TokenVersion")
                         .ValueGeneratedOnAdd()
@@ -1528,12 +1570,21 @@ namespace API.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
                     b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TotalFloors")
                         .HasColumnType("int");
 
                     b.HasKey("BuildingId");
@@ -1563,6 +1614,12 @@ namespace API.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<int?>("GateId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsRecordingEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RecordingRetentionDays")
                         .HasColumnType("int");
 
                     b.Property<string>("StreamUrl")
@@ -1607,6 +1664,70 @@ namespace API.Migrations
                     b.HasKey("CameraIP");
 
                     b.ToTable("CameraPlates");
+                });
+
+            modelBuilder.Entity("API.Models.Campus3DObject", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("Floors")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Height")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<decimal>("Length")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("ObjectType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal>("PositionX")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("PositionY")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("PositionZ")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("PropertiesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Rotation")
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Width")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SiteId");
+
+                    b.ToTable("Campus3DObjects");
                 });
 
             modelBuilder.Entity("API.Models.CampusMapLayout", b =>
@@ -1722,6 +1843,250 @@ namespace API.Migrations
                     b.ToTable("ChainOfCustodyEntries");
                 });
 
+            modelBuilder.Entity("API.Models.ChatConversation", b =>
+                {
+                    b.Property<int>("ConversationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConversationId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("ConversationId");
+
+                    b.ToTable("ChatConversations", (string)null);
+                });
+
+            modelBuilder.Entity("API.Models.ChatMessage", b =>
+                {
+                    b.Property<int>("MessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MessageId"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SignalingData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("MessageId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("SentAt");
+
+                    b.ToTable("ChatMessages", (string)null);
+                });
+
+            modelBuilder.Entity("API.Models.ChatParticipant", b =>
+                {
+                    b.Property<int>("ParticipantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ParticipantId"));
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ParticipantId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("ConversationId", "EmployeeId")
+                        .IsUnique();
+
+                    b.ToTable("ChatParticipants", (string)null);
+                });
+
+            modelBuilder.Entity("API.Models.ClaimRequest", b =>
+                {
+                    b.Property<long>("ClaimRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ClaimRequestId"));
+
+                    b.Property<string>("ClaimantIdNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ClaimantName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ClaimantPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ClaimantPhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CompletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("FoundItemReportId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HandoverNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ItemPhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long?>("LostItemReportId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ProofDocumentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnPhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("WitnessName")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("ClaimRequestId");
+
+                    b.HasIndex("FoundItemReportId");
+
+                    b.HasIndex("LostItemReportId");
+
+                    b.HasIndex("Status", "RequestedAtUtc");
+
+                    b.ToTable("ClaimRequests");
+                });
+
+            modelBuilder.Entity("API.Models.ClipRequest", b =>
+                {
+                    b.Property<int>("ClipRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ClipRequestId"));
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CameraId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExportReference")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("ExportedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("RetentionCategory")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<long?>("SecurityEventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("StartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("ClipRequestId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("ClipRequests");
+                });
+
             modelBuilder.Entity("API.Models.Company", b =>
                 {
                     b.Property<int>("CompanyId")
@@ -1800,6 +2165,83 @@ namespace API.Migrations
                     b.HasIndex("ReportType", "CreatedAtUtc");
 
                     b.ToTable("ComplianceReportRuns");
+                });
+
+            modelBuilder.Entity("API.Models.Contractor", b =>
+                {
+                    b.Property<int>("ContractorId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ContractorId"));
+
+                    b.Property<bool>("AccessReviewCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AccessReviewDateUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Company")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<DateTime>("ContractFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ContractToUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("RequiredTraining")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RevokedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("ContractorId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("Status", "ContractToUtc");
+
+                    b.ToTable("Contractors");
                 });
 
             modelBuilder.Entity("API.Models.Department", b =>
@@ -2076,10 +2518,16 @@ namespace API.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
                     b.Property<string>("LocationText")
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
 
                     b.Property<string>("Priority")
                         .IsRequired()
@@ -2131,6 +2579,65 @@ namespace API.Migrations
                         .IsUnique();
 
                     b.ToTable("Doors");
+                });
+
+            modelBuilder.Entity("API.Models.DuressEvent", b =>
+                {
+                    b.Property<long>("DuressEventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("DuressEventId"));
+
+                    b.Property<int?>("AccessPointId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AcknowledgedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AcknowledgedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CredentialType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsAcknowledged")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("SecurityZoneId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("DuressEventId");
+
+                    b.HasIndex("SecurityZoneId");
+
+                    b.HasIndex("SiteId", "OccurredAtUtc");
+
+                    b.ToTable("DuressEvents");
                 });
 
             modelBuilder.Entity("API.Models.DynamicQrScanLog", b =>
@@ -2205,6 +2712,98 @@ namespace API.Migrations
                     b.HasIndex("SiteId", "CapturedAtUtc");
 
                     b.ToTable("EmergencyMusterSnapshots");
+                });
+
+            modelBuilder.Entity("API.Models.EmergencyPass", b =>
+                {
+                    b.Property<long>("EmergencyPassId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("EmergencyPassId"));
+
+                    b.Property<long?>("AlarmId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ApprovedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<long?>("LaneEventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("LaneName")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("LaneReference")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<string>("PlateNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("SecurityZoneId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("SubjectId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("SubjectName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("ValidFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ValidToUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("EmergencyPassId");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CorrelationId")
+                        .IsUnique();
+
+                    b.HasIndex("SecurityZoneId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("Status", "ValidToUtc");
+
+                    b.ToTable("EmergencyPasses");
                 });
 
             modelBuilder.Entity("API.Models.EmergencyState", b =>
@@ -2955,6 +3554,10 @@ namespace API.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<string>("ClientSecret")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -2970,6 +3573,14 @@ namespace API.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("RedirectUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Scopes")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("ExternalIdentityProviderId");
 
@@ -3014,6 +3625,83 @@ namespace API.Migrations
                     b.ToTable("FacilityFloors");
                 });
 
+            modelBuilder.Entity("API.Models.FoundItemReport", b =>
+                {
+                    b.Property<long>("FoundItemReportId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("FoundItemReportId"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FinderPhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("FoundAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FoundByIdNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("FoundByName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("FoundByPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FoundLocation")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("ItemDescription")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<long?>("ItemEvidenceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("LockerCompartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReturnedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("StorageLocation")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("FoundItemReportId");
+
+                    b.HasIndex("ItemEvidenceId");
+
+                    b.HasIndex("LockerCompartmentId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("FoundItemReports");
+                });
+
             modelBuilder.Entity("API.Models.Gate", b =>
                 {
                     b.Property<int>("GateId")
@@ -3027,14 +3715,74 @@ namespace API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
                     b.Property<string>("Location")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
 
                     b.HasKey("GateId")
                         .HasName("PK__Gate__9582C65020BEEB76");
 
                     b.ToTable("Gate");
+                });
+
+            modelBuilder.Entity("API.Models.GuardZoneAuthority", b =>
+                {
+                    b.Property<int>("GuardZoneAuthorityId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GuardZoneAuthorityId"));
+
+                    b.Property<string>("AuthorityLevel")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<bool>("CanManage")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanOverride")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("GrantedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("SecurityZoneId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ValidFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ValidTo")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("GuardZoneAuthorityId");
+
+                    b.HasIndex("GrantedByUserId");
+
+                    b.HasIndex("SecurityZoneId");
+
+                    b.HasIndex("UserId", "SecurityZoneId");
+
+                    b.HasIndex("UserId", "ValidTo");
+
+                    b.ToTable("GuardZoneAuthority");
                 });
 
             modelBuilder.Entity("API.Models.GuestProfile", b =>
@@ -3261,6 +4009,101 @@ namespace API.Migrations
                     b.ToTable("IncidentTimelineItems");
                 });
 
+            modelBuilder.Entity("API.Models.IndoorPathNode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FacilityFloorId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsAccessible")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEmergencyExit")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("NeighborsJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NodeType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal>("X")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Y")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Z")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FacilityFloorId");
+
+                    b.HasIndex("BuildingId", "FacilityFloorId");
+
+                    b.ToTable("IndoorPathNodes");
+                });
+
+            modelBuilder.Entity("API.Models.ItemMatch", b =>
+                {
+                    b.Property<long>("ItemMatchId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ItemMatchId"));
+
+                    b.Property<double>("ConfidenceScore")
+                        .HasColumnType("float");
+
+                    b.Property<long>("FoundItemReportId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LostItemReportId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("MatchedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("MatchedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("ItemMatchId");
+
+                    b.HasIndex("FoundItemReportId");
+
+                    b.HasIndex("LostItemReportId");
+
+                    b.HasIndex("Status", "MatchedAtUtc");
+
+                    b.ToTable("ItemMatches");
+                });
+
             modelBuilder.Entity("API.Models.Lane", b =>
                 {
                     b.Property<int>("LaneId")
@@ -3452,6 +4295,183 @@ namespace API.Migrations
                     b.ToTable("LegalHolds");
                 });
 
+            modelBuilder.Entity("API.Models.LockerAccessLog", b =>
+                {
+                    b.Property<long>("LockerAccessLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("LockerAccessLogId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("LockerCompartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("LockerAccessLogId");
+
+                    b.HasIndex("LockerCompartmentId", "Timestamp");
+
+                    b.ToTable("LockerAccessLogs");
+                });
+
+            modelBuilder.Entity("API.Models.LockerCabinet", b =>
+                {
+                    b.Property<int>("LockerCabinetId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LockerCabinetId"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("LockerCabinetId");
+
+                    b.ToTable("LockerCabinets");
+                });
+
+            modelBuilder.Entity("API.Models.LockerCompartment", b =>
+                {
+                    b.Property<int>("LockerCompartmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LockerCompartmentId"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<long?>("EvidenceItemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("LockerCabinetId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("OccupiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("OccupiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReleasedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("LockerCompartmentId");
+
+                    b.HasIndex("EvidenceItemId");
+
+                    b.HasIndex("LockerCabinetId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "LockerCabinetId");
+
+                    b.ToTable("LockerCompartments");
+                });
+
+            modelBuilder.Entity("API.Models.LostItemReport", b =>
+                {
+                    b.Property<long>("LostItemReportId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("LostItemReportId"));
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ItemDescription")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("LastSeenLocation")
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<DateTime>("LostAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReporterEmail")
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("ReporterIdNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ReporterName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ReporterPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ReporterPhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("LostItemReportId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("LostItemReports");
+                });
+
             modelBuilder.Entity("API.Models.MapDevicePlacement", b =>
                 {
                     b.Property<int>("MapDevicePlacementId")
@@ -3562,6 +4582,119 @@ namespace API.Migrations
                     b.ToTable("MusterPoints");
                 });
 
+            modelBuilder.Entity("API.Models.Notification", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("(getutcdate())");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<string>("LocationLabel")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RecipientUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReferenceType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RecipientUserId", "IsRead", "CreatedAt");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("API.Models.NotificationRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("(getutcdate())");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotifyMobile")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotifyWeb")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RecipientRole")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("RecipientUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SeverityMin")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventType");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.ToTable("NotificationRules");
+                });
+
             modelBuilder.Entity("API.Models.OccupancySnapshot", b =>
                 {
                     b.Property<long>("OccupancySnapshotId")
@@ -3633,6 +4766,127 @@ namespace API.Migrations
                     b.HasIndex("SecurityDeviceId");
 
                     b.ToTable("OfflinePolicyPackages");
+                });
+
+            modelBuilder.Entity("API.Models.OperationalInterventionRequest", b =>
+                {
+                    b.Property<long>("OperationalInterventionRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("OperationalInterventionRequestId"));
+
+                    b.Property<DateTime?>("AcceptedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AcceptedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExecutedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExecutedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InterventionType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("LaneId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("LaneName")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("PlateNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("QrPayload")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RejectedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SecurityZoneId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("SubjectId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("SubjectName")
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("OperationalInterventionRequestId");
+
+                    b.HasIndex("AcceptedByUserId");
+
+                    b.HasIndex("ExecutedByUserId");
+
+                    b.HasIndex("RejectedByUserId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("SecurityZoneId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("Status", "Priority", "CreatedAtUtc");
+
+                    b.ToTable("OperationalInterventionRequests");
                 });
 
             modelBuilder.Entity("API.Models.OutboxEvent", b =>
@@ -3957,6 +5211,39 @@ namespace API.Migrations
                     b.ToTable("QaTestRuns");
                 });
 
+            modelBuilder.Entity("API.Models.RateLimitCounter", b =>
+                {
+                    b.Property<long>("RateLimitCounterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RateLimitCounterId"));
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CounterKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("WindowStart")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("RateLimitCounterId");
+
+                    b.HasIndex("CreatedAtUtc")
+                        .HasDatabaseName("IX_RateLimitCounters_CreatedAt");
+
+                    b.HasIndex("CounterKey", "WindowStart")
+                        .HasDatabaseName("IX_RateLimitCounters_Key_Window");
+
+                    b.ToTable("RateLimitCounters");
+                });
+
             modelBuilder.Entity("API.Models.ReaderDevice", b =>
                 {
                     b.Property<int>("ReaderDeviceId")
@@ -3988,6 +5275,126 @@ namespace API.Migrations
                     b.HasIndex("SecurityDeviceId");
 
                     b.ToTable("ReaderDevices");
+                });
+
+            modelBuilder.Entity("API.Models.ReceptionInteraction", b =>
+                {
+                    b.Property<long>("ReceptionInteractionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ReceptionInteractionId"));
+
+                    b.Property<string>("ContactPersonName")
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("ContactPersonPhone")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DetailNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<long?>("FoundItemReportId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("InteractionType")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<long?>("LostItemReportId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RelatedVehiclePlate")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("SecurityRequested")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("VisitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ReceptionInteractionId");
+
+                    b.HasIndex("FoundItemReportId");
+
+                    b.HasIndex("LostItemReportId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.HasIndex("VisitId", "CreatedAtUtc");
+
+                    b.ToTable("ReceptionInteractions");
+                });
+
+            modelBuilder.Entity("API.Models.RecordedSegment", b =>
+                {
+                    b.Property<long>("SegmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SegmentId"));
+
+                    b.Property<int>("CameraId")
+                        .HasColumnType("int");
+
+                    b.Property<double>("DurationSeconds")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StorageUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("SegmentId");
+
+                    b.HasIndex("CameraId");
+
+                    b.ToTable("Recorded_Segment");
                 });
 
             modelBuilder.Entity("API.Models.RedactionRequest", b =>
@@ -4779,6 +6186,12 @@ namespace API.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(18,12)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(18,12)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -5181,6 +6594,75 @@ namespace API.Migrations
                     b.ToTable("UEBAProfiles");
                 });
 
+            modelBuilder.Entity("API.Models.UserOperationalScope", b =>
+                {
+                    b.Property<int>("UserOperationalScopeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserOperationalScopeId"));
+
+                    b.Property<bool>("CanManage")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanView")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GateId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LaneId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("SecurityZoneId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TaskKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ValidFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ValidToUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserOperationalScopeId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("GateId");
+
+                    b.HasIndex("LaneId");
+
+                    b.HasIndex("SecurityZoneId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("UserId", "TaskKey");
+
+                    b.HasIndex("UserId", "SiteId", "GateId", "LaneId", "SecurityZoneId");
+
+                    b.ToTable("UserOperationalScopes");
+                });
+
             modelBuilder.Entity("API.Models.UserRefreshToken", b =>
                 {
                     b.Property<long>("Id")
@@ -5286,6 +6768,49 @@ namespace API.Migrations
                         .IsUnique();
 
                     b.ToTable("Vehicle");
+                });
+
+            modelBuilder.Entity("API.Models.VehicleDelegation", b =>
+                {
+                    b.Property<int>("VehicleDelegationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VehicleDelegationId"));
+
+                    b.Property<int>("FromEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RespondedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("ToEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VehicleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("VehicleDelegationId");
+
+                    b.HasIndex("FromEmployeeId");
+
+                    b.HasIndex("ToEmployeeId");
+
+                    b.HasIndex("VehicleId");
+
+                    b.ToTable("VehicleDelegations");
                 });
 
             modelBuilder.Entity("API.Models.VehicleType", b =>
@@ -6251,6 +7776,18 @@ namespace API.Migrations
                     b.Navigation("Gate");
                 });
 
+            modelBuilder.Entity("API.Models.Campus3DObject", b =>
+                {
+                    b.HasOne("API.Models.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Campus3DObjects_Site");
+
+                    b.Navigation("Site");
+                });
+
             modelBuilder.Entity("API.Models.CampusMapLayout", b =>
                 {
                     b.HasOne("API.Models.Gate", "Gate")
@@ -6280,6 +7817,79 @@ namespace API.Migrations
                         .IsRequired();
 
                     b.Navigation("EvidenceItem");
+                });
+
+            modelBuilder.Entity("API.Models.ChatMessage", b =>
+                {
+                    b.HasOne("API.Models.ChatConversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.Employee", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("API.Models.ChatParticipant", b =>
+                {
+                    b.HasOne("API.Models.ChatConversation", "Conversation")
+                        .WithMany("Participants")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("API.Models.ClaimRequest", b =>
+                {
+                    b.HasOne("API.Models.FoundItemReport", "FoundItem")
+                        .WithMany()
+                        .HasForeignKey("FoundItemReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.LostItemReport", "LostItem")
+                        .WithMany()
+                        .HasForeignKey("LostItemReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("FoundItem");
+
+                    b.Navigation("LostItem");
+                });
+
+            modelBuilder.Entity("API.Models.Contractor", b =>
+                {
+                    b.HasOne("API.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Site");
                 });
 
             modelBuilder.Entity("API.Models.DeviceConfigurationVersion", b =>
@@ -6356,6 +7966,48 @@ namespace API.Migrations
                         .IsRequired();
 
                     b.Navigation("AccessPoint");
+                });
+
+            modelBuilder.Entity("API.Models.DuressEvent", b =>
+                {
+                    b.HasOne("API.Models.SecurityZone", "SecurityZone")
+                        .WithMany()
+                        .HasForeignKey("SecurityZoneId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("SecurityZone");
+
+                    b.Navigation("Site");
+                });
+
+            modelBuilder.Entity("API.Models.EmergencyPass", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.SecurityZone", "SecurityZone")
+                        .WithMany()
+                        .HasForeignKey("SecurityZoneId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("SecurityZone");
+
+                    b.Navigation("Site");
                 });
 
             modelBuilder.Entity("API.Models.Employee", b =>
@@ -6509,6 +8161,52 @@ namespace API.Migrations
                     b.Navigation("Building");
                 });
 
+            modelBuilder.Entity("API.Models.FoundItemReport", b =>
+                {
+                    b.HasOne("API.Models.EvidenceItem", "ItemEvidence")
+                        .WithMany()
+                        .HasForeignKey("ItemEvidenceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.LockerCompartment", "LockerCompartment")
+                        .WithMany()
+                        .HasForeignKey("LockerCompartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ItemEvidence");
+
+                    b.Navigation("LockerCompartment");
+                });
+
+            modelBuilder.Entity("API.Models.GuardZoneAuthority", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "GrantedByUser")
+                        .WithMany()
+                        .HasForeignKey("GrantedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_GuardZoneAuthority_GrantedByUser");
+
+                    b.HasOne("API.Models.SecurityZone", "SecurityZone")
+                        .WithMany()
+                        .HasForeignKey("SecurityZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_GuardZoneAuthority_SecurityZone");
+
+                    b.HasOne("API.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_GuardZoneAuthority_User");
+
+                    b.Navigation("GrantedByUser");
+
+                    b.Navigation("SecurityZone");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("API.Models.HolidayCalendar", b =>
                 {
                     b.HasOne("API.Models.Site", "Site")
@@ -6538,6 +8236,43 @@ namespace API.Migrations
                         .IsRequired();
 
                     b.Navigation("Incident");
+                });
+
+            modelBuilder.Entity("API.Models.IndoorPathNode", b =>
+                {
+                    b.HasOne("API.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.FacilityFloor", "FacilityFloor")
+                        .WithMany()
+                        .HasForeignKey("FacilityFloorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Building");
+
+                    b.Navigation("FacilityFloor");
+                });
+
+            modelBuilder.Entity("API.Models.ItemMatch", b =>
+                {
+                    b.HasOne("API.Models.FoundItemReport", "FoundItem")
+                        .WithMany()
+                        .HasForeignKey("FoundItemReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.LostItemReport", "LostItem")
+                        .WithMany()
+                        .HasForeignKey("LostItemReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FoundItem");
+
+                    b.Navigation("LostItem");
                 });
 
             modelBuilder.Entity("API.Models.Lane", b =>
@@ -6602,6 +8337,35 @@ namespace API.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("API.Models.LockerAccessLog", b =>
+                {
+                    b.HasOne("API.Models.LockerCompartment", "Compartment")
+                        .WithMany()
+                        .HasForeignKey("LockerCompartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Compartment");
+                });
+
+            modelBuilder.Entity("API.Models.LockerCompartment", b =>
+                {
+                    b.HasOne("API.Models.EvidenceItem", "EvidenceItem")
+                        .WithMany()
+                        .HasForeignKey("EvidenceItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.LockerCabinet", "Cabinet")
+                        .WithMany()
+                        .HasForeignKey("LockerCabinetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cabinet");
+
+                    b.Navigation("EvidenceItem");
+                });
+
             modelBuilder.Entity("API.Models.MapDevicePlacement", b =>
                 {
                     b.HasOne("API.Models.Camera", "Camera")
@@ -6632,7 +8396,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -6649,6 +8413,29 @@ namespace API.Migrations
                     b.Navigation("Site");
                 });
 
+            modelBuilder.Entity("API.Models.Notification", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Notification_RecipientUser");
+
+                    b.Navigation("RecipientUser");
+                });
+
+            modelBuilder.Entity("API.Models.NotificationRule", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_NotificationRule_RecipientUser");
+
+                    b.Navigation("RecipientUser");
+                });
+
             modelBuilder.Entity("API.Models.OfflinePolicyPackage", b =>
                 {
                     b.HasOne("API.Models.SecurityDevice", "SecurityDevice")
@@ -6657,6 +8444,58 @@ namespace API.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("SecurityDevice");
+                });
+
+            modelBuilder.Entity("API.Models.OperationalInterventionRequest", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "AcceptedByUser")
+                        .WithMany()
+                        .HasForeignKey("AcceptedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Intervention_AcceptedByUser");
+
+                    b.HasOne("API.Models.AppUser", "ExecutedByUser")
+                        .WithMany()
+                        .HasForeignKey("ExecutedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Intervention_ExecutedByUser");
+
+                    b.HasOne("API.Models.AppUser", "RejectedByUser")
+                        .WithMany()
+                        .HasForeignKey("RejectedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_Intervention_RejectedByUser");
+
+                    b.HasOne("API.Models.AppUser", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("FK_Intervention_RequestedByUser");
+
+                    b.HasOne("API.Models.SecurityZone", "SecurityZone")
+                        .WithMany()
+                        .HasForeignKey("SecurityZoneId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_Intervention_SecurityZone");
+
+                    b.HasOne("API.Models.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_Intervention_Site");
+
+                    b.Navigation("AcceptedByUser");
+
+                    b.Navigation("ExecutedByUser");
+
+                    b.Navigation("RejectedByUser");
+
+                    b.Navigation("RequestedByUser");
+
+                    b.Navigation("SecurityZone");
+
+                    b.Navigation("Site");
                 });
 
             modelBuilder.Entity("API.Models.ParkingArea", b =>
@@ -6738,6 +8577,41 @@ namespace API.Migrations
                     b.Navigation("Controller");
 
                     b.Navigation("SecurityDevice");
+                });
+
+            modelBuilder.Entity("API.Models.ReceptionInteraction", b =>
+                {
+                    b.HasOne("API.Models.FoundItemReport", "FoundItemReport")
+                        .WithMany()
+                        .HasForeignKey("FoundItemReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.LostItemReport", "LostItemReport")
+                        .WithMany()
+                        .HasForeignKey("LostItemReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.Visit", "Visit")
+                        .WithMany()
+                        .HasForeignKey("VisitId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("FoundItemReport");
+
+                    b.Navigation("LostItemReport");
+
+                    b.Navigation("Visit");
+                });
+
+            modelBuilder.Entity("API.Models.RecordedSegment", b =>
+                {
+                    b.HasOne("API.Models.Camera", "Camera")
+                        .WithMany("RecordedSegments")
+                        .HasForeignKey("CameraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Camera");
                 });
 
             modelBuilder.Entity("API.Models.RedactionRequest", b =>
@@ -6908,6 +8782,52 @@ namespace API.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("API.Models.UserOperationalScope", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("API.Models.Gate", "Gate")
+                        .WithMany()
+                        .HasForeignKey("GateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("API.Models.Lane", "Lane")
+                        .WithMany()
+                        .HasForeignKey("LaneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("API.Models.SecurityZone", "SecurityZone")
+                        .WithMany()
+                        .HasForeignKey("SecurityZoneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("API.Models.Site", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("API.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Gate");
+
+                    b.Navigation("Lane");
+
+                    b.Navigation("SecurityZone");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("API.Models.UserRefreshToken", b =>
                 {
                     b.HasOne("API.Models.AppUser", "User")
@@ -6948,6 +8868,33 @@ namespace API.Migrations
                     b.Navigation("VehicleType");
 
                     b.Navigation("VisitorDetail");
+                });
+
+            modelBuilder.Entity("API.Models.VehicleDelegation", b =>
+                {
+                    b.HasOne("API.Models.Employee", "FromEmployee")
+                        .WithMany("OutgoingDelegations")
+                        .HasForeignKey("FromEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.Employee", "ToEmployee")
+                        .WithMany("IncomingDelegations")
+                        .HasForeignKey("ToEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.Vehicle", "Vehicle")
+                        .WithMany("Delegations")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FromEmployee");
+
+                    b.Navigation("ToEmployee");
+
+                    b.Navigation("Vehicle");
                 });
 
             modelBuilder.Entity("API.Models.Visit", b =>
@@ -7189,6 +9136,15 @@ namespace API.Migrations
             modelBuilder.Entity("API.Models.Camera", b =>
                 {
                     b.Navigation("AccessLogs");
+
+                    b.Navigation("RecordedSegments");
+                });
+
+            modelBuilder.Entity("API.Models.ChatConversation", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("API.Models.Company", b =>
@@ -7208,6 +9164,10 @@ namespace API.Migrations
                     b.Navigation("AppUser");
 
                     b.Navigation("DirectReports");
+
+                    b.Navigation("IncomingDelegations");
+
+                    b.Navigation("OutgoingDelegations");
 
                     b.Navigation("PreRegistrations");
 
@@ -7263,6 +9223,11 @@ namespace API.Migrations
                     b.Navigation("Buildings");
 
                     b.Navigation("Zones");
+                });
+
+            modelBuilder.Entity("API.Models.Vehicle", b =>
+                {
+                    b.Navigation("Delegations");
                 });
 
             modelBuilder.Entity("API.Models.VehicleType", b =>

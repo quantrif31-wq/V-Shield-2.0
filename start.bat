@@ -8,5 +8,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo V-Shield da san sang: http://127.0.0.1:5173/
+set "VSHIELD_URL=http://127.0.0.1:5173/"
+if exist "%~dp0.runtime\view.url" set /p VSHIELD_URL=<"%~dp0.runtime\view.url"
+echo V-Shield da san sang: %VSHIELD_URL%
 ping 127.0.0.1 -n 6 >nul

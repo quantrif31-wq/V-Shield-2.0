@@ -8,8 +8,10 @@ using API.Middleware;
 using API.Models;
 using API.Services;
 using API.Services.AI;
+using API.Services.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -88,7 +90,7 @@ namespace API
                     .Build();
                 options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
                 options.AddPolicy("RuntimeOperator", policy => policy.RequireRole("Admin", "BaoVe"));
-                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "Staff"));
+                options.AddPolicy("SecurityOperator", policy => policy.RequireRole("Admin", "BaoVe", "LeTan"));
             });
 
             builder.Services.AddMemoryCache();
@@ -113,6 +115,7 @@ namespace API
             builder.Services.AddScoped<IUebaRiskGraphService, UebaRiskGraphService>();
             builder.Services.AddScoped<IEvidenceAiAssistantService, EvidenceAiAssistantService>();
             builder.Services.AddScoped<IDeviceHealthIntelligenceService, DeviceHealthIntelligenceService>();
+            builder.Services.AddScoped<IDeviceSimulator, DeviceSimulatorService>();
             builder.Services.AddScoped<IVisitorVehicleRiskScreeningService, VisitorVehicleRiskScreeningService>();
             builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
             builder.Services.AddScoped<IPolicySimulationService, PolicySimulationService>();
@@ -123,7 +126,26 @@ namespace API
             builder.Services.Configure<API.Services.AI.AiProviderOptions>(builder.Configuration.GetSection("AiProvider"));
             builder.Services.AddScoped<ICompanyHierarchyBackfillService, CompanyHierarchyBackfillService>();
             builder.Services.AddSingleton<ISecurityConfigurationHealthService, SecurityConfigurationHealthService>();
+            builder.Services.AddSingleton<ISecretService, EnvironmentSecretService>();
+            builder.Services.AddSingleton<IDistributedRateCounter>(sp =>
+            {
+                var config = sp.GetRequiredService<IConfiguration>();
+                var backend = config.GetValue<string>("RateLimiting:Backend") ?? "Memory";
+                if (string.Equals(backend, "SqlServer", StringComparison.OrdinalIgnoreCase))
+                {
+                    var logger = sp.GetRequiredService<ILogger<SqlServerRateCounter>>();
+                    return new SqlServerRateCounter(config, logger);
+                }
+                return new MemoryRateCounter();
+            });
             builder.Services.AddScoped<ICampusMapRealtimeService, CampusMapRealtimeService>();
+            builder.Services.AddScoped<EvidenceCaptureService>();
+            builder.Services.AddScoped<LostFoundMatchingService>();
+            builder.Services.AddScoped<LockerService>();
+            builder.Services.AddScoped<ZoneAuthorityService>();
+            builder.Services.AddScoped<UserOperationalScopeService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IRoutingService, RoutingService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.JsonFileParser>();
@@ -149,6 +171,7 @@ namespace API
             {
                 builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
                 builder.Services.AddHostedService<EnterpriseOperationsWorker>();
+                builder.Services.AddHostedService<CameraRecordingService>();
             }
             builder.Services.AddHttpClient();
             builder.Services.AddHttpClient("AiGateway", client =>
@@ -162,6 +185,15 @@ namespace API
                 {
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 });
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor |
+                    ForwardedHeaders.XForwardedProto |
+                    ForwardedHeaders.XForwardedHost;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
 
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -171,7 +203,7 @@ namespace API
                 {
                     Title = "V-Shield API",
                     Version = "v1",
-                    Description = "API quan ly he thong V-Shield voi phan quyen Admin/Staff/BaoVe"
+                    Description = "API quan ly he thong V-Shield voi phan quyen Admin/QuanLy/BaoVe/LeTan"
                 });
 
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -245,7 +277,7 @@ namespace API
             {
                 EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
                 DemoDataSeeder.EnsureSeeded(app.Services, builder.Configuration, app.Environment);
-                EnsureGo2RtcProcessRunning(app.Services);
+                EnsureGo2RtcRuntimeSynchronized(app.Services);
             }
 
             if (app.Environment.IsDevelopment())
@@ -254,6 +286,7 @@ namespace API
                 app.UseSwaggerUI();
             }
 
+            app.UseForwardedHeaders();
             app.UseMiddleware<CorrelationIdMiddleware>();
             app.UseMiddleware<SafeExceptionHandlingMiddleware>();
             app.UseSecurityHeaders();
@@ -261,7 +294,7 @@ namespace API
             {
                 app.UseHsts();
             }
-            if (!app.Environment.IsEnvironment("Testing"))
+            if (ShouldUseHttpsRedirection(app.Configuration, app.Environment))
             {
                 app.UseHttpsRedirection();
             }
@@ -288,6 +321,8 @@ namespace API
 
             app.MapControllers();
             app.MapHub<EmployeeStatsHub>("/hubs/employee-stats").RequireAuthorization();
+            app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
+            app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
             app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" })).AllowAnonymous();
             app.MapGet("/health/live", () => Results.Ok(new
             {
@@ -539,11 +574,12 @@ namespace API
             throw new InvalidOperationException("Production security configuration is unsafe. " + string.Join(" | ", failures));
         }
 
-        private static void EnsureGo2RtcProcessRunning(IServiceProvider services)
+        private static void EnsureGo2RtcRuntimeSynchronized(IServiceProvider services)
         {
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
 
             try
             {
@@ -573,18 +609,37 @@ namespace API
                 yaml.AppendLine("  origin: \"*\"");
                 yaml.AppendLine("webrtc:");
                 yaml.AppendLine("  listen: \":8555\"");
+                var candidates = ResolveStartupGo2RtcCandidates(config).ToList();
+                if (candidates.Count > 0)
+                {
+                    yaml.AppendLine("  candidates:");
+                }
+                foreach (var candidate in candidates)
+                {
+                    yaml.AppendLine($"    - {candidate}");
+                }
                 yaml.AppendLine("  ice_servers:");
                 yaml.AppendLine("    - urls:");
                 yaml.AppendLine("        - stun:stun.l.google.com:19302");
 
-                var basePath = Directory.GetCurrentDirectory();
-                var aiRootFolderName = config["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
-                var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64"));
+                var yamlPath = ResolveStartupGo2RtcYamlPath(config);
+                var yamlDirectory = Path.GetDirectoryName(yamlPath);
+                if (!string.IsNullOrWhiteSpace(yamlDirectory) && !Directory.Exists(yamlDirectory))
+                {
+                    Directory.CreateDirectory(yamlDirectory);
+                }
+                File.WriteAllText(yamlPath, yaml.ToString());
+
+                if (IsDockerRuntimeMode(config))
+                {
+                    TryReloadGo2RtcByHttp(httpClientFactory, config);
+                    return;
+                }
+
+                var go2rtcPath = Path.GetDirectoryName(yamlPath) ?? string.Empty;
                 var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
-                var yamlPath = Path.Combine(go2rtcPath, "go2rtc.yaml");
                 if (!Directory.Exists(go2rtcPath) || !File.Exists(exePath)) return;
 
-                File.WriteAllText(yamlPath, yaml.ToString());
                 foreach (var proc in Process.GetProcessesByName("go2rtc")) proc.Kill();
                 Process.Start(new ProcessStartInfo
                 {
@@ -597,6 +652,68 @@ namespace API
             {
                 // Startup should not crash if go2rtc is unavailable.
             }
+        }
+
+        private static bool IsDockerRuntimeMode(IConfiguration configuration)
+        {
+            var mode = (configuration["Runtime:Mode"] ?? "local").Trim().ToLowerInvariant();
+            return mode == "docker";
+        }
+
+        private static string ResolveStartupGo2RtcYamlPath(IConfiguration configuration)
+        {
+            var configured = configuration["Go2Rtc:ConfigPath"];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured.Trim();
+            }
+
+            var basePath = Directory.GetCurrentDirectory();
+            var aiRootFolderName = configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Runtime";
+            var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", aiRootFolderName, "cam", "go2rtc_win64"));
+            return Path.Combine(go2rtcPath, "go2rtc.yaml");
+        }
+
+        private static IEnumerable<string> ResolveStartupGo2RtcCandidates(IConfiguration configuration)
+        {
+            var configured = configuration["Go2Rtc:WebRtcCandidates"];
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return Array.Empty<string>();
+            }
+
+            return configured
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(value => !string.IsNullOrWhiteSpace(value));
+        }
+
+        private static void TryReloadGo2RtcByHttp(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        {
+            var reloadUrl = (configuration["Go2Rtc:ReloadUrl"] ?? "http://go2rtc:1984/api/restart").Trim();
+            if (string.IsNullOrWhiteSpace(reloadUrl))
+            {
+                return;
+            }
+
+            try
+            {
+                using var http = httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(5);
+                using var req = new HttpRequestMessage(HttpMethod.Post, reloadUrl);
+                using var _ = http.Send(req);
+            }
+            catch
+            {
+                // Docker mode: do not crash startup if go2rtc reload endpoint is unavailable.
+            }
+        }
+
+        private static bool ShouldUseHttpsRedirection(IConfiguration configuration, IHostEnvironment environment)
+        {
+            if (environment.IsEnvironment("Testing"))
+                return false;
+
+            return configuration.GetValue("Security:EnableHttpsRedirection", true);
         }
     }
 
@@ -613,6 +730,16 @@ namespace API
                     headers.TryAdd("X-Frame-Options", "DENY");
                     headers.TryAdd("Referrer-Policy", "no-referrer");
                     headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+                    headers.TryAdd("Content-Security-Policy",
+                        "default-src 'self'; " +
+                        "script-src 'self'; " +
+                        "style-src 'self' 'unsafe-inline'; " +
+                        "img-src 'self' data: blob:; " +
+                        "connect-src 'self'; " +
+                        "font-src 'self'; " +
+                        "frame-ancestors 'none'; " +
+                        "base-uri 'self'; " +
+                        "form-action 'self'");
                     return Task.CompletedTask;
                 });
 

@@ -14,7 +14,7 @@
             <span class="element-icon">{{ iconGlyph }}</span>
             <strong>{{ item.gateName }}</strong>
         </header>
-        <p class="element-location">{{ item.location || 'Chua co location' }}</p>
+        <p class="element-location">{{ item.location || 'Chưa có vị trí' }}</p>
         <div class="element-foot">
             <span>{{ item.stats?.cameraCount || 0 }} camera</span>
             <span>{{ statusLabel }}</span>
@@ -52,11 +52,11 @@ const elementStyle = computed(() => ({
 const statusLabel = computed(() => {
     const map = {
         Offline: 'Offline',
-        Warning: 'Canh bao',
-        Active: 'Dang hoat dong',
-        Normal: 'Binh thuong',
+        Warning: 'Cảnh báo',
+        Active: 'Đang hoạt động',
+        Normal: 'Bình thường',
     }
-    return map[props.item.status] || props.item.status || 'Binh thuong'
+    return map[props.item.status] || props.item.status || 'Bình thường'
 })
 
 const iconGlyph = computed(() => {

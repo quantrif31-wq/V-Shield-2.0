@@ -58,6 +58,8 @@ public class EnterpriseOperationsWorker : BackgroundService
         await EscalateAlarmSlaAsync(db, socIntel, now, cancellationToken);
         await DetectVisitorOverstayAsync(db, now, cancellationToken);
         await MarkStaleDevicesAsync(db, now, cancellationToken);
+        await AutoOffboardStaleAccountsAsync(db, _logger, now, cancellationToken);
+        await ExpireStaleInterventionRequestsAsync(db, now, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -220,6 +222,104 @@ public class EnterpriseOperationsWorker : BackgroundService
         }
     }
 
+    private static async Task AutoOffboardStaleAccountsAsync(ApplicationDbContext db, ILogger logger, DateTime now, CancellationToken cancellationToken)
+    {
+        var suspendThreshold = now.AddDays(-30);
+        var staleSyncThreshold = now.AddDays(-90);
+
+        var suspendedEmployees = await db.Employees
+            .Where(e =>
+                e.LifecycleStatus == EmployeeLifecycleStates.Suspended &&
+                e.LifecycleUpdatedAtUtc != null &&
+                e.LifecycleUpdatedAtUtc <= suspendThreshold)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+
+        foreach (var employee in suspendedEmployees)
+        {
+            employee.LifecycleStatus = EmployeeLifecycleStates.Terminated;
+            employee.LifecycleUpdatedAtUtc = now;
+            employee.Status = false;
+
+            db.EmployeeLifecycleEvents.Add(new EmployeeLifecycleEvent
+            {
+                Employee = employee,
+                PreviousState = EmployeeLifecycleStates.Suspended,
+                NewState = EmployeeLifecycleStates.Terminated,
+                Reason = "Auto-offboard: suspended for more than 30 days.",
+                EffectiveAtUtc = now,
+                ChangedByUserId = null
+            });
+
+            var user = await db.AppUsers.FirstOrDefaultAsync(u => u.EmployeeId == employee.EmployeeId, cancellationToken);
+            if (user != null)
+            {
+                user.IsActive = false;
+                user.TokenVersion++;
+                var tokens = await db.UserRefreshTokens
+                    .Where(t => t.UserId == user.UserId && t.RevokedAtUtc == null)
+                    .ToListAsync(cancellationToken);
+                foreach (var t in tokens)
+                {
+                    t.RevokedAtUtc = now;
+                    t.RevocationReason = "Auto-offboard: suspended >30d";
+                }
+            }
+
+            var rules = await db.AccessRules
+                .Where(r => r.SubjectType == "Employee" && r.SubjectId == employee.EmployeeId && r.IsActive)
+                .ToListAsync(cancellationToken);
+            foreach (var r in rules)
+            {
+                r.IsActive = false;
+                r.ValidToUtc = now;
+            }
+
+            logger.LogInformation("Auto-offboarded employee {EmployeeId} {Name} — suspended >30d", employee.EmployeeId, employee.FullName);
+        }
+
+        var staleMappings = await db.ExternalIdentityMappings
+            .Include(m => m.Employee)
+            .Where(m =>
+                m.IsActive &&
+                m.LastSyncedAtUtc != null &&
+                m.LastSyncedAtUtc <= staleSyncThreshold &&
+                m.Employee != null &&
+                m.Employee.LifecycleStatus == EmployeeLifecycleStates.Active)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+
+        foreach (var mapping in staleMappings)
+        {
+            if (mapping.Employee == null) continue;
+
+            mapping.Employee.LifecycleStatus = EmployeeLifecycleStates.Suspended;
+            mapping.Employee.LifecycleUpdatedAtUtc = now;
+            mapping.Employee.Status = false;
+            mapping.IsActive = false;
+
+            db.EmployeeLifecycleEvents.Add(new EmployeeLifecycleEvent
+            {
+                Employee = mapping.Employee,
+                PreviousState = EmployeeLifecycleStates.Active,
+                NewState = EmployeeLifecycleStates.Suspended,
+                Reason = "Auto-suspend: identity mapping not synced for 90+ days.",
+                EffectiveAtUtc = now,
+                ChangedByUserId = null
+            });
+
+            var user = await db.AppUsers.FirstOrDefaultAsync(u => u.EmployeeId == mapping.Employee.EmployeeId, cancellationToken);
+            if (user != null)
+            {
+                user.IsActive = false;
+                user.TokenVersion++;
+            }
+
+            logger.LogInformation("Auto-suspended employee {EmployeeId} {Name} — stale mapping >90d",
+                mapping.Employee.EmployeeId, mapping.Employee.FullName);
+        }
+    }
+
     private static bool MatchesSubscription(WebhookSubscription subscription, string eventType)
     {
         if (subscription.EventTypes == "*")
@@ -228,6 +328,22 @@ public class EnterpriseOperationsWorker : BackgroundService
         return subscription.EventTypes
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Any(item => string.Equals(item, eventType, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task ExpireStaleInterventionRequestsAsync(ApplicationDbContext db, DateTime now, CancellationToken cancellationToken)
+    {
+        var expired = await db.OperationalInterventionRequests
+            .Where(r =>
+                r.Status == "Pending" &&
+                r.ExpiresAtUtc != null &&
+                r.ExpiresAtUtc <= now)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        foreach (var request in expired)
+        {
+            request.Status = "Expired";
+        }
     }
 
     private static string ComputeSignature(string secretReference, string payload)

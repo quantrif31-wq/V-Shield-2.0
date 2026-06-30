@@ -3,6 +3,7 @@ using API.Data;
 using API.DTOs;
 using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,16 +12,28 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,NhanSu")]
 public class UsersController : ControllerBase
 {
+    private static readonly HashSet<string> SupportedRoles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Admin",
+        "QuanLy",
+        "BaoVe",
+        "LeTan",
+        "NhanVien",
+        "NhanSu"
+    };
+
     private readonly ApplicationDbContext _context;
     private readonly Services.IAuthenticationService _authService;
+    private readonly UserOperationalScopeService _scopeService;
 
-    public UsersController(ApplicationDbContext context, Services.IAuthenticationService authService)
+    public UsersController(ApplicationDbContext context, Services.IAuthenticationService authService, UserOperationalScopeService scopeService)
     {
         _context = context;
         _authService = authService;
+        _scopeService = scopeService;
     }
 
     [HttpGet]
@@ -43,6 +56,28 @@ public class UsersController : ControllerBase
             })
             .ToListAsync();
 
+        var userIds = users.Select(u => u.UserId).ToList();
+        var now = DateTime.UtcNow;
+        var taskLookup = await _context.UserOperationalScopes
+            .AsNoTracking()
+            .Where(scope => userIds.Contains(scope.UserId) &&
+                            scope.ValidFromUtc <= now &&
+                            (!scope.ValidToUtc.HasValue || scope.ValidToUtc >= now) &&
+                            (scope.CanView || scope.CanManage))
+            .GroupBy(scope => scope.UserId)
+            .ToDictionaryAsync(
+                group => group.Key,
+                group => group.Select(scope => scope.TaskKey).Distinct().OrderBy(scope => scope).ToList());
+
+        foreach (var user in users)
+        {
+            if (taskLookup.TryGetValue(user.UserId, out var taskKeys))
+            {
+                user.HasOperationalScopeAssignments = true;
+                user.OperationalTaskKeys = taskKeys;
+            }
+        }
+
         return Ok(users);
     }
 
@@ -64,11 +99,14 @@ public class UsersController : ControllerBase
             EmployeeId = user.EmployeeId,
             MfaEnabled = user.MfaEnabled,
             MfaRequired = _authService.RequiresMfa(user),
-            LastLoginAtUtc = user.LastLoginAtUtc
+            LastLoginAtUtc = user.LastLoginAtUtc,
+            HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId),
+            OperationalTaskKeys = await _scopeService.GetActiveTaskKeysAsync(user.UserId)
         });
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
@@ -84,10 +122,16 @@ public class UsersController : ControllerBase
         if (await _context.AppUsers.AnyAsync(u => u.Username.Trim().ToUpper() == normalizedUsername))
             return Conflict(new { message = $"Ten dang nhap '{username}' da ton tai" });
 
+        if (!SupportedRoles.Contains(request.Role))
+            return BadRequest(new { message = "Vai tro khong hop le. Chi chap nhan Admin, QuanLy, BaoVe hoac LeTan." });
+
         if (request.EmployeeId.HasValue && request.EmployeeId.Value > 0)
         {
             if (!await _context.Employees.AnyAsync(e => e.EmployeeId == request.EmployeeId))
                 return BadRequest(new { message = $"EmployeeID {request.EmployeeId} khong ton tai" });
+
+            if (await _context.AppUsers.AnyAsync(u => u.EmployeeId == request.EmployeeId))
+                return Conflict(new { message = $"Nhan vien {request.EmployeeId} da duoc gan voi mot tai khoan khac." });
         }
 
         var user = new AppUser
@@ -121,6 +165,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest request)
     {
@@ -135,7 +180,12 @@ public class UsersController : ControllerBase
             user.FullName = request.FullName;
 
         if (request.Role != null)
+        {
+            if (!SupportedRoles.Contains(request.Role))
+                return BadRequest(new { message = "Vai tro khong hop le. Chi chap nhan Admin, QuanLy, BaoVe hoac LeTan." });
+
             user.Role = request.Role;
+        }
 
         if (request.IsActive.HasValue)
             user.IsActive = request.IsActive.Value;
@@ -153,6 +203,9 @@ public class UsersController : ControllerBase
             {
                 if (!await _context.Employees.AnyAsync(e => e.EmployeeId == request.EmployeeId))
                     return BadRequest(new { message = $"EmployeeID {request.EmployeeId} khong ton tai" });
+
+                if (await _context.AppUsers.AnyAsync(u => u.UserId != id && u.EmployeeId == request.EmployeeId))
+                    return Conflict(new { message = $"Nhan vien {request.EmployeeId} da duoc gan voi mot tai khoan khac." });
 
                 user.EmployeeId = request.EmployeeId;
             }
@@ -175,11 +228,173 @@ public class UsersController : ControllerBase
             EmployeeId = user.EmployeeId,
             MfaEnabled = user.MfaEnabled,
             MfaRequired = _authService.RequiresMfa(user),
-            LastLoginAtUtc = user.LastLoginAtUtc
+            LastLoginAtUtc = user.LastLoginAtUtc,
+            HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId),
+            OperationalTaskKeys = await _scopeService.GetActiveTaskKeysAsync(user.UserId)
         });
     }
 
+    [HttpGet("scope-reference")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetOperationalScopeReference()
+    {
+        var sites = await _context.Sites
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.Name)
+            .Select(item => new { item.SiteId, item.Name, item.Code })
+            .ToListAsync();
+
+        var gates = await _context.Gates
+            .AsNoTracking()
+            .OrderBy(item => item.GateName)
+            .Select(item => new { item.GateId, name = item.GateName, item.Location })
+            .ToListAsync();
+
+        var lanes = await _context.Lanes
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.Name)
+            .Select(item => new { item.LaneId, item.Name, item.GateId, item.SiteId })
+            .ToListAsync();
+
+        var zones = await _context.SecurityZones
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.Name)
+            .Select(item => new { item.SecurityZoneId, item.Name, item.SiteId, item.SecurityLevel })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            tasksByRole = UserOperationalScopeService.TasksByRole,
+            sites,
+            gates,
+            lanes,
+            zones
+        });
+    }
+
+    [HttpGet("{id:int}/operational-scopes")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetOperationalScopes(int id)
+    {
+        if (!await _context.AppUsers.AnyAsync(user => user.UserId == id))
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        var scopes = await _context.UserOperationalScopes
+            .AsNoTracking()
+            .Where(scope => scope.UserId == id)
+            .OrderBy(scope => scope.TaskKey)
+            .ThenBy(scope => scope.SiteId)
+            .ThenBy(scope => scope.GateId)
+            .ThenBy(scope => scope.LaneId)
+            .ThenBy(scope => scope.SecurityZoneId)
+            .Select(scope => new
+            {
+                scope.UserOperationalScopeId,
+                scope.UserId,
+                scope.TaskKey,
+                scope.SiteId,
+                scope.GateId,
+                scope.LaneId,
+                scope.SecurityZoneId,
+                scope.CanView,
+                scope.CanManage,
+                scope.ValidFromUtc,
+                scope.ValidToUtc,
+                scope.Note
+            })
+            .ToListAsync();
+
+        return Ok(scopes);
+    }
+
+    [HttpPut("{id:int}/operational-scopes")]
+    [Authorize(Roles = "Admin")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
+    public async Task<IActionResult> ReplaceOperationalScopes(int id, [FromBody] List<OperationalScopeUpsertRequest>? request)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        var allowedTasks = UserOperationalScopeService.TasksByRole.TryGetValue(user.Role, out var tasks)
+            ? tasks
+            : Array.Empty<string>();
+
+        request ??= [];
+        foreach (var item in request)
+        {
+            if (!allowedTasks.Contains(item.TaskKey, StringComparer.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"TaskKey '{item.TaskKey}' khong hop le voi vai tro {user.Role}." });
+        }
+
+        var siteIds = request.Where(item => item.SiteId.HasValue).Select(item => item.SiteId!.Value).Distinct().ToList();
+        var gateIds = request.Where(item => item.GateId.HasValue).Select(item => item.GateId!.Value).Distinct().ToList();
+        var laneIds = request.Where(item => item.LaneId.HasValue).Select(item => item.LaneId!.Value).Distinct().ToList();
+        var zoneIds = request.Where(item => item.SecurityZoneId.HasValue).Select(item => item.SecurityZoneId!.Value).Distinct().ToList();
+
+        if (siteIds.Count > 0 && await _context.Sites.CountAsync(site => siteIds.Contains(site.SiteId)) != siteIds.Count)
+            return BadRequest(new { message = "Co Site khong ton tai trong pham vi duoc gan." });
+        if (gateIds.Count > 0 && await _context.Gates.CountAsync(gate => gateIds.Contains(gate.GateId)) != gateIds.Count)
+            return BadRequest(new { message = "Co Gate khong ton tai trong pham vi duoc gan." });
+        if (laneIds.Count > 0 && await _context.Lanes.CountAsync(lane => laneIds.Contains(lane.LaneId)) != laneIds.Count)
+            return BadRequest(new { message = "Co Lane khong ton tai trong pham vi duoc gan." });
+        if (zoneIds.Count > 0 && await _context.SecurityZones.CountAsync(zone => zoneIds.Contains(zone.SecurityZoneId)) != zoneIds.Count)
+            return BadRequest(new { message = "Co SecurityZone khong ton tai trong pham vi duoc gan." });
+
+        var existing = await _context.UserOperationalScopes
+            .Where(scope => scope.UserId == id)
+            .ToListAsync();
+        _context.UserOperationalScopes.RemoveRange(existing);
+
+        var currentUserIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        var currentUserId = int.TryParse(currentUserIdClaim, out var parsedUserId) ? parsedUserId : (int?)null;
+
+        var scopes = request.Select(item => new UserOperationalScope
+        {
+            UserId = id,
+            TaskKey = item.TaskKey.Trim(),
+            SiteId = item.SiteId,
+            GateId = item.GateId,
+            LaneId = item.LaneId,
+            SecurityZoneId = item.SecurityZoneId,
+            CanView = item.CanView,
+            CanManage = item.CanManage,
+            ValidFromUtc = item.ValidFromUtc ?? DateTime.UtcNow,
+            ValidToUtc = item.ValidToUtc,
+            Note = string.IsNullOrWhiteSpace(item.Note) ? null : item.Note.Trim(),
+            CreatedByUserId = currentUserId
+        }).ToList();
+
+        if (scopes.Count > 0)
+            _context.UserOperationalScopes.AddRange(scopes);
+
+        await _context.SaveChangesAsync();
+        return Ok(new
+        {
+            message = "Da cap nhat pham vi van hanh cho tai khoan.",
+            count = scopes.Count
+        });
+    }
+
+    public sealed class OperationalScopeUpsertRequest
+    {
+        public string TaskKey { get; set; } = string.Empty;
+        public int? SiteId { get; set; }
+        public int? GateId { get; set; }
+        public int? LaneId { get; set; }
+        public int? SecurityZoneId { get; set; }
+        public bool CanView { get; set; } = true;
+        public bool CanManage { get; set; } = true;
+        public DateTime? ValidFromUtc { get; set; }
+        public DateTime? ValidToUtc { get; set; }
+        public string? Note { get; set; }
+    }
+
     [HttpPost("{id}/mfa/reset")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> ResetMfa(int id)
     {
@@ -207,6 +422,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Delete(int id)
     {
@@ -222,6 +438,30 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    [HttpPatch("{id}/lock")]
+    public async Task<IActionResult> LockUser(int id)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        user.IsActive = false;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Da khoa tai khoan." });
+    }
+
+    [HttpPatch("{id}/unlock")]
+    public async Task<IActionResult> UnlockUser(int id)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        user.IsActive = true;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Da mo khoa tai khoan." });
     }
 
     private static string NormalizeUsernameInvariant(string username) =>

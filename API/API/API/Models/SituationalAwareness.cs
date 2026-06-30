@@ -94,3 +94,20 @@ public class AiPerformanceMetric
     public DateTime CapturedAtUtc { get; set; } = DateTime.UtcNow;
     [MaxLength(1000)] public string? Notes { get; set; }
 }
+
+public class ClipRequest
+{
+    public int ClipRequestId { get; set; }
+    public int? CameraId { get; set; }
+    public long? SecurityEventId { get; set; }
+    public DateTime StartUtc { get; set; }
+    public DateTime EndUtc { get; set; }
+    [MaxLength(160)] public string RequestedBy { get; set; } = "System";
+    [MaxLength(40)] public string Status { get; set; } = "Pending";
+    [MaxLength(40)] public string? RetentionCategory { get; set; }
+    [MaxLength(300)] public string? ExportReference { get; set; }
+    [MaxLength(1000)] public string? Note { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? ApprovedAtUtc { get; set; }
+    public DateTime? ExportedAtUtc { get; set; }
+}

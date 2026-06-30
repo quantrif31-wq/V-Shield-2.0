@@ -59,8 +59,8 @@
                         <span class="s-value">{{ hostInfo.hostEmployeeName }}</span>
                     </div>
                 </div>
-                <p class="redirect-note">Trang se tu dong dong sau {{ countdown }} giay de bao mat.</p>
-                <button class="btn btn-secondary" style="margin-top: 12px;" @click="closeCurrentPage">Dong trang ngay</button>
+                <p class="redirect-note">Trang sẽ tự động đóng sau {{ countdown }} giây để bảo mật.</p>
+                <button class="btn btn-secondary" style="margin-top: 12px;" @click="closeCurrentPage">Đóng trang ngay</button>
             </div>
 
             <div v-else class="register-card animate-in">

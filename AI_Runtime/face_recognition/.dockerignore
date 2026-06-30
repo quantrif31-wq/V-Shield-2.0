@@ -1,0 +1,10 @@
+venv/
+.git/
+.github/
+docs/
+examples/
+tests/
+docker/
+*.pkl
+*.pyc
+__pycache__/

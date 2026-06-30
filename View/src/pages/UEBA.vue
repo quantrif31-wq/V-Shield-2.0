@@ -3,10 +3,10 @@
         <div class="page-header-bar">
             <div>
                 <span class="panel-kicker">UEBA</span>
-                <h1 class="page-title">User & Entity Behavior Analytics</h1>
+                <h1 class="page-title">Phân tích hành vi người dùng và thực thể</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" @click="activeTab = 'profiles'" :class="{ active: activeTab === 'profiles' }">Profile</button>
+                <button class="btn btn-secondary" @click="activeTab = 'profiles'" :class="{ active: activeTab === 'profiles' }">Hồ sơ</button>
                 <button class="btn btn-secondary" @click="activeTab = 'anomalies'" :class="{ active: activeTab === 'anomalies' }">Bất thường</button>
                 <button class="btn btn-primary" @click="activeTab = 'summary'" :class="{ active: activeTab === 'summary' }">Tổng quan</button>
             </div>
@@ -14,8 +14,8 @@
 
         <section v-if="activeTab === 'summary'" class="ops-grid two">
             <article class="ops-panel">
-                <span class="panel-kicker">Overview</span>
-                <h2 class="panel-title">UEBA Dashboard</h2>
+                <span class="panel-kicker">Tổng quan</span>
+                <h2 class="panel-title">Bảng điều khiển UEBA</h2>
                 <div v-if="summaryLoading" class="empty-card">Đang tải...</div>
                 <div v-else-if="summary" class="summary-metrics">
                     <div class="metric-tile">
@@ -27,11 +27,11 @@
                         <strong class="metric-value">{{ summary.resolvedToday }}</strong>
                     </div>
                     <div class="metric-tile">
-                        <span class="metric-label">Profile rủi ro cao</span>
+                        <span class="metric-label">Hồ sơ rủi ro cao</span>
                         <strong class="metric-value">{{ summary.highRiskProfiles }}</strong>
                     </div>
                     <div class="metric-tile">
-                        <span class="metric-label">Tổng profile</span>
+                        <span class="metric-label">Tổng hồ sơ</span>
                         <strong class="metric-value">{{ summary.totalProfiles }}</strong>
                     </div>
                 </div>
@@ -40,55 +40,59 @@
                     <div v-for="item in summary.typeDistribution" :key="item.type" class="dist-row">
                         <span>{{ typeLabel(item.type) }}</span>
                         <div class="dist-bar-wrapper">
-                            <div class="dist-bar" :style="{ width: (item.count / Math.max(...summary.typeDistribution.map(t => t.count)) * 100) + '%' }"></div>
+                            <div class="dist-bar" :style="{ width: distributionWidth(item.count) }"></div>
                         </div>
                         <strong>{{ item.count }}</strong>
                     </div>
                 </div>
             </article>
 
-            <article class="ops-panel">                        <span class="panel-kicker">AI Risk Graph</span>
-                        <h2 class="panel-title">Giải thích rủi ro AI</h2>
-                        <div v-if="riskExplaining.loading" class="empty-card">AI đang phân tích...</div>
-                        <div v-else-if="riskExplaining.result" class="risk-explanation">
-                            <div class="rec-header">
-                                <span class="soft-chip" :class="riskLevelClass(riskExplaining.result.severity)">
-                                    {{ riskExplaining.result.severity }}
-                                </span>
-                                <small>Confidence: {{ riskExplaining.result.confidence }}</small>
-                            </div>
-                            <p>{{ riskExplaining.result.summary }}</p>
-                            <div v-if="riskExplaining.result.reasoningSummary" class="rec-reasoning">
-                                <strong>Phân tích:</strong>
-                                <p>{{ riskExplaining.result.reasoningSummary }}</p>
-                            </div>
-                            <div class="rec-actions">
-                                <button class="btn btn-primary btn-sm" @click="approveAiRisk(riskExplaining.result.recommendationId)">
-                                    Duyệt
-                                </button>
-                                <button class="btn btn-ghost btn-sm" @click="rejectAiRisk(riskExplaining.result.recommendationId)">
-                                    Từ chối
-                                </button>
-                            </div>
-                        </div>
-                        <div v-else class="empty-card">Chọn nhân viên để xem giải thích rủi ro AI.</div>
-                    </article>
+            <article class="ops-panel">
+                <span class="panel-kicker">Đồ thị rủi ro AI</span>
+                <h2 class="panel-title">Giải thích rủi ro AI</h2>
+                <div v-if="riskExplaining.loading" class="empty-card">AI đang phân tích...</div>
+                <div v-else-if="riskExplaining.result" class="risk-explanation">
+                    <div class="rec-header">
+                        <span class="soft-chip" :class="riskLevelClass(riskExplaining.result.severity)">
+                            {{ riskExplaining.result.severity }}
+                        </span>
+                        <small>Độ tin cậy: {{ riskExplaining.result.confidence }}</small>
+                    </div>
+                    <p>{{ riskExplaining.result.summary }}</p>
+                    <div v-if="riskExplaining.result.reasoningSummary" class="rec-reasoning">
+                        <strong>Phân tích:</strong>
+                        <p>{{ riskExplaining.result.reasoningSummary }}</p>
+                    </div>
+                    <div class="rec-actions">
+                        <button class="btn btn-primary btn-sm" @click="approveAiRisk(riskExplaining.result.recommendationId)">
+                            Duyệt
+                        </button>
+                        <button class="btn btn-ghost btn-sm" @click="rejectAiRisk(riskExplaining.result.recommendationId)">
+                            Từ chối
+                        </button>
+                    </div>
+                </div>
+                <div v-else class="empty-card">Chọn nhân viên ở khung bên cạnh để xem giải thích.</div>
+            </article>
 
-                    <article class="ops-panel">
-                        <span class="panel-kicker">High Risk</span>
-                        <h2 class="panel-title">Nhân viên rủi ro cao</h2>
+            <article class="ops-panel">
+                <span class="panel-kicker">Rủi ro cao</span>
+                <h2 class="panel-title">Nhân viên cần chú ý</h2>
                 <div v-if="profilesLoading" class="empty-card">Đang tải...</div>
-                <div v-else-if="profiles.length === 0" class="empty-card">Chưa có dữ liệu profile.</div>
+                <div v-else-if="profiles.length === 0" class="empty-card">Chưa có dữ liệu hồ sơ.</div>
                 <div v-else class="risk-list">
-                    <div v-for="p in profiles.slice(0, 10)" :key="p.profileId" class="risk-item" :class="riskClass(p.riskScore)">
+                    <div v-for="profile in profiles.slice(0, 10)" :key="profile.profileId" class="risk-item" :class="riskClass(profile.riskScore)">
                         <div class="risk-head">
-                            <strong>{{ p.employee?.fullName || 'NV#' + p.employeeId }}</strong>
-                            <span class="risk-score" :class="riskClass(p.riskScore)">{{ p.riskScore }}</span>
+                            <strong>{{ profile.employee?.fullName || 'NV#' + profile.employeeId }}</strong>
+                            <span class="risk-score" :class="riskClass(profile.riskScore)">{{ profile.riskScore }}</span>
                         </div>
                         <div class="risk-meta">
-                            <span>Access: {{ p.totalAccessCount }}</span>
-                            <span>Bypass: {{ p.bypassRate }}%</span>
-                            <span>Cuối tuần: {{ p.weekendAccessRatio }}%</span>
+                            <span>Lượt vào/ra: {{ profile.totalAccessCount }}</span>
+                            <span>Bypass: {{ profile.bypassRate }}%</span>
+                            <span>Cuối tuần: {{ profile.weekendAccessRatio }}%</span>
+                        </div>
+                        <div class="risk-actions">
+                            <button class="btn btn-ghost btn-sm" @click="explainRisk(profile.employeeId)">Giải thích AI</button>
                         </div>
                     </div>
                 </div>
@@ -98,20 +102,20 @@
         <section v-if="activeTab === 'profiles'" class="card panel">
             <div class="toolbar-shell">
                 <div class="toolbar-filters">
-                    <input v-model="profileSearch" type="text" placeholder="Tìm employeeId..." class="filter-input" />
+                    <input v-model="profileSearch" type="text" placeholder="Tìm tên hoặc employeeId..." class="filter-input" />
                     <button class="btn btn-secondary" @click="loadProfiles">Tải lại</button>
                 </div>
             </div>
             <div v-if="profilesLoading" class="empty-card">Đang tải...</div>
-            <div v-else-if="profiles.length === 0" class="empty-card">Chưa có profile. Quét access log để tạo baseline.</div>
+            <div v-else-if="profiles.length === 0" class="empty-card">Chưa có hồ sơ. Hãy tạo access log để dựng baseline.</div>
             <div v-else class="table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Nhân viên</th>
                             <th>Access</th>
-                            <th>Giờ T2</th>
-                            <th>Giờ T9</th>
+                            <th>Bắt đầu</th>
+                            <th>Kết thúc</th>
                             <th>Cuối tuần</th>
                             <th>Bypass</th>
                             <th>Risk</th>
@@ -120,16 +124,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="p in filteredProfiles" :key="p.profileId">
-                            <td>{{ p.employee?.fullName || 'NV#' + p.employeeId }}</td>
-                            <td>{{ p.totalAccessCount }}</td>
-                            <td>{{ p.typicalStartHour }}h</td>
-                            <td>{{ p.typicalEndHour }}h</td>
-                            <td>{{ p.weekendAccessRatio }}%</td>
-                            <td>{{ p.bypassRate }}%</td>
-                            <td><span class="risk-score" :class="riskClass(p.riskScore)">{{ p.riskScore }}</span></td>
-                            <td>{{ p.daysSinceLastAccess }} ngày</td>
-                            <td><button class="btn btn-ghost btn-sm" @click="rebuild(p.employeeId)">Rebuild</button></td>
+                        <tr v-for="profile in filteredProfiles" :key="profile.profileId">
+                            <td>{{ profile.employee?.fullName || 'NV#' + profile.employeeId }}</td>
+                            <td>{{ profile.totalAccessCount }}</td>
+                            <td>{{ profile.typicalStartHour }}h</td>
+                            <td>{{ profile.typicalEndHour }}h</td>
+                            <td>{{ profile.weekendAccessRatio }}%</td>
+                            <td>{{ profile.bypassRate }}%</td>
+                            <td><span class="risk-score" :class="riskClass(profile.riskScore)">{{ profile.riskScore }}</span></td>
+                            <td>{{ profile.daysSinceLastAccess }} ngày</td>
+                            <td class="table-actions">
+                                <button class="btn btn-ghost btn-sm" @click="explainRisk(profile.employeeId)">AI</button>
+                                <button class="btn btn-ghost btn-sm" @click="rebuild(profile.employeeId)">Rebuild</button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -142,13 +149,14 @@
                     <select v-model="anomalyFilter.severity" class="filter-select" @change="loadAnomalies">
                         <option value="">Tất cả mức</option>
                         <option value="cao">Cao</option>
-                        <option value="trung-binh">TB</option>
+                        <option value="trung-binh">Trung bình</option>
                         <option value="thap">Thấp</option>
                     </select>
                     <select v-model="anomalyFilter.status" class="filter-select" @change="loadAnomalies">
                         <option value="">Tất cả trạng thái</option>
                         <option value="Open">Mở</option>
                         <option value="Resolved">Đã xử lý</option>
+                        <option value="FalsePositive">False positive</option>
                     </select>
                     <button class="btn btn-primary" @click="loadAnomalies">Tải</button>
                 </div>
@@ -156,21 +164,21 @@
             <div v-if="anomaliesLoading" class="empty-card">Đang tải...</div>
             <div v-else-if="anomalies.length === 0" class="empty-card">Không có bất thường.</div>
             <div v-else class="anomaly-list">
-                <div v-for="a in anomalies" :key="a.anomalyId" class="anomaly-card" :class="a.severity">
+                <div v-for="anomaly in anomalies" :key="anomaly.anomalyId" class="anomaly-card" :class="anomaly.severity">
                     <div class="anomaly-head">
-                        <span class="anomaly-type-badge" :class="a.severity">{{ typeLabel(a.anomalyType) }}</span>
-                        <span class="anomaly-severity" :class="a.severity">{{ a.severity }}</span>
-                        <span class="anomaly-status" :class="a.status">{{ a.status }}</span>
+                        <span class="anomaly-type-badge" :class="anomaly.severity">{{ typeLabel(anomaly.anomalyType) }}</span>
+                        <span class="anomaly-severity" :class="anomaly.severity">{{ anomaly.severity }}</span>
+                        <span class="anomaly-status" :class="anomaly.status">{{ anomaly.status }}</span>
                     </div>
-                    <p class="anomaly-desc">{{ a.description }}</p>
+                    <p class="anomaly-desc">{{ anomaly.description }}</p>
                     <div class="anomaly-meta">
-                        <span>{{ a.employee?.fullName || 'NV#' + a.employeeId }}</span>
-                        <span>{{ formatDate(a.eventTimestamp) }}</span>
-                        <span v-if="a.supportingData" class="anomaly-data">{{ a.supportingData }}</span>
+                        <span>{{ anomaly.employee?.fullName || 'NV#' + anomaly.employeeId }}</span>
+                        <span>{{ formatDate(anomaly.eventTimestamp) }}</span>
+                        <span v-if="anomaly.supportingData" class="anomaly-data">{{ anomaly.supportingData }}</span>
                     </div>
-                    <div v-if="a.status === 'Open'" class="anomaly-actions">
-                        <button class="btn btn-primary btn-sm" @click="resolve(a.anomalyId)">Xử lý</button>
-                        <button class="btn btn-ghost btn-sm" @click="falsePositive(a.anomalyId)">FP</button>
+                    <div v-if="anomaly.status === 'Open'" class="anomaly-actions">
+                        <button class="btn btn-primary btn-sm" @click="resolve(anomaly.anomalyId)">Xử lý</button>
+                        <button class="btn btn-ghost btn-sm" @click="falsePositive(anomaly.anomalyId)">FP</button>
                     </div>
                 </div>
             </div>
@@ -181,8 +189,12 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
-    getUebaProfiles, rebuildUebaProfile, getUebaAnomalies,
-    resolveUebaAnomaly, markUebaAnomalyFalsePositive, getUebaSummary,
+    getUebaProfiles,
+    rebuildUebaProfile,
+    getUebaAnomalies,
+    resolveUebaAnomaly,
+    markUebaAnomalyFalsePositive,
+    getUebaSummary,
     explainEmployeeRisk,
 } from '../services/uebaApi'
 
@@ -199,29 +211,55 @@ const anomalies = ref([])
 const anomaliesLoading = ref(false)
 const anomalyFilter = reactive({ severity: '', status: 'Open' })
 
-const filteredProfiles = computed(() => {
-    if (!profileSearch.value) return profiles.value
-    const q = profileSearch.value.toLowerCase()
-    return profiles.value.filter(p =>
-        p.employee?.fullName?.toLowerCase().includes(q) ||
-        String(p.employeeId).includes(q)
-    )
-})
-
 const riskExplaining = reactive({
     employeeId: null,
     loading: false,
     result: null,
 })
 
+const filteredProfiles = computed(() => {
+    if (!profileSearch.value) return profiles.value
+    const query = profileSearch.value.toLowerCase()
+    return profiles.value.filter((profile) =>
+        profile.employee?.fullName?.toLowerCase().includes(query) ||
+        String(profile.employeeId).includes(query)
+    )
+})
+
+const typeLabel = (type) => ({
+    UnusualTime: 'Giờ bất thường',
+    UnusualGate: 'Cổng lạ',
+    UnusualFrequency: 'Tần suất cao',
+    OutOfHours: 'Ngoài giờ',
+    RapidSuccession: 'Liên tiếp nhanh',
+    BypassPattern: 'Vượt kiểm soát',
+    FirstTimeAccess: 'Lần đầu',
+})[type] || type
+
+const distributionWidth = (count) => {
+    const max = Math.max(...(summary.value?.typeDistribution?.map((item) => item.count) || [1]))
+    return `${Math.max(8, (count / max) * 100)}%`
+}
+
+const riskClass = (score) => {
+    if (score > 60) return 'high'
+    if (score > 30) return 'medium'
+    return 'low'
+}
+
 const riskLevelClass = (severity) => {
     switch ((severity || '').toLowerCase()) {
-        case 'critical': return 'danger'
-        case 'high': return 'danger'
-        case 'medium': return 'warning'
-        default: return 'success'
+        case 'critical':
+        case 'high':
+            return 'danger'
+        case 'medium':
+            return 'warning'
+        default:
+            return 'success'
     }
 }
+
+const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : '--'
 
 const explainRisk = async (employeeId) => {
     riskExplaining.employeeId = employeeId
@@ -230,11 +268,11 @@ const explainRisk = async (employeeId) => {
     try {
         const { data } = await explainEmployeeRisk(employeeId)
         riskExplaining.result = data
-    } catch (e) {
+    } catch (error) {
         riskExplaining.result = {
             severity: 'Low',
             confidence: 0,
-            summary: 'Khong the phan tich: ' + (e.response?.data?.message || e.message),
+            summary: `Không thể phân tích: ${error.response?.data?.message || error.message}`,
             recommendationId: null,
         }
     } finally {
@@ -242,49 +280,14 @@ const explainRisk = async (employeeId) => {
     }
 }
 
-const approveAiRisk = async (id) => {
-    if (!id) return
-    try {
-        const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
-        await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phe duyet sau khi xem xet')
-        riskExplaining.result = null
-    } catch { /* ignore */ }
-}
-
-const rejectAiRisk = async (id) => {
-    if (!id) return
-    try {
-        const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
-        await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Khong dong y voi phan tich')
-        riskExplaining.result = null
-    } catch { /* ignore */ }
-}
-
-const typeLabel = (type) => ({
-    UnusualTime: 'Giờ bất thường',
-    UnusualGate: 'Cổng lạ',
-    UnusualFrequency: 'Tần suất cao',
-    OutOfHours: 'Ngoài giờ',
-    RapidSuccession: 'Liên tiếp nhanh',
-    BypassPattern: 'Bypass',
-    FirstTimeAccess: 'Lần đầu',
-})[type] || type
-
-const riskClass = (score) => {
-    if (score > 60) return 'high'
-    if (score > 30) return 'medium'
-    return 'low'
-}
-
-const formatDate = (v) => v ? new Date(v).toLocaleString('vi-VN') : '--'
-
 const loadSummary = async () => {
     summaryLoading.value = true
     try {
         const { data } = await getUebaSummary()
         summary.value = data
-    } catch { /* ignore */ }
-    finally { summaryLoading.value = false }
+    } finally {
+        summaryLoading.value = false
+    }
 }
 
 const loadProfiles = async () => {
@@ -292,15 +295,15 @@ const loadProfiles = async () => {
     try {
         const { data } = await getUebaProfiles()
         profiles.value = data
-    } catch { /* ignore */ }
-    finally { profilesLoading.value = false }
-}
-
-const rebuild = async (employeeId) => {
-    try {
-        await rebuildUebaProfile(employeeId)
-        await loadProfiles()
-    } catch { /* ignore */ }
+        if (!riskExplaining.employeeId && data.length > 0) {
+            const candidate = data.find((item) => item.riskScore > 0) || data[0]
+            if (candidate?.employeeId) {
+                await explainRisk(candidate.employeeId)
+            }
+        }
+    } finally {
+        profilesLoading.value = false
+    }
 }
 
 const loadAnomalies = async () => {
@@ -311,26 +314,42 @@ const loadAnomalies = async () => {
         if (anomalyFilter.status) params.status = anomalyFilter.status
         const { data } = await getUebaAnomalies(params)
         anomalies.value = data
-    } catch { /* ignore */ }
-    finally { anomaliesLoading.value = false }
+    } finally {
+        anomaliesLoading.value = false
+    }
+}
+
+const rebuild = async (employeeId) => {
+    await rebuildUebaProfile(employeeId)
+    await Promise.all([loadProfiles(), loadSummary(), loadAnomalies()])
 }
 
 const resolve = async (id) => {
-    try {
-        await resolveUebaAnomaly(id, { resolution: 'Da kiem tra.' })
-        anomalies.value = anomalies.value.filter(a => a.anomalyId !== id)
-    } catch { /* ignore */ }
+    await resolveUebaAnomaly(id, { resolution: 'Đã kiểm tra và xử lý.' })
+    await Promise.all([loadSummary(), loadAnomalies()])
 }
 
 const falsePositive = async (id) => {
-    try {
-        await markUebaAnomalyFalsePositive(id)
-        anomalies.value = anomalies.value.filter(a => a.anomalyId !== id)
-    } catch { /* ignore */ }
+    await markUebaAnomalyFalsePositive(id)
+    await Promise.all([loadSummary(), loadAnomalies()])
+}
+
+const approveAiRisk = async (id) => {
+    if (!id) return
+    const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
+    await enterpriseAiApi.reviewRecommendation(id, 'Approved', 'Phê duyệt sau khi xem xét')
+    riskExplaining.result = null
+}
+
+const rejectAiRisk = async (id) => {
+    if (!id) return
+    const { enterpriseAiApi } = await import('../services/enterpriseAiApi')
+    await enterpriseAiApi.reviewRecommendation(id, 'Rejected', 'Không đồng ý với phân tích')
+    riskExplaining.result = null
 }
 
 onMounted(async () => {
-    await Promise.all([loadSummary(), loadProfiles()])
+    await Promise.all([loadSummary(), loadProfiles(), loadAnomalies()])
 })
 </script>
 
@@ -423,6 +442,19 @@ onMounted(async () => {
     gap: 14px;
     font-size: 0.74rem;
     color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+.risk-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.table-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .anomaly-list {
@@ -446,6 +478,7 @@ onMounted(async () => {
     gap: 8px;
     align-items: center;
     margin-bottom: 8px;
+    flex-wrap: wrap;
 }
 
 .anomaly-type-badge {
@@ -474,6 +507,7 @@ onMounted(async () => {
 
 .anomaly-status.Open { background: rgba(84, 196, 211, 0.1); color: var(--accent-primary); }
 .anomaly-status.Resolved { background: rgba(20, 134, 109, 0.1); color: var(--accent-success); }
+.anomaly-status.FalsePositive { background: rgba(24, 49, 77, 0.08); color: var(--text-secondary); }
 
 .anomaly-desc {
     font-size: 0.88rem;

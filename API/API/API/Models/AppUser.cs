@@ -20,10 +20,10 @@ public class AppUser
     [MaxLength(100)]
     public string? FullName { get; set; }
 
-    /// <summary>Admin | Staff | BaoVe</summary>
+    /// <summary>Admin | QuanLy | BaoVe | LeTan</summary>
     [Required]
     [MaxLength(20)]
-    public string Role { get; set; } = "Staff";
+    public string Role { get; set; } = "LeTan";
 
     public bool IsActive { get; set; } = true;
 

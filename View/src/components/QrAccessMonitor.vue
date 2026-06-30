@@ -2,10 +2,10 @@
   <div class="qrm-page">
     <div class="qrm-topbar">
       <div>
-        <h1>V-Shield QR Walk-in Monitor</h1>
-        <p>Kiem soat vao/ra bang QR cho luong di bo.</p>
+        <h1>Giám sát lối đi bộ bằng QR</h1>
+        <p>Kiểm soát vào/ra bằng QR cho luồng đi bộ.</p>
       </div>
-      <button class="qrm-settings-btn" type="button" @click="showSettings = true">Cai dat</button>
+      <button class="qrm-settings-btn" type="button" @click="showSettings = true">Cài đặt</button>
     </div>
 
     <section v-for="term in terminals" :key="term.id" class="qrm-card">
@@ -20,16 +20,16 @@
 
       <div class="qrm-actions">
         <button class="qrm-btn qrm-btn-main" :disabled="term.loading || !term.cameraIp" @click="startScanner(term)">
-          {{ term.loading ? "Dang xu ly..." : "Quet 1 lan" }}
+          {{ term.loading ? "Đang xử lý..." : "Quét 1 lần" }}
         </button>
-        <button class="qrm-btn qrm-btn-off" :disabled="term.loading || !term.previewRunning" @click="stopScanner(term)">Tat Camera</button>
+        <button class="qrm-btn qrm-btn-off" :disabled="term.loading || !term.previewRunning" @click="stopScanner(term)">Tắt camera</button>
       </div>
 
       <div class="qrm-form-grid">
         <div class="qrm-field">
-          <label>Camera QR (ID: {{ term.cameraId || 'Trong' }})</label>
+          <label>Camera QR (ID: {{ term.cameraId || 'Trống' }})</label>
           <div class="search-box">
-            <input v-model="cameraSearch[term.id]" placeholder="Tim camera..." :disabled="term.loading" />
+            <input v-model="cameraSearch[term.id]" placeholder="Tìm camera..." :disabled="term.loading" />
             <div class="dropdown" v-if="cameraSearch[term.id]">
               <div
                 v-for="cam in filterCameras(cameraSearch[term.id]).slice(0, 5)"
@@ -42,15 +42,15 @@
             </div>
           </div>
           <div class="camera-verified" :class="term.cameraVerified ? 'ok' : 'warn'">
-            {{ term.cameraVerified ? 'Camera da xac thuc' : 'Chua xac thuc camera' }}
+            {{ term.cameraVerified ? 'Camera đã xác thực' : 'Chưa xác thực camera' }}
           </div>
         </div>
       </div>
 
       <div class="qrm-preview-wrap">
         <div class="qrm-preview-head">
-          <span>Camera Preview</span>
-          <span class="preview-badge">{{ term.previewRunning ? "Preview ON" : "Preview OFF" }}</span>
+          <span>Xem trước camera</span>
+          <span class="preview-badge">{{ term.previewRunning ? "Đang xem" : "Đã tắt xem" }}</span>
         </div>
 
         <div class="cam-preview" :class="previewStateClass(term)">
@@ -62,14 +62,14 @@
             style="border: none;"
             :ref="el => setVideoRef(term.id, el)"
           ></iframe>
-          <div v-else class="cam-off">QR Offline</div>
+          <div v-else class="cam-off">QR ngoại tuyến</div>
 
           <div v-if="term.identityLabel" class="id-overlay" :class="term.permissionState">
             {{ term.identityLabel }}
           </div>
 
           <div class="scan-overlay" v-if="term.previewRunning && term.permissionState === 'scanning'">
-            Dang quet QR...
+            Đang quét QR...
           </div>
         </div>
       </div>
@@ -78,14 +78,14 @@
     <div v-if="showSettings" class="qrm-drawer-mask" @click="showSettings = false">
       <aside class="qrm-drawer" @click.stop>
         <div class="qrm-drawer-head">
-          <h3>Cai dat</h3>
-          <button type="button" class="qrm-drawer-close" @click="showSettings = false">Dong</button>
+          <h3>Cài đặt</h3>
+          <button type="button" class="qrm-drawer-close" @click="showSettings = false">Đóng</button>
         </div>
 
         <div class="qrm-setting-row">
           <div class="qrm-setting-copy">
-            <div class="qrm-setting-name">Python doc QR</div>
-            <div class="qrm-setting-desc">Bat/tat service quet QR backend</div>
+            <div class="qrm-setting-name">Python đọc QR</div>
+            <div class="qrm-setting-desc">Bật/tắt dịch vụ quét QR ở backend</div>
           </div>
           <button
             type="button"
@@ -102,8 +102,8 @@
 
         <div class="qrm-setting-row">
           <div class="qrm-setting-copy">
-            <div class="qrm-setting-name">AutoStart Python QR</div>
-            <div class="qrm-setting-desc">Tu dong bat khi he thong khoi dong</div>
+            <div class="qrm-setting-name">Tự khởi động Python QR</div>
+            <div class="qrm-setting-desc">Tự động bật khi hệ thống khởi động</div>
           </div>
           <button
             type="button"
@@ -116,21 +116,21 @@
         </div>
 
         <button type="button" class="qrm-refresh-btn" :disabled="runtimeLoading" @click="fetchRuntimeServices">
-          {{ runtimeLoading ? 'Dang tai...' : 'Lam moi trang thai' }}
+          {{ runtimeLoading ? 'Đang tải...' : 'Làm mới trạng thái' }}
         </button>
       </aside>
     </div>
 
     <div v-if="authModal.open" class="auth-mask" @click="closeAuthModal">
       <div class="auth-dialog" @click.stop>
-        <h3>Xac thuc doi camera</h3>
+        <h3>Xác thực đổi camera</h3>
         <p>{{ authModal.cameraName }} (ID: {{ authModal.cameraId }})</p>
-        <p class="auth-hint">Su dung phien dang nhap hien tai de xac thuc camera.</p>
+        <p class="auth-hint">Sử dụng phiên đăng nhập hiện tại để xác thực camera.</p>
         <div class="auth-error" v-if="authModal.error">{{ authModal.error }}</div>
         <div class="auth-actions">
-          <button type="button" class="qrm-btn qrm-btn-off" :disabled="authModal.loading" @click="closeAuthModal">Huy</button>
+          <button type="button" class="qrm-btn qrm-btn-off" :disabled="authModal.loading" @click="closeAuthModal">Hủy</button>
           <button type="button" class="qrm-btn qrm-btn-main" :disabled="authModal.loading" @click="confirmCameraAuth">
-            {{ authModal.loading ? 'Dang kiem tra...' : 'Xac nhan' }}
+            {{ authModal.loading ? 'Đang kiểm tra...' : 'Xác nhận' }}
           </button>
         </div>
       </div>
@@ -177,8 +177,8 @@ export default {
       terminals: [
         {
           id: "term1",
-          name: "Chot di bo 1",
-          desc: "Quet QR kiem tra quyen Access",
+          name: "Chốt đi bộ 1",
+          desc: "Quét QR kiểm tra quyền truy cập",
           loading: false,
         cameraIp: "",
         viewUrl: "",
@@ -265,7 +265,7 @@ export default {
         else await startRuntimeService(name);
         await this.fetchRuntimeServices();
       } catch (e) {
-        alert(e?.response?.data?.message || e?.message || "Khong the bat/tat runtime.");
+        alert(e?.response?.data?.message || e?.message || "Không thể bật/tắt runtime.");
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false };
       }
@@ -278,7 +278,7 @@ export default {
         await updateRuntimeService(name, { autoStart: !this.runtimeAutoStart(name) });
         await this.fetchRuntimeServices();
       } catch (e) {
-        alert(e?.response?.data?.message || e?.message || "Khong the doi AutoStart.");
+        alert(e?.response?.data?.message || e?.message || "Không thể đổi thiết lập tự khởi động.");
       } finally {
         this.runtimeBusy = { ...this.runtimeBusy, [name]: false };
       }
@@ -303,7 +303,7 @@ export default {
 
     onChooseCamera(cam, term) {
       if (!cam?.urlView || !cam?.streamUrl) {
-        alert("Camera chua co du URL stream/view.");
+        alert("Camera chưa có đủ URL stream/view.");
         return;
       }
       this.authModal = {
@@ -351,7 +351,7 @@ export default {
         this.authModal.open = false;
         this.authModal.error = "";
       } catch (e) {
-        this.authModal.error = e?.response?.data?.message || e?.message || "Xac thuc that bai.";
+        this.authModal.error = e?.response?.data?.message || e?.message || "Xác thực thất bại.";
       } finally {
         this.authModal.loading = false;
       }
@@ -359,11 +359,11 @@ export default {
 
     async startScanner(term) {
       if (!term.cameraId || !term.cameraVerified) {
-        alert("Vui long chon camera va xac thuc mat khau truoc khi mo.");
+        alert("Vui lòng chọn camera và xác thực mật khẩu trước khi mở.");
         return;
       }
       if (!String(term.cameraIp || "").trim() || !String(term.viewUrl || "").trim()) {
-        alert("Camera chua co URL stream/view hop le.");
+        alert("Camera chưa có URL stream/view hợp lệ.");
         return;
       }
 
@@ -386,7 +386,7 @@ export default {
         this.startResultPolling(term);
         await this.runManualScan(term);
       } catch (e) {
-        alert(e?.message || "Khong the mo scanner Python.");
+        alert(e?.message || "Không thể mở scanner Python.");
       } finally {
         term.loading = false;
       }
@@ -483,7 +483,7 @@ export default {
       if (!term.previewRunning || term.scanSessionActive) return;
       term.scanSessionActive = true;
       term.permissionState = "scanning";
-      term.verifyMessage = "Dang quet QR...";
+      term.verifyMessage = "Đang quét QR...";
       term.holdLocked = false;
       term.emptyPollStreak = 0;
       term.holdPayload = "";
@@ -494,7 +494,7 @@ export default {
       } catch (e) {
         term.scanSessionActive = false;
         term.permissionState = "deny";
-        term.verifyMessage = e?.message || "Loi khi bat dau quet.";
+        term.verifyMessage = e?.message || "Lỗi khi bắt đầu quét.";
       }
     },
 
@@ -550,9 +550,9 @@ export default {
 
         term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
         term.verifiedName = String(data.subjectName || "");
-        term.verifiedType = data.employeeId ? "Nhan vien" : "Khach";
+        term.verifiedType = data.employeeId ? "Nhân viên" : "Khách";
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
-        term.verifyMessage = res?.data?.message || "Cho phep";
+        term.verifyMessage = res?.data?.message || "Cho phép";
         term.permissionState = "allow";
       } catch (err) {
         const status = Number(err?.response?.status || 0);
@@ -561,7 +561,7 @@ export default {
 
         term.verifiedId = String(data.employeeId || data.visitorDetailId || "");
         term.verifiedName = String(data.subjectName || "");
-        term.verifiedType = data.employeeId ? "Nhan vien" : "Khach";
+        term.verifiedType = data.employeeId ? "Nhân viên" : "Khách";
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = status === 401 ? "Phiên đăng nhập không hợp lệ hoặc đã hết quyền." : message;
         term.permissionState = "deny";
@@ -576,10 +576,10 @@ export default {
       const idText = String(id || "").trim();
       const nameText = String(name || "").trim();
       if (!typeText && !idText && !nameText) return "";
-      const safeType = typeText || "Doi tuong";
+      const safeType = typeText || "Đối tượng";
       const safeId = idText || "N/A";
-      const safeName = nameText || "Chua ro";
-      return `${traceText} | ${safeType} | ID: ${safeId} | Ten: ${safeName}`;
+      const safeName = nameText || "Chưa rõ";
+      return `${traceText} | ${safeType} | ID: ${safeId} | Tên: ${safeName}`;
     },
 
     previewStateClass(term) {
@@ -591,9 +591,9 @@ export default {
     statusPillText(term) {
       if (!term.previewRunning) return "OFFLINE";
       if (term.permissionState === "allow") return "CHO PHEP";
-      if (term.permissionState === "deny") return "TU CHOI";
-      if (term.permissionState === "scanning") return "DANG QUET";
-      return "SAN SANG";
+      if (term.permissionState === "deny") return "TỪ CHỐI";
+      if (term.permissionState === "scanning") return "ĐANG QUÉT";
+      return "SẴN SÀNG";
     },
 
     statusPillClass(term) {

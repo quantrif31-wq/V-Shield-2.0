@@ -106,6 +106,59 @@ function Get-ListeningProcessId([int]$port) {
   return [int]$connection.OwningProcess
 }
 
+function Test-ServiceProcessOwnership($svc, [int]$processId) {
+  $workDir = ([System.IO.Path]::GetFullPath($svc.WorkDir)).TrimEnd('\')
+  $pending = [System.Collections.Generic.Queue[int]]::new()
+  $seen = [System.Collections.Generic.HashSet[int]]::new()
+  $pending.Enqueue($processId)
+
+  while ($pending.Count -gt 0) {
+    $currentId = $pending.Dequeue()
+    if (-not $seen.Add($currentId)) { continue }
+
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId=$currentId" -ErrorAction SilentlyContinue
+    if ($process) {
+      $identity = "$($process.ExecutablePath) $($process.CommandLine)".Replace('/', '\')
+      if ($identity.IndexOf($workDir, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+
+    Get-CimInstance Win32_Process -Filter "ParentProcessId=$currentId" -ErrorAction SilentlyContinue |
+      ForEach-Object { $pending.Enqueue([int]$_.ProcessId) }
+  }
+
+  return $false
+}
+
+function Stop-ProcessTree([int]$processId) {
+  $children = Get-CimInstance Win32_Process -Filter "ParentProcessId=$processId" -ErrorAction SilentlyContinue
+  foreach ($child in $children) { Stop-ProcessTree -processId ([int]$child.ProcessId) }
+  Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+}
+
+function Resolve-ServicePort($svc) {
+  if (-not $svc.Port) { return }
+
+  $portPid = Get-ListeningProcessId -port $svc.Port
+  if (-not $portPid -or (Test-ServiceProcessOwnership -svc $svc -processId $portPid)) { return }
+
+  if ($svc.Name -ne 'view') {
+    throw "Cong $($svc.Port) dang bi ung dung khac su dung. Hay dong ung dung do roi chay lai."
+  }
+
+  foreach ($candidate in 5174, 5175) {
+    $candidatePid = Get-ListeningProcessId -port $candidate
+    if (-not $candidatePid -or (Test-ServiceProcessOwnership -svc $svc -processId $candidatePid)) {
+      Write-WarnMsg "Cong $($svc.Port) dang bi ung dung khac su dung. V-Shield se dung cong $candidate."
+      $svc.Port = $candidate
+      $svc.Health = "http://127.0.0.1:$candidate/"
+      $svc.Args = "/c npm run dev -- --host 0.0.0.0 --port $candidate --strictPort"
+      return
+    }
+  }
+
+  throw 'Khong con cong frontend du phong 5174/5175. Hay dong mot ung dung dang chiem cac cong nay.'
+}
+
 function Save-PortPidIfRunning($svc) {
   if (-not $svc.Port) { return $false }
 
@@ -113,7 +166,7 @@ function Save-PortPidIfRunning($svc) {
   if (-not $portPid) { return $false }
 
   $proc = Get-Process -Id $portPid -ErrorAction SilentlyContinue
-  if (-not $proc) { return $false }
+  if (-not $proc -or -not (Test-ServiceProcessOwnership -svc $svc -processId $portPid)) { return $false }
 
   Save-Pid -name $svc.Name -processId $portPid
   Write-WarnMsg "$($svc.Name) da dang lang nghe cong $($svc.Port) (PID $portPid)"
@@ -122,10 +175,11 @@ function Save-PortPidIfRunning($svc) {
 
 function Start-ServiceItem($svc) {
   $name = $svc.Name
+  Resolve-ServicePort $svc
   $existingPid = Read-Pid $name
   if ($existingPid) {
     $proc = Get-Process -Id $existingPid -ErrorAction SilentlyContinue
-    if ($proc) {
+    if ($proc -and (Test-ServiceProcessOwnership -svc $svc -processId $existingPid)) {
       Write-WarnMsg "$name da dang chay (PID $existingPid)"
       return
     }
@@ -179,8 +233,14 @@ function Stop-ServiceItem($svc) {
     return
   }
 
+  if (-not (Test-ServiceProcessOwnership -svc $svc -processId $processId)) {
+    Write-WarnMsg "$name PID $processId khong thuoc V-Shield; khong dung tien trinh nay"
+    Remove-Pid $name
+    return
+  }
+
   Write-Info "Dung $name (PID $processId)..."
-  Stop-Process -Id $processId -Force
+  Stop-ProcessTree -processId $processId
   Remove-Pid $name
   Write-Ok "$name da dung"
 }
@@ -245,7 +305,9 @@ function Start-All {
     }
   }
 
-  $webUrl = 'http://127.0.0.1:5173/'
+  $viewService = $services | Where-Object { $_.Name -eq 'view' } | Select-Object -First 1
+  $webUrl = $viewService.Health
+  Set-Content -LiteralPath (Join-Path $root '.runtime\view.url') -Value $webUrl -Encoding ascii
   try {
     Start-Process $webUrl | Out-Null
     Write-Ok "Da mo web: $webUrl"
@@ -254,7 +316,7 @@ function Start-All {
   }
 
   Write-Info 'API: http://127.0.0.1:5107'
-  Write-Info 'VIEW: http://127.0.0.1:5173'
+  Write-Info "VIEW: $webUrl"
 }
 
 function Stop-All {
@@ -263,13 +325,18 @@ function Stop-All {
 
 function Show-Status {
   foreach ($svc in $services) {
+    Resolve-ServicePort $svc
     $processId = Read-Pid $svc.Name
-    if ($processId -and (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
+    if ($processId -and
+        (Get-Process -Id $processId -ErrorAction SilentlyContinue) -and
+        (Test-ServiceProcessOwnership -svc $svc -processId $processId)) {
       Write-Ok "$($svc.Name): running (PID $processId)"
     } else {
       if ($svc.Port) {
         $portPid = Get-ListeningProcessId -port $svc.Port
-        if ($portPid -and (Get-Process -Id $portPid -ErrorAction SilentlyContinue)) {
+        if ($portPid -and
+            (Get-Process -Id $portPid -ErrorAction SilentlyContinue) -and
+            (Test-ServiceProcessOwnership -svc $svc -processId $portPid)) {
           Save-Pid -name $svc.Name -processId $portPid
           Write-Ok "$($svc.Name): running on port $($svc.Port) (PID $portPid)"
           continue

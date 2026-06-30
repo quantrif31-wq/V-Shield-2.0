@@ -67,6 +67,14 @@ public sealed class SecurityWebApplicationFactory : WebApplicationFactory<API.Pr
                     });
                 db.SaveChanges();
             }
+
+            if (!db.NotificationRules.Any())
+            {
+                db.NotificationRules.AddRange(
+                    new NotificationRule { EventType = "Alarm.Generic", SeverityMin = "Critical", RecipientRole = "Admin", NotifyWeb = true, NotifyMobile = true },
+                    new NotificationRule { EventType = "Alarm.Generic", SeverityMin = "Critical", RecipientRole = "BaoVe", NotifyWeb = true, NotifyMobile = true });
+                db.SaveChanges();
+            }
         });
     }
 }

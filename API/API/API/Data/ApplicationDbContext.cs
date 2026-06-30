@@ -31,6 +31,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
 
     public virtual DbSet<Camera> Cameras { get; set; }
+    public DbSet<RecordedSegment> RecordedSegments { get; set; }
     public virtual DbSet<CameraPlate> CameraPlates { get; set; }
 
     public virtual DbSet<Department> Departments { get; set; }
@@ -63,6 +64,8 @@ public partial class ApplicationDbContext : DbContext
     public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
     public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
     public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
+    public DbSet<RateLimitCounter> RateLimitCounters { get; set; }
+    public DbSet<VehicleDelegation> VehicleDelegations { get; set; }
 
     public override int SaveChanges()
     {
@@ -273,6 +276,8 @@ public partial class ApplicationDbContext : DbContext
         modelBuilder.Entity<Gate>(entity =>
         {
             entity.HasKey(e => e.GateId).HasName("PK__Gate__9582C65020BEEB76");
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
         });
 
         modelBuilder.Entity<GuestProfile>(entity =>
@@ -349,7 +354,7 @@ public partial class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.UserId);
             entity.HasIndex(e => e.Username).IsUnique();
-            entity.Property(e => e.Role).HasDefaultValue("Staff");
+            entity.Property(e => e.Role).HasDefaultValue("LeTan");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getutcdate())");
             entity.Property(e => e.TokenVersion).HasDefaultValue(0);
@@ -565,6 +570,8 @@ public partial class ApplicationDbContext : DbContext
                   .HasDefaultValueSql("(getutcdate())");
         });
         OnModelCreatingPartial(modelBuilder);
+        ConfigureChatModels(modelBuilder);
+        ConfigureNotificationModels(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);

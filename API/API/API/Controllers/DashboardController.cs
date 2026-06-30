@@ -9,7 +9,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
-[Authorize(Roles = "Admin,BaoVe,QuanLy")]
+[Authorize(Roles = "Admin,QuanLy")]
 public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -28,6 +28,7 @@ public class DashboardController : ControllerBase
         var tomorrow = today.AddDays(1);
         var weekStart = GetStartOfWeek(today, DayOfWeek.Monday);
         var weekEnd = weekStart.AddDays(7);
+        var nowUtc = DateTime.UtcNow;
 
         // NOTE: All queries must be awaited sequentially because DbContext is NOT thread-safe.
         // Using Task.WhenAll with the same DbContext causes InvalidOperationException.
@@ -44,12 +45,33 @@ public class DashboardController : ControllerBase
         var camerasConfigured = await _context.Cameras.AsNoTracking().CountAsync();
         var gatesConfigured = await _context.Gates.AsNoTracking().CountAsync();
         var guestProfiles = await _context.GuestProfiles.AsNoTracking().CountAsync();
+        var checkedInVisitors = await _context.Visits.AsNoTracking()
+            .CountAsync(visit =>
+                visit.Status == VisitStatuses.CheckedIn ||
+                visit.Status == VisitStatuses.Overstay);
 
         var employeeCount = await _context.Employees.AsNoTracking().CountAsync();
         var trainedEmployeeCount = await _context.EmployeeFaceModels.AsNoTracking()
             .Select(m => m.EmployeeId)
             .Distinct()
             .CountAsync();
+        var openAlarms = await _context.Alarms.AsNoTracking()
+            .CountAsync(alarm => alarm.State != "Closed");
+        var criticalOpenAlarms = await _context.Alarms.AsNoTracking()
+            .CountAsync(alarm => alarm.State != "Closed" && alarm.Severity == "Critical");
+        var offlineDevices = await _context.SecurityDevices.AsNoTracking()
+            .CountAsync(device => device.Status == "Offline");
+        var degradedDevices = await _context.SecurityDevices.AsNoTracking()
+            .CountAsync(device => device.Status == "Degraded");
+        var activeEmergencyPasses = await _context.EmergencyPasses.AsNoTracking()
+            .CountAsync(item => item.Status == "Active" && item.ValidToUtc > nowUtc);
+        var pendingInterventions = await _context.OperationalInterventionRequests.AsNoTracking()
+            .CountAsync(item => item.Status == "Pending");
+        var oldestPendingIntervention = await _context.OperationalInterventionRequests.AsNoTracking()
+            .Where(item => item.Status == "Pending")
+            .OrderBy(item => item.CreatedAtUtc)
+            .Select(item => (DateTime?)item.CreatedAtUtc)
+            .FirstOrDefaultAsync();
 
         var todaysLogs = await _context.AccessLogs.AsNoTracking()
             .Where(log => log.Timestamp >= today && log.Timestamp < tomorrow)
@@ -92,6 +114,49 @@ public class DashboardController : ControllerBase
     ? log.VisitorDetail.FullName
     : null,
                 ExceptionReason = log.ExceptionReason != null ? log.ExceptionReason.Description : null
+            })
+            .ToListAsync();
+        var recentLaneEventsRaw = await _context.LaneEvents.AsNoTracking()
+            .OrderByDescending(item => item.OccurredAtUtc)
+            .Take(6)
+            .Select(item => new
+            {
+                item.LaneEventId,
+                item.OccurredAtUtc,
+                item.EventType,
+                item.Direction,
+                item.PlateText,
+                item.Note,
+                LaneName = item.Lane != null ? item.Lane.Name : null
+            })
+            .ToListAsync();
+        var recentAlarmsRaw = await _context.Alarms.AsNoTracking()
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Take(6)
+            .Select(item => new
+            {
+                item.AlarmId,
+                item.CreatedAtUtc,
+                item.AlarmType,
+                item.Severity,
+                item.State,
+                item.Summary
+            })
+            .ToListAsync();
+        var recentInterventionsRaw = await _context.OperationalInterventionRequests.AsNoTracking()
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Take(6)
+            .Select(item => new
+            {
+                item.OperationalInterventionRequestId,
+                item.CreatedAtUtc,
+                item.InterventionType,
+                item.SubjectName,
+                item.PlateNumber,
+                item.Status,
+                item.Priority,
+                item.Reason,
+                item.LaneName
             })
             .ToListAsync();
 
@@ -159,25 +224,70 @@ public class DashboardController : ControllerBase
             ? 0
             : (int)Math.Round(trainedEmployeeCount * 100.0 / employeeCount);
 
-        var recentActivities = recentActivitiesRaw.Select(activity => new
-        {
-            activity.LogId,
-            activity.Timestamp,
-            activity.Direction,
-            actorName = activity.EmployeeName
-    ?? activity.VisitorName
-    ?? "Chua xác d?nh",
-            gateName = activity.GateName ?? "Chua g?n c?ng",
-            cameraName = activity.CameraName,
-            activity.CapturedLicensePlate,
-            activity.ResultStatus,
-            activity.IsBypass,
-            activity.Note,
-            activity.ExceptionReason,
-            actorType = activity.EmployeeName != null ? "Employee"
-    : activity.VisitorName != null ? "GuestVisitor"
-    : "Unknown"
-        });
+        var recentActivities = recentActivitiesRaw
+            .Select(activity => new DashboardRecentActivityItem
+            {
+                Id = $"access-{activity.LogId}",
+                OccurredAt = activity.Timestamp ?? DateTime.MinValue,
+                Kind = "Access",
+                Title = (activity.EmployeeName ?? activity.VisitorName ?? "Chua xac dinh").Trim(),
+                Subtitle = activity.GateName ?? "Chua gan cong",
+                Status = activity.ResultStatus ?? (string.Equals(activity.Direction, "IN", StringComparison.OrdinalIgnoreCase) ? "Vao" : "Ra"),
+                Severity = activity.IsBypass == true ? "warning" : "info",
+                Route = "/access-logs",
+                Meta = activity.CapturedLicensePlate ?? activity.CameraName ?? activity.ExceptionReason ?? activity.Note
+            })
+            .Concat(recentLaneEventsRaw.Select(item => new DashboardRecentActivityItem
+            {
+                Id = $"lane-{item.LaneEventId}",
+                OccurredAt = item.OccurredAtUtc,
+                Kind = "Lane",
+                Title = item.EventType,
+                Subtitle = item.LaneName ?? "Lane event",
+                Status = item.Direction,
+                Severity = item.EventType is "EMERGENCY_PASS" or "ESCALATION_REQUEST" ? "warning" : "info",
+                Route = "/gate-transit-monitor",
+                Meta = item.PlateText ?? item.Note
+            }))
+            .Concat(recentAlarmsRaw.Select(item => new DashboardRecentActivityItem
+            {
+                Id = $"alarm-{item.AlarmId}",
+                OccurredAt = item.CreatedAtUtc,
+                Kind = "Alarm",
+                Title = item.AlarmType,
+                Subtitle = item.Summary,
+                Status = item.State,
+                Severity = item.Severity == "Critical" ? "danger" : item.Severity == "High" ? "warning" : "info",
+                Route = "/soc-console",
+                Meta = item.Severity
+            }))
+            .Concat(recentInterventionsRaw.Select(item => new DashboardRecentActivityItem
+            {
+                Id = $"intervention-{item.OperationalInterventionRequestId}",
+                OccurredAt = item.CreatedAtUtc,
+                Kind = "Intervention",
+                Title = item.SubjectName ?? item.InterventionType,
+                Subtitle = item.Reason,
+                Status = item.Status,
+                Severity = item.Priority == "critical" ? "danger" : item.Priority == "high" ? "warning" : "info",
+                Route = "/exceptions",
+                Meta = item.LaneName ?? item.PlateNumber ?? item.InterventionType
+            }))
+            .OrderByDescending(item => item.OccurredAt)
+            .Take(10)
+            .Select(item => new
+            {
+                item.Id,
+                item.OccurredAt,
+                item.Kind,
+                item.Title,
+                item.Subtitle,
+                item.Status,
+                item.Severity,
+                item.Route,
+                item.Meta
+            })
+            .ToList();
 
         return Ok(new
         {
@@ -196,6 +306,16 @@ public class DashboardController : ControllerBase
                 employeeCount,
                 trainedEmployeeCount,
                 recognitionCoverage,
+                checkedInVisitors,
+                openAlarms,
+                criticalOpenAlarms,
+                offlineDevices,
+                degradedDevices,
+                activeEmergencyPasses,
+                pendingInterventions,
+                oldestPendingInterventionMinutes = oldestPendingIntervention.HasValue
+                    ? Math.Round((nowUtc - oldestPendingIntervention.Value).TotalMinutes, 0)
+                    : 0,
                 employeesWorkingToday = workingEmployeeIdsToday.Count,
                 employeesNotCheckedIn = Math.Max(0, workingEmployeeIdsToday.Count - checkedInEmployeeIdsToday.Count),
                 employeesLateToday = lateEmployeeIdsToday.Count,
@@ -233,6 +353,19 @@ public class DashboardController : ControllerBase
             DayOfWeek.Saturday => "T7",
             _ => "CN"
         };
+    }
+
+    private sealed class DashboardRecentActivityItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public DateTime OccurredAt { get; set; }
+        public string Kind { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Subtitle { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Severity { get; set; } = "info";
+        public string Route { get; set; } = "/";
+        public string? Meta { get; set; }
     }
 }
 

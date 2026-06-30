@@ -14,7 +14,7 @@ namespace API.Controllers
 {
     [Route("api/dynamic-qr")]
     [ApiController]
-    [Authorize(Roles = "Admin,Staff,BaoVe")]
+    [Authorize]
     public class DynamicQrController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -32,6 +32,87 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Tự tạo QR động cho chính nhân viên đang đăng nhập.
+        /// </summary>
+        [HttpPost("my")]
+        [EnableRateLimiting("ops")]
+        public async Task<IActionResult> GetMyDynamicQr()
+        {
+            var employeeIdClaim = User.FindFirst("employeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out var employeeId))
+            {
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Không tìm thấy thông tin nhân viên trong phiên đăng nhập."
+                });
+            }
+
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.Status == true);
+
+            if (employee == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Không tìm thấy nhân viên hoặc nhân viên đang không hoạt động."
+                });
+            }
+
+            var dynamicQr = await _context.EmployeeDynamicQrs
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+
+            if (dynamicQr == null)
+            {
+                dynamicQr = new EmployeeDynamicQr
+                {
+                    EmployeeId = employeeId,
+                    SecretKey = GenerateBase32Secret(),
+                    TimeStepSeconds = 30,
+                    Digits = 6,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.EmployeeDynamicQrs.Add(dynamicQr);
+                await _context.SaveChangesAsync();
+            }
+
+            if (!dynamicQr.IsActive)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "QR động của bạn đang bị vô hiệu hóa."
+                });
+            }
+
+            var utcNow = DateTime.UtcNow;
+            var counter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
+            var otp = GenerateTotp(dynamicQr.SecretKey, counter, dynamicQr.Digits);
+            var expiresAtUtc = GetCounterExpiryUtc(utcNow, dynamicQr.TimeStepSeconds);
+
+            var qrPayload = $"EMP:{employee.EmployeeId}|TS:{counter}|OTP:{otp}";
+
+            return Ok(new
+            {
+                success = true,
+                message = "Tạo QR động thành công.",
+                data = new
+                {
+                    employeeId = employee.EmployeeId,
+                    employeeName = employee.FullName,
+                    qrPayload,
+                    timeStepSeconds = dynamicQr.TimeStepSeconds,
+                    generatedAtUtc = utcNow,
+                    expiresAtUtc,
+                    remainingSeconds = (int)Math.Max(0, Math.Floor((expiresAtUtc - utcNow).TotalSeconds))
+                }
+            });
+        }
+
+        /// <summary>
         /// Tạo QR động hiện tại cho nhân viên.
         /// Lưu ý bảo mật:
         /// - Chỉ trả qrPayload cho FE để render QR
@@ -39,6 +120,7 @@ namespace API.Controllers
         /// </summary>
         [HttpPost("generate")]
         [EnableRateLimiting("ops")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GenerateDynamicQr([FromBody] GenerateDynamicQrRequest request)
         {
             if (request == null || request.EmployeeId <= 0)
@@ -126,6 +208,7 @@ namespace API.Controllers
         /// </summary>
         [HttpPost("verify")]
         [EnableRateLimiting("ops")]
+        [Authorize(Roles = "Admin,BaoVe")]
         public async Task<IActionResult> VerifyDynamicQr([FromBody] VerifyDynamicQrRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.QrPayload))

@@ -1,31 +1,31 @@
 # V-Shield
 
-Huong dan moi theo kieu "mot lenh" de chay tren may Windows moi.
+Hướng dẫn mới theo kiểu "một lệnh" để chạy trên máy Windows mới.
 
-## Docker chay nhanh (khuyen dung cho nguoi moi)
+## Docker chạy nhanh (khuyên dùng cho người mới)
 
-### Dieu kien
-- Da cai Docker Desktop va dang o trang thai `Engine running`.
+### Điều kiện
+- Đã cài Docker Desktop và đang ở trạng thái `Engine running`.
 
-### Lan dau (setup)
-1) Tao file env cho Docker:
-Chay tai thu muc goc du an:
+### Lần đầu (setup)
+1) Tạo file env cho Docker:
+Chạy tại thư mục gốc dự án:
 
 ```powershell
 Copy-Item .env.docker.example .env
 ```
 
-2) Khoi dong core stack:
+2) Khởi động core stack:
 ```powershell
 docker compose up -d --build
 ```
 
-Core stack gom:
+Core stack gồm:
 - `db` (SQL Server)
 - `api` (.NET)
 - `frontend` (Vue + Nginx)
 
-3) Bat them runtime AI (neu can):
+3) Bật thêm runtime AI (nếu cần):
 QR runtime:
 ```powershell
 docker compose --profile ai up -d --build
@@ -36,7 +36,7 @@ Plate runtime:
 docker compose --profile ai-heavy up -d --build
 ```
 
-4) Kiem tra nhanh:
+4) Kiểm tra nhanh:
 ```powershell
 docker compose ps
 curl http://localhost:5107/health
@@ -44,37 +44,37 @@ curl http://localhost:8001/qr/result
 curl http://localhost:5002/api/camera/status
 ```
 
-Ket qua mong doi:
+Kết quả mong đợi:
 - API: `{"status":"ok","service":"v-shield-api"}`
-- QR runtime: JSON co cac truong `running`, `scan_enabled`, `locked`
-- Plate runtime: JSON co `success=true`
+- QR runtime: JSON có các trường `running`, `scan_enabled`, `locked`
+- Plate runtime: JSON có `success=true`
 
-### Tu lan thu 2 tro di
+### Từ lần thứ 2 trở đi
 ```powershell
 docker compose up -d
 ```
 
-Neu can rebuild sau khi doi code:
+Nếu cần rebuild sau khi đổi code:
 ```powershell
 docker compose up -d --build
 ```
 
-### Truy cap app
+### Truy cập app
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:5107`
 
-### Dung he thong Docker
+### Dừng hệ thống Docker
 ```powershell
 docker compose down
 ```
 
-Neu can xoa ca du lieu DB volume:
+Nếu cần xóa cả dữ liệu DB volume:
 ```powershell
 docker compose down -v
 ```
 
-### Neu gap loi
-Lay log nhanh:
+### Nếu gặp lỗi
+Lấy log nhanh:
 ```powershell
 docker compose ps
 docker logs vshield-api --tail 100
@@ -82,57 +82,57 @@ docker logs vshield-qr-runtime --tail 100
 docker logs vshield-plate-runtime --tail 100
 ```
 
-## Docker + Cloudflare Tunnel (khong VPS)
+## Docker + Cloudflare Tunnel (kh?ng VPS)
 
-### Buoc 1: Lay token tunnel tren may host
+### B??c 1: L?y token tunnel tr?n m?y host
 ```bat
 get-cloudflare-token.bat
 ```
 
-Script se:
-- login cloudflare (co mo browser cap quyen)
-- tao/bao dam tunnel ton tai
-- tao/bao dam DNS route
-- in ra token de copy
+Script s?:
+- login cloudflare (c? m? browser c?p quy?n)
+- t?o/b?o ??m tunnel t?n t?i
+- t?o/b?o ??m DNS route
+- in ra token ?? copy
 
-### Buoc 2: Setup Docker tunnel
+### B??c 2: Setup Docker tunnel
 ```powershell
 .\scripts\setup-docker-cloudflare-tunnel.ps1
 ```
 
-Script se:
-- cap nhat `.env` (token, domain, go2rtc base)
+Script s?:
+- c?p nh?t `.env` (token, domain, go2rtc base)
 - patch `appsettings.json` cho public domain
-- chay `db -> go2rtc -> api -> frontend -> cloudflared`
-- goi reload go2rtc
+- ch?y `db -> go2rtc -> api -> frontend -> cloudflared`
+- g?i reload go2rtc
 
-Mac dinh giu logic cam cu:
+M?c ??nh gi? logic c?:
 - `GO2RTC_STREAM_MODE=webrtc`
-- `GO2RTC_WEBRTC_CANDIDATES=` (de trong, khong ep candidate)
+- `GO2RTC_WEBRTC_CANDIDATES=` (?? tr?ng, kh?ng ?p candidate)
 - stream URL public theo dang `https://<domain>/go2rtc/stream.html?...`
 
-Tai lieu day du:
+T?i li?u ??y ??:
 - `docs/DOCKER_RUN_GUIDE.md`
 - `docs/DOCKER_REGRESSION_CHECKLIST.md`
 - `docs/DOCKER_UI_REGRESSION.md`
 
-## 1) Cai dat va dung he thong
+## 1) C?i ??t v? d?ng h? th?ng
 
-Chay trong thu muc goc `V-Shield`:
+Ch?y trong th? m?c g?c `V-Shield`:
 
 ```powershell
 .\manage.ps1 -Action install
 .\manage.ps1 -Action start
 ```
 
-Hoac dung file bat:
+Ho?c d?ng file bat:
 
 ```bat
 install.bat
 start.bat
 ```
 
-Trang chinh sau khi start:
+Trang ch?nh sau khi start:
 - API: `http://localhost:5107`
 - Frontend: `http://localhost:5173`
 - Health API: `http://localhost:5107/health`
@@ -217,7 +217,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\uninstall-public-domain.ps1 -
 - `cloudflared not found`: cài Cloudflare Tunnel bằng `winget install Cloudflare.cloudflared` rồi chạy lại.
 - Stream bị đen hoặc `stream not found`: kiểm tra camera trong app, chạy lại `setup-public-domain.bat`, sau đó mở trực tiếp `https://<domain>/stream.html?src=cam1&mode=webrtc` để test.
 
-### Start 1 click cho production (khuyen dung khi da cai Windows Services)
+### Start 1 click cho production (khuy?n d?ng khi ?? c?i Windows Services)
 
 ```bat
 start-prod.bat
@@ -275,8 +275,58 @@ Cau hinh tai `API/API/API/appsettings*.json`:
 
 Khong hardcode domain trong code nua.
 
-## 5) Trang thai script
+## 5) Tr?ng th?i script
 
 ```powershell
 .\manage.ps1 -Action status
 ```
+## Deployment modes
+
+Project hien co 2 mode trien khai chinh:
+
+### Local full
+
+Dung cho may local/noi bo khi can day du thanh phan:
+
+- Vue frontend
+- ASP.NET API
+- SQL Server
+- go2rtc
+- Cloudflared tunnel neu can
+- AI runtime theo profile
+
+Lenh chay:
+
+```powershell
+docker compose up -d --build
+docker compose --profile ai up -d --build
+docker compose --profile ai-heavy up -d --build
+```
+
+### VPS web-only
+
+Dung cho VPS Ubuntu khi chi can stack web:
+
+- Vue frontend
+- ASP.NET API
+- SQL Server
+
+Khong keo theo go2rtc, camera public, Cloudflared, AI runtime hay APK/mobile.
+
+Lenh chay:
+
+```powershell
+Copy-Item .env.vps.example .env.vps
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
+
+Luu y:
+
+- Frontend VPS proxy same-origin cho `/api` va `/hubs`
+- API va SQL chi mo noi bo container trong mode VPS
+- Compose VPS khong chay service go2rtc hay AI
+- Dien day du secret trong `.env.vps` truoc khi deploy
+
+Tai lieu bo sung:
+
+- `docs/WEB_DEPLOYMENT_MODES.md`

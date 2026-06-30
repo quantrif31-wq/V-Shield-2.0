@@ -5,7 +5,10 @@
                 <h1 class="page-title">Lịch làm việc</h1>
                 <p class="page-subtitle">Lên lịch ca làm, theo dõi trạng thái làm việc theo ngày.</p>
             </div>
-            <button class="btn btn-primary" @click="openCreateModal">Tạo lịch làm</button>
+            <div class="header-actions">
+                <button class="btn btn-secondary" @click="openBulkModal">Tạo lịch hàng loạt</button>
+                <button class="btn btn-primary" @click="openCreateModal">Tạo lịch làm</button>
+            </div>
         </header>
 
         <section class="card panel">
@@ -50,7 +53,7 @@
                     </label>
                 </div>
                 <div class="todo-note">
-                    TODO: Tạo lịch hàng loạt theo nhiều nhân viên/khoảng ngày sẽ triển khai ở bước tiếp theo.
+                    Có thể tạo hàng loạt theo nhiều nhân viên và khoảng ngày bằng nút ở đầu trang.
                 </div>
             </div>
 
@@ -151,6 +154,81 @@
         </transition>
 
         <transition name="modal">
+            <div v-if="showBulkModal" class="modal-overlay" @click.self="closeBulkModal">
+                <div class="modal wide-modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Tạo lịch hàng loạt</h3>
+                        <button class="modal-close" @click="closeBulkModal">✕</button>
+                    </div>
+                    <form @submit.prevent="submitBulkForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ca làm</label>
+                                <select v-model.number="bulkForm.shiftId" required>
+                                    <option :value="null">-- Chọn ca làm --</option>
+                                    <option v-for="shift in shifts" :key="shift.shiftId" :value="shift.shiftId">
+                                        {{ shift.shiftName }} ({{ formatTime(shift.startTime) }} - {{ formatTime(shift.endTime) }})
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Phòng ban</label>
+                                <select v-model="bulkForm.departmentId">
+                                    <option value="">Tất cả phòng ban</option>
+                                    <option v-for="dep in departments" :key="dep.departmentId" :value="String(dep.departmentId)">
+                                        {{ dep.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Từ ngày</label>
+                                <input v-model="bulkForm.fromDate" type="date" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Đến ngày</label>
+                                <input v-model="bulkForm.toDate" type="date" required />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Nhân viên áp dụng</label>
+                            <div class="bulk-toolbar">
+                                <button type="button" class="btn btn-ghost btn-sm" @click="selectFilteredEmployees">Chọn theo bộ lọc</button>
+                                <button type="button" class="btn btn-ghost btn-sm" @click="clearBulkEmployees">Bỏ chọn</button>
+                                <span class="bulk-selection-label">Đã chọn {{ bulkForm.employeeIds.length }} nhân viên</span>
+                            </div>
+                            <div class="bulk-employee-list">
+                                <label v-for="emp in filteredBulkEmployees" :key="emp.employeeId" class="bulk-employee-item">
+                                    <input
+                                        :checked="bulkForm.employeeIds.includes(emp.employeeId)"
+                                        type="checkbox"
+                                        @change="toggleBulkEmployee(emp.employeeId)"
+                                    />
+                                    <span>{{ emp.fullName }}</span>
+                                    <small>{{ emp.departmentName || 'Chưa có phòng ban' }}</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú</label>
+                            <textarea v-model="bulkForm.note" placeholder="Ghi chú áp dụng cho toàn bộ lịch"></textarea>
+                        </div>
+
+                        <p v-if="bulkError" class="error-text">{{ bulkError }}</p>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @click="closeBulkModal">Hủy</button>
+                            <button class="btn btn-primary" :disabled="saving">
+                                {{ saving ? 'Đang tạo...' : 'Tạo hàng loạt' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </transition>
+
+        <transition name="modal">
             <div v-if="confirmDialog.open" class="modal-overlay" @click.self="confirmDialog.open = false">
                 <div class="modal mini">
                     <div class="modal-header">
@@ -172,7 +250,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { getAll as getEmployees } from '../services/employeeApi'
 import { getDepartments } from '../services/lookupApi'
 import {
@@ -192,7 +270,9 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const modalError = ref('')
+const bulkError = ref('')
 const showModal = ref(false)
+const showBulkModal = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const toast = ref(null)
@@ -216,11 +296,25 @@ const form = reactive({
     note: '',
 })
 
+const bulkForm = reactive({
+    shiftId: null,
+    departmentId: '',
+    fromDate: '',
+    toDate: '',
+    employeeIds: [],
+    note: '',
+})
+
 const confirmDialog = reactive({
     open: false,
     scheduleId: null,
     employeeName: '',
     workDate: '',
+})
+
+const filteredBulkEmployees = computed(() => {
+    if (!bulkForm.departmentId) return employees.value
+    return employees.value.filter((emp) => String(emp.departmentId || '') === bulkForm.departmentId)
 })
 
 const showToast = (message, type = 'success') => {
@@ -292,6 +386,17 @@ const openCreateModal = () => {
     showModal.value = true
 }
 
+const openBulkModal = () => {
+    bulkError.value = ''
+    bulkForm.shiftId = null
+    bulkForm.departmentId = ''
+    bulkForm.fromDate = filters.fromDate
+    bulkForm.toDate = filters.toDate
+    bulkForm.employeeIds = []
+    bulkForm.note = ''
+    showBulkModal.value = true
+}
+
 const openEditModal = (item) => {
     isEdit.value = true
     editId.value = item.scheduleId
@@ -307,6 +412,111 @@ const openEditModal = (item) => {
 
 const closeModal = () => {
     showModal.value = false
+}
+
+const closeBulkModal = () => {
+    showBulkModal.value = false
+}
+
+const toggleBulkEmployee = (employeeId) => {
+    if (bulkForm.employeeIds.includes(employeeId)) {
+        bulkForm.employeeIds = bulkForm.employeeIds.filter((id) => id !== employeeId)
+        return
+    }
+
+    bulkForm.employeeIds = [...bulkForm.employeeIds, employeeId]
+}
+
+const selectFilteredEmployees = () => {
+    bulkForm.employeeIds = filteredBulkEmployees.value.map((emp) => emp.employeeId)
+}
+
+const clearBulkEmployees = () => {
+    bulkForm.employeeIds = []
+}
+
+const enumerateDates = (fromDate, toDate) => {
+    const dates = []
+    const start = new Date(fromDate)
+    const end = new Date(toDate)
+
+    for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+        dates.push(new Date(current).toISOString().slice(0, 10))
+    }
+
+    return dates
+}
+
+const submitBulkForm = async () => {
+    bulkError.value = ''
+
+    if (!bulkForm.shiftId) {
+        bulkError.value = 'Vui lòng chọn ca làm.'
+        return
+    }
+
+    if (!bulkForm.fromDate || !bulkForm.toDate) {
+        bulkError.value = 'Vui lòng chọn khoảng ngày.'
+        return
+    }
+
+    if (bulkForm.toDate < bulkForm.fromDate) {
+        bulkError.value = 'Ngày kết thúc không được nhỏ hơn ngày bắt đầu.'
+        return
+    }
+
+    if (!bulkForm.employeeIds.length) {
+        bulkError.value = 'Vui lòng chọn ít nhất một nhân viên.'
+        return
+    }
+
+    saving.value = true
+
+    const dates = enumerateDates(bulkForm.fromDate, bulkForm.toDate)
+    let created = 0
+    let duplicated = 0
+    let failed = 0
+    const failedTargets = []
+
+    try {
+        for (const employeeId of bulkForm.employeeIds) {
+            for (const workDate of dates) {
+                try {
+                    await createWorkSchedule({
+                        employeeId,
+                        shiftId: bulkForm.shiftId,
+                        workDate,
+                        note: bulkForm.note?.trim() || null,
+                    })
+                    created += 1
+                } catch (err) {
+                    if (err?.response?.status === 409) {
+                        duplicated += 1
+                    } else {
+                        failed += 1
+                        failedTargets.push(`NV#${employeeId} ${workDate}`)
+                    }
+                }
+            }
+        }
+
+        closeBulkModal()
+        await loadSchedules()
+
+        const summary = [
+            created ? `Tạo mới ${created}` : null,
+            duplicated ? `bỏ qua ${duplicated} lịch trùng` : null,
+            failed ? `lỗi ${failed}` : null,
+        ].filter(Boolean).join(', ')
+
+        showToast(summary ? `Hoàn tất tạo lịch hàng loạt: ${summary}.` : 'Không có lịch nào được tạo.', failed ? 'error' : 'success')
+
+        if (failedTargets.length) {
+            bulkError.value = `Một số lịch lỗi: ${failedTargets.slice(0, 5).join('; ')}${failedTargets.length > 5 ? '...' : ''}`
+        }
+    } finally {
+        saving.value = false
+    }
 }
 
 const submitForm = async () => {
@@ -370,6 +580,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
 .panel {
     padding: 22px;
 }
@@ -389,6 +604,49 @@ onMounted(async () => {
 
 .todo-note {
     font-size: 0.86rem;
+    color: var(--text-muted);
+}
+
+.bulk-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.bulk-selection-label {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+}
+
+.bulk-employee-list {
+    max-height: 280px;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 10px;
+    background: var(--bg-input);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.bulk-employee-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(24, 49, 77, 0.08);
+}
+
+.bulk-employee-item input {
+    align-self: flex-start;
+}
+
+.bulk-employee-item small {
     color: var(--text-muted);
 }
 

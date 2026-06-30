@@ -22,8 +22,8 @@
                         <span>Giám sát liên tục</span>
                     </article>
                     <article class="metric-card">
-                        <strong>Face ID</strong>
-                        <span>Nhận diện khuôn mặt</span>
+                        <strong>QR động</strong>
+                        <span>Xác thực chống dùng lại</span>
                     </article>
                     <article class="metric-card">
                         <strong>ANPR</strong>
@@ -153,7 +153,7 @@
 
                     <div v-if="mfaRequired" class="form-group">
                         <div class="label-row">
-                            <label for="mfa-code">Ma xac thuc 6 so</label>
+                            <label for="mfa-code">Mã xác thực 6 số</label>
                             <span class="field-hint">Authenticator</span>
                         </div>
                         <div class="input-shell">
@@ -168,7 +168,7 @@
                                 type="text"
                                 inputmode="numeric"
                                 maxlength="6"
-                                placeholder="Nhap ma dang hien tren ung dung"
+                                placeholder="Nhập mã đang hiện trên ứng dụng"
                                 autocomplete="one-time-code"
                                 :disabled="loading"
                                 @keydown.enter.prevent="handleLogin"
@@ -178,14 +178,14 @@
 
                     <div v-if="mfaSetupSecret" class="mfa-setup">
                         <div class="mfa-setup-header">
-                            <strong>Thiet lap xac thuc hai lop</strong>
-                            <span>Quet QR bang Authenticator roi nhap ma 6 so.</span>
+                            <strong>Thiết lập xác thực hai lớp</strong>
+                            <span>Quét QR bằng Authenticator rồi nhập mã 6 số.</span>
                         </div>
                         <div v-if="mfaQrDataUrl" class="mfa-qr-frame">
-                            <img :src="mfaQrDataUrl" alt="Ma QR thiet lap MFA" />
+                            <img :src="mfaQrDataUrl" alt="Mã QR thiết lập MFA" />
                         </div>
                         <div class="mfa-manual-key">
-                            <span>Ma thiet lap du phong</span>
+                            <span>Mã thiết lập dự phòng</span>
                             <code>{{ mfaSetupSecret }}</code>
                         </div>
                         <small>{{ mfaSetupUri }}</small>
@@ -208,6 +208,30 @@
                     </button>
                 </form>
 
+                <div v-if="ssoProviders.length" class="sso-divider">
+                    <span class="sso-line"></span>
+                    <span class="sso-or">Hoặc đăng nhập với SSO</span>
+                    <span class="sso-line"></span>
+                </div>
+
+                <div v-if="ssoProviders.length" class="sso-buttons">
+                    <button
+                        v-for="p in ssoProviders"
+                        :key="p.externalIdentityProviderId"
+                        type="button"
+                        class="btn-sso"
+                        :disabled="loading"
+                        @click="handleSSO(p)"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="sso-icon">
+                            <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <path d="M20 8v6"/><path d="M23 11h-6"/>
+                        </svg>
+                        <span>{{ p.name }}</span>
+                    </button>
+                </div>
+
                 <div class="login-footer">
                     <div class="footer-item">
                         <strong>Kênh truy cập</strong>
@@ -224,10 +248,11 @@
 </template>
 
 <script setup>
-import { onUnmounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import QRCode from 'qrcode'
 import { useRouter } from 'vue-router'
 import { login } from '../stores/auth'
+import { identityApi } from '../services/identityApi'
 
 const router = useRouter()
 
@@ -242,6 +267,29 @@ const mfaSetupSecret = ref('')
 const mfaSetupUri = ref('')
 const mfaQrDataUrl = ref('')
 let redirectTimer = null
+const ssoProviders = ref([])
+
+onMounted(async () => {
+    try {
+        const res = await identityApi.getProviders()
+        ssoProviders.value = (res.data || []).filter(p => p.isEnabled && p.protocol === 'OIDC')
+    } catch {}
+})
+
+async function handleSSO(provider) {
+    if (loading.value) return
+    const redirectUri = window.location.origin + '/login'
+    try {
+        const res = await identityApi.oidcChallenge(
+            provider.externalIdentityProviderId,
+            redirectUri,
+            null
+        )
+        window.location.href = res.data.challengeUrl
+    } catch (err) {
+        setFeedback(err.response?.data?.message || 'SSO initiation failed')
+    }
+}
 
 function setFeedback(message, type = 'danger') {
     feedbackMessage.value = message
@@ -281,14 +329,13 @@ async function handleLogin() {
 
     feedbackMessage.value = ''
     feedbackType.value = 'danger'
-
     if (!form.username.trim() || !form.password.trim()) {
         error.value = 'Vui lòng điền đầy đủ thông tin xác thực.'
         return
     }
 
     if (mfaRequired.value && !form.mfaCode.trim()) {
-        error.value = 'Vui long nhap ma xac thuc 6 so.'
+        error.value = 'Vui lòng nhập mã xác thực 6 số.'
         return
     }
 
@@ -929,6 +976,42 @@ onUnmounted(() => {
     font-size: 0.8rem;
     line-height: 1.5;
 }
+
+.sso-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 6px 0;
+}
+.sso-line { flex: 1; height: 1px; background: var(--border-soft); }
+.sso-or { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.sso-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.btn-sso {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 46px;
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    cursor: pointer;
+}
+.btn-sso:hover:not(:disabled) {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(84, 196, 211, 0.15);
+}
+.btn-sso:disabled { opacity: 0.6; cursor: not-allowed; }
+.sso-icon { width: 18px; height: 18px; color: var(--text-muted); }
 
 @media (max-width: 1080px) {
     .login-shell {

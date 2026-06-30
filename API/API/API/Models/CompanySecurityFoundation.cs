@@ -30,6 +30,8 @@ public class Site
     [MaxLength(160)] public string Name { get; set; } = string.Empty;
     [MaxLength(50)] public string Code { get; set; } = string.Empty;
     [MaxLength(300)] public string? Address { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
     [MaxLength(80)] public string TimeZoneId { get; set; } = "Asia/Ho_Chi_Minh";
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -44,6 +46,9 @@ public class Building
     public int SiteId { get; set; }
     [MaxLength(160)] public string Name { get; set; } = string.Empty;
     [MaxLength(50)] public string Code { get; set; } = string.Empty;
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public int? TotalFloors { get; set; }
     public bool IsActive { get; set; } = true;
     public Site? Site { get; set; }
     public ICollection<FacilityFloor> Floors { get; set; } = new List<FacilityFloor>();
@@ -85,6 +90,8 @@ public class AccessPoint
     [MaxLength(160)] public string Name { get; set; } = string.Empty;
     [MaxLength(60)] public string Type { get; set; } = "Door";
     [MaxLength(80)] public string DirectionMode { get; set; } = "Bidirectional";
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
     public bool IsActive { get; set; } = true;
     public Site? Site { get; set; }
     public SecurityZone? SecurityZone { get; set; }
@@ -133,6 +140,9 @@ public class ExternalIdentityProvider
     [MaxLength(40)] public string Protocol { get; set; } = "OIDC";
     [MaxLength(300)] public string Authority { get; set; } = string.Empty;
     [MaxLength(160)] public string? ClientId { get; set; }
+    [MaxLength(400)] public string? ClientSecret { get; set; }
+    [MaxLength(300)] public string? RedirectUrl { get; set; }
+    [MaxLength(200)] public string? Scopes { get; set; }
     public bool IsEnabled { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

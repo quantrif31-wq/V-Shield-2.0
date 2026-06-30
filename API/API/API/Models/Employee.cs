@@ -68,4 +68,10 @@ public partial class Employee
     public virtual Employee? ManagerEmployee { get; set; }
 
     public virtual ICollection<Employee> DirectReports { get; set; } = new List<Employee>();
+
+    [InverseProperty("FromEmployee")]
+    public virtual ICollection<VehicleDelegation> OutgoingDelegations { get; set; } = new List<VehicleDelegation>();
+
+    [InverseProperty("ToEmployee")]
+    public virtual ICollection<VehicleDelegation> IncomingDelegations { get; set; } = new List<VehicleDelegation>();
 }

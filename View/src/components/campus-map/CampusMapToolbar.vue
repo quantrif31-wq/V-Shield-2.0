@@ -27,10 +27,10 @@
             </button>
             <button class="btn btn-secondary" @click="$emit('fit-screen')">Fit to screen</button>
             <button class="btn btn-secondary" :disabled="refreshing" @click="$emit('refresh')">
-                {{ refreshing ? 'Dang tai...' : 'Refresh' }}
+                {{ refreshing ? 'Đang tải...' : 'Làm mới' }}
             </button>
             <button class="btn btn-primary" :disabled="!canEdit || mode !== 'edit' || !dirty || saving" @click="$emit('save')">
-                {{ saving ? 'Dang luu...' : 'Save layout' }}
+                {{ saving ? 'Đang lưu...' : 'Lưu bố cục' }}
             </button>
         </div>
     </section>

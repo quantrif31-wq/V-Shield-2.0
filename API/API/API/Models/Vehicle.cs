@@ -38,4 +38,7 @@ public partial class Vehicle
     public virtual VehicleType? VehicleType { get; set; }
     public int? VisitorDetailId { get; set; }
     public VisitorDetail? VisitorDetail { get; set; }
+
+    [InverseProperty("Vehicle")]
+    public virtual ICollection<VehicleDelegation> Delegations { get; set; } = new List<VehicleDelegation>();
 }

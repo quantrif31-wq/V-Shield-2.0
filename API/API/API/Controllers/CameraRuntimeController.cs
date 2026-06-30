@@ -41,6 +41,8 @@ namespace API.Controllers
                     GateId = c.GateId,
                     StreamUrl = c.StreamUrl,
                     UrlView = c.UrlView,
+                    IsRecordingEnabled = c.IsRecordingEnabled,
+                    RecordingRetentionDays = c.RecordingRetentionDays,
                     GateName = c.Gate != null ? c.Gate.GateName : null
                 })
                 .ToListAsync();
@@ -63,6 +65,8 @@ namespace API.Controllers
                     GateId = c.GateId,
                     StreamUrl = c.StreamUrl,
                     UrlView = c.UrlView,
+                    IsRecordingEnabled = c.IsRecordingEnabled,
+                    RecordingRetentionDays = c.RecordingRetentionDays,
                     GateName = c.Gate != null ? c.Gate.GateName : null
                 })
                 .FirstOrDefaultAsync();
@@ -101,7 +105,9 @@ namespace API.Controllers
                 CameraName = cameraName,
                 GateId = request.GateId,
                 CameraType = string.IsNullOrWhiteSpace(cameraType) ? null : cameraType,
-                StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl
+                StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl,
+                IsRecordingEnabled = request.IsRecordingEnabled ?? false,
+                RecordingRetentionDays = request.RecordingRetentionDays ?? 30
             };
 
             _context.Cameras.Add(camera);
@@ -143,6 +149,10 @@ namespace API.Controllers
             cam.GateId = request.GateId;
             cam.StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl;
             cam.UrlView = BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
+            if (request.IsRecordingEnabled.HasValue)
+                cam.IsRecordingEnabled = request.IsRecordingEnabled.Value;
+            if (request.RecordingRetentionDays.HasValue)
+                cam.RecordingRetentionDays = request.RecordingRetentionDays.Value;
 
             await _context.SaveChangesAsync();
 
@@ -162,6 +172,58 @@ namespace API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok();
+        }
+
+        // ================= TOGGLE RECORDING =================
+        [HttpPut("{id}/recording")]
+        public async Task<IActionResult> ToggleRecording(int id, [FromBody] ToggleRecordingRequest request)
+        {
+            var cam = await _context.Cameras.FindAsync(id);
+            if (cam == null)
+                return NotFound("Camera không tồn tại");
+
+            cam.IsRecordingEnabled = request.Enabled;
+            if (request.RetentionDays.HasValue)
+                cam.RecordingRetentionDays = request.RetentionDays.Value;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { cam.IsRecordingEnabled, cam.RecordingRetentionDays });
+        }
+
+        // ================= LIST RECORDED SEGMENTS =================
+        [HttpGet("{id}/recorded-segments")]
+        public async Task<IActionResult> GetRecordedSegments(
+            int id,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var query = _context.RecordedSegments
+                .Where(s => s.CameraId == id);
+
+            if (from.HasValue)
+                query = query.Where(s => s.StartedAt >= from.Value);
+            if (to.HasValue)
+                query = query.Where(s => s.StartedAt <= to.Value);
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(s => s.StartedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(s => new
+                {
+                    s.SegmentId,
+                    s.StartedAt,
+                    s.EndedAt,
+                    s.FileSizeBytes,
+                    s.DurationSeconds,
+                    s.StorageUrl
+                })
+                .ToListAsync();
+
+            return Ok(new { total, page, pageSize, items });
         }
 
         // ================= RELOAD GO2RTC =================
@@ -640,12 +702,34 @@ namespace API.Controllers
         private string ResolvePublicAppBaseUrl()
         {
             var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
-            if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
+            if (!string.IsNullOrWhiteSpace(configuredFrontendUrl) &&
+                !ShouldPreferRequestBaseUrl(configuredFrontendUrl))
             {
                 return NormalizeBaseUrl(configuredFrontendUrl);
             }
 
             return NormalizeBaseUrl($"{Request.Scheme}://{Request.Host}");
+        }
+
+        private bool ShouldPreferRequestBaseUrl(string configuredFrontendUrl)
+        {
+            if (!IsDockerMode())
+            {
+                return false;
+            }
+
+            if (!Uri.TryCreate(configuredFrontendUrl.Trim(), UriKind.Absolute, out var configuredUri))
+            {
+                return false;
+            }
+
+            var requestHost = Request.Host.Host?.Trim();
+            if (string.IsNullOrWhiteSpace(requestHost))
+            {
+                return false;
+            }
+
+            return IsLoopbackHost(configuredUri.Host) && !IsLoopbackHost(requestHost);
         }
 
         private static string NormalizeBaseUrl(string value) =>

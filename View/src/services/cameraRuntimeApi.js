@@ -70,4 +70,14 @@ export async function getPythonProcessStatus() {
     return res.data
 }
 
+export async function toggleRecording(cameraId, enabled, retentionDays) {
+    const res = await http.put(`/camera-runtime/${cameraId}/recording`, { enabled, retentionDays })
+    return res.data
+}
+
+export async function getRecordedSegments(cameraId, params) {
+    const res = await http.get(`/camera-runtime/${cameraId}/recorded-segments`, { params })
+    return res.data
+}
+
 

@@ -16,4 +16,6 @@ public class LoginResponse
     public string? MfaSetupSecret { get; set; }
     public string? MfaSetupUri { get; set; }
     public string? Message { get; set; }
+    public bool HasOperationalScopeAssignments { get; set; }
+    public List<string> OperationalTaskKeys { get; set; } = new();
 }

@@ -19,15 +19,18 @@ public class EnterpriseEvidenceController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IEvidenceAiAssistantService _evidenceAi;
+    private readonly INotificationService _notificationService;
 
     public EnterpriseEvidenceController(
         ApplicationDbContext context,
         IConfiguration configuration,
-        IEvidenceAiAssistantService evidenceAi)
+        IEvidenceAiAssistantService evidenceAi,
+        INotificationService notificationService)
     {
         _context = context;
         _configuration = configuration;
         _evidenceAi = evidenceAi;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -419,6 +422,11 @@ public class EnterpriseEvidenceController : ControllerBase
 
         _context.EvidenceExportRequests.Add(export);
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.ExportRequested",
+            "Yêu cầu xuất bằng chứng mới",
+            $"Có yêu cầu xuất bằng chứng mới cần phê duyệt.",
+            "Evidence", export.EvidenceExportRequestId.ToString(),
+            "/evidence");
         return Ok(export);
     }
 
@@ -463,6 +471,11 @@ public class EnterpriseEvidenceController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.ExportApproved",
+            "Yêu cầu xuất bằng chứng đã được duyệt",
+            $"Yêu cầu xuất bằng chứng đã được duyệt.",
+            "Evidence", export.EvidenceExportRequestId.ToString(),
+            "/evidence");
         return Ok(export);
     }
 
@@ -485,6 +498,11 @@ public class EnterpriseEvidenceController : ControllerBase
 
         _context.RedactionRequests.Add(redaction);
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionRequested",
+            "Yêu cầu che dữ liệu mới",
+            $"Có yêu cầu che dữ liệu mới cần phê duyệt.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -501,6 +519,11 @@ public class EnterpriseEvidenceController : ControllerBase
         redaction.ApprovedAtUtc = DateTime.UtcNow;
         redaction.ApprovedByUserId = GetCurrentUserId();
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionApproved",
+            "Yêu cầu che dữ liệu đã được duyệt",
+            $"Yêu cầu che dữ liệu đã được duyệt.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -519,6 +542,11 @@ public class EnterpriseEvidenceController : ControllerBase
         redaction.PerformedByUserId = GetCurrentUserId();
         redaction.RedactedStorageReference = request.RedactedStorageReference.Trim();
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionPerformed",
+            "Che dữ liệu đã hoàn tất",
+            $"Việc che dữ liệu đã được thực hiện.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -534,6 +562,11 @@ public class EnterpriseEvidenceController : ControllerBase
         redaction.VerifiedAtUtc = DateTime.UtcNow;
         redaction.VerifiedByUserId = GetCurrentUserId();
         await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Approval.Evidence.RedactionVerified",
+            "Che dữ liệu đã được xác nhận",
+            $"Việc che dữ liệu đã được xác nhận.",
+            "Evidence", redaction.RedactionRequestId.ToString(),
+            "/evidence");
         return Ok(redaction);
     }
 
@@ -564,6 +597,156 @@ public class EnterpriseEvidenceController : ControllerBase
         _context.ComplianceReportRuns.Add(report);
         await _context.SaveChangesAsync();
         return Ok(report);
+    }
+
+    [HttpGet("items")]
+    public async Task<IActionResult> GetEvidenceItems(
+        [FromQuery] string? evidenceType, [FromQuery] string? sourceType, [FromQuery] string? privacyLabel,
+        [FromQuery] string? retentionCategory, [FromQuery] bool? isLegalHold, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    {
+        var query = _context.EvidenceItems.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(evidenceType)) query = query.Where(e => e.EvidenceType == evidenceType.Trim());
+        if (!string.IsNullOrWhiteSpace(sourceType)) query = query.Where(e => e.SourceType == sourceType.Trim());
+        if (!string.IsNullOrWhiteSpace(privacyLabel)) query = query.Where(e => e.PrivacyLabel == privacyLabel.Trim());
+        if (!string.IsNullOrWhiteSpace(retentionCategory)) query = query.Where(e => e.RetentionCategory == retentionCategory.Trim());
+        if (isLegalHold.HasValue) query = query.Where(e => e.IsLegalHold == isLegalHold.Value);
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(e => e.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpGet("collections")]
+    public async Task<IActionResult> GetEvidenceCollections([FromQuery] string? status, [FromQuery] long? evidenceItemId, [FromQuery] int? pageSize)
+    {
+        var query = _context.EvidenceCollections.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(c => c.Status == status.Trim());
+        if (evidenceItemId.HasValue)
+        {
+            query = query.Where(collection =>
+                _context.EvidenceCollectionItems.Any(link =>
+                    link.EvidenceCollectionId == collection.EvidenceCollectionId &&
+                    link.EvidenceItemId == evidenceItemId.Value));
+        }
+
+        if (pageSize.HasValue && pageSize.Value > 0)
+            query = query.Take(Math.Min(pageSize.Value, 100));
+
+        var collections = await query.OrderByDescending(c => c.CreatedAtUtc).ToListAsync();
+        return Ok(collections);
+    }
+
+    [HttpGet("collections/{collectionId:long}")]
+    public async Task<IActionResult> GetEvidenceCollectionDetail(long collectionId)
+    {
+        var collection = await _context.EvidenceCollections.FindAsync(collectionId);
+        if (collection == null) return NotFound(new { message = "Collection not found." });
+        var itemLinks = await _context.EvidenceCollectionItems
+            .Where(link => link.EvidenceCollectionId == collectionId)
+            .Join(_context.EvidenceItems, link => link.EvidenceItemId, item => item.EvidenceItemId, (link, item) => item)
+            .ToListAsync();
+        return Ok(new { collection, items = itemLinks });
+    }
+
+    [HttpPatch("collections/{collectionId:long}/close")]
+    public async Task<IActionResult> CloseEvidenceCollection(long collectionId, [FromBody] CloseRequest request)
+    {
+        var collection = await _context.EvidenceCollections.FindAsync(collectionId);
+        if (collection == null) return NotFound(new { message = "Collection not found." });
+        collection.Status = "Closed";
+        await _context.SaveChangesAsync();
+        return Ok(collection);
+    }
+
+    [HttpGet("export-requests")]
+    public async Task<IActionResult> GetExportRequests([FromQuery] string? status)
+    {
+        var query = _context.EvidenceExportRequests.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(r => r.Status == status.Trim());
+        var requests = await query.OrderByDescending(r => r.RequestedAtUtc).ToListAsync();
+        return Ok(requests);
+    }
+
+    [HttpGet("redaction-requests")]
+    public async Task<IActionResult> GetRedactionRequests([FromQuery] string? status)
+    {
+        var query = _context.RedactionRequests.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(r => r.Status == status.Trim());
+        var requests = await query.OrderByDescending(r => r.RequestedAtUtc).ToListAsync();
+        return Ok(requests);
+    }
+
+    [HttpGet("legal-holds")]
+    public async Task<IActionResult> GetLegalHolds([FromQuery] string? status, [FromQuery] long? evidenceItemId, [FromQuery] long? evidenceCollectionId)
+    {
+        var query = _context.LegalHolds.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(h => h.Status == status.Trim());
+        if (evidenceItemId.HasValue) query = query.Where(h => h.EvidenceItemId == evidenceItemId.Value);
+        if (evidenceCollectionId.HasValue) query = query.Where(h => h.EvidenceCollectionId == evidenceCollectionId.Value);
+        var holds = await query.OrderByDescending(h => h.AppliedAtUtc).ToListAsync();
+        return Ok(holds);
+    }
+
+    [HttpGet("retention-policies")]
+    public async Task<IActionResult> GetRetentionPolicies([FromQuery] bool? isActive)
+    {
+        var query = _context.RetentionPolicies.AsNoTracking().AsQueryable();
+        if (isActive.HasValue) query = query.Where(p => p.IsActive == isActive.Value);
+        var policies = await query.OrderBy(p => p.Name).ToListAsync();
+        return Ok(policies);
+    }
+
+    [HttpGet("retention-policies/{policyId:int}")]
+    public async Task<IActionResult> GetRetentionPolicy(int policyId)
+    {
+        var policy = await _context.RetentionPolicies.FindAsync(policyId);
+        if (policy == null) return NotFound(new { message = "Retention policy not found." });
+        return Ok(policy);
+    }
+
+    [HttpPatch("retention-policies/{policyId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateRetentionPolicy(int policyId, [FromBody] RetentionPolicyUpdateRequest request)
+    {
+        var policy = await _context.RetentionPolicies.FindAsync(policyId);
+        if (policy == null) return NotFound(new { message = "Retention policy not found." });
+        if (request.RetentionDays.HasValue) policy.RetentionDays = request.RetentionDays.Value;
+        if (request.IsActive.HasValue) policy.IsActive = request.IsActive.Value;
+        if (!string.IsNullOrWhiteSpace(request.PurgeMode)) policy.PurgeMode = request.PurgeMode.Trim();
+        await _context.SaveChangesAsync();
+        return Ok(policy);
+    }
+
+    [HttpGet("compliance-reports")]
+    public async Task<IActionResult> GetComplianceReports([FromQuery] string? reportType, [FromQuery] int limit = 50)
+    {
+        var query = _context.ComplianceReportRuns.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(reportType)) query = query.Where(r => r.ReportType == reportType.Trim());
+        var reports = await query.OrderByDescending(r => r.CreatedAtUtc).Take(limit).ToListAsync();
+        return Ok(reports);
+    }
+
+    [HttpGet("items/{itemId:long}/custody")]
+    public async Task<IActionResult> GetChainOfCustody(long itemId)
+    {
+        if (!await _context.EvidenceItems.AnyAsync(e => e.EvidenceItemId == itemId))
+            return NotFound(new { message = "Evidence item not found." });
+        var entries = await _context.ChainOfCustodyEntries
+            .Where(c => c.EvidenceItemId == itemId)
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .ToListAsync();
+        return Ok(entries);
+    }
+
+    [HttpGet("items/{itemId:long}/access-logs")]
+    public async Task<IActionResult> GetEvidenceAccessLogs(long itemId)
+    {
+        if (!await _context.EvidenceItems.AnyAsync(e => e.EvidenceItemId == itemId))
+            return NotFound(new { message = "Evidence item not found." });
+        var logs = await _context.EvidenceAccessLogs
+            .Where(l => l.EvidenceItemId == itemId)
+            .OrderByDescending(l => l.AccessedAtUtc)
+            .ToListAsync();
+        return Ok(logs);
     }
 
     private async Task<string> ComputeCollectionHashAsync(long collectionId, string newHash)
@@ -638,4 +821,5 @@ public class EnterpriseEvidenceController : ControllerBase
     public sealed record CloseRequest(string? Note);
     public sealed record RetentionDryRunRequest(DateTime? AsOfUtc, int Limit);
     public sealed record EvidencePurgeRequest(List<long> EvidenceItemIds, string Reason);
+    public sealed record RetentionPolicyUpdateRequest(int? RetentionDays, string? PurgeMode, bool? IsActive);
 }

@@ -39,6 +39,8 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
             entity.HasIndex(e => new { e.CompanyId, e.Code }).IsUnique();
             entity.Property(e => e.TimeZoneId).IsRequired().HasMaxLength(80);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAtUtc).HasDefaultValueSql("(getutcdate())");
             entity.HasOne(e => e.Company)
@@ -53,6 +55,8 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(160);
             entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
             entity.HasIndex(e => new { e.SiteId, e.Code }).IsUnique();
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.HasOne(e => e.Site)
                 .WithMany(s => s.Buildings)
@@ -95,6 +99,8 @@ public partial class ApplicationDbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(160);
             entity.Property(e => e.Type).IsRequired().HasMaxLength(60);
             entity.Property(e => e.DirectionMode).IsRequired().HasMaxLength(80);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(18,12)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(18,12)");
             entity.HasIndex(e => new { e.SiteId, e.Name });
             entity.HasOne(e => e.Site)
                 .WithMany()

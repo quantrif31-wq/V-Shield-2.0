@@ -1,6 +1,39 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace API.Models;
+
+public static class ContractorStatuses
+{
+    public const string Active = "Active";
+    public const string Expiring = "Expiring";
+    public const string Expired = "Expired";
+    public const string Revoked = "Revoked";
+}
+
+[Table("Contractors")]
+public class Contractor
+{
+    [Key] public int ContractorId { get; set; }
+    public int? EmployeeId { get; set; }
+    [MaxLength(180)] public string FullName { get; set; } = string.Empty;
+    [MaxLength(180)] public string Company { get; set; } = string.Empty;
+    [MaxLength(80)] public string? Phone { get; set; }
+    [MaxLength(160)] public string? Email { get; set; }
+    public DateTime ContractFromUtc { get; set; }
+    public DateTime ContractToUtc { get; set; }
+    [MaxLength(40)] public string Status { get; set; } = ContractorStatuses.Active;
+    public int? SiteId { get; set; }
+    [MaxLength(1000)] public string? RequiredTraining { get; set; }
+    public bool AccessReviewCompleted { get; set; }
+    public DateTime? AccessReviewDateUtc { get; set; }
+    public DateTime? RevokedAtUtc { get; set; }
+    public int? RevokedByUserId { get; set; }
+    [MaxLength(1000)] public string? RevocationReason { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public Employee? Employee { get; set; }
+    public Site? Site { get; set; }
+}
 
 public static class VisitStatuses
 {
@@ -131,6 +164,50 @@ public class ParkingPermit
     public ParkingArea? ParkingArea { get; set; }
     public Vehicle? Vehicle { get; set; }
     public Visit? Visit { get; set; }
+}
+
+public static class ReceptionInteractionTypes
+{
+    public const string HostContact = "HostContact";
+    public const string VisitorSupport = "VisitorSupport";
+    public const string SecurityDispatch = "SecurityDispatch";
+    public const string ParkingInquiry = "ParkingInquiry";
+    public const string LostFoundSupport = "LostFoundSupport";
+    public const string Wayfinding = "Wayfinding";
+    public const string FollowUp = "FollowUp";
+}
+
+public static class ReceptionInteractionStatuses
+{
+    public const string Open = "Open";
+    public const string InProgress = "InProgress";
+    public const string Resolved = "Resolved";
+    public const string Escalated = "Escalated";
+    public const string Cancelled = "Cancelled";
+}
+
+public class ReceptionInteraction
+{
+    public long ReceptionInteractionId { get; set; }
+    public int? VisitId { get; set; }
+    public long? LostItemReportId { get; set; }
+    public long? FoundItemReportId { get; set; }
+    [MaxLength(60)] public string InteractionType { get; set; } = ReceptionInteractionTypes.VisitorSupport;
+    [MaxLength(200)] public string Summary { get; set; } = string.Empty;
+    [MaxLength(2000)] public string? DetailNote { get; set; }
+    [MaxLength(180)] public string? ContactPersonName { get; set; }
+    [MaxLength(80)] public string? ContactPersonPhone { get; set; }
+    [MaxLength(40)] public string? RelatedVehiclePlate { get; set; }
+    [MaxLength(40)] public string Status { get; set; } = ReceptionInteractionStatuses.Open;
+    public bool SecurityRequested { get; set; }
+    [MaxLength(1000)] public string? ResolutionNote { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAtUtc { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public int? UpdatedByUserId { get; set; }
+    public Visit? Visit { get; set; }
+    public LostItemReport? LostItemReport { get; set; }
+    public FoundItemReport? FoundItemReport { get; set; }
 }
 
 public class SecurityBarrier

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using API.Data;
 using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,14 @@ namespace API.Controllers;
 public class EnterpriseAccessPolicyController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly ZoneAuthorityService _zoneAuthority;
+    private readonly INotificationService _notificationService;
 
-    public EnterpriseAccessPolicyController(ApplicationDbContext context)
+    public EnterpriseAccessPolicyController(ApplicationDbContext context, ZoneAuthorityService zoneAuthority, INotificationService notificationService)
     {
         _context = context;
+        _zoneAuthority = zoneAuthority;
+        _notificationService = notificationService;
     }
 
     [HttpGet("overview")]
@@ -114,6 +119,16 @@ public class EnterpriseAccessPolicyController : ControllerBase
         _context.AccessGroups.Add(group);
         await _context.SaveChangesAsync();
         return Ok(group);
+    }
+
+    [HttpGet("rules")]
+    public async Task<IActionResult> GetRules()
+    {
+        var rules = await _context.AccessRules
+            .OrderByDescending(r => r.AccessRuleId)
+            .Take(200)
+            .ToListAsync();
+        return Ok(rules);
     }
 
     [HttpPost("rules")]
@@ -289,6 +304,131 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return Ok(grant);
     }
 
+    [HttpGet("emergency-passes")]
+    public async Task<IActionResult> GetEmergencyPasses([FromQuery] bool? active)
+    {
+        var now = DateTime.UtcNow;
+        var query = _context.EmergencyPasses.AsNoTracking().AsQueryable();
+        if (active == true)
+            query = query.Where(item => item.Status == "Active" && item.ValidToUtc > now);
+
+        return Ok(await query
+            .OrderByDescending(item => item.ValidFromUtc)
+            .Take(100)
+            .ToListAsync());
+    }
+
+    [HttpPost("emergency-passes")]
+    public async Task<IActionResult> CreateEmergencyPass([FromBody] EmergencyPassRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 10)
+            return BadRequest(new { message = "Reason with at least 10 characters is required." });
+        if (string.IsNullOrWhiteSpace(request.SubjectName) && string.IsNullOrWhiteSpace(request.PlateNumber))
+            return BadRequest(new { message = "SubjectName or PlateNumber is required." });
+
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { message = "Cannot identify responsible user." });
+
+        var now = DateTime.UtcNow;
+        var durationMinutes = Math.Clamp(request.DurationMinutes <= 0 ? 30 : request.DurationMinutes, 5, 480);
+        // Zone authority check
+        if (request.SiteId.HasValue)
+        {
+            bool canOverride;
+            if (request.SecurityZoneId.HasValue)
+                (canOverride, _) = await _zoneAuthority.CanOverrideZoneAsync(userId.Value, request.SecurityZoneId.Value);
+            else
+                (canOverride, _) = await _zoneAuthority.CanOverrideAnyZoneAtSiteAsync(userId.Value, request.SiteId.Value);
+
+            if (!canOverride && !User.IsInRole("Admin"))
+                return Forbid();
+        }
+
+        var pass = new EmergencyPass
+        {
+            SubjectType = string.IsNullOrWhiteSpace(request.SubjectType) ? "Person" : request.SubjectType.Trim(),
+            SubjectId = request.SubjectId?.Trim(),
+            SubjectName = string.IsNullOrWhiteSpace(request.SubjectName) ? "Emergency vehicle" : request.SubjectName.Trim(),
+            PlateNumber = request.PlateNumber?.Trim(),
+            SiteId = request.SiteId,
+            SecurityZoneId = request.SecurityZoneId,
+            LaneReference = request.LaneReference?.Trim(),
+            LaneName = request.LaneName?.Trim(),
+            Reason = request.Reason.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            ApprovedByUserId = userId.Value,
+            ValidFromUtc = now,
+            ValidToUtc = now.AddMinutes(durationMinutes)
+        };
+
+        int? laneId = int.TryParse(request.LaneReference, out var parsedLaneId) ? parsedLaneId : null;
+        var laneEvent = new LaneEvent
+        {
+            LaneId = laneId,
+            EventType = "EMERGENCY_PASS",
+            Direction = string.IsNullOrWhiteSpace(request.Direction) ? "Entry" : request.Direction.Trim(),
+            PlateText = pass.PlateNumber,
+            Note = $"[{pass.CorrelationId}] {pass.SubjectName}; {pass.Reason}; approvedBy={userId.Value}"
+        };
+        // Detect duress signal (header or secret reason prefix)
+        var isDuress = Request.Headers.ContainsKey("X-Duress-Signal")
+                    || request.Reason.Trim().StartsWith("DD/", StringComparison.OrdinalIgnoreCase);
+
+        var alarm = new Alarm
+        {
+            AlarmType = "EmergencyPass",
+            Severity = "Critical",
+            State = "New",
+            Summary = $"Emergency pass: {pass.SubjectName}{(string.IsNullOrWhiteSpace(pass.PlateNumber) ? "" : $" ({pass.PlateNumber})")} - {pass.Reason}"
+        };
+
+        _context.EmergencyPasses.Add(pass);
+        _context.LaneEvents.Add(laneEvent);
+        _context.Alarms.Add(alarm);
+
+        // Silent duress recording (only logged, no visible alarm)
+        if (isDuress)
+        {
+            _context.DuressEvents.Add(new DuressEvent
+            {
+                UserId = userId.Value,
+                EmployeeId = null,
+                SecurityZoneId = request.SecurityZoneId,
+                SiteId = request.SiteId,
+                CredentialType = "EmergencyOverride",
+                Description = $"Duress override at {request.LaneName ?? "unknown lane"} — {request.Reason}",
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                OccurredAtUtc = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyEventAsync("Alarm.EmergencyPass", "Vượt cổng khẩn cấp",
+            $"Xe/người vượt cổng khẩn cấp: {request.SubjectName}",
+            "Alarm", null, "/soc-console",
+            request.Latitude, request.Longitude, request.LaneName);
+
+        pass.LaneEventId = laneEvent.LaneEventId;
+        pass.AlarmId = alarm.AlarmId;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { emergencyPass = pass, laneEvent, alarm });
+    }
+
+    [HttpGet("emergency-states")]
+    public async Task<IActionResult> GetEmergencyStates([FromQuery] bool? active)
+    {
+        var query = _context.EmergencyStates.AsQueryable();
+        if (active == true)
+            query = query.Where(e => e.IsActive);
+        var states = await query.OrderByDescending(e => e.StartedAtUtc).Take(50).ToListAsync();
+        return Ok(states);
+    }
+
     [HttpPost("emergency-states")]
     [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
     public async Task<IActionResult> CreateEmergencyState([FromBody] EmergencyStateRequest request)
@@ -425,6 +565,64 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("duress-events")]
+    public async Task<IActionResult> GetDuressEvents([FromQuery] bool? unacknowledged)
+    {
+        var query = _context.DuressEvents.AsQueryable();
+        if (unacknowledged == true)
+            query = query.Where(e => !e.IsAcknowledged);
+        var events = await query.OrderByDescending(e => e.OccurredAtUtc).Take(50).ToListAsync();
+        return Ok(events);
+    }
+
+    [HttpPost("duress-events")]
+    public async Task<IActionResult> RecordDuressEvent([FromBody] DuressEventRequest request)
+    {
+        var duress = new DuressEvent
+        {
+            UserId = request.UserId,
+            EmployeeId = request.EmployeeId,
+            AccessPointId = request.AccessPointId,
+            SecurityZoneId = request.SecurityZoneId,
+            SiteId = request.SiteId,
+            CredentialType = request.CredentialType ?? "Unknown",
+            Description = request.Description?.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            OccurredAtUtc = DateTime.UtcNow
+        };
+        _context.DuressEvents.Add(duress);
+
+        _context.Alarms.Add(new Alarm
+        {
+            AlarmType = "Duress",
+            Severity = "Critical",
+            State = "New",
+            Summary = $"Duress credential used at access point {request.AccessPointId}. User: {request.UserId}",
+            SiteId = request.SiteId
+        });
+
+        await _context.SaveChangesAsync();
+        await _notificationService.NotifyEventAsync("Alarm.Duress", "Báo động uy hiếp",
+            $"Phát hiện uy hiếp tại access point {request.AccessPointId}. Nhân viên: {request.EmployeeId}",
+            "Alarm", null, "/soc-console",
+            request.Latitude, request.Longitude, null);
+        return Ok(duress);
+    }
+
+    [HttpPost("duress-events/{eventId:long}/acknowledge")]
+    [RequireStepUp(PrivilegedActions.AccessPolicyEmergency)]
+    public async Task<IActionResult> AcknowledgeDuressEvent(long eventId)
+    {
+        var duress = await _context.DuressEvents.FindAsync(eventId);
+        if (duress == null) return NotFound();
+        duress.IsAcknowledged = true;
+        duress.AcknowledgedAtUtc = DateTime.UtcNow;
+        duress.AcknowledgedByUserId = GetCurrentUserId();
+        await _context.SaveChangesAsync();
+        return Ok(duress);
+    }
+
     private async Task<AccessDecision> EvaluateInternalAsync(AccessEvaluationRequest request, DateTime nowUtc)
     {
         var activePolicyVersionId = await _context.AccessPolicyVersions
@@ -517,6 +715,22 @@ public class EnterpriseAccessPolicyController : ControllerBase
             return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "No active access rule matched.", nowUtc);
         }
 
+        // Zone SecurityLevel enforcement: Restricted/Critical require escalation
+        if (request.SecurityZoneId.HasValue)
+        {
+            var zone = await _context.SecurityZones.FindAsync(request.SecurityZoneId.Value);
+            if (zone != null)
+            {
+                var level = zone.SecurityLevel ?? "Normal";
+                if (level is "Restricted" or "Critical")
+                {
+                    return BuildDecision(
+                        request, activePolicyVersionId, AccessDecisionResults.Review,
+                        $"Zone '{zone.Name}' is {level} — manual approval required.", nowUtc);
+                }
+            }
+        }
+
         return BuildDecision(
             request,
             activePolicyVersionId,
@@ -566,6 +780,82 @@ public class EnterpriseAccessPolicyController : ControllerBase
         return int.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 
+    // ── Guard Zone Authority ──────────────────────────────────────────────
+    [HttpGet("zone-authorities")]
+    public async Task<IActionResult> GetZoneAuthorities([FromQuery] int? userId, [FromQuery] int? securityZoneId)
+    {
+        var query = _context.GuardZoneAuthorities.AsNoTracking().AsQueryable();
+        if (userId.HasValue) query = query.Where(a => a.UserId == userId.Value);
+        if (securityZoneId.HasValue) query = query.Where(a => a.SecurityZoneId == securityZoneId.Value);
+        return Ok(await query
+            .Include(a => a.User)
+            .Include(a => a.SecurityZone)
+            .Include(a => a.GrantedByUser)
+            .OrderByDescending(a => a.CreatedAtUtc)
+            .Take(200)
+            .ToListAsync());
+    }
+
+    [HttpPost("zone-authorities")]
+    public async Task<IActionResult> CreateZoneAuthority([FromBody] ZoneAuthorityRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        if (!await _context.SecurityZones.AnyAsync(z => z.SecurityZoneId == request.SecurityZoneId))
+            return BadRequest(new { message = "SecurityZone not found." });
+        if (!await _context.AppUsers.AnyAsync(u => u.UserId == request.TargetUserId))
+            return BadRequest(new { message = "Target user not found." });
+
+        var now = DateTime.UtcNow;
+        var authority = new GuardZoneAuthority
+        {
+            UserId = request.TargetUserId,
+            SecurityZoneId = request.SecurityZoneId,
+            AuthorityLevel = string.IsNullOrWhiteSpace(request.AuthorityLevel) ? "Normal" : request.AuthorityLevel,
+            CanOverride = request.CanOverride,
+            CanManage = request.CanManage,
+            ValidFrom = request.ValidFrom ?? now,
+            ValidTo = request.ValidTo ?? now.AddDays(30),
+            GrantedByUserId = userId.Value,
+            Note = request.Note?.Trim()
+        };
+        _context.GuardZoneAuthorities.Add(authority);
+        await _context.SaveChangesAsync();
+        return Ok(authority);
+    }
+
+    [HttpDelete("zone-authorities/{id:int}")]
+    public async Task<IActionResult> RevokeZoneAuthority(int id)
+    {
+        var authority = await _context.GuardZoneAuthorities.FindAsync(id);
+        if (authority == null) return NotFound();
+        _context.GuardZoneAuthorities.Remove(authority);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpGet("zone-authorities/my-zones")]
+    public async Task<IActionResult> GetMyAuthorizedZones()
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue) return Unauthorized();
+        var zones = await _zoneAuthority.GetAuthorizedZonesAsync(userId.Value);
+        return Ok(zones);
+    }
+
+    [HttpGet("zone-authorities/can-override")]
+    public async Task<IActionResult> CheckCanOverride([FromQuery] int securityZoneId)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue) return Unauthorized();
+        var (allowed, reason) = await _zoneAuthority.CanOverrideZoneAsync(userId.Value, securityZoneId);
+        return Ok(new { allowed, reason });
+    }
+
+    public sealed record ZoneAuthorityRequest(int TargetUserId, int SecurityZoneId, string? AuthorityLevel, bool CanOverride, bool CanManage, DateTime? ValidFrom, DateTime? ValidTo, string? Note);
+
     public sealed record ScheduleRequest(string Name, TimeSpan StartTime, TimeSpan EndTime, string? DaysOfWeek, bool IsActive);
     public sealed record HolidayRequest(int? SiteId, string Name, DateTime HolidayDate, string? Note);
     public sealed record AccessLevelRequest(string Name, string Code, string? Description, bool RequiresApproval);
@@ -594,6 +884,20 @@ public class EnterpriseAccessPolicyController : ControllerBase
         DateTime ValidFromUtc,
         DateTime ValidToUtc,
         string? Reason);
+    public sealed record EmergencyPassRequest(
+        string? SubjectType,
+        string? SubjectId,
+        string? SubjectName,
+        string? PlateNumber,
+        int? SiteId,
+        int? SecurityZoneId,
+        string? LaneReference,
+        string? LaneName,
+        string? Direction,
+        string Reason,
+        int DurationMinutes,
+        decimal? Latitude,
+        decimal? Longitude);
     public sealed record EmergencyStateRequest(string? State, int? SiteId, int? SecurityZoneId, int? AccessPointId, string? Reason);
     public sealed record AntiPassbackResetRequest(string SubjectType, int SubjectId, int? SecurityZoneId, string? Reason);
     public sealed record OccupancyRequest(int? SiteId, int? SecurityZoneId, int Count, int? MaxAllowed);
@@ -619,4 +923,6 @@ public class EnterpriseAccessPolicyController : ControllerBase
         string? LegacyReason);
     public sealed record PolicyVersionRequest(string Name, string? ChangeSummary);
     public sealed record PolicyApprovalRequest(string? Note);
+    public sealed record DuressEventRequest(int? UserId, int? EmployeeId, int? AccessPointId, int? SecurityZoneId, int? SiteId, string? CredentialType, string? Description,
+        decimal? Latitude, decimal? Longitude);
 }
