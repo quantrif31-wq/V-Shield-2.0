@@ -77,8 +77,8 @@
 
       <div class="messages-container" ref="messagesContainer">
         <div v-for="msg in messages" :key="msg.messageId" class="message-wrapper"
-          :class="{ 'message-mine': msg.senderId === myEmployeeId, 'message-system': msg.messageType.startsWith('Call') }">
-          <div class="message-sender" v-if="msg.senderId !== myEmployeeId">{{ msg.senderName }}</div>
+          :class="{ 'message-mine': isOwnMessage(msg), 'message-system': msg.messageType.startsWith('Call') }">
+          <div class="message-sender" v-if="!isOwnMessage(msg)">{{ msg.senderName }}</div>
           <div class="message-bubble" :class="{ 'call-message': msg.messageType.startsWith('Call') }">
             <template v-if="msg.messageType === 'Text'">
               <div class="message-text">{{ msg.content }}</div>
@@ -194,6 +194,19 @@ export default {
     chatApi.disconnectChatHub()
   },
   methods: {
+    normalizeEmployeeId(value) {
+      if (value === null || value === undefined || value === '') return null
+      const normalized = Number(value)
+      return Number.isNaN(normalized) ? String(value) : normalized
+    },
+    isSameEmployee(left, right) {
+      const normalizedLeft = this.normalizeEmployeeId(left)
+      const normalizedRight = this.normalizeEmployeeId(right)
+      return normalizedLeft !== null && normalizedLeft === normalizedRight
+    },
+    isOwnMessage(message) {
+      return this.isSameEmployee(message?.senderId, this.myEmployeeId)
+    },
     async loadData() {
       try {
         const [convRes, contactRes] = await Promise.all([
@@ -225,7 +238,7 @@ export default {
       if (msg.conversationId === this.selectedConvId) {
         const pendingIndex = this.messages.findIndex(existing =>
           existing.pending &&
-          existing.senderId === msg.senderId &&
+          this.isSameEmployee(existing.senderId, msg.senderId) &&
           existing.content === msg.content
         )
         if (pendingIndex !== -1) {
@@ -248,7 +261,7 @@ export default {
     handleRead(data) {
       if (data.conversationId === this.selectedConvId) {
         this.messages.forEach(m => {
-          if (m.senderId !== this.myEmployeeId) {
+          if (!this.isOwnMessage(m)) {
             m.isRead = true
             m.readAt = data.readAt
           }
@@ -344,7 +357,7 @@ export default {
     async startCall(type) {
       if (!this.selectedConvId) return
       const participants = this.conversations.find(c => c.conversationId === this.selectedConvId)?.participants || []
-      const target = participants.find(p => p.employeeId !== this.myEmployeeId)
+      const target = participants.find(p => !this.isSameEmployee(p.employeeId, this.myEmployeeId))
       if (!target) return
 
       const signalingData = JSON.stringify({ type, conversationId: this.selectedConvId })
@@ -370,7 +383,7 @@ export default {
     getParticipantNames(conv) {
       if (!conv.participants) return 'Hội thoại'
       return conv.participants
-        .filter(p => p.employeeId !== this.myEmployeeId)
+        .filter(p => !this.isSameEmployee(p.employeeId, this.myEmployeeId))
         .map(p => p.fullName)
         .join(', ')
     },
