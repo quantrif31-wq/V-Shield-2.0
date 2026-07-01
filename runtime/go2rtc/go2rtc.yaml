@@ -1,10 +1,38 @@
 streams:
   cam1:
-    - rtsp://192.168.137.152:1945/#transport=tcp
+    - rtsp://demo.local/qr#transport=tcp
+    - rtsp://demo.local/qr
+  cam2:
+    - rtsp://demo.local/plate#transport=tcp
+    - rtsp://demo.local/plate
+  cam3:
+    - rtsp://demo.local/qr#transport=tcp
+    - rtsp://demo.local/qr
+  cam4:
+    - rtsp://demo.local/plate#transport=tcp
+    - rtsp://demo.local/plate
+  cam5:
+    - rtsp://demo.local/qr#transport=tcp
+    - rtsp://demo.local/qr
+  cam6:
+    - rtsp://demo.local/plate#transport=tcp
+    - rtsp://demo.local/plate
+  cam7:
+    - rtsp://demo.local/qr#transport=tcp
+    - rtsp://demo.local/qr
+  cam8:
+    - rtsp://demo.local/plate#transport=tcp
+    - rtsp://demo.local/plate
+  cam9:
+    - rtsp://demo.local/qr#transport=tcp
+    - rtsp://demo.local/qr
+  cam10:
+    - rtsp://demo.local/plate#transport=tcp
+    - rtsp://demo.local/plate
+api:
+  origin: "*"
 webrtc:
   listen: ":8555"
-  candidates:
-    - localhost:8555
   ice_servers:
     - urls:
         - stun:stun.l.google.com:19302

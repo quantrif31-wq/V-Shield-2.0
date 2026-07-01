@@ -1,4 +1,5 @@
 using API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -28,6 +29,10 @@ public sealed class RequireOperationalTaskFilter : IAsyncAuthorizationFilter
 
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
+        var endpoint = context.HttpContext.GetEndpoint();
+        if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
+            return;
+
         var user = context.HttpContext.User;
         if (user.Identity?.IsAuthenticated != true)
         {

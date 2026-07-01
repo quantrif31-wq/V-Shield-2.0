@@ -47,6 +47,7 @@ public class EnterpriseIdentityController : ControllerBase
         });
     }
 
+    [AllowAnonymous]
     [HttpGet("providers")]
     public async Task<IActionResult> GetProviders()
     {

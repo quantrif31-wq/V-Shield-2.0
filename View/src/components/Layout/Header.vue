@@ -414,7 +414,7 @@ onMounted(async () => {
     await loadNotifications()
     await loadUnreadCount()
     try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+        const token = sessionStorage.getItem('v_shield_token') || localStorage.getItem('v_shield_token')
         if (token) {
             await connectNotificationHub(token)
             onNotification((n) => {
