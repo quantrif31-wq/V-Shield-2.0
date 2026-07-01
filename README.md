@@ -1,334 +1,449 @@
 # V-Shield
 
-Hướng dẫn mới theo kiểu "một lệnh" để chạy trên máy Windows mới.
+Huong dan cai dat va chay V-Shield theo 3 nhu cau pho bien:
 
-## Docker chạy nhanh (khuyên dùng cho người mới)
+- `Docker local`: danh cho may Windows ca nhan, de dung nhat
+- `Docker VPS`: danh cho may chu public
+- `Windows non-Docker`: chi dung khi ban muon chay truc tiep bang `manage.ps1`
 
-### Điều kiện
-- Đã cài Docker Desktop và đang ở trạng thái `Engine running`.
+Neu ban chi muon chay du an nhanh tren may cua minh, hay di theo muc `Docker local`.
 
-### Lần đầu (setup)
-1) Tạo file env cho Docker:
-Chạy tại thư mục gốc dự án:
+## 1. Chon cach cai dat
+
+### Lua chon A: Docker local
+
+Dung khi:
+
+- Ban dang dung Windows
+- Ban muon mo app tai `http://localhost:5173`
+- Ban muon co san SQL Server + API + frontend trong cung mot stack
+- Ban co the bat them AI runtime khi can
+
+### Lua chon B: Docker VPS
+
+Dung khi:
+
+- Ban deploy len VPS
+- Ban muon stack gon hon, uu tien web/API
+- Ban can secret va bien moi truong rieng cho moi truong public
+
+### Lua chon C: Windows non-Docker
+
+Dung khi:
+
+- Ban muon debug local truc tiep bang `dotnet` + `npm`
+- Ban khong muon dung container
+
+Mac dinh cua repo hien tai:
+
+- Docker local frontend: `http://localhost:5173`
+- Windows non-Docker frontend: `http://localhost:5174`
+- API local Docker: `http://localhost:5107`
+- API non-Docker: `http://127.0.0.1:5108`
+
+## 2. Docker local
+
+### 2.1. Dieu kien
+
+Can co:
+
+- Docker Desktop
+- Docker Desktop dang o trang thai `Engine running`
+
+Kiem tra nhanh:
+
+```powershell
+docker version
+docker compose version
+```
+
+### 2.2. Chay lan dau
+
+1. Tao file env:
 
 ```powershell
 Copy-Item .env.docker.example .env
 ```
 
-2) Khởi động core stack:
+2. Khoi dong stack chinh:
+
 ```powershell
 docker compose up -d --build
 ```
 
-Core stack gồm:
-- `db` (SQL Server)
-- `api` (.NET)
-- `frontend` (Vue + Nginx)
+Stack chinh gom:
 
-3) Bật thêm runtime AI (nếu cần):
+- `db`
+- `api`
+- `frontend`
+- `go2rtc`
+
+3. Truy cap:
+
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- API health: [http://localhost:5107/health](http://localhost:5107/health)
+
+4. Kiem tra container:
+
+```powershell
+docker compose ps
+```
+
+### 2.3. Bat them AI runtime khi can
+
 QR runtime:
+
 ```powershell
 docker compose --profile ai up -d --build
 ```
 
-Plate runtime:
+Plate + Face runtime:
+
 ```powershell
 docker compose --profile ai-heavy up -d --build
 ```
 
-4) Kiểm tra nhanh:
+Kiem tra nhanh:
+
 ```powershell
-docker compose ps
 curl http://localhost:5107/health
 curl http://localhost:8001/qr/result
 curl http://localhost:5002/api/camera/status
 ```
 
-Kết quả mong đợi:
-- API: `{"status":"ok","service":"v-shield-api"}`
-- QR runtime: JSON có các trường `running`, `scan_enabled`, `locked`
-- Plate runtime: JSON có `success=true`
+### 2.4. Tu lan sau
 
-### Từ lần thứ 2 trở đi
+Chay lai stack:
+
 ```powershell
 docker compose up -d
 ```
 
-Nếu cần rebuild sau khi đổi code:
+Neu vua sua code va muon build lai:
+
 ```powershell
 docker compose up -d --build
 ```
 
-### Truy cập app
-- Frontend: `http://localhost:5173`
-- API: `http://localhost:5107`
+Neu chi muon build lai frontend va api:
 
-### Dừng hệ thống Docker
+```powershell
+docker compose build api frontend
+docker compose up -d --force-recreate api frontend
+```
+
+### 2.5. Dung va don dep
+
+Dung stack:
+
 ```powershell
 docker compose down
 ```
 
-Nếu cần xóa cả dữ liệu DB volume:
+Dung va xoa ca volume database:
+
 ```powershell
 docker compose down -v
 ```
 
-### Nếu gặp lỗi
-Lấy log nhanh:
+Luu y:
+
+- Repo da duoc cau hinh de giu khoa `Data Protection` bang volume rieng
+- Vi vay MFA se khong bi mat chi vi ban restart hoac recreate container
+
+### 2.6. Neu gap loi
+
+Xem trang thai:
+
 ```powershell
 docker compose ps
-docker logs vshield-api --tail 100
-docker logs vshield-qr-runtime --tail 100
-docker logs vshield-plate-runtime --tail 100
 ```
 
-## Docker + Cloudflare Tunnel (kh?ng VPS)
+Xem log:
 
-### B??c 1: L?y token tunnel tr?n m?y host
-```bat
-get-cloudflare-token.bat
-```
-
-Script s?:
-- login cloudflare (c? m? browser c?p quy?n)
-- t?o/b?o ??m tunnel t?n t?i
-- t?o/b?o ??m DNS route
-- in ra token ?? copy
-
-### B??c 2: Setup Docker tunnel
 ```powershell
-.\scripts\setup-docker-cloudflare-tunnel.ps1
+docker logs vshield-api --tail 100
+docker logs vshield-frontend --tail 100
+docker logs vshield-go2rtc --tail 100
 ```
 
-Script s?:
-- c?p nh?t `.env` (token, domain, go2rtc base)
-- patch `appsettings.json` cho public domain
-- ch?y `db -> go2rtc -> api -> frontend -> cloudflared`
-- g?i reload go2rtc
+Neu Docker Desktop co hien tuong "luc duoc luc khong":
 
-M?c ??nh gi? logic c?:
-- `GO2RTC_STREAM_MODE=webrtc`
-- `GO2RTC_WEBRTC_CANDIDATES=` (?? tr?ng, kh?ng ?p candidate)
-- stream URL public theo dang `https://<domain>/go2rtc/stream.html?...`
+```powershell
+wsl --shutdown
+```
 
-T?i li?u ??y ??:
-- `docs/DOCKER_RUN_GUIDE.md`
-- `docs/DOCKER_REGRESSION_CHECKLIST.md`
-- `docs/DOCKER_UI_REGRESSION.md`
+Sau do mo lai Docker Desktop roi chay:
 
-## 1) C?i ??t v? d?ng h? th?ng
+```powershell
+docker version
+```
 
-Ch?y trong th? m?c g?c `V-Shield`:
+Chi khi `docker version` hien ca `Client` va `Server` thi moi nen build lai.
+
+## 3. Docker VPS
+
+Mode nay dung file [`docker-compose.vps.yml`](C:/DoAnTotNghiep/V-Shield-2.0/docker-compose.vps.yml).
+
+### 3.1. Dung cho truong hop nao
+
+Nen dung khi:
+
+- Ban deploy len VPS Ubuntu hoac may chu public
+- Ban can frontend + api + sql server
+- Ban muon tach bien moi truong san xuat ro rang
+
+Mode nay da co:
+
+- volume giu `Data Protection` cho MFA
+- bat buoc secret quan trong phai duoc dien
+- frontend proxy same-origin cho `/api`
+
+### 3.2. Chuan bi file env
+
+```powershell
+Copy-Item .env.vps.example .env.vps
+```
+
+Toi thieu can dien trong `.env.vps`:
+
+- `MSSQL_SA_PASSWORD`
+- `VSHIELD_JWT_SECRET`
+- `VSHIELD_SEED_ADMIN_USERNAME`
+- `VSHIELD_SEED_ADMIN_PASSWORD`
+- `VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY`
+- `APP_FRONTEND_URL`
+- `APP_PUBLIC_HOSTNAME`
+
+Neu deploy that, can kiem tra ky them:
+
+- `JWT_ISSUER`
+- `JWT_AUDIENCE`
+- `SECURITY_ENABLE_HTTPS_REDIRECTION`
+- `SECURITY_GATEWAY_HEADERS_MANAGED_BY_PROXY`
+
+### 3.3. Chay len VPS
+
+```powershell
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
+
+Kiem tra:
+
+```powershell
+docker compose --env-file .env.vps -f docker-compose.vps.yml ps
+```
+
+### 3.4. Cap nhat sau nay
+
+```powershell
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
+
+### 3.5. Luu y quan trong cho VPS
+
+- Khong de secret mac dinh khi deploy that
+- Neu dung demo data tren Production, phai tu y bat `DEMO_DATA_ALLOW_IN_PRODUCTION=true`
+- MFA duoc luu trong DB, secret duoc ma hoa, va key ma hoa duoc giu trong volume `vshield_data_protection`
+
+## 4. Windows non-Docker
+
+Chi dung muc nay neu ban chu dong muon chay local khong qua Docker.
+
+### 4.1. Cai dependency
 
 ```powershell
 .\manage.ps1 -Action install
+```
+
+### 4.2. Chay app
+
+```powershell
 .\manage.ps1 -Action start
 ```
 
-Ho?c d?ng file bat:
+Mac dinh:
 
-```bat
-install.bat
-start.bat
-```
+- Frontend: [http://127.0.0.1:5174](http://127.0.0.1:5174)
+- API: [http://127.0.0.1:5108/health](http://127.0.0.1:5108/health)
 
-Trang ch?nh sau khi start:
-- API: `http://localhost:5107`
-- Frontend: `http://localhost:5173`
-- Health API: `http://localhost:5107/health`
+Neu cong `5174` dang bi chiem, script se thu fallback sang `5175` hoac `5176`.
 
-## Windows non-Docker: cấu hình domain public + Cloudflare
-
-Dùng phần này khi chạy dự án trực tiếp trên Windows bằng các file `.bat`, không chạy Docker.
-Mục tiêu là public camera qua Cloudflare Tunnel để các máy khác xem được stream go2rtc.
-
-### Chạy lần đầu
-
-```bat
-setup-public-domain.bat
-```
-
-Script sẽ hỏi domain, tên tunnel và chế độ cấu hình. Có 2 chế độ:
-
-- `AUTO`: script tự mở đăng nhập Cloudflare, tạo hoặc dùng lại tunnel, tạo DNS route, lấy token, patch `appsettings.json`, bật `cloudflared`, bật `go2rtc`, rồi reload URL camera.
-- `MANUAL_TOKEN`: bạn tự dán `CLOUDFLARED_TUNNEL_TOKEN`; script bỏ qua bước mở web/tạo route, chỉ dùng token để chạy tunnel, patch cấu hình và reload camera.
-
-Nên chọn:
-
-- Chọn `AUTO` nếu máy cài có trình duyệt và muốn script làm gần như toàn bộ.
-- Chọn `MANUAL_TOKEN` nếu máy khách không mở được trình duyệt, đăng nhập Cloudflare bị lỗi, hoặc bạn đã có token từ trước.
-
-Sau khi chạy thành công, stream mẫu sẽ có dạng:
-
-```text
-https://<domain>/stream.html?src=cam1&mode=webrtc
-```
-
-Ví dụ:
-
-```text
-https://cam.example.com/stream.html?src=cam1&mode=webrtc
-```
-
-### Lấy token thủ công nếu chọn MANUAL_TOKEN
-
-Nếu chưa có token, chạy:
-
-```bat
-get-cloudflare-token.bat
-```
-
-File này sẽ mở trình duyệt để bạn cấp quyền Cloudflare, đảm bảo tunnel/DNS route tồn tại, rồi in token ra màn hình.
-Copy token đó và dán vào `setup-public-domain.bat` khi chọn chế độ `MANUAL_TOKEN`.
-
-### Chạy lại sau khi đã cấu hình
-
-Nếu chỉ cần bật lại hệ thống:
-
-```bat
-start.bat
-```
-
-Nếu cần chạy lại cấu hình public domain, cứ chạy lại:
-
-```bat
-setup-public-domain.bat
-```
-
-Script được thiết kế để chạy lại an toàn: tunnel đã có thì dùng lại, cấu hình đã có thì cập nhật lại theo giá trị mới.
-
-### Gỡ cấu hình public domain
-
-```bat
-uninstall-public-domain.bat
-```
-
-Script gỡ sẽ hỏi trước các thao tác nhạy cảm như xóa tunnel, xóa credential Cloudflare, reset `appsettings.json` hoặc dọn URL camera trong DB.
-Nếu chỉ muốn xem script sẽ làm gì mà chưa muốn xóa thật, chạy:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\uninstall-public-domain.ps1 -DryRun
-```
-
-### Lỗi thường gặp
-
-- `Token is required`: đang chọn `MANUAL_TOKEN` nhưng chưa dán token.
-- `Tunnel token is not valid`: token sai, hết hạn hoặc không thuộc tunnel/domain đang dùng.
-- `cloudflared not found`: cài Cloudflare Tunnel bằng `winget install Cloudflare.cloudflared` rồi chạy lại.
-- Stream bị đen hoặc `stream not found`: kiểm tra camera trong app, chạy lại `setup-public-domain.bat`, sau đó mở trực tiếp `https://<domain>/stream.html?src=cam1&mode=webrtc` để test.
-
-### Start 1 click cho production (khuy?n d?ng khi ?? c?i Windows Services)
-
-```bat
-start-prod.bat
-```
-
-Script se uu tien `Start-Service` cho cac service `vshield-*`. Neu chua cai service thi se fallback ve `manage.ps1 -Action start`.
-
-## 2) Dung he thong
+### 4.3. Dung app
 
 ```powershell
 .\manage.ps1 -Action stop
 ```
 
-Hoac:
+### 4.4. Xem trang thai
 
-```bat
-stop.bat
+```powershell
+.\manage.ps1 -Action status
 ```
 
-Neu dang chay theo service production:
-
-```bat
-stop-prod.bat
-```
-
-## 3) Go moi truong runtime/dependency
+### 4.5. Don moi truong local
 
 ```powershell
 .\manage.ps1 -Action uninstall
 ```
 
-Hoac:
+Luu y:
 
-```bat
-uninstall.bat
-```
+- script se khong xoa DB Docker
+- script nay chu yeu don dependency local va `.runtime`
 
-Script uninstall se:
-- Dung process API/Frontend dang chay
-- Xoa `node_modules`, `venv` AI, `.runtime`
-- `dotnet clean`
+## 5. Cloudflare Tunnel
+
+Repo co san luong cau hinh Cloudflare Tunnel, nhung day khong phai buoc bat buoc de chay local.
+
+Neu can:
+
+- Docker tunnel: xem `scripts/setup-docker-cloudflare-tunnel.ps1`
+- Windows non-Docker public domain: xem `setup-public-domain.bat`
+
+Tai lieu bo sung:
+
+- `docs/DOCKER_RUN_GUIDE.md`
+- `docs/DOCKER_REGRESSION_CHECKLIST.md`
+- `docs/DOCKER_UI_REGRESSION.md`
+- `docs/WEB_DEPLOYMENT_MODES.md`
+
+## 6. Tai khoan mau
+
+Khi demo data dang bat, he thong tu seed mot nhom tai khoan mau theo vai tro.
+
+### 6.1. Tai khoan nen thu truoc
+
+Docker local:
+
+- `admin` / `AdminLocal@2026`
+
+Windows non-Docker:
+
+- `admin` / `Admin@123`
+
+Tai khoan demo theo vai tro do backend tao:
+
+- `manager` / `Manager@123`
+- `quanly2` / `Manager@123`
+- `baove1` / `BaoVe@123`
+- `baove2` / `BaoVe@123`
+- `letan1` / `LeTan@123`
+- `nhansu1` / `HR@123`
+- `nhanvien1` / `Staff@123`
 
 Luu y:
-- Script khong tu dong xoa database de tranh mat du lieu ngoai y muon.
-- Neu can xoa DB, hay tao script rieng cho tung moi truong.
 
-## 4) Cloudflared + go2rtc config
+- So luong tai khoan `baove*`, `quanly*`, `letan*`, `nhansu*`, `nhanvien*` co the nhieu hon tuy theo bo employee demo duoc seed
+- `manager` la tai khoan QuanLy dau tien, cac tai khoan tiep theo se la `quanly2`, `quanly3`...
+- `admin` la tai khoan seed rieng cua he thong, khong phai luc nao cung giong mat khau demo cua mode khac
 
-Cau hinh tai `API/API/API/appsettings*.json`:
+### 6.2. Neu dang dung MFA
 
-- `Cloudflared:TunnelName`
-- `Cloudflared:PublicHostname`
-- `Cloudflared:TargetService`
-- `AppSettings:Go2RtcPublicBaseUrl`
+Luu y:
 
-Khong hardcode domain trong code nua.
+- MFA secret duoc luu trong DB o dang ma hoa
+- Khoa giai ma MFA khong duoc phep mat sau moi lan recreate container
+- Docker local va VPS trong repo hien da duoc cau hinh de giu khoa nay bang volume rieng
 
-## 5) Tr?ng th?i script
+Neu ban da tung recreate API truoc khi co ban fix nay, mot so tai khoan co the se phai setup MFA lai 1 lan cuoi.
+
+## 7. Nap lai demo data
+
+### 7.1. Demo data co duoc bat san khong
+
+Docker local:
+
+- duoc bat san khi chay stack local
+
+Docker VPS:
+
+- phu thuoc bien `.env.vps`
+- thuong can:
+  - `DEMO_DATA_ENABLED=true`
+  - neu dang chay Production va van muon seed demo thi can them `DEMO_DATA_ALLOW_IN_PRODUCTION=true`
+
+### 7.2. Seed demo data khi khoi dong
+
+Demo data duoc seed tu dong khi app khoi dong neu:
+
+- `DemoData:Enabled = true`
+- va neu la Production thi `DemoData:AllowInProduction = true`
+
+Neu DB chua co du lieu demo, app se nap bo du lieu mau trong luc startup.
+
+### 7.3. Nap lai kich ban demo van hanh
+
+Repo hien co endpoint reset demo:
+
+- `POST /api/demo-control/reset`
+
+Dieu kien de dung:
+
+- phai dang nhap bang tai khoan `Admin`
+- app phai dang chay trong moi truong development demo
+- `DemoData:Enabled = true`
+
+Muc dich cua endpoint nay:
+
+- reset lai cac kich ban demo van hanh
+- nap lai alarm, intervention, emergency pass va cac tinh huong demo lien quan
+
+### 7.4. Cach reset nhanh tren Docker local
+
+Cach de nhat la dung giao dien admin neu man hinh co nut reset demo. Neu muon goi API truc tiep, co the:
+
+1. Dang nhap bang `admin`
+2. Lay token tu phien dang nhap
+3. Goi:
 
 ```powershell
-.\manage.ps1 -Action status
+curl -X POST http://localhost:5107/api/demo-control/reset ^
+  -H "Authorization: Bearer <TOKEN>"
 ```
-## Deployment modes
 
-Project hien co 2 mode trien khai chinh:
-
-### Local full
-
-Dung cho may local/noi bo khi can day du thanh phan:
-
-- Vue frontend
-- ASP.NET API
-- SQL Server
-- go2rtc
-- Cloudflared tunnel neu can
-- AI runtime theo profile
-
-Lenh chay:
+Neu ban chi muon seed lai tu dau toan bo stack local, cach manh tay hon la:
 
 ```powershell
+docker compose down -v
 docker compose up -d --build
-docker compose --profile ai up -d --build
-docker compose --profile ai-heavy up -d --build
 ```
 
-### VPS web-only
+Cach nay se xoa DB volume local va cho app seed lai tu dau.
 
-Dung cho VPS Ubuntu khi chi can stack web:
+### 7.5. Cach reset demo tren VPS
 
-- Vue frontend
-- ASP.NET API
-- SQL Server
+Neu VPS duoc cau hinh cho phep demo data:
 
-Khong keo theo go2rtc, camera public, Cloudflared, AI runtime hay APK/mobile.
+```powershell
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
 
-Lenh chay:
+Neu can seed lai tu dau tren VPS:
+
+- can rat than trong
+- chi nen lam tren moi truong demo
+- neu xoa volume DB thi du lieu hien tai se mat
+
+## 8. Lenh nhanh
+
+### Docker local
+
+```powershell
+Copy-Item .env.docker.example .env
+docker compose up -d --build
+```
+
+### Docker VPS
 
 ```powershell
 Copy-Item .env.vps.example .env.vps
 docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
 ```
 
-Luu y:
+### Windows non-Docker
 
-- Frontend VPS proxy same-origin cho `/api` va `/hubs`
-- API va SQL chi mo noi bo container trong mode VPS
-- Compose VPS khong chay service go2rtc hay AI
-- Dat `APP_FRONTEND_URL`, `APP_PUBLIC_HOSTNAME` va `SECURITY_GATEWAY_HEADERS_MANAGED_BY_PROXY=true` dung theo moi truong public that
-- Neu can demo du lieu mau tren VPS, dat `DEMO_DATA_ALLOW_IN_PRODUCTION=true` truoc khi chay lai compose
-- Dien day du secret trong `.env.vps` truoc khi deploy
-
-Tai lieu bo sung:
-
-- `docs/WEB_DEPLOYMENT_MODES.md`
+```powershell
+.\manage.ps1 -Action install
+.\manage.ps1 -Action start
+```
