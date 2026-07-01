@@ -102,9 +102,7 @@ public class AuthController : ControllerBase
             return NotFound();
 
         var hasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId);
-        var operationalTaskKeys = hasOperationalScopeAssignments
-            ? await _scopeService.GetActiveTaskKeysAsync(user.UserId)
-            : new List<string>();
+        var operationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role);
 
         return Ok(new UserResponse
         {

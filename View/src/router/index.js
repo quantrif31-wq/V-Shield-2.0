@@ -71,6 +71,7 @@ const ComplianceReports = () => import('../pages/ComplianceReports.vue')
 const GuideViewer = () => import('../pages/GuideViewer.vue')
 const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
 const Chat = () => import('../pages/Chat.vue')
+const RolePermissions = () => import('../pages/RolePermissions.vue')
 const NotificationRuleEditor = () => import('../pages/NotificationRuleEditor.vue')
 const IncidentMapPage = () => import('../pages/IncidentMapPage.vue')
 const OperationsDashboard = () => import('../pages/OperationsDashboard.vue')
@@ -84,12 +85,16 @@ const ROUTE_NAME_DYNAMIC_QR_GENERATOR = 'DynamicQrGenerator'
 function userCanAccessTask(user, taskKey) {
     if (!user) return false
     if (user.role === 'Admin') return true
-    if (!taskKey || !user.hasOperationalScopeAssignments) return true
+    if (!taskKey) return true
     return (user.operationalTaskKeys || []).includes(taskKey)
 }
 
 function landingRouteForRole(role) {
     const user = authState.user
+
+    if (userCanAccessTask(user, 'dashboard')) {
+        return { name: 'Dashboard' }
+    }
 
     if (role === 'BaoVe') {
         if (userCanAccessTask(user, 'monitoring')) return { name: 'Monitoring' }
@@ -151,7 +156,7 @@ const routes = [
             { path: '', redirect: () => {
                 return landingRouteForRole(authState.user?.role)
             }},
-            { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'QuanLy'] } },
+            { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'dashboard' } },
             { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring', keepAlive: true } },
             { path: 'access-logs', name: 'AccessLogs', component: AccessLogs, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
             { path: 'ueba', name: 'UEBA', component: UEBA, meta: { allowedRoles: ['Admin', 'BaoVe', 'QuanLy'] } },
@@ -202,7 +207,7 @@ const routes = [
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin'], keepAlive: true } },
             { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access', keepAlive: true } },
             { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'restricted-zone', keepAlive: true } },
-            { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin', 'NhanSu'] } },
+            { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin', 'NhanSu'], taskKey: 'employee-directory' } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
             { path: 'my-vehicles', name: 'MyVehicles', component: MyVehicles, meta: { allowedRoles: ['NhanVien'] } },
             { path: 'my-schedule', name: 'MySchedule', component: MySchedule, meta: { allowedRoles: ['NhanVien'] } },
@@ -231,10 +236,16 @@ const routes = [
                 meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'metadata' },
             },
             {
+                path: 'role-permissions',
+                name: 'RolePermissions',
+                component: RolePermissions,
+                meta: { allowedRoles: ['Admin', 'NhanSu'], taskKey: 'user-admin' },
+            },
+            {
                 path: 'users',
                 name: 'UserManagement',
                 component: UserManagement,
-                meta: { allowedRoles: ['Admin', 'NhanSu'] },
+                meta: { allowedRoles: ['Admin', 'NhanSu'], taskKey: 'user-admin' },
             },
             {
                 path: 'settings',
@@ -262,6 +273,9 @@ const router = createRouter({
     routes,
 })
 
+const DYNAMIC_IMPORT_ERROR_MARKER = 'Failed to fetch dynamically imported module'
+const DYNAMIC_IMPORT_RELOAD_KEY = 'vshield:dynamic-import-reload'
+
 // Navigation Guard
 router.beforeEach((to, from, next) => {
     // Nếu route yêu cầu đăng nhập
@@ -280,15 +294,18 @@ router.beforeEach((to, from, next) => {
     }
 
     // Kiểm tra allowedRoles
-    const allowedRoles = to.matched.find(matchedRoute => matchedRoute.meta.allowedRoles)?.meta.allowedRoles
+    const roleMatchedRoute = to.matched.find(matchedRoute => matchedRoute.meta.allowedRoles)
+    const allowedRoles = roleMatchedRoute?.meta.allowedRoles
+    const requiredTaskKey = to.matched.find(matchedRoute => matchedRoute.meta.taskKey)?.meta.taskKey
     if (allowedRoles) {
         const currentRole = authState.user?.role
-        if (!allowedRoles.includes(currentRole)) {
+        const roleAllowed = allowedRoles.includes(currentRole)
+        const taskAllowed = requiredTaskKey ? userCanAccessTask(authState.user, requiredTaskKey) : false
+        if (!roleAllowed && !taskAllowed) {
             return next(landingRouteForRole(currentRole))
         }
     }
 
-    const requiredTaskKey = to.matched.find(matchedRoute => matchedRoute.meta.taskKey)?.meta.taskKey
     if (requiredTaskKey) {
         const currentUser = authState.user
         if (!userCanAccessTask(currentUser, requiredTaskKey)) {
@@ -304,6 +321,30 @@ router.beforeEach((to, from, next) => {
     }
 
     next()
+})
+
+router.onError((error, to) => {
+    console.error('Router navigation error:', error)
+
+    const message = String(error?.message || '')
+    if (!message.includes(DYNAMIC_IMPORT_ERROR_MARKER)) {
+        return
+    }
+
+    if (typeof window === 'undefined') {
+        return
+    }
+
+    const reloadTarget = typeof to?.fullPath === 'string' && to.fullPath ? to.fullPath : window.location.pathname
+    const lastReloadTarget = window.sessionStorage.getItem(DYNAMIC_IMPORT_RELOAD_KEY)
+
+    if (lastReloadTarget === reloadTarget) {
+        window.sessionStorage.removeItem(DYNAMIC_IMPORT_RELOAD_KEY)
+        return
+    }
+
+    window.sessionStorage.setItem(DYNAMIC_IMPORT_RELOAD_KEY, reloadTarget)
+    window.location.assign(reloadTarget)
 })
 
 export default router

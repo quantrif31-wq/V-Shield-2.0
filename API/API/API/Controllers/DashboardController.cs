@@ -5,11 +5,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using API.Middleware;
+
 namespace API.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
-[Authorize(Roles = "Admin,QuanLy")]
+[Authorize]
+[RequireOperationalTask(UserOperationalScopeService.TaskDashboard)]
 public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

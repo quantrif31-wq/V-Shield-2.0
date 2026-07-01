@@ -12,7 +12,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,NhanSu")]
+[Authorize]
+[RequireOperationalTask(UserOperationalScopeService.TaskUserAdministration)]
 public class UsersController : ControllerBase
 {
     private static readonly HashSet<string> SupportedRoles = new(StringComparer.OrdinalIgnoreCase)
@@ -56,26 +57,10 @@ public class UsersController : ControllerBase
             })
             .ToListAsync();
 
-        var userIds = users.Select(u => u.UserId).ToList();
-        var now = DateTime.UtcNow;
-        var taskLookup = await _context.UserOperationalScopes
-            .AsNoTracking()
-            .Where(scope => userIds.Contains(scope.UserId) &&
-                            scope.ValidFromUtc <= now &&
-                            (!scope.ValidToUtc.HasValue || scope.ValidToUtc >= now) &&
-                            (scope.CanView || scope.CanManage))
-            .GroupBy(scope => scope.UserId)
-            .ToDictionaryAsync(
-                group => group.Key,
-                group => group.Select(scope => scope.TaskKey).Distinct().OrderBy(scope => scope).ToList());
-
         foreach (var user in users)
         {
-            if (taskLookup.TryGetValue(user.UserId, out var taskKeys))
-            {
-                user.HasOperationalScopeAssignments = true;
-                user.OperationalTaskKeys = taskKeys;
-            }
+            user.HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId);
+            user.OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role);
         }
 
         return Ok(users);
@@ -101,12 +86,11 @@ public class UsersController : ControllerBase
             MfaRequired = _authService.RequiresMfa(user),
             LastLoginAtUtc = user.LastLoginAtUtc,
             HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId),
-            OperationalTaskKeys = await _scopeService.GetActiveTaskKeysAsync(user.UserId)
+            OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role)
         });
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
@@ -165,7 +149,6 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest request)
     {
@@ -230,12 +213,11 @@ public class UsersController : ControllerBase
             MfaRequired = _authService.RequiresMfa(user),
             LastLoginAtUtc = user.LastLoginAtUtc,
             HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId),
-            OperationalTaskKeys = await _scopeService.GetActiveTaskKeysAsync(user.UserId)
+            OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role)
         });
     }
 
     [HttpGet("scope-reference")]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetOperationalScopeReference()
     {
         var sites = await _context.Sites
@@ -268,6 +250,13 @@ public class UsersController : ControllerBase
         return Ok(new
         {
             tasksByRole = UserOperationalScopeService.TasksByRole,
+            taskCatalog = UserOperationalScopeService.TaskCatalog.Select(item => new
+            {
+                item.TaskKey,
+                item.Label,
+                defaultRoles = item.DefaultRoles,
+                routes = item.Routes
+            }),
             sites,
             gates,
             lanes,
@@ -276,7 +265,6 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id:int}/operational-scopes")]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetOperationalScopes(int id)
     {
         if (!await _context.AppUsers.AnyAsync(user => user.UserId == id))
@@ -311,7 +299,6 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:int}/operational-scopes")]
-    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> ReplaceOperationalScopes(int id, [FromBody] List<OperationalScopeUpsertRequest>? request)
     {
@@ -319,15 +306,15 @@ public class UsersController : ControllerBase
         if (user == null)
             return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
 
-        var allowedTasks = UserOperationalScopeService.TasksByRole.TryGetValue(user.Role, out var tasks)
-            ? tasks
-            : Array.Empty<string>();
+        var allowedTasks = UserOperationalScopeService.TaskCatalog
+            .Select(item => item.TaskKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         request ??= [];
         foreach (var item in request)
         {
-            if (!allowedTasks.Contains(item.TaskKey, StringComparer.OrdinalIgnoreCase))
-                return BadRequest(new { message = $"TaskKey '{item.TaskKey}' khong hop le voi vai tro {user.Role}." });
+            if (string.IsNullOrWhiteSpace(item.TaskKey) || !allowedTasks.Contains(item.TaskKey))
+                return BadRequest(new { message = $"TaskKey '{item.TaskKey}' khong hop le." });
         }
 
         var siteIds = request.Where(item => item.SiteId.HasValue).Select(item => item.SiteId!.Value).Distinct().ToList();
@@ -394,7 +381,6 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{id}/mfa/reset")]
-    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> ResetMfa(int id)
     {
@@ -422,7 +408,6 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
     [RequireStepUp(PrivilegedActions.UserAdministration)]
     public async Task<IActionResult> Delete(int id)
     {

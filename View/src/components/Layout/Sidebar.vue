@@ -318,13 +318,12 @@ const flyoutStyle = computed(() => {
 
 const userRole = computed(() => authState.user?.role)
 const userTaskKeys = computed(() => authState.user?.operationalTaskKeys || [])
-const hasScopedAssignments = computed(() => !!authState.user?.hasOperationalScopeAssignments)
 const canAccessNavigationItem = (item) => {
     if (!item.roles) return userRole.value === 'Admin'
     const roleAllowed = item.roles.includes(userRole.value)
     if (!roleAllowed) return false
     if (userRole.value === 'Admin') return true
-    if (!item.taskKey || !hasScopedAssignments.value) return true
+    if (!item.taskKey) return true
     return userTaskKeys.value.includes(item.taskKey)
 }
 
@@ -338,6 +337,7 @@ const navGroups = ref([
                 hint: 'Toàn cảnh khi đăng nhập',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
                 roles: ['Admin', 'QuanLy'],
+                taskKey: 'dashboard',
             },
         ],
     },
@@ -548,6 +548,7 @@ const navGroups = ref([
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
                 badge: '0',
                 roles: ['Admin', 'NhanSu'],
+                taskKey: 'employee-directory',
             },
             {
                 path: '/vehicles',
@@ -794,14 +795,23 @@ const navGroups = ref([
                 label: 'Hồ sơ nhân viên',
                 hint: 'Nhân sự, phòng ban, chức vụ',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
-                roles: ['NhanSu'],
+                roles: ['Admin', 'NhanSu'],
+                taskKey: 'employee-directory',
+            },
+            {
+                path: '/role-permissions',
+                label: 'Quyền theo vai trò',
+                hint: 'Xem vai trò được vào trang nào',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18"/><path d="M3 12h18"/><path d="M3 19h18"/><path d="M8 3v18"/><path d="M16 3v18"/></svg>',
+                roles: ['Admin', 'NhanSu'],
+                taskKey: 'user-admin',
             },
             {
                 path: '/attendance/leave-approvals',
                 label: 'Duyệt đơn nghỉ',
                 hint: 'Xử lý đơn chờ duyệt',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>',
-                roles: ['NhanSu'],
+                roles: ['Admin', 'NhanSu'],
                 taskKey: 'approvals',
             },
             {
@@ -809,7 +819,8 @@ const navGroups = ref([
                 label: 'Tài khoản & phân quyền',
                 hint: 'Khóa/mở tài khoản người dùng',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
-                roles: ['NhanSu'],
+                roles: ['Admin', 'NhanSu'],
+                taskKey: 'user-admin',
             },
         ],
     },
@@ -864,6 +875,7 @@ const navGroups = ref([
                 hint: 'Người dùng phần mềm',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
                 roles: ['Admin', 'NhanSu'],
+                taskKey: 'user-admin',
             },
             {
                 path: '/settings',
@@ -1083,8 +1095,12 @@ const handleSidebarNavClick = () => {
 
 const navigateToItem = async (path) => {
     const target = resolveNavTarget(path)
-    await router.push(target)
-    handleSidebarNavClick()
+    try {
+        await router.push(target)
+        handleSidebarNavClick()
+    } catch (error) {
+        console.error('Sidebar navigation failed:', error)
+    }
 }
 
 const handleNavOutsideClick = (event) => {

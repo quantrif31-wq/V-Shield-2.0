@@ -9,11 +9,15 @@ using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
+using API.Middleware;
+using API.Services;
+
 namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,NhanSu")]
+[Authorize]
+[RequireOperationalTask(UserOperationalScopeService.TaskEmployeeDirectory)]
 public class EmployeesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

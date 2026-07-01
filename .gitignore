@@ -112,6 +112,7 @@ AI_Project/Vietnam License Plate.v2i.yolov8/
 !AI_Project/test/Indoor Fire Smoke/**
 
 # ----- Local secrets / machine-specific config -----
+.env
 API/API/API/appsettings.Production.json
 API/API/API/wwwroot/uploads/faces/
 
