@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using API.Middleware;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,8 @@ namespace API.Controllers
     [Route("api/camera-runtime")]
     [ApiController]
     [EnableRateLimiting("ops")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize]
+    [RequireOperationalTask("monitoring")]
     public class CameraRuntimeController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

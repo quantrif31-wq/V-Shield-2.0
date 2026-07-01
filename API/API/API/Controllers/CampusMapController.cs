@@ -1,5 +1,6 @@
 using API.Data;
 using API.DTOs;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/campus-map")]
 [Authorize]
+[RequireOperationalTask("reception")]
 public class CampusMapController : ControllerBase
 {
     private const decimal DefaultW = 220m;

@@ -1,4 +1,5 @@
 ﻿using API.Data;
+using API.Middleware;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/access-logs")]
-[Authorize(Roles = "Admin,BaoVe,QuanLy")]
+[Authorize]
+[RequireOperationalTask("access-logs")]
 public class AccessLogsController : ControllerBase
 {
     private static readonly string[] SuccessfulStatuses = ["APPROVED", "SUCCESS", "GRANTED", "OK", "MATCHED"];

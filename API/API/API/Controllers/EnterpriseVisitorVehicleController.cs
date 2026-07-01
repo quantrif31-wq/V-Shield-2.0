@@ -11,7 +11,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/visitor-vehicle")]
-[Authorize(Roles = "Admin,BaoVe,LeTan")]
+[Authorize]
 public class EnterpriseVisitorVehicleController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

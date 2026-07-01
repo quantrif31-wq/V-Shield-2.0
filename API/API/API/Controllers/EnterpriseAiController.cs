@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Services;
 using API.Services.AI;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/ai")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class EnterpriseAiController : ControllerBase
 {
     private readonly IAiRecommendationService _recommendationService;

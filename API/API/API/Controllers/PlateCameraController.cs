@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Json;
+using API.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace API.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [EnableRateLimiting("ops")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("parking")]
 public class PlateCameraController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;

@@ -1,3 +1,4 @@
+using API.Middleware;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,8 @@ namespace API.Controllers;
 
 [Route("api/runtime-services")]
 [ApiController]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class RuntimeServicesController : ControllerBase
 {
     private readonly RuntimeOrchestrator _runtimeOrchestrator;

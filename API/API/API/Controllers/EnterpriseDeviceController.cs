@@ -12,7 +12,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/devices")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("device-mgmt")]
 public class EnterpriseDeviceController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

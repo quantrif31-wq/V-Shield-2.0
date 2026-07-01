@@ -1,4 +1,5 @@
 using API.Data;
+using API.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/indoor-map")]
 [Authorize]
+[RequireOperationalTask("reception")]
 public class IndoorMapController : ControllerBase
 {
     private readonly ApplicationDbContext _db;

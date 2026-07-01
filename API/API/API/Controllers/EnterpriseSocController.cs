@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +12,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/soc")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class EnterpriseSocController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

@@ -114,6 +114,7 @@ AI_Project/Vietnam License Plate.v2i.yolov8/
 # ----- Local secrets / machine-specific config -----
 .env
 API/API/API/appsettings.Production.json
+API/API/API/App_Data/
 API/API/API/wwwroot/uploads/faces/
 
 # ----- Local tools / bridge binaries -----

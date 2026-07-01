@@ -1,4 +1,5 @@
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace API.Controllers;
 
 [Route("api/access-permissions")]
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequireOperationalTask("restricted-zone")]
 public class AccessPermissionQueryController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

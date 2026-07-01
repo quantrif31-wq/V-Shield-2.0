@@ -1,4 +1,5 @@
 using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +10,7 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/vehicle-delegations")]
-[Authorize(Roles = "NhanVien,NhanSu,Admin")]
+[Authorize]
 public class VehicleDelegationsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

@@ -10,7 +10,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/release-readiness")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class EnterpriseReleaseReadinessController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

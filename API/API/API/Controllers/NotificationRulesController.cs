@@ -1,4 +1,5 @@
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace API.Controllers;
 
 [Route("api/notification-rules")]
 [ApiController]
-[Authorize(Roles = "Admin,QuanLy")]
+[Authorize]
+[RequireOperationalTask("system-config")]
 public class NotificationRulesController : ControllerBase
 {
     private readonly ApplicationDbContext _db;

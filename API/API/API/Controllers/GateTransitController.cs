@@ -1,4 +1,5 @@
 ﻿using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,8 @@ namespace API.Controllers
 {
     [Route("api/gate-transit")]
     [ApiController]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize]
+    [RequireOperationalTask("gate-transit")]
     public class GateTransitController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

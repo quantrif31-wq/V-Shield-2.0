@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using API.Middleware;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,8 @@ namespace API.Controllers;
 
 [Route("api/face-recognition")]
 [ApiController]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class FaceRecognitionController : ControllerBase
 {
     private static readonly HttpClient client = new HttpClient();

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/situational-awareness")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class EnterpriseSituationalAwarenessController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

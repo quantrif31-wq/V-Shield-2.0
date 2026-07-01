@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/intervention")]
-[Authorize(Roles = "Admin,BaoVe,QuanLy")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class EnterpriseInterventionController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

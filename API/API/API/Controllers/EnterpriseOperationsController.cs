@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/operations")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class EnterpriseOperationsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

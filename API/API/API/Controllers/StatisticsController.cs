@@ -1,6 +1,7 @@
 using API.Data;
 using API.DTOs;
 using API.Hubs;
+using API.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -11,6 +12,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
+[RequireOperationalTask("reports")]
 public class StatisticsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

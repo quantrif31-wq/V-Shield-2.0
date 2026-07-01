@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using API.Middleware;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,8 @@ namespace API.Controllers
     [Route("api/license-plates")]
     [ApiController]
     [EnableRateLimiting("ops")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize]
+    [RequireOperationalTask("parking")]
     public class LicensePlateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

@@ -1,4 +1,5 @@
 ﻿using API.DTOs;
+using API.Middleware;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,BaoVe,NhanVien,NhanSu")]
+[Authorize]
+[RequireOperationalTask("parking")]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleManagementService _vehicleService;
@@ -67,9 +69,6 @@ public class VehiclesController : ControllerBase
     }
 
     // POST: api/vehicles
-    // Ä�Äƒng kÃ½ phÆ°Æ¡ng tiá»‡n má»›i
-    [HttpPost]
-    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> Create([FromBody] CreateVehicleDto dto)
     {
         if (!ModelState.IsValid)
@@ -91,9 +90,7 @@ public class VehiclesController : ControllerBase
     }
 
     // PUT: api/vehicles/5
-    // Cáº­p nháº­t thÃ´ng tin phÆ°Æ¡ng tiá»‡n
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateVehicleDto dto)
     {
         if (!ModelState.IsValid)
@@ -118,9 +115,7 @@ public class VehiclesController : ControllerBase
     }
 
     // DELETE: api/vehicles/5
-    // XÃ³a Ä‘Äƒng kÃ½ phÆ°Æ¡ng tiá»‡n
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin,BaoVe")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _vehicleService.DeleteAsync(id);

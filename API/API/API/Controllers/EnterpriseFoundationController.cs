@@ -11,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/foundation")]
-[Authorize(Roles = "Admin,QuanLy")]
+[Authorize]
+[RequireOperationalTask("metadata")]
 public class EnterpriseFoundationController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

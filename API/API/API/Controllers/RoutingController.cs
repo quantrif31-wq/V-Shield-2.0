@@ -1,3 +1,4 @@
+using API.Middleware;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
+[RequireOperationalTask("monitoring")]
 public class RoutingController : ControllerBase
 {
     private readonly IRoutingService _routingService;

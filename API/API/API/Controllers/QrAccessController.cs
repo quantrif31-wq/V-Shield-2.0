@@ -1,5 +1,6 @@
 ﻿using API.Data;
 using API.DTOs;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -16,7 +17,8 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize]
+    [RequireOperationalTask("qr-access")]
     public class QrAccessController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

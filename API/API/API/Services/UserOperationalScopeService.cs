@@ -23,23 +23,35 @@ public class UserOperationalScopeService
     public const string TaskDashboard = "dashboard";
     public const string TaskUserAdministration = "user-admin";
     public const string TaskEmployeeDirectory = "employee-directory";
+    public const string TaskAccessLogs = "access-logs";
+    public const string TaskDeviceManagement = "device-mgmt";
+    public const string TaskEvidenceManagement = "evidence-mgmt";
+    public const string TaskSystemConfig = "system-config";
+    public const string TaskIdentityManagement = "identity-mgmt";
+    public const string TaskContractorManagement = "contractor-mgmt";
 
     public static readonly IReadOnlyList<TaskAccessDefinition> TaskCatalog =
     [
-        new(TaskDashboard, "Dashboard tổng quan", ["Admin", "QuanLy"], ["/dashboard"]),
-        new(TaskMonitoring, "Giám sát an ninh", ["Admin", "BaoVe"], ["/monitoring"]),
+        new(TaskDashboard, "Dashboard tổng quan", ["Admin", "QuanLy"], ["/dashboard", "/operations-dashboard"]),
+        new(TaskMonitoring, "Giám sát an ninh", ["Admin", "BaoVe"], ["/monitoring", "/soc-console", "/incident-map", "/ueba", "/campus-map", "/video-search", "/ai-review-queue", "/correlation-view", "/watchlist", "/exceptions"]),
         new(TaskGateTransit, "Thông hành cổng/làn", ["Admin", "BaoVe"], ["/gate-transit-monitor", "/lane-dashboard"]),
-        new(TaskQrAccess, "Quét QR vào cổng", ["Admin", "BaoVe"], ["/qr-access-monitor", "/kiosk"]),
-        new(TaskParking, "Gửi xe/tra xe", ["Admin", "BaoVe"], ["/vehicles", "/parking-kiosk"]),
+        new(TaskQrAccess, "Quét QR vào cổng", ["Admin", "BaoVe"], ["/qr-access-monitor", "/kiosk", "/dynamic-qr-generator"]),
+        new(TaskParking, "Gửi xe/tra xe", ["Admin", "BaoVe"], ["/vehicles", "/parking-kiosk", "/barrier-panel", "/license-plate-security"]),
         new(TaskRestrictedZone, "Khu vực giới hạn", ["Admin", "BaoVe"], ["/access-permission-manager"]),
         new(TaskReception, "Lễ tân/tiếp đón", ["Admin", "LeTan"], ["/reception", "/campus-map", "/kiosk-checkin"]),
-        new(TaskGuestSupport, "Hỗ trợ khách", ["Admin", "LeTan"], ["/guest-profiles", "/host-visitor"]),
+        new(TaskGuestSupport, "Hỗ trợ khách", ["Admin", "LeTan"], ["/guest-profiles", "/host-visitor", "/pre-registrations", "/registration-links"]),
         new(TaskLostFound, "Đồ thất lạc", ["Admin", "BaoVe", "LeTan"], ["/lost-found", "/found-items", "/lost-items", "/claim-approval", "/locker-manager"]),
-        new(TaskReports, "Báo cáo", ["Admin", "QuanLy"], ["/attendance/reports"]),
+        new(TaskReports, "Báo cáo", ["Admin", "QuanLy"], ["/attendance/reports", "/attendance/records"]),
         new(TaskApprovals, "Phê duyệt", ["Admin", "QuanLy", "NhanSu"], ["/attendance/leave-approvals"]),
-        new(TaskMetadata, "Metadata/danh mục", ["Admin", "QuanLy"], ["/site-hierarchy", "/system-catalog", "/attendance/work-schedules", "/attendance/shifts"]),
+        new(TaskMetadata, "Metadata/danh mục", ["Admin", "QuanLy"], ["/site-hierarchy", "/system-catalog", "/attendance/work-schedules", "/attendance/shifts", "/departments-positions", "/import-export-history"]),
         new(TaskEmployeeDirectory, "Hồ sơ nhân viên", ["Admin", "NhanSu"], ["/employees"]),
-        new(TaskUserAdministration, "Tài khoản và phân quyền", ["Admin", "NhanSu"], ["/role-permissions", "/users"])
+        new(TaskUserAdministration, "Tài khoản và phân quyền", ["Admin", "NhanSu"], ["/role-permissions", "/users"]),
+        new(TaskAccessLogs, "Nhật ký hệ thống", ["Admin", "BaoVe", "QuanLy"], ["/access-logs", "/system-audit-logs"]),
+        new(TaskDeviceManagement, "Quản lý thiết bị", ["Admin"], ["/device-management", "/device-topology", "/provisioning-wizard", "/offline-packages", "/device-health", "/simulator-panel"]),
+        new(TaskEvidenceManagement, "Quản lý bằng chứng", ["Admin"], ["/evidence-repository", "/export-approval-queue", "/redaction-queue", "/compliance-reports"]),
+        new(TaskSystemConfig, "Cấu hình hệ thống", ["Admin", "QuanLy"], ["/settings", "/notification-rules", "/siem-export-status"]),
+        new(TaskIdentityManagement, "Đồng bộ danh tính", ["Admin"], ["/identity-management", "/enterprise-security"]),
+        new(TaskContractorManagement, "Quản lý nhà thầu", ["Admin"], ["/contractors"])
     ];
 
     public static readonly IReadOnlyDictionary<string, string[]> TasksByRole = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)

@@ -13,7 +13,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/evidence")]
-[Authorize(Roles = "Admin,BaoVe")]
+[Authorize]
+[RequireOperationalTask("evidence-mgmt")]
 public class EnterpriseEvidenceController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

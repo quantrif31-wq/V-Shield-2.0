@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.DTOs;
+using API.Middleware;
 using API.Services.ImportExport;
 using API.Services.ImportExport.AI;
 using API.Services.ImportExport.Validation;
@@ -10,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/import-export/{entityType}/ai")]
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequireOperationalTask("device-mgmt")]
 public class AiImportController : ControllerBase
 {
     private readonly IAiImportService _aiService;

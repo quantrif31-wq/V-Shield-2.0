@@ -1,5 +1,6 @@
 ﻿using API.Data;
 using API.DTOs.PreRegistration;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/registration-links")]
+[Authorize]
+[RequireOperationalTask("guest-support")]
 public class RegistrationLinkController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -21,7 +24,6 @@ public class RegistrationLinkController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateLink([FromBody] CreateLinkRequestDto dto)
     {
         var employee = await _context.Employees.FindAsync(dto.HostEmployeeId);
@@ -54,7 +56,6 @@ public class RegistrationLinkController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetLinks([FromQuery] string? query = null)
     {
         var linksQuery = _context.RegistrationLinks

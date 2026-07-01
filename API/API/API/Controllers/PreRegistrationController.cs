@@ -1,5 +1,6 @@
 ﻿using API.Data;
 using API.DTOs.PreRegistration;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -13,6 +14,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/pre-registrations")]
+[Authorize]
+[RequireOperationalTask("guest-support")]
 public class PreRegistrationController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

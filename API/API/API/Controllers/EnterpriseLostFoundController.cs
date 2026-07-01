@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Data;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/lost-found")]
-[Authorize(Roles = "Admin,BaoVe,LeTan")]
+[Authorize]
+[RequireOperationalTask("lost-found")]
 public class EnterpriseLostFoundController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

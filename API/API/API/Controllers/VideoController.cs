@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using API.Data;
 using System.IdentityModel.Tokens.Jwt;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -12,7 +13,8 @@ namespace API.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [EnableRateLimiting("ops")]
-    [Authorize(Roles = "Admin,BaoVe")]
+    [Authorize]
+    [RequireOperationalTask("monitoring")]
     public class VideoController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

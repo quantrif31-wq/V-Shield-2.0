@@ -1,4 +1,5 @@
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/exception-reasons")]
 [Authorize]
+[RequireOperationalTask("metadata")]
 public class ExceptionReasonsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

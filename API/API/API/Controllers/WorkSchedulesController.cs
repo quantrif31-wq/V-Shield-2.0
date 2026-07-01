@@ -1,5 +1,6 @@
 using API.Data;
 using API.DTOs;
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/work-schedules")]
 [Authorize]
+[RequireOperationalTask("metadata")]
 public class WorkSchedulesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

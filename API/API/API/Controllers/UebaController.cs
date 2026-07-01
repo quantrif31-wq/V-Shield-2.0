@@ -1,3 +1,4 @@
+using API.Middleware;
 using API.Models;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/ueba")]
-[Authorize(Roles = "Admin,BaoVe,QuanLy")]
+[Authorize]
+[RequireOperationalTask("monitoring")]
 public class UebaController : ControllerBase
 {
     private readonly IUebaService _ueba;

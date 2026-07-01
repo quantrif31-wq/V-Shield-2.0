@@ -1,4 +1,5 @@
 using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/guest-profiles")]
-[Authorize(Roles = "Admin,LeTan")]
+[Authorize]
+[RequireOperationalTask("guest-support")]
 public class GuestProfilesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

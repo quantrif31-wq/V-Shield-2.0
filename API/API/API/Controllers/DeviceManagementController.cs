@@ -1,4 +1,5 @@
 ﻿using API.Data;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/device-management")]
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequireOperationalTask("device-mgmt")]
 public class DeviceManagementController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

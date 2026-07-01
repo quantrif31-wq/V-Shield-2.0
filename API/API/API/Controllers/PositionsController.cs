@@ -1,5 +1,6 @@
 using API.Data;
 using API.DTOs;
+using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin,QuanLy")]
+[Authorize]
+[RequireOperationalTask("metadata")]
 public class PositionsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

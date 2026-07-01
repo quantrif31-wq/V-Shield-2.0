@@ -11,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/access-policy")]
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequireOperationalTask("system-config")]
 public class EnterpriseAccessPolicyController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

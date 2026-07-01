@@ -16,7 +16,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/enterprise/identity")]
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequireOperationalTask("identity-mgmt")]
 public class EnterpriseIdentityController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

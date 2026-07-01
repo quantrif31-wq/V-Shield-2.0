@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using API.Data;
 using API.DTOs;
+using API.Middleware;
 using API.Services.ImportExport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace API.Controllers;
 
 [ApiController]
 [Route("api/import-export")]
-[Authorize(Roles = "Admin,QuanLy")]
+[Authorize]
+[RequireOperationalTask("system-config")]
 public class ImportExportController : ControllerBase
 {
     private readonly IImportExportService _service;
