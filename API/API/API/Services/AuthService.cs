@@ -185,7 +185,23 @@ public class AuthenticationService : IAuthenticationService
             return BuildMfaSetupResponse(user, secret);
         }
 
-        if (!_totpService.VerifyCode(user.MfaSecretProtected, submittedCode))
+        bool isValidCode;
+        try
+        {
+            isValidCode = _totpService.VerifyCode(user.MfaSecretProtected, submittedCode);
+        }
+        catch (CryptographicException)
+        {
+            var rotatedSecret = _totpService.GenerateSecret();
+            user.MfaSecretProtected = _totpService.ProtectSecret(rotatedSecret);
+            user.MfaEnabled = false;
+            user.MfaConfiguredAtUtc = null;
+            await _context.SaveChangesAsync();
+
+            return BuildMfaSetupResponse(user, rotatedSecret);
+        }
+
+        if (!isValidCode)
         {
             if (user.MfaEnabled && await TryConsumeRecoveryCodeAsync(user.UserId, submittedCode))
                 return null;

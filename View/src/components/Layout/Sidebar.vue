@@ -140,13 +140,13 @@
                         class="nav-group-items mobile-inline"
                         :class="{ 'group-collapsed': !isGroupExpanded(group.label) && !collapsed }"
                     >
-                        <router-link
+                        <button
                             v-for="item in group.items"
                             :key="item.path"
-                            :to="resolveNavTarget(item.path)"
-                            class="nav-item"
+                            type="button"
+                            class="nav-item nav-item-button"
                             :class="{ active: route.path === item.path }"
-                            @click="handleSidebarNavClick"
+                            @click="navigateToItem(item.path)"
                         >
                             <span class="nav-icon" v-html="item.icon"></span>
                             <transition name="fade">
@@ -158,7 +158,7 @@
                             <transition name="fade">
                                 <span v-if="!collapsed && item.badge" class="nav-badge">{{ item.badge }}</span>
                             </transition>
-                        </router-link>
+                        </button>
                     </div>
                 </div>
 
@@ -172,13 +172,13 @@
                 @mouseenter="hoverGroup(activeFlyoutLabel)"
                 @mouseleave="leaveGroup(activeFlyoutLabel)"
             >
-                <router-link
+                <button
                     v-for="item in activeFlyoutItems"
                     :key="`flyout_${item.path}`"
-                    :to="resolveNavTarget(item.path)"
-                    class="nav-item"
+                    type="button"
+                    class="nav-item nav-item-button"
                     :class="{ active: route.path === item.path }"
-                    @click="handleSidebarNavClick"
+                    @click="navigateToItem(item.path)"
                 >
                     <span class="nav-icon" v-html="item.icon"></span>
                     <span class="nav-copy">
@@ -186,7 +186,7 @@
                         <span class="nav-hint">{{ item.hint }}</span>
                     </span>
                     <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
-                </router-link>
+                </button>
             </div>
 
             <button
@@ -278,14 +278,14 @@ const getGroupItemsByLabel = (label) => {
 }
 
 const activeFlyoutLabel = computed(() => {
-    if (props.isMobile || props.collapsed) return ''
+    if (props.isMobile) return ''
     return hoveredGroup.value || pinnedGroup.value
 })
 
 const activeFlyoutItems = computed(() => getGroupItemsByLabel(activeFlyoutLabel.value))
 
 const showDesktopFlyout = computed(
-    () => !props.isMobile && !props.collapsed && !!activeFlyoutLabel.value && activeFlyoutItems.value.length > 0
+    () => !props.isMobile && !!activeFlyoutLabel.value && activeFlyoutItems.value.length > 0
 )
 
 const flyoutStyle = computed(() => {
@@ -1081,6 +1081,12 @@ const handleSidebarNavClick = () => {
     }
 }
 
+const navigateToItem = async (path) => {
+    const target = resolveNavTarget(path)
+    await router.push(target)
+    handleSidebarNavClick()
+}
+
 const handleNavOutsideClick = (event) => {
     if (props.isMobile || props.collapsed) return
     const target = event.target
@@ -1348,29 +1354,11 @@ const refreshFlyoutPosition = () => {
 }
 
 .nav-group-items {
-    position: absolute;
-    top: 0;
-    left: calc(100% + 12px);
-    width: min(320px, 62vw);
-    max-height: min(72vh, 620px);
-    overflow: auto;
-    padding: 10px;
-    border-radius: 16px;
-    border: 1px solid rgba(84, 196, 211, 0.22);
-    background: rgba(11, 25, 39, 0.97);
-    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
-    backdrop-filter: blur(8px);
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    opacity: 1;
-    transform: translateX(0);
-    margin-top: 0;
-    z-index: 65;
+    display: none;
 }
 
 .nav-group-items.group-collapsed {
-    opacity: 0;
-    transform: translateX(-8px);
-    pointer-events: none;
+    display: none;
 }
 
 .nav-group-items.mobile-inline {
@@ -1405,6 +1393,13 @@ const refreshFlyoutPosition = () => {
     color: var(--sidebar-text-muted);
     transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
     border: 1px solid transparent;
+}
+
+.nav-item-button {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    cursor: pointer;
 }
 
 .nav-item:hover {

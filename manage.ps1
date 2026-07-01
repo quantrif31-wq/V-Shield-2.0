@@ -13,7 +13,7 @@ $pidsDir = Join-Path $root '.runtime\pids'
 
 $services = @(
   @{ Name = 'api';  WorkDir = $apiDir; Command = 'cmd.exe'; Args = '/c set ASPNETCORE_ENVIRONMENT=Development&& set DOTNET_ENVIRONMENT=Development&& dotnet run --no-launch-profile --urls http://0.0.0.0:5107'; Health = 'http://127.0.0.1:5107/health'; Port = 5107 },
-  @{ Name = 'view'; WorkDir = $viewDir; Command = 'cmd.exe'; Args = '/c npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'; Health = 'http://127.0.0.1:5173/'; Port = 5173 }
+  @{ Name = 'view'; WorkDir = $viewDir; Command = 'cmd.exe'; Args = '/c set VITE_API_BASE_URL=http://127.0.0.1:5107/api&& set VITE_DEV_PROXY_TARGET=http://127.0.0.1:5107&& npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'; Health = 'http://127.0.0.1:5173/'; Port = 5173 }
 )
 
 function Ensure-Dir([string]$path) {
@@ -151,7 +151,7 @@ function Resolve-ServicePort($svc) {
       Write-WarnMsg "Cong $($svc.Port) dang bi ung dung khac su dung. V-Shield se dung cong $candidate."
       $svc.Port = $candidate
       $svc.Health = "http://127.0.0.1:$candidate/"
-      $svc.Args = "/c npm run dev -- --host 0.0.0.0 --port $candidate --strictPort"
+      $svc.Args = "/c set VITE_API_BASE_URL=http://127.0.0.1:5107/api&& set VITE_DEV_PROXY_TARGET=http://127.0.0.1:5107&& npm run dev -- --host 0.0.0.0 --port $candidate --strictPort"
       return
     }
   }
