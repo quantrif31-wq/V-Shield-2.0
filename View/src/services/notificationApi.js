@@ -8,6 +8,14 @@ let connection = null
 let notificationCallbacks = []
 let unreadCountCallbacks = []
 
+const SEVERITY_RANK = {
+  success: 1,
+  info: 2,
+  caution: 3,
+  warning: 4,
+  critical: 5
+}
+
 // SignalR connection
 export async function connectNotificationHub(token) {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
@@ -53,6 +61,39 @@ export function onNotification(callback) {
 export function onUnreadCountChanged(callback) {
   unreadCountCallbacks.push(callback)
   return () => { unreadCountCallbacks = unreadCountCallbacks.filter(c => c !== callback) }
+}
+
+export function getSeverityRank(severity) {
+  return SEVERITY_RANK[severity] || SEVERITY_RANK.info
+}
+
+export function normalizeNotificationSeverity(notification = {}) {
+  if (notification.severity && SEVERITY_RANK[notification.severity]) {
+    return notification.severity
+  }
+
+  const category = String(notification.category || '').toLowerCase()
+  const referenceType = String(notification.referenceType || '').toLowerCase()
+  const combinedText = `${notification.title || ''} ${notification.body || ''}`.toLowerCase()
+
+  if (category === 'chat') return 'success'
+  if (category === 'approval') return 'caution'
+  if (category === 'alarm') {
+    if (
+      referenceType === 'alarm' &&
+      (combinedText.includes('khẩn cấp') ||
+        combinedText.includes('uy hiếp') ||
+        combinedText.includes('đột nhập') ||
+        combinedText.includes('duress') ||
+        combinedText.includes('intrusion'))
+    ) {
+      return 'critical'
+    }
+
+    return 'warning'
+  }
+
+  return 'info'
 }
 
 // REST API endpoints

@@ -20,6 +20,9 @@ public class Notification
     [MaxLength(50)]
     public string Category { get; set; } = "System";
 
+    [MaxLength(20)]
+    public string? Severity { get; set; }
+
     [MaxLength(50)]
     public string? ReferenceType { get; set; }
 

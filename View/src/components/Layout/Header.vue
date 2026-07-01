@@ -24,9 +24,9 @@
         </div>
 
         <div class="header-right" ref="dropdownRootRef">
-            <div class="header-chip status-chip">
+            <div class="header-chip status-chip" :class="`status-${highestActiveSeverity}`">
                 <span class="chip-dot"></span>
-                <span>Ổn định</span>
+                <span>{{ statusChipLabel }}</span>
             </div>
 
             <div class="header-chip time-chip">
@@ -42,15 +42,16 @@
 
             <button
                 type="button"
-                class="header-action"
-                aria-label="Thông báo"
+                class="header-action notification-trigger"
+                :class="`severity-${highestActiveSeverity}`"
+                aria-label="Trung tâm cảnh báo"
                 @click="toggleNotifications"
             >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
                     <path d="M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
-                <span v-if="unreadCount" class="notification-count">{{ unreadCount }}</span>
+                <span v-if="pendingCount" class="notification-count">{{ pendingCount }}</span>
             </button>
 
             <div class="header-user-wrap">
@@ -95,31 +96,63 @@
             </div>
 
             <transition name="dropdown">
-                <div v-if="showNotifications" class="dropdown notification-dropdown">
+                <div v-if="showNotifications" class="dropdown notification-dropdown expanded">
                     <div class="dropdown-header">
                         <div>
-                            <span>Thông báo điều phối</span>
-                            <small>{{ unreadCount }} mục cần chú ý</small>
+                            <span>Trung tâm cảnh báo</span>
+                            <small>{{ statusSummary }}</small>
                         </div>
-                        <button type="button" class="btn-link" @click="markAllRead">Đánh dấu đã đọc</button>
+                        <button
+                            v-if="unreadNotificationCount"
+                            type="button"
+                            class="btn-link"
+                            @click="markAllRead"
+                        >
+                            Đánh dấu đã đọc
+                        </button>
+                    </div>
+
+                    <div class="notification-legend">
+                        <span v-for="item in severityLegend" :key="item.key" class="legend-item" :class="`legend-${item.key}`">
+                            {{ item.label }}
+                        </span>
                     </div>
 
                     <div class="notification-list">
                         <div
-                            v-for="notification in notifications"
-                            :key="notification.id"
+                            v-for="item in mergedFeed"
+                            :key="item.source + '-' + item.id"
                             class="notification-item"
-                            :class="{ unread: !notification.read }"
-                            @click="handleNotificationClick(notification)"
+                            :class="[
+                                `severity-${item.severity}`,
+                                {
+                                    unread: !item.read,
+                                    active: item.isActive,
+                                    'requires-ack': item.requiresAck,
+                                },
+                            ]"
+                            @click="handleItemClick(item)"
                         >
-                            <div class="notification-icon" :class="notification.type">
-                                <svg v-if="notification.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                    <path d="M20 6L9 17l-5-5" />
+                            <div class="notification-rail"></div>
+
+                            <div class="notification-icon" :class="`severity-${item.severity}`">
+                                <svg v-if="item.severity === 'critical'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path d="M12 8v5" />
+                                    <path d="M12 16h.01" />
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                                 </svg>
-                                <svg v-else-if="notification.type === 'warning'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <svg v-else-if="item.severity === 'warning'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                     <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                                     <line x1="12" y1="9" x2="12" y2="13" />
                                     <line x1="12" y1="17" x2="12.01" y2="17" />
+                                </svg>
+                                <svg v-else-if="item.severity === 'caution'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path d="M12 8v5" />
+                                    <path d="M12 16h.01" />
+                                    <circle cx="12" cy="12" r="9" />
+                                </svg>
+                                <svg v-else-if="item.severity === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path d="M20 6L9 17l-5-5" />
                                 </svg>
                                 <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                     <circle cx="12" cy="12" r="9" />
@@ -129,14 +162,54 @@
                             </div>
 
                             <div class="notification-content">
-                                <p>{{ notification.message }}</p>
+                                <div class="notification-topline">
+                                    <div>
+                                        <p class="notification-title">{{ item.title }}</p>
+                                        <p class="notification-message">{{ item.message }}</p>
+                                    </div>
+                                    <span class="severity-pill" :class="`severity-${item.severity}`">
+                                        {{ severityLabel(item.severity) }}
+                                    </span>
+                                </div>
+
                                 <div class="notification-meta">
-                                    <span class="notification-time">{{ notification.time }}</span>
-                                    <router-link v-if="notification.latitude && notification.referenceType === 'Alarm'" :to="'/incident-map/' + notification.referenceId" class="notif-map-link" title="Xem trên bản đồ" @click.stop>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="10" r="3"/><path d="M12 21s-8-4-8-10a8 8 0 0116 0c0 6-8 10-8 10z"/></svg>
-                                    </router-link>
+                                    <span class="meta-badge">{{ sourceLabel(item) }}</span>
+                                    <span v-if="item.locationLabel" class="meta-text">{{ item.locationLabel }}</span>
+                                    <span v-if="item.referenceType" class="meta-text">{{ item.referenceType }}</span>
+                                    <span class="meta-time">{{ formatTimeAgo(item.time) }}</span>
+                                </div>
+
+                                <div class="notification-actions">
+                                    <button
+                                        v-if="item.requiresAck"
+                                        type="button"
+                                        class="action-button primary"
+                                        :disabled="ackLoading[item.source + '-' + item.id]"
+                                        @click.stop="acknowledgeItem(item)"
+                                    >
+                                        {{ ackLoading[item.source + '-' + item.id] ? 'Đang xác nhận...' : 'Xác nhận xử lý' }}
+                                    </button>
+                                    <button
+                                        v-if="item.actionUrl"
+                                        type="button"
+                                        class="action-button"
+                                        @click.stop="openItem(item)"
+                                    >
+                                        {{ item.source === 'security-alert' ? 'Mở điều phối' : 'Xem chi tiết' }}
+                                    </button>
+                                    <span v-if="item.source === 'security-alert' && !item.requiresAck" class="action-hint">
+                                        {{ item.isActive ? 'Đang hoạt động' : 'Đã ghi nhận' }}
+                                    </span>
+                                    <span v-else-if="item.source === 'notification' && !item.read" class="action-hint">
+                                        Chưa đọc
+                                    </span>
                                 </div>
                             </div>
+                        </div>
+
+                        <div v-if="!mergedFeed.length" class="notification-empty">
+                            <strong>Chưa có mục nào cần xử lý</strong>
+                            <span>Thông báo mới và cảnh báo an ninh sẽ xuất hiện tại đây.</span>
                         </div>
                     </div>
                 </div>
@@ -150,9 +223,20 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authState, logout } from '../../stores/auth'
 import {
-    getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead,
-    connectNotificationHub, disconnectNotificationHub, onNotification
+    connectNotificationHub,
+    disconnectNotificationHub,
+    getNotifications,
+    getSeverityRank,
+    getUnreadCount,
+    markAllNotificationsRead,
+    markNotificationRead,
+    normalizeNotificationSeverity,
+    onNotification,
+    onUnreadCountChanged,
 } from '../../services/notificationApi'
+import { enterpriseApi } from '../../services/enterpriseSecurityApi'
+import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
+import { socApi } from '../../services/socApi'
 
 defineProps({
     collapsed: Boolean,
@@ -168,6 +252,18 @@ const showNotifications = ref(false)
 const showUserMenu = ref(false)
 const currentTime = ref('')
 const currentDate = ref('')
+const dbNotifications = ref([])
+const unreadCount = ref(0)
+const ackLoading = ref({})
+const audioUnlocked = ref(false)
+
+const severityLegend = [
+    { key: 'success', label: 'Chat' },
+    { key: 'info', label: 'Thông tin' },
+    { key: 'caution', label: 'Cần chú ý' },
+    { key: 'warning', label: 'Cần xử lý sớm' },
+    { key: 'critical', label: 'Khẩn cấp' },
+]
 
 const routeMeta = {
     Dashboard: {
@@ -298,41 +394,170 @@ const roleLabel = computed(() => {
     return map[authState.user?.role] || authState.user?.role || 'Tài khoản hệ thống'
 })
 
-const notifications = ref([])
-const unreadCount = ref(0)
+const normalizedNotifications = computed(() =>
+    dbNotifications.value.map((notification) => {
+        const severity = normalizeNotificationSeverity(notification)
+        return {
+            id: notification.id,
+            source: 'notification',
+            title: notification.title || 'Thông báo hệ thống',
+            message: notification.body || notification.title || 'Có một cập nhật mới.',
+            severity,
+            severityRank: getSeverityRank(severity),
+            time: notification.createdAt,
+            read: !!notification.isRead,
+            requiresAck: false,
+            ackKind: null,
+            actionUrl: notification.actionUrl,
+            referenceType: notification.referenceType,
+            referenceId: notification.referenceId,
+            locationLabel: notification.locationLabel,
+            isActive: !notification.isRead,
+        }
+    })
+)
 
-async function loadNotifications() {
-    try {
-        const res = await getNotifications(0, 50)
-        const items = res.data || []
-        notifications.value = items.map(n => ({
-            id: n.id,
-            message: n.body ? (n.title + ': ' + n.body) : n.title,
-            time: formatTimeAgo(n.createdAt),
-            type: mapEventType(n.category),
-            read: n.isRead,
-            actionUrl: n.actionUrl,
-            latitude: n.latitude,
-            longitude: n.longitude,
-            locationLabel: n.locationLabel,
-            referenceId: n.referenceId,
-            referenceType: n.referenceType,
-        }))
-    } catch (_) {}
+const normalizedSecurityAlerts = computed(() =>
+    (securityAlertState.items || []).map((item) => {
+        const alertId = String(item.id || '')
+        const parsedId = parsePrefixedId(alertId)
+        const ackKind = alertId.startsWith('alarm-') ? 'alarm' : alertId.startsWith('duress-') ? 'duress' : null
+        const severity = mapSecuritySeverity(item.severity, item.kind)
+
+        return {
+            id: alertId,
+            source: 'security-alert',
+            title: item.title || 'Cảnh báo an ninh',
+            message: item.message || 'Hệ thống đang cần xử lý một tình huống an ninh.',
+            severity,
+            severityRank: getSeverityRank(severity),
+            time: item.occurredAtUtc || item.generatedAtUtc || new Date().toISOString(),
+            read: false,
+            requiresAck: ackKind === 'alarm' || ackKind === 'duress',
+            ackKind,
+            actionUrl: item.route || defaultAlertRoute(item.kind),
+            referenceType: item.kind,
+            referenceId: parsedId,
+            locationLabel: item.locationLabel || item.zoneName || '',
+            isActive: true,
+        }
+    })
+)
+
+const unresolvedItems = computed(() =>
+    [
+        ...normalizedNotifications.value.filter((item) => !item.read),
+        ...normalizedSecurityAlerts.value.filter((item) => item.isActive),
+    ]
+)
+
+const highestActiveSeverity = computed(() => {
+    if (!unresolvedItems.value.length) {
+        return 'neutral'
+    }
+
+    const highest = unresolvedItems.value.reduce((max, item) => {
+        if (!max || item.severityRank > max.severityRank) {
+            return item
+        }
+        return max
+    }, null)
+
+    return highest?.severity || 'neutral'
+})
+
+const pendingCount = computed(() => unresolvedItems.value.length)
+const unreadNotificationCount = computed(() => normalizedNotifications.value.filter((item) => !item.read).length)
+
+const mergedFeed = computed(() =>
+    [...normalizedSecurityAlerts.value, ...normalizedNotifications.value].sort((left, right) => {
+        if (right.severityRank !== left.severityRank) {
+            return right.severityRank - left.severityRank
+        }
+
+        if (Number(right.isActive) !== Number(left.isActive)) {
+            return Number(right.isActive) - Number(left.isActive)
+        }
+
+        if (Number(!right.read) !== Number(!left.read)) {
+            return Number(!right.read) - Number(!left.read)
+        }
+
+        return new Date(right.time).getTime() - new Date(left.time).getTime()
+    })
+)
+
+const statusChipLabel = computed(() => {
+    const labels = {
+        neutral: 'Ổn định',
+        success: 'Có trao đổi mới',
+        info: 'Có cập nhật hệ thống',
+        caution: 'Có việc cần theo dõi',
+        warning: 'Cần xử lý sớm',
+        critical: 'Cảnh báo khẩn cấp',
+    }
+    return labels[highestActiveSeverity.value] || labels.neutral
+})
+
+const statusSummary = computed(() => {
+    if (!mergedFeed.value.length) {
+        return 'Không có mục nào đang chờ xử lý.'
+    }
+
+    const securityCount = normalizedSecurityAlerts.value.length
+    const notificationCount = unreadNotificationCount.value
+    return `${pendingCount.value} mục đang mở, gồm ${securityCount} cảnh báo an ninh và ${notificationCount} thông báo chưa đọc.`
+})
+
+function parsePrefixedId(value) {
+    const raw = String(value || '').split('-').slice(1).join('-')
+    const num = Number(raw)
+    return Number.isFinite(num) ? num : raw
 }
 
-async function loadUnreadCount() {
-    try {
-        const res = await getUnreadCount()
-        unreadCount.value = res.data?.count || 0
-    } catch (_) {}
+function mapSecuritySeverity(severity, kind) {
+    const severityKey = String(severity || '').toLowerCase()
+    const kindKey = String(kind || '').toLowerCase()
+
+    if (severityKey === 'critical' || kindKey.includes('duress') || kindKey.includes('emergency') || kindKey.includes('intrusion')) {
+        return 'critical'
+    }
+
+    if (severityKey === 'high') return 'warning'
+    if (severityKey === 'medium') return 'caution'
+    if (severityKey === 'low') return 'info'
+    return severityKey === 'warning' ? 'warning' : 'info'
 }
 
-function mapEventType(eventType) {
-    if (!eventType) return 'info'
-    if (eventType.startsWith('Alarm')) return 'warning'
-    if (eventType.includes('Approved') || eventType.includes('Executed') || eventType.includes('Completed')) return 'success'
-    return 'info'
+function defaultAlertRoute(kind) {
+    const key = String(kind || '').toLowerCase()
+    if (key.includes('emergency')) return '/policy-engine'
+    return '/soc-console'
+}
+
+function sourceLabel(item) {
+    if (item.source === 'security-alert') {
+        if (item.ackKind === 'duress') return 'Duress'
+        if (item.ackKind === 'alarm') return 'SOC alarm'
+        return 'Điều phối an ninh'
+    }
+
+    const severity = item.severity
+    if (severity === 'success') return 'Chat'
+    if (severity === 'caution') return 'Phê duyệt'
+    return 'Thông báo'
+}
+
+function severityLabel(severity) {
+    const labels = {
+        success: 'Xanh lá',
+        info: 'Xanh da trời',
+        caution: 'Vàng',
+        warning: 'Cam',
+        critical: 'Đỏ',
+        neutral: 'Bình thường',
+    }
+    return labels[severity] || labels.neutral
 }
 
 function formatTimeAgo(dateStr) {
@@ -344,7 +569,13 @@ function formatTimeAgo(dateStr) {
     const hrs = Math.floor(mins / 60)
     if (hrs < 24) return `${hrs} giờ trước`
     const days = Math.floor(hrs / 24)
-    return `${days} ngày trước`
+    if (days < 7) return `${days} ngày trước`
+    return new Date(dateStr).toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    })
 }
 
 function updateTime() {
@@ -361,12 +592,33 @@ function updateTime() {
     })
 }
 
+async function loadNotifications() {
+    try {
+        const response = await getNotifications(0, 50)
+        dbNotifications.value = response.data?.data || []
+    } catch {
+        dbNotifications.value = []
+    }
+}
+
+async function loadUnreadCount() {
+    try {
+        const response = await getUnreadCount()
+        unreadCount.value = response.data?.count || 0
+    } catch {
+        unreadCount.value = 0
+    }
+}
+
 function closeDropdowns() {
     showNotifications.value = false
     showUserMenu.value = false
 }
 
-function toggleNotifications() {
+async function toggleNotifications() {
+    try {
+        await unlockAudio()
+    } catch {}
     showNotifications.value = !showNotifications.value
     showUserMenu.value = false
 }
@@ -376,22 +628,65 @@ function toggleUserMenu() {
     showNotifications.value = false
 }
 
-function markAllRead() {
-    markAllNotificationsRead()
-    notifications.value = notifications.value.map((item) => ({ ...item, read: true }))
-    unreadCount.value = 0
+async function markAllRead() {
+    try {
+        await markAllNotificationsRead()
+        dbNotifications.value = dbNotifications.value.map((item) => ({
+            ...item,
+            isRead: true,
+        }))
+        unreadCount.value = 0
+    } catch {}
 }
 
-function handleNotificationClick(notification) {
-    if (!notification.read) {
-        markNotificationRead(notification.id)
-        notification.read = true
-        unreadCount.value = Math.max(0, unreadCount.value - 1)
+async function handleItemClick(item) {
+    if (item.source === 'security-alert') {
+        await openItem(item)
+        return
     }
-    if (notification.actionUrl) {
-        router.push(notification.actionUrl)
+
+    if (!item.read) {
+        try {
+            await markNotificationRead(item.id)
+            const target = dbNotifications.value.find((entry) => entry.id === item.id)
+            if (target) {
+                target.isRead = true
+            }
+            unreadCount.value = Math.max(0, unreadCount.value - 1)
+        } catch {}
+    }
+
+    await openItem(item)
+}
+
+async function openItem(item) {
+    if (item.actionUrl) {
+        await router.push(item.actionUrl)
     }
     showNotifications.value = false
+}
+
+async function acknowledgeItem(item) {
+    const key = `${item.source}-${item.id}`
+    ackLoading.value = {
+        ...ackLoading.value,
+        [key]: true,
+    }
+
+    try {
+        if (item.ackKind === 'alarm') {
+            await socApi.acknowledgeAlarm(item.referenceId)
+        } else if (item.ackKind === 'duress') {
+            await enterpriseApi.acknowledgeDuressEvent(item.referenceId)
+        }
+
+        await refreshSecurityAlerts()
+    } finally {
+        ackLoading.value = {
+            ...ackLoading.value,
+            [key]: false,
+        }
+    }
 }
 
 async function handleLogout() {
@@ -406,40 +701,114 @@ function handleDocumentClick(event) {
 }
 
 let timer = null
+let removeNotificationSubscription = null
+let removeUnreadSubscription = null
+let audioContext = null
+let alarmTimer = null
+
+async function unlockAudio() {
+    if (typeof window === 'undefined') return
+
+    if (!audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext
+        if (!AudioContextClass) return
+        audioContext = new AudioContextClass()
+    }
+
+    if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+    }
+
+    audioUnlocked.value = audioContext.state === 'running'
+}
+
+function playCriticalPulse() {
+    if (!audioContext || audioContext.state !== 'running') {
+        return
+    }
+
+    const startAt = audioContext.currentTime + 0.01
+    const gainNode = audioContext.createGain()
+    gainNode.gain.value = 0
+    gainNode.connect(audioContext.destination)
+
+    ;[
+        { at: 0, frequency: 880, duration: 0.18, volume: 0.12 },
+        { at: 0.26, frequency: 660, duration: 0.18, volume: 0.1 },
+    ].forEach((tone) => {
+        const oscillator = audioContext.createOscillator()
+        oscillator.type = 'square'
+        oscillator.frequency.setValueAtTime(tone.frequency, startAt + tone.at)
+        oscillator.connect(gainNode)
+
+        gainNode.gain.setValueAtTime(0.0001, startAt + tone.at)
+        gainNode.gain.exponentialRampToValueAtTime(tone.volume, startAt + tone.at + 0.02)
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + tone.at + tone.duration)
+
+        oscillator.start(startAt + tone.at)
+        oscillator.stop(startAt + tone.at + tone.duration)
+    })
+}
+
+function stopCriticalAlarm() {
+    if (alarmTimer) {
+        window.clearInterval(alarmTimer)
+        alarmTimer = null
+    }
+}
+
+function syncCriticalAlarm() {
+    const hasCriticalSecurityAlert = normalizedSecurityAlerts.value.some(
+        (item) => item.isActive && item.severity === 'critical'
+    )
+
+    if (!hasCriticalSecurityAlert || !audioUnlocked.value) {
+        stopCriticalAlarm()
+        return
+    }
+
+    if (alarmTimer) {
+        return
+    }
+
+    playCriticalPulse()
+    alarmTimer = window.setInterval(playCriticalPulse, 2400)
+}
 
 onMounted(async () => {
     updateTime()
-    timer = setInterval(updateTime, 1000)
+    timer = window.setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
-    await loadNotifications()
-    await loadUnreadCount()
+    document.addEventListener('pointerdown', unlockAudio, { passive: true })
+    document.addEventListener('keydown', unlockAudio)
+
+    await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts()])
+
     try {
         const token = sessionStorage.getItem('v_shield_token') || localStorage.getItem('v_shield_token')
         if (token) {
             await connectNotificationHub(token)
-            onNotification((n) => {
-                notifications.value.unshift({
-                    id: n.id,
-                    message: n.body ? (n.title + ': ' + n.body) : n.title,
-                    time: formatTimeAgo(n.createdAt),
-                    type: mapEventType(n.category),
-                    read: false,
-                    actionUrl: n.actionUrl,
-                    latitude: n.latitude,
-                    longitude: n.longitude,
-                    locationLabel: n.locationLabel,
-                    referenceId: n.referenceId,
-                    referenceType: n.referenceType,
-                })
-                unreadCount.value++
+            removeNotificationSubscription = onNotification((notification) => {
+                dbNotifications.value = [notification, ...dbNotifications.value].slice(0, 100)
+                unreadCount.value += 1
+            })
+            removeUnreadSubscription = onUnreadCountChanged((count) => {
+                unreadCount.value = Number(count) || 0
             })
         }
-    } catch (_) {}
+    } catch {}
 })
 
 onUnmounted(() => {
-    clearInterval(timer)
+    if (timer) {
+        window.clearInterval(timer)
+    }
     document.removeEventListener('click', handleDocumentClick)
+    document.removeEventListener('pointerdown', unlockAudio)
+    document.removeEventListener('keydown', unlockAudio)
+    removeNotificationSubscription?.()
+    removeUnreadSubscription?.()
+    stopCriticalAlarm()
     disconnectNotificationHub()
 })
 
@@ -447,6 +816,30 @@ watch(
     () => route.fullPath,
     () => {
         closeDropdowns()
+    }
+)
+
+watch(
+    () => unreadCount.value,
+    (count) => {
+        if (count !== unreadNotificationCount.value) {
+            unreadCount.value = unreadNotificationCount.value
+        }
+    }
+)
+
+watch(
+    () => normalizedSecurityAlerts.value.map((item) => `${item.id}-${item.severity}-${item.isActive}`).join('|'),
+    () => {
+        syncCriticalAlarm()
+    },
+    { immediate: true }
+)
+
+watch(
+    () => audioUnlocked.value,
+    () => {
+        syncCriticalAlarm()
     }
 )
 </script>
@@ -561,10 +954,38 @@ watch(
 }
 
 .status-chip {
+    font-weight: 700;
+}
+
+.status-chip.status-neutral,
+.status-chip.status-info {
+    color: var(--accent-primary);
+    border-color: rgba(15, 124, 130, 0.18);
+    background: rgba(15, 124, 130, 0.08);
+}
+
+.status-chip.status-success {
     color: var(--accent-success);
     border-color: rgba(20, 134, 109, 0.16);
     background: rgba(20, 134, 109, 0.08);
-    font-weight: 700;
+}
+
+.status-chip.status-caution {
+    color: #af7a13;
+    border-color: rgba(234, 185, 52, 0.24);
+    background: rgba(234, 185, 52, 0.12);
+}
+
+.status-chip.status-warning {
+    color: #c56d1f;
+    border-color: rgba(221, 136, 39, 0.26);
+    background: rgba(221, 136, 39, 0.12);
+}
+
+.status-chip.status-critical {
+    color: #c43131;
+    border-color: rgba(196, 49, 49, 0.24);
+    background: rgba(196, 49, 49, 0.12);
 }
 
 .chip-dot {
@@ -610,19 +1031,53 @@ watch(
     border: 1px solid var(--border-color);
     background: rgba(255, 255, 255, 0.78);
     color: var(--text-secondary);
-    transition: border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+    transition: border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .header-action:hover {
     transform: translateY(-1px);
     border-color: var(--border-color-hover);
-    color: var(--accent-primary);
     background: rgba(255, 255, 255, 0.96);
 }
 
 .header-action svg {
     width: 20px;
     height: 20px;
+}
+
+.notification-trigger.severity-neutral {
+    color: var(--text-secondary);
+}
+
+.notification-trigger.severity-success {
+    color: var(--accent-success);
+    border-color: rgba(20, 134, 109, 0.22);
+    background: rgba(20, 134, 109, 0.08);
+}
+
+.notification-trigger.severity-info {
+    color: var(--accent-primary);
+    border-color: rgba(15, 124, 130, 0.22);
+    background: rgba(15, 124, 130, 0.08);
+}
+
+.notification-trigger.severity-caution {
+    color: #af7a13;
+    border-color: rgba(234, 185, 52, 0.24);
+    background: rgba(234, 185, 52, 0.12);
+}
+
+.notification-trigger.severity-warning {
+    color: #c56d1f;
+    border-color: rgba(221, 136, 39, 0.24);
+    background: rgba(221, 136, 39, 0.12);
+}
+
+.notification-trigger.severity-critical {
+    color: #c43131;
+    border-color: rgba(196, 49, 49, 0.32);
+    background: rgba(196, 49, 49, 0.12);
+    box-shadow: 0 12px 28px rgba(196, 49, 49, 0.18);
 }
 
 .notification-count {
@@ -724,6 +1179,10 @@ watch(
     right: 72px;
 }
 
+.notification-dropdown.expanded {
+    width: min(680px, calc(100vw - 36px));
+}
+
 .dropdown-header {
     display: flex;
     align-items: center;
@@ -746,12 +1205,63 @@ watch(
     margin-top: 4px;
     color: var(--text-muted);
     font-size: 0.76rem;
+    line-height: 1.45;
 }
 
 .btn-link {
     color: var(--accent-primary);
     font-size: 0.78rem;
     font-weight: 700;
+}
+
+.notification-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 20px 0;
+}
+
+.legend-item,
+.severity-pill,
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.legend-success,
+.severity-pill.severity-success {
+    color: var(--accent-success);
+    background: rgba(20, 134, 109, 0.12);
+}
+
+.legend-info,
+.severity-pill.severity-info {
+    color: var(--accent-primary);
+    background: rgba(15, 124, 130, 0.1);
+}
+
+.legend-caution,
+.severity-pill.severity-caution {
+    color: #af7a13;
+    background: rgba(234, 185, 52, 0.16);
+}
+
+.legend-warning,
+.severity-pill.severity-warning {
+    color: #c56d1f;
+    background: rgba(221, 136, 39, 0.14);
+}
+
+.legend-critical,
+.severity-pill.severity-critical {
+    color: #c43131;
+    background: rgba(196, 49, 49, 0.14);
 }
 
 .dropdown-user-info {
@@ -816,35 +1326,74 @@ watch(
 }
 
 .notification-list {
-    max-height: 360px;
+    max-height: min(68vh, 640px);
     overflow-y: auto;
-    padding: 10px;
+    padding: 14px;
 }
 
 .notification-item {
+    position: relative;
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 12px;
-    border-radius: 16px;
-    transition: background var(--transition-fast);
+    gap: 14px;
+    padding: 16px 16px 16px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: rgba(255, 255, 255, 0.88);
+    transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+    cursor: pointer;
 }
 
 .notification-item + .notification-item {
-    margin-top: 6px;
+    margin-top: 10px;
 }
 
 .notification-item:hover {
-    background: rgba(236, 244, 246, 0.74);
+    transform: translateY(-1px);
+    background: rgba(240, 248, 250, 0.92);
 }
 
 .notification-item.unread {
-    background: rgba(84, 196, 211, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(84, 196, 211, 0.08);
+}
+
+.notification-item.active {
+    border-color: rgba(24, 49, 77, 0.12);
+}
+
+.notification-rail {
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
+    border-radius: 999px;
+    background: rgba(15, 124, 130, 0.18);
+}
+
+.notification-item.severity-success .notification-rail {
+    background: rgba(20, 134, 109, 0.65);
+}
+
+.notification-item.severity-info .notification-rail {
+    background: rgba(15, 124, 130, 0.58);
+}
+
+.notification-item.severity-caution .notification-rail {
+    background: rgba(234, 185, 52, 0.78);
+}
+
+.notification-item.severity-warning .notification-rail {
+    background: rgba(221, 136, 39, 0.82);
+}
+
+.notification-item.severity-critical .notification-rail {
+    background: rgba(196, 49, 49, 0.92);
 }
 
 .notification-icon {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     border-radius: 14px;
     flex-shrink: 0;
     display: flex;
@@ -852,19 +1401,29 @@ watch(
     justify-content: center;
 }
 
-.notification-icon.success {
-    background: rgba(20, 134, 109, 0.12);
+.notification-icon.severity-success {
     color: var(--accent-success);
+    background: rgba(20, 134, 109, 0.12);
 }
 
-.notification-icon.warning {
-    background: rgba(184, 111, 33, 0.12);
-    color: var(--accent-warning);
-}
-
-.notification-icon.info {
-    background: rgba(15, 124, 130, 0.1);
+.notification-icon.severity-info {
     color: var(--accent-primary);
+    background: rgba(15, 124, 130, 0.1);
+}
+
+.notification-icon.severity-caution {
+    color: #af7a13;
+    background: rgba(234, 185, 52, 0.16);
+}
+
+.notification-icon.severity-warning {
+    color: #c56d1f;
+    background: rgba(221, 136, 39, 0.14);
+}
+
+.notification-icon.severity-critical {
+    color: #c43131;
+    background: rgba(196, 49, 49, 0.14);
 }
 
 .notification-icon svg {
@@ -872,41 +1431,110 @@ watch(
     height: 18px;
 }
 
-.notification-content p {
+.notification-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.notification-topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.notification-title {
     color: var(--text-primary);
-    font-size: 0.88rem;
-    line-height: 1.45;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.notification-message {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
 }
 
 .notification-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    margin-top: 6px;
+    gap: 8px;
+    margin-top: 10px;
 }
 
-.notification-time {
+.meta-badge {
+    color: var(--text-primary);
+    background: rgba(24, 49, 77, 0.08);
+}
+
+.meta-text,
+.meta-time {
     color: var(--text-muted);
     font-size: 0.76rem;
 }
 
-.notif-map-link {
-    display: inline-flex;
+.notification-actions {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    border: 1px solid var(--border-soft);
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: all 0.15s;
+    gap: 10px;
+    margin-top: 14px;
 }
 
-.notif-map-link:hover {
-    background: rgba(71, 163, 212, 0.12);
-    color: #8cd4ff;
-    border-color: #8cd4ff;
+.action-button {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(24, 49, 77, 0.12);
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.action-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(15, 124, 130, 0.2);
+    background: rgba(240, 248, 250, 0.96);
+}
+
+.action-button.primary {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, #c43131, #e26a3f);
+    box-shadow: 0 12px 24px rgba(196, 49, 49, 0.2);
+}
+
+.action-button:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.action-hint {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.notification-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 220px;
+    padding: 24px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.notification-empty strong {
+    color: var(--text-primary);
+    font-family: var(--font-heading);
 }
 
 .dropdown-enter-active,
@@ -966,10 +1594,39 @@ watch(
         display: none;
     }
 
-    .notification-dropdown {
+    .notification-dropdown,
+    .notification-dropdown.expanded {
         right: 0;
+        width: min(100vw - 24px, 540px);
+    }
+
+    .notification-topline {
+        flex-direction: column;
+    }
+
+    .severity-pill {
+        align-self: flex-start;
+    }
+}
+
+@media (max-width: 560px) {
+    .notification-list {
+        max-height: min(72vh, 560px);
+        padding: 12px;
+    }
+
+    .notification-item {
+        padding: 14px 14px 14px 16px;
+    }
+
+    .notification-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .action-button {
+        width: 100%;
+        justify-content: center;
     }
 }
 </style>
-
-

@@ -1,10 +1,10 @@
-<template>
+﻿<template>
     <div class="page-container animate-in">
         <!-- Minimalist Header -->
         <header class="page-header bento-header">
             <div class="greeting">
-                <h1 class="page-title">Quản lý Tài khoản</h1>
-                <p class="page-subtitle">Thêm, sửa, xóa phân quyền tài khoản người dùng hệ thống</p>
+                <h1 class="page-title">Quản lý tài khoản</h1>
+                <p class="page-subtitle">Thêm, sửa, xóa và phân quyền tài khoản người dùng hệ thống</p>
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary" @click="openCreateModal">
@@ -44,33 +44,6 @@
                 <div class="stat-details">
                     <div class="stat-val red">{{ inactiveCount }}</div>
                     <div class="stat-lbl">Đã vô hiệu hóa</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bento-card role-access-section">
-            <div class="section-head">
-                <div>
-                    <h2 class="section-title">Quyền Mặc Định Theo Vai Trò</h2>
-                    <p class="section-subtitle">Xem nhanh mỗi vai trò mặc định được vào những trang nào. Phần cá nhân hóa sẽ được chỉnh riêng ở từng tài khoản.</p>
-                </div>
-                <router-link class="btn btn-secondary role-link-btn" to="/role-permissions">
-                    Mở view quyền vai trò
-                </router-link>
-            </div>
-            <div class="role-access-grid">
-                <div v-for="card in roleAccessCards" :key="card.role" class="role-access-card">
-                    <div class="role-access-top">
-                        <span class="badge-role" :class="getRoleBadgeClass(card.role)">{{ card.label }}</span>
-                        <span class="text-muted">{{ card.tasks.length }} quyền trang</span>
-                    </div>
-                    <div v-if="card.tasks.length === 0" class="empty-mini">Chưa có trang mặc định.</div>
-                    <div v-else class="role-access-list">
-                        <div v-for="task in card.tasks" :key="task.taskKey" class="role-access-item">
-                            <strong>{{ task.label }}</strong>
-                            <span class="text-muted">{{ task.routes.join(', ') }}</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -136,7 +109,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <td><span class="text-primary" style="font-weight: 500;">{{ user.fullName || '—' }}</span></td>
+                            <td><span class="text-primary" style="font-weight: 500;">{{ user.fullName || '-' }}</span></td>
                             <td>
                                 <span class="badge-role" :class="getRoleBadgeClass(user.role)">
                                     {{ getRoleLabel(user.role) }}
@@ -151,7 +124,7 @@
                             <td class="text-muted" style="font-size: 0.85rem;">{{ formatDate(user.createdAt) }}</td>
                             <td class="text-right">
                                 <div class="action-menu">
-                                    <button class="icon-btn" title="Phạm vi công việc" @click="openScopeModal(user)">
+                                    <button class="icon-btn" title="Phân quyền thao tác" @click="openScopeModal(user)">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
                                     </button>
                                     <button class="icon-btn" title="Chỉnh sửa" @click="openEditModal(user)">
@@ -182,7 +155,7 @@
             <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
                 <div class="modern-modal" style="max-width: 500px;">
                     <div class="modal-top">
-                        <h3>{{ isEditing ? 'Cập nhật Tài khoản' : 'Thêm Tài khoản Mới' }}</h3>
+                        <h3>{{ isEditing ? 'Cập nhật tài khoản' : 'Thêm tài khoản mới' }}</h3>
                         <button class="icon-close" @click="closeModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
 
@@ -235,7 +208,7 @@
                                                     <div class="combo-opt-avatar" :style="{ background: getAvatarColor(getInitials(emp.fullName)) }">{{ getInitials(emp.fullName) }}</div>
                                                     <div class="combo-opt-info">
                                                         <span class="combo-opt-name">{{ emp.fullName }}</span>
-                                                        <span class="combo-opt-detail">{{ emp.departmentName || 'Chưa xếp phòng' }} · {{ emp.phone || 'N/A' }}</span>
+                                                        <span class="combo-opt-detail">{{ emp.departmentName || 'Chưa xếp phòng' }} - {{ emp.phone || 'N/A' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
@@ -312,108 +285,151 @@
 
         <transition name="modal">
             <div v-if="showScopeModal" class="modal-backdrop" @click.self="closeScopeModal">
-                <div class="modern-modal" style="max-width: 980px;">
+                <div class="modern-modal scope-modal-shell">
                     <div class="modal-top">
-                        <h3>Phạm vi công việc: {{ scopeTarget?.fullName || scopeTarget?.username }}</h3>
+                        <h3>Phân quyền thao tác: {{ scopeTarget?.fullName || scopeTarget?.username }}</h3>
                         <button class="icon-close" @click="closeScopeModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
-                    <div class="modal-body">
-                        <p class="scope-note">Vai trò là bộ quyền gốc của tài khoản. Khối ghi đè bên dưới dùng để cộng thêm hoặc rút bớt từng trang riêng cho người này, còn phạm vi chi tiết dùng để giới hạn theo site, cổng, làn hoặc khu vực khi cần.</p>
+                    <div class="modal-body scope-modal-body">
+                        <p class="scope-note">
+                            Vai trò là quyền gốc của tài khoản. Bạn có thể mở rộng, chặn riêng từng chức năng,
+                            hoặc giới hạn theo site, cổng, làn, khu vực ở phần bên dưới.
+                        </p>
                         <div v-if="scopeError" class="error-box"><span>{{ scopeError }}</span></div>
                         <div v-if="scopeLoading" class="empty-layout" style="padding: 28px;">
                             <div class="spinner-lg"></div>
-                            <p>Đang tải phạm vi công việc...</p>
+                            <p>Đang tải thiết lập quyền...</p>
                         </div>
                         <template v-else>
                             <div class="scope-toolbar">
                                 <div class="scope-summary">
                                     <span class="badge-role" :class="getRoleBadgeClass(scopeTarget?.role)">{{ getRoleLabel(scopeTarget?.role) }}</span>
-                                    <span class="text-muted">{{ scopeItems.length }} dòng phạm vi</span>
-                                </div>
-                                <button class="btn btn-secondary" @click="addScopeRow">Thêm dòng</button>
-                            </div>
-
-                            <div class="scope-block">
-                                <h4 class="scope-block-title">Ghi Đè Quyền Truy Cập Cá Nhân</h4>
-                                <div class="scope-table-wrap">
-                                    <table class="sleek-table scope-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Trang / chức năng</th>
-                                                <th>Quyền mặc định</th>
-                                                <th>Thiết lập riêng</th>
-                                                <th>Route</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="item in permissionOverrides" :key="item.taskKey">
-                                                <td><strong>{{ item.label }}</strong></td>
-                                                <td>
-                                                    <span class="status-pill minimal" :class="item.defaultAllowed ? 'active' : 'inactive'">
-                                                        <span class="pill-dot"></span>
-                                                        {{ item.defaultAllowed ? 'Được vào theo vai trò' : 'Không có theo vai trò' }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <select v-model="item.accessMode" class="sleek-select">
-                                                        <option value="inherit">Kế thừa vai trò</option>
-                                                        <option value="allow">Cho phép thêm</option>
-                                                        <option value="deny">Chặn riêng tài khoản</option>
-                                                    </select>
-                                                </td>
-                                                <td class="text-muted">{{ item.routes.join(', ') || '—' }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                    <span class="text-muted">{{ permissionOverrides.length }} chức năng</span>
+                                    <span class="text-muted">{{ scopeItems.length }} dòng giới hạn</span>
                                 </div>
                             </div>
 
-                            <div class="scope-block">
-                                <h4 class="scope-block-title">Phạm Vi Công Việc Chi Tiết</h4>
-                                <div class="scope-table-wrap">
-                                    <table class="sleek-table scope-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Tác vụ</th>
-                                                <th>Site</th>
-                                                <th>Cổng</th>
-                                                <th>Làn</th>
-                                                <th>Khu giới hạn</th>
-                                                <th>Quyền</th>
-                                                <th>Ghi chú</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-if="scopeItems.length === 0">
-                                                <td colspan="8" class="empty-layout" style="padding: 24px;">Chưa có dòng phạm vi nào.</td>
-                                            </tr>
-                                            <tr v-for="(scope, index) in scopeItems" :key="scope.localId">
-                                                <td>
-                                                    <select v-model="scope.taskKey" class="sleek-select">
-                                                        <option value="">Chọn tác vụ</option>
-                                                        <option v-for="task in scopeTaskOptions" :key="task.value" :value="task.value">{{ task.label }}</option>
-                                                    </select>
-                                                </td>
-                                                <td><select v-model="scope.siteId" class="sleek-select"><option value="">Tất cả</option><option v-for="site in scopeReference.sites" :key="site.siteId" :value="String(site.siteId)">{{ site.name }}</option></select></td>
-                                                <td><select v-model="scope.gateId" class="sleek-select"><option value="">Tất cả</option><option v-for="gate in scopeReference.gates" :key="gate.gateId" :value="String(gate.gateId)">{{ gate.name }}</option></select></td>
-                                                <td><select v-model="scope.laneId" class="sleek-select"><option value="">Tất cả</option><option v-for="lane in scopeReference.lanes" :key="lane.laneId" :value="String(lane.laneId)">{{ lane.name }}</option></select></td>
-                                                <td><select v-model="scope.securityZoneId" class="sleek-select"><option value="">Tất cả</option><option v-for="zone in scopeReference.zones" :key="zone.securityZoneId" :value="String(zone.securityZoneId)">{{ zone.name }}</option></select></td>
-                                                <td>
-                                                    <div class="scope-toggle-col">
-                                                        <label><input v-model="scope.canView" type="checkbox" /> Xem</label>
-                                                        <label><input v-model="scope.canManage" type="checkbox" /> Xử lý</label>
-                                                    </div>
-                                                </td>
-                                                <td><input v-model="scope.note" type="text" class="sleek-input" placeholder="Ghi chú phân công" /></td>
-                                                <td class="text-right">
-                                                    <button class="icon-btn action-reject" @click="removeScopeRow(index)">
-                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                            <div class="scope-block scope-card-block">
+                                <div class="scope-block-head">
+                                    <div>
+                                        <h4 class="scope-block-title">Quyền theo từng chức năng</h4>
+                                        <p class="scope-block-subtitle">Mỗi thẻ là một nhóm trang. Chọn cách áp dụng cho riêng tài khoản này.</p>
+                                    </div>
+                                </div>
+                                <div class="permission-card-grid">
+                                    <article v-for="item in permissionOverrides" :key="item.taskKey" class="permission-card">
+                                        <div class="permission-card-top">
+                                            <div>
+                                                <h5 class="permission-card-title">{{ item.label }}</h5>
+                                                <p class="permission-card-routes">{{ item.routes.join(', ') || 'Không có route' }}</p>
+                                            </div>
+                                            <span class="status-pill minimal" :class="item.defaultAllowed ? 'active' : 'inactive'">
+                                                <span class="pill-dot"></span>
+                                                {{ item.defaultAllowed ? 'Mặc định: được vào' : 'Mặc định: bị ẩn' }}
+                                            </span>
+                                        </div>
+                                        <div class="mode-switch">
+                                            <button
+                                                type="button"
+                                                class="mode-option"
+                                                :class="{ active: item.accessMode === 'inherit' }"
+                                                @click="item.accessMode = 'inherit'"
+                                            >
+                                                Theo vai trò
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="mode-option allow"
+                                                :class="{ active: item.accessMode === 'allow' }"
+                                                @click="item.accessMode = 'allow'"
+                                            >
+                                                Cho phép thêm
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="mode-option deny"
+                                                :class="{ active: item.accessMode === 'deny' }"
+                                                @click="item.accessMode = 'deny'"
+                                            >
+                                                Chặn riêng
+                                            </button>
+                                        </div>
+                                        <p class="permission-card-caption">{{ describeAccessMode(item.accessMode) }}</p>
+                                    </article>
+                                </div>
+                            </div>
+
+                            <div class="scope-block scope-card-block">
+                                <div class="scope-block-head">
+                                    <div>
+                                        <h4 class="scope-block-title">Giới hạn chi tiết</h4>
+                                        <p class="scope-block-subtitle">Chỉ dùng khi cần khóa phạm vi theo địa điểm cụ thể. Mỗi dòng là một luật riêng.</p>
+                                    </div>
+                                    <button class="btn btn-secondary" @click="addScopeRow">Thêm dòng</button>
+                                </div>
+                                <div v-if="scopeItems.length === 0" class="scope-empty">
+                                    Chưa có dòng giới hạn nào. Nếu không cần giới hạn theo site/cổng/làn/khu vực thì có thể để trống.
+                                </div>
+                                <div v-else class="scope-list">
+                                    <article v-for="(scope, index) in scopeItems" :key="scope.localId" class="scope-entry">
+                                        <div class="scope-entry-head">
+                                            <strong>Dòng {{ index + 1 }}</strong>
+                                            <button class="icon-btn action-reject" @click="removeScopeRow(index)">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            </button>
+                                        </div>
+                                        <div class="scope-entry-grid">
+                                            <label class="scope-field">
+                                                <span>Chức năng</span>
+                                                <select v-model="scope.taskKey" class="sleek-select">
+                                                    <option value="">Chọn chức năng</option>
+                                                    <option v-for="task in scopeTaskOptions" :key="task.value" :value="task.value">{{ task.label }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="scope-field">
+                                                <span>Site</span>
+                                                <select v-model="scope.siteId" class="sleek-select">
+                                                    <option value="">Tất cả</option>
+                                                    <option v-for="site in scopeReference.sites" :key="site.siteId" :value="String(site.siteId)">{{ site.name }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="scope-field">
+                                                <span>Cổng</span>
+                                                <select v-model="scope.gateId" class="sleek-select">
+                                                    <option value="">Tất cả</option>
+                                                    <option v-for="gate in scopeReference.gates" :key="gate.gateId" :value="String(gate.gateId)">{{ gate.name }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="scope-field">
+                                                <span>Làn</span>
+                                                <select v-model="scope.laneId" class="sleek-select">
+                                                    <option value="">Tất cả</option>
+                                                    <option v-for="lane in scopeReference.lanes" :key="lane.laneId" :value="String(lane.laneId)">{{ lane.name }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="scope-field">
+                                                <span>Khu vực</span>
+                                                <select v-model="scope.securityZoneId" class="sleek-select">
+                                                    <option value="">Tất cả</option>
+                                                    <option v-for="zone in scopeReference.zones" :key="zone.securityZoneId" :value="String(zone.securityZoneId)">{{ zone.name }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="scope-field scope-field-wide">
+                                                <span>Ghi chú</span>
+                                                <input v-model="scope.note" type="text" class="sleek-input" placeholder="Ví dụ: chỉ được xem dữ liệu site A" />
+                                            </label>
+                                        </div>
+                                        <div class="scope-permission-row">
+                                            <label class="scope-check">
+                                                <input v-model="scope.canView" type="checkbox" />
+                                                <span>Cho xem</span>
+                                            </label>
+                                            <label class="scope-check">
+                                                <input v-model="scope.canManage" type="checkbox" />
+                                                <span>Cho xử lý</span>
+                                            </label>
+                                        </div>
+                                    </article>
                                 </div>
                             </div>
 
@@ -421,7 +437,7 @@
                                 <button class="btn btn-secondary" @click="closeScopeModal">Đóng</button>
                                 <button class="btn btn-primary" :disabled="scopeSaving" @click="saveScopes">
                                     <span v-if="scopeSaving" class="spinner-sm"></span>
-                                    Lưu phạm vi
+                                    Lưu thiết lập
                                 </button>
                             </div>
                         </template>
@@ -569,49 +585,6 @@ const filteredUsers = computed(() => {
             (filterStatus.value === 'inactive' && !u.isActive)
         return matchSearch && matchRole && matchStatus
     })
-})
-
-const legacyScopeTaskOptions = computed(() => {
-    const role = scopeTarget.value?.role
-    const tasks = role ? scopeReference.tasksByRole?.[role] || [] : []
-    const labels = {
-        monitoring: 'Giám sát an ninh',
-        'gate-transit': 'Thông hành cổng/làn',
-        'qr-access': 'Quét QR vào cổng',
-        parking: 'Gửi xe/tra xe',
-        'restricted-zone': 'Khu vực giới hạn',
-        reception: 'Lễ tân/tiếp đón',
-        'guest-support': 'Hỗ trợ khách/hồ sơ khách',
-        'lost-found': 'Đồ thất lạc',
-        reports: 'Báo cáo',
-        approvals: 'Phê duyệt',
-        metadata: 'Metadata/danh mục'
-    }
-    return tasks.map(task => ({ value: task, label: labels[task] || task }))
-})
-
-const taskLabelMap = computed(() =>
-    Object.fromEntries((scopeReference.taskCatalog || []).map(task => [task.taskKey, task.label]))
-)
-
-const roleAccessCards = computed(() => {
-    const roleLabels = [
-        { role: 'Admin', label: 'Admin' },
-        { role: 'QuanLy', label: 'Quản lý' },
-        { role: 'BaoVe', label: 'Bảo vệ' },
-        { role: 'LeTan', label: 'Lễ tân' },
-        { role: 'NhanSu', label: 'Nhân sự' },
-        { role: 'NhanVien', label: 'Nhân viên' }
-    ]
-
-    return roleLabels.map(item => ({
-        ...item,
-        tasks: (scopeReference.tasksByRole?.[item.role] || []).map(taskKey => ({
-            taskKey,
-            label: taskLabelMap.value[taskKey] || taskKey,
-            routes: scopeReference.taskCatalog.find(task => task.taskKey === taskKey)?.routes || []
-        }))
-    }))
 })
 
 const scopeTaskOptions = computed(() =>
@@ -768,13 +741,21 @@ function mapScopeToUi(item = {}) {
 }
 
 function createPermissionOverride(task) {
+    const role = scopeTarget.value?.role
+    const defaultTaskKeys = role ? scopeReference.tasksByRole?.[role] || [] : []
     return {
         taskKey: task.taskKey,
         label: task.label,
-        defaultAllowed: (task.defaultRoles || []).includes(scopeTarget.value?.role),
+        defaultAllowed: defaultTaskKeys.includes(task.taskKey),
         accessMode: 'inherit',
         routes: task.routes || []
     }
+}
+
+function describeAccessMode(mode) {
+    if (mode === 'allow') return 'Tài khoản này sẽ được mở thêm quyền cho chức năng này.'
+    if (mode === 'deny') return 'Tài khoản này sẽ bị chặn riêng chức năng này.'
+    return 'Đang dùng quyền mặc định của vai trò.'
 }
 
 function addScopeRow() {
@@ -812,7 +793,7 @@ async function openScopeModal(user) {
             .filter(item => item.siteId || item.gateId || item.laneId || item.securityZoneId)
             .map(mapScopeToUi)
     } catch (err) {
-        scopeError.value = err.response?.data?.message || 'Không thể tải phạm vi công việc'
+        scopeError.value = err.response?.data?.message || 'Không thể tải thiết lập quyền'
         permissionOverrides.value = []
         scopeItems.value = []
     } finally {
@@ -865,7 +846,7 @@ async function saveScopes() {
         await fetchUsers()
         closeScopeModal()
     } catch (err) {
-        scopeError.value = err.response?.data?.message || 'Không thể lưu phạm vi công việc'
+        scopeError.value = err.response?.data?.message || 'Không thể lưu thiết lập quyền'
     } finally {
         scopeSaving.value = false
     }
@@ -877,7 +858,7 @@ function getRoleBadgeClass(role) {
 }
 
 function formatDate(dateStr) {
-    if (!dateStr) return '—'
+    if (!dateStr) return '-'
     return new Date(dateStr).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
@@ -914,17 +895,6 @@ onUnmounted(() => {
 .stat-val.red { color: var(--accent-danger); }
 .stat-lbl { font-size: 0.9rem; color: var(--text-muted); font-weight: 500;}
 
-.role-access-section { margin-bottom: 24px; }
-.section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
-.role-link-btn { white-space: nowrap; }
-.section-title { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
-.section-subtitle { margin: 6px 0 0; color: var(--text-secondary); font-size: 0.92rem; }
-.role-access-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.role-access-card { border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; background: rgba(255,255,255,0.02); }
-.role-access-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
-.role-access-list { display: flex; flex-direction: column; gap: 10px; }
-.role-access-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--bg-input); }
-.empty-mini { color: var(--text-muted); font-size: 0.9rem; padding: 10px 0; }
 
 /* Table Box */
 .table-section { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 500px; }
@@ -1000,15 +970,39 @@ onUnmounted(() => {
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
 .modal-actions.centered { justify-content: center; }
 .warning-icon svg { width: 48px; height: 48px; color: var(--accent-danger); margin-bottom: 16px; }
-.scope-note { color: var(--text-secondary); margin: 0 0 16px; }
-.scope-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
-.scope-summary { display: flex; align-items: center; gap: 10px; }
+.scope-modal-shell { max-width: 1120px; max-height: min(90vh, 920px); }
+.scope-modal-body { overflow-y: auto; }
+.scope-note { color: var(--text-secondary); margin: 0 0 16px; line-height: 1.65; }
+.scope-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+.scope-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .scope-block { margin-bottom: 18px; }
-.scope-block-title { margin: 0 0 10px; color: var(--text-primary); font-size: 1rem; }
-.scope-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 12px; }
-.scope-table th, .scope-table td { padding: 12px 14px; }
-.scope-toggle-col { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-secondary); }
-.scope-toggle-col input { margin-right: 6px; }
+.scope-card-block { border: 1px solid var(--border-color); border-radius: 18px; padding: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04)); }
+.scope-block-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+.scope-block-title { margin: 0; color: var(--text-primary); font-size: 1rem; }
+.scope-block-subtitle { margin: 6px 0 0; color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+.permission-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.permission-card { border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; background: var(--bg-card); display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.permission-card-top { display: flex; flex-direction: column; gap: 10px; }
+.permission-card-title { margin: 0; font-size: 0.98rem; color: var(--text-primary); }
+.permission-card-routes { margin: 6px 0 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; word-break: break-word; }
+.permission-card-caption { margin: 0; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.45; }
+.mode-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mode-option { border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-secondary); border-radius: 12px; padding: 10px 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.18s ease; }
+.mode-option:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+.mode-option.active { background: rgba(16, 121, 196, 0.14); border-color: rgba(16, 121, 196, 0.34); color: var(--accent-primary); }
+.mode-option.allow.active { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.28); color: var(--accent-success); }
+.mode-option.deny.active { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.24); color: var(--accent-danger); }
+.scope-empty { border: 1px dashed var(--border-color); border-radius: 14px; padding: 20px; color: var(--text-muted); text-align: center; line-height: 1.6; }
+.scope-list { display: flex; flex-direction: column; gap: 14px; }
+.scope-entry { border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; background: var(--bg-card); }
+.scope-entry-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.scope-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.scope-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.scope-field span { color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; }
+.scope-field-wide { grid-column: 1 / -1; }
+.scope-permission-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+.scope-check { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.9rem; }
+.scope-check input { width: 16px; height: 16px; accent-color: var(--accent-primary); }
 
 .text-right { text-align: right; }
 .text-center { text-align: center; }
@@ -1057,5 +1051,9 @@ onUnmounted(() => {
     .grid-2 { grid-template-columns: 1fr; }
     .table-toolbar { flex-direction: column; gap: 16px; align-items: stretch;}
     .search-box { width: 100%; }
+    .scope-block-head { flex-direction: column; }
+    .scope-entry-grid { grid-template-columns: 1fr; }
+    .mode-switch { grid-template-columns: 1fr; }
 }
 </style>
+

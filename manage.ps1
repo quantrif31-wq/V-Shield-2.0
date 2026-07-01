@@ -12,8 +12,8 @@ $logsDir = Join-Path $root '.runtime\logs'
 $pidsDir = Join-Path $root '.runtime\pids'
 
 $services = @(
-  @{ Name = 'api';  WorkDir = $apiDir; Command = 'cmd.exe'; Args = '/c set ASPNETCORE_ENVIRONMENT=Development&& set DOTNET_ENVIRONMENT=Development&& dotnet run --no-launch-profile --urls http://0.0.0.0:5107'; Health = 'http://127.0.0.1:5107/health'; Port = 5107 },
-  @{ Name = 'view'; WorkDir = $viewDir; Command = 'cmd.exe'; Args = '/c set VITE_API_BASE_URL=http://127.0.0.1:5107/api&& set VITE_DEV_PROXY_TARGET=http://127.0.0.1:5107&& npm run dev -- --host 0.0.0.0 --port 5173 --strictPort'; Health = 'http://127.0.0.1:5173/'; Port = 5173 }
+  @{ Name = 'api';  WorkDir = $apiDir; Command = 'cmd.exe'; Args = '/c set ASPNETCORE_ENVIRONMENT=Development&& set DOTNET_ENVIRONMENT=Development&& dotnet run --no-launch-profile --urls http://0.0.0.0:5108'; Health = 'http://127.0.0.1:5108/health'; Port = 5108 },
+  @{ Name = 'view'; WorkDir = $viewDir; Command = 'cmd.exe'; Args = '/c set VITE_API_BASE_URL=http://127.0.0.1:5108/api&& set VITE_DEV_PROXY_TARGET=http://127.0.0.1:5108&& npm run dev -- --host 0.0.0.0 --port 5174 --strictPort'; Health = 'http://127.0.0.1:5174/'; Port = 5174 }
 )
 
 function Ensure-Dir([string]$path) {
@@ -145,18 +145,18 @@ function Resolve-ServicePort($svc) {
     throw "Cong $($svc.Port) dang bi ung dung khac su dung. Hay dong ung dung do roi chay lai."
   }
 
-  foreach ($candidate in 5174, 5175) {
+  foreach ($candidate in 5175, 5176) {
     $candidatePid = Get-ListeningProcessId -port $candidate
     if (-not $candidatePid -or (Test-ServiceProcessOwnership -svc $svc -processId $candidatePid)) {
       Write-WarnMsg "Cong $($svc.Port) dang bi ung dung khac su dung. V-Shield se dung cong $candidate."
       $svc.Port = $candidate
       $svc.Health = "http://127.0.0.1:$candidate/"
-      $svc.Args = "/c set VITE_API_BASE_URL=http://127.0.0.1:5107/api&& set VITE_DEV_PROXY_TARGET=http://127.0.0.1:5107&& npm run dev -- --host 0.0.0.0 --port $candidate --strictPort"
+      $svc.Args = "/c set VITE_API_BASE_URL=http://127.0.0.1:5108/api&& set VITE_DEV_PROXY_TARGET=http://127.0.0.1:5108&& npm run dev -- --host 0.0.0.0 --port $candidate --strictPort"
       return
     }
   }
 
-  throw 'Khong con cong frontend du phong 5174/5175. Hay dong mot ung dung dang chiem cac cong nay.'
+  throw 'Khong con cong frontend du phong 5175/5176. Hay dong mot ung dung dang chiem cac cong nay.'
 }
 
 function Save-PortPidIfRunning($svc) {

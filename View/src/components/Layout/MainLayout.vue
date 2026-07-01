@@ -33,8 +33,6 @@
                 :is-mobile="isMobile"
                 @toggle-sidebar="handleSidebarToggle"
             />
-            <GlobalEmergencyBanner />
-
             <main class="main-content">
                 <div class="content-shell">
                     <router-view v-slot="{ Component, route }">
@@ -55,7 +53,6 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
 import AIChatBot from '../AIChatBot.vue'
-import GlobalEmergencyBanner from '../shared/GlobalEmergencyBanner.vue'
 import { startSecurityAlertPolling, stopSecurityAlertPolling } from '../../services/securityAlertBus'
 
 const isMobile = ref(false)

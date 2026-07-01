@@ -53,10 +53,12 @@ public class NotificationService : INotificationService
 
             var category = eventType.StartsWith("Alarm.") ? "Alarm"
                 : eventType.StartsWith("Approval.") ? "Approval" : "System";
+            var severity = ResolveSeverity(eventType, category, title);
 
             var notifications = userIds.Select(uid => new Notification
             {
                 RecipientUserId = uid, Title = title, Body = body, Category = category ?? "System",
+                Severity = severity,
                 ReferenceType = referenceType, ReferenceId = referenceId, ActionUrl = actionUrl,
                 Latitude = latitude, Longitude = longitude, LocationLabel = locationLabel,
                 CreatedAt = DateTime.UtcNow
@@ -71,6 +73,7 @@ public class NotificationService : INotificationService
                     .SendAsync("NewNotification", new
                     {
                         notif.Id, notif.Title, notif.Body, notif.Category,
+                        notif.Severity,
                         notif.ReferenceType, notif.ReferenceId, notif.ActionUrl,
                         notif.Latitude, notif.Longitude, notif.LocationLabel,
                         notif.CreatedAt, notif.IsRead
@@ -94,6 +97,7 @@ public class NotificationService : INotificationService
             var notifications = userIds.Select(uid => new Notification
             {
                 RecipientUserId = uid, Title = title, Body = body, Category = category ?? "System",
+                Severity = ResolveSeverity(null, category, title),
                 ReferenceType = referenceType, ReferenceId = referenceId, ActionUrl = actionUrl,
                 Latitude = latitude, Longitude = longitude, LocationLabel = locationLabel,
                 CreatedAt = DateTime.UtcNow
@@ -108,6 +112,7 @@ public class NotificationService : INotificationService
                     .SendAsync("NewNotification", new
                     {
                         notif.Id, notif.Title, notif.Body, notif.Category,
+                        notif.Severity,
                         notif.ReferenceType, notif.ReferenceId, notif.ActionUrl,
                         notif.Latitude, notif.Longitude, notif.LocationLabel,
                         notif.CreatedAt, notif.IsRead
@@ -158,5 +163,42 @@ public class NotificationService : INotificationService
         {
             _logger.LogError(ex, "Failed to notify all users");
         }
+    }
+
+    private static string ResolveSeverity(string? eventType, string? category, string? title)
+    {
+        if (!string.IsNullOrWhiteSpace(eventType))
+        {
+            if (eventType.StartsWith("Chat.", StringComparison.OrdinalIgnoreCase))
+                return "success";
+            if (string.Equals(eventType, "Alarm.Duress", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(eventType, "Alarm.EmergencyPass", StringComparison.OrdinalIgnoreCase))
+                return "critical";
+            if (eventType.StartsWith("Alarm.", StringComparison.OrdinalIgnoreCase))
+                return "warning";
+            if (eventType.StartsWith("Approval.", StringComparison.OrdinalIgnoreCase))
+                return "caution";
+        }
+
+        if (string.Equals(category, "Alarm", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(title) &&
+                (title.Contains("khẩn cấp", StringComparison.OrdinalIgnoreCase) ||
+                 title.Contains("uy hiếp", StringComparison.OrdinalIgnoreCase) ||
+                 title.Contains("đột nhập", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "critical";
+            }
+
+            return "warning";
+        }
+
+        if (string.Equals(category, "Approval", StringComparison.OrdinalIgnoreCase))
+            return "caution";
+
+        if (string.Equals(category, "Chat", StringComparison.OrdinalIgnoreCase))
+            return "success";
+
+        return "info";
     }
 }

@@ -43,6 +43,7 @@ public class NotificationsController : ControllerBase
                 n.Title,
                 n.Body,
                 n.Category,
+                n.Severity,
                 n.ReferenceType,
                 n.ReferenceId,
                 n.ActionUrl,

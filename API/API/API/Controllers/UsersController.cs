@@ -16,15 +16,7 @@ namespace API.Controllers;
 [RequireOperationalTask(UserOperationalScopeService.TaskUserAdministration)]
 public class UsersController : ControllerBase
 {
-    private static readonly HashSet<string> SupportedRoles = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Admin",
-        "QuanLy",
-        "BaoVe",
-        "LeTan",
-        "NhanVien",
-        "NhanSu"
-    };
+    private static readonly HashSet<string> SupportedRoles = new(UserOperationalScopeService.SupportedRoles, StringComparer.OrdinalIgnoreCase);
 
     private readonly ApplicationDbContext _context;
     private readonly Services.IAuthenticationService _authService;
@@ -220,6 +212,7 @@ public class UsersController : ControllerBase
     [HttpGet("scope-reference")]
     public async Task<IActionResult> GetOperationalScopeReference()
     {
+        var tasksByRole = await _scopeService.GetTasksByRoleAsync();
         var sites = await _context.Sites
             .AsNoTracking()
             .Where(item => item.IsActive)
@@ -249,7 +242,7 @@ public class UsersController : ControllerBase
 
         return Ok(new
         {
-            tasksByRole = UserOperationalScopeService.TasksByRole,
+            tasksByRole,
             taskCatalog = UserOperationalScopeService.TaskCatalog.Select(item => new
             {
                 item.TaskKey,
@@ -261,6 +254,38 @@ public class UsersController : ControllerBase
             gates,
             lanes,
             zones
+        });
+    }
+
+    [HttpPut("role-permissions")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
+    public async Task<IActionResult> ReplaceRolePermissions([FromBody] List<RoleTaskPermissionUpsertRequest>? request)
+    {
+        request ??= [];
+
+        var currentUserIdClaim = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        var currentUserId = int.TryParse(currentUserIdClaim, out var parsedUserId) ? parsedUserId : (int?)null;
+
+        try
+        {
+            await _scopeService.ReplaceRolePermissionsAsync(
+                request.Select(item => new UserOperationalScopeService.RoleTaskPermissionAssignment(
+                    item.Role,
+                    item.TaskKey,
+                    item.IsAllowed)).ToList(),
+                currentUserId);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+
+        return Ok(new
+        {
+            message = request.Count == 0
+                ? "Da khoi phuc ma tran quyen mac dinh theo vai tro."
+                : "Da cap nhat ma tran quyen theo vai tro.",
+            count = request.Count
         });
     }
 
@@ -378,6 +403,13 @@ public class UsersController : ControllerBase
         public DateTime? ValidFromUtc { get; set; }
         public DateTime? ValidToUtc { get; set; }
         public string? Note { get; set; }
+    }
+
+    public sealed class RoleTaskPermissionUpsertRequest
+    {
+        public string Role { get; set; } = string.Empty;
+        public string TaskKey { get; set; } = string.Empty;
+        public bool IsAllowed { get; set; }
     }
 
     [HttpPost("{id}/mfa/reset")]

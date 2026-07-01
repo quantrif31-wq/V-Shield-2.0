@@ -8,6 +8,7 @@ namespace API.Services;
 public class UserOperationalScopeService
 {
     public sealed record TaskAccessDefinition(string TaskKey, string Label, string[] DefaultRoles, string[] Routes);
+    public sealed record RoleTaskPermissionAssignment(string Role, string TaskKey, bool IsAllowed);
 
     public const string TaskMonitoring = "monitoring";
     public const string TaskGateTransit = "gate-transit";
@@ -29,6 +30,8 @@ public class UserOperationalScopeService
     public const string TaskSystemConfig = "system-config";
     public const string TaskIdentityManagement = "identity-mgmt";
     public const string TaskContractorManagement = "contractor-mgmt";
+
+    public static readonly string[] SupportedRoles = ["Admin", "QuanLy", "BaoVe", "LeTan", "NhanSu", "NhanVien"];
 
     public static readonly IReadOnlyList<TaskAccessDefinition> TaskCatalog =
     [
@@ -53,16 +56,6 @@ public class UserOperationalScopeService
         new(TaskIdentityManagement, "Đồng bộ danh tính", ["Admin"], ["/identity-management", "/enterprise-security"]),
         new(TaskContractorManagement, "Quản lý nhà thầu", ["Admin"], ["/contractors"])
     ];
-
-    public static readonly IReadOnlyDictionary<string, string[]> TasksByRole = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Admin"] = TaskCatalog.Where(item => item.DefaultRoles.Contains("Admin", StringComparer.OrdinalIgnoreCase)).Select(item => item.TaskKey).ToArray(),
-        ["BaoVe"] = TaskCatalog.Where(item => item.DefaultRoles.Contains("BaoVe", StringComparer.OrdinalIgnoreCase)).Select(item => item.TaskKey).ToArray(),
-        ["LeTan"] = TaskCatalog.Where(item => item.DefaultRoles.Contains("LeTan", StringComparer.OrdinalIgnoreCase)).Select(item => item.TaskKey).ToArray(),
-        ["QuanLy"] = TaskCatalog.Where(item => item.DefaultRoles.Contains("QuanLy", StringComparer.OrdinalIgnoreCase)).Select(item => item.TaskKey).ToArray(),
-        ["NhanSu"] = TaskCatalog.Where(item => item.DefaultRoles.Contains("NhanSu", StringComparer.OrdinalIgnoreCase)).Select(item => item.TaskKey).ToArray(),
-        ["NhanVien"] = Array.Empty<string>()
-    };
 
     private readonly ApplicationDbContext _context;
 
@@ -92,20 +85,98 @@ public class UserOperationalScopeService
         return await GetEffectiveTaskKeysAsync(userId, userRole, cancellationToken);
     }
 
-    public IReadOnlyList<string> GetDefaultTaskKeysForRole(string? role)
+    public static IReadOnlyDictionary<string, string[]> BuildStaticTasksByRole()
+    {
+        return SupportedRoles.ToDictionary(
+            role => role,
+            role => TaskCatalog
+                .Where(item => item.DefaultRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
+                .Select(item => item.TaskKey)
+                .OrderBy(item => item)
+                .ToArray(),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyDictionary<string, string[]>> GetTasksByRoleAsync(CancellationToken cancellationToken = default)
+    {
+        var assignments = await _context.RoleOperationalPermissions
+            .AsNoTracking()
+            .OrderBy(item => item.Role)
+            .ThenBy(item => item.TaskKey)
+            .ToListAsync(cancellationToken);
+
+        if (assignments.Count == 0)
+            return BuildStaticTasksByRole();
+
+        return SupportedRoles.ToDictionary(
+            role => role,
+            role => assignments
+                .Where(item => string.Equals(item.Role, role, StringComparison.OrdinalIgnoreCase) && item.IsAllowed)
+                .Select(item => item.TaskKey)
+                .OrderBy(item => item)
+                .ToArray(),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<string>> GetDefaultTaskKeysForRoleAsync(string? role, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(role))
             return [];
 
-        return TasksByRole.TryGetValue(role, out var taskKeys)
-            ? taskKeys.OrderBy(item => item).ToArray()
+        var tasksByRole = await GetTasksByRoleAsync(cancellationToken);
+        return tasksByRole.TryGetValue(role, out var taskKeys)
+            ? taskKeys
             : [];
+    }
+
+    public async Task ReplaceRolePermissionsAsync(
+        IReadOnlyCollection<RoleTaskPermissionAssignment> assignments,
+        int? updatedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var allowedRoles = SupportedRoles.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allowedTasks = TaskCatalog
+            .Select(item => item.TaskKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in assignments)
+        {
+            if (string.IsNullOrWhiteSpace(item.Role) || !allowedRoles.Contains(item.Role))
+                throw new ArgumentException($"Role '{item.Role}' khong hop le.", nameof(assignments));
+
+            if (string.IsNullOrWhiteSpace(item.TaskKey) || !allowedTasks.Contains(item.TaskKey))
+                throw new ArgumentException($"TaskKey '{item.TaskKey}' khong hop le.", nameof(assignments));
+        }
+
+        var existing = await _context.RoleOperationalPermissions.ToListAsync(cancellationToken);
+        _context.RoleOperationalPermissions.RemoveRange(existing);
+
+        var normalizedAssignments = assignments
+            .Select(item => new RoleTaskPermissionAssignment(item.Role.Trim(), item.TaskKey.Trim(), item.IsAllowed))
+            .GroupBy(item => $"{item.Role}\u001f{item.TaskKey}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())
+            .ToList();
+
+        if (normalizedAssignments.Count > 0)
+        {
+            var timestamp = DateTime.UtcNow;
+            _context.RoleOperationalPermissions.AddRange(normalizedAssignments.Select(item => new RoleOperationalPermission
+            {
+                Role = item.Role.Trim(),
+                TaskKey = item.TaskKey.Trim(),
+                IsAllowed = item.IsAllowed,
+                UpdatedAtUtc = timestamp,
+                UpdatedByUserId = updatedByUserId
+            }));
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<List<string>> GetEffectiveTaskKeysAsync(int userId, string? role, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var defaultTasks = new HashSet<string>(GetDefaultTaskKeysForRole(role), StringComparer.OrdinalIgnoreCase);
+        var defaultTasks = new HashSet<string>(await GetDefaultTaskKeysForRoleAsync(role, cancellationToken), StringComparer.OrdinalIgnoreCase);
 
         var overrides = await _context.UserOperationalScopes
             .AsNoTracking()

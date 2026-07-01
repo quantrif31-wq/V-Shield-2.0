@@ -276,6 +276,7 @@ public partial class ApplicationDbContext
         ConfigureInterventionRequests(modelBuilder);
         ConfigureLostFound(modelBuilder);
         ConfigureGuardZoneAuthority(modelBuilder);
+        ConfigureRoleOperationalPermissions(modelBuilder);
         ConfigureUserOperationalScope(modelBuilder);
         ConfigureRateLimiting(modelBuilder);
         ConfigureGeolocationModels(modelBuilder);

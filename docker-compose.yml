@@ -29,6 +29,7 @@ services:
       VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:-admin}"
       VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:-AdminLocal@2026}"
       Runtime__Mode: docker
+      DataProtection__KeyRingPath: "/var/app/data-protection"
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:-}"
       AppSettings__Go2RtcPublicBaseUrl: "${APP_GO2RTC_PUBLIC_BASE_URL:-}"
       AppSettings__AllowCrossOriginGo2RtcFrame: "${APP_ALLOW_CROSS_ORIGIN_GO2RTC_FRAME:-false}"
@@ -54,6 +55,7 @@ services:
       go2rtc:
         condition: service_started
     volumes:
+      - vshield_data_protection:/var/app/data-protection
       - ./runtime/go2rtc:/runtime/go2rtc
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health"]
@@ -161,3 +163,4 @@ services:
 
 volumes:
   vshield_mssql_data:
+  vshield_data_protection:

@@ -2,52 +2,50 @@
     <div class="page-container animate-in">
         <header class="page-header bento-header">
             <div class="greeting">
-                <h1 class="page-title">Quyền Theo Vai Trò</h1>
-                <p class="page-subtitle">Xem trước mỗi vai trò được vào những trang nào trước khi gán tài khoản cụ thể.</p>
+                <h1 class="page-title">Quyen Theo Vai Tro</h1>
+                <p class="page-subtitle">Bat/tat quyen truy cap mac dinh cho tung vai tro ngay tren ma tran ben duoi.</p>
+            </div>
+            <div v-if="!loading && !loadError" class="header-actions">
+                <button class="btn btn-secondary" @click="reloadDraft" :disabled="saving">
+                    Hoan tac
+                </button>
+                <button class="btn btn-secondary danger-soft" @click="resetToDefaults" :disabled="saving">
+                    Khoi phuc mac dinh
+                </button>
+                <button class="btn btn-primary" @click="savePermissions" :disabled="saving">
+                    <span v-if="saving" class="spinner-sm"></span>
+                    Luu thay doi
+                </button>
             </div>
         </header>
 
         <div v-if="loading" class="bento-card empty-layout">
             <div class="spinner-lg"></div>
-            <p>Đang tải ma trận quyền...</p>
+            <p>Dang tai ma tran quyen...</p>
         </div>
 
         <div v-else-if="loadError" class="bento-card empty-layout">
             <p class="error-text">{{ loadError }}</p>
-            <button class="btn btn-primary" @click="fetchReference">Thử lại</button>
+            <button class="btn btn-primary" @click="fetchReference">Thu lai</button>
         </div>
 
         <template v-else>
             <div class="bento-card intro-card">
                 <p class="intro-copy">
-                    Vai trò là lớp quyền gốc của hệ thống. Khi gán vai trò cho tài khoản, tài khoản đó sẽ tự có các trang bên dưới.
-                    Nếu cần cộng thêm hoặc rút bớt riêng cho từng người, hãy chỉnh ở trang quản lý tài khoản trong phần phạm vi công việc.
+                    Moi o trong bang la quyen mac dinh cua mot vai tro doi voi mot nhom trang/chuc nang. Tick de cap quyen, bo tick de thu hoi quyen.
+                    Sau khi luu, menu va route cua nhung tai khoan dang mang vai tro do se di theo ma tran moi.
                 </p>
             </div>
 
-            <div class="role-grid">
-                <section v-for="card in roleAccessCards" :key="card.role" class="bento-card role-card">
-                    <div class="role-card-top">
-                        <span class="badge-role" :class="getRoleBadgeClass(card.role)">{{ card.label }}</span>
-                        <span class="text-muted">{{ card.tasks.length }} trang</span>
-                    </div>
-
-                    <div v-if="card.tasks.length === 0" class="empty-mini">Chưa có trang mặc định.</div>
-
-                    <div v-else class="permission-list">
-                        <article v-for="task in card.tasks" :key="task.taskKey" class="permission-item">
-                            <strong>{{ task.label }}</strong>
-                            <span class="route-line">{{ task.routes.join(', ') }}</span>
-                        </article>
-                    </div>
-                </section>
+            <div v-if="feedbackMessage" class="bento-card feedback-card" :class="feedbackTone">
+                {{ feedbackMessage }}
             </div>
 
             <div class="bento-card matrix-card">
                 <div class="section-head">
                     <div>
-                        <h2 class="section-title">Ma Trận Vai Trò</h2>
-                        <p class="section-subtitle">Đối chiếu nhanh vai trò nào đang có quyền vào từng trang.</p>
+                        <h2 class="section-title">Ma Tran Vai Tro</h2>
+                        <p class="section-subtitle">Tick bat/tat quyen mac dinh theo vai tro, sau do bam luu de ap dung.</p>
                     </div>
                 </div>
 
@@ -55,14 +53,9 @@
                     <table class="sleek-table">
                         <thead>
                             <tr>
-                                <th>Trang / chức năng</th>
+                                <th>Trang / chuc nang</th>
                                 <th>Route</th>
-                                <th>Admin</th>
-                                <th>Quản lý</th>
-                                <th>Bảo vệ</th>
-                                <th>Lễ tân</th>
-                                <th>Nhân sự</th>
-                                <th>Nhân viên</th>
+                                <th v-for="role in roleOrder" :key="role">{{ getRoleLabel(role) }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -72,9 +65,17 @@
                                 </td>
                                 <td class="text-muted">{{ task.routes.join(', ') }}</td>
                                 <td v-for="role in roleOrder" :key="role" class="text-center">
-                                    <span class="matrix-pill" :class="task.defaultRoles.includes(role) ? 'allowed' : 'denied'">
-                                        {{ task.defaultRoles.includes(role) ? 'Có' : 'Không' }}
-                                    </span>
+                                    <label class="matrix-toggle">
+                                        <input
+                                            v-model="draftPermissions[role][task.taskKey]"
+                                            type="checkbox"
+                                            :disabled="saving"
+                                            @change="clearFeedback"
+                                        />
+                                        <span class="matrix-pill" :class="draftPermissions[role][task.taskKey] ? 'allowed' : 'denied'">
+                                            {{ draftPermissions[role][task.taskKey] ? 'Co' : 'Khong' }}
+                                        </span>
+                                    </label>
                                 </td>
                             </tr>
                         </tbody>
@@ -87,33 +88,38 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { getOperationalScopeReference } from '../services/userApi'
+import { fetchUser } from '../stores/auth'
+import { getOperationalScopeReference, replaceRolePermissions } from '../services/userApi'
 
 const loading = ref(true)
+const saving = ref(false)
 const loadError = ref('')
+const feedbackMessage = ref('')
+const feedbackTone = ref('success')
 const taskCatalog = ref([])
 const tasksByRole = ref({})
+const draftPermissions = ref({})
 const roleOrder = ['Admin', 'QuanLy', 'BaoVe', 'LeTan', 'NhanSu', 'NhanVien']
 
 const roleMeta = [
     { role: 'Admin', label: 'Admin' },
-    { role: 'QuanLy', label: 'Quản lý' },
-    { role: 'BaoVe', label: 'Bảo vệ' },
-    { role: 'LeTan', label: 'Lễ tân' },
-    { role: 'NhanSu', label: 'Nhân sự' },
-    { role: 'NhanVien', label: 'Nhân viên' },
+    { role: 'QuanLy', label: 'Quan ly' },
+    { role: 'BaoVe', label: 'Bao ve' },
+    { role: 'LeTan', label: 'Le tan' },
+    { role: 'NhanSu', label: 'Nhan su' },
+    { role: 'NhanVien', label: 'Nhan vien' },
 ]
 
-const taskMap = computed(() =>
-    Object.fromEntries(taskCatalog.value.map(task => [task.taskKey, task]))
-)
-
-const roleAccessCards = computed(() =>
-    roleMeta.map(item => ({
-        ...item,
-        tasks: (tasksByRole.value?.[item.role] || []).map(taskKey => taskMap.value[taskKey]).filter(Boolean),
-    }))
-)
+function createDraftPermissions(sourceTasksByRole) {
+    return roleOrder.reduce((acc, role) => {
+        const allowed = new Set(sourceTasksByRole?.[role] || [])
+        acc[role] = taskCatalog.value.reduce((taskAcc, task) => {
+            taskAcc[task.taskKey] = allowed.has(task.taskKey)
+            return taskAcc
+        }, {})
+        return acc
+    }, {})
+}
 
 function getRoleBadgeClass(role) {
     const map = {
@@ -127,17 +133,77 @@ function getRoleBadgeClass(role) {
     return map[role] || 'staff'
 }
 
+function getRoleLabel(role) {
+    return roleMeta.find(item => item.role === role)?.label || role
+}
+
+function clearFeedback() {
+    feedbackMessage.value = ''
+}
+
+function reloadDraft() {
+    draftPermissions.value = createDraftPermissions(tasksByRole.value)
+    clearFeedback()
+}
+
 async function fetchReference() {
     loading.value = true
     loadError.value = ''
+    feedbackMessage.value = ''
     try {
         const res = await getOperationalScopeReference()
         taskCatalog.value = res.data?.taskCatalog || []
         tasksByRole.value = res.data?.tasksByRole || {}
+        draftPermissions.value = createDraftPermissions(tasksByRole.value)
     } catch (error) {
-        loadError.value = error.response?.data?.message || 'Không thể tải dữ liệu quyền theo vai trò'
+        loadError.value = error.response?.data?.message || 'Khong the tai du lieu quyen theo vai tro'
     } finally {
         loading.value = false
+    }
+}
+
+async function savePermissions() {
+    saving.value = true
+    feedbackMessage.value = ''
+    try {
+        const payload = roleOrder.flatMap(role =>
+            taskCatalog.value.map(task => ({
+                role,
+                taskKey: task.taskKey,
+                isAllowed: !!draftPermissions.value?.[role]?.[task.taskKey],
+            }))
+        )
+
+        await replaceRolePermissions(payload)
+        await fetchReference()
+        await fetchUser()
+        feedbackTone.value = 'success'
+        feedbackMessage.value = 'Da luu ma tran quyen theo vai tro.'
+    } catch (error) {
+        feedbackTone.value = 'error'
+        feedbackMessage.value = error.response?.data?.message || 'Khong the luu ma tran quyen'
+    } finally {
+        saving.value = false
+    }
+}
+
+async function resetToDefaults() {
+    const confirmed = window.confirm('Khoi phuc toan bo ma tran quyen ve mac dinh he thong?')
+    if (!confirmed) return
+
+    saving.value = true
+    feedbackMessage.value = ''
+    try {
+        await replaceRolePermissions([])
+        await fetchReference()
+        await fetchUser()
+        feedbackTone.value = 'success'
+        feedbackMessage.value = 'Da khoi phuc ma tran quyen mac dinh.'
+    } catch (error) {
+        feedbackTone.value = 'error'
+        feedbackMessage.value = error.response?.data?.message || 'Khong the khoi phuc ma tran mac dinh'
+    } finally {
+        saving.value = false
     }
 }
 
@@ -145,18 +211,15 @@ onMounted(fetchReference)
 </script>
 
 <style scoped>
-.bento-header { margin-bottom: 24px; padding: 0 4px; display: flex; justify-content: space-between; align-items: center; }
+.bento-header { margin-bottom: 24px; padding: 0 4px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .bento-header .greeting h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
 .bento-header .greeting p { color: var(--text-secondary); font-size: 0.95rem; }
+.header-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .bento-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-lg); padding: 24px; }
-.intro-card { margin-bottom: 24px; }
+.intro-card, .feedback-card { margin-bottom: 24px; }
 .intro-copy { margin: 0; color: var(--text-secondary); line-height: 1.65; }
-.role-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
-.role-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.permission-list { display: flex; flex-direction: column; gap: 10px; }
-.permission-item { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: var(--bg-input); }
-.route-line { color: var(--text-muted); font-size: 0.88rem; }
-.empty-mini { color: var(--text-muted); font-size: 0.9rem; }
+.feedback-card.success { border-color: rgba(16, 185, 129, 0.28); color: var(--accent-success); }
+.feedback-card.error { border-color: rgba(239, 68, 68, 0.28); color: var(--accent-danger); }
 .matrix-card { overflow: hidden; }
 .section-head { margin-bottom: 16px; }
 .section-title { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
@@ -165,10 +228,22 @@ onMounted(fetchReference)
 .text-center { text-align: center; }
 .text-muted { color: var(--text-muted); }
 .error-text { color: var(--accent-danger); }
-.matrix-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; padding: 6px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
-.matrix-pill.allowed { background: rgba(16, 185, 129, 0.12); color: var(--accent-success); }
-.matrix-pill.denied { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); }
+.matrix-toggle { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.matrix-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.matrix-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; padding: 6px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; border: 1px solid transparent; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.matrix-toggle:hover .matrix-pill { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.matrix-pill.allowed { background: rgba(16, 185, 129, 0.12); color: var(--accent-success); border-color: rgba(16, 185, 129, 0.2); }
+.matrix-pill.denied { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); border-color: rgba(239, 68, 68, 0.18); }
+.danger-soft { color: var(--accent-danger); }
+.spinner-lg { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; margin-right: 6px; }
+.empty-layout { padding: 60px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 900px) {
+    .bento-header { align-items: flex-start; flex-direction: column; }
+}
 @media (max-width: 768px) {
     .bento-card { padding: 18px; }
+    .header-actions { width: 100%; }
 }
 </style>
