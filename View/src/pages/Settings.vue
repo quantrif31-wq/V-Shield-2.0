@@ -165,6 +165,24 @@
               </div>
             </article>
           </div>
+
+          <div class="bento-card section-card" style="margin-top: 1rem;">
+            <h2 class="section-title">Chế độ luồng camera</h2>
+            <p class="muted">Chọn chế độ phù hợp với môi trường triển khai.</p>
+            <div class="form-grid">
+              <div class="input-group">
+                <label>Chế độ</label>
+                <select v-model="cameraStreamMode" class="field" @change="saveCameraStreamMode">
+                  <option value="auto">Tự động</option>
+                  <option value="public">Public (VPS)</option>
+                  <option value="local">Local</option>
+                </select>
+                <small class="muted" v-if="cameraStreamMode === 'public'">Dùng URL public để xem camera qua VPS.</small>
+                <small class="muted" v-else-if="cameraStreamMode === 'local'">Dùng URL local, không cần public.</small>
+                <small class="muted" v-else>Hệ thống tự động chọn chế độ phù hợp.</small>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'recognition'" class="bento-card section-card">
@@ -259,6 +277,7 @@ const notifSettings = reactive({
 })
 
 const cameraSettings = ref([])
+const cameraStreamMode = ref("auto")
 const manualCameraName = ref("")
 const manualCameraUrl = ref("")
 const manualTargetId = ref("auto")
@@ -705,9 +724,24 @@ const saveSettings = async () => {
   showToast("Đã lưu cấu hình hệ thống thành công.")
 }
 
+const loadCameraStreamMode = async () => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/system-config/CameraStreamMode`)
+    if (res.data?.value) cameraStreamMode.value = res.data.value
+  } catch (_) {}
+}
+
+const saveCameraStreamMode = async () => {
+  try {
+    await axios.put(`${API_BASE_URL}/system-config/CameraStreamMode`, { value: cameraStreamMode.value })
+    showToast("Đã lưu chế độ luồng camera.")
+  } catch (_) {}
+}
+
 onMounted(async () => {
   syncActiveTabFromRoute()
   loadSystemSettings()
+  loadCameraStreamMode()
   await syncCameraSettingsFromApi()
   await refreshAllCameraStatuses()
 })

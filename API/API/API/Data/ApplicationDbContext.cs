@@ -66,6 +66,7 @@ public partial class ApplicationDbContext : DbContext
     public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
     public DbSet<RateLimitCounter> RateLimitCounters { get; set; }
     public DbSet<VehicleDelegation> VehicleDelegations { get; set; }
+    public DbSet<SystemConfig> SystemConfigs { get; set; }
 
     public override int SaveChanges()
     {

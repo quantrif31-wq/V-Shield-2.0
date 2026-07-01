@@ -115,7 +115,7 @@ namespace API.Controllers
             _context.Cameras.Add(camera);
             await _context.SaveChangesAsync();
 
-            camera.UrlView = BuildCameraViewUrl(streamUrl, camera.CameraId);
+            camera.UrlView = await BuildCameraViewUrl(streamUrl, camera.CameraId);
             await _context.SaveChangesAsync();
 
             return Ok(camera);
@@ -150,7 +150,7 @@ namespace API.Controllers
             cam.CameraType = string.IsNullOrWhiteSpace(cameraType) ? null : cameraType;
             cam.GateId = request.GateId;
             cam.StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl;
-            cam.UrlView = BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
+            cam.UrlView = await BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
             if (request.IsRecordingEnabled.HasValue)
                 cam.IsRecordingEnabled = request.IsRecordingEnabled.Value;
             if (request.RecordingRetentionDays.HasValue)
@@ -254,7 +254,7 @@ namespace API.Controllers
                         continue;
                     }
 
-                    cam.UrlView = BuildCameraViewUrl(normalizedStreamUrl, cam.CameraId);
+                    cam.UrlView = await BuildCameraViewUrl(normalizedStreamUrl, cam.CameraId);
 
                     if (!ShouldProxyViaGo2Rtc(normalizedStreamUrl))
                     {
@@ -625,7 +625,7 @@ namespace API.Controllers
         private static bool ShouldProxyViaGo2Rtc(string? streamUrl) =>
             !string.IsNullOrWhiteSpace(streamUrl) && !IsDirectWebStream(streamUrl);
 
-        private string? BuildCameraViewUrl(string? streamUrl, int cameraId)
+        private async Task<string?> BuildCameraViewUrl(string? streamUrl, int cameraId)
         {
             var normalizedStreamUrl = NormalizeCameraUrl(streamUrl);
             if (string.IsNullOrWhiteSpace(normalizedStreamUrl))
@@ -638,7 +638,7 @@ namespace API.Controllers
                 return BuildDirectWebStreamUrl(normalizedStreamUrl);
             }
 
-            var go2RtcPublicBaseUrl = ResolveGo2RtcPublicBaseUrl();
+            var go2RtcPublicBaseUrl = await ResolveGo2RtcPublicBaseUrl();
             return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc";
             //return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc,mse";
         }
@@ -653,21 +653,31 @@ namespace API.Controllers
             return $"{ResolvePublicAppBaseUrl()}{streamUrl}";
         }
 
-        private string ResolveGo2RtcPublicBaseUrl()
+        private async Task<string> ResolveGo2RtcPublicBaseUrl()
         {
-            var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
-            if (!string.IsNullOrWhiteSpace(configured) && !ShouldForceProxyGo2RtcBase(configured))
+            var cameraMode = await _context.SystemConfigs
+                .Where(s => s.Key == "CameraStreamMode")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+
+            if (cameraMode == "public")
             {
-                return NormalizeBaseUrl(configured);
+                var configured = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
+                if (!string.IsNullOrWhiteSpace(configured))
+                    return NormalizeBaseUrl(configured);
             }
 
-            // fallback: auto detect nếu có cloudflare host
+            if (cameraMode == "local")
+                return $"{ResolvePublicAppBaseUrl()}/go2rtc";
+
+            // auto mode (default) — current behavior
+            var cfg = _configuration["AppSettings:Go2RtcPublicBaseUrl"];
+            if (!string.IsNullOrWhiteSpace(cfg) && !ShouldForceProxyGo2RtcBase(cfg))
+                return NormalizeBaseUrl(cfg);
+
             var host = Request.Host.Value;
-
             if (!string.IsNullOrEmpty(host) && host.Contains("maiai06.site"))
-            {
                 return $"https://{host}";
-            }
 
             return $"{ResolvePublicAppBaseUrl()}/go2rtc";
         }
