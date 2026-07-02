@@ -10,12 +10,9 @@ class BiometricAuthManager(private val context: Context) {
 
     fun isAvailable(): Boolean {
         val biometricManager = BiometricManager.from(context)
-        return when (biometricManager.canAuthenticate(
+        return biometricManager.canAuthenticate(
             BiometricManager.Authenticators.BIOMETRIC_STRONG
-        )) {
-            BiometricManager.BIOMETRIC_SUCCESS -> true
-            else -> false
-        }
+        ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun authenticate(
@@ -53,5 +50,19 @@ class BiometricAuthManager(private val context: Context) {
 
         BiometricPrompt(activity, executor, callback)
             .authenticate(promptInfo)
+    }
+
+    fun confirmEnrollment(
+        activity: FragmentActivity,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        authenticate(
+            activity = activity,
+            title = "Bật mở bằng vân tay",
+            subtitle = "Xác nhận sinh trắc học để lưu thiết bị này",
+            onSuccess = onSuccess,
+            onError = onError
+        )
     }
 }

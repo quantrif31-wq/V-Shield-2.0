@@ -7,46 +7,55 @@ import androidx.security.crypto.MasterKey
 
 class SecureStorage(context: Context) {
 
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
+    private val appContext = context.applicationContext
+    private val prefs: SharedPreferences = createPreferences()
 
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "vshield_biometric_prefs",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private fun createPreferences(): SharedPreferences {
+        return runCatching {
+            val masterKey = MasterKey.Builder(appContext)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
 
-    fun saveCredentials(username: String, password: String) {
+            EncryptedSharedPreferences.create(
+                appContext,
+                ENCRYPTED_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }.getOrElse {
+            // Keep the app usable on devices where the encrypted keystore gets invalidated.
+            appContext.getSharedPreferences(FALLBACK_PREFS_NAME, Context.MODE_PRIVATE)
+        }
+    }
+
+    fun enableBiometricForSession(username: String) {
         prefs.edit()
-            .putString(KEY_USERNAME, username)
-            .putString(KEY_PASSWORD, password)
+            .putBoolean(KEY_BIOMETRIC_ENABLED, true)
+            .putString(KEY_LAST_USERNAME, username)
             .apply()
     }
 
-    fun getCredentials(): Pair<String, String>? {
-        val username = prefs.getString(KEY_USERNAME, null)
-        val password = prefs.getString(KEY_PASSWORD, null)
-        return if (username != null && password != null) {
-            Pair(username, password)
-        } else null
-    }
-
-    fun hasStoredCredentials(): Boolean {
-        return prefs.contains(KEY_USERNAME) && prefs.contains(KEY_PASSWORD)
-    }
-
-    fun clearCredentials() {
+    fun rememberLastUsername(username: String) {
         prefs.edit()
-            .remove(KEY_USERNAME)
-            .remove(KEY_PASSWORD)
+            .putString(KEY_LAST_USERNAME, username)
             .apply()
     }
+
+    fun disableBiometric() {
+        prefs.edit()
+            .remove(KEY_BIOMETRIC_ENABLED)
+            .apply()
+    }
+
+    fun isBiometricEnabled(): Boolean = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
+
+    fun getLastUsername(): String? = prefs.getString(KEY_LAST_USERNAME, null)
 
     companion object {
-        private const val KEY_USERNAME = "biometric_username"
-        private const val KEY_PASSWORD = "biometric_password"
+        private const val ENCRYPTED_PREFS_NAME = "vshield_biometric_prefs"
+        private const val FALLBACK_PREFS_NAME = "vshield_biometric_prefs_fallback"
+        private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
+        private const val KEY_LAST_USERNAME = "biometric_last_username"
     }
 }

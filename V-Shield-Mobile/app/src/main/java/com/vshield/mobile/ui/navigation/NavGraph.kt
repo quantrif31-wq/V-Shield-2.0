@@ -50,7 +50,14 @@ fun NavGraph(
             )
         }
         composable(Screen.Home.route) {
-            HomeScreen(onSessionExpired = onSessionExpired)
+            HomeScreen(
+                onSessionExpired = onSessionExpired,
+                onOpenChat = { navController.navigate(Screen.Chat.route) },
+                onOpenNotifications = { navController.navigate(Screen.Notifications.route) },
+                onOpenLeave = { navController.navigate(Screen.Leave.route) },
+                onOpenTransfer = { navController.navigate(Screen.Transfer.route) },
+                onOpenProfile = { navController.navigate(Screen.Profile.route) }
+            )
         }
         composable(Screen.Transfer.route) {
             TransferScreen(onSessionExpired = onSessionExpired)

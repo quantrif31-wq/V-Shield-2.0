@@ -619,7 +619,10 @@ namespace API
                     var streamUrl = cam.StreamUrl?.Trim();
                     if (string.IsNullOrWhiteSpace(streamUrl)) continue;
 
-                    var isDirectWeb = streamUrl.StartsWith("/", StringComparison.Ordinal) ||
+                    cam.UrlView = BuildStartupCameraViewUrl(config, streamUrl, cam.CameraId);
+
+                    var isDirectWeb = IsStartupDirectWebStream(streamUrl) ||
+                                      streamUrl.StartsWith("/", StringComparison.Ordinal) ||
                                       (Uri.TryCreate(streamUrl, UriKind.Absolute, out var uri) &&
                                        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps));
                     if (isDirectWeb) continue;
@@ -655,6 +658,7 @@ namespace API
                     Directory.CreateDirectory(yamlDirectory);
                 }
                 File.WriteAllText(yamlPath, yaml.ToString());
+                db.SaveChanges();
 
                 if (IsDockerRuntimeMode(config))
                 {
@@ -711,6 +715,58 @@ namespace API
             return configured
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(value => !string.IsNullOrWhiteSpace(value));
+        }
+
+        private static bool IsStartupDirectWebStream(string streamUrl) =>
+            streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase) ||
+            streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase);
+
+        private static string? BuildStartupCameraViewUrl(IConfiguration configuration, string? streamUrl, int cameraId)
+        {
+            var normalized = streamUrl?.Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return null;
+            }
+
+            var publicBaseUrl = ResolveStartupPublicAppBaseUrl(configuration);
+            if (normalized.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{publicBaseUrl}/qr-api/qr/frame.jpg";
+            }
+
+            if (normalized.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{publicBaseUrl}/plate-api/api/camera/stream";
+            }
+
+            if (normalized.StartsWith("/", StringComparison.Ordinal))
+            {
+                return $"{publicBaseUrl}{normalized}";
+            }
+
+            if (Uri.TryCreate(normalized, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                return normalized;
+            }
+
+            var configuredGo2RtcBase = configuration["AppSettings:Go2RtcPublicBaseUrl"];
+            var go2RtcBase = !string.IsNullOrWhiteSpace(configuredGo2RtcBase)
+                ? configuredGo2RtcBase.Trim().TrimEnd('/')
+                : $"{publicBaseUrl}/go2rtc";
+            return $"{go2RtcBase}/stream.html?src=cam{cameraId}&mode=webrtc,mse";
+        }
+
+        private static string ResolveStartupPublicAppBaseUrl(IConfiguration configuration)
+        {
+            var configuredFrontendUrl = configuration["AppSettings:FrontendUrl"];
+            if (!string.IsNullOrWhiteSpace(configuredFrontendUrl))
+            {
+                return configuredFrontendUrl.Trim().TrimEnd('/');
+            }
+
+            return "http://localhost:5173";
         }
 
         private static void TryReloadGo2RtcByHttp(IHttpClientFactory httpClientFactory, IConfiguration configuration)

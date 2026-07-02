@@ -30,6 +30,7 @@ class NotificationSignalRClient(
 
     var onNotificationReceived: ((SignalRNotification) -> Unit)? = null
     var onUnreadCountUpdated: ((Int) -> Unit)? = null
+    var onConnectionChanged: ((Boolean) -> Unit)? = null
 
     enum class ConnectionState {
         DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING
@@ -121,6 +122,7 @@ class NotificationSignalRClient(
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (_connectionState.value == ConnectionState.CONNECTED) {
                     _connectionState.value = ConnectionState.DISCONNECTED
+                    scope.launch { onConnectionChanged?.invoke(false) }
                     if (shouldReconnect) scheduleReconnect()
                 }
             }
@@ -128,6 +130,7 @@ class NotificationSignalRClient(
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (_connectionState.value != ConnectionState.DISCONNECTED) {
                     _connectionState.value = ConnectionState.DISCONNECTED
+                    scope.launch { onConnectionChanged?.invoke(false) }
                     if (shouldReconnect) scheduleReconnect()
                 }
             }
@@ -141,6 +144,7 @@ class NotificationSignalRClient(
                 if (!isNegotiated) {
                     isNegotiated = true
                     _connectionState.value = ConnectionState.CONNECTED
+                    scope.launch { onConnectionChanged?.invoke(true) }
                     return
                 }
 
@@ -194,5 +198,6 @@ class NotificationSignalRClient(
         webSocket = null
         okHttpClient?.dispatcher?.executorService?.shutdown()
         _connectionState.value = ConnectionState.DISCONNECTED
+        scope.launch { onConnectionChanged?.invoke(false) }
     }
 }

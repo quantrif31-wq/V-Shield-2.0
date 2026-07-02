@@ -1,34 +1,7 @@
 streams:
-  cam1:
-    - rtsp://demo.local/qr#transport=tcp
-    - rtsp://demo.local/qr
-  cam2:
-    - rtsp://demo.local/plate#transport=tcp
-    - rtsp://demo.local/plate
-  cam3:
-    - rtsp://demo.local/qr#transport=tcp
-    - rtsp://demo.local/qr
-  cam4:
-    - rtsp://demo.local/plate#transport=tcp
-    - rtsp://demo.local/plate
-  cam5:
-    - rtsp://demo.local/qr#transport=tcp
-    - rtsp://demo.local/qr
-  cam6:
-    - rtsp://demo.local/plate#transport=tcp
-    - rtsp://demo.local/plate
-  cam7:
-    - rtsp://demo.local/qr#transport=tcp
-    - rtsp://demo.local/qr
-  cam8:
-    - rtsp://demo.local/plate#transport=tcp
-    - rtsp://demo.local/plate
-  cam9:
-    - rtsp://demo.local/qr#transport=tcp
-    - rtsp://demo.local/qr
-  cam10:
-    - rtsp://demo.local/plate#transport=tcp
-    - rtsp://demo.local/plate
+  cam11:
+    - rtsp://admin:L2E8D067@192.168.137.61:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
+    - rtsp://admin:L2E8D067@192.168.137.61:554/cam/realmonitor?channel=1&subtype=1
 api:
   origin: "*"
 webrtc:

@@ -7,14 +7,24 @@
           2 làn - QR + Biển số - dùng employeeId từ QR để gọi API thông hành cũ
         </p>
       </div>
-      <button
-        type="button"
-        class="topbar-toggle"
-        :aria-expanded="!topbarCompact"
-        @click="topbarCompact = !topbarCompact"
-      >
-        {{ topbarCompact ? "Mở rộng menu" : "Thu gọn menu" }}
-      </button>
+      <div class="topbar-actions">
+        <button
+          type="button"
+          class="topbar-settings-btn"
+          :aria-expanded="opsDrawerOpen"
+          @click="openOpsDrawer"
+        >
+          Cài đặt
+        </button>
+        <button
+          type="button"
+          class="topbar-toggle"
+          :aria-expanded="!topbarCompact"
+          @click="topbarCompact = !topbarCompact"
+        >
+          {{ topbarCompact ? "Mở rộng menu" : "Thu gọn menu" }}
+        </button>
+      </div>
     </div>
 
     <div class="gate-layout">
@@ -269,8 +279,8 @@
           </div>
         </div>
 
-        <div class="ops-dock-side">
-            <button type="button" class="btn-open-drawer" @click="openOpsDrawer">
+        <div class="ops-dock-side" @click.stop="openOpsDrawer">
+            <button type="button" class="btn-open-drawer" @click.stop.prevent="openOpsDrawer">
             Cài đặt
           </button>
         </div>
@@ -1183,6 +1193,7 @@ export default {
         // nhưng chưa thực hiện quét cho đến khi người dùng bấm nút Đọc.
         await startPythonPlateProcess()
         await this.waitForPlateApiReady(45000)
+        this.releaseOtherPlateLanes(lane)
         await lane.plateApi.turnOnCamera(ip)
 
         if (lane.plate.viewUrl && !lane.plate.previewRunning) {
@@ -1800,6 +1811,18 @@ const qr = lane.qr
       this.clearPlateState(plate)
     },
 
+    releaseOtherPlateLanes(activeLane) {
+      for (const lane of this.lanes) {
+        if (lane.id === activeLane.id) continue
+        this.stopPlateLoop(lane)
+        lane.plate.cameraRunning = false
+        lane.plate.sessionId = 0
+        lane.plate.lastAppliedSessionId = 0
+        lane.plate.lastLockedImageSessionId = 0
+        this.clearPlateState(lane.plate)
+      }
+    },
+
     startQrPreviewLoop(lane) {
       this.stopQrPreviewLoop(lane)
       lane.qr.previewTimer = setInterval(() => {
@@ -2191,6 +2214,28 @@ else {
 
       const plate = lane.plate
       const incomingSessionId = Number(res.session_id || 0)
+      const incomingIp = String(res.ip || "").trim()
+
+      const laneSessionId = Number(plate.sessionId || 0)
+      const laneCurrentIp = String(plate.currentIp || plate.cameraIp || "").trim()
+      const hasLaneSession = laneSessionId > 0
+      const hasIncomingSession = incomingSessionId > 0
+
+      if (hasLaneSession && hasIncomingSession && laneSessionId !== incomingSessionId) {
+        if (plate.cameraRunning && allowTurnOffReset) {
+          this.stopPlateLoop(lane)
+          this.hardResetPlate(plate)
+        }
+        return
+      }
+
+      if (!hasLaneSession && !plate.cameraRunning) {
+        return
+      }
+
+      if (!hasLaneSession && incomingIp && laneCurrentIp && incomingIp !== laneCurrentIp) {
+        return
+      }
 
       if (incomingSessionId > 0) {
         if (plate.lastAppliedSessionId > 0 && incomingSessionId < plate.lastAppliedSessionId) {
@@ -2335,6 +2380,7 @@ lane.qr.scanRequested = true
 
         // Plate: giữ nguyên API cũ
         if (!lane.plate.cameraRunning) {
+          this.releaseOtherPlateLanes(lane)
           this.stopPlateLoop(lane)
           const resPlate = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
           if (!resPlate?.success) {
@@ -2346,6 +2392,7 @@ lane.qr.scanRequested = true
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
           lane.plate.message = resPlate.message || "Khởi tạo Plate thành công"
         } else {
+          this.releaseOtherPlateLanes(lane)
           const resPlate = await lane.plateApi.resetCameraState()
           lane.plate.message = resPlate?.message || "Đã reset Plate"
 
@@ -2429,6 +2476,7 @@ lane.qr.scanRequested = true
         this.clearPlateState(lane.plate)
 
         if (!lane.plate.cameraRunning) {
+          this.releaseOtherPlateLanes(lane)
           this.stopPlateLoop(lane)
           const res = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
           if (!res?.success) {
@@ -2440,6 +2488,7 @@ lane.qr.scanRequested = true
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
           lane.plate.message = res.message || "Khởi tạo Plate thành công"
         } else {
+          this.releaseOtherPlateLanes(lane)
           const res = await lane.plateApi.resetCameraState()
           lane.plate.message = res?.message || "Đã reset Plate"
 
@@ -3036,6 +3085,31 @@ selectCamera(cam, lane, type) {
   min-width: 0;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.topbar-settings-btn {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  color: #f8fafc;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.topbar-settings-btn:hover {
+  background: #020617;
+}
+
 .topbar-toggle {
   flex-shrink: 0;
   height: 36px;
@@ -3119,7 +3193,7 @@ selectCamera(cam, lane, type) {
   left: 12px;
   right: 12px;
   bottom: 0;
-  z-index: 40;
+  z-index: 55;
   padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
   background: rgba(248, 250, 252, 1);
   border-top: 1px solid #e2e8f0;
@@ -3186,6 +3260,9 @@ selectCamera(cam, lane, type) {
   justify-self: end;
   align-self: center;
   min-width: 0;
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
 }
 
 .btn-open-drawer {
@@ -3198,6 +3275,9 @@ selectCamera(cam, lane, type) {
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .btn-open-drawer:hover {
@@ -3928,6 +4008,21 @@ selectCamera(cam, lane, type) {
 @media (max-width: 900px) {
   .gate-layout {
     padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .topbar-settings-btn,
+  .topbar-toggle {
+    flex: 1 1 0;
   }
 
   .ops-dock-grid {

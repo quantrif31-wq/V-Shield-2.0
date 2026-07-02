@@ -1,17 +1,36 @@
 package com.vshield.mobile.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,10 +38,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.vshield.mobile.data.model.NotificationItem
 import com.vshield.mobile.ui.component.ErrorDialog
-import com.vshield.mobile.ui.theme.*
+import com.vshield.mobile.viewmodel.NotificationFeedItem
 import com.vshield.mobile.viewmodel.NotificationViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +71,7 @@ fun NotificationScreen(
         TopAppBar(
             title = { Text("Thông báo", fontWeight = FontWeight.Bold) },
             actions = {
-                if (uiState.unreadCount > 0) {
+                if (uiState.unreadNotificationCount > 0) {
                     TextButton(onClick = { notificationViewModel.markAllRead() }) {
                         Icon(Icons.Filled.DoneAll, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
@@ -61,6 +82,13 @@ fun NotificationScreen(
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = MaterialTheme.colorScheme.surface
             )
+        )
+
+        SummaryRow(
+            pendingCount = uiState.unreadCount,
+            unreadNotificationCount = uiState.unreadNotificationCount,
+            securityAlertCount = uiState.securityAlertCount,
+            isConnected = uiState.isConnected
         )
 
         if (uiState.isLoading && uiState.notifications.isEmpty()) {
@@ -78,7 +106,7 @@ fun NotificationScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "Không có thông báo",
+                        "Chưa có mục nào cần xử lý",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
@@ -87,15 +115,22 @@ fun NotificationScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(uiState.notifications, key = { it.notificationId }) { item ->
+                items(uiState.notifications, key = { it.id }) { item ->
                     NotificationCard(
                         notification = item,
-                        onClick = { notificationViewModel.markRead(item.notificationId) },
+                        onMarkRead = {
+                            item.notificationId?.let(notificationViewModel::markRead)
+                        },
+                        onAcknowledge = {
+                            notificationViewModel.acknowledgeSecurityItem(item.ackKind, item.referenceId)
+                        },
                         onViewMap = if (item.latitude != null && item.longitude != null) {
                             { onViewMap?.invoke(item.latitude, item.longitude, item.locationLabel) }
-                        } else null
+                        } else {
+                            null
+                        }
                     )
                 }
             }
@@ -104,63 +139,163 @@ fun NotificationScreen(
 }
 
 @Composable
-private fun NotificationCard(
-    notification: NotificationItem,
-    onClick: () -> Unit,
-    onViewMap: (() -> Unit)? = null
+private fun SummaryRow(
+    pendingCount: Int,
+    unreadNotificationCount: Int,
+    securityAlertCount: Int,
+    isConnected: Boolean
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead)
-                MaterialTheme.colorScheme.surface
-            else
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        ),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SummaryChip(
+            label = "$pendingCount mục đang mở",
+            color = MaterialTheme.colorScheme.primaryContainer,
+            textColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.weight(1f)
+        )
+        SummaryChip(
+            label = "$unreadNotificationCount chưa đọc",
+            color = Color(0xFFE3F2FD),
+            textColor = Color(0xFF1565C0)
+        )
+        SummaryChip(
+            label = "$securityAlertCount alert",
+            color = Color(0xFFFFF3E0),
+            textColor = Color(0xFFEF6C00)
+        )
+        SummaryChip(
+            label = if (isConnected) "Realtime" else "Mất kết nối",
+            color = if (isConnected) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+            textColor = if (isConnected) Color(0xFF2E7D32) else Color(0xFFC62828)
+        )
+    }
+}
+
+@Composable
+private fun SummaryChip(
+    label: String,
+    color: Color,
+    textColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = color
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun NotificationCard(
+    notification: NotificationFeedItem,
+    onMarkRead: () -> Unit,
+    onAcknowledge: () -> Unit,
+    onViewMap: (() -> Unit)? = null
+) {
+    val severityColor = severityColor(notification.severity)
+    val backgroundColor = if (notification.isRead && notification.source == "notification") {
+        MaterialTheme.colorScheme.surface
+    } else {
+        severityColor.copy(alpha = 0.08f)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.Top
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = notification.source == "notification" && !notification.isRead) { onMarkRead() }
         ) {
-            if (!notification.isRead) {
-                Icon(
-                    Icons.Filled.Circle,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(10.dp)
-                        .offset(y = 6.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.width(10.dp))
-            }
+            Box(
+                modifier = Modifier
+                    .width(6.dp)
+                    .background(severityColor)
+                    .height(150.dp)
+            )
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!notification.isRead && notification.source == "notification") {
+                        Icon(
+                            Icons.Filled.Circle,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(10.dp)
+                                .offset(y = 1.dp),
+                            tint = severityColor
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+
+                    SeverityPill(
+                        label = severityLabel(notification.severity),
+                        background = severityColor.copy(alpha = 0.15f),
+                        textColor = severityColor
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    SeverityPill(
+                        label = notification.sourceLabel,
+                        background = MaterialTheme.colorScheme.surfaceVariant,
+                        textColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+
                 Text(
-                    text = notification.title ?: "Thông báo",
-                    fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.Bold,
-                    fontSize = 14.sp
+                    text = notification.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
-                if (notification.message != null) {
+
+                if (notification.message.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = notification.message,
                         fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                if (!notification.locationLabel.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = notification.locationLabel,
+                        fontSize = 12.sp,
+                        color = severityColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = formatTime(notification.createdAt),
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         modifier = Modifier.weight(1f)
                     )
+
                     if (onViewMap != null) {
                         IconButton(
                             onClick = onViewMap,
@@ -169,9 +304,30 @@ private fun NotificationCard(
                             Icon(
                                 Icons.Filled.LocationOn,
                                 contentDescription = "Xem bản đồ",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                tint = severityColor,
+                                modifier = Modifier.size(18.dp)
                             )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (notification.requiresAck) {
+                        Button(
+                            onClick = onAcknowledge,
+                            colors = ButtonDefaults.buttonColors(containerColor = severityColor),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Xác nhận xử lý")
+                        }
+                    } else if (notification.source == "notification" && !notification.isRead) {
+                        OutlinedButton(
+                            onClick = onMarkRead,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Đánh dấu đã đọc")
                         }
                     }
                 }
@@ -180,11 +336,49 @@ private fun NotificationCard(
     }
 }
 
+@Composable
+private fun SeverityPill(
+    label: String,
+    background: Color,
+    textColor: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = background
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
+private fun severityColor(severity: String): Color = when (severity) {
+    "success" -> Color(0xFF2E7D32)
+    "info" -> Color(0xFF0288D1)
+    "caution" -> Color(0xFFF9A825)
+    "warning" -> Color(0xFFEF6C00)
+    "critical" -> Color(0xFFC62828)
+    else -> Color(0xFF455A64)
+}
+
+private fun severityLabel(severity: String): String = when (severity) {
+    "success" -> "Xanh lá"
+    "info" -> "Xanh dương"
+    "caution" -> "Vàng"
+    "warning" -> "Cam"
+    "critical" -> "Đỏ"
+    else -> "Thông tin"
+}
+
 private fun formatTime(dateStr: String?): String {
     if (dateStr == null) return ""
     return try {
-        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
-        fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        fmt.timeZone = TimeZone.getTimeZone("UTC")
         val parsed = fmt.parse(dateStr.take(19)) ?: return dateStr.take(10)
         val diff = System.currentTimeMillis() - parsed.time
         val mins = diff / 60000

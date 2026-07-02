@@ -7,26 +7,47 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vshield.mobile.data.model.ConversationInfo
 import com.vshield.mobile.data.model.ContactInfo
+import com.vshield.mobile.data.model.ConversationInfo
 import com.vshield.mobile.viewmodel.ChatViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,20 +83,28 @@ fun ChatListScreen(
     ) { padding ->
         if (uiState.isLoadingConversations && uiState.conversations.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
         } else if (uiState.conversations.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 Text("Chưa có hội thoại nào", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
                 items(uiState.conversations, key = { it.conversationId }) { conv ->
                     ConversationItem(
                         conversation = conv,
@@ -107,7 +136,7 @@ private fun ConversationItem(
 ) {
     val otherParticipants = conversation.participants.filter { it.employeeId != myEmployeeId }
     val displayName = if (conversation.title != null) conversation.title
-        else otherParticipants.joinToString(", ") { it.fullName }
+    else otherParticipants.joinToString(", ") { it.fullName }
 
     val lastMsg = conversation.lastMessage
     val timeText = lastMsg?.sentAt?.let { formatTime(it) } ?: ""
@@ -118,8 +147,7 @@ private fun ConversationItem(
             .clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -199,9 +227,9 @@ private fun ContactPickerDialog(
             val q = searchQuery.lowercase()
             result = result.filter {
                 it.fullName.lowercase().contains(q) ||
-                (it.departmentName?.lowercase()?.contains(q) == true) ||
-                (it.positionName?.lowercase()?.contains(q) == true) ||
-                (it.email?.lowercase()?.contains(q) == true)
+                    (it.departmentName?.lowercase()?.contains(q) == true) ||
+                    (it.positionName?.lowercase()?.contains(q) == true) ||
+                    (it.email?.lowercase()?.contains(q) == true)
             }
         }
         if (filterDept.isNotBlank()) {
@@ -327,7 +355,7 @@ private val avatarColors = listOf(
 private fun avatarColor(name: String): Color {
     var hash = 0
     for (c in name) hash = c.code + (hash shl 5) - hash
-    return Color(avatarColors[Math.abs(hash) % avatarColors.size])
+    return Color(avatarColors[abs(hash) % avatarColors.size])
 }
 
 private fun formatTime(isoString: String): String {
@@ -335,12 +363,15 @@ private fun formatTime(isoString: String): String {
         val instant = Instant.parse(isoString)
         val local = instant.atZone(ZoneId.systemDefault()).toLocalDateTime()
         val now = java.time.LocalDateTime.now()
-        val formatter = if (local.toLocalDate() == now.toLocalDate())
+        val formatter = if (local.toLocalDate() == now.toLocalDate()) {
             DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
-        else if (local.year == now.year)
+        } else if (local.year == now.year) {
             DateTimeFormatter.ofPattern("dd/MM", Locale.getDefault())
-        else
+        } else {
             DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
+        }
         local.format(formatter)
-    } catch (_: Exception) { "" }
+    } catch (_: Exception) {
+        ""
+    }
 }

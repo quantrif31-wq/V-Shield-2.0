@@ -51,6 +51,13 @@ data class CreateConversationResponse(
     @SerializedName("isExisting") val isExisting: Boolean?
 )
 
+data class SendMessageRequest(
+    @SerializedName("content") val content: String,
+    @SerializedName("messageType") val messageType: String? = "Text",
+    @SerializedName("clientMessageId") val clientMessageId: String? = null,
+    @SerializedName("signalingData") val signalingData: String? = null
+)
+
 data class ChatMessageInfo(
     @SerializedName("messageId") val messageId: Int,
     @SerializedName("senderId") val senderId: Int,
@@ -132,46 +139,6 @@ data class SignalRCallResponse(
 data class SignalRCallEnded(
     val fromEmployeeId: Int,
     val conversationId: Int?
-)
-
-// Notification models
-data class SignalRNotification(
-    val notificationId: Int,
-    val eventType: String?,
-    val title: String?,
-    val message: String?,
-    val entityType: String?,
-    val entityId: String?,
-    val actionUrl: String?,
-    val latitude: Double?,
-    val longitude: Double?,
-    val locationLabel: String?,
-    val createdAt: String?,
-    val isRead: Boolean
-)
-
-data class NotificationItem(
-    @SerializedName("notificationId") val notificationId: Int,
-    @SerializedName("eventType") val eventType: String?,
-    @SerializedName("title") val title: String?,
-    @SerializedName("message") val message: String?,
-    @SerializedName("entityType") val entityType: String?,
-    @SerializedName("entityId") val entityId: String?,
-    @SerializedName("actionUrl") val actionUrl: String?,
-    @SerializedName("latitude") val latitude: Double?,
-    @SerializedName("longitude") val longitude: Double?,
-    @SerializedName("locationLabel") val locationLabel: String?,
-    @SerializedName("createdAt") val createdAt: String?,
-    @SerializedName("isRead") val isRead: Boolean
-)
-
-data class UnreadCountResponse(
-    @SerializedName("count") val count: Int
-)
-
-data class NotificationsListResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("data") val data: List<NotificationItem>?
 )
 
 sealed class ChatCallState {

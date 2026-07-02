@@ -72,7 +72,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     isRead = msg.isRead,
                     readAt = null
                 )
-                _uiState.value = current.copy(messages = current.messages + newMsg)
+                val mergedMessages = if (current.messages.any { it.messageId == newMsg.messageId }) {
+                    current.messages
+                } else {
+                    current.messages + newMsg
+                }
+                _uiState.value = current.copy(messages = mergedMessages)
             }
             val updatedConvs = current.conversations.map { conv ->
                 if (conv.conversationId == msg.conversationId) {
@@ -209,7 +214,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun sendMessage(content: String) {
         val convId = _uiState.value.currentConvId
         if (convId <= 0 || content.isBlank()) return
-        signalRClient?.sendMessage(convId, content)
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.apiService.sendConversationMessage(
+                    convId,
+                    SendMessageRequest(content = content.trim())
+                )
+
+                if (!response.isSuccessful || response.body()?.success != true) {
+                    _uiState.value = _uiState.value.copy(
+                        error = response.body()?.message ?: "Không thể gửi tin nhắn"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Lỗi gửi tin nhắn: ${e.message}"
+                )
+            }
+        }
     }
 
     fun sendTyping() {

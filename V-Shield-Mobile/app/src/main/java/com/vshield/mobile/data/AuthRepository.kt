@@ -2,6 +2,7 @@ package com.vshield.mobile.data
 
 import com.vshield.mobile.data.model.LoginData
 import com.vshield.mobile.data.model.LoginRequest
+import com.vshield.mobile.data.model.RefreshTokenRequest
 
 class AuthRepository(
     private val tokenManager: TokenManager
@@ -52,6 +53,47 @@ class AuthRepository(
     fun logout() {
         RetrofitClient.setToken(null)
         tokenManager.clear()
+    }
+
+    fun lockSession(keepRefreshToken: Boolean) {
+        RetrofitClient.setToken(null)
+        tokenManager.clearToken()
+        if (!keepRefreshToken) {
+            tokenManager.clearRefreshToken()
+        }
+    }
+
+    fun hasActiveAccessToken(): Boolean = !tokenManager.getToken().isNullOrBlank()
+
+    fun hasRestorableSession(): Boolean =
+        !tokenManager.getToken().isNullOrBlank() || !tokenManager.getRefreshToken().isNullOrBlank()
+
+    fun restoreAccessToken(): Boolean {
+        val token = tokenManager.getToken() ?: return false
+        RetrofitClient.setToken(token)
+        return true
+    }
+
+    suspend fun restoreSessionWithStoredTokens(): Boolean {
+        if (restoreAccessToken()) return true
+
+        val refreshToken = tokenManager.getRefreshToken() ?: return false
+        return try {
+            val response = RetrofitClient.apiService.refresh(RefreshTokenRequest(refreshToken))
+            val data = response.body()
+            if (!response.isSuccessful || data == null || data.token.isBlank()) {
+                false
+            } else {
+                tokenManager.saveToken(data.token)
+                data.refreshToken?.let { tokenManager.saveRefreshToken(it) }
+                data.employeeId?.let { tokenManager.saveEmployeeId(it) }
+                data.role?.let { tokenManager.saveRoles(setOf(it)) }
+                RetrofitClient.setToken(data.token)
+                true
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun isLoggedIn(): Boolean = tokenManager.isLoggedIn()

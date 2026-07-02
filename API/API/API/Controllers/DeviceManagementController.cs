@@ -38,6 +38,11 @@ public class DeviceManagementController : ControllerBase
             .OrderBy(camera => camera.CameraName)
             .ToListAsync();
 
+        foreach (var camera in cameras)
+        {
+            camera.UrlView = BuildCameraWebViewUrl(camera.StreamUrl, camera.CameraId);
+        }
+
         var gates = await _context.Gates.AsNoTracking()
             .OrderBy(gate => gate.GateName)
             .Select(gate => new
@@ -91,6 +96,11 @@ public class DeviceManagementController : ControllerBase
         var items = await camerasQuery
             .OrderBy(camera => camera.CameraName)
             .ToListAsync();
+
+        foreach (var item in items)
+        {
+            item.UrlView = BuildCameraWebViewUrl(item.StreamUrl, item.CameraId);
+        }
 
         return Ok(items);
     }
@@ -395,6 +405,11 @@ public class DeviceManagementController : ControllerBase
             return false;
         }
 
+        if (IsDemoRuntimePreviewStream(streamUrl))
+        {
+            return true;
+        }
+
         if (streamUrl.StartsWith("/", StringComparison.Ordinal))
         {
             return true;
@@ -415,6 +430,12 @@ public class DeviceManagementController : ControllerBase
             return null;
         }
 
+        var demoPreviewUrl = BuildDemoRuntimePreviewUrl(normalizedStreamUrl);
+        if (!string.IsNullOrWhiteSpace(demoPreviewUrl))
+        {
+            return demoPreviewUrl;
+        }
+
         if (IsHttpOrRelativeStreamUrl(normalizedStreamUrl))
         {
             return normalizedStreamUrl.StartsWith("/", StringComparison.Ordinal)
@@ -423,8 +444,27 @@ public class DeviceManagementController : ControllerBase
         }
 
         var go2RtcPublicBaseUrl = ResolveGo2RtcPublicBaseEndpoint();
-        return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc";
+        return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc,mse";
     }
+
+    private string? BuildDemoRuntimePreviewUrl(string streamUrl)
+    {
+        if (streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{ResolvePublicApplicationBaseUrl()}/qr-api/qr/frame.jpg";
+        }
+
+        if (streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{ResolvePublicApplicationBaseUrl()}/plate-api/api/camera/stream";
+        }
+
+        return null;
+    }
+
+    private static bool IsDemoRuntimePreviewStream(string streamUrl) =>
+        streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase) ||
+        streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase);
 
     private string ResolveGo2RtcPublicBaseEndpoint()
     {
@@ -468,6 +508,12 @@ public class DeviceManagementController : ControllerBase
 
     private string ResolvePublicApplicationBaseUrl()
     {
+        var requestDerivedBaseUrl = TryResolveRequestBaseUrl();
+        if (!string.IsNullOrWhiteSpace(requestDerivedBaseUrl))
+        {
+            return requestDerivedBaseUrl;
+        }
+
         var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
         if (!string.IsNullOrWhiteSpace(configuredFrontendUrl) &&
             !ShouldPreferRequestBaseUrl(configuredFrontendUrl))
@@ -476,6 +522,35 @@ public class DeviceManagementController : ControllerBase
         }
 
         return NormalizeUrlBase($"{Request.Scheme}://{Request.Host}");
+    }
+
+    private string? TryResolveRequestBaseUrl()
+    {
+        var candidates = new[]
+        {
+            Request.Headers.Origin.ToString(),
+            Request.Headers.Referer.ToString()
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                continue;
+            }
+
+            if (!Uri.TryCreate(candidate.Trim(), UriKind.Absolute, out var uri))
+            {
+                continue;
+            }
+
+            if (uri.IsLoopback)
+            {
+                return NormalizeUrlBase(uri.GetLeftPart(UriPartial.Authority));
+            }
+        }
+
+        return null;
     }
 
     private bool ShouldPreferRequestBaseUrl(string configuredFrontendUrl)

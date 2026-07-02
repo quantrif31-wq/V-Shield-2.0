@@ -49,6 +49,11 @@ namespace API.Controllers
                 })
                 .ToListAsync();
 
+            foreach (var cam in cams)
+            {
+                cam.UrlView = await BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
+            }
+
             return Ok(cams);
         }
 
@@ -75,6 +80,8 @@ namespace API.Controllers
 
             if (cam == null)
                 return NotFound("Không tìm thấy camera");
+
+            cam.UrlView = await BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
 
             return Ok(cam);
         }
@@ -613,6 +620,11 @@ namespace API.Controllers
                 return false;
             }
 
+            if (IsDemoRuntimePreviewStream(streamUrl))
+            {
+                return true;
+            }
+
             if (streamUrl.StartsWith("/", StringComparison.Ordinal))
             {
                 return true;
@@ -633,14 +645,19 @@ namespace API.Controllers
                 return null;
             }
 
+            var demoPreviewUrl = BuildDemoRuntimePreviewUrl(normalizedStreamUrl);
+            if (!string.IsNullOrWhiteSpace(demoPreviewUrl))
+            {
+                return demoPreviewUrl;
+            }
+
             if (IsDirectWebStream(normalizedStreamUrl))
             {
                 return BuildDirectWebStreamUrl(normalizedStreamUrl);
             }
 
             var go2RtcPublicBaseUrl = await ResolveGo2RtcPublicBaseUrl();
-            return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc";
-            //return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc,mse";
+            return $"{go2RtcPublicBaseUrl}/stream.html?src=cam{cameraId}&mode=webrtc,mse";
         }
 
         private string BuildDirectWebStreamUrl(string streamUrl)
@@ -652,6 +669,25 @@ namespace API.Controllers
 
             return $"{ResolvePublicAppBaseUrl()}{streamUrl}";
         }
+
+        private string? BuildDemoRuntimePreviewUrl(string streamUrl)
+        {
+            if (streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{ResolvePublicAppBaseUrl()}/qr-api/qr/frame.jpg";
+            }
+
+            if (streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{ResolvePublicAppBaseUrl()}/plate-api/api/camera/stream";
+            }
+
+            return null;
+        }
+
+        private static bool IsDemoRuntimePreviewStream(string streamUrl) =>
+            streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase) ||
+            streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase);
 
         private async Task<string> ResolveGo2RtcPublicBaseUrl()
         {
@@ -713,6 +749,12 @@ namespace API.Controllers
 
         private string ResolvePublicAppBaseUrl()
         {
+            var requestDerivedBaseUrl = TryResolveRequestBaseUrl();
+            if (!string.IsNullOrWhiteSpace(requestDerivedBaseUrl))
+            {
+                return requestDerivedBaseUrl;
+            }
+
             var configuredFrontendUrl = _configuration["AppSettings:FrontendUrl"];
             if (!string.IsNullOrWhiteSpace(configuredFrontendUrl) &&
                 !ShouldPreferRequestBaseUrl(configuredFrontendUrl))
@@ -721,6 +763,35 @@ namespace API.Controllers
             }
 
             return NormalizeBaseUrl($"{Request.Scheme}://{Request.Host}");
+        }
+
+        private string? TryResolveRequestBaseUrl()
+        {
+            var candidates = new[]
+            {
+                Request.Headers.Origin.ToString(),
+                Request.Headers.Referer.ToString()
+            };
+
+            foreach (var candidate in candidates)
+            {
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                if (!Uri.TryCreate(candidate.Trim(), UriKind.Absolute, out var uri))
+                {
+                    continue;
+                }
+
+                if (uri.IsLoopback)
+                {
+                    return NormalizeBaseUrl(uri.GetLeftPart(UriPartial.Authority));
+                }
+            }
+
+            return null;
         }
 
         private bool ShouldPreferRequestBaseUrl(string configuredFrontendUrl)

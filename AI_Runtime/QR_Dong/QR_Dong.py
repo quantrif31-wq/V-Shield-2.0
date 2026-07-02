@@ -4,7 +4,7 @@ import numpy as np
 import os
 from pyzbar import pyzbar
 from threading import Thread, Lock
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -115,6 +115,31 @@ def decode_qr(frame):
 
     return None
 
+
+def build_preview_frame():
+    with frame_lock:
+        frame = None if latest_frame is None else latest_frame.copy()
+
+    if frame is None:
+        frame = np.zeros((270, 480, 3), dtype=np.uint8)
+        cv2.putText(frame, "NO CAMERA", (150, 140),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    with lock:
+        qr = state["qr"]
+        locked = state["locked"]
+        scan = state["scan_enabled"]
+
+    if scan:
+        cv2.putText(frame, "SCANNING...", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+
+    if locked:
+        cv2.putText(frame, f"LOCKED: {qr}", (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+    return frame
+
 # ================= SCAN =================
 def scan_worker():
     global latest_frame
@@ -198,6 +223,24 @@ def api_stop():
 def api_result():
     return state
 
+
+@app.get("/qr/frame.jpg")
+def api_frame_jpg():
+    frame = build_preview_frame()
+    ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+    if not ok:
+        return Response(status_code=500)
+
+    return Response(
+        content=buf.tobytes(),
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
 # ================= MAIN =================
 def main():
     global stop_flag
@@ -225,29 +268,7 @@ def main():
     current_rtsp = ""
 
     while True:
-        frame = None
-
-        with frame_lock:
-            if latest_frame is not None:
-                frame = latest_frame.copy()
-
-        if frame is None:
-            frame = np.zeros((270, 480, 3), dtype=np.uint8)
-            cv2.putText(frame, "NO CAMERA", (150, 140),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
-
-        with lock:
-            qr = state["qr"]
-            locked = state["locked"]
-            scan = state["scan_enabled"]
-
-        if scan:
-            cv2.putText(frame, "SCANNING...", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,165,255), 2)
-
-        if locked:
-            cv2.putText(frame, f"LOCKED: {qr}", (10, 60),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
+        frame = build_preview_frame()
 
         cv2.imshow("QR FINAL", frame)
 

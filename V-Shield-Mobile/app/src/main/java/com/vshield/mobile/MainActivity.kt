@@ -1,13 +1,23 @@
 package com.vshield.mobile
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.*
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -22,7 +32,7 @@ import com.vshield.mobile.viewmodel.AuthViewModel
 import com.vshield.mobile.viewmodel.ChatViewModel
 import com.vshield.mobile.viewmodel.NotificationViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -33,6 +43,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun VShieldMainScreen() {
     val navController = rememberNavController()
@@ -44,9 +55,9 @@ fun VShieldMainScreen() {
     val notifState by notificationViewModel.uiState.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val isLoggedIn = authState.isLoggedIn
-
     val mainRoutes = listOf(
         Screen.Home.route,
         Screen.Transfer.route,
@@ -57,10 +68,29 @@ fun VShieldMainScreen() {
     )
 
     LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) notificationViewModel.initialize()
+        if (isLoggedIn) {
+            notificationViewModel.initialize()
+            authViewModel.recordUserActivity()
+        } else if (currentRoute != Screen.Login.route) {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
     }
-    val showBottomBar = isLoggedIn && currentRoute in mainRoutes
 
+    DisposableEffect(lifecycleOwner, isLoggedIn) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (isLoggedIn && event == Lifecycle.Event.ON_STOP) {
+                authViewModel.lockSessionForInactivity()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val showBottomBar = isLoggedIn && currentRoute in mainRoutes
     val isInCall = chatState.callState !is ChatCallState.Idle
     val showCallOverlay = isInCall
     val activeAlarm = notifState.activeAlarm
@@ -86,10 +116,16 @@ fun VShieldMainScreen() {
             }
         }
     ) { innerPadding ->
-        androidx.compose.foundation.layout.Box(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .pointerInteropFilter {
+                    if (isLoggedIn) {
+                        authViewModel.recordUserActivity()
+                    }
+                    false
+                }
         ) {
             NavGraph(
                 navController = navController,
@@ -122,7 +158,9 @@ fun VShieldMainScreen() {
                                 )
                             )
                         }
-                    } else null
+                    } else {
+                        null
+                    }
                 )
             } else if (showCallOverlay) {
                 CallOverlay(chatViewModel = chatViewModel)

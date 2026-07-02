@@ -13,9 +13,15 @@ import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.QrCodeScanner
-import androidx.compose.material3.*
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class BottomNavItem(
@@ -30,30 +36,35 @@ sealed class BottomNavItem(
         selectedIcon = Icons.Filled.QrCodeScanner,
         unselectedIcon = Icons.Outlined.QrCodeScanner
     )
+
     data object Transfer : BottomNavItem(
         route = "transfer",
         title = "Xe",
         selectedIcon = Icons.Filled.DirectionsCar,
         unselectedIcon = Icons.Outlined.DirectionsCar
     )
+
     data object Chat : BottomNavItem(
         route = "chat",
         title = "Trò chuyện",
         selectedIcon = Icons.AutoMirrored.Filled.Chat,
         unselectedIcon = Icons.AutoMirrored.Outlined.Chat
     )
+
     data object Notifications : BottomNavItem(
         route = "notifications",
         title = "Thông báo",
         selectedIcon = Icons.Filled.Notifications,
         unselectedIcon = Icons.Outlined.Notifications
     )
+
     data object Leave : BottomNavItem(
         route = "leave",
         title = "Nghỉ phép",
         selectedIcon = Icons.Filled.CalendarMonth,
         unselectedIcon = Icons.Outlined.CalendarMonth
     )
+
     data object Profile : BottomNavItem(
         route = "profile",
         title = "Cá nhân",
@@ -90,11 +101,12 @@ fun BottomNavBar(
                         is BottomNavItem.Notifications -> notificationUnreadCount
                         else -> 0
                     }
+
                     if (badgeCount > 0) {
                         BadgedBox(badge = {
-                            Badge { Text(
-                                if (badgeCount > 99) "99+" else badgeCount.toString()
-                            ) }
+                            Badge {
+                                Text(if (badgeCount > 99) "99+" else badgeCount.toString())
+                            }
                         }) {
                             Icon(
                                 imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
