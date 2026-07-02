@@ -127,6 +127,34 @@
                 <div class="result-pill" :class="`state-${cameraVisualState('qr', lane)}`">
                   {{ cameraVisualText("qr", lane) }}
                 </div>
+                <div
+                  v-if="lane.qr.backendPhase === 'candidate_found' && lane.qr.backendLastCandidate"
+                  class="result-hint result-hint--seen"
+                >
+                  Python đã thấy mã:
+                  {{ shortText(lane.qr.backendLastCandidate, 44) }}
+                  <span v-if="lane.qr.backendLastSource">
+                    · nguồn {{ lane.qr.backendLastSource }}
+                  </span>
+                </div>
+                <div
+                  v-else-if="lane.qr.backendPhase === 'connecting'"
+                  class="result-hint result-hint--waiting"
+                >
+                  Đang kết nối camera QR...
+                </div>
+                <div
+                  v-else-if="lane.qr.backendPhase === 'scanning'"
+                  class="result-hint result-hint--waiting"
+                >
+                  Python đang quét, chưa khóa được mã.
+                </div>
+                <div
+                  v-else-if="lane.qr.backendPhase === 'locked' && lane.qr.verifying"
+                  class="result-hint result-hint--seen"
+                >
+                  Đã khóa QR, đang xác thực...
+                </div>
               </div>
             </div>
           </div>
@@ -640,9 +668,27 @@ function createQrModule(defaultScannerDevice) {
     previewIntervalMs: 350,
     absenceThresholdMs: 1500,
     decodeMaxWidth: 640,
+    stablePayload: "",
+    stablePayloadCount: 0,
+    stablePayloadRequiredCount: 2,
+    stablePayloadWindowMs: 1200,
+    lastStablePayloadAt: 0,
+    lastVerifyAttemptPayload: "",
+    lastVerifyAttemptAt: 0,
+    verifyCooldownMs: 1800,
 
     // Flag set when a backend scan request is active (scan enabled on Python)
     scanRequested: false,
+    backendPhase: "idle",
+    backendConnected: false,
+    backendFrameReady: false,
+    backendLastCandidate: "",
+    backendLastSource: "",
+    backendLastDecodeAt: 0,
+    backendCandidateSeenCount: 0,
+    backendLockedPayload: "",
+    backendLockedAt: 0,
+    lastVerifiedPayload: "",
 
     frameWidth: 0,
     frameHeight: 0,
@@ -900,6 +946,35 @@ export default {
   },
 
   methods: {
+    preferMainQrStream(url) {
+      const raw = String(url || "").trim()
+      if (!raw) return ""
+      return raw.replace(/([?&]subtype=)1\b/i, "$10")
+    },
+
+    extractGo2RtcStreamName(url) {
+      const raw = String(url || "").trim()
+      if (!raw) return ""
+
+      try {
+        const parsed = new URL(raw, window.location.origin)
+        return String(parsed.searchParams.get("src") || "").trim()
+      } catch {
+        const match = raw.match(/[?&]src=([^&#]+)/i)
+        return match?.[1] ? decodeURIComponent(match[1]).trim() : ""
+      }
+    },
+
+    getEffectiveQrStream(lane) {
+      const go2rtcStreamName = this.extractGo2RtcStreamName(lane?.qr?.viewUrl || "")
+      if (go2rtcStreamName) {
+        return `go2rtc:${go2rtcStreamName}`
+      }
+
+      return this.preferMainQrStream(
+        lane?.qr?.cameraIp || lane?.qr?.currentIp || lane?.qr?.viewUrl || ""
+      )
+    },
     setQrCanvasRef(laneId, el) {
       if (el) this.qrCanvasRefs[laneId] = el
     },
@@ -1236,39 +1311,72 @@ export default {
     },
 
     startQrPolling(lane) {
-  if (lane.qr.resultTimer) return
+      if (lane.qr.resultTimer) return
 
-  lane.qr.resultTimer = setInterval(async () => {
-    if (!lane.qr.cameraRunning) return
+      lane.qr.resultTimer = setInterval(async () => {
+        if (!lane.qr.cameraRunning) return
 
-    const res = await getQrScanResult()
+        const res = await getQrScanResult()
 
-    if (!res) return
+        if (!res) return
 
     // Cập nhật trạng thái scanRequested dựa trên backend
-    try {
-      lane.qr.scanRequested = !!res.scan_enabled || lane.qr.scanRequested
-    } catch {
-      // ignore
-    }
+        try {
+          lane.qr.scanRequested = !!res.scan_enabled
+          lane.qr.backendPhase = String(res.phase || "idle")
+          lane.qr.backendConnected = !!res.connected
+          lane.qr.backendFrameReady = !!res.frame_ready
+          lane.qr.backendLastCandidate = String(res.candidate_payload || "").trim()
+          lane.qr.backendLastSource = String(res.candidate_source || "").trim()
+          lane.qr.backendCandidateSeenCount = Number(res.candidate_seen_count || 0)
+          lane.qr.backendLockedPayload = String(res.locked_payload || res.qr || "").trim()
+          lane.qr.backendLockedAt = Number(res.locked_at || 0)
+          lane.qr.backendLastDecodeAt = Number(res.locked_at || 0)
+        } catch {
+          // ignore
+        }
 
     // trạng thái
-    lane.qr.sessionLocked = res.locked
+    lane.qr.sessionLocked =
+      lane.qr.backendPhase === "locked" ||
+      lane.qr.activeSessionVerifyState === "success"
 
     // Nếu backend đang quét nhưng chưa lock, hiển thị trạng thái quét
-    if (lane.qr.scanRequested && !lane.qr.sessionLocked) {
-      lane.qr.message = lane.qr.message || "Đang quét QR..."
+    if (lane.qr.backendPhase === "connecting") {
+      lane.qr.message = "Đang kết nối camera QR..."
+      return
     }
 
-        if (res.locked && res.qr) {
-  const servicePayload = String(res.qr || "").trim()
+    if (lane.qr.backendPhase === "scanning") {
+      lane.qr.message = "Đang quét QR..."
+      return
+    }
+
+    if (lane.qr.backendPhase === "candidate_found") {
+      lane.qr.message = "Đã thấy mã, đang ổn định khung hình..."
+      lane.qr.overlayText = lane.qr.backendLastCandidate || lane.qr.overlayText
+      return
+    }
+
+        if (lane.qr.backendPhase === "locked") {
+  const servicePayload = String(lane.qr.backendLockedPayload || "").trim()
   if (!servicePayload) return
+  const qr = lane.qr
+  if (
+    qr.lastVerifiedPayload === servicePayload ||
+    qr.verifying
+  ) {
+    return
+  }
   lane.qr.qrPayload = servicePayload
   lane.qr.sessionLocked = true
+  lane.qr.activeSessionPayload = servicePayload
+  lane.qr.scanRequested = false
+  lane.qr.message = "Đã khóa QR, đang xác thực..."
 
   const result = await this.doVerifyQr(lane, servicePayload)
-const qr = lane.qr
   if (result?.success) {
+   qr.lastVerifiedPayload = servicePayload
    if (result?.data?.type === "STATIC") {
   qr.guestId = String(
   result?.data?.visitorDetailId ||
@@ -1288,8 +1396,17 @@ const qr = lane.qr
       lane.qr.overlayText = identityOverlay
     }
     lane.qr.alert = false
+    lane.qr.backendPhase = "verified"
+    lane.qr.message = result?.message || "Xác thực QR thành công."
   } else {
     lane.qr.alert = true
+    lane.qr.sessionLocked = false
+    lane.qr.activeSessionPayload = ""
+    lane.qr.backendPhase = "scanning"
+    if (qr.activeSessionVerifyState === "expired" || qr.activeSessionVerifyState === "invalid") {
+      await resetQrSession().catch(() => {})
+      await scanQrOnce().catch(() => {})
+    }
   }
 
   return // 🔥 STOP scan
@@ -1343,13 +1460,19 @@ const qr = lane.qr
       )
     },
 
+    qrBackendPhase(qr) {
+      if (qr.activeSessionVerifyState === "success") return "verified"
+      return String(qr.backendPhase || "idle")
+    },
+
     cameraVisualState(type, lane) {
       if (type === "qr") {
         const qr = lane.qr
+        const phase = this.qrBackendPhase(qr)
         if (!qr.cameraRunning) return "idle"
         if (qr.alert || this.hasInvalidHint(qr.verifyMessage || qr.message)) return "invalid"
-        if (qr.sessionLocked && (qr.employeeId || qr.guestId)) return "valid"
-        if (qr.scanRequested || qr.activeSessionPayload || qr.verifying || qr.decodeBusy) return "scanning"
+        if (phase === "verified" && (qr.employeeId || qr.guestId)) return "valid"
+        if (phase === "connecting" || phase === "scanning" || phase === "candidate_found" || phase === "locked" || qr.verifying) return "scanning"
         return "idle"
       }
 
@@ -1362,6 +1485,17 @@ const qr = lane.qr
     },
 
     cameraVisualText(type, lane) {
+      if (type === "qr") {
+        const phase = this.qrBackendPhase(lane.qr)
+        if (this.cameraVisualState(type, lane) === "invalid") return "INVALID / TIMEOUT"
+        if (phase === "verified") return "VALID"
+        if (phase === "locked") return "VERIFYING"
+        if (phase === "candidate_found") return "SEEN"
+        if (phase === "connecting") return "CONNECTING"
+        if (phase === "scanning") return "SCANNING"
+        return "IDLE"
+      }
+
       const state = this.cameraVisualState(type, lane)
       if (state === "valid") return "VALID"
       if (state === "invalid") return "INVALID / TIMEOUT"
@@ -1769,6 +1903,19 @@ const qr = lane.qr
 
       qr.lastDecodedText = ""
       qr.lastDecodedAt = 0
+      qr.stablePayload = ""
+      qr.stablePayloadCount = 0
+      qr.lastStablePayloadAt = 0
+      qr.backendPhase = "idle"
+      qr.backendConnected = false
+      qr.backendFrameReady = false
+      qr.backendLastCandidate = ""
+      qr.backendLastSource = ""
+      qr.backendLastDecodeAt = 0
+      qr.backendCandidateSeenCount = 0
+      qr.backendLockedPayload = ""
+      qr.backendLockedAt = 0
+      qr.lastVerifiedPayload = ""
       qr.lastUpdate = ""
       qr.message = ""
       qr.alert = false
@@ -1883,12 +2030,14 @@ const qr = lane.qr
     },
 
     async captureAndDecodeQr(lane) {
+      return
       const qr = lane.qr
       const canvas = this.qrCanvasRefs[lane.id]
       const mode = qr.previewMode
 
       if (!canvas) return
       if (qr.decodeBusy) return
+      if (qr.cameraRunning) return
 
       let source = null
       let sourceWidth = 0
@@ -1976,8 +2125,38 @@ const qr = lane.qr
         qr.lastDecodedText = decodedText
         qr.lastDecodedAt = now
 
+        if (
+          qr.stablePayload === decodedText &&
+          now - qr.lastStablePayloadAt <= qr.stablePayloadWindowMs
+        ) {
+          qr.stablePayloadCount += 1
+        } else {
+          qr.stablePayload = decodedText
+          qr.stablePayloadCount = 1
+        }
+        qr.lastStablePayloadAt = now
+
+        if (qr.stablePayloadCount < qr.stablePayloadRequiredCount) {
+          qr.activeSessionVerifyState = "waiting"
+          qr.activeSessionVerifyMessage = "Da thay QR, giu yen them mot nhip de xac thuc."
+          qr.message = "Da thay QR, dang cho khung hinh on dinh..."
+          qr.lastSeenAt = now
+          return
+        }
+
         if (qr.activeSessionPayload && decodedText === qr.activeSessionPayload) {
           qr.lastSeenAt = now
+          return
+        }
+
+        if (
+          qr.lastVerifyAttemptPayload === decodedText &&
+          now - qr.lastVerifyAttemptAt < qr.verifyCooldownMs
+        ) {
+          qr.lastSeenAt = now
+          qr.activeSessionVerifyState = "waiting"
+          qr.activeSessionVerifyMessage = "QR vua duoc gui xac thuc, dang cho nhip ke tiep."
+          qr.message = "QR vua duoc gui xac thuc, dang cho phan hoi on dinh..."
           return
         }
 
@@ -2064,6 +2243,8 @@ const qr = lane.qr
 
       try {
         const safePayload = String(payload || "").trim()
+        qr.lastVerifyAttemptPayload = safePayload
+        qr.lastVerifyAttemptAt = Date.now()
         if (!safePayload) {
           return {
             success: false,
@@ -2101,10 +2282,14 @@ else {
           data: result?.data || null
         }
       } catch (error) {
-        const message =
+        let message =
           error?.response?.data?.message ||
           error?.message ||
           "Xác thực thất bại."
+
+        if (Number(error?.response?.status || 0) === 429) {
+          message = "QR dang duoc gui xac thuc qua nhanh. He thong dang tu giam nhip, vui long giu yen ma them mot chut."
+        }
 
         qr.verifyMessage = message
         qr.verifyData = null
@@ -2356,6 +2541,7 @@ await new Promise(r => setTimeout(r, 200))
 
 // 🧠 nếu chưa chạy → start
 if (!lane.qr.cameraRunning) {
+  lane.qr.cameraIp = this.getEffectiveQrStream(lane)
   await startQrScanner(lane.qr.cameraIp)
   await new Promise(r => setTimeout(r, 800))
 }
@@ -2424,6 +2610,7 @@ lane.qr.scanRequested = true
 
     // 🧠 Nếu chưa chạy → mở cam trước
     if (!lane.qr.cameraRunning) {
+      lane.qr.cameraIp = this.getEffectiveQrStream(lane)
       await startQrScanner(lane.qr.cameraIp)
 
       // ⏳ chờ cam mở
@@ -3030,9 +3217,10 @@ selectCamera(cam, lane, type) {
   }
 
   if (type === "qr") {
-    lane.qr.cameraIp = cam.streamUrl
+    const qrStreamValue = this.preferMainQrStream(cam.streamUrl)
+    lane.qr.cameraIp = qrStreamValue
     lane.qr.viewUrl = cam.urlView   // 🔥 thêm
-    lane.qr.currentIp = cam.urlView
+    lane.qr.currentIp = qrStreamValue
     lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-qr'] = cam.cameraName
@@ -3714,6 +3902,8 @@ selectCamera(cam, lane, type) {
 
 .quick-result {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 6px;
   flex-wrap: wrap;
   flex-shrink: 0;
@@ -3724,6 +3914,20 @@ selectCamera(cam, lane, type) {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
+}
+
+.result-hint {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.result-hint--seen {
+  color: #9a3412;
+}
+
+.result-hint--waiting {
+  color: #475569;
 }
 
 .cam-overlay {
