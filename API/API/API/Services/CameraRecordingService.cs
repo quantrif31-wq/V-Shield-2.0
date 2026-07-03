@@ -346,12 +346,13 @@ public class CameraRecordingService : BackgroundService
         go2rtcUrl = null;
         if (string.IsNullOrWhiteSpace(urlView)) return false;
         if (!Uri.TryCreate(urlView, UriKind.Absolute, out var parsed)) return false;
-        if (!parsed.AbsolutePath.Contains("/go2rtc/stream.html", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!parsed.AbsolutePath.EndsWith("/stream.html", StringComparison.OrdinalIgnoreCase)) return false;
 
         var src = GetQueryValue(parsed.Query, "src");
         if (string.IsNullOrWhiteSpace(src)) return false;
 
-        go2rtcUrl = $"http://go2rtc:1984/api/stream.mjpeg?src={Uri.EscapeDataString(src)}";
+        var mjpegPath = parsed.AbsolutePath[..^"stream.html".Length] + "api/stream.mjpeg";
+        go2rtcUrl = $"{parsed.Scheme}://{parsed.Host}{mjpegPath}?src={Uri.EscapeDataString(src)}";
         return true;
     }
 
