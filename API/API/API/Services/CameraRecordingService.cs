@@ -385,10 +385,10 @@ public class CameraRecordingService : BackgroundService
     {
         if (inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
         {
-            return $"-rtsp_transport tcp -timeout 8000000 -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -movflags frag_keyframe+empty_moov -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
+            return $"-rtsp_transport tcp -timeout 8000000 -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -movflags frag_keyframe+empty_moov -frag_duration 1000000 -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
         }
 
-        return $"-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
+        return $"-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -frag_duration 1000000 -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
     }
 
     private static string TrimForLog(string? value)
