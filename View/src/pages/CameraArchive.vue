@@ -1,240 +1,495 @@
 <template>
-  <div class="page">
-    <div class="topbar">
+  <div class="archive-page">
+    <div class="archive-topbar">
       <div>
-        <h1>Lưu trữ camera</h1>
-        <p v-if="camera">Camera: {{ camera.cameraName }}</p>
+        <h1>Luu tru video an ninh</h1>
+        <p>Loc nhanh theo camera, cong/khu vuc va moc thoi gian.</p>
       </div>
-      <button class="back-btn" @click="$router.back()">← Quay lại</button>
+      <button class="ghost-btn" @click="$router.back()">Quay lai</button>
     </div>
 
-    <div class="filters">
-      <label>Ngày bắt đầu:
-        <input type="date" v-model="filterFrom" class="filter-input" />
-      </label>
-      <label>Ngày kết thúc:
-        <input type="date" v-model="filterTo" class="filter-input" />
-      </label>
-      <button class="search-btn" @click="loadSegments(1)">Tìm</button>
+    <section class="filter-panel">
+      <div class="filter-grid">
+        <label class="field">
+          <span>Camera</span>
+          <select v-model="filters.cameraId">
+            <option value="">Tat ca camera</option>
+            <option v-for="cam in cameras" :key="cam.cameraId" :value="String(cam.cameraId)">
+              {{ cam.cameraName }}
+            </option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Cong / Gate</span>
+          <select v-model="filters.gateId">
+            <option value="">Tat ca gate</option>
+            <option v-for="gate in gateOptions" :key="gate.gateId" :value="String(gate.gateId)">
+              {{ gate.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Loai camera</span>
+          <select v-model="filters.cameraType">
+            <option value="">Tat ca loai</option>
+            <option v-for="type in cameraTypes" :key="type" :value="type">
+              {{ type }}
+            </option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Tu khoa</span>
+          <input v-model.trim="filters.search" type="text" placeholder="Ten camera, gate, khu vuc..." />
+        </label>
+
+        <label class="field">
+          <span>Tu ngay</span>
+          <input v-model="filters.from" type="date" />
+        </label>
+
+        <label class="field">
+          <span>Den ngay</span>
+          <input v-model="filters.to" type="date" />
+        </label>
+      </div>
+
+      <div class="filter-actions">
+        <button class="primary-btn" @click="loadSegments(1)">Tim video</button>
+        <button class="ghost-btn" @click="resetFilters">Dat lai</button>
+      </div>
+    </section>
+
+    <section class="summary-strip">
+      <article class="summary-card">
+        <span class="summary-kicker">Doan video</span>
+        <strong>{{ total }}</strong>
+      </article>
+      <article class="summary-card">
+        <span class="summary-kicker">Camera hien co</span>
+        <strong>{{ cameras.length }}</strong>
+      </article>
+      <article class="summary-card">
+        <span class="summary-kicker">Dang loc</span>
+        <strong>{{ activeFilterLabel }}</strong>
+      </article>
+    </section>
+
+    <div v-if="loading" class="empty-state">Dang tai du lieu luu tru...</div>
+    <div v-else-if="segments.length === 0" class="empty-state">
+      Chua co doan video nao khop bo loc hien tai.
     </div>
 
-    <div v-if="segments.length === 0" class="empty">Chưa có đoạn ghi hình nào</div>
-
-    <div class="segment-list">
-      <div v-for="seg in segments" :key="seg.segmentId" class="segment-card">
-        <div class="segment-info">
-          <span class="time">{{ formatDate(seg.startedAt) }}</span>
-          <span class="duration">{{ formatDuration(seg.durationSeconds) }}</span>
-          <span class="size">{{ formatBytes(seg.fileSizeBytes) }}</span>
+    <section v-else class="segment-list">
+      <article v-for="seg in segments" :key="seg.segmentId" class="segment-card">
+        <div class="segment-head">
+          <div>
+            <h2>{{ seg.cameraName || `Camera #${seg.cameraId}` }}</h2>
+            <p>{{ seg.gateName || "Chua gan gate" }}<span v-if="seg.gateLocation"> · {{ seg.gateLocation }}</span></p>
+          </div>
+          <div class="segment-badges">
+            <span class="badge">{{ seg.cameraType || "Khong ro loai" }}</span>
+            <span class="badge time">{{ formatDate(seg.startedAt) }}</span>
+          </div>
         </div>
+
+        <div class="segment-meta">
+          <span>Ket thuc: {{ formatDate(seg.endedAt) }}</span>
+          <span>Thoi luong: {{ formatDuration(seg.durationSeconds) }}</span>
+          <span>Dung luong: {{ formatBytes(seg.fileSizeBytes) }}</span>
+        </div>
+
         <video
           v-if="showVideoId === seg.segmentId"
           :src="seg.storageUrl"
-          class="seg-video"
+          class="segment-video"
           controls
-          autoplay
+          preload="metadata"
         ></video>
-        <button class="play-btn" @click="play(seg.segmentId)">
-          {{ showVideoId === seg.segmentId ? 'Ẩn' : 'Xem' }}
-        </button>
-      </div>
-    </div>
+
+        <div class="segment-actions">
+          <button class="primary-btn small" @click="toggleVideo(seg.segmentId)">
+            {{ showVideoId === seg.segmentId ? "An video" : "Xem video" }}
+          </button>
+          <a class="ghost-btn small" :href="seg.storageUrl" target="_blank" rel="noreferrer">Mo file</a>
+        </div>
+      </article>
+    </section>
 
     <div v-if="totalPages > 1" class="pagination">
-      <button :disabled="page <= 1" @click="loadSegments(page - 1)">←</button>
-      <span>{{ page }} / {{ totalPages }}</span>
-      <button :disabled="page >= totalPages" @click="loadSegments(page + 1)">→</button>
+      <button class="ghost-btn small" :disabled="page <= 1" @click="loadSegments(page - 1)">Trang truoc</button>
+      <span>Trang {{ page }} / {{ totalPages }}</span>
+      <button class="ghost-btn small" :disabled="page >= totalPages" @click="loadSegments(page + 1)">Trang sau</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue"
+import { computed, onMounted, reactive, ref, watch } from "vue"
 import { useRoute } from "vue-router"
-import { getCameraById, getRecordedSegments } from "../services/cameraRuntimeApi"
+import { getArchiveSegments, getCameras } from "../services/cameraRuntimeApi"
 
 const route = useRoute()
-const cameraId = Number(route.params.id)
-const camera = ref(null)
-const segments = ref([])
-const page = ref(1)
-const total = ref(0)
 const pageSize = 20
-const filterFrom = ref("")
-const filterTo = ref("")
+
+const cameras = ref([])
+const segments = ref([])
+const loading = ref(false)
+const total = ref(0)
+const page = ref(1)
 const showVideoId = ref(null)
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize))
+const filters = reactive({
+  cameraId: route.params.id ? String(route.params.id) : "",
+  gateId: "",
+  cameraType: "",
+  search: "",
+  from: "",
+  to: ""
+})
 
-const loadCamera = async () => {
-  try {
-    camera.value = await getCameraById(cameraId)
-  } catch (e) {
-    console.error(e)
+const gateOptions = computed(() => {
+  const map = new Map()
+  for (const cam of cameras.value) {
+    if (!cam.gateId) continue
+    if (map.has(cam.gateId)) continue
+    map.set(cam.gateId, {
+      gateId: cam.gateId,
+      label: cam.gateLocation ? `${cam.gateName} · ${cam.gateLocation}` : cam.gateName
+    })
   }
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label))
+})
+
+const cameraTypes = computed(() => {
+  return Array.from(
+    new Set(cameras.value.map((cam) => String(cam.cameraType || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b))
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+
+const activeFilterLabel = computed(() => {
+  const parts = []
+  if (filters.cameraId) {
+    const cam = cameras.value.find((item) => String(item.cameraId) === filters.cameraId)
+    if (cam) parts.push(cam.cameraName)
+  }
+  if (filters.gateId) {
+    const gate = gateOptions.value.find((item) => String(item.gateId) === filters.gateId)
+    if (gate) parts.push(gate.label)
+  }
+  if (filters.cameraType) parts.push(filters.cameraType)
+  return parts.join(" / ") || "Tat ca"
+})
+
+async function loadCameras() {
+  const data = await getCameras()
+  cameras.value = Array.isArray(data) ? data : []
 }
 
-const loadSegments = async (p = 1) => {
-  page.value = p
-  const params = { page: p, pageSize }
-  if (filterFrom.value) params.from = new Date(filterFrom.value).toISOString()
-  if (filterTo.value) params.to = new Date(filterTo.value).toISOString()
+function buildParams(targetPage = 1) {
+  const params = { page: targetPage, pageSize }
+  if (filters.cameraId) params.cameraId = Number(filters.cameraId)
+  if (filters.gateId) params.gateId = Number(filters.gateId)
+  if (filters.cameraType) params.cameraType = filters.cameraType
+  if (filters.search) params.search = filters.search
+  if (filters.from) params.from = new Date(`${filters.from}T00:00:00`).toISOString()
+  if (filters.to) params.to = new Date(`${filters.to}T23:59:59`).toISOString()
+  return params
+}
+
+async function loadSegments(targetPage = 1) {
+  loading.value = true
+  page.value = targetPage
+  showVideoId.value = null
+
   try {
-    const res = await getRecordedSegments(cameraId, params)
-    segments.value = res.items || []
-    total.value = res.total || 0
-  } catch (e) {
-    console.error(e)
+    const res = await getArchiveSegments(buildParams(targetPage))
+    segments.value = Array.isArray(res.items) ? res.items : []
+    total.value = Number(res.total || 0)
+  } catch (error) {
+    console.error("Khong tai duoc archive:", error)
     segments.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
   }
 }
 
-const formatDate = (d) => {
-  if (!d) return ""
-  const dt = new Date(d)
-  return dt.toLocaleString("vi-VN")
+function resetFilters() {
+  filters.cameraId = route.params.id ? String(route.params.id) : ""
+  filters.gateId = ""
+  filters.cameraType = ""
+  filters.search = ""
+  filters.from = ""
+  filters.to = ""
+  loadSegments(1)
 }
 
-const formatDuration = (sec) => {
-  if (!sec) return ""
-  const m = Math.floor(sec / 60)
-  const s = Math.floor(sec % 60)
-  return `${m}:${s.toString().padStart(2, "0")}`
+function toggleVideo(segmentId) {
+  showVideoId.value = showVideoId.value === segmentId ? null : segmentId
 }
 
-const formatBytes = (b) => {
-  if (!b) return ""
-  const mb = b / (1024 * 1024)
-  if (mb > 1000) return (mb / 1024).toFixed(1) + " GB"
-  return mb.toFixed(1) + " MB"
+function formatDate(value) {
+  if (!value) return "Khong ro"
+  return new Date(value).toLocaleString("vi-VN")
 }
 
-const play = (id) => {
-  showVideoId.value = showVideoId.value === id ? null : id
+function formatDuration(seconds) {
+  const safe = Number(seconds || 0)
+  const hours = Math.floor(safe / 3600)
+  const minutes = Math.floor((safe % 3600) / 60)
+  const secs = Math.floor(safe % 60)
+  if (hours > 0) return `${hours}h ${minutes}m ${secs}s`
+  return `${minutes}m ${secs}s`
 }
 
-onMounted(() => {
-  loadCamera()
-  loadSegments()
+function formatBytes(bytes) {
+  const safe = Number(bytes || 0)
+  if (!safe) return "0 MB"
+  const mb = safe / (1024 * 1024)
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`
+  return `${mb.toFixed(2)} MB`
+}
+
+watch(
+  () => route.params.id,
+  (nextId) => {
+    filters.cameraId = nextId ? String(nextId) : ""
+    loadSegments(1)
+  }
+)
+
+onMounted(async () => {
+  await loadCameras()
+  await loadSegments(1)
 })
 </script>
 
 <style scoped>
-.page {
-  padding: 20px;
-  background: #f4f6fb;
+.archive-page {
   min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.back-btn {
-  background: white;
-  border: 1px solid #ddd;
-  padding: 8px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.filters {
+.archive-topbar,
+.filter-actions,
+.segment-head,
+.segment-meta,
+.segment-actions,
+.pagination,
+.summary-strip {
   display: flex;
   gap: 12px;
-  align-items: end;
+}
+
+.archive-topbar,
+.segment-head,
+.segment-meta,
+.segment-actions,
+.pagination,
+.summary-strip {
+  justify-content: space-between;
+}
+
+.archive-topbar,
+.filter-panel,
+.summary-card,
+.segment-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+}
+
+.archive-topbar,
+.filter-panel,
+.segment-card {
+  padding: 18px 20px;
+}
+
+.archive-topbar {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.archive-topbar h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.archive-topbar p,
+.segment-head p {
+  margin: 6px 0 0;
+  color: #475569;
+}
+
+.filter-panel {
+  margin-bottom: 18px;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  color: #0f172a;
   background: white;
-  padding: 16px;
-  border-radius: 14px;
-  margin-bottom: 16px;
+}
+
+.filter-actions,
+.segment-actions,
+.pagination,
+.summary-strip {
+  align-items: center;
+}
+
+.filter-actions {
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+.summary-strip {
+  margin-bottom: 18px;
   flex-wrap: wrap;
 }
 
-.filter-input {
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  margin-left: 6px;
+.summary-card {
+  flex: 1 1 180px;
+  padding: 16px 18px;
 }
 
-.search-btn {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 10px;
-  cursor: pointer;
+.summary-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.summary-card strong {
+  font-size: 24px;
+  color: #0f172a;
 }
 
 .segment-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.segment-card {
-  background: white;
-  padding: 14px;
-  border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+.segment-head h2 {
+  margin: 0;
+  font-size: 22px;
 }
 
-.segment-info {
+.segment-badges {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #555;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.time {
-  font-weight: 600;
-  color: #222;
+.badge {
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.seg-video {
+.badge.time {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.segment-meta {
+  flex-wrap: wrap;
+  color: #475569;
+  margin: 14px 0;
+}
+
+.segment-video {
   width: 100%;
-  max-height: 400px;
-  border-radius: 10px;
-  margin-top: 8px;
+  max-height: 480px;
+  border-radius: 16px;
+  background: black;
 }
 
-.play-btn {
-  background: #2563eb;
-  color: white;
+.primary-btn,
+.ghost-btn {
   border: none;
-  padding: 6px 16px;
-  border-radius: 8px;
+  border-radius: 12px;
+  padding: 10px 16px;
   cursor: pointer;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #0f766e 0%, #0891b2 100%);
+  color: white;
+}
+
+.ghost-btn {
+  background: white;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.small {
+  padding: 8px 12px;
   font-size: 13px;
 }
 
-.empty {
+.empty-state {
+  padding: 48px 24px;
   text-align: center;
-  padding: 40px;
-  color: gray;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  border: 1px dashed #cbd5e1;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-}
+@media (max-width: 768px) {
+  .archive-page {
+    padding: 16px;
+  }
 
-.pagination button {
-  background: white;
-  border: 1px solid #ddd;
-  padding: 6px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-}
+  .archive-topbar,
+  .segment-head,
+  .segment-meta,
+  .segment-actions,
+  .pagination {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-.pagination button:disabled {
-  opacity: 0.4;
-  cursor: default;
+  .filter-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }
 </style>

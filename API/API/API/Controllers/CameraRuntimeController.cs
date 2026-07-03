@@ -45,13 +45,15 @@ namespace API.Controllers
                     UrlView = c.UrlView,
                     IsRecordingEnabled = c.IsRecordingEnabled,
                     RecordingRetentionDays = c.RecordingRetentionDays,
-                    GateName = c.Gate != null ? c.Gate.GateName : null
+                    GateName = c.Gate != null ? c.Gate.GateName : null,
+                    GateLocation = c.Gate != null ? c.Gate.Location : null
                 })
                 .ToListAsync();
 
             foreach (var cam in cams)
             {
                 cam.UrlView = await BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
+                NormalizeCameraRecordingState(cam);
             }
 
             return Ok(cams);
@@ -74,7 +76,8 @@ namespace API.Controllers
                     UrlView = c.UrlView,
                     IsRecordingEnabled = c.IsRecordingEnabled,
                     RecordingRetentionDays = c.RecordingRetentionDays,
-                    GateName = c.Gate != null ? c.Gate.GateName : null
+                    GateName = c.Gate != null ? c.Gate.GateName : null,
+                    GateLocation = c.Gate != null ? c.Gate.Location : null
                 })
                 .FirstOrDefaultAsync();
 
@@ -82,6 +85,7 @@ namespace API.Controllers
                 return NotFound("Không tìm thấy camera");
 
             cam.UrlView = await BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
+            NormalizeCameraRecordingState(cam);
 
             return Ok(cam);
         }
@@ -115,7 +119,7 @@ namespace API.Controllers
                 GateId = request.GateId,
                 CameraType = string.IsNullOrWhiteSpace(cameraType) ? null : cameraType,
                 StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl,
-                IsRecordingEnabled = request.IsRecordingEnabled ?? false,
+                IsRecordingEnabled = request.IsRecordingEnabled ?? HasRecordableInput(streamUrl, null),
                 RecordingRetentionDays = request.RecordingRetentionDays ?? 30
             };
 
@@ -163,6 +167,13 @@ namespace API.Controllers
             if (request.RecordingRetentionDays.HasValue)
                 cam.RecordingRetentionDays = request.RecordingRetentionDays.Value;
 
+            if (HasRecordableInput(cam.StreamUrl, cam.UrlView))
+            {
+                cam.IsRecordingEnabled = true;
+                if (cam.RecordingRetentionDays <= 0)
+                    cam.RecordingRetentionDays = 30;
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(cam);
@@ -191,12 +202,85 @@ namespace API.Controllers
             if (cam == null)
                 return NotFound("Camera không tồn tại");
 
-            cam.IsRecordingEnabled = request.Enabled;
+            cam.IsRecordingEnabled = HasRecordableInput(cam.StreamUrl, cam.UrlView)
+                ? true
+                : request.Enabled;
             if (request.RetentionDays.HasValue)
                 cam.RecordingRetentionDays = request.RetentionDays.Value;
 
+            if (cam.RecordingRetentionDays <= 0)
+                cam.RecordingRetentionDays = 30;
+
             await _context.SaveChangesAsync();
             return Ok(new { cam.IsRecordingEnabled, cam.RecordingRetentionDays });
+        }
+
+        [HttpGet("archive/segments")]
+        public async Task<IActionResult> GetArchiveSegments(
+            [FromQuery] int? cameraId,
+            [FromQuery] int? gateId,
+            [FromQuery] string? cameraType,
+            [FromQuery] string? search,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            var query = _context.RecordedSegments
+                .AsNoTracking()
+                .Include(s => s.Camera)
+                .ThenInclude(c => c!.Gate)
+                .AsQueryable();
+
+            if (cameraId.HasValue)
+                query = query.Where(s => s.CameraId == cameraId.Value);
+            if (gateId.HasValue)
+                query = query.Where(s => s.Camera != null && s.Camera.GateId == gateId.Value);
+            if (!string.IsNullOrWhiteSpace(cameraType))
+            {
+                var normalizedType = cameraType.Trim();
+                query = query.Where(s => s.Camera != null && s.Camera.CameraType == normalizedType);
+            }
+            if (from.HasValue)
+                query = query.Where(s => s.StartedAt >= from.Value);
+            if (to.HasValue)
+                query = query.Where(s => s.StartedAt <= to.Value);
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var normalizedSearch = search.Trim();
+                query = query.Where(s =>
+                    (s.Camera != null && s.Camera.CameraName.Contains(normalizedSearch)) ||
+                    (s.Camera != null && s.Camera.CameraType != null && s.Camera.CameraType.Contains(normalizedSearch)) ||
+                    (s.Camera != null && s.Camera.Gate != null && s.Camera.Gate.GateName.Contains(normalizedSearch)) ||
+                    (s.Camera != null && s.Camera.Gate != null && s.Camera.Gate.Location != null && s.Camera.Gate.Location.Contains(normalizedSearch)));
+            }
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(s => s.StartedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(s => new
+                {
+                    s.SegmentId,
+                    s.CameraId,
+                    cameraName = s.Camera != null ? s.Camera.CameraName : null,
+                    cameraType = s.Camera != null ? s.Camera.CameraType : null,
+                    gateId = s.Camera != null ? s.Camera.GateId : null,
+                    gateName = s.Camera != null && s.Camera.Gate != null ? s.Camera.Gate.GateName : null,
+                    gateLocation = s.Camera != null && s.Camera.Gate != null ? s.Camera.Gate.Location : null,
+                    s.StartedAt,
+                    s.EndedAt,
+                    s.FileSizeBytes,
+                    s.DurationSeconds,
+                    s.StorageUrl
+                })
+                .ToListAsync();
+
+            return Ok(new { total, page, pageSize, items });
         }
 
         // ================= LIST RECORDED SEGMENTS =================
@@ -224,6 +308,12 @@ namespace API.Controllers
                 .Select(s => new
                 {
                     s.SegmentId,
+                    s.CameraId,
+                    cameraName = s.Camera != null ? s.Camera.CameraName : null,
+                    cameraType = s.Camera != null ? s.Camera.CameraType : null,
+                    gateId = s.Camera != null ? s.Camera.GateId : null,
+                    gateName = s.Camera != null && s.Camera.Gate != null ? s.Camera.Gate.GateName : null,
+                    gateLocation = s.Camera != null && s.Camera.Gate != null ? s.Camera.Gate.Location : null,
                     s.StartedAt,
                     s.EndedAt,
                     s.FileSizeBytes,
@@ -611,6 +701,22 @@ namespace API.Controllers
         {
             var normalized = value?.Trim();
             return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+        }
+
+        private static bool HasRecordableInput(string? streamUrl, string? urlView) =>
+            !string.IsNullOrWhiteSpace(streamUrl) || !string.IsNullOrWhiteSpace(urlView);
+
+        private static void NormalizeCameraRecordingState(CameraDTO camera)
+        {
+            if (camera == null)
+                return;
+
+            if (HasRecordableInput(camera.StreamUrl, camera.UrlView))
+            {
+                camera.IsRecordingEnabled = true;
+                if (camera.RecordingRetentionDays <= 0)
+                    camera.RecordingRetentionDays = 30;
+            }
         }
 
         private static bool IsDirectWebStream(string? streamUrl)

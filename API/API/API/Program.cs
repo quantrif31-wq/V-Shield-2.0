@@ -317,8 +317,11 @@ namespace API
             {
                 var isSensitiveUpload =
                     context.Request.Path.StartsWithSegments("/uploads", StringComparison.OrdinalIgnoreCase);
+                var isRecordedVideo =
+                    context.Request.Path.StartsWithSegments("/uploads/recordings", StringComparison.OrdinalIgnoreCase);
 
                 if (isSensitiveUpload &&
+                    !isRecordedVideo &&
                     context.User?.Identity?.IsAuthenticated != true)
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;

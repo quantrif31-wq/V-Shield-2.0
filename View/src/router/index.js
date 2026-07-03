@@ -187,7 +187,7 @@ const routes = [
             { path: 'video-search', name: 'VideoSearch', component: VideoSearch, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
             { path: 'ai-review-queue', name: 'AiReviewQueue', component: AiReviewQueue, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
             { path: 'correlation-view', name: 'CorrelationView', component: CorrelationView, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
-            { path: 'camera-archive/:id', name: 'CameraArchive', component: CameraArchive, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
+            { path: 'camera-archive/:id?', name: 'CameraArchive', component: CameraArchive, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
             { path: 'evidence-repository', name: 'EvidenceRepository', component: EvidenceRepository, meta: { allowedRoles: ['Admin'], taskKey: 'evidence-mgmt' } },
             { path: 'export-approval-queue', name: 'ExportApprovalQueue', component: ExportApprovalQueue, meta: { allowedRoles: ['Admin'], taskKey: 'evidence-mgmt' } },
             { path: 'redaction-queue', name: 'RedactionQueue', component: RedactionQueue, meta: { allowedRoles: ['Admin'], taskKey: 'evidence-mgmt' } },

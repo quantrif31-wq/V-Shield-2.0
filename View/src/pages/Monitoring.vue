@@ -147,8 +147,9 @@ const toggleSettings = () => {
 const toggleRec = async (event, cam) => {
   const enabled = event.target.checked
   try {
-    await toggleRecording(cam.cameraId, enabled, null)
-    cam.isRecordingEnabled = enabled
+    const res = await toggleRecording(cam.cameraId, enabled, null)
+    cam.isRecordingEnabled = !!res?.isRecordingEnabled
+    cam.recordingRetentionDays = Number(res?.recordingRetentionDays || cam.recordingRetentionDays || 30)
   } catch (e) {
     event.target.checked = !enabled
     console.error("Lỗi bật/tắt ghi hình:", e)

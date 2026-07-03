@@ -13,5 +13,6 @@
         public int RecordingRetentionDays { get; set; }
 
         public string? GateName { get; set; }
+        public string? GateLocation { get; set; }
     }
 }

@@ -29,8 +29,29 @@ public class CameraRecordingService : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var cameras = await db.Cameras
-                    .Where(c => c.IsRecordingEnabled)
+                    .Where(c => !string.IsNullOrWhiteSpace(c.StreamUrl) || !string.IsNullOrWhiteSpace(c.UrlView))
                     .ToListAsync(stoppingToken);
+
+                var changed = false;
+                foreach (var cam in cameras)
+                {
+                    if (!cam.IsRecordingEnabled)
+                    {
+                        cam.IsRecordingEnabled = true;
+                        changed = true;
+                    }
+
+                    if (cam.RecordingRetentionDays <= 0)
+                    {
+                        cam.RecordingRetentionDays = 30;
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    await db.SaveChangesAsync(stoppingToken);
+                }
 
                 var enabledIds = new HashSet<int>();
                 foreach (var cam in cameras)
@@ -80,11 +101,11 @@ public class CameraRecordingService : BackgroundService
             return;
         }
 
-        var outputPattern = Path.Combine(recordsDir, "%Y%m%d_%H%M%S.mp4").Replace("\\", "/");
+        var outputPattern = Path.Combine(recordsDir, "%Y-%m-%d", "%Y%m%d_%H%M%S.mp4").Replace("\\", "/");
 
         var psi = new ProcessStartInfo("ffmpeg")
         {
-            Arguments = $"-rtsp_transport tcp -i \"{streamUrl}\" -c copy -an -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"",
+            Arguments = $"-rtsp_transport tcp -i \"{streamUrl}\" -map 0:v:0 -c copy -an -sn -dn -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 -strftime_mkdir 1 \"{outputPattern}\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -149,13 +170,12 @@ public class CameraRecordingService : BackgroundService
             var dir = Path.Combine(_env.WebRootPath, "uploads", "recordings", $"cam{cam.CameraId}");
             if (!Directory.Exists(dir)) continue;
 
-            foreach (var sub in Directory.GetDirectories(dir))
+            foreach (var filePath in Directory.GetFiles(dir, "*.mp4", SearchOption.AllDirectories))
             {
-                var dirName = Path.GetFileName(sub);
-                if (DateTime.TryParseExact(dirName, "yyyy-MM-dd", null,
-                    System.Globalization.DateTimeStyles.AssumeUniversal, out var dt) && dt < cutoff)
+                var startedAt = TryResolveSegmentStartedAt(filePath);
+                if (startedAt.HasValue && startedAt.Value < cutoff)
                 {
-                    try { Directory.Delete(sub, recursive: true); } catch { }
+                    try { File.Delete(filePath); } catch { }
                 }
             }
 
@@ -186,56 +206,33 @@ public class CameraRecordingService : BackgroundService
             if (!dirName.StartsWith("cam", StringComparison.OrdinalIgnoreCase)) continue;
             if (!int.TryParse(dirName.AsSpan(3), out var cameraId)) continue;
 
-            foreach (var dateDir in Directory.GetDirectories(camDir))
+            foreach (var filePath in Directory.GetFiles(camDir, "*.mp4", SearchOption.AllDirectories))
             {
-                foreach (var filePath in Directory.GetFiles(dateDir, "*.mp4"))
+                if (existingPaths.Contains(filePath)) continue;
+
+                var startedAt = TryResolveSegmentStartedAt(filePath) ?? DateTime.UtcNow;
+                var fileInfo = new FileInfo(filePath);
+                var duration = await ProbeDuration(filePath);
+
+                var relativePath = Path.GetRelativePath(
+                    Path.Combine(_env.WebRootPath, "uploads"),
+                    filePath
+                ).Replace("\\", "/");
+                var storageUrl = $"/uploads/{relativePath}";
+
+                var segment = new RecordedSegment
                 {
-                    if (existingPaths.Contains(filePath)) continue;
+                    CameraId = cameraId,
+                    StartedAt = startedAt,
+                    EndedAt = startedAt.AddSeconds(duration > 0 ? duration : 300),
+                    FilePath = filePath,
+                    FileSizeBytes = fileInfo.Length,
+                    DurationSeconds = duration > 0 ? duration : 300,
+                    StorageUrl = storageUrl
+                };
 
-                    var fileName = Path.GetFileNameWithoutExtension(filePath);
-                    var datePart = Path.GetFileName(dateDir);
-                    var timePart = fileName;
-
-                    DateTime startedAt;
-                    if (datePart.Length == 10 && datePart.Contains("-"))
-                    {
-                        // datePart = yyyy-MM-dd, timePart = yyyyMMdd_HHmmss
-                        var dateOk = DateTime.TryParseExact(datePart, "yyyy-MM-dd", null,
-                            System.Globalization.DateTimeStyles.AssumeUniversal, out var parsedDate);
-                        var timeOk = DateTime.TryParseExact(timePart, "yyyyMMdd_HHmmss", null,
-                            System.Globalization.DateTimeStyles.AssumeUniversal, out var parsedTime);
-                        if (dateOk && timeOk)
-                            startedAt = new DateTime(parsedTime.Year, parsedTime.Month, parsedTime.Day,
-                                parsedTime.Hour, parsedTime.Minute, parsedTime.Second, DateTimeKind.Utc);
-                        else if (dateOk)
-                            startedAt = parsedDate;
-                        else
-                            startedAt = DateTime.UtcNow;
-                    }
-                    else
-                    {
-                        startedAt = DateTime.UtcNow;
-                    }
-
-                    var fileInfo = new FileInfo(filePath);
-                    var duration = await ProbeDuration(filePath);
-
-                    var storageUrl = $"/uploads/recordings/{dirName}/{Path.GetFileName(dateDir)}/{Path.GetFileName(filePath)}";
-
-                    var segment = new RecordedSegment
-                    {
-                        CameraId = cameraId,
-                        StartedAt = startedAt,
-                        EndedAt = startedAt.AddSeconds(duration > 0 ? duration : 300),
-                        FilePath = filePath,
-                        FileSizeBytes = fileInfo.Length,
-                        DurationSeconds = duration > 0 ? duration : 300,
-                        StorageUrl = storageUrl.Replace("\\", "/")
-                    };
-
-                    db.RecordedSegments.Add(segment);
-                    existingPaths.Add(filePath);
-                }
+                db.RecordedSegments.Add(segment);
+                existingPaths.Add(filePath);
             }
         }
 
@@ -266,6 +263,33 @@ public class CameraRecordingService : BackgroundService
         {
         }
         return 0;
+    }
+
+    private static DateTime? TryResolveSegmentStartedAt(string filePath)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        if (DateTime.TryParseExact(
+            fileName,
+            "yyyyMMdd_HHmmss",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeLocal,
+            out var parsed))
+        {
+            return DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
+        }
+
+        var dateDir = Path.GetFileName(Path.GetDirectoryName(filePath));
+        if (DateTime.TryParseExact(
+            dateDir,
+            "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeLocal,
+            out var parsedDate))
+        {
+            return DateTime.SpecifyKind(parsedDate, DateTimeKind.Local).ToUniversalTime();
+        }
+
+        return null;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

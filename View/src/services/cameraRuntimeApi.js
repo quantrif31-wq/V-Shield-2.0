@@ -80,4 +80,9 @@ export async function getRecordedSegments(cameraId, params) {
     return res.data
 }
 
+export async function getArchiveSegments(params) {
+    const res = await http.get('/camera-runtime/archive/segments', { params })
+    return res.data
+}
+
 

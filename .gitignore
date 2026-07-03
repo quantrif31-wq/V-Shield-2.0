@@ -116,6 +116,7 @@ AI_Project/Vietnam License Plate.v2i.yolov8/
 API/API/API/appsettings.Production.json
 API/API/API/App_Data/
 API/API/API/wwwroot/uploads/faces/
+runtime/uploads/
 
 # ----- Local tools / bridge binaries -----
 AI_Project/cam/go2rtc_win64/

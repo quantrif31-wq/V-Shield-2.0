@@ -57,6 +57,7 @@ services:
     volumes:
       - vshield_data_protection:/var/app/data-protection
       - ./runtime/go2rtc:/runtime/go2rtc
+      - ./runtime/uploads:/app/wwwroot/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health/ready"]
       interval: 15s
