@@ -13,6 +13,7 @@ public class CameraRecordingService : BackgroundService
     private readonly object _sync = new();
     private static readonly TimeSpan SegmentDuration = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(15);
 
     public CameraRecordingService(IServiceScopeFactory scopeFactory, IWebHostEnvironment env)
     {
@@ -99,63 +100,71 @@ public class CameraRecordingService : BackgroundService
             return;
         }
 
-        var outputPattern = Path.Combine(recordsDir, "%Y-%m-%d", "%Y%m%d_%H%M%S.mp4").Replace("\\", "/");
-        var startupErrors = new List<string>();
+        var outputPattern = Path.Combine(recordsDir, "%Y%m%d_%H%M%S.mp4").Replace("\\", "/");
 
-        foreach (var candidate in candidates)
+        TryStartWithCandidate(cam.CameraId, candidates, 0, outputPattern);
+    }
+
+    private void TryStartWithCandidate(int cameraId, List<RecordingInputCandidate> candidates, int index, string outputPattern)
+    {
+        if (index >= candidates.Count)
         {
-            var psi = new ProcessStartInfo("ffmpeg")
+            lock (_sync) _processes[cameraId] = new RecordingProcess
             {
-                Arguments = BuildFfmpegArguments(candidate.InputUrl, outputPattern),
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
+                CameraId = cameraId,
+                Error = "All candidates failed"
             };
-
-            try
-            {
-                var proc = new Process { StartInfo = psi };
-                proc.Start();
-
-                if (proc.WaitForExit(4000))
-                {
-                    var startupError = proc.StandardError.ReadToEnd();
-                    var trimmedStartupError = TrimForLog(startupError);
-                    startupErrors.Add($"{candidate.SourceLabel}: {trimmedStartupError}");
-                    Console.WriteLine($"[recording] Camera {cam.CameraId} failed on {candidate.SourceLabel}: {trimmedStartupError}");
-                    proc.Dispose();
-                    continue;
-                }
-
-                var rp = new RecordingProcess
-                {
-                    Process = proc,
-                    StartedAt = DateTime.UtcNow,
-                    CameraId = cam.CameraId,
-                    ActiveInput = candidate.InputUrl,
-                    SourceLabel = candidate.SourceLabel,
-                    Error = null
-                };
-
-                Console.WriteLine($"[recording] Camera {cam.CameraId} recording started via {candidate.SourceLabel}: {candidate.InputUrl}");
-                _ = Task.Run(() => MonitorProcess(rp));
-
-                lock (_sync) _processes[cam.CameraId] = rp;
-                return;
-            }
-            catch (Exception ex)
-            {
-                startupErrors.Add($"{candidate.SourceLabel}: {ex.Message}");
-                Console.WriteLine($"[recording] Camera {cam.CameraId} start error on {candidate.SourceLabel}: {ex.Message}");
-            }
+            return;
         }
 
-        lock (_sync) _processes[cam.CameraId] = new RecordingProcess
+        var candidate = candidates[index];
+
+        var psi = new ProcessStartInfo("ffmpeg")
         {
-            CameraId = cam.CameraId,
-            Error = startupErrors.Count > 0 ? string.Join(" | ", startupErrors) : "Unable to start recording"
+            Arguments = BuildFfmpegArguments(candidate.InputUrl, outputPattern),
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
         };
+
+        try
+        {
+            var proc = new Process { StartInfo = psi };
+            proc.Start();
+
+            if (proc.WaitForExit((int)StartupTimeout.TotalMilliseconds))
+            {
+                var error = proc.StandardError.ReadToEnd();
+                Console.WriteLine($"[recording] Camera {cameraId} failed on {candidate.SourceLabel}: {TrimForLog(error)}");
+                proc.Dispose();
+                TryStartWithCandidate(cameraId, candidates, index + 1, outputPattern);
+                return;
+            }
+
+            var rp = new RecordingProcess
+            {
+                Process = proc,
+                StartedAt = DateTime.UtcNow,
+                CameraId = cameraId,
+                ActiveInput = candidate.InputUrl,
+                SourceLabel = candidate.SourceLabel,
+                Candidates = candidates,
+                CandidateIndex = index,
+                OutputPattern = outputPattern,
+                Error = null
+            };
+
+            Console.WriteLine($"[recording] Camera {cameraId} recording started via {candidate.SourceLabel}: {candidate.InputUrl}");
+            _ = Task.Run(() => MonitorProcess(rp));
+
+            lock (_sync) _processes[cameraId] = rp;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[recording] Camera {cameraId} start error on {candidate.SourceLabel}: {ex.Message}");
+            TryStartWithCandidate(cameraId, candidates, index + 1, outputPattern);
+        }
     }
 
     private async Task MonitorProcess(RecordingProcess rp)
@@ -166,8 +175,13 @@ public class CameraRecordingService : BackgroundService
         {
             var stderr = await rp.Process.StandardError.ReadToEndAsync();
             rp.Process.WaitForExit();
-            rp.Error = stderr.Length > 200 ? stderr[^200..] : stderr;
-            Console.WriteLine($"[recording] Camera {rp.CameraId} recorder exited from {rp.SourceLabel ?? "unknown"}: {TrimForLog(stderr)}");
+            rp.Error = TrimForLog(stderr);
+            Console.WriteLine($"[recording] Camera {rp.CameraId} recorder exited from {rp.SourceLabel ?? "unknown"}: {rp.Error}");
+
+            if (rp.Candidates != null && rp.SourceLabel != null)
+            {
+                TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, rp.OutputPattern ?? "");
+            }
         }
         catch
         {
@@ -332,28 +346,25 @@ public class CameraRecordingService : BackgroundService
 
         AddCandidate(cam.StreamUrl, "stream-url");
 
-        if (TryBuildGo2RtcMjpegUrl(cam.UrlView, out var go2rtcUrl))
+        if (TryGetGo2RtcSource(cam.UrlView, out var src) && src != null)
         {
-            AddCandidate(go2rtcUrl, "go2rtc-mjpeg");
+            AddCandidate($"rtsp://go2rtc:8554/{src}", "go2rtc-relay");
+            AddCandidate($"http://go2rtc:1984/api/stream.mjpeg?src={Uri.EscapeDataString(src)}", "go2rtc-mjpeg");
         }
 
         AddCandidate(cam.UrlView, "url-view");
         return candidates;
     }
 
-    private static bool TryBuildGo2RtcMjpegUrl(string? urlView, out string? go2rtcUrl)
+    private static bool TryGetGo2RtcSource(string? urlView, out string? src)
     {
-        go2rtcUrl = null;
+        src = null;
         if (string.IsNullOrWhiteSpace(urlView)) return false;
         if (!Uri.TryCreate(urlView, UriKind.Absolute, out var parsed)) return false;
-        if (!parsed.AbsolutePath.EndsWith("/stream.html", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!parsed.AbsolutePath.Contains("/stream.html", StringComparison.OrdinalIgnoreCase)) return false;
 
-        var src = GetQueryValue(parsed.Query, "src");
-        if (string.IsNullOrWhiteSpace(src)) return false;
-
-        var mjpegPath = parsed.AbsolutePath[..^"stream.html".Length] + "api/stream.mjpeg";
-        go2rtcUrl = $"{parsed.Scheme}://{parsed.Host}{mjpegPath}?src={Uri.EscapeDataString(src)}";
-        return true;
+        src = GetQueryValue(parsed.Query, "src");
+        return !string.IsNullOrWhiteSpace(src);
     }
 
     private static string? GetQueryValue(string query, string key)
@@ -374,10 +385,10 @@ public class CameraRecordingService : BackgroundService
     {
         if (inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
         {
-            return $"-rtsp_transport tcp -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 -strftime_mkdir 1 \"{outputPattern}\"";
+            return $"-rtsp_transport tcp -timeout 8000000 -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -movflags frag_keyframe+empty_moov -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
         }
 
-        return $"-fflags nobuffer -flags low_delay -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 -strftime_mkdir 1 \"{outputPattern}\"";
+        return $"-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
     }
 
     private static string TrimForLog(string? value)
@@ -407,6 +418,9 @@ public class RecordingProcess
     public string? Error { get; set; }
     public string? ActiveInput { get; set; }
     public string? SourceLabel { get; set; }
+    public List<RecordingInputCandidate>? Candidates { get; set; }
+    public int CandidateIndex { get; set; }
+    public string? OutputPattern { get; set; }
 }
 
 public record RecordingInputCandidate(string InputUrl, string SourceLabel);
