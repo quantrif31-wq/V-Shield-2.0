@@ -613,7 +613,15 @@ import { scanGate, scanGuest } from "../services/gateTransitApi"
 import { verifyDynamicQr } from "../services/dynamicQrVerifyApi"
 import { getCameras, startPythonQrProcess, stopPythonQrProcess, startPythonPlateProcess, stopPythonPlateProcess, startPythonSimulatedCameraProcess, stopPythonSimulatedCameraProcess, getPythonProcessStatus } from "../services/cameraRuntimeApi"
 import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRuntimeService } from "../services/runtimeServiceApi"
-import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce, QR_API_BASE_URL } from "../services/dynamicQrScannerApi"
+import {
+  startQrScanner,
+  resetQrSession,
+  stopQrScanner,
+  getQrScanResult,
+  scanQrOnce,
+  QR_API_BASE_URL,
+  QR_API_BASE_URL_LANE2
+} from "../services/dynamicQrScannerApi"
 import { PLATE_API_BASE_URL } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
 import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
@@ -830,7 +838,7 @@ export default {
     },
 
     qrApiBaseLabel() {
-      return QR_API_BASE_URL
+      return this.getLaneQrApiBase(this.activeOpsLane)
     },
 
     plateApiBaseLabel() {
@@ -990,6 +998,31 @@ export default {
         lane?.qr?.cameraIp || lane?.qr?.currentIp || lane?.qr?.viewUrl || ""
       )
     },
+
+    getLaneQrApiBase(lane) {
+      return lane?.id === "lane2" ? QR_API_BASE_URL_LANE2 : QR_API_BASE_URL
+    },
+
+    async startLaneQrScanner(lane, rtsp) {
+      return startQrScanner(rtsp, this.getLaneQrApiBase(lane))
+    },
+
+    async scanLaneQrOnce(lane) {
+      return scanQrOnce(this.getLaneQrApiBase(lane))
+    },
+
+    async resetLaneQrSession(lane) {
+      return resetQrSession(this.getLaneQrApiBase(lane))
+    },
+
+    async stopLaneQrScanner(lane) {
+      return stopQrScanner(this.getLaneQrApiBase(lane))
+    },
+
+    async getLaneQrScanResult(lane) {
+      return getQrScanResult(this.getLaneQrApiBase(lane))
+    },
+
     setQrCanvasRef(laneId, el) {
       if (el) this.qrCanvasRefs[laneId] = el
     },
@@ -1144,12 +1177,14 @@ export default {
       if (!wantOn) {
         this.settingsQrBusy = true
         try {
-          try {
-            await stopQrScanner()
-          } catch (e) {
-            console.warn("stopQrScanner", e)
+          for (const lane of this.lanes) {
+            try {
+              await this.stopLaneQrScanner(lane)
+            } catch (e) {
+              console.warn(`stopQrScanner ${lane.id}`, e)
+            }
           }
-          
+
           try {
             await stopPythonQrProcess()
           } catch (e) {
@@ -1195,7 +1230,7 @@ export default {
           let qrReady = false
           while (Date.now() - startAt < 8000) {
             try {
-              await getQrScanResult()
+              await this.getLaneQrScanResult(lane)
               qrReady = true
               break
             } catch (e) {
@@ -1205,8 +1240,8 @@ export default {
 
           if (qrReady) {
             try {
-              await startQrScanner(ip).catch(() => {})
-              await resetQrSession().catch(() => {})
+              await this.startLaneQrScanner(lane, ip).catch(() => {})
+              await this.resetLaneQrSession(lane).catch(() => {})
             } catch (e) {
               // ignore
             }
@@ -1336,7 +1371,7 @@ export default {
         qr.pollingBusy = true
 
         try {
-          const res = await getQrScanResult().catch(() => null)
+          const res = await this.getLaneQrScanResult(lane).catch(() => null)
           if (qr.controlSessionId !== pollingSessionId || !res) return
 
           qr.scanRequested = !!res.scan_enabled
@@ -2056,13 +2091,13 @@ export default {
       qr.scanRequested = false
 
       try {
-        await resetQrSession().catch(() => {})
+        await this.resetLaneQrSession(lane).catch(() => {})
         if (qr.controlSessionId !== kickoffSessionId) return
 
         await new Promise((r) => setTimeout(r, 100))
         if (qr.controlSessionId !== kickoffSessionId) return
 
-        await scanQrOnce().catch(() => {})
+        await this.scanLaneQrOnce(lane).catch(() => {})
         if (qr.controlSessionId !== kickoffSessionId) return
 
         qr.scanRequested = true
@@ -2095,14 +2130,14 @@ export default {
       qr.message = "Dang khoi dong lai bo quet QR..."
 
       try {
-        await stopQrScanner().catch(() => {})
+        await this.stopLaneQrScanner(lane).catch(() => {})
         if (qr.controlSessionId !== nextSessionId) return
 
         await new Promise((r) => setTimeout(r, 180))
         if (qr.controlSessionId !== nextSessionId) return
 
         qr.cameraIp = this.getEffectiveQrStream(lane)
-        await startQrScanner(qr.cameraIp)
+        await this.startLaneQrScanner(lane, qr.cameraIp)
         if (qr.controlSessionId !== nextSessionId) return
 
         await new Promise((r) => setTimeout(r, 800))
@@ -2746,7 +2781,7 @@ else {
 
     // 🔥 1. tắt Python scan
     try {
-      await stopQrScanner()
+      await this.stopLaneQrScanner(lane)
     } catch (e) {
       console.warn("stopQrScanner warning:", e)
     }

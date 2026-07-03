@@ -1,26 +1,30 @@
 const trimTrailingSlash = (value = "") => String(value || "").replace(/\/+$/, "")
 
-const resolveQrApiBaseUrl = () => {
-  const configured = trimTrailingSlash(import.meta.env.VITE_QR_API_BASE_URL || "")
+const resolveQrApiBaseUrl = (configuredValue, fallbackPort) => {
+  const configured = trimTrailingSlash(configuredValue || "")
   if (configured) return configured
 
   if (typeof window !== "undefined") {
     const { protocol, hostname } = window.location
-    return `${protocol}//${hostname}:8001`
+    return `${protocol}//${hostname}:${fallbackPort}`
   }
 
-  return "http://localhost:8001"
+  return `http://localhost:${fallbackPort}`
 }
 
-const QR_API_BASE_URL = resolveQrApiBaseUrl()
+const QR_API_BASE_URL = resolveQrApiBaseUrl(import.meta.env.VITE_QR_API_BASE_URL, 8001)
+const QR_API_BASE_URL_LANE2 = resolveQrApiBaseUrl(
+  import.meta.env.VITE_QR_API_BASE_URL_LANE2,
+  8002
+)
 
-async function request(path, options = {}) {
+async function request(path, options = {}, baseUrl = QR_API_BASE_URL) {
   let response
   try {
-    response = await fetch(`${QR_API_BASE_URL}${path}`, options)
+    response = await fetch(`${baseUrl}${path}`, options)
   } catch (error) {
     throw new Error(
-      `Khong ket noi duoc QR service tai ${QR_API_BASE_URL}. Hay kiem tra QR_Dong.py dang chay o dung cong.`
+      `Khong ket noi duoc QR service tai ${baseUrl}. Hay kiem tra QR_Dong.py dang chay o dung cong.`
     )
   }
 
@@ -43,36 +47,36 @@ async function request(path, options = {}) {
   return data
 }
 
-export async function startQrScanner(rtsp) {
+export async function startQrScanner(rtsp, baseUrl = QR_API_BASE_URL) {
   return request("/qr/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ rtsp }),
-  })
+  }, baseUrl)
 }
 
-export async function scanQrOnce() {
+export async function scanQrOnce(baseUrl = QR_API_BASE_URL) {
   return request("/qr/scan", {
     method: "POST",
-  })
+  }, baseUrl)
 }
 
-export async function resetQrSession() {
+export async function resetQrSession(baseUrl = QR_API_BASE_URL) {
   return request("/qr/reset", {
     method: "POST",
-  })
+  }, baseUrl)
 }
 
-export async function stopQrScanner() {
+export async function stopQrScanner(baseUrl = QR_API_BASE_URL) {
   return request("/qr/stop", {
     method: "POST",
-  })
+  }, baseUrl)
 }
 
-export async function getQrScanResult() {
-  return request("/qr/result")
+export async function getQrScanResult(baseUrl = QR_API_BASE_URL) {
+  return request("/qr/result", {}, baseUrl)
 }
 
 
-export { QR_API_BASE_URL }
+export { QR_API_BASE_URL, QR_API_BASE_URL_LANE2 }
 

@@ -71,12 +71,14 @@ services:
       args:
         VITE_API_BASE_URL: "${VITE_API_BASE_URL:-/api}"
         VITE_QR_API_BASE_URL: "${VITE_QR_API_BASE_URL:-/qr-api}"
+        VITE_QR_API_BASE_URL_LANE2: "${VITE_QR_API_BASE_URL_LANE2:-/qr-api-lane2}"
         VITE_PLATE_API_BASE_URL: "${VITE_PLATE_API_BASE_URL:-/plate-api/api}"
         VITE_FACE_API_BASE_URL: "${VITE_FACE_API_BASE_URL:-/face-api/api}"
     container_name: vshield-frontend
     environment:
       API_PROXY_BASE: "${API_PROXY_BASE:-http://api:5107}"
       QR_PROXY_BASE: "${QR_PROXY_BASE:-http://qr-runtime:8001}"
+      QR_PROXY_BASE_LANE2: "${QR_PROXY_BASE_LANE2:-http://qr-runtime-lane2:8001}"
       PLATE_PROXY_BASE: "${PLATE_PROXY_BASE:-http://plate-runtime:5002}"
       FACE_PROXY_BASE: "${FACE_PROXY_BASE:-http://face-runtime:5001}"
       GO2RTC_PROXY_BASE: "${GO2RTC_PROXY_BASE:-http://go2rtc:1984}"
@@ -118,6 +120,16 @@ services:
     container_name: vshield-qr-runtime
     ports:
       - "8001:8001"
+    restart: unless-stopped
+    profiles: ["ai"]
+
+  qr-runtime-lane2:
+    build:
+      context: ./AI_Runtime/QR_Dong
+      dockerfile: Dockerfile
+    container_name: vshield-qr-runtime-lane2
+    ports:
+      - "8002:8001"
     restart: unless-stopped
     profiles: ["ai"]
 
