@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using API.Data;
 using API.Models;
@@ -12,7 +13,7 @@ public class CameraRecordingService : BackgroundService
     private readonly Dictionary<int, RecordingProcess> _processes = new();
     private readonly object _sync = new();
     private static readonly TimeSpan SegmentDuration = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(15);
 
     public CameraRecordingService(IServiceScopeFactory scopeFactory, IWebHostEnvironment env)
@@ -54,25 +55,23 @@ public class CameraRecordingService : BackgroundService
                     await db.SaveChangesAsync(stoppingToken);
                 }
 
-                var enabledIds = new HashSet<int>();
-                foreach (var cam in cameras)
+                var enabledIds = new ConcurrentDictionary<int, byte>();
+                var parallelOpts = new ParallelOptions { MaxDegreeOfParallelism = 4 };
+                await Parallel.ForEachAsync(cameras, parallelOpts, (cam, ct) =>
                 {
-                    enabledIds.Add(cam.CameraId);
+                    enabledIds.TryAdd(cam.CameraId, 0);
                     lock (_sync)
                     {
-                        if (_processes.ContainsKey(cam.CameraId))
-                        {
-                            var p = _processes[cam.CameraId];
-                            if (p.Process != null && !p.Process.HasExited)
-                                continue;
-                        }
+                        if (_processes.TryGetValue(cam.CameraId, out var p) && p.Process != null && !p.Process.HasExited)
+                            return ValueTask.CompletedTask;
                     }
                     StartRecording(cam);
-                }
+                    return ValueTask.CompletedTask;
+                });
 
                 lock (_sync)
                 {
-                    var toRemove = _processes.Keys.Where(id => !enabledIds.Contains(id)).ToList();
+                    var toRemove = _processes.Keys.Where(id => !enabledIds.ContainsKey(id)).ToList();
                     foreach (var id in toRemove)
                         StopRecording(id);
                 }
