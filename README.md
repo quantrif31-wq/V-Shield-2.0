@@ -16,8 +16,8 @@ Dung khi:
 
 - Ban dang dung Windows
 - Ban muon mo app tai `http://localhost:5173`
-- Ban muon co san SQL Server + API + frontend trong cung mot stack
-- Ban co the bat them AI runtime khi can
+- Ban muon co san SQL Server + API + frontend + go2rtc trong cung mot stack
+- Ban muon may khac clone repo ve co the dung day du cac luong local Docker
 
 ### Lua chon B: Docker VPS
 
@@ -65,13 +65,31 @@ docker compose version
 Copy-Item .env.docker.example .env
 ```
 
-2. Khoi dong stack chinh:
+2. Khoi dong stack day du cho may moi:
+
+```powershell
+docker compose --profile ai --profile ai-heavy up -d --build
+```
+
+Stack day du gom:
+
+- `db`
+- `api`
+- `frontend`
+- `go2rtc`
+- `qr-runtime`
+- `qr-runtime-lane2`
+- `plate-runtime`
+- `face-runtime`
+- `faceid-runtime`
+
+Neu ban chi muon len web/API co ban, dung lenh nhe hon ben duoi:
 
 ```powershell
 docker compose up -d --build
 ```
 
-Stack chinh gom:
+Stack co ban gom:
 
 - `db`
 - `api`
@@ -91,6 +109,8 @@ docker compose ps
 
 ### 2.3. Bat them AI runtime khi can
 
+Neu ban da chay stack co ban truoc do, co the bat them tung nhom service nhu sau:
+
 QR runtime:
 
 ```powershell
@@ -103,12 +123,37 @@ Plate + Face runtime:
 docker compose --profile ai-heavy up -d --build
 ```
 
+Luu y:
+
+- `--profile ai` bat `qr-runtime` va `qr-runtime-lane2`
+- `--profile ai-heavy` bat `plate-runtime`, `face-runtime`, `faceid-runtime`
+- Neu muon may local dung du het QR, plate, face ngay tu dau thi dung:
+
+```powershell
+docker compose --profile ai --profile ai-heavy up -d --build
+```
+
+- Neu chi dung `docker compose up -d --build` thi ban chua co cac runtime AI nang
+
+Phan bo tinh nang theo service:
+
+- QR lane 1: `qr-runtime`
+- QR lane 2: `qr-runtime-lane2`
+- Plate recognition: `plate-runtime`
+- Face camera: `face-runtime`
+- FaceID API: `faceid-runtime`
+- Streaming camera/WebRTC/MSE: `go2rtc`
+
 Kiem tra nhanh:
 
 ```powershell
 curl http://localhost:5107/health
 curl http://localhost:8001/qr/result
+curl http://localhost:8002/qr/result
 curl http://localhost:5002/api/camera/status
+curl http://localhost:5001/api/camera/status
+curl http://localhost:8000/docs
+curl http://localhost:1984/
 ```
 
 ### 2.4. Tu lan sau
@@ -165,6 +210,11 @@ Xem log:
 docker logs vshield-api --tail 100
 docker logs vshield-frontend --tail 100
 docker logs vshield-go2rtc --tail 100
+docker logs vshield-qr-runtime --tail 100
+docker logs vshield-qr-runtime-lane2 --tail 100
+docker logs vshield-plate-runtime --tail 100
+docker logs vshield-face-runtime --tail 100
+docker logs vshield-faceid-runtime --tail 100
 ```
 
 Neu Docker Desktop co hien tuong "luc duoc luc khong":
@@ -428,6 +478,13 @@ Neu can seed lai tu dau tren VPS:
 ## 8. Lenh nhanh
 
 ### Docker local
+
+```powershell
+Copy-Item .env.docker.example .env
+docker compose --profile ai --profile ai-heavy up -d --build
+```
+
+### Docker local chi len web/API co ban
 
 ```powershell
 Copy-Item .env.docker.example .env
