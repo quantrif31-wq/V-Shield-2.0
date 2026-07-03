@@ -145,14 +145,9 @@ import { getRuntimeServices, startRuntimeService, stopRuntimeService, updateRunt
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce } from "../services/dynamicQrScannerApi";
 
 const SCAN_TIMEOUT_MS = 6500;
-const DUPLICATE_SUPPRESS_MS = 1800;
-const HOLD_RELEASE_EMPTY_POLLS = 4;
-const HOLD_MAX_MS = 2200;
 const IDLE_DOWNGRADE_MS = 25000;
 const NORMAL_POLL_MS = 300;
 const LOW_POLL_MS = 900;
-const NORMAL_SESSION_DELAY_MS = 0;
-const LOW_SESSION_DELAY_MS = 1400;
 
 export default {
   name: "QrAccessMonitor",
@@ -200,6 +195,9 @@ export default {
           resultResetTimer: null,
           traceCounter: 0,
           activeTraceId: 0,
+          lastResolvedPermissionState: "idle",
+          lastResolvedIdentityLabel: "",
+          lastResolvedVerifyMessage: "",
           lastPayload: "",
           lastPayloadAt: 0,
           perfMode: "normal",
@@ -406,6 +404,7 @@ export default {
     },
 
     clearScanState(term) {
+      this.stopResultResetTimer(term);
       term.scanSessionActive = false;
       term.sessionLocked = false;
       term.qrPayload = "";
@@ -416,6 +415,11 @@ export default {
       term.permissionState = "idle";
       term.identityLabel = "";
       term.activeTraceId = 0;
+      term.lastResolvedPermissionState = "idle";
+      term.lastResolvedIdentityLabel = "";
+      term.lastResolvedVerifyMessage = "";
+      term.lastPayload = "";
+      term.lastPayloadAt = 0;
       term.holdLocked = false;
       term.emptyPollStreak = 0;
       term.holdPayload = "";
@@ -438,10 +442,6 @@ export default {
 
     pollIntervalMs(term) {
       return term.perfMode === "low" ? LOW_POLL_MS : NORMAL_POLL_MS;
-    },
-
-    nextSessionDelayMs(term) {
-      return term.perfMode === "low" ? LOW_SESSION_DELAY_MS : NORMAL_SESSION_DELAY_MS;
     },
 
     applyAdaptivePerf(term) {
@@ -477,10 +477,16 @@ export default {
       }
     },
 
-    stopResultResetTimer() {},
+    stopResultResetTimer(term) {
+      if (term?.resultResetTimer) {
+        clearTimeout(term.resultResetTimer);
+        term.resultResetTimer = null;
+      }
+    },
 
     async runManualScan(term) {
       if (!term.previewRunning || term.scanSessionActive) return;
+      this.stopResultResetTimer(term);
       term.scanSessionActive = true;
       term.permissionState = "scanning";
       term.verifyMessage = "Đang quét QR...";
@@ -503,8 +509,6 @@ export default {
         const res = await getQrScanResult();
         if (!res) return;
 
-        if (term.holdLocked) return;
-
         if (res.locked && res.qr && term.scanSessionActive) {
           this.stopSessionTimer(term);
           term.scanSessionActive = false;
@@ -512,25 +516,9 @@ export default {
           term.qrPayload = String(res.qr || "").trim();
           term.lastDetectedAt = Date.now();
           this.ensureNormalPerf(term);
-          const now = Date.now();
-          if (
-            term.qrPayload &&
-            term.qrPayload === term.lastPayload &&
-            now - Number(term.lastPayloadAt || 0) < DUPLICATE_SUPPRESS_MS
-          ) {
-            term.scanSessionActive = false;
-            return;
-          }
-          term.lastPayload = term.qrPayload;
-          term.lastPayloadAt = now;
           term.traceCounter = Number(term.traceCounter || 0) + 1;
           term.activeTraceId = term.traceCounter;
           await this.callApiScanAccess(term, term.qrPayload);
-          term.holdLocked = true;
-          term.holdPayload = term.qrPayload;
-          term.holdStartedAt = Date.now();
-          term.emptyPollStreak = 0;
-          term.scanSessionActive = false;
         }
       } catch {
         // keep loop alive
@@ -554,6 +542,9 @@ export default {
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = res?.data?.message || "Cho phép";
         term.permissionState = "allow";
+        term.lastResolvedPermissionState = term.permissionState;
+        term.lastResolvedIdentityLabel = term.identityLabel;
+        term.lastResolvedVerifyMessage = term.verifyMessage;
       } catch (err) {
         const status = Number(err?.response?.status || 0);
         const data = err?.response?.data?.data || {};
@@ -565,6 +556,9 @@ export default {
         term.identityLabel = this.buildIdentityLabel(term.activeTraceId, term.verifiedType, term.verifiedId, term.verifiedName);
         term.verifyMessage = status === 401 ? "Phiên đăng nhập không hợp lệ hoặc đã hết quyền." : message;
         term.permissionState = "deny";
+        term.lastResolvedPermissionState = term.permissionState;
+        term.lastResolvedIdentityLabel = term.identityLabel;
+        term.lastResolvedVerifyMessage = term.verifyMessage;
       } finally {
         term.loading = false;
       }

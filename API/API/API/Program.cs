@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Threading;
 using System.Threading.RateLimiting;
 
 namespace API
@@ -435,107 +436,144 @@ namespace API
 
         private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)
         {
-            using var scope = services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-            try
+            ExecuteSqlStartupAction("seed admin user", () =>
             {
-                db.Database.Migrate();
-            }
-            catch (SqlException ex) when (ex.Number == 2714) // object already exists
-            {
-                Console.WriteLine($"[WARN] Bo qua loi migrate do bang da ton tai: {ex.Message}");
-            }
+                using var scope = services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            var seedSection = configuration.GetSection("SeedAdmin");
-            var adminUsernameOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_USERNAME");
-            var adminPasswordOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_PASSWORD");
-            var adminFullNameOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_FULLNAME");
-            var adminUsername = (adminUsernameOverride ?? seedSection["Username"] ?? "admin").Trim();
-            var adminPassword = adminPasswordOverride ?? seedSection["Password"] ?? "Admin@123";
-            var adminFullName = (adminFullNameOverride ?? seedSection["FullName"] ?? "Quan tri vien").Trim();
-            var resetPasswordOnStartup = seedSection.GetValue("ResetPasswordOnStartup", false);
-            var hasProductionSeedOverrides =
-                !string.IsNullOrWhiteSpace(adminUsernameOverride) &&
-                !string.IsNullOrWhiteSpace(adminPasswordOverride);
-            var unsafeDefaultSeed = string.Equals(adminUsername, "admin", StringComparison.OrdinalIgnoreCase) &&
-                                    string.Equals(adminPassword, "Admin@123", StringComparison.Ordinal);
-            var normalizedAdminUsername = NormalizeUsernameInvariant(adminUsername);
+                try
+                {
+                    db.Database.Migrate();
+                }
+                catch (SqlException ex) when (ex.Number == 2714) // object already exists
+                {
+                    Console.WriteLine($"[WARN] Bo qua loi migrate do bang da ton tai: {ex.Message}");
+                }
 
-            var adminUser = db.AppUsers.FirstOrDefault(u =>
-                u.Username.Trim().ToUpper() == normalizedAdminUsername);
+                var seedSection = configuration.GetSection("SeedAdmin");
+                var adminUsernameOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_USERNAME");
+                var adminPasswordOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_PASSWORD");
+                var adminFullNameOverride = Environment.GetEnvironmentVariable("VSHIELD_SEED_ADMIN_FULLNAME");
+                var adminUsername = (adminUsernameOverride ?? seedSection["Username"] ?? "admin").Trim();
+                var adminPassword = adminPasswordOverride ?? seedSection["Password"] ?? "Admin@123";
+                var adminFullName = (adminFullNameOverride ?? seedSection["FullName"] ?? "Quan tri vien").Trim();
+                var resetPasswordOnStartup = seedSection.GetValue("ResetPasswordOnStartup", false);
+                var hasProductionSeedOverrides =
+                    !string.IsNullOrWhiteSpace(adminUsernameOverride) &&
+                    !string.IsNullOrWhiteSpace(adminPasswordOverride);
+                var unsafeDefaultSeed = string.Equals(adminUsername, "admin", StringComparison.OrdinalIgnoreCase) &&
+                                        string.Equals(adminPassword, "Admin@123", StringComparison.Ordinal);
+                var normalizedAdminUsername = NormalizeUsernameInvariant(adminUsername);
 
-            if (adminUser == null)
-            {
-                if (!db.AppUsers.Any())
+                var adminUser = db.AppUsers.FirstOrDefault(u =>
+                    u.Username.Trim().ToUpper() == normalizedAdminUsername);
+
+                if (adminUser == null)
+                {
+                    if (!db.AppUsers.Any())
+                    {
+                        if (environment.IsProduction() && (!hasProductionSeedOverrides || unsafeDefaultSeed))
+                        {
+                            throw new InvalidOperationException("Production requires explicit VSHIELD_SEED_ADMIN_* overrides before bootstrap seeding can create the admin account.");
+                        }
+
+                        db.AppUsers.Add(new AppUser
+                        {
+                            Username = adminUsername,
+                            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+                            FullName = adminFullName,
+                            Role = "Admin",
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            LastPasswordChangedAtUtc = DateTime.UtcNow,
+                            EmployeeId = null
+                        });
+                    }
+
+                    db.SaveChanges();
+                    return;
+                }
+
+                var hasChanges = false;
+
+                if (!string.Equals(adminUser.Username, adminUsername, StringComparison.Ordinal))
+                {
+                    adminUser.Username = adminUsername;
+                    hasChanges = true;
+                }
+
+                if (!string.Equals(adminUser.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    adminUser.Role = "Admin";
+                    hasChanges = true;
+                }
+
+                if (!adminUser.IsActive)
+                {
+                    adminUser.IsActive = true;
+                    hasChanges = true;
+                }
+
+                if (string.IsNullOrWhiteSpace(adminUser.FullName))
+                {
+                    adminUser.FullName = adminFullName;
+                    hasChanges = true;
+                }
+
+                if (resetPasswordOnStartup && !BCrypt.Net.BCrypt.Verify(adminPassword, adminUser.PasswordHash))
                 {
                     if (environment.IsProduction() && (!hasProductionSeedOverrides || unsafeDefaultSeed))
                     {
-                        throw new InvalidOperationException("Production requires explicit VSHIELD_SEED_ADMIN_* overrides before bootstrap seeding can create the admin account.");
+                        Console.WriteLine("[WARN] Skipping seed admin password reset in Production. Provide VSHIELD_SEED_ADMIN_* overrides to enable reset.");
                     }
-
-                    db.AppUsers.Add(new AppUser
+                    else
                     {
-                        Username = adminUsername,
-                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
-                        FullName = adminFullName,
-                        Role = "Admin",
-                        IsActive = true,
-                        CreatedAt = DateTime.UtcNow,
-                        LastPasswordChangedAtUtc = DateTime.UtcNow,
-                        EmployeeId = null
-                    });
+                        adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
+                        adminUser.LastPasswordChangedAtUtc = DateTime.UtcNow;
+                        adminUser.TokenVersion++;
+                        hasChanges = true;
+                    }
                 }
 
-                db.SaveChanges();
-                return;
-            }
-
-            var hasChanges = false;
-
-            if (!string.Equals(adminUser.Username, adminUsername, StringComparison.Ordinal))
-            {
-                adminUser.Username = adminUsername;
-                hasChanges = true;
-            }
-
-            if (!string.Equals(adminUser.Role, "Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                adminUser.Role = "Admin";
-                hasChanges = true;
-            }
-
-            if (!adminUser.IsActive)
-            {
-                adminUser.IsActive = true;
-                hasChanges = true;
-            }
-
-            if (string.IsNullOrWhiteSpace(adminUser.FullName))
-            {
-                adminUser.FullName = adminFullName;
-                hasChanges = true;
-            }
-
-            if (resetPasswordOnStartup && !BCrypt.Net.BCrypt.Verify(adminPassword, adminUser.PasswordHash))
-            {
-                if (environment.IsProduction() && (!hasProductionSeedOverrides || unsafeDefaultSeed))
+                if (hasChanges)
                 {
-                    Console.WriteLine("[WARN] Skipping seed admin password reset in Production. Provide VSHIELD_SEED_ADMIN_* overrides to enable reset.");
+                    db.SaveChanges();
                 }
-                else
+            });
+        }
+
+        private static void ExecuteSqlStartupAction(string actionName, Action action, int maxAttempts = 8, int delaySeconds = 5)
+        {
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
                 {
-                    adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
-                    adminUser.LastPasswordChangedAtUtc = DateTime.UtcNow;
-                    adminUser.TokenVersion++;
-                    hasChanges = true;
+                    action();
+                    return;
+                }
+                catch (Exception ex) when (attempt < maxAttempts && IsTransientSqlStartupException(ex))
+                {
+                    Console.WriteLine($"[WARN] Startup action '{actionName}' failed on attempt {attempt}/{maxAttempts}. Retrying in {delaySeconds}s. Error: {ex.Message}");
+                    Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
                 }
             }
 
-            if (hasChanges)
+            action();
+        }
+
+        private static bool IsTransientSqlStartupException(Exception ex)
+        {
+            if (ex is SqlException)
             {
-                db.SaveChanges();
+                return true;
             }
+
+            if (ex is TimeoutException)
+            {
+                return true;
+            }
+
+            return ex.InnerException != null && IsTransientSqlStartupException(ex.InnerException);
         }
 
         private static void ConfigureDataProtection(WebApplicationBuilder builder)

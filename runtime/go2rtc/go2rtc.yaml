@@ -2,12 +2,16 @@ streams:
   cam11:
     - rtsp://admin:L2E8D067@192.168.137.34:554/cam/realmonitor?channel=1&subtype=0#transport=tcp
     - rtsp://admin:L2E8D067@192.168.137.34:554/cam/realmonitor?channel=1&subtype=0
+  cam12:
+    - rtsp://53.219.41.61:1945/#transport=tcp
+    - rtsp://53.219.41.61:1945/
+  cam13:
+    - rtsp://192.168.137.141:1945/#transport=tcp
+    - rtsp://192.168.137.141:1945/
 api:
   origin: "*"
 webrtc:
   listen: ":8555"
-  candidates:
-    - localhost:8555
   ice_servers:
     - urls:
         - stun:stun.l.google.com:19302

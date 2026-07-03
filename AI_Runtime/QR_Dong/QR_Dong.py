@@ -14,9 +14,17 @@ import uvicorn
 
 PREVIEW_WIDTH = 960
 PREVIEW_HEIGHT = 540
-CANDIDATE_REQUIRED_COUNT = 2
+CANDIDATE_REQUIRED_COUNT = 1
 CANDIDATE_WINDOW_MS = 800
-IDLE_SLEEP_SECONDS = 0.02
+IDLE_SLEEP_SECONDS = 0.008
+SCAN_TARGET_INTERVAL_SECONDS = 0.02
+BURST_SCAN_WINDOW_SECONDS = 1.8
+FULL_SCAN_INTERVAL_SECONDS = 0.08
+BURST_FULL_SCAN_INTERVAL_SECONDS = 0.03
+FRAME_DECODE_BUDGET_SECONDS = 0.06
+BURST_FRAME_DECODE_BUDGET_SECONDS = 0.09
+FAST_SCALE_FACTORS = (1.0, 1.35, 1.7, 2.1)
+FULL_SCALE_FACTORS = (1.0, 1.4, 1.8, 2.4, 3.0)
 
 
 state = {
@@ -33,12 +41,16 @@ state = {
     "candidate_seen_count": 0,
     "locked_payload": "",
     "locked_at": 0,
+    "scan_started_at": 0.0,
+    "scan_frame_seq": 0,
+    "scan_session_id": 0,
 }
 
 lock = Lock()
 frame_lock = Lock()
 
 latest_frame = None
+latest_frame_seq = 0
 stop_flag = False
 qr_detector = cv2.QRCodeDetector()
 
@@ -57,9 +69,20 @@ def now_ms():
     return int(time.time() * 1000)
 
 
+def slog(msg):
+    t = time.time()
+    ms = int((t - int(t)) * 1000)
+    print(f"[QR] {time.strftime('%H:%M:%S', time.localtime(t))}.{ms:03d} {msg}")
+
+
 def enhance(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return cv2.equalizeHist(gray)
+
+
+def sharpen(gray):
+    blurred = cv2.GaussianBlur(gray, (0, 0), 1.2)
+    return cv2.addWeighted(gray, 1.7, blurred, -0.7, 0)
 
 
 def fit_preview(frame):
@@ -70,6 +93,49 @@ def fit_preview(frame):
     ratio = min(PREVIEW_WIDTH / float(w), PREVIEW_HEIGHT / float(h))
     target_size = (max(1, int(w * ratio)), max(1, int(h * ratio)))
     return cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
+
+
+def build_scan_regions(frame, prefix="raw"):
+    if frame is None or getattr(frame, "size", 0) == 0:
+        return []
+
+    h, w = frame.shape[:2]
+    if h < 2 or w < 2:
+        return [(prefix, frame)]
+
+    def crop(y1, y2, x1, x2):
+        y1 = max(0, min(h, int(y1)))
+        y2 = max(0, min(h, int(y2)))
+        x1 = max(0, min(w, int(x1)))
+        x2 = max(0, min(w, int(x2)))
+        if y2 - y1 < 12 or x2 - x1 < 12:
+            return None
+        return frame[y1:y2, x1:x2]
+
+    regions = [(prefix, frame)]
+    specs = [
+        ("center", 0.08, 0.92, 0.10, 0.90),
+        ("wide-center", 0.12, 0.94, 0.05, 0.95),
+        ("top", 0.00, 0.76, 0.00, 1.00),
+        ("bottom", 0.18, 1.00, 0.00, 1.00),
+        ("left", 0.00, 1.00, 0.00, 0.78),
+        ("right", 0.00, 1.00, 0.22, 1.00),
+        ("top-left", 0.00, 0.82, 0.00, 0.82),
+        ("top-right", 0.00, 0.82, 0.18, 1.00),
+        ("bottom-left", 0.18, 1.00, 0.00, 0.82),
+        ("bottom-right", 0.18, 1.00, 0.18, 1.00),
+        ("entry-left", 0.05, 0.95, 0.00, 0.58),
+        ("entry-right", 0.05, 0.95, 0.42, 1.00),
+        ("entry-top", 0.00, 0.58, 0.05, 0.95),
+        ("entry-bottom", 0.42, 1.00, 0.05, 0.95),
+    ]
+
+    for name, y1, y2, x1, x2 in specs:
+        region = crop(h * y1, h * y2, w * x1, w * x2)
+        if region is not None:
+            regions.append((f"{prefix}-{name}", region))
+
+    return regions
 
 
 def prefer_qr_stream(rtsp):
@@ -103,7 +169,8 @@ def resolve_camera_source(raw_source):
 def build_go2rtc_snapshot_url(stream_name):
     safe_name = urllib.parse.quote(stream_name, safe="")
     stamp = now_ms()
-    return f"http://go2rtc:1984/api/frame.jpeg?src={safe_name}&_={stamp}"
+    go2rtc_host = os.getenv("QR_GO2RTC_HOST", "go2rtc")
+    return f"http://{go2rtc_host}:1984/api/frame.jpeg?src={safe_name}&_={stamp}"
 
 
 def fetch_snapshot_frame(snapshot_url):
@@ -124,6 +191,24 @@ def clear_candidate_state_unlocked():
     state["candidate_payload"] = ""
     state["candidate_source"] = ""
     state["candidate_seen_count"] = 0
+
+
+def mark_scan_started_unlocked():
+    state["scan_session_id"] = int(state.get("scan_session_id") or 0) + 1
+    state["scan_started_at"] = time.perf_counter()
+    state["scan_frame_seq"] = latest_frame_seq
+
+
+def reset_scan_session_unlocked(scan_enabled=False):
+    clear_candidate_state_unlocked()
+    unlock_state_unlocked()
+    state["scan_enabled"] = scan_enabled
+    if scan_enabled:
+        mark_scan_started_unlocked()
+    else:
+        state["scan_session_id"] = int(state.get("scan_session_id") or 0) + 1
+        state["scan_started_at"] = 0.0
+        state["scan_frame_seq"] = latest_frame_seq
 
 
 def unlock_state_unlocked():
@@ -161,32 +246,48 @@ def update_phase():
         set_phase_unlocked()
 
 
-def decode_qr(frame):
-    h, w, _ = frame.shape
-    rois = [
-        frame,
-        frame[h // 4:3 * h // 4, w // 4:3 * w // 4],
-        frame[h // 6:5 * h // 6, w // 6:5 * w // 6],
-        frame[0:h // 2, :],
-        frame[:, w // 5:4 * w // 5],
-    ]
+def should_abort_decode(scan_session_id, deadline_at=0.0):
+    if deadline_at and time.perf_counter() >= deadline_at:
+        return True
+    if not scan_session_id:
+        return False
+    with lock:
+        return scan_session_id != int(state.get("scan_session_id") or 0)
 
-    for roi in rois:
-        gray = enhance(roi)
+
+def decode_qr(frame, scan_session_id=0, deadline_at=0.0):
+    for _, roi in build_scan_regions(frame):
+        if should_abort_decode(scan_session_id, deadline_at):
+            return None
+        raw_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        eq = cv2.equalizeHist(raw_gray)
+        sharp = sharpen(eq)
         variants = [
-            gray,
-            cv2.GaussianBlur(gray, (3, 3), 0),
-            cv2.GaussianBlur(gray, (5, 5), 0),
-            cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
-            cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1],
-            cv2.convertScaleAbs(gray, alpha=1.5, beta=0),
+            raw_gray,
+            eq,
+            sharp,
+            cv2.GaussianBlur(eq, (3, 3), 0),
+            cv2.GaussianBlur(eq, (5, 5), 0),
+            cv2.bilateralFilter(eq, 5, 50, 50),
+            cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
+            cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1],
+            cv2.threshold(sharp, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
+            cv2.convertScaleAbs(raw_gray, alpha=1.5, beta=0),
+            cv2.convertScaleAbs(sharp, alpha=1.25, beta=0),
             cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 2
+                eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 2
+            ),
+            cv2.adaptiveThreshold(
+                sharp, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 2
             ),
         ]
 
         for variant in variants:
-            for scale in [1.0, 1.5, 2.0, 3.0]:
+            if should_abort_decode(scan_session_id, deadline_at):
+                return None
+            for scale in FULL_SCALE_FACTORS:
+                if should_abort_decode(scan_session_id, deadline_at):
+                    return None
                 resized = (
                     cv2.resize(
                         variant,
@@ -201,67 +302,113 @@ def decode_qr(frame):
 
                 barcodes = pyzbar.decode(resized)
                 if barcodes:
-                    return barcodes[0].data.decode(errors="ignore")
+                    data = barcodes[0].data.decode(errors="ignore")
+                    slog(f"decode_qr pyzbar OK: {data}")
+                    return data
 
                 decoded, _, _ = qr_detector.detectAndDecode(resized)
                 if decoded:
-                    return decoded.strip()
+                    data = decoded.strip()
+                    slog(f"decode_qr cv2 OK: {data}")
+                    return data
 
     return None
 
 
-def decode_qr_fast(frame):
-    gray = enhance(frame)
+def decode_qr_fast(frame, scan_session_id=0, deadline_at=0.0):
+    if should_abort_decode(scan_session_id, deadline_at):
+        return None
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    eq = cv2.equalizeHist(gray)
+    sharp = sharpen(eq)
     quick_variants = [
         gray,
-        cv2.GaussianBlur(gray, (3, 3), 0),
+        eq,
+        sharp,
+        cv2.GaussianBlur(eq, (3, 3), 0),
+        cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
         cv2.convertScaleAbs(gray, alpha=1.35, beta=0),
+        cv2.convertScaleAbs(sharp, alpha=1.2, beta=0),
     ]
 
     for variant in quick_variants:
-        decoded, _, _ = qr_detector.detectAndDecode(variant)
-        if decoded:
-            return decoded.strip()
+        if should_abort_decode(scan_session_id, deadline_at):
+            return None
+        for scale in FAST_SCALE_FACTORS:
+            if should_abort_decode(scan_session_id, deadline_at):
+                return None
+            resized = (
+                cv2.resize(
+                    variant,
+                    None,
+                    fx=scale,
+                    fy=scale,
+                    interpolation=cv2.INTER_CUBIC,
+                )
+                if scale != 1.0
+                else variant
+            )
+            barcodes = pyzbar.decode(resized)
+            if barcodes:
+                data = barcodes[0].data.decode(errors="ignore")
+                slog(f"decode_qr_fast pyzbar OK: {data}")
+                return data
 
-        barcodes = pyzbar.decode(variant)
-        if barcodes:
-            return barcodes[0].data.decode(errors="ignore")
+            decoded, _, _ = qr_detector.detectAndDecode(resized)
+            if decoded:
+                data = decoded.strip()
+                slog(f"decode_qr_fast cv2 OK: {data}")
+                return data
 
     return None
 
 
-def decode_live_frame(frame):
+def decode_live_frame(frame, allow_full=True, scan_session_id=0, deadline_at=0.0):
+    if should_abort_decode(scan_session_id, deadline_at):
+        return None, ""
     preview = fit_preview(frame)
-    h_preview, w_preview = preview.shape[:2]
-    center_preview = preview[
-        int(h_preview * 0.1):int(h_preview * 0.92),
-        int(w_preview * 0.12):int(w_preview * 0.88),
-    ]
+    slog(f"decode_live_frame: frame={frame.shape} preview={preview.shape}")
+    preview_upscaled = cv2.resize(
+        preview,
+        None,
+        fx=1.35,
+        fy=1.35,
+        interpolation=cv2.INTER_CUBIC,
+    )
 
-    for source_name, candidate in [
-        ("preview", preview),
-        ("center-preview", center_preview),
-    ]:
+    fast_attempts = []
+    fast_attempts.extend(build_scan_regions(frame, "raw-fast"))
+    fast_attempts.extend(build_scan_regions(preview, "preview-fast"))
+    fast_attempts.extend(build_scan_regions(preview_upscaled, "preview-upscaled-fast"))
+
+    for source_name, candidate in fast_attempts:
+        if should_abort_decode(scan_session_id, deadline_at):
+            return None, ""
         if candidate is None or getattr(candidate, "size", 0) == 0:
             continue
-        decoded = decode_qr_fast(candidate)
+        decoded = decode_qr_fast(candidate, scan_session_id=scan_session_id, deadline_at=deadline_at)
         if decoded:
             return decoded, source_name
 
-    attempts = [("raw", frame), ("preview", preview)]
-    h, w = frame.shape[:2]
-    center = frame[int(h * 0.1):int(h * 0.92), int(w * 0.12):int(w * 0.88)]
-    if center.size:
-        attempts.append(("center", center))
-        attempts.append(("center-preview", fit_preview(center)))
+    if not allow_full or should_abort_decode(scan_session_id, deadline_at):
+        return None, ""
+
+    attempts = []
+    attempts.extend(build_scan_regions(frame, "raw"))
+    attempts.extend(build_scan_regions(preview, "preview"))
+    attempts.extend(build_scan_regions(preview_upscaled, "preview-upscaled"))
 
     for source_name, candidate in attempts:
+        if should_abort_decode(scan_session_id, deadline_at):
+            return None, ""
         if candidate is None or getattr(candidate, "size", 0) == 0:
             continue
-        decoded = decode_qr(candidate)
+        decoded = decode_qr(candidate, scan_session_id=scan_session_id, deadline_at=deadline_at)
         if decoded:
+            slog(f"decode_live_frame found '{decoded}' via {source_name}")
             return decoded, source_name
 
+    slog("decode_live_frame: no QR found in any variant")
     return None, ""
 
 
@@ -279,19 +426,25 @@ def lock_candidate_unlocked(payload, source_name):
     set_phase_unlocked()
 
 
-def process_candidate(payload, source_name):
+def process_candidate(payload, source_name, scan_session_id):
     with lock:
-        if not state["scan_enabled"] or state["locked"]:
+        if (
+            scan_session_id != int(state.get("scan_session_id") or 0)
+            or not state["scan_enabled"]
+            or state["locked"]
+        ):
             return False
 
         if not payload:
             if state["candidate_payload"]:
+                slog("process_candidate: cleared candidate (null payload)")
                 clear_candidate_state_unlocked()
             set_phase_unlocked()
             return False
 
         payload = str(payload).strip()
         if not payload:
+            slog("process_candidate: cleared candidate (empty payload)")
             clear_candidate_state_unlocked()
             set_phase_unlocked()
             return False
@@ -299,14 +452,17 @@ def process_candidate(payload, source_name):
         current = state["candidate_payload"]
         if current == payload:
             state["candidate_seen_count"] += 1
+            slog(f"process_candidate: same payload '{payload}' count={state['candidate_seen_count']} src={source_name}")
         else:
             state["candidate_payload"] = payload
             state["candidate_source"] = source_name
             state["candidate_seen_count"] = 1
+            slog(f"process_candidate: new payload '{payload}' count=1 src={source_name}")
 
         state["candidate_source"] = source_name
 
         if state["candidate_seen_count"] >= CANDIDATE_REQUIRED_COUNT:
+            slog(f"process_candidate: LOCKED '{payload}'")
             lock_candidate_unlocked(payload, source_name)
             return True
 
@@ -360,7 +516,7 @@ def build_preview_frame():
 
 
 def camera_worker():
-    global latest_frame
+    global latest_frame, latest_frame_seq
 
     cap = None
     current_source = ""
@@ -377,6 +533,8 @@ def camera_worker():
                 cap = None
             current_source = ""
             snapshot_stream_name = ""
+            with frame_lock:
+                latest_frame = None
             with lock:
                 state["connected"] = False
                 state["frame_ready"] = False
@@ -390,6 +548,8 @@ def camera_worker():
             if cap:
                 cap.release()
             cap = None
+            with frame_lock:
+                latest_frame = None
 
             if current_source.startswith("go2rtc:"):
                 snapshot_stream_name = current_source.split(":", 1)[1].strip()
@@ -442,8 +602,11 @@ def camera_worker():
 
         with frame_lock:
             latest_frame = frame.copy()
+            latest_frame_seq += 1
 
         with lock:
+            if not state["connected"]:
+                slog(f"camera_worker: connected frame={frame.shape}")
             state["connected"] = True
             state["frame_ready"] = True
             set_phase_unlocked()
@@ -456,17 +619,53 @@ def camera_worker():
 
 def scan_worker():
     print("QR scan thread ready")
+    last_scan_started_at = 0.0
+    last_full_scan_at = 0.0
+    last_processed_frame_seq = 0
 
     while not stop_flag:
         with lock:
             should_scan = state["running"] and state["scan_enabled"] and not state["locked"]
+            scan_started_at = float(state.get("scan_started_at") or 0.0)
+            scan_frame_seq = int(state.get("scan_frame_seq") or 0)
+            scan_session_id = int(state.get("scan_session_id") or 0)
 
         if not should_scan:
+            last_scan_started_at = 0.0
+            last_full_scan_at = 0.0
+            last_processed_frame_seq = 0
             time.sleep(IDLE_SLEEP_SECONDS)
             continue
 
+        if scan_started_at != last_scan_started_at:
+            last_scan_started_at = scan_started_at
+            last_full_scan_at = 0.0
+            last_processed_frame_seq = max(0, scan_frame_seq - 1)
+
+        burst_mode = (
+            scan_started_at > 0 and
+            (time.perf_counter() - scan_started_at) <= BURST_SCAN_WINDOW_SECONDS
+        )
+        full_scan_interval = (
+            BURST_FULL_SCAN_INTERVAL_SECONDS
+            if burst_mode
+            else FULL_SCAN_INTERVAL_SECONDS
+        )
+        now = time.perf_counter()
+        allow_full = (now - last_full_scan_at) >= full_scan_interval
+        frame_decode_budget = (
+            BURST_FRAME_DECODE_BUDGET_SECONDS
+            if burst_mode
+            else FRAME_DECODE_BUDGET_SECONDS
+        )
+
         with frame_lock:
             frame = None if latest_frame is None else latest_frame.copy()
+            frame_seq = latest_frame_seq
+
+        if frame_seq == last_processed_frame_seq:
+            time.sleep(IDLE_SLEEP_SECONDS)
+            continue
 
         if frame is None:
             with lock:
@@ -475,12 +674,23 @@ def scan_worker():
             time.sleep(IDLE_SLEEP_SECONDS)
             continue
 
-        payload, source_name = decode_live_frame(frame)
-        did_lock = process_candidate(payload, source_name)
+        scan_started = time.perf_counter()
+        payload, source_name = decode_live_frame(
+            frame,
+            allow_full=allow_full,
+            scan_session_id=scan_session_id,
+            deadline_at=scan_started + frame_decode_budget,
+        )
+        last_processed_frame_seq = frame_seq
+        if allow_full:
+            last_full_scan_at = scan_started
+        did_lock = process_candidate(payload, source_name, scan_session_id)
         if did_lock:
             print("QR LOCKED:", payload)
 
-        time.sleep(IDLE_SLEEP_SECONDS)
+        elapsed = time.perf_counter() - scan_started
+        sleep_for = max(IDLE_SLEEP_SECONDS, SCAN_TARGET_INTERVAL_SECONDS - elapsed)
+        time.sleep(sleep_for)
 
 
 @app.post("/qr/start")
@@ -490,11 +700,9 @@ def api_start(data: dict):
     with lock:
         state["rtsp"] = rtsp
         state["running"] = True
-        state["scan_enabled"] = False
         state["connected"] = False
         state["frame_ready"] = False
-        clear_candidate_state_unlocked()
-        unlock_state_unlocked()
+        reset_scan_session_unlocked(scan_enabled=False)
         set_phase_unlocked()
 
     return {"success": True}
@@ -503,9 +711,7 @@ def api_start(data: dict):
 @app.post("/qr/scan")
 def api_scan():
     with lock:
-        clear_candidate_state_unlocked()
-        unlock_state_unlocked()
-        state["scan_enabled"] = True
+        reset_scan_session_unlocked(scan_enabled=True)
         set_phase_unlocked()
 
     return {"success": True}
@@ -514,9 +720,7 @@ def api_scan():
 @app.post("/qr/reset")
 def api_reset():
     with lock:
-        clear_candidate_state_unlocked()
-        unlock_state_unlocked()
-        state["scan_enabled"] = False
+        reset_scan_session_unlocked(scan_enabled=False)
         set_phase_unlocked()
 
     return {"success": True}
@@ -526,11 +730,9 @@ def api_reset():
 def api_stop():
     with lock:
         state["running"] = False
-        state["scan_enabled"] = False
         state["connected"] = False
         state["frame_ready"] = False
-        clear_candidate_state_unlocked()
-        unlock_state_unlocked()
+        reset_scan_session_unlocked(scan_enabled=False)
         state["rtsp"] = ""
         set_phase_unlocked()
 

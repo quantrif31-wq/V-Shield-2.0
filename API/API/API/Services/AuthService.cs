@@ -206,7 +206,23 @@ public class AuthenticationService : IAuthenticationService
             if (user.MfaEnabled && await TryConsumeRecoveryCodeAsync(user.UserId, submittedCode))
                 return null;
 
-            var secret = user.MfaEnabled ? null : _totpService.UnprotectSecret(user.MfaSecretProtected);
+            string? secret = null;
+            if (!user.MfaEnabled)
+            {
+                try
+                {
+                    secret = _totpService.UnprotectSecret(user.MfaSecretProtected);
+                }
+                catch (CryptographicException)
+                {
+                    var rotatedSecret = _totpService.GenerateSecret();
+                    user.MfaSecretProtected = _totpService.ProtectSecret(rotatedSecret);
+                    user.MfaConfiguredAtUtc = null;
+                    await _context.SaveChangesAsync();
+                    secret = rotatedSecret;
+                }
+            }
+
             return user.MfaEnabled
                 ? BuildMfaRequiredResponse(user)
                 : BuildMfaSetupResponse(user, secret);

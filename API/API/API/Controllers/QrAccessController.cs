@@ -8,7 +8,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Text;
 using System.Text.RegularExpressions;
 using System;
 using System.Threading.Tasks;
@@ -62,6 +64,7 @@ namespace API.Controllers
             // 3. Xác định danh tính (bám sát logic client gửi ID hoặc tự query bằng payload)
             int? targetEmployeeId = request.EmployeeId;
             int? targetVisitorId = request.VisitorDetailId;
+            string? qrValidationError = null;
 
             if (targetVisitorId == null && targetEmployeeId == null && !string.IsNullOrWhiteSpace(request.QrPayload))
             {
@@ -70,7 +73,15 @@ namespace API.Controllers
                 var employeeIdFromPayload = TryParseEmployeeIdFromDynamicPayload(normalizedPayload);
                 if (employeeIdFromPayload.HasValue && employeeIdFromPayload.Value > 0)
                 {
-                    targetEmployeeId = employeeIdFromPayload.Value;
+                    var dynamicValidation = await TryValidateDynamicEmployeePayloadAsync(normalizedPayload, employeeIdFromPayload.Value);
+                    if (dynamicValidation.Success)
+                    {
+                        targetEmployeeId = employeeIdFromPayload.Value;
+                    }
+                    else
+                    {
+                        qrValidationError = dynamicValidation.Message;
+                    }
                 }
                 if (targetEmployeeId == null)
                 {
@@ -92,6 +103,7 @@ namespace API.Controllers
                             if (isFresh && isOtpValid)
                             {
                                 targetVisitorId = visitorMatch.VisitorDetailId;
+                                qrValidationError = null;
                             }
                         }
                     }
@@ -100,7 +112,7 @@ namespace API.Controllers
 
             if (targetEmployeeId == null && targetVisitorId == null)
             {
-                return BadRequest(GateTransitApiResponse.CreateError("Không xác định được danh tính từ dữ liệu QR."));
+                return BadRequest(GateTransitApiResponse.CreateError(qrValidationError ?? "Không xác định được danh tính từ dữ liệu QR."));
             }
 
             // 4. Transaction và kiểm tra quyền
@@ -468,6 +480,176 @@ namespace API.Controllers
             }
 
             return null;
+        }
+
+        private async Task<(bool Success, string Message)> TryValidateDynamicEmployeePayloadAsync(string payload, int expectedEmployeeId)
+        {
+            var parseResult = ParseDynamicPayload(payload);
+            if (!parseResult.Success)
+            {
+                return (false, parseResult.Message);
+            }
+
+            if (parseResult.EmployeeId != expectedEmployeeId)
+            {
+                return (false, "EmployeeId trong QR không khớp với payload.");
+            }
+
+            var dynamicQr = await _context.EmployeeDynamicQrs
+                .Include(item => item.Employee)
+                .FirstOrDefaultAsync(item => item.EmployeeId == expectedEmployeeId && item.IsActive);
+
+            if (dynamicQr == null)
+            {
+                return (false, "Không tìm thấy cấu hình QR động của nhân viên.");
+            }
+
+            if (dynamicQr.Employee == null || dynamicQr.Employee.Status != true)
+            {
+                return (false, "Nhân viên không còn hoạt động.");
+            }
+
+            var utcNow = DateTime.UtcNow;
+            var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
+            if (Math.Abs(parseResult.Counter!.Value - currentCounter) > 1)
+            {
+                return (false, "QR động đã hết hạn hoặc chưa đến hiệu lực.");
+            }
+
+            var expectedOtp = GenerateTotp(dynamicQr.SecretKey, parseResult.Counter.Value, dynamicQr.Digits);
+            if (!FixedTimeEquals(parseResult.Otp!, expectedOtp))
+            {
+                return (false, "QR động không hợp lệ.");
+            }
+
+            return (true, "OK");
+        }
+
+        private static (bool Success, int? EmployeeId, long? Counter, string? Otp, string Message) ParseDynamicPayload(string payload)
+        {
+            try
+            {
+                var parts = payload.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 3)
+                {
+                    return (false, null, null, null, "Payload QR không đúng định dạng.");
+                }
+
+                var empPart = parts[0].Split(':');
+                var tsPart = parts[1].Split(':');
+                var otpPart = parts[2].Split(':');
+
+                if (empPart.Length != 2 || tsPart.Length != 2 || otpPart.Length != 2)
+                {
+                    return (false, null, null, null, "Payload QR không đúng định dạng.");
+                }
+
+                if (!empPart[0].Equals("EMP", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (false, null, null, null, "Thiếu EMP trong payload.");
+                }
+
+                if (!tsPart[0].Equals("TS", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (false, null, null, null, "Thiếu TS trong payload.");
+                }
+
+                if (!otpPart[0].Equals("OTP", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (false, null, null, null, "Thiếu OTP trong payload.");
+                }
+
+                if (!int.TryParse(empPart[1], out var employeeId))
+                {
+                    return (false, null, null, null, "EmployeeId không hợp lệ.");
+                }
+
+                if (!long.TryParse(tsPart[1], out var counter))
+                {
+                    return (false, null, null, null, "Counter không hợp lệ.");
+                }
+
+                var otp = otpPart[1]?.Trim();
+                if (string.IsNullOrWhiteSpace(otp))
+                {
+                    return (false, null, null, null, "OTP không hợp lệ.");
+                }
+
+                return (true, employeeId, counter, otp, "OK");
+            }
+            catch
+            {
+                return (false, null, null, null, "Không thể phân tích payload QR.");
+            }
+        }
+
+        private static long GetCurrentCounter(DateTime utcNow, int timeStepSeconds)
+        {
+            var unixTime = new DateTimeOffset(utcNow).ToUnixTimeSeconds();
+            return unixTime / timeStepSeconds;
+        }
+
+        private static string GenerateTotp(string base32Secret, long counter, int digits)
+        {
+            var key = Base32Decode(base32Secret);
+            var counterBytes = BitConverter.GetBytes(counter);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(counterBytes);
+            }
+
+            using var hmac = new HMACSHA1(key);
+            var hash = hmac.ComputeHash(counterBytes);
+            var offset = hash[^1] & 0x0F;
+
+            int binaryCode =
+                ((hash[offset] & 0x7F) << 24) |
+                ((hash[offset + 1] & 0xFF) << 16) |
+                ((hash[offset + 2] & 0xFF) << 8) |
+                (hash[offset + 3] & 0xFF);
+
+            int otp = binaryCode % (int)Math.Pow(10, digits);
+            return otp.ToString().PadLeft(digits, '0');
+        }
+
+        private static byte[] Base32Decode(string input)
+        {
+            const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            var output = new List<byte>();
+            var normalized = input.Trim().TrimEnd('=').ToUpperInvariant();
+            var bitBuffer = 0;
+            var bitsLeft = 0;
+
+            foreach (var c in normalized)
+            {
+                var val = alphabet.IndexOf(c);
+                if (val < 0)
+                {
+                    throw new FormatException("SecretKey Base32 không hợp lệ.");
+                }
+
+                bitBuffer <<= 5;
+                bitBuffer |= val & 0x1F;
+                bitsLeft += 5;
+
+                if (bitsLeft >= 8)
+                {
+                    output.Add((byte)(bitBuffer >> (bitsLeft - 8)));
+                    bitsLeft -= 8;
+                }
+            }
+
+            return output.ToArray();
+        }
+
+        private static bool FixedTimeEquals(string left, string right)
+        {
+            var leftBytes = Encoding.UTF8.GetBytes(left);
+            var rightBytes = Encoding.UTF8.GetBytes(right);
+
+            return leftBytes.Length == rightBytes.Length &&
+                   CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
         }
     }
 }

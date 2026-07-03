@@ -633,6 +633,9 @@ function createQrModule(defaultScannerDevice) {
     imgBusy: false,
     decodeBusy: false,
     verifying: false,
+    scanKickoffBusy: false,
+    controlSessionId: 0,
+    lastAutoScanAt: 0,
 
     directCameraUrl: "",
     directCameraKey: 0,
@@ -676,6 +679,7 @@ function createQrModule(defaultScannerDevice) {
     lastVerifyAttemptPayload: "",
     lastVerifyAttemptAt: 0,
     verifyCooldownMs: 1800,
+    autoScanCooldownMs: 1800,
 
     // Flag set when a backend scan request is active (scan enabled on Python)
     scanRequested: false,
@@ -966,6 +970,17 @@ export default {
     },
 
     getEffectiveQrStream(lane) {
+      const directStream = this.preferMainQrStream(
+        lane?.qr?.currentIp || lane?.qr?.cameraIp || ""
+      )
+      if (
+        directStream &&
+        !/^go2rtc:/i.test(directStream) &&
+        !/stream\.html\?src=/i.test(directStream)
+      ) {
+        return directStream
+      }
+
       const go2rtcStreamName = this.extractGo2RtcStreamName(lane?.qr?.viewUrl || "")
       if (go2rtcStreamName) {
         return `go2rtc:${go2rtcStreamName}`
@@ -1314,108 +1329,121 @@ export default {
       if (lane.qr.resultTimer) return
 
       lane.qr.resultTimer = setInterval(async () => {
-        if (!lane.qr.cameraRunning) return
+        const qr = lane.qr
+        if (!qr.cameraRunning || qr.pollingBusy) return
 
-        const res = await getQrScanResult()
+        const pollingSessionId = qr.controlSessionId
+        qr.pollingBusy = true
 
-        if (!res) return
-
-    // Cập nhật trạng thái scanRequested dựa trên backend
         try {
-          lane.qr.scanRequested = !!res.scan_enabled
-          lane.qr.backendPhase = String(res.phase || "idle")
-          lane.qr.backendConnected = !!res.connected
-          lane.qr.backendFrameReady = !!res.frame_ready
-          lane.qr.backendLastCandidate = String(res.candidate_payload || "").trim()
-          lane.qr.backendLastSource = String(res.candidate_source || "").trim()
-          lane.qr.backendCandidateSeenCount = Number(res.candidate_seen_count || 0)
-          lane.qr.backendLockedPayload = String(res.locked_payload || res.qr || "").trim()
-          lane.qr.backendLockedAt = Number(res.locked_at || 0)
-          lane.qr.backendLastDecodeAt = Number(res.locked_at || 0)
-        } catch {
-          // ignore
+          const res = await getQrScanResult().catch(() => null)
+          if (qr.controlSessionId !== pollingSessionId || !res) return
+
+          qr.scanRequested = !!res.scan_enabled
+          qr.backendPhase = String(res.phase || "idle")
+          qr.backendConnected = !!res.connected
+          qr.backendFrameReady = !!res.frame_ready
+          qr.backendLastCandidate = String(res.candidate_payload || "").trim()
+          qr.backendLastSource = String(res.candidate_source || "").trim()
+          qr.backendCandidateSeenCount = Number(res.candidate_seen_count || 0)
+          qr.backendLockedPayload = String(res.locked_payload || res.qr || "").trim()
+          qr.backendLockedAt = Number(res.locked_at || 0)
+          qr.backendLastDecodeAt = Number(res.locked_at || 0)
+
+          if (!qr.sessionLocked && !qr.verifying && !qr.scanRequested) {
+            const phase = String(qr.backendPhase || "idle")
+            const canKickoff =
+              phase === "idle" ||
+              phase === "verified" ||
+              phase === "expired" ||
+              phase === "invalid"
+            if (canKickoff && Date.now() - qr.lastAutoScanAt >= qr.autoScanCooldownMs) {
+              await this.kickoffQrScan(lane).catch(() => {})
+            }
+          }
+
+          qr.sessionLocked =
+            qr.backendPhase === "locked" ||
+            qr.activeSessionVerifyState === "success"
+
+          if (qr.backendPhase === "connecting") {
+            qr.message = "Dang ket noi camera QR..."
+            return
+          }
+
+          if (qr.backendPhase === "scanning") {
+            qr.message = "Dang quet QR..."
+            return
+          }
+
+          if (qr.backendPhase === "candidate_found") {
+            qr.message = "Da thay ma, dang on dinh khung hinh..."
+            qr.overlayText = qr.backendLastCandidate || qr.overlayText
+            return
+          }
+
+          if (qr.backendPhase === "locked") {
+            const servicePayload = String(qr.backendLockedPayload || "").trim()
+            if (!servicePayload) return
+            if (qr.lastVerifiedPayload === servicePayload || qr.verifying) return
+
+            qr.qrPayload = servicePayload
+            qr.sessionLocked = true
+            qr.activeSessionPayload = servicePayload
+            qr.scanRequested = false
+            qr.message = "Da khoa QR, dang xac thuc..."
+
+            const result = await this.doVerifyQr(lane, servicePayload)
+            if (result?.success) {
+              qr.lastVerifiedPayload = servicePayload
+              qr.activeSessionPayload = servicePayload
+              qr.activeSessionVerified = true
+              qr.activeSessionVerifyState = "success"
+              qr.activeSessionVerifyMessage =
+                result?.message || "Xac thuc QR thanh cong."
+              qr.verifyMessage = ""
+              qr.sessionLocked = true
+              if (result?.data?.type === "STATIC") {
+                qr.guestId = String(
+                  result?.data?.visitorDetailId ||
+                    result?.data?.visitorId ||
+                    result?.data?.guestId ||
+                    ""
+                )
+                qr.employeeId = ""
+                qr.employeeName = result.data.fullName || result.data.visitorName || ""
+              } else {
+                qr.employeeId = String(result.data.employeeId || "")
+                qr.employeeName = result.data.employeeName || ""
+                qr.guestId = ""
+              }
+
+              const identityOverlay = this.buildQrIdentityOverlay(result?.data)
+              if (identityOverlay) qr.overlayText = identityOverlay
+              qr.alert = false
+              qr.backendPhase = "verified"
+              qr.message = result?.message || "Xac thuc QR thanh cong."
+            } else {
+              qr.alert = true
+              qr.activeSessionVerified = false
+              qr.sessionLocked = false
+              qr.activeSessionPayload = ""
+              qr.activeSessionVerifyState = "failed"
+              qr.activeSessionVerifyMessage = result?.message || "Xac thuc QR that bai."
+              qr.verifyMessage = result?.message || "Xac thuc QR that bai."
+              qr.backendPhase = "scanning"
+              if (qr.activeSessionVerifyState === "expired" || qr.activeSessionVerifyState === "invalid") {
+                await this.kickoffQrScan(lane).catch(() => {})
+              }
+            }
+          }
+        } finally {
+          if (qr.controlSessionId === pollingSessionId) {
+            qr.pollingBusy = false
+          }
         }
-
-    // trạng thái
-    lane.qr.sessionLocked =
-      lane.qr.backendPhase === "locked" ||
-      lane.qr.activeSessionVerifyState === "success"
-
-    // Nếu backend đang quét nhưng chưa lock, hiển thị trạng thái quét
-    if (lane.qr.backendPhase === "connecting") {
-      lane.qr.message = "Đang kết nối camera QR..."
-      return
-    }
-
-    if (lane.qr.backendPhase === "scanning") {
-      lane.qr.message = "Đang quét QR..."
-      return
-    }
-
-    if (lane.qr.backendPhase === "candidate_found") {
-      lane.qr.message = "Đã thấy mã, đang ổn định khung hình..."
-      lane.qr.overlayText = lane.qr.backendLastCandidate || lane.qr.overlayText
-      return
-    }
-
-        if (lane.qr.backendPhase === "locked") {
-  const servicePayload = String(lane.qr.backendLockedPayload || "").trim()
-  if (!servicePayload) return
-  const qr = lane.qr
-  if (
-    qr.lastVerifiedPayload === servicePayload ||
-    qr.verifying
-  ) {
-    return
-  }
-  lane.qr.qrPayload = servicePayload
-  lane.qr.sessionLocked = true
-  lane.qr.activeSessionPayload = servicePayload
-  lane.qr.scanRequested = false
-  lane.qr.message = "Đã khóa QR, đang xác thực..."
-
-  const result = await this.doVerifyQr(lane, servicePayload)
-  if (result?.success) {
-   qr.lastVerifiedPayload = servicePayload
-   if (result?.data?.type === "STATIC") {
-  qr.guestId = String(
-  result?.data?.visitorDetailId ||
-  result?.data?.visitorId ||
-  result?.data?.guestId ||
-  ""
-)
-  lane.qr.employeeId = ""
-  lane.qr.employeeName = result.data.fullName || result.data.visitorName || ""
-} else {
-  lane.qr.employeeId = String(result.data.employeeId || "")
-  lane.qr.employeeName = result.data.employeeName || ""
-  lane.qr.guestId = ""
-}
-    const identityOverlay = this.buildQrIdentityOverlay(result?.data)
-    if (identityOverlay) {
-      lane.qr.overlayText = identityOverlay
-    }
-    lane.qr.alert = false
-    lane.qr.backendPhase = "verified"
-    lane.qr.message = result?.message || "Xác thực QR thành công."
-  } else {
-    lane.qr.alert = true
-    lane.qr.sessionLocked = false
-    lane.qr.activeSessionPayload = ""
-    lane.qr.backendPhase = "scanning"
-    if (qr.activeSessionVerifyState === "expired" || qr.activeSessionVerifyState === "invalid") {
-      await resetQrSession().catch(() => {})
-      await scanQrOnce().catch(() => {})
-    }
-  }
-
-  return // 🔥 STOP scan
-}
-
-
-
-  }, 300)
-},
+      }, 300)
+    },
 
         isLaneReady(lane) {
       return (
@@ -1924,6 +1952,7 @@ export default {
       qr.overlayText = ""
       qr.overlayBox = null
       qr.scanRequested = false
+      qr.scanKickoffBusy = false
     },
 
     clearPlateState(plate) {
@@ -1947,6 +1976,10 @@ export default {
     hardResetQr(qr) {
       qr.cameraRunning = false
       qr.currentIp = ""
+      qr.controlSessionId = (qr.controlSessionId || 0) + 1
+      qr.pollingBusy = false
+      qr.verifying = false
+      qr.decodeBusy = false
       this.clearQrState(qr)
     },
 
@@ -2012,6 +2045,83 @@ export default {
     stopQrLoops(lane) {
       this.stopQrPreviewLoop(lane)
       this.stopQrSessionLoop(lane)
+    },
+
+    async kickoffQrScan(lane) {
+      const qr = lane?.qr
+      if (!qr || !qr.cameraRunning || qr.scanKickoffBusy) return
+
+      const kickoffSessionId = qr.controlSessionId
+      qr.scanKickoffBusy = true
+      qr.scanRequested = false
+
+      try {
+        await resetQrSession().catch(() => {})
+        if (qr.controlSessionId !== kickoffSessionId) return
+
+        await new Promise((r) => setTimeout(r, 100))
+        if (qr.controlSessionId !== kickoffSessionId) return
+
+        await scanQrOnce().catch(() => {})
+        if (qr.controlSessionId !== kickoffSessionId) return
+
+        qr.scanRequested = true
+        qr.lastAutoScanAt = Date.now()
+      } finally {
+        if (qr.controlSessionId === kickoffSessionId) {
+          qr.scanKickoffBusy = false
+        }
+      }
+    },
+
+    async restartQrSession(lane, message = "Dang quet lai QR...") {
+      const qr = lane?.qr
+      if (!qr?.cameraIp?.trim()) {
+        throw new Error("Vui long nhap URL QR")
+      }
+
+      const nextSessionId = (qr.controlSessionId || 0) + 1
+      qr.controlSessionId = nextSessionId
+
+      this.stopQrLoops(lane)
+      if (qr.resultTimer) {
+        clearInterval(qr.resultTimer)
+        qr.resultTimer = null
+      }
+      qr.pollingBusy = false
+      qr.verifying = false
+      qr.decodeBusy = false
+      this.clearQrState(qr)
+      qr.message = "Dang khoi dong lai bo quet QR..."
+
+      try {
+        await stopQrScanner().catch(() => {})
+        if (qr.controlSessionId !== nextSessionId) return
+
+        await new Promise((r) => setTimeout(r, 180))
+        if (qr.controlSessionId !== nextSessionId) return
+
+        qr.cameraIp = this.getEffectiveQrStream(lane)
+        await startQrScanner(qr.cameraIp)
+        if (qr.controlSessionId !== nextSessionId) return
+
+        await new Promise((r) => setTimeout(r, 800))
+        if (qr.controlSessionId !== nextSessionId) return
+
+        qr.cameraRunning = true
+        qr.sessionLocked = false
+        qr.message = message
+
+        this.startQrPreviewLoop(lane)
+        this.startQrSessionLoop(lane)
+        this.startQrPolling(lane)
+        await this.kickoffQrScan(lane)
+      } catch (e) {
+        if (qr.controlSessionId === nextSessionId) {
+          this.hardResetQr(qr)
+        }
+        throw e
+      }
     },
 
     checkQrSessionExpiry(lane) {
@@ -2523,64 +2633,30 @@ else {
 
     async readAllLane(lane) {
       if (!lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()) {
-        alert("Vui lòng nhập đủ URL QR và Plate")
+        alert("Vui long nhap du URL QR va Plate")
         return
       }
 
       try {
         lane.loading = true
+        await this.restartQrSession(lane, "Dang quet QR tu Python...")
 
-        
-
-        
-
- // 🔥 reset QR trước khi scan
-await resetQrSession()
-
-await new Promise(r => setTimeout(r, 200))
-
-// 🧠 nếu chưa chạy → start
-if (!lane.qr.cameraRunning) {
-  lane.qr.cameraIp = this.getEffectiveQrStream(lane)
-  await startQrScanner(lane.qr.cameraIp)
-  await new Promise(r => setTimeout(r, 800))
-}
-
-// scan mới
-await scanQrOnce()
-
-// 🔥 reset frontend state
-this.clearQrState(lane.qr)
-
-  lane.qr.cameraRunning = true
-  lane.qr.sessionLocked = false
-  lane.qr.message = "Đang quét QR từ Python"
-
-  // Bắt đầu vòng lặp preview/session khi quét thực sự bắt đầu
-  this.startQrPreviewLoop(lane)
-  this.startQrSessionLoop(lane)
-  this.startQrPolling(lane)
-
-// Đánh dấu yêu cầu quét backend để frontend hiển thị trạng thái SCANNING
-lane.qr.scanRequested = true
-
-        // Plate: giữ nguyên API cũ
         if (!lane.plate.cameraRunning) {
           this.releaseOtherPlateLanes(lane)
           this.stopPlateLoop(lane)
           const resPlate = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
           if (!resPlate?.success) {
-            alert(resPlate?.message || "Không thể khởi tạo Plate")
+            alert(resPlate?.message || "Khong the khoi tao Plate")
             return
           }
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(resPlate.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = resPlate.message || "Khởi tạo Plate thành công"
+          lane.plate.message = resPlate.message || "Khoi tao Plate thanh cong"
         } else {
           this.releaseOtherPlateLanes(lane)
           const resPlate = await lane.plateApi.resetCameraState()
-          lane.plate.message = resPlate?.message || "Đã reset Plate"
+          lane.plate.message = resPlate?.message || "Da reset Plate"
 
           const newSessionId = Number(resPlate?.session_id || 0)
           if (newSessionId > 0) {
@@ -2593,56 +2669,24 @@ lane.qr.scanRequested = true
         if (!lane.plate.resultTimer) this.startPlateLoop(lane)
       } catch (e) {
         console.error("readAllLane error:", e)
-        alert(e?.message || "L?i d?c c? 2")
-        } finally {
+        alert(e?.message || "Loi doc ca 2")
+      } finally {
         lane.loading = false
       }
     },
 
     async retryQr(lane) {
   if (!lane.qr.cameraIp.trim()) {
-    alert("Vui lòng nhập URL QR")
+    alert("Vui long nhap URL QR")
     return
   }
 
   try {
     lane.loading = true
-
-    // 🧠 Nếu chưa chạy → mở cam trước
-    if (!lane.qr.cameraRunning) {
-      lane.qr.cameraIp = this.getEffectiveQrStream(lane)
-      await startQrScanner(lane.qr.cameraIp)
-
-      // ⏳ chờ cam mở
-      await new Promise(r => setTimeout(r, 800))
-    }
-
-    // reset state
-    await resetQrSession()
-
-    await new Promise(r => setTimeout(r, 200))
-
-    // scan lại
-    await scanQrOnce()
-
-    this.clearQrState(lane.qr)
-
-    lane.qr.cameraRunning = true
-    lane.qr.sessionLocked = false
-    lane.qr.message = "Đang quét lại QR..."
-
-    // 🔥 đảm bảo polling chạy
-    // Bắt đầu vòng lặp preview/session khi quét thực sự bắt đầu
-    this.startQrPreviewLoop(lane)
-    this.startQrSessionLoop(lane)
-    this.startQrPolling(lane)
-
-    // Đánh dấu yêu cầu quét backend để frontend hiển thị trạng thái SCANNING
-    lane.qr.scanRequested = true
-
-    } catch (e) {
+    await this.restartQrSession(lane, "Dang quet lai QR...")
+  } catch (e) {
     console.error("retryQr error:", e)
-    alert(e?.message || "Lỗi đọc lại QR")
+    alert(e?.message || "Loi doc lai QR")
   } finally {
     lane.loading = false
   }
@@ -4300,6 +4344,3 @@ selectCamera(cam, lane, type) {
   background: #eee;
 }
 </style>
-
-
-
