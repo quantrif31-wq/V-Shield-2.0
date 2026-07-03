@@ -247,6 +247,7 @@ import * as faceLane1Api from "../services/faceApi"
 import * as plateLane1Api from "../services/plateCameraApi"
 import * as faceLane2Api from "../services/faceApi"
 import * as plateLane2Api from "../services/plateCameraApi"
+import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
 import { scanGate } from "../services/gateTransitApi"
 
 function createFaceModule() {
@@ -809,12 +810,22 @@ export default {
 
         if (lane.face.cameraIp.trim()) {
           lane.face.currentIp = lane.face.cameraIp.trim()
+          await ensureCameraRegistered({
+            cameraName: `${lane.name} Face Camera`,
+            cameraType: "Face",
+            streamUrl: lane.face.currentIp,
+          })
           this.mountPreview(lane.face, lane.face.currentIp)
           lane.face.message = "Đã mở preview Face"
         }
 
         if (lane.plate.cameraIp.trim()) {
           lane.plate.currentIp = lane.plate.cameraIp.trim()
+          await ensureCameraRegistered({
+            cameraName: `${lane.name} Plate Camera`,
+            cameraType: "Plate",
+            streamUrl: lane.plate.currentIp,
+          })
           this.enablePlatePreview(lane.plate, lane.plate.currentIp)
           lane.plate.message = this.isImagePreviewableUrl(lane.plate.currentIp)
             ? "Đã mở preview Plate"
@@ -839,6 +850,16 @@ export default {
 
         lane.face.currentIp = lane.face.cameraIp.trim()
         lane.plate.currentIp = lane.plate.cameraIp.trim()
+        await ensureCameraRegistered({
+          cameraName: `${lane.name} Face Camera`,
+          cameraType: "Face",
+          streamUrl: lane.face.currentIp,
+        })
+        await ensureCameraRegistered({
+          cameraName: `${lane.name} Plate Camera`,
+          cameraType: "Plate",
+          streamUrl: lane.plate.currentIp,
+        })
 
         if (!lane.face.previewRunning) this.mountPreview(lane.face, lane.face.currentIp)
         if (!lane.plate.previewRunning) this.enablePlatePreview(lane.plate, lane.plate.currentIp)
@@ -905,6 +926,11 @@ export default {
         lane.loading = true
 
         lane.face.currentIp = lane.face.cameraIp.trim()
+        await ensureCameraRegistered({
+          cameraName: `${lane.name} Face Camera`,
+          cameraType: "Face",
+          streamUrl: lane.face.currentIp,
+        })
         if (!lane.face.previewRunning) {
           this.mountPreview(lane.face, lane.face.currentIp)
         }
@@ -945,6 +971,11 @@ export default {
         lane.loading = true
 
         lane.plate.currentIp = lane.plate.cameraIp.trim()
+        await ensureCameraRegistered({
+          cameraName: `${lane.name} Plate Camera`,
+          cameraType: "Plate",
+          streamUrl: lane.plate.currentIp,
+        })
         if (!lane.plate.previewRunning) {
           this.enablePlatePreview(lane.plate, lane.plate.currentIp)
         }

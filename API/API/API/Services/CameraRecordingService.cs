@@ -92,47 +92,70 @@ public class CameraRecordingService : BackgroundService
         var recordsDir = Path.Combine(_env.WebRootPath, "uploads", "recordings", $"cam{cam.CameraId}");
         Directory.CreateDirectory(recordsDir);
 
-        var streamUrl = !string.IsNullOrWhiteSpace(cam.StreamUrl) ? cam.StreamUrl
-            : !string.IsNullOrWhiteSpace(cam.UrlView) ? cam.UrlView
-            : null;
-        if (string.IsNullOrWhiteSpace(streamUrl))
+        var candidates = ResolveInputCandidates(cam).ToList();
+        if (candidates.Count == 0)
         {
             lock (_sync) _processes[cam.CameraId] = new RecordingProcess { Error = "No stream URL" };
             return;
         }
 
         var outputPattern = Path.Combine(recordsDir, "%Y-%m-%d", "%Y%m%d_%H%M%S.mp4").Replace("\\", "/");
+        var startupErrors = new List<string>();
 
-        var psi = new ProcessStartInfo("ffmpeg")
+        foreach (var candidate in candidates)
         {
-            Arguments = $"-rtsp_transport tcp -i \"{streamUrl}\" -map 0:v:0 -c copy -an -sn -dn -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 -strftime_mkdir 1 \"{outputPattern}\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-
-        try
-        {
-            var proc = new Process { StartInfo = psi };
-            proc.Start();
-
-            var rp = new RecordingProcess
+            var psi = new ProcessStartInfo("ffmpeg")
             {
-                Process = proc,
-                StartedAt = DateTime.UtcNow,
-                CameraId = cam.CameraId,
-                Error = null
+                Arguments = BuildFfmpegArguments(candidate.InputUrl, outputPattern),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
             };
 
-            _ = Task.Run(() => MonitorProcess(rp));
+            try
+            {
+                var proc = new Process { StartInfo = psi };
+                proc.Start();
 
-            lock (_sync) _processes[cam.CameraId] = rp;
+                if (proc.WaitForExit(4000))
+                {
+                    var startupError = proc.StandardError.ReadToEnd();
+                    var trimmedStartupError = TrimForLog(startupError);
+                    startupErrors.Add($"{candidate.SourceLabel}: {trimmedStartupError}");
+                    Console.WriteLine($"[recording] Camera {cam.CameraId} failed on {candidate.SourceLabel}: {trimmedStartupError}");
+                    proc.Dispose();
+                    continue;
+                }
+
+                var rp = new RecordingProcess
+                {
+                    Process = proc,
+                    StartedAt = DateTime.UtcNow,
+                    CameraId = cam.CameraId,
+                    ActiveInput = candidate.InputUrl,
+                    SourceLabel = candidate.SourceLabel,
+                    Error = null
+                };
+
+                Console.WriteLine($"[recording] Camera {cam.CameraId} recording started via {candidate.SourceLabel}: {candidate.InputUrl}");
+                _ = Task.Run(() => MonitorProcess(rp));
+
+                lock (_sync) _processes[cam.CameraId] = rp;
+                return;
+            }
+            catch (Exception ex)
+            {
+                startupErrors.Add($"{candidate.SourceLabel}: {ex.Message}");
+                Console.WriteLine($"[recording] Camera {cam.CameraId} start error on {candidate.SourceLabel}: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+
+        lock (_sync) _processes[cam.CameraId] = new RecordingProcess
         {
-            lock (_sync) _processes[cam.CameraId] = new RecordingProcess { Error = ex.Message };
-        }
+            CameraId = cam.CameraId,
+            Error = startupErrors.Count > 0 ? string.Join(" | ", startupErrors) : "Unable to start recording"
+        };
     }
 
     private async Task MonitorProcess(RecordingProcess rp)
@@ -144,6 +167,7 @@ public class CameraRecordingService : BackgroundService
             var stderr = await rp.Process.StandardError.ReadToEndAsync();
             rp.Process.WaitForExit();
             rp.Error = stderr.Length > 200 ? stderr[^200..] : stderr;
+            Console.WriteLine($"[recording] Camera {rp.CameraId} recorder exited from {rp.SourceLabel ?? "unknown"}: {TrimForLog(stderr)}");
         }
         catch
         {
@@ -292,6 +316,77 @@ public class CameraRecordingService : BackgroundService
         return null;
     }
 
+    private static IEnumerable<RecordingInputCandidate> ResolveInputCandidates(Camera cam)
+    {
+        var candidates = new List<RecordingInputCandidate>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddCandidate(string? inputUrl, string sourceLabel)
+        {
+            if (string.IsNullOrWhiteSpace(inputUrl)) return;
+
+            var trimmed = inputUrl.Trim();
+            if (!seen.Add(trimmed)) return;
+            candidates.Add(new RecordingInputCandidate(trimmed, sourceLabel));
+        }
+
+        AddCandidate(cam.StreamUrl, "stream-url");
+
+        if (TryBuildGo2RtcMjpegUrl(cam.UrlView, out var go2rtcUrl))
+        {
+            AddCandidate(go2rtcUrl, "go2rtc-mjpeg");
+        }
+
+        AddCandidate(cam.UrlView, "url-view");
+        return candidates;
+    }
+
+    private static bool TryBuildGo2RtcMjpegUrl(string? urlView, out string? go2rtcUrl)
+    {
+        go2rtcUrl = null;
+        if (string.IsNullOrWhiteSpace(urlView)) return false;
+        if (!Uri.TryCreate(urlView, UriKind.Absolute, out var parsed)) return false;
+        if (!parsed.AbsolutePath.Contains("/go2rtc/stream.html", StringComparison.OrdinalIgnoreCase)) return false;
+
+        var src = GetQueryValue(parsed.Query, "src");
+        if (string.IsNullOrWhiteSpace(src)) return false;
+
+        go2rtcUrl = $"http://go2rtc:1984/api/stream.mjpeg?src={Uri.EscapeDataString(src)}";
+        return true;
+    }
+
+    private static string? GetQueryValue(string query, string key)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return null;
+
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (!string.Equals(parts[0], key, StringComparison.OrdinalIgnoreCase)) continue;
+            return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+        }
+
+        return null;
+    }
+
+    private static string BuildFfmpegArguments(string inputUrl, string outputPattern)
+    {
+        if (inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"-rtsp_transport tcp -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 -strftime_mkdir 1 \"{outputPattern}\"";
+        }
+
+        return $"-fflags nobuffer -flags low_delay -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 -strftime_mkdir 1 \"{outputPattern}\"";
+    }
+
+    private static string TrimForLog(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "no details";
+
+        var normalized = value.ReplaceLineEndings(" ").Trim();
+        return normalized.Length > 240 ? normalized[^240..] : normalized;
+    }
+
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         lock (_sync)
@@ -309,4 +404,8 @@ public class RecordingProcess
     public Process? Process { get; set; }
     public DateTime StartedAt { get; set; }
     public string? Error { get; set; }
+    public string? ActiveInput { get; set; }
+    public string? SourceLabel { get; set; }
 }
+
+public record RecordingInputCandidate(string InputUrl, string SourceLabel);

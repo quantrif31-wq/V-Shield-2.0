@@ -157,6 +157,7 @@ import {
   getCameraResult,
   getLockedImages
 } from "../services/faceApi"
+import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
 
 export default {
   name: "FaceIdSecurity",
@@ -375,6 +376,11 @@ export default {
 
       try {
         this.loading = true
+        await ensureCameraRegistered({
+          cameraName: "Face Monitor Camera",
+          cameraType: "Face",
+          streamUrl: ip,
+        })
         this.currentIp = ip
         this.mountDirectPreview(ip)
         this.message = "Đã mở preview camera trên giao diện"
@@ -395,6 +401,11 @@ export default {
 
       try {
         this.loading = true
+        await ensureCameraRegistered({
+          cameraName: "Face Monitor Camera",
+          cameraType: "Face",
+          streamUrl: ip,
+        })
 
         this.currentIp = ip
         if (!this.previewRunning) {

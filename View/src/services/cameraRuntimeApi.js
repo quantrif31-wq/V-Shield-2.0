@@ -1,4 +1,5 @@
 import http from './http'
+import { normalizeCameraUrl } from "../utils/cameraNetwork"
 
 export async function getCameras() {
     const res = await http.get('/camera-runtime')
@@ -83,6 +84,84 @@ export async function getRecordedSegments(cameraId, params) {
 export async function getArchiveSegments(params) {
     const res = await http.get('/camera-runtime/archive/segments', { params })
     return res.data
+}
+
+function normalizeComparableUrl(url) {
+    return normalizeCameraUrl(url || "").trim().toLowerCase()
+}
+
+function isSameCameraUrl(left, right) {
+    const normalizedLeft = normalizeComparableUrl(left)
+    const normalizedRight = normalizeComparableUrl(right)
+    return !!normalizedLeft && normalizedLeft === normalizedRight
+}
+
+export async function ensureCameraRegistered({
+    cameraName,
+    cameraType,
+    gateId = null,
+    streamUrl,
+    previewUrl,
+    recordingRetentionDays = 30,
+}) {
+    const normalizedStreamUrl = normalizeCameraUrl(streamUrl || previewUrl || "")
+    const normalizedPreviewUrl = normalizeCameraUrl(previewUrl || "")
+
+    if (!normalizedStreamUrl) {
+        return null
+    }
+
+    const cameras = await getCameras()
+    const existing = (Array.isArray(cameras) ? cameras : []).find((camera) =>
+        isSameCameraUrl(camera?.streamUrl, normalizedStreamUrl) ||
+        isSameCameraUrl(camera?.urlView, normalizedStreamUrl) ||
+        (normalizedPreviewUrl && (
+            isSameCameraUrl(camera?.streamUrl, normalizedPreviewUrl) ||
+            isSameCameraUrl(camera?.urlView, normalizedPreviewUrl)
+        ))
+    )
+
+    const fallbackName = (cameraName || "Network Camera").trim() || "Network Camera"
+    const fallbackType = (cameraType || "Network").trim() || "Network"
+
+    if (!existing) {
+        const created = await createCamera({
+            cameraName: fallbackName,
+            gateId,
+            cameraType: fallbackType,
+            streamUrl: normalizedStreamUrl,
+            isRecordingEnabled: true,
+            recordingRetentionDays,
+        })
+        await reloadGo2rtc().catch(() => {})
+        return created
+    }
+
+    const nextCameraName = String(existing.cameraName || "").trim() || fallbackName
+    const nextCameraType = String(existing.cameraType || "").trim() || fallbackType
+    const nextGateId = existing.gateId ?? gateId ?? null
+    const shouldUpdate =
+        !isSameCameraUrl(existing.streamUrl, normalizedStreamUrl) ||
+        String(existing.cameraName || "").trim() !== nextCameraName ||
+        String(existing.cameraType || "").trim() !== nextCameraType ||
+        (existing.gateId ?? null) !== nextGateId ||
+        existing.isRecordingEnabled !== true ||
+        Number(existing.recordingRetentionDays || 0) !== Number(recordingRetentionDays)
+
+    if (!shouldUpdate) {
+        return existing
+    }
+
+    const updated = await updateCamera(existing.cameraId, {
+        cameraName: nextCameraName,
+        gateId: nextGateId,
+        cameraType: nextCameraType,
+        streamUrl: normalizedStreamUrl,
+        isRecordingEnabled: true,
+        recordingRetentionDays,
+    })
+    await reloadGo2rtc().catch(() => {})
+    return updated
 }
 
 

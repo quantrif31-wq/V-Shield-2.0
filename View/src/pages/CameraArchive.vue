@@ -134,6 +134,11 @@ import { getArchiveSegments, getCameras } from "../services/cameraRuntimeApi"
 const route = useRoute()
 const pageSize = 20
 
+function normalizeRouteCameraId(value) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : ""
+}
+
 const cameras = ref([])
 const segments = ref([])
 const loading = ref(false)
@@ -142,7 +147,7 @@ const page = ref(1)
 const showVideoId = ref(null)
 
 const filters = reactive({
-  cameraId: route.params.id ? String(route.params.id) : "",
+  cameraId: normalizeRouteCameraId(route.params.id),
   gateId: "",
   cameraType: "",
   search: "",
@@ -220,7 +225,7 @@ async function loadSegments(targetPage = 1) {
 }
 
 function resetFilters() {
-  filters.cameraId = route.params.id ? String(route.params.id) : ""
+  filters.cameraId = normalizeRouteCameraId(route.params.id)
   filters.gateId = ""
   filters.cameraType = ""
   filters.search = ""
@@ -258,7 +263,7 @@ function formatBytes(bytes) {
 watch(
   () => route.params.id,
   (nextId) => {
-    filters.cameraId = nextId ? String(nextId) : ""
+    filters.cameraId = normalizeRouteCameraId(nextId)
     loadSegments(1)
   }
 )

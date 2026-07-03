@@ -213,6 +213,7 @@ import {
   getCameraResult,
   getLockedImages
 } from "../services/plateCameraApi"
+import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
 import { getConfiguredCameras } from "../services/cameraRegistryApi"
 import { fuzzyMatchPlate, getPlateAnomalies } from "../services/plateRecognitionApi"
 
@@ -512,6 +513,12 @@ export default {
 
       try {
         this.loading = true
+        await ensureCameraRegistered({
+          cameraName: this.selectedConfiguredCamera?.label || this.selectedConfiguredCamera?.name || "Plate Monitor Camera",
+          cameraType: "Plate",
+          streamUrl: this.cameraIp || previewSource,
+          previewUrl: previewSource,
+        })
         this.activatePreview(previewSource)
         this.message = "Đã mở preview camera trên giao diện"
       } catch (error) {
@@ -531,6 +538,12 @@ export default {
 
       try {
         this.loading = true
+        await ensureCameraRegistered({
+          cameraName: this.selectedConfiguredCamera?.label || this.selectedConfiguredCamera?.name || "Plate Monitor Camera",
+          cameraType: "Plate",
+          streamUrl: ip,
+          previewUrl: this.previewUrl || ip,
+        })
 
         this.currentIp = ip
         const previewSource = (this.previewUrl || ip).trim()
