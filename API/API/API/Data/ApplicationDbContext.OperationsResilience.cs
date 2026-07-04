@@ -18,13 +18,19 @@ public partial class ApplicationDbContext
         modelBuilder.Entity<OutboxEvent>(entity =>
         {
             entity.HasKey(e => e.OutboxEventId);
+            entity.Property(e => e.Channel).IsRequired().HasMaxLength(40);
             entity.Property(e => e.EventType).IsRequired().HasMaxLength(120);
             entity.Property(e => e.AggregateType).IsRequired().HasMaxLength(120);
             entity.Property(e => e.AggregateId).HasMaxLength(120);
             entity.Property(e => e.PayloadJson).IsRequired().HasMaxLength(4000);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.AreaNodeId).HasMaxLength(120);
+            entity.Property(e => e.ScopeType).HasMaxLength(40);
+            entity.Property(e => e.SourceSystem).IsRequired().HasMaxLength(40);
             entity.Property(e => e.CorrelationId).IsRequired().HasMaxLength(80);
-            entity.HasIndex(e => new { e.Status, e.NextAttemptAtUtc, e.CreatedAtUtc });
+            entity.HasIndex(e => new { e.Channel, e.Status, e.NextAttemptAtUtc, e.CreatedAtUtc });
+            entity.HasIndex(e => new { e.Channel, e.SiteId, e.ScopeType, e.ScopeId, e.OutboxEventId });
+            entity.HasIndex(e => new { e.Channel, e.AreaNodeId, e.CorrelationId });
         });
 
         modelBuilder.Entity<WebhookSubscription>(entity =>

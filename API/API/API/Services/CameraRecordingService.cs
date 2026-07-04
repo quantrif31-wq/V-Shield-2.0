@@ -345,14 +345,65 @@ public class CameraRecordingService : BackgroundService
 
         AddCandidate(cam.StreamUrl, "stream-url");
 
+        if (TryBuildInternalPreviewUrl(cam.StreamUrl, out var internalPreviewUrl))
+        {
+            AddCandidate(internalPreviewUrl, "internal-preview");
+        }
+
         if (TryGetGo2RtcSource(cam.UrlView, out var src) && src != null)
         {
             AddCandidate($"rtsp://go2rtc:8554/{src}", "go2rtc-relay");
             AddCandidate($"http://go2rtc:1984/api/stream.mjpeg?src={Uri.EscapeDataString(src)}", "go2rtc-mjpeg");
         }
 
-        AddCandidate(cam.UrlView, "url-view");
+        AddCandidate(RewriteContainerLocalUrl(cam.UrlView), "url-view");
         return candidates;
+    }
+
+    private static bool TryBuildInternalPreviewUrl(string? streamUrl, out string? internalPreviewUrl)
+    {
+        internalPreviewUrl = null;
+        if (string.IsNullOrWhiteSpace(streamUrl))
+        {
+            return false;
+        }
+
+        if (streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase))
+        {
+            internalPreviewUrl = "http://frontend/qr-api/qr/frame.jpg";
+            return true;
+        }
+
+        if (streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase))
+        {
+            internalPreviewUrl = "http://frontend/plate-api/api/camera/stream";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? RewriteContainerLocalUrl(string? inputUrl)
+    {
+        if (string.IsNullOrWhiteSpace(inputUrl) ||
+            !Uri.TryCreate(inputUrl, UriKind.Absolute, out var uri))
+        {
+            return inputUrl;
+        }
+
+        if (!string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(uri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase))
+        {
+            return inputUrl;
+        }
+
+        var builder = new UriBuilder(uri)
+        {
+            Scheme = Uri.UriSchemeHttp,
+            Host = "frontend",
+            Port = 80
+        };
+        return builder.Uri.ToString();
     }
 
     private static bool TryGetGo2RtcSource(string? urlView, out string? src)

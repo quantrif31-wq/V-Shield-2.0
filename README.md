@@ -177,6 +177,16 @@ docker compose build api frontend
 docker compose up -d --force-recreate api frontend
 ```
 
+### 2.4.1. Luu tru video camera tren Docker local
+
+He thong hien tai tu dong bat ghi hinh cho camera da ket noi va luu metadata ve DB local.
+
+- File video duoc luu duoi thu muc `runtime/uploads/recordings`
+- Metadata duoc luu trong bang `Recorded_Segment`
+- Trang tra cuu archive co the loc theo camera va moc thoi gian
+
+Trong Docker local, recorder se uu tien nguon noi bo Docker de tranh loi goi nham `localhost:5173` tu trong container API.
+
 ### 2.5. Dung va don dep
 
 Dung stack:
@@ -296,6 +306,150 @@ docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
 - Neu dung demo data tren Production, phai tu y bat `DEMO_DATA_ALLOW_IN_PRODUCTION=true`
 - MFA duoc luu trong DB, secret duoc ma hoa, va key ma hoa duoc giu trong volume `vshield_data_protection`
 
+### 3.6. Dong bo nhieu local khu vuc ve 1 VPS trung tam
+
+Mo hinh nay dung khi:
+
+- Moi ban `Docker local` la 1 diem van hanh trong cong ty
+- Diem van hanh do co the la:
+  - 1 `node khu vuc`, chi nhan du lieu trong pham vi duoc cap
+  - hoac 1 `node full-data`, nhan toan bo du lieu tu VPS
+- Khu vuc thuong gan cap `gate`, `lane`, hoac `zone`
+- VPS la noi tong hop va la nguon chuan cuoi cung
+
+Cach bat tren VPS:
+
+- Trong `.env.vps`, dat `SYNC_MODE=Central`
+- Dien `SYNC_REGISTRATION_KEY` bang 1 khoa manh va giu kin
+- Chay lai stack VPS bang file `docker-compose.vps.yml`
+
+Cach bat tren moi local:
+
+- Trong `.env`, dat `SYNC_MODE=AreaNode`
+- Dien `SYNC_CENTRAL_BASE_URL` thanh URL API cua VPS, vi du `https://vshield.company.vn`
+- Dien `SYNC_REGISTRATION_KEY` giong khoa dang ky tren VPS
+- Dien `SYNC_LOCAL_AREA_NODE_ID` duy nhat cho khu vuc, vi du `hn-gate-a-lane-1`
+- Dien `SYNC_COMPANY_ID`, `SYNC_SITE_ID`
+- Dien `SYNC_ASSIGNED_GATE_IDS`, `SYNC_ASSIGNED_LANE_IDS`, `SYNC_ASSIGNED_ZONE_IDS` neu local chi phu trach 1 khu vuc cu the
+- Dat `SYNC_DISPLAY_NAME` de de quan tri, vi du `HN Gate A Lane 1`
+
+Neu 1 local can lam diem van hanh tong hop va phai thay TOAN BO du lieu dong bo tu VPS:
+
+- van de `SYNC_MODE=AreaNode`
+- nhung de trong:
+  - `SYNC_ASSIGNED_GATE_IDS`
+  - `SYNC_ASSIGNED_LANE_IDS`
+  - `SYNC_ASSIGNED_ZONE_IDS`
+
+Khi ba truong scope nay de trong, local se duoc xem nhu node `full data` va se keo toan bo du lieu nghiep vu/master data tu VPS thay vi bi gioi han theo khu.
+
+Tom tat de de nho:
+
+- Co scope `Gate/Lane/Zone` => local chi nhan phan du lieu duoc cap
+- De trong toan bo scope => local nhan full data tu VPS
+
+Nguyen tac van hanh:
+
+- Local tu day event hien truong len VPS theo lo
+- Local keo master data va ban chuan hoa tu VPS moi vai giay
+- Mat mang thi local van ghi DB local, co mang lai se tu day bu
+- Giai doan hien tai chi dong bo nghiep vu cot loi va metadata, chua day file media lon
+- VPS trung tam co co che quet downstream theo nhieu nhom event lien tiep, tranh viec 1 local bi mac ket phia sau event cua khu vuc khac khi so node tang len
+
+Khi local moi vua duoc cap:
+
+1. Chay local voi day du thong tin `SYNC_*`
+2. Local tu dang ky node voi VPS va nhan secret noi bo
+3. Local bootstrap master data trong pham vi duoc cap
+4. Sau do local chuyen sang push/pull delta gan realtime
+
+Neu muon mot local chay doc lap, chi can tra `SYNC_MODE=Standalone`
+
+### 3.7. Trien khai thu nhanh: 1 VPS + 1 local khu vuc
+
+Day la luong nen dung de test lan dau truoc khi nhan ban cho nhieu khu vuc.
+
+Buoc 1. Dung VPS trung tam:
+
+- Copy `.env.vps.example` thanh `.env.vps`
+- Dien toi thieu:
+  - `MSSQL_SA_PASSWORD`
+  - `VSHIELD_JWT_SECRET`
+  - `VSHIELD_SEED_ADMIN_USERNAME`
+  - `VSHIELD_SEED_ADMIN_PASSWORD`
+  - `VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY`
+  - `APP_FRONTEND_URL`
+  - `APP_PUBLIC_HOSTNAME`
+- `SYNC_MODE=Central`
+- `SYNC_REGISTRATION_KEY=<mot khoa manh dung chung cho cac local>`
+- `SYNC_DOWNSTREAM_SCAN_MULTIPLIER=20` neu du kien co nhieu local khu vuc cung dong bo
+- Chay:
+
+```powershell
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
+
+Buoc 2. Dung 1 local khu vuc:
+
+- Copy `.env.docker.example` thanh `.env`
+- Sua toi thieu:
+  - `SYNC_MODE=AreaNode`
+  - `SYNC_CENTRAL_BASE_URL=https://<ten-mien-hoac-ip-vps>`
+  - `SYNC_REGISTRATION_KEY=<giong VPS>`
+  - `SYNC_LOCAL_AREA_NODE_ID=<ma duy nhat cua khu vuc>`
+  - `SYNC_COMPANY_ID`
+  - `SYNC_SITE_ID`
+  - `SYNC_DISPLAY_NAME`
+  - `SYNC_ASSIGNED_GATE_IDS`
+  - `SYNC_ASSIGNED_LANE_IDS`
+  - `SYNC_ASSIGNED_ZONE_IDS` neu co
+- Chay:
+
+```powershell
+docker compose --profile ai --profile ai-heavy up -d --build
+```
+
+Buoc 3. Dau hieu da len dung:
+
+- VPS mo duoc:
+  - frontend: `http://<host-vps>:<port>`
+  - API health: `http://<host-vps>:5107/health` neu mo truc tiep API
+- Local mo duoc:
+  - frontend: [http://localhost:5173](http://localhost:5173)
+  - API health: [http://localhost:5107/health](http://localhost:5107/health)
+- Trong DB local se co:
+  - `sync.bootstrap.completed=true`
+  - `sync.node.secret` da duoc cap
+  - `sync.last-pulled-sequence > 0`
+- Tren VPS se co `SyncAreaNode` voi `AreaNodeId` da dang ky
+
+Buoc 4. Test hai chieu:
+
+- Sua 1 gate hoac master data tren VPS, local phai nhan trong vai giay
+- Tao 1 manual access hoac scan event tai local, VPS phai thay log trong vai giay
+- Gui 1 tin nhan chat moi tai local, VPS phai thay trong vai giay
+
+Neu local khong dong bo sau khi VPS bi reset:
+
+- Ban chi can de local tiep tuc chay
+- Ban moi da tu phuc hoi secret node cu, dang ky lai va bootstrap lai tu dong
+- Khong can xoa DB local chi vi VPS vua duoc dung lai
+
+### 3.8. Mau quy uoc dat AreaNode
+
+Nen dat `SYNC_LOCAL_AREA_NODE_ID` theo mau on dinh:
+
+- `hn-gate-a-lane-1`
+- `hn-gate-a-lane-2`
+- `bn-truck-gate-1`
+- `hp-warehouse-zone-b`
+
+Nen giu quy tac:
+
+- duy nhat toan he thong
+- phan anh ro khu vuc van hanh
+- khong doi ten tuy tien sau khi da dua vao van hanh
+
 ## 4. Windows non-Docker
 
 Chi dung muc nay neu ban chu dong muon chay local khong qua Docker.
@@ -388,7 +542,14 @@ Luu y:
 - `manager` la tai khoan QuanLy dau tien, cac tai khoan tiep theo se la `quanly2`, `quanly3`...
 - `admin` la tai khoan seed rieng cua he thong, khong phai luc nao cung giong mat khau demo cua mode khac
 
-### 6.2. Neu dang dung MFA
+### 6.2. Tai khoan test hien tai cho Docker local
+
+- App local: [http://localhost:5173](http://localhost:5173)
+- API local: [http://localhost:5107](http://localhost:5107)
+- Tai khoan test: `admin`
+- Mat khau test: `AdminLocal@2026`
+
+### 6.3. Neu dang dung MFA
 
 Luu y:
 

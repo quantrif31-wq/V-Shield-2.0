@@ -10,6 +10,7 @@ using API.Models;
 using API.Services;
 using API.Services.AI;
 using API.Services.Abstractions;
+using API.Services.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -159,6 +160,13 @@ namespace API
             builder.Services.AddScoped<ZoneAuthorityService>();
             builder.Services.AddScoped<UserOperationalScopeService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.Configure<SyncRuntimeOptions>(builder.Configuration.GetSection(SyncRuntimeOptions.SectionName));
+            builder.Services.AddSingleton<ISyncExecutionContext, SyncExecutionContext>();
+            builder.Services.AddScoped<SyncEntityEventFactory>();
+            builder.Services.AddScoped<SyncSystemConfigStore>();
+            builder.Services.AddScoped<SyncEventApplier>();
+            builder.Services.AddScoped<CentralSyncService>();
+            builder.Services.AddSingleton<SyncRealtimeNotifier>();
             builder.Services.AddScoped<IRoutingService, RoutingService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
@@ -186,6 +194,8 @@ namespace API
                 builder.Services.AddHostedService<RuntimeAutoStartHostedService>();
                 builder.Services.AddHostedService<EnterpriseOperationsWorker>();
                 builder.Services.AddHostedService<CameraRecordingService>();
+                builder.Services.AddHostedService<AreaNodeSyncWorker>();
+                builder.Services.AddHostedService<CentralSyncInboxWorker>();
             }
             builder.Services.AddHttpClient();
             builder.Services.AddHttpClient("AiGateway", client =>

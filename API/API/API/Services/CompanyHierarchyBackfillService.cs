@@ -56,11 +56,17 @@ public sealed class CompanyHierarchyBackfillService : ICompanyHierarchyBackfillS
 
         _context.OutboxEvents.Add(new OutboxEvent
         {
+            Channel = "Operations",
             EventType = "FoundationBackfillCompleted",
             AggregateType = "CompanySecurityFoundation",
             AggregateId = site.SiteId.ToString(),
             PayloadJson = JsonSerializer.Serialize(report),
             Status = "Pending",
+            CompanyId = company.CompanyId,
+            SiteId = site.SiteId,
+            SourceSystem = "Central",
+            SchemaVersion = 1,
+            OccurredAtUtc = now,
             NextAttemptAtUtc = now,
             CorrelationId = Guid.NewGuid().ToString("N")
         });

@@ -147,6 +147,7 @@ export default {
       filterPosition: '',
       sendError: '',
       hubConnected: false,
+      refreshTimer: null,
     }
   },
   computed: {
@@ -189,8 +190,13 @@ export default {
     this.myEmployeeId = authState.user?.employeeId
     await this.loadData()
     await this.connectSignalR()
+    this.startRefreshLoop()
   },
   beforeUnmount() {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer)
+      this.refreshTimer = null
+    }
     chatApi.disconnectChatHub()
   },
   methods: {
@@ -268,6 +274,22 @@ export default {
       } catch (e) {
         console.error('Failed to load chat data', e)
       }
+    },
+    async refreshSelectedConversation() {
+      if (!this.selectedConvId) return
+
+      try {
+        const res = await chatApi.getMessages(this.selectedConvId)
+        this.messages = this.deduplicateMessages(res.data?.data || [])
+      } catch (e) {
+        console.error('Failed to refresh messages', e)
+      }
+    },
+    startRefreshLoop() {
+      this.refreshTimer = setInterval(async () => {
+        await this.loadData()
+        await this.refreshSelectedConversation()
+      }, 3000)
     },
     async connectSignalR() {
       try {

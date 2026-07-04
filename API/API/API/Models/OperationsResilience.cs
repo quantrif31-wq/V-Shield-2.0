@@ -5,11 +5,21 @@ namespace API.Models;
 public class OutboxEvent
 {
     public long OutboxEventId { get; set; }
+    [MaxLength(40)] public string Channel { get; set; } = "Operations";
     [MaxLength(120)] public string EventType { get; set; } = string.Empty;
     [MaxLength(120)] public string AggregateType { get; set; } = string.Empty;
     [MaxLength(120)] public string? AggregateId { get; set; }
     [MaxLength(4000)] public string PayloadJson { get; set; } = "{}";
     [MaxLength(40)] public string Status { get; set; } = "Pending";
+    public int? CompanyId { get; set; }
+    public int? SiteId { get; set; }
+    [MaxLength(120)] public string? AreaNodeId { get; set; }
+    [MaxLength(40)] public string? ScopeType { get; set; }
+    public int? ScopeId { get; set; }
+    [MaxLength(40)] public string SourceSystem { get; set; } = "Central";
+    public int SchemaVersion { get; set; } = 1;
+    public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+    public bool IsCanonical { get; set; }
     public int RetryCount { get; set; }
     public DateTime? NextAttemptAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -93,4 +103,66 @@ public class SecurityOperationsCheck
     [MaxLength(40)] public string Status { get; set; } = "Pending";
     [MaxLength(1000)] public string? Evidence { get; set; }
     public DateTime CheckedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class SyncAreaNode
+{
+    [Key]
+    [MaxLength(120)]
+    public string AreaNodeId { get; set; } = string.Empty;
+    public int? CompanyId { get; set; }
+    public int? SiteId { get; set; }
+    [MaxLength(160)] public string DisplayName { get; set; } = string.Empty;
+    [MaxLength(200)] public string? NodeSecretHash { get; set; }
+    [MaxLength(32)] public string Mode { get; set; } = "AreaNode";
+    [MaxLength(32)] public string Status { get; set; } = "Pending";
+    [MaxLength(40)] public string? Version { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? LastSeenAtUtc { get; set; }
+    public ICollection<SyncAreaAssignment> Assignments { get; set; } = new List<SyncAreaAssignment>();
+}
+
+public class SyncAreaAssignment
+{
+    public long SyncAreaAssignmentId { get; set; }
+    [MaxLength(120)] public string AreaNodeId { get; set; } = string.Empty;
+    [MaxLength(40)] public string ScopeType { get; set; } = string.Empty;
+    public int ScopeId { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public SyncAreaNode? AreaNode { get; set; }
+}
+
+public class SyncInboundEvent
+{
+    public long SyncInboundEventId { get; set; }
+    [MaxLength(120)] public string AreaNodeId { get; set; } = string.Empty;
+    public int? CompanyId { get; set; }
+    public int? SiteId { get; set; }
+    [MaxLength(40)] public string? ScopeType { get; set; }
+    public int? ScopeId { get; set; }
+    [MaxLength(120)] public string EventType { get; set; } = string.Empty;
+    [MaxLength(120)] public string AggregateType { get; set; } = string.Empty;
+    [MaxLength(120)] public string? AggregateId { get; set; }
+    [MaxLength(80)] public string CorrelationId { get; set; } = string.Empty;
+    [MaxLength(40)] public string SourceSystem { get; set; } = "AreaNode";
+    public int SchemaVersion { get; set; } = 1;
+    [MaxLength(4000)] public string PayloadJson { get; set; } = "{}";
+    [MaxLength(40)] public string Status { get; set; } = "Pending";
+    [MaxLength(240)] public string? FailureReason { get; set; }
+    [MaxLength(120)] public string? AppliedAggregateId { get; set; }
+    public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime ReceivedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class SyncOutboundCheckpoint
+{
+    [Key]
+    [MaxLength(120)]
+    public string AreaNodeId { get; set; } = string.Empty;
+    public long LastDeliveredOutboxEventId { get; set; }
+    public long LastAcknowledgedOutboxEventId { get; set; }
+    public DateTime? LastPulledAtUtc { get; set; }
+    public DateTime? LastAcknowledgedAtUtc { get; set; }
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }

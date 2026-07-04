@@ -280,6 +280,7 @@ public partial class ApplicationDbContext
         ConfigureUserOperationalScope(modelBuilder);
         ConfigureRateLimiting(modelBuilder);
         ConfigureGeolocationModels(modelBuilder);
+        ConfigureSyncModels(modelBuilder);
     }
 
     private static void ConfigureRateLimiting(ModelBuilder modelBuilder)

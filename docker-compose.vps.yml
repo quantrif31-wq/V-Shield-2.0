@@ -46,6 +46,13 @@ services:
       AppSettings__AllowedOrigins__2: ""
       AppSettings__Go2RtcPublicBaseUrl: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
       Cloudflared__PublicHostname: "${APP_PUBLIC_HOSTNAME:-160.250.4.187}"
+      Sync__Mode: "${SYNC_MODE:-Central}"
+      Sync__RegistrationKey: "${SYNC_REGISTRATION_KEY:?Set SYNC_REGISTRATION_KEY in your environment or .env.vps file}"
+      Sync__Version: "${SYNC_VERSION:-2.0.0}"
+      Sync__PushIntervalSeconds: "${SYNC_PUSH_INTERVAL_SECONDS:-2}"
+      Sync__PullIntervalSeconds: "${SYNC_PULL_INTERVAL_SECONDS:-3}"
+      Sync__BatchSize: "${SYNC_BATCH_SIZE:-100}"
+      Sync__DownstreamScanMultiplier: "${SYNC_DOWNSTREAM_SCAN_MULTIPLIER:-20}"
     expose:
       - "5107"
     volumes:

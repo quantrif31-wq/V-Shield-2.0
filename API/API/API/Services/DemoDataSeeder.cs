@@ -2452,11 +2452,15 @@ public static class DemoDataSeeder
             db.OutboxEvents.AddRange(
                 new OutboxEvent
                 {
+                    Channel = "Operations",
                     EventType = "Alarm.Created",
                     AggregateType = "Alarm",
                     AggregateId = "DEMO-ALARM-001",
                     PayloadJson = "{\"alarmType\":\"Tailgating\",\"severity\":\"High\"}",
                     Status = "Dispatched",
+                    SourceSystem = "Central",
+                    SchemaVersion = 1,
+                    OccurredAtUtc = now.AddHours(-4),
                     RetryCount = 0,
                     NextAttemptAtUtc = null,
                     CreatedAtUtc = now.AddHours(-4),
@@ -2464,11 +2468,15 @@ public static class DemoDataSeeder
                 },
                 new OutboxEvent
                 {
+                    Channel = "Operations",
                     EventType = "Visit.Overstay",
                     AggregateType = "Visit",
                     AggregateId = "DEMO-VISIT-004",
                     PayloadJson = "{\"status\":\"Overstay\",\"minutes\":37}",
                     Status = "Pending",
+                    SourceSystem = "Central",
+                    SchemaVersion = 1,
+                    OccurredAtUtc = now.AddMinutes(-35),
                     RetryCount = 1,
                     NextAttemptAtUtc = now.AddMinutes(20),
                     CreatedAtUtc = now.AddMinutes(-35)

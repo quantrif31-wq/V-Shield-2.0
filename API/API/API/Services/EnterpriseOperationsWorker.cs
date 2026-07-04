@@ -68,6 +68,7 @@ public class EnterpriseOperationsWorker : BackgroundService
     {
         var events = await db.OutboxEvents
             .Where(item =>
+                item.Channel == "Operations" &&
                 item.Status == "Pending" &&
                 (item.NextAttemptAtUtc == null || item.NextAttemptAtUtc <= now))
             .OrderBy(item => item.CreatedAtUtc)

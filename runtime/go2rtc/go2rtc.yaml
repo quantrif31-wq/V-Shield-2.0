@@ -3,8 +3,8 @@ streams:
     - rtsp://admin:L2E8D067@192.168.137.34:554/cam/realmonitor?channel=1&subtype=0#transport=tcp
     - rtsp://admin:L2E8D067@192.168.137.34:554/cam/realmonitor?channel=1&subtype=0
   cam12:
-    - rtsp://53.219.41.61:1945/#transport=tcp
-    - rtsp://53.219.41.61:1945/
+    - rtsp://admin:L24460D0@192.168.137.35:554/cam/realmonitor?channel=1&subtype=0#transport=tcp
+    - rtsp://admin:L24460D0@192.168.137.35:554/cam/realmonitor?channel=1&subtype=0
   cam13:
     - rtsp://192.168.137.141:1945/#transport=tcp
     - rtsp://192.168.137.141:1945/

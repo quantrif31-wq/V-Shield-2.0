@@ -4,13 +4,17 @@ using API.Models;
 using API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using API.Services.Sync;
 
 namespace API.Data;
 
 public partial class ApplicationDbContext : DbContext
 {
     private readonly ICurrentUserContext? _currentUserContext;
+    private readonly ISyncExecutionContext? _syncExecutionContext;
+    private readonly SyncEntityEventFactory? _syncEntityEventFactory;
     private bool _isWritingAudit;
 
     public ApplicationDbContext()
@@ -22,10 +26,17 @@ public partial class ApplicationDbContext : DbContext
     {
     }
 
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ICurrentUserContext currentUserContext)
+    [ActivatorUtilitiesConstructor]
+    public ApplicationDbContext(
+        DbContextOptions<ApplicationDbContext> options,
+        ICurrentUserContext currentUserContext,
+        ISyncExecutionContext? syncExecutionContext = null,
+        SyncEntityEventFactory? syncEntityEventFactory = null)
         : base(options)
     {
         _currentUserContext = currentUserContext;
+        _syncExecutionContext = syncExecutionContext;
+        _syncEntityEventFactory = syncEntityEventFactory;
     }
 
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
@@ -74,7 +85,8 @@ public partial class ApplicationDbContext : DbContext
             return base.SaveChanges();
 
         var auditCandidates = BuildAuditCandidates();
-        if (auditCandidates.Count == 0)
+        var syncCandidates = BuildSyncCandidates();
+        if (auditCandidates.Count == 0 && syncCandidates.Count == 0)
             return base.SaveChanges();
 
         try
@@ -89,6 +101,7 @@ public partial class ApplicationDbContext : DbContext
                 candidate.Log.EntityId = BuildEntityId(candidate.Entry);
             }
 
+            OutboxEvents.AddRange(syncCandidates.Select(x => x.OutboxEvent));
             SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
             base.SaveChanges();
             return result;
@@ -123,7 +136,8 @@ public partial class ApplicationDbContext : DbContext
             return await base.SaveChangesAsync(cancellationToken);
 
         var auditCandidates = BuildAuditCandidates();
-        if (auditCandidates.Count == 0)
+        var syncCandidates = BuildSyncCandidates();
+        if (auditCandidates.Count == 0 && syncCandidates.Count == 0)
             return await base.SaveChangesAsync(cancellationToken);
 
         try
@@ -138,6 +152,7 @@ public partial class ApplicationDbContext : DbContext
                 candidate.Log.EntityId = BuildEntityId(candidate.Entry);
             }
 
+            OutboxEvents.AddRange(syncCandidates.Select(x => x.OutboxEvent));
             SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
             await base.SaveChangesAsync(cancellationToken);
             return result;
@@ -203,6 +218,16 @@ public partial class ApplicationDbContext : DbContext
         }
 
         return candidates;
+    }
+
+    private IReadOnlyList<PendingSyncEventCandidate> BuildSyncCandidates()
+    {
+        if (_syncExecutionContext?.SuppressOutboxPublishing == true)
+        {
+            return [];
+        }
+
+        return _syncEntityEventFactory?.BuildCandidates(ChangeTracker) ?? [];
     }
 
     private static string SerializeValues(PropertyValues values)

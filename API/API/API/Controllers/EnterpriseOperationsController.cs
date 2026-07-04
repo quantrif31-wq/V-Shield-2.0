@@ -151,6 +151,7 @@ public class EnterpriseOperationsController : ControllerBase
 
         var item = new OutboxEvent
         {
+            Channel = "Operations",
             EventType = request.EventType.Trim(),
             AggregateType = request.AggregateType.Trim(),
             AggregateId = request.AggregateId?.Trim(),
@@ -250,6 +251,7 @@ public class EnterpriseOperationsController : ControllerBase
     {
         var outbox = new OutboxEvent
         {
+            Channel = "Operations",
             EventType = "SiemExport",
             AggregateType = string.IsNullOrWhiteSpace(request.Source) ? "SecurityEvent" : request.Source.Trim(),
             AggregateId = request.CorrelationId?.Trim(),
