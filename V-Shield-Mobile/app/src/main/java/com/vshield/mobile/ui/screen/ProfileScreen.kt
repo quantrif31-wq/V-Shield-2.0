@@ -15,35 +15,46 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vshield.mobile.data.model.ScheduleItem
+import com.vshield.mobile.security.BiometricType
+import com.vshield.mobile.security.toDisplayText
 import com.vshield.mobile.ui.component.LoadingIndicator
 import com.vshield.mobile.ui.theme.Blue50
-import com.vshield.mobile.ui.theme.Blue600
 import com.vshield.mobile.ui.theme.Blue700
 import com.vshield.mobile.ui.theme.Gray200
 import com.vshield.mobile.ui.theme.Gray400
@@ -61,9 +72,96 @@ fun ProfileScreen(
     val uiState by profileViewModel.uiState.collectAsState()
     val authState by authViewModel.uiState.collectAsState()
     val activity = LocalContext.current as? FragmentActivity
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var biometricSelection by remember(authState.showBiometricSetupDialog, authState.biometricCapabilities) {
+        mutableStateOf(
+            authState.enabledBiometricTypes.ifEmpty { authState.biometricCapabilities.map { it.type }.toSet() }
+        )
+    }
 
     LaunchedEffect(Unit) {
         profileViewModel.loadData()
+    }
+
+    DisposableEffect(lifecycleOwner, activity, authState.awaitingBiometricEnrollment) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && authState.awaitingBiometricEnrollment) {
+                authViewModel.onBiometricEnrollmentSettingsReturned(activity)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    if (authState.showBiometricSetupDialog) {
+        AlertDialog(
+            onDismissRequest = { authViewModel.dismissBiometricSetupDialog() },
+            title = { Text("Quan ly dang nhap nhanh") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Ban co the bat mot hoac nhieu kieu sinh trac hoc ma dien thoai ho tro.")
+
+                    authState.biometricCapabilities.forEach { capability ->
+                        val selected = biometricSelection.contains(capability.type)
+                        OutlinedButton(
+                            onClick = {
+                                biometricSelection = if (selected) {
+                                    biometricSelection - capability.type
+                                } else {
+                                    biometricSelection + capability.type
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (capability.type == BiometricType.FINGERPRINT) {
+                                        Icons.Filled.Fingerprint
+                                    } else {
+                                        Icons.Filled.Security
+                                    },
+                                    contentDescription = null
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(capability.label, modifier = Modifier.weight(1f))
+                                if (selected) {
+                                    Icon(Icons.Filled.CheckCircle, contentDescription = null)
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = if (authState.awaitingBiometricEnrollment) {
+                            "Sau khi bat sinh trac hoc trong cai dat may, quay lai day de app kich hoat tiep."
+                        } else {
+                            "Neu may chua bat van tay hoac khuon mat, app se mo cai dat sinh trac hoc cua dien thoai."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Gray600
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { authViewModel.submitBiometricSelection(activity, biometricSelection) },
+                    enabled = biometricSelection.isNotEmpty() && !authState.isBiometricPromptActive
+                ) {
+                    Text(if (authState.awaitingBiometricEnrollment) "Kiem tra lai" else "Luu cau hinh")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { authViewModel.dismissBiometricSetupDialog() }) {
+                    Text("Dong")
+                }
+            }
+        )
     }
 
     if (uiState.isLoading) {
@@ -135,7 +233,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Thông tin liên hệ",
+                            text = "Thong tin lien he",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -153,7 +251,7 @@ fun ProfileScreen(
                         uiState.profile?.phoneNumber?.let {
                             ProfileInfoRow(
                                 icon = Icons.Filled.Phone,
-                                label = "Số điện thoại",
+                                label = "So dien thoai",
                                 value = it
                             )
                         }
@@ -168,7 +266,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Bảo mật ứng dụng",
+                            text = "Bao mat ung dung",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -189,7 +287,7 @@ fun ProfileScreen(
                                     color = Blue50
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Filled.Fingerprint,
+                                        imageVector = Icons.Filled.Security,
                                         contentDescription = null,
                                         tint = Blue700,
                                         modifier = Modifier.padding(10.dp)
@@ -198,15 +296,15 @@ fun ProfileScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Mở nhanh bằng vân tay",
+                                        text = "Dang nhap nhanh bang sinh trac hoc",
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = if (authState.hasBiometric) {
-                                            "Bật để lần sau có thể mở lại phiên nhanh bằng sinh trắc học."
-                                        } else {
-                                            "Thiết bị này hiện chưa hỗ trợ sinh trắc học khả dụng cho app."
+                                        text = when {
+                                            authState.hasBiometricSession -> "Da bat cho ${authState.enabledBiometricTypes.toDisplayText()}. Tu lan mo app sau, he thong se uu tien quet sinh trac hoc truoc."
+                                            authState.hasBiometricHardware -> "Thiet bi nay co the dung ${authState.biometricCapabilities.map { it.type }.toSet().toDisplayText()} de mo nhanh."
+                                            else -> "Thiet bi nay hien chua co sinh trac hoc kha dung cho app."
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Gray600
@@ -217,8 +315,33 @@ fun ProfileScreen(
                             Switch(
                                 checked = authState.hasBiometricSession,
                                 onCheckedChange = { authViewModel.setBiometricEnabled(activity, it) },
-                                enabled = authState.hasBiometric
+                                enabled = authState.hasBiometricHardware
                             )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (authState.hasBiometricHardware) {
+                            OutlinedButton(
+                                onClick = { authViewModel.openBiometricSetupDialog() },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !authState.isBiometricPromptActive
+                            ) {
+                                Text(
+                                    if (authState.hasBiometricSession) "Thiet lap lai dang nhap nhanh"
+                                    else "Bat dang nhap nhanh ngay"
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedButton(
+                                onClick = { authViewModel.disableBiometric() },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = authState.hasBiometricSession
+                            ) {
+                                Text("Tat va xoa cau hinh dang nhap nhanh")
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -227,8 +350,8 @@ fun ProfileScreen(
 
                         ProfileInfoRow(
                             icon = Icons.Filled.Security,
-                            label = "Tự khóa phiên",
-                            value = "Đóng app là khóa ngay, hoặc bỏ không 5 phút sẽ quay về màn đăng nhập."
+                            label = "Tu khoa phien",
+                            value = "Dong app la khoa ngay, hoac bo khong 5 phut se quay ve man dang nhap."
                         )
                     }
                 }
@@ -241,7 +364,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Lịch làm việc",
+                            text = "Lich lam viec",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -250,7 +373,7 @@ fun ProfileScreen(
 
                         if (uiState.schedules.isEmpty()) {
                             Text(
-                                text = "Chưa có lịch làm việc",
+                                text = "Chua co lich lam viec",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Gray600
                             )
@@ -278,7 +401,7 @@ fun ProfileScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Đăng xuất")
+                    Text("Dang xuat")
                 }
             }
         }
@@ -320,29 +443,24 @@ private fun ProfileInfoRow(
 
 @Composable
 private fun ScheduleRow(schedule: ScheduleItem) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = schedule.shiftName,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "${schedule.startTime} - ${schedule.endTime}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Gray600
+        )
+        if (!schedule.location.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = schedule.date,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = schedule.shiftName,
+                text = schedule.location,
                 style = MaterialTheme.typography.bodySmall,
                 color = Gray600
-            )
-        }
-        if (schedule.startTime != null && schedule.endTime != null) {
-            Text(
-                text = "${schedule.startTime} - ${schedule.endTime}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Blue600
             )
         }
     }

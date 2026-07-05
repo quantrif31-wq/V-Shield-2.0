@@ -17,3 +17,18 @@ data class QrData(
     @SerializedName("expiresAtUtc") val expiresAtUtc: String,
     @SerializedName("remainingSeconds") val remainingSeconds: Int
 )
+
+data class OfflineQrBootstrapResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String?,
+    @SerializedName("data") val data: OfflineQrBootstrapData?
+)
+
+data class OfflineQrBootstrapData(
+    @SerializedName("employeeId") val employeeId: Int,
+    @SerializedName("employeeName") val employeeName: String,
+    @SerializedName("secretKey") val secretKey: String,
+    @SerializedName("timeStepSeconds") val timeStepSeconds: Int,
+    @SerializedName("digits") val digits: Int,
+    @SerializedName("issuedAtUtc") val issuedAtUtc: String?
+)

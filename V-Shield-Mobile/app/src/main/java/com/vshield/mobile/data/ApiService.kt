@@ -20,6 +20,9 @@ interface ApiService {
     @POST("api/dynamic-qr/my")
     suspend fun getMyQr(): Response<QrResponse>
 
+    @GET("api/dynamic-qr/mobile-bootstrap")
+    suspend fun getMyOfflineQrBootstrap(): Response<OfflineQrBootstrapResponse>
+
     @GET("api/vehicles/my-vehicles")
     suspend fun getMyVehicles(): Response<MyVehiclesResponse>
 

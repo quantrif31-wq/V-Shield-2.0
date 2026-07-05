@@ -1,24 +1,60 @@
 package com.vshield.mobile.security
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 
+enum class BiometricType {
+    FINGERPRINT,
+    FACE,
+    GENERIC
+}
+
+data class BiometricCapability(
+    val type: BiometricType,
+    val label: String
+)
+
 class BiometricAuthManager(private val context: Context) {
 
-    fun isAvailable(): Boolean {
+    fun getSupportedBiometricCapabilities(): List<BiometricCapability> {
+        val packageManager = context.packageManager
+        val capabilities = buildList {
+            if (packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)) {
+                add(BiometricCapability(BiometricType.FINGERPRINT, "Van tay"))
+            }
+
+            if (supportsFaceUnlock(packageManager)) {
+                add(BiometricCapability(BiometricType.FACE, "Khuon mat"))
+            }
+        }
+
+        if (capabilities.isNotEmpty()) {
+            return capabilities
+        }
+
+        return if (isBiometricReady()) {
+            listOf(BiometricCapability(BiometricType.GENERIC, "Sinh trac hoc"))
+        } else {
+            emptyList()
+        }
+    }
+
+    fun isBiometricReady(): Boolean {
         val biometricManager = BiometricManager.from(context)
-        return biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+        return biometricManager.canAuthenticate(AUTHENTICATOR) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun authenticate(
         activity: FragmentActivity,
-        title: String = "Xác thực vân tay",
-        subtitle: String = "Quét vân tay để đăng nhập",
+        title: String = "Xac thuc sinh trac hoc",
+        subtitle: String = "Dung van tay hoac khuon mat de dang nhap nhanh",
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -38,31 +74,107 @@ class BiometricAuthManager(private val context: Context) {
             }
 
             override fun onAuthenticationFailed() {
-                onError("Xác thực thất bại, vui lòng thử lại")
+                onError("Xac thuc that bai, vui long thu lai")
             }
         }
 
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(title)
-            .setSubtitle(subtitle)
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .build()
-
-        BiometricPrompt(activity, executor, callback)
-            .authenticate(promptInfo)
+        runCatching {
+            val promptInfo = buildPromptInfo(title, subtitle)
+            BiometricPrompt(activity, executor, callback)
+                .authenticate(promptInfo)
+        }.onFailure { ex ->
+            onError(ex.message ?: "Khong mo duoc xac thuc sinh trac hoc tren thiet bi nay.")
+        }
     }
 
     fun confirmEnrollment(
         activity: FragmentActivity,
+        selectedTypes: Set<BiometricType>,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         authenticate(
             activity = activity,
-            title = "Bật mở bằng vân tay",
-            subtitle = "Xác nhận sinh trắc học để lưu thiết bị này",
+            title = "Bat dang nhap nhanh",
+            subtitle = buildEnrollmentSubtitle(selectedTypes),
             onSuccess = onSuccess,
             onError = onError
         )
+    }
+
+    fun openEnrollmentSettings(activity: FragmentActivity): Boolean {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                putExtra(
+                    Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                    AUTHENTICATOR
+                )
+            }
+        } else {
+            Intent(Settings.ACTION_SECURITY_SETTINGS)
+        }
+
+        return runCatching {
+            activity.startActivity(intent)
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun supportsFaceUnlock(packageManager: PackageManager): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
+        } else {
+            packageManager.hasSystemFeature("android.hardware.biometrics.face")
+        }
+    }
+
+    private fun buildEnrollmentSubtitle(selectedTypes: Set<BiometricType>): String {
+        val labels = selectedTypes.toDisplayText()
+        return if (labels.isBlank()) {
+            "Xac nhan sinh trac hoc de luu thiet bi nay"
+        } else {
+            "Xac nhan $labels de luu thiet bi nay"
+        }
+    }
+
+    private fun buildPromptInfo(title: String, subtitle: String): BiometricPrompt.PromptInfo {
+        val builder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(title)
+            .setSubtitle(subtitle)
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder
+                .setAllowedAuthenticators(AUTHENTICATOR)
+                .build()
+        } else {
+            builder
+                .setNegativeButtonText("Huy")
+                .build()
+        }
+    }
+
+    companion object {
+        private const val AUTHENTICATOR = BiometricManager.Authenticators.BIOMETRIC_WEAK
+    }
+}
+
+fun Set<BiometricType>.toDisplayText(): String {
+    if (isEmpty()) {
+        return "sinh trac hoc"
+    }
+
+    val labels = mapNotNull {
+        when (it) {
+            BiometricType.FINGERPRINT -> "van tay"
+            BiometricType.FACE -> "khuon mat"
+            BiometricType.GENERIC -> "sinh trac hoc"
+        }
+    }.distinct()
+
+    return when (labels.size) {
+        0 -> "sinh trac hoc"
+        1 -> labels.first()
+        2 -> "${labels[0]} va ${labels[1]}"
+        else -> labels.dropLast(1).joinToString(", ") + " va " + labels.last()
     }
 }

@@ -58,6 +58,8 @@ fun VShieldMainScreen() {
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val isLoggedIn = authState.isLoggedIn
+    val shouldKeepSessionDuringSystemAuth =
+        authState.isBiometricPromptActive || authState.awaitingBiometricEnrollment
     val mainRoutes = listOf(
         Screen.Home.route,
         Screen.Transfer.route,
@@ -79,9 +81,12 @@ fun VShieldMainScreen() {
         }
     }
 
-    DisposableEffect(lifecycleOwner, isLoggedIn) {
+    DisposableEffect(lifecycleOwner, isLoggedIn, shouldKeepSessionDuringSystemAuth) {
         val observer = LifecycleEventObserver { _, event ->
-            if (isLoggedIn && event == Lifecycle.Event.ON_STOP) {
+            if (isLoggedIn &&
+                event == Lifecycle.Event.ON_STOP &&
+                !shouldKeepSessionDuringSystemAuth
+            ) {
                 authViewModel.lockSessionForInactivity()
             }
         }

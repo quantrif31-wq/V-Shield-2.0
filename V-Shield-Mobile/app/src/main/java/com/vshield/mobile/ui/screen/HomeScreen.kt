@@ -8,7 +8,15 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -83,7 +91,7 @@ fun HomeScreen(
 
     if (uiState.error != null) {
         ErrorDialog(
-            title = "Lỗi",
+            title = "Loi QR",
             message = uiState.error!!,
             onDismiss = { qrViewModel.clearError() }
         )
@@ -102,11 +110,11 @@ fun HomeScreen(
 
     val shortcuts = remember(onOpenChat, onOpenNotifications, onOpenLeave, onOpenTransfer, onOpenProfile) {
         listOf(
-            HomeShortcut("Chat", "Trò chuyện nội bộ", Icons.AutoMirrored.Filled.Chat, Color(0xFF2E7D32), onOpenChat),
-            HomeShortcut("Thông báo", "Cảnh báo và cập nhật", Icons.Filled.Notifications, Color(0xFFC62828), onOpenNotifications),
-            HomeShortcut("Lịch và nghỉ", "Đơn nghỉ phép cá nhân", Icons.Filled.CalendarMonth, Color(0xFF0288D1), onOpenLeave),
-            HomeShortcut("Chuyển xe", "Ủy quyền phương tiện", Icons.Filled.DirectionsCar, Color(0xFFEF6C00), onOpenTransfer),
-            HomeShortcut("Cá nhân", "Hồ sơ và lịch làm việc", Icons.Filled.Person, Color(0xFF6A1B9A), onOpenProfile)
+            HomeShortcut("Chat", "Tro chuyen noi bo", Icons.AutoMirrored.Filled.Chat, Color(0xFF2E7D32), onOpenChat),
+            HomeShortcut("Thong bao", "Canh bao va cap nhat", Icons.Filled.Notifications, Color(0xFFC62828), onOpenNotifications),
+            HomeShortcut("Lich va nghi", "Don nghi phep ca nhan", Icons.Filled.CalendarMonth, Color(0xFF0288D1), onOpenLeave),
+            HomeShortcut("Chuyen xe", "Uy quyen phuong tien", Icons.Filled.DirectionsCar, Color(0xFFEF6C00), onOpenTransfer),
+            HomeShortcut("Ca nhan", "Ho so va lich lam viec", Icons.Filled.Person, Color(0xFF6A1B9A), onOpenProfile)
         )
     }
 
@@ -126,19 +134,23 @@ fun HomeScreen(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = "Bảng điều khiển cá nhân",
+                    text = "Bang dieu khien ca nhan",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f)
                 )
                 Text(
-                    text = uiState.employeeName.ifEmpty { "Đang tải..." },
+                    text = uiState.employeeName.ifEmpty { "Dang tai..." },
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "Từ đây bạn có thể vào QR, chat, thông báo, xin nghỉ, chuyển xe và hồ sơ thay vì chỉ nhìn thấy mỗi mã QR.",
+                    text = if (uiState.isOfflineMode) {
+                        "App dang giu QR du phong tren may. Khi API hoi phuc, he thong se tu dong quay lai dong bo online."
+                    } else {
+                        "Tu day ban co the vao QR, chat, thong bao, xin nghi, chuyen xe va ho so."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
                 )
@@ -174,27 +186,53 @@ fun HomeScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "QR động",
+                                        text = if (uiState.isOfflineMode) "QR ngoai tuyen" else "QR dong",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Mã ra vào dành cho kiểm soát cổng",
+                                        text = if (uiState.isOfflineMode) {
+                                            "Dang tu sinh QR tren dien thoai tu cau hinh da duoc cap truoc do"
+                                        } else {
+                                            "Ma ra vao danh cho kiem soat cong"
+                                        },
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Gray600
                                     )
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(999.dp),
-                                    color = if (uiState.remainingSeconds <= 10) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
+                                    color = when {
+                                        uiState.isOfflineMode -> Color(0xFFFFF3E0)
+                                        uiState.remainingSeconds <= 10 -> Color(0xFFFFEBEE)
+                                        else -> Color(0xFFE8F5E9)
+                                    }
                                 ) {
                                     Text(
-                                        text = "Còn ${uiState.remainingSeconds}s",
+                                        text = if (uiState.isOfflineMode) {
+                                            "OFFLINE ${uiState.remainingSeconds}s"
+                                        } else {
+                                            "Con ${uiState.remainingSeconds}s"
+                                        },
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        color = if (uiState.remainingSeconds <= 10) Red600 else Green600,
+                                        color = when {
+                                            uiState.isOfflineMode -> Color(0xFFEF6C00)
+                                            uiState.remainingSeconds <= 10 -> Red600
+                                            else -> Green600
+                                        },
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
+                            }
+
+                            uiState.statusMessage?.let { status ->
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = status,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (uiState.isOfflineMode) Color(0xFFEF6C00) else Gray600,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(14.dp))
@@ -220,7 +258,7 @@ fun HomeScreen(
                             ) {
                                 Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Làm mới QR")
+                                Text(if (uiState.isOfflineMode) "Thu dong bo lai" else "Lam moi QR")
                             }
                         }
                     }
@@ -237,19 +275,17 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Text(
-                                text = "Hiện trạng bản mobile",
+                                text = "Trang thai mobile",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Đã có: QR, chat, thông báo, báo động, nghỉ phép, chuyển xe, hồ sơ và xem nhanh lịch làm việc.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Gray600
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Chưa đủ như web VPS: nhiều phân hệ doanh nghiệp/SOC chuyên sâu vẫn chưa có giao diện mobile-first riêng.",
+                                text = if (uiState.isOfflineMode) {
+                                    "Mobile dang chay o che do ngoai tuyen. Ban van vao app va xuat QR duoc du API tam thoi gap su co."
+                                } else {
+                                    "Mobile dang ket noi online binh thuong. QR va du lieu dang duoc dong bo truc tiep."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Gray600
                             )

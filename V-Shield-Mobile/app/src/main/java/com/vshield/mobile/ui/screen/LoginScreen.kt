@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,9 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -32,8 +35,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,11 +53,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vshield.mobile.security.BiometricType
+import com.vshield.mobile.security.toDisplayText
 import com.vshield.mobile.ui.component.ErrorDialog
 import com.vshield.mobile.ui.component.LoadingIndicator
 import com.vshield.mobile.ui.theme.Blue700
 import com.vshield.mobile.viewmodel.AuthViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun LoginScreen(
@@ -63,11 +72,23 @@ fun LoginScreen(
 ) {
     val uiState by authViewModel.uiState.collectAsState()
     val activity = LocalContext.current as? FragmentActivity
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var username by remember { mutableStateOf(uiState.lastUsername.orEmpty()) }
     var password by remember { mutableStateOf("") }
     var mfaCode by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var biometricSelection by remember(uiState.showBiometricSetupDialog, uiState.biometricCapabilities) {
+        mutableStateOf(
+            uiState.enabledBiometricTypes.ifEmpty { uiState.biometricCapabilities.map { it.type }.toSet() }
+        )
+    }
+
+    LaunchedEffect(uiState.lastUsername) {
+        if (username.isBlank() && !uiState.lastUsername.isNullOrBlank()) {
+            username = uiState.lastUsername.orEmpty()
+        }
+    }
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -75,29 +96,109 @@ fun LoginScreen(
         }
     }
 
+    LaunchedEffect(uiState.shouldAutoPromptBiometricLogin, activity) {
+        if (uiState.shouldAutoPromptBiometricLogin && activity != null) {
+            delay(250)
+            authViewModel.consumeAutoBiometricLogin(activity)
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, activity, uiState.awaitingBiometricEnrollment) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && uiState.awaitingBiometricEnrollment) {
+                authViewModel.onBiometricEnrollmentSettingsReturned(activity)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     if (uiState.error != null) {
         ErrorDialog(
-            title = "Lỗi đăng nhập",
+            title = "Loi dang nhap",
             message = uiState.error!!,
             onDismiss = { authViewModel.clearError() }
         )
     }
 
-    if (uiState.pendingBiometricSetupUsername != null && uiState.hasBiometric) {
+    if (uiState.showBiometricSetupDialog) {
         AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Bật vân tay cho lần sau?") },
+            onDismissRequest = { authViewModel.dismissBiometricSetupDialog() },
+            title = {
+                Text("Bat dang nhap nhanh")
+            },
             text = {
-                Text("Bạn đã đăng nhập thành công. Có muốn bật mở nhanh bằng vân tay để lần sau chỉ cần 1 chạm không?")
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Chon cach dang nhap nhanh ban muon dung tren dien thoai nay. Android se su dung sinh trac hoc da duoc bat san tren may."
+                    )
+
+                    uiState.biometricCapabilities.forEach { capability ->
+                        val selected = biometricSelection.contains(capability.type)
+                        OutlinedButton(
+                            onClick = {
+                                biometricSelection = if (selected) {
+                                    biometricSelection - capability.type
+                                } else {
+                                    biometricSelection + capability.type
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (capability.type == BiometricType.FINGERPRINT) {
+                                        Icons.Filled.Fingerprint
+                                    } else {
+                                        Icons.Filled.Security
+                                    },
+                                    contentDescription = null
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = capability.label,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (selected) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = if (uiState.awaitingBiometricEnrollment) {
+                            "Dien thoai chua bat sinh trac hoc. Ban hay bat trong cai dat may, quay lai app va he thong se tiep tuc kich hoat."
+                        } else {
+                            "Neu may chua bat van tay hoac khuon mat, app se mo man hinh cai dat cua dien thoai."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
             confirmButton = {
-                TextButton(onClick = { authViewModel.completeBiometricSetup(activity, true) }) {
-                    Text("Bật vân tay")
+                Button(
+                    onClick = { authViewModel.submitBiometricSelection(activity, biometricSelection) },
+                    enabled = biometricSelection.isNotEmpty() && !uiState.isBiometricPromptActive
+                ) {
+                    Text(
+                        if (uiState.awaitingBiometricEnrollment) "Kiem tra lai"
+                        else "Bat dang nhap nhanh"
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { authViewModel.completeBiometricSetup(activity, false) }) {
-                    Text("Để sau")
+                OutlinedButton(onClick = { authViewModel.skipBiometricSetup() }) {
+                    Text("Nhap tay sau")
                 }
             }
         )
@@ -135,7 +236,7 @@ fun LoginScreen(
             )
 
             Text(
-                text = "Đăng nhập an toàn cho điện thoại",
+                text = "Dang nhap an toan cho dien thoai",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
             )
@@ -153,7 +254,7 @@ fun LoginScreen(
                         .padding(24.dp)
                 ) {
                     Text(
-                        text = "Đăng nhập",
+                        text = "Dang nhap",
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
@@ -162,17 +263,26 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Lần đầu vẫn nhập tài khoản, mật khẩu và mã 2 lớp. Sau khi vào thành công, app sẽ hỏi bạn có muốn bật vân tay cho lần sau hay không.",
+                        text = "Lan dau ban nhap tai khoan, mat khau va ma 2 lop. Sau khi vao thanh cong, app se hoi ban co muon bat dang nhap nhanh bang sinh trac hoc cua chinh dien thoai nay hay khong.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    if (uiState.hasBiometricSession) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Dang nhap nhanh da bat cho ${uiState.enabledBiometricTypes.toDisplayText()}. Moi lan mo app, he thong se uu tien quet sinh trac hoc truoc, nhung ban van co the quay ve nhap tay bat cu luc nao.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it },
-                        label = { Text("Tên đăng nhập") },
+                        label = { Text("Ten dang nhap") },
                         leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -185,7 +295,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Mật khẩu") },
+                        label = { Text("Mat khau") },
                         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -210,10 +320,10 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = mfaCode,
                         onValueChange = { mfaCode = it.filter(Char::isDigit).take(6) },
-                        label = { Text("Mã xác thực 2 lớp") },
+                        label = { Text("Ma xac thuc 2 lop") },
                         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
                         supportingText = {
-                            Text("Nhập 6 số từ Authenticator nếu tài khoản của bạn đang bật MFA.")
+                            Text("Nhap 6 so tu Authenticator neu tai khoan cua ban dang bat MFA.")
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -224,10 +334,10 @@ fun LoginScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    if (uiState.hasBiometric) {
+                    if (uiState.hasBiometricHardware) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Thiết bị này hỗ trợ sinh trắc học. Sau khi vào thành công, bạn sẽ được hỏi có muốn bật mở nhanh bằng vân tay không.",
+                            text = "Thiet bi nay co the dung ${uiState.biometricCapabilities.map { it.type }.toSet().toDisplayText()} de mo nhanh. Neu may chua bat, app se dua ban sang cai dat sinh trac hoc cua dien thoai.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -236,9 +346,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
-                        onClick = {
-                            authViewModel.login(username, password, mfaCode)
-                        },
+                        onClick = { authViewModel.login(username, password, mfaCode) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
@@ -252,7 +360,7 @@ fun LoginScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Đăng nhập")
+                            Text("Dang nhap")
                         }
                     }
 
@@ -264,21 +372,50 @@ fun LoginScreen(
                                 if (activity != null) {
                                     authViewModel.loginWithBiometric(activity)
                                 } else {
-                                    authViewModel.showError("Không mở được xác thực vân tay trên thiết bị này.")
+                                    authViewModel.showError("Khong mo duoc xac thuc sinh trac hoc tren thiet bi nay.")
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
+                            enabled = !uiState.isBiometricPromptActive,
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Filled.Fingerprint, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (uiState.lastUsername.isNullOrBlank()) "Mở bằng vân tay"
-                                else "Mở nhanh cho ${uiState.lastUsername}"
+                                if (uiState.lastUsername.isNullOrBlank()) "Mo bang sinh trac hoc"
+                                else "Mo nhanh cho ${uiState.lastUsername}"
                             )
                         }
+                    }
+
+                    if (uiState.canEnterOffline) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedButton(
+                            onClick = { authViewModel.enterOfflineMode() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                if (uiState.offlineDisplayName.isNullOrBlank()) {
+                                    "Vao che do ngoai tuyen"
+                                } else {
+                                    "Vao ngoai tuyen cho ${uiState.offlineDisplayName}"
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Neu API tam thoi bi sap, app van co the vao bang du lieu da luu tu lan dang nhap thanh cong truoc.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

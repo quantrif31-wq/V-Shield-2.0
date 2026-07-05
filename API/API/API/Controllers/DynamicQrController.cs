@@ -114,6 +114,80 @@ public class DynamicQrController : ControllerBase
         }
 
         /// <summary>
+        /// Trả cấu hình QR ngoại tuyến cho mobile để app có thể tự sinh QR khi mất kết nối API.
+        /// Chỉ cấp cho chính nhân viên đang đăng nhập.
+        /// </summary>
+        [HttpGet("mobile-bootstrap")]
+        [EnableRateLimiting("ops")]
+        public async Task<IActionResult> GetMyMobileQrBootstrap()
+        {
+            var employeeIdClaim = User.FindFirst("employeeId")?.Value;
+            if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out var employeeId))
+            {
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Không tìm thấy thông tin nhân viên trong phiên đăng nhập."
+                });
+            }
+
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.Status == true);
+
+            if (employee == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Không tìm thấy nhân viên hoặc nhân viên đang không hoạt động."
+                });
+            }
+
+            var dynamicQr = await _context.EmployeeDynamicQrs
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+
+            if (dynamicQr == null)
+            {
+                dynamicQr = new EmployeeDynamicQr
+                {
+                    EmployeeId = employeeId,
+                    SecretKey = GenerateBase32Secret(),
+                    TimeStepSeconds = 30,
+                    Digits = 6,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.EmployeeDynamicQrs.Add(dynamicQr);
+                await _context.SaveChangesAsync();
+            }
+
+            if (!dynamicQr.IsActive)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "QR động của bạn đang bị vô hiệu hóa."
+                });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "Cấp cấu hình QR ngoại tuyến thành công.",
+                data = new
+                {
+                    employeeId = employee.EmployeeId,
+                    employeeName = employee.FullName,
+                    secretKey = dynamicQr.SecretKey,
+                    timeStepSeconds = dynamicQr.TimeStepSeconds,
+                    digits = dynamicQr.Digits,
+                    issuedAtUtc = DateTime.UtcNow
+                }
+            });
+        }
+
+        /// <summary>
         /// Tạo QR động hiện tại cho nhân viên.
         /// Lưu ý bảo mật:
         /// - Chỉ trả qrPayload cho FE để render QR
