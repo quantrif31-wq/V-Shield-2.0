@@ -1,4 +1,5 @@
 using API.Middleware;
+using API.Services;
 using API.Services.FaceRecognition;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -49,6 +50,20 @@ public class FaceCameraController : ControllerBase
     [HttpGet("models")]
     public Task<IActionResult> GetModels(CancellationToken cancellationToken) =>
         ProxyAsync(_faceRecognitionClient.GetModelsAsync, cancellationToken);
+
+    [HttpGet("discover-ipwebcam")]
+    public async Task<IActionResult> DiscoverIpWebcam(
+        [FromServices] ILocalNetworkCameraDiscoveryService cameraDiscoveryService,
+        CancellationToken cancellationToken)
+    {
+        var cameras = await cameraDiscoveryService.DiscoverIpWebcamsAsync(cancellationToken);
+
+        return Ok(new
+        {
+            count = cameras.Count,
+            cameras
+        });
+    }
 
     [HttpPost("models/reload")]
     public Task<IActionResult> ReloadModels(CancellationToken cancellationToken)

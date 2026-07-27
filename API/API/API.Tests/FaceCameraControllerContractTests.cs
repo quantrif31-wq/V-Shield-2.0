@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using API.Controllers;
+using API.Services;
 using API.Services.FaceRecognition;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -223,6 +224,35 @@ public sealed class FaceCameraControllerContractTests
         Assert.Equal(cancellation.Token, exception.CancellationToken);
     }
 
+    [Fact]
+    public async Task DiscoverIpWebcam_UsesSharedDiscoveryService()
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, "{}", "application/json"));
+        var controller = CreateController(client);
+        var discovery = new StubCameraDiscoveryService(
+        [
+            new IpWebcamCandidate
+            {
+                Name = "Gate camera",
+                IpAddress = "192.168.1.25",
+                Port = 8080,
+                BaseUrl = "http://192.168.1.25:8080"
+            }
+        ]);
+
+        var result = await controller.DiscoverIpWebcam(
+            discovery,
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = JsonSerializer.Serialize(ok.Value);
+        Assert.Contains("\"count\":1", payload);
+        Assert.Contains("192.168.1.25", payload);
+        Assert.Equal(1, discovery.CallCount);
+        Assert.Empty(client.Operations);
+    }
+
     private static FaceCameraController CreateController(StubClient client) =>
         new(client)
         {
@@ -293,6 +323,25 @@ public sealed class FaceCameraControllerContractTests
                 : Task.FromException<FaceRuntimeResponse>(_exception);
         }
     }
+
+    private sealed class StubCameraDiscoveryService : ILocalNetworkCameraDiscoveryService
+    {
+        private readonly IReadOnlyList<IpWebcamCandidate> _cameras;
+
+        public StubCameraDiscoveryService(IReadOnlyList<IpWebcamCandidate> cameras)
+        {
+            _cameras = cameras;
+        }
+
+        public int CallCount { get; private set; }
+
+        public Task<IReadOnlyList<IpWebcamCandidate>> DiscoverIpWebcamsAsync(
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(_cameras);
+        }
+    }
 }
 
 public sealed class FaceCameraAuthorizationContractTests : IClassFixture<SecurityWebApplicationFactory>
@@ -308,6 +357,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceCamera/camera/status")]
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
+    [InlineData("/api/FaceCamera/discover-ipwebcam")]
     public async Task AnonymousUser_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -323,6 +373,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceCamera/camera/status")]
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
+    [InlineData("/api/FaceCamera/discover-ipwebcam")]
     public async Task UserWithoutMonitoringPermission_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -370,6 +421,18 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Empty(runtime.Operations);
+    }
+
+    [Fact]
+    public async Task LegacyFaceRecognitionRoute_IsNotMapped()
+    {
+        using var client = CreateClientWithFakeFaceRuntime();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var response = await client.GetAsync("/api/face-recognition/status");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     private HttpClient CreateClientWithFakeFaceRuntime(

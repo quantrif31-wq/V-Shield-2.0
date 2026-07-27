@@ -329,10 +329,11 @@ it neither contacts a camera nor reloads models. ASP.NET does not depend on the
 runtime becoming healthy, so the main application can start and continue
 returning the established `503` response while Face Runtime is unavailable.
 
-The legacy `faceid-runtime` service and `FaceID.py` remain in the `ai-heavy`
-profile for removal in Commit 7. Its container port `8000` is no longer
-published. No Python Face ID runtime is public in the production Compose
-configuration.
+The legacy FastAPI `FaceID.py`, `FaceRecognitionController`, Docker service
+`faceid-runtime`, autostart configuration, and port `8000` have been removed.
+The only supported Face ID runtime is Flask `nhandienface.py` in
+`face-runtime`; `/api/FaceCamera/...` is the only ASP.NET Face ID surface.
+The retired `/api/face-recognition/*` routes are no longer mapped.
 
 `FACE_SERVICE_TOKEN` is still not enforced. Physical RTSP camera connectivity
 has not been accepted as passing. Preview remains routed through go2rtc, and

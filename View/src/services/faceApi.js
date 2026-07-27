@@ -135,6 +135,13 @@ export function getModels() {
   })
 }
 
+export function discoverIpWebcams() {
+  return faceRequest({
+    method: "get",
+    url: `${FACE_CAMERA_BASE_PATH}/discover-ipwebcam`
+  })
+}
+
 export function reloadModels() {
   return faceRequest({
     method: "post",

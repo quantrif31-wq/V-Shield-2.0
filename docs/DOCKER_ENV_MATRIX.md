@@ -27,9 +27,6 @@
 - `AiServices__PlateBaseUrl`
   - Local: `http://127.0.0.1:5002/api`
   - Docker: `http://plate-runtime:5002/api`
-- `AiServices__FaceIdBaseUrl`
-  - Local: `http://127.0.0.1:8000`
-  - Docker: `http://faceid-runtime:8000` (neu tach container)
 - `AppSettings__FrontendUrl`
   - Local: `http://localhost:5173`
   - Docker: URL frontend that user truy cap (vd `http://localhost:5173` hoac domain)

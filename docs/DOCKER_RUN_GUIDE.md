@@ -21,7 +21,6 @@ Stack day du gom:
 - `qr-runtime-lane2`
 - `plate-runtime`
 - `face-runtime`
-- `faceid-runtime`
 
 ## 3) Chay stack co ban (nhanh hon)
 Chi dung muc nay neu ban moi can web/API/co so du lieu:
@@ -58,7 +57,7 @@ Luu y:
 - `plate-runtime` dung dependencies nang (paddle/torch), build co the lau va can tai nguyen lon.
 - Docker image da chuyen qua `requirements.docker.txt` (CPU-compatible) de giam xung dot dependency.
 - Service duoc bat `LPR_HEADLESS=1` de tranh loi `qt.qpa.xcb` khi khong co man hinh GUI.
-- Nhom nay cung bat `face-runtime` va `faceid-runtime`.
+- Nhom nay cung bat service Face ID duy nhat `face-runtime`.
 
 ## 6) Kiem tra nhanh sau khi len stack
 Chay lan luot:
@@ -72,8 +71,8 @@ curl http://localhost:1984/
 
 Face ID khong publish cong Python ra host. Kiem tra Face Runtime qua endpoint
 ASP.NET co xac thuc `/api/FaceCamera/models`; `face-runtime:5001` chi resolve
-trong Docker network `vshield-face-backend`. Runtime `faceid-runtime` cu van
-con trong profile `ai-heavy` den Commit 7 nhung khong publish port `8000`.
+trong Docker network `vshield-face-backend`. FastAPI `FaceID.py`,
+`faceid-runtime` va port `8000` da bi loai bo.
 
 Ket qua mong doi:
 - API: `{"status":"ok","service":"v-shield-api"}`
@@ -108,7 +107,7 @@ docker compose down -v
    - Xem log `vshield-api` de xac nhan migration da chay xong.
 2. QR/LPR timeout:
    - Kiem tra container runtime co dang `Up` khong: `docker compose ps`
-   - Xem log: `docker logs vshield-qr-runtime`, `docker logs vshield-qr-runtime-lane2`, `docker logs vshield-plate-runtime`, `docker logs vshield-face-runtime`, `docker logs vshield-faceid-runtime`
+   - Xem log: `docker logs vshield-qr-runtime`, `docker logs vshield-qr-runtime-lane2`, `docker logs vshield-plate-runtime`, `docker logs vshield-face-runtime`
 3. Loi CORS tren frontend:
    - Kiem tra `APP_FRONTEND_URL`, `VITE_API_BASE_URL` trong `.env`
    - Rebuild frontend: `docker compose up -d --build frontend`
