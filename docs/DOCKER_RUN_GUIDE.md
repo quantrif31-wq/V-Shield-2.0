@@ -67,10 +67,13 @@ curl http://localhost:5107/health
 curl http://localhost:8001/qr/result
 curl http://localhost:8002/qr/result
 curl http://localhost:5002/api/camera/status
-curl http://localhost:5001/api/camera/status
-curl http://localhost:8000/docs
 curl http://localhost:1984/
 ```
+
+Face ID khong publish cong Python ra host. Kiem tra Face Runtime qua endpoint
+ASP.NET co xac thuc `/api/FaceCamera/models`; `face-runtime:5001` chi resolve
+trong Docker network `vshield-face-backend`. Runtime `faceid-runtime` cu van
+con trong profile `ai-heavy` den Commit 7 nhung khong publish port `8000`.
 
 Ket qua mong doi:
 - API: `{"status":"ok","service":"v-shield-api"}`

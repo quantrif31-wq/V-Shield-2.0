@@ -151,10 +151,12 @@ curl http://localhost:5107/health
 curl http://localhost:8001/qr/result
 curl http://localhost:8002/qr/result
 curl http://localhost:5002/api/camera/status
-curl http://localhost:5001/api/camera/status
-curl http://localhost:8000/docs
 curl http://localhost:1984/
 ```
+
+Face ID chi duoc truy cap qua ASP.NET (`/api/FaceCamera/...`). Hai Python Face
+runtime khong publish port `5001` hoac `8000` ra host; backend ket noi runtime
+chinh bang `http://face-runtime:5001/api` tren Docker bridge rieng.
 
 ### 2.4. Tu lan sau
 

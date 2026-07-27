@@ -6,9 +6,6 @@
 - `VITE_API_BASE_URL`
   - Local: `http://localhost:5107/api`
   - Docker (trinh duyet user): `http://localhost:5107/api` (neu expose API 5107)
-- `VITE_FACE_API_BASE_URL`
-  - Local: `http://localhost:5001/api`
-  - Docker: qua API proxy neu can (uu tien frontend chi goi API backend)
 - `VITE_PLATE_API_BASE_URL`
   - Local: `http://localhost:5002/api`
   - Docker: qua API proxy neu can
@@ -26,7 +23,7 @@
   - Docker: `Server=db,1433;Database=AccessControlDB;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=False;`
 - `AiServices__FaceCameraBaseUrl`
   - Local: `http://127.0.0.1:5001/api`
-  - Docker: `http://face-runtime:5001/api` (ten service du kien)
+  - Docker/VPS: `http://face-runtime:5001/api` tren network `vshield-face-backend`
 - `AiServices__PlateBaseUrl`
   - Local: `http://127.0.0.1:5002/api`
   - Docker: `http://plate-runtime:5002/api`

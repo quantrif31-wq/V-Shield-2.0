@@ -304,3 +304,45 @@ Local integration verification confirmed:
   `face-runtime` hostname.
 
 The production build contains a separate `FaceCamera-*.js`/`.css` lazy chunk.
+
+## Docker network isolation
+
+Browser requests terminate at frontend/Nginx and Face Camera operations use
+the authenticated ASP.NET `/api/FaceCamera/...` routes. Nginx no longer proxies
+any path directly to Python, and the frontend bundle has no Face Runtime
+hostname, port, or deployment variable.
+
+ASP.NET and `face-runtime` share the deterministic `vshield-face-backend`
+bridge. The backend uses `http://face-runtime:5001/api`. The runtime declares
+container port `5001` with Compose `expose`, but neither the default nor VPS
+Compose publishes that port to the host. The frontend is not attached to this
+bridge.
+
+The bridge deliberately does not use `internal: true`: Face Runtime must retain
+outbound access to RTSP cameras on the LAN. Absence of a published port prevents
+host/LAN inbound access while the normal bridge permits outbound camera
+connections.
+
+Docker checks runtime liveness from inside the container with Python standard
+library code calling `GET /api/health`. This checks the Flask process/API only;
+it neither contacts a camera nor reloads models. ASP.NET does not depend on the
+runtime becoming healthy, so the main application can start and continue
+returning the established `503` response while Face Runtime is unavailable.
+
+The legacy `faceid-runtime` service and `FaceID.py` remain in the `ai-heavy`
+profile for removal in Commit 7. Its container port `8000` is no longer
+published. No Python Face ID runtime is public in the production Compose
+configuration.
+
+`FACE_SERVICE_TOKEN` is still not enforced. Physical RTSP camera connectivity
+has not been accepted as passing. Preview remains routed through go2rtc, and
+this network change does not alter camera data, model files, or go2rtc
+configuration.
+
+The physical test source at the time of verification was not reachable from
+the Docker host: ICMP, TCP, and direct FFmpeg connectivity to its RTSP endpoint
+timed out, and both go2rtc and Face Runtime reported connection timeouts. The
+host and camera addresses are in the same configured `/8` subnet and the host
+can resolve the camera MAC address, so remaining checks are the camera app's
+LAN/server setting, Wi-Fi client isolation, device firewall, single-client
+limits, and the RTSP port/path. The UI now reports this condition accurately.
