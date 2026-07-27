@@ -26,5 +26,7 @@ RUN sed 's/^opencv-python==/opencv-python-headless==/' requirements.txt > requir
 
 COPY FaceID.py ./
 COPY nhandienface.py ./
+COPY runtime_config.py ./
+COPY model_registry.py ./
 
 EXPOSE 5001 8000

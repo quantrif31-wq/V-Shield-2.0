@@ -1,0 +1,181 @@
+# Current Face ID frontend contract
+
+This document records the Flask response fields consumed by the current Vue
+frontend. It is a characterization artifact, not a proposed API.
+
+## `POST /api/camera/on`
+
+Used fields:
+
+- `success`
+- `message`
+- `ip`
+- `stream_url`
+
+## `POST /api/camera/off`
+
+Used fields:
+
+- `success`
+- `message`
+
+## `POST /api/camera/reset`
+
+Used fields:
+
+- `success`
+- `message`
+
+## `GET /api/camera/status`
+
+Used fields:
+
+- `success`
+- `camera_enabled`
+- `camera_connected`
+- `ip`
+- `tracking_active`
+- `identity_confirmed`
+- `face_match`
+- `employee_id`
+- `confirm_count`
+- `distance`
+- `last_seen`
+- `bbox`
+- `timeout`
+- `alert`
+- `scan_locked`
+- `lock_reason`
+- `fps`
+- `models_loaded`
+- `total_encodings`
+- `message`
+- `last_update`
+- `stream_url`
+
+## `GET /api/camera/result`
+
+Used fields:
+
+- `success`
+- `camera_enabled`
+- `camera_connected`
+- `ip`
+- `tracking_active`
+- `identity_confirmed`
+- `face_match`
+- `employee_id`
+- `confirm_count`
+- `distance`
+- `last_seen`
+- `bbox`
+- `timeout`
+- `alert`
+- `scan_locked`
+- `lock_reason`
+- `fps`
+- `message`
+- `last_update`
+- `last_snapshot`
+- `last_face_crop`
+- `locked_snapshot`
+- `locked_face_crop`
+
+## `GET /api/camera/locked-images`
+
+Used fields:
+
+- `success`
+- `identity_confirmed`
+- `employee_id`
+- `scan_locked`
+- `lock_reason`
+- `locked_snapshot`
+- `locked_face_crop`
+
+## Face Runtime environment configuration
+
+The Flask runtime reads configuration from process environment variables.
+Defaults preserve the pre-configuration behavior:
+
+| Variable | Default | Unit |
+| --- | --- | --- |
+| `FACE_MODEL_DIR` | `API/API/API/wwwroot/uploads/VideoFace/FaceID` from repository root | path |
+| `FACE_SNAPSHOT_DIR` | unset; snapshots remain Base64 in memory | path |
+| `FACE_THRESHOLD` | `0.35` | face distance |
+| `FACE_CONFIRM_FRAMES` | `5` | frames |
+| `FACE_LOST_TIMEOUT` | `2.0` | seconds |
+| `FACE_ENCODE_INTERVAL` | `0.7` | seconds |
+| `FACE_FRAME_WIDTH` | `480` | pixels |
+| `FACE_ROTATION` | `-90` | degrees/mode |
+| `FACE_RECOGNIZE_TIMEOUT` | `5.0` | seconds |
+| `FACE_ALERT_TIMEOUT` | `8.0` | seconds |
+| `FACE_STREAM_WIDTH` | `640` | pixels |
+| `FACE_STREAM_HEIGHT` | `360` | pixels |
+| `FACE_JPEG_QUALITY` | `80` | OpenCV quality, 0ƒ?"100 |
+| `FACE_SERVICE_TOKEN` | unset; not enforced in Commit 2 | secret string |
+
+`PORT` (`5001`) and `HEADLESS_MODE` (`true`) are existing runtime settings
+which are now parsed by the same configuration module.
+
+Relative model and snapshot paths resolve from repository root, determined from
+the configuration module's file location. Resolution does not depend on the
+current working directory or the repository directory name. A missing model
+directory remains missing and produces the existing no-model warning; the
+runtime does not create or overwrite it.
+
+## Face model registry
+
+The Flask runtime publishes an immutable `RegistrySnapshot` containing one
+version of both subject IDs and encodings. Recognition reads the snapshot once
+per comparison, so IDs and encodings cannot come from different reload
+versions. Snapshot collections are tuples and encoding arrays use read-only
+bytes-backed storage.
+
+Startup remains tolerant: a missing, empty, or entirely invalid model
+directory starts the service with zero models and reports sanitized warnings.
+If some startup files are valid and others are invalid, the valid files are
+available and the invalid files are recorded as errors.
+
+Reload is strict. A candidate snapshot is built outside the swap lock. If any
+candidate file has an error, the candidate is rejected and the active snapshot
+and version remain unchanged. A successful candidate is swapped in a short
+critical section. Concurrent readers continue using their complete old
+snapshot until the swap. A second simultaneous reload receives
+`RELOAD_IN_PROGRESS`.
+
+### `GET /api/models`
+
+Returns registry metadata:
+
+- `version`
+- `loadedAt` as UTC ISO 8601
+- `modelDirectory` as the sanitized directory basename
+- `successfulFileCount`
+- `encodingCount`
+- `errorCount`
+- `models`, containing only `fileName`, `subjectId`, and `encodingCount`
+- `errors`, containing only `fileName`, `errorCode`, and a sanitized `message`
+
+The response does not expose encodings, image data, service tokens, or
+per-model absolute paths.
+
+### `POST /api/models/reload`
+
+The endpoint accepts no request body:
+
+- HTTP `200`: strict reload succeeded and the version increased.
+- HTTP `400`: a request body was supplied.
+- HTTP `409`: another reload is already running.
+- HTTP `422`: model validation/loading failed; the old snapshot remains active.
+- HTTP `500`: unexpected internal failure with a sanitized response.
+
+`FACE_SERVICE_TOKEN` is still not enforced in Commit 3.
+
+### Pickle safety
+
+`.pkl` deserialization is not safe for untrusted input. Extension and path
+validation do not make pickle safe. Model files must be generated by the
+trusted system, and write access to `FACE_MODEL_DIR` must be restricted.
+The reload API never accepts a filename, path, upload, or pickle content.
+A future migration should replace pickle with a non-executable model format.

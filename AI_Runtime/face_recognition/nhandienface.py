@@ -6,16 +6,16 @@ import time
 import re
 import json
 import base64
-import pickle
 import logging
 import threading
 import numpy as np
 import face_recognition
 
-from pathlib import Path
 from collections import deque
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
+from model_registry import FaceModelRegistry
+from runtime_config import FaceRuntimeConfig
 
 # =========================================================
 # FIX SITE FOR PYINSTALLER
@@ -37,42 +37,34 @@ if getattr(sys, "frozen", False):
 else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-API_PORT = int(os.getenv("PORT", 5001))
+CONFIG = FaceRuntimeConfig.from_env(module_file=__file__)
+
+API_PORT = CONFIG.api_port
 WINDOW_NAME = "FACEID SINGLE-READ LOCK MODE"
-HEADLESS_MODE = os.getenv("HEADLESS_MODE", "1").strip().lower() not in {"0", "false", "no"}
+HEADLESS_MODE = CONFIG.headless_mode
 
-THRESHOLD = 0.35
-CONFIRM_FRAMES = 5
-LOST_TIMEOUT = 2.0
-ENCODE_INTERVAL = 0.7
-FRAME_WIDTH = 480
-ROTATE_MODE = -90
+THRESHOLD = CONFIG.threshold
+CONFIRM_FRAMES = CONFIG.confirm_frames
+LOST_TIMEOUT = CONFIG.lost_timeout
+ENCODE_INTERVAL = CONFIG.encode_interval
+FRAME_WIDTH = CONFIG.frame_width
+ROTATE_MODE = CONFIG.rotation
 
-RECOGNIZE_TIMEOUT = 5.0
-ALERT_TIMEOUT = 8.0
+RECOGNIZE_TIMEOUT = CONFIG.recognize_timeout
+ALERT_TIMEOUT = CONFIG.alert_timeout
 
-STREAM_WIDTH = 640
-STREAM_HEIGHT = 360
-JPEG_QUALITY = 80
+STREAM_WIDTH = CONFIG.stream_width
+STREAM_HEIGHT = CONFIG.stream_height
+JPEG_QUALITY = CONFIG.jpeg_quality
 
 MAX_READ_FAILS_BEFORE_WARN = 20
 RECONNECT_DELAY_SEC = 1.0
 
 # =========================================================
-# ROOT PATH / FACE MODEL PATH
+# FACE MODEL PATH
 # =========================================================
-current_path = Path(__file__).resolve()
-
-ROOT = None
-for parent in current_path.parents:
-    if parent.name == "V-Shield":
-        ROOT = parent
-        break
-
-if ROOT is None:
-    ROOT = current_path.parent
-
-FACE_MODEL_DIR = ROOT / "API/API/API/wwwroot/uploads/VideoFace/FaceID"
+FACE_MODEL_DIR = CONFIG.model_dir
+FACE_SNAPSHOT_DIR = CONFIG.snapshot_dir
 
 # =========================================================
 # APP
@@ -175,39 +167,23 @@ recognition_state = {
 print("Loading face models...")
 print("Face model directory:", FACE_MODEL_DIR)
 
-known_encodings = []
-known_ids = []
-
-if FACE_MODEL_DIR.exists():
-    model_files = list(FACE_MODEL_DIR.glob("*.pkl"))
-else:
-    model_files = []
-
-for model_file in model_files:
-    try:
-        with open(model_file, "rb") as f:
-            encodings = pickle.load(f)
+model_registry = FaceModelRegistry(FACE_MODEL_DIR)
+initial_model_snapshot = model_registry.current_snapshot()
 
         # ví dụ: emp_2_20260315020708.pkl -> 2
-        parts = model_file.stem.split("_")
-        emp_id = f"{parts[1]}" if len(parts) > 1 else model_file.stem
-
-        for enc in encodings:
-            known_encodings.append(enc)
-            known_ids.append(emp_id)
-
-    except Exception as e:
-        print(f"Load model failed: {model_file.name} -> {e}")
-
-print("Loaded models:", len(model_files))
-print("Total encodings:", len(known_encodings))
+print("Loaded models:", initial_model_snapshot.successful_file_count)
+print("Total encodings:", initial_model_snapshot.encoding_count)
 print("Face models loaded")
 
-if len(known_encodings) == 0:
+for model_error in initial_model_snapshot.errors:
+    error_target = model_error.file_name or "model directory"
+    print(f"WARNING: {error_target} -> {model_error.error_code}: {model_error.message}")
+
+if initial_model_snapshot.encoding_count == 0:
     print("WARNING: No face models found")
 
-recognition_state["models_loaded"] = len(model_files)
-recognition_state["total_encodings"] = len(known_encodings)
+recognition_state["models_loaded"] = initial_model_snapshot.successful_file_count
+recognition_state["total_encodings"] = initial_model_snapshot.encoding_count
 
 # =========================================================
 # JSON SAFE HELPERS
@@ -245,6 +221,7 @@ def update_recognition_state(**kwargs):
         recognition_state["last_update"] = now_ts()
 
 def get_recognition_snapshot(include_images=True):
+    registry_snapshot = model_registry.current_snapshot()
     with state_lock:
         snapshot = {
             "success": recognition_state.get("success", True),
@@ -252,8 +229,8 @@ def get_recognition_snapshot(include_images=True):
             "camera_connected": recognition_state.get("camera_connected", False),
             "ip": recognition_state.get("ip", ""),
             "face_model_dir": recognition_state.get("face_model_dir"),
-            "models_loaded": recognition_state.get("models_loaded", 0),
-            "total_encodings": recognition_state.get("total_encodings", 0),
+            "models_loaded": registry_snapshot.successful_file_count,
+            "total_encodings": registry_snapshot.encoding_count,
 
             "tracking_active": recognition_state.get("tracking_active", False),
             "identity_confirmed": recognition_state.get("identity_confirmed", False),
@@ -925,6 +902,9 @@ def face_processing_worker():
 
             if need_encode:
                 enc = face_recognition.face_encodings(rgb, [face_locations[0]])
+                model_snapshot = model_registry.current_snapshot()
+                known_encodings = model_snapshot.encodings
+                known_ids = model_snapshot.subject_ids
 
                 if enc and len(known_encodings) > 0:
                     distances = face_recognition.face_distance(known_encodings, enc[0])
@@ -1377,17 +1357,114 @@ def api_camera_events():
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
+def registry_timestamp(value):
+    return value.isoformat().replace("+00:00", "Z")
+
+def registry_error_payload(error):
+    return {
+        "fileName": error.file_name,
+        "errorCode": error.error_code,
+        "message": error.message
+    }
+
+def registry_snapshot_payload(snapshot):
+    return {
+        "version": snapshot.version,
+        "loadedAt": registry_timestamp(snapshot.loaded_at),
+        # Return only the configured directory name to avoid exposing the
+        # server's absolute filesystem layout.
+        "modelDirectory": snapshot.model_directory.name,
+        "successfulFileCount": snapshot.successful_file_count,
+        "encodingCount": snapshot.encoding_count,
+        "errorCount": len(snapshot.errors),
+        "models": [
+            {
+                "fileName": model.file_name,
+                "subjectId": model.subject_id,
+                "encodingCount": model.encoding_count
+            }
+            for model in snapshot.model_files
+        ],
+        "errors": [
+            registry_error_payload(error)
+            for error in snapshot.errors
+        ]
+    }
+
+@app.route("/api/models", methods=["GET"])
+def api_models():
+    return jsonify(
+        registry_snapshot_payload(model_registry.current_snapshot())
+    ), 200
+
+@app.route("/api/models/reload", methods=["POST"])
+def api_models_reload():
+    if request.get_data(cache=True).strip():
+        return jsonify({
+            "success": False,
+            "errorCode": "REQUEST_BODY_NOT_ALLOWED",
+            "message": "Model reload does not accept a request body."
+        }), 400
+
+    try:
+        reload_result = model_registry.reload()
+        snapshot = reload_result.current_snapshot
+
+        if reload_result.error_code == "RELOAD_IN_PROGRESS":
+            return jsonify({
+                "success": False,
+                "previousVersion": reload_result.previous_version,
+                "currentVersion": snapshot.version,
+                "successfulFileCount": snapshot.successful_file_count,
+                "encodingCount": snapshot.encoding_count,
+                "errorCount": 0,
+                "errorCode": "RELOAD_IN_PROGRESS",
+                "errors": []
+            }), 409
+
+        if not reload_result.success:
+            return jsonify({
+                "success": False,
+                "previousVersion": reload_result.previous_version,
+                "currentVersion": snapshot.version,
+                "successfulFileCount": snapshot.successful_file_count,
+                "encodingCount": snapshot.encoding_count,
+                "errorCount": len(reload_result.errors),
+                "errorCode": reload_result.error_code,
+                "errors": [
+                    registry_error_payload(error)
+                    for error in reload_result.errors
+                ]
+            }), 422
+
+        return jsonify({
+            "success": True,
+            "previousVersion": reload_result.previous_version,
+            "currentVersion": snapshot.version,
+            "successfulFileCount": snapshot.successful_file_count,
+            "encodingCount": snapshot.encoding_count,
+            "errorCount": 0,
+            "loadedAt": registry_timestamp(snapshot.loaded_at)
+        }), 200
+    except Exception:
+        return jsonify({
+            "success": False,
+            "errorCode": "MODEL_RELOAD_INTERNAL_ERROR",
+            "message": "Model registry reload failed unexpectedly."
+        }), 500
+
 @app.route("/api/health", methods=["GET"])
 def api_health():
     enabled, ip, connected = get_camera_flags()
+    registry_snapshot = model_registry.current_snapshot()
     return jsonify({
         "success": True,
         "message": "FaceID API is running",
         "camera_enabled": enabled,
         "camera_connected": connected,
         "ip": ip,
-        "models_loaded": len(model_files),
-        "total_encodings": len(known_encodings),
+        "models_loaded": registry_snapshot.successful_file_count,
+        "total_encodings": registry_snapshot.encoding_count,
         "last_update": now_ts()
     }), 200
 
