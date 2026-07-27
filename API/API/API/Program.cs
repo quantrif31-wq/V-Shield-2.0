@@ -207,6 +207,29 @@ namespace API
                 client.BaseAddress = faceRecognitionClientOptions.BaseAddress;
                 client.Timeout = faceRecognitionClientOptions.Timeout;
             });
+            var faceReconcileOptions = new FaceCameraReconcileOptions();
+            builder.Configuration.GetSection(FaceCameraReconcileOptions.SectionName)
+                .Bind(faceReconcileOptions);
+            if (faceReconcileOptions.ReconcileIntervalSeconds <= 0)
+            {
+                throw new InvalidOperationException(
+                    "FaceRecognition:ReconcileIntervalSeconds must be greater than zero.");
+            }
+            builder.Services.AddSingleton(faceReconcileOptions);
+            builder.Services.AddScoped<FaceCameraConfigurationService>();
+            builder.Services.AddScoped<IFaceCameraConfigurationService>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceCameraConfigurationService>());
+            builder.Services.AddScoped<IFaceCameraConfigurationStore>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceCameraConfigurationService>());
+            builder.Services.AddScoped<FaceCameraReconciliationCycle>();
+            builder.Services.AddSingleton<FaceCameraSessionReconciler>();
+            builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
+            if (!builder.Environment.IsEnvironment("Testing"))
+            {
+                builder.Services.AddHostedService(serviceProvider =>
+                    serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
+            }
             builder.Services.AddHttpClient("AiGateway", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(35);

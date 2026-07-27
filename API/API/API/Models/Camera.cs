@@ -38,4 +38,6 @@ public partial class Camera
     [ForeignKey("GateId")]
     [InverseProperty("Cameras")]
     public virtual Gate? Gate { get; set; }
+
+    public virtual FaceCameraConfiguration? FaceCameraConfiguration { get; set; }
 }

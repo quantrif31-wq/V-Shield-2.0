@@ -462,6 +462,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
     [InlineData("/api/FaceCamera/discover-ipwebcam")]
+    [InlineData("/api/FaceCameraConfigurations")]
     public async Task AnonymousUser_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -480,6 +481,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
     [InlineData("/api/FaceCamera/discover-ipwebcam")]
+    [InlineData("/api/FaceCameraConfigurations")]
     public async Task UserWithoutMonitoringPermission_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -541,6 +543,51 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
         var response = await client.GetAsync("/api/face-recognition/status");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminWithMonitoringPermission_CanListPersistedConfigurations()
+    {
+        using var client = CreateClientWithFakeFaceRuntime(
+            FaceCameraControllerContractTests.StubClient.Returning(
+                new FaceRuntimeResponse(
+                    HttpStatusCode.OK,
+                    """{"sessions":[]}""",
+                    "application/json")));
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var response = await client.GetAsync("/api/FaceCameraConfigurations");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ManualReconcile_RequiresAdminAndAllowsAdmin()
+    {
+        var runtime = FaceCameraControllerContractTests.StubClient.Returning(
+            new FaceRuntimeResponse(
+                HttpStatusCode.OK,
+                """{"sessions":[]}""",
+                "application/json"));
+        using var anonymous = CreateClientWithFakeFaceRuntime(runtime);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await anonymous.PostAsync("/api/FaceCameraConfigurations/reconcile", null)).StatusCode);
+
+        using var staff = CreateClientWithFakeFaceRuntime(runtime);
+        staff.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1003, "staff.role", "Staff"));
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await staff.PostAsync("/api/FaceCameraConfigurations/reconcile", null)).StatusCode);
+
+        using var admin = CreateClientWithFakeFaceRuntime(runtime);
+        admin.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await admin.PostAsync("/api/FaceCameraConfigurations/reconcile", null)).StatusCode);
     }
 
     private HttpClient CreateClientWithFakeFaceRuntime(

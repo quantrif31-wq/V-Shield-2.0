@@ -42,6 +42,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
 
     public virtual DbSet<Camera> Cameras { get; set; }
+    public virtual DbSet<FaceCameraConfiguration> FaceCameraConfigurations { get; set; }
     public DbSet<RecordedSegment> RecordedSegments { get; set; }
     public virtual DbSet<CameraPlate> CameraPlates { get; set; }
 

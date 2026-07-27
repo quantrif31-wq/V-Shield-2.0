@@ -281,6 +281,7 @@ public partial class ApplicationDbContext
         ConfigureRateLimiting(modelBuilder);
         ConfigureGeolocationModels(modelBuilder);
         ConfigureSyncModels(modelBuilder);
+        ConfigureFaceCameraConfigurations(modelBuilder);
     }
 
     private static void ConfigureRateLimiting(ModelBuilder modelBuilder)
@@ -289,6 +290,32 @@ public partial class ApplicationDbContext
         {
             entity.HasIndex(e => new { e.CounterKey, e.WindowStart }).HasDatabaseName("IX_RateLimitCounters_Key_Window");
             entity.HasIndex(e => e.CreatedAtUtc).HasDatabaseName("IX_RateLimitCounters_CreatedAt");
+        });
+    }
+
+    private static void ConfigureFaceCameraConfigurations(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FaceCameraConfiguration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RuntimeCameraId).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.DesiredState).IsRequired().HasMaxLength(16);
+            entity.Property(e => e.LastSyncStatus).IsRequired().HasMaxLength(32);
+            entity.Property(e => e.LastSyncError).HasMaxLength(500);
+            entity.Property(e => e.ConfigurationFingerprint).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.RowVersion).IsRowVersion();
+            entity.HasIndex(e => e.RuntimeCameraId).IsUnique();
+            entity.HasIndex(e => e.CameraId).IsUnique();
+
+            entity.HasOne(e => e.Camera)
+                .WithOne(e => e.FaceCameraConfiguration)
+                .HasForeignKey<FaceCameraConfiguration>(e => e.CameraId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Lane)
+                .WithMany()
+                .HasForeignKey(e => e.LaneId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

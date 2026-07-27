@@ -2,13 +2,51 @@
   <div class="security-container">
     <h1 class="title">V-Shield FaceID Monitor</h1>
 
+    <section class="saved-camera-panel">
+      <label>
+        Camera đã lưu
+        <select v-model="selectedRuntimeCameraId" @change="handleConfiguredCameraChange">
+          <option value="">Chế độ nhập thủ công</option>
+          <option
+            v-for="item in savedConfigurations"
+            :key="item.runtimeCameraId"
+            :value="item.runtimeCameraId"
+          >
+            {{ item.cameraName }} ({{ item.runtimeCameraId }})
+          </option>
+        </select>
+      </label>
+      <template v-if="selectedConfiguration">
+        <span><b>Runtime ID:</b> {{ selectedConfiguration.runtimeCameraId }}</span>
+        <span><b>Lane:</b> {{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</span>
+        <span><b>Desired:</b> {{ selectedConfiguration.desiredState }}</span>
+        <span><b>Runtime:</b> {{ selectedConfiguration.runtimeStatus }}</span>
+        <span><b>Sync:</b> {{ selectedConfiguration.lastSyncStatus }}</span>
+        <label class="auto-restore">
+          <input
+            type="checkbox"
+            :checked="selectedConfiguration.autoRestore"
+            :disabled="loading"
+            @change="handleAutoRestoreChange"
+          />
+          Auto restore
+        </label>
+        <button class="btn btn-models" :disabled="loading" @click="handleManualReconcile">
+          Đồng bộ ngay
+        </button>
+        <div v-if="selectedConfiguration.lastSyncError" class="sync-error">
+          {{ selectedConfiguration.lastSyncError }}
+        </div>
+      </template>
+    </section>
+
     <div class="control-panel">
       <input
         v-model="cameraIp"
         type="text"
         class="ip-input"
         placeholder="Nhập URL camera / stream URL..."
-        :disabled="loading"
+        :disabled="loading || !!selectedConfiguration"
       />
 
       <button class="btn btn-on" @click="handleTurnOnPreview" :disabled="loading">
@@ -18,7 +56,7 @@
       <button
         class="btn btn-reset"
         @click="handleInitOrResetSession"
-        :disabled="loading || !cameraIp.trim()"
+        :disabled="loading || (!selectedConfiguration && !cameraIp.trim())"
       >
         {{ loading ? "Đang xử lý..." : sessionActionLabel }}
       </button>
@@ -46,7 +84,7 @@
       <span><b>Camera:</b> {{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
       <span><b>Kết nối:</b> {{ cameraConnected ? "Đã kết nối" : "Chưa kết nối" }}</span>
       <span><b>Preview:</b> {{ previewRunning ? (previewHealthy ? "Đang hiển thị" : "Đang kết nối") : "Đang tắt" }}</span>
-      <span><b>Input URL:</b> {{ currentIp || cameraIp || "-----" }}</span>
+      <span><b>Input URL:</b> {{ safeInputUrl }}</span>
       <span><b>FPS:</b> {{ fps }}</span>
       <span><b>Tracking:</b> {{ trackingActive ? "Đang theo dõi" : "Idle" }}</span>
       <span><b>Lock:</b> {{ scanLocked ? "Đã khóa" : "Đang quét" }}</span>
@@ -175,6 +213,13 @@ import {
   shouldStopFacePolling
 } from "../services/faceApi"
 import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
+import {
+  getFaceCameraConfigurations,
+  updateFaceCameraConfiguration,
+  startConfiguredFaceCamera,
+  stopConfiguredFaceCamera,
+  reconcileFaceCameras
+} from "../services/faceCameraConfigurationApi"
 
 export default {
   name: "FaceIdSecurity",
@@ -193,6 +238,8 @@ export default {
   data() {
     return {
       cameraIp: "",
+      savedConfigurations: [],
+      selectedRuntimeCameraId: "",
       currentIp: "",
       cameraRunning: false,
       cameraConnected: false,
@@ -236,6 +283,33 @@ export default {
   },
 
   computed: {
+    selectedConfiguration() {
+      return this.savedConfigurations.find(
+        item => item.runtimeCameraId === this.selectedRuntimeCameraId
+      ) || null
+    },
+
+    activeCameraId() {
+      return this.selectedRuntimeCameraId || this.cameraId
+    },
+
+    safeInputUrl() {
+      const value = String(
+        this.selectedConfiguration?.streamUrlMasked || this.currentIp || this.cameraIp || ""
+      ).trim()
+      if (!value) return "-----"
+      try {
+        const parsed = new URL(value)
+        if (parsed.username || parsed.password) {
+          parsed.username = "***"
+          parsed.password = "***"
+        }
+        return parsed.toString()
+      } catch {
+        return "Camera stream đã cấu hình"
+      }
+    },
+
     bboxText() {
       if (!this.bbox) return "-----"
 
@@ -269,7 +343,16 @@ export default {
 
   async mounted() {
     this.destroyed = false
-    await this.loadCurrentStatus()
+    await this.loadSavedConfigurations()
+    if (!this.selectedConfiguration || this.selectedConfiguration.runtimeEnabled) {
+      await this.loadCurrentStatus()
+    }
+    if (this.selectedConfiguration?.previewUrl && !this.previewRunning) {
+      this.mountRegisteredPreview(
+        { urlView: this.selectedConfiguration.previewUrl },
+        ""
+      )
+    }
 
     if (this.cameraRunning) {
       this.startResultLoop()
@@ -299,6 +382,70 @@ export default {
   },
 
   methods: {
+    async loadSavedConfigurations() {
+      try {
+        const overview = await getFaceCameraConfigurations()
+        this.savedConfigurations = Array.isArray(overview?.configurations)
+          ? overview.configurations
+          : []
+        if (!this.selectedRuntimeCameraId && this.savedConfigurations.length) {
+          this.selectedRuntimeCameraId = this.savedConfigurations[0].runtimeCameraId
+        }
+      } catch (error) {
+        this.handleFaceServiceError(error, { polling: true })
+      }
+    },
+
+    async handleConfiguredCameraChange() {
+      this.stopResultLoop()
+      this.hardResetUiState()
+      this.resetDirectPreview()
+      if (this.selectedConfiguration?.previewUrl) {
+        this.mountRegisteredPreview(
+          { urlView: this.selectedConfiguration.previewUrl },
+          ""
+        )
+      }
+      if (this.selectedConfiguration?.runtimeEnabled) {
+        await this.loadCurrentStatus()
+        if (this.cameraRunning) this.startResultLoop()
+      }
+    },
+
+    async handleAutoRestoreChange(event) {
+      const configuration = this.selectedConfiguration
+      if (!configuration) return
+      try {
+        this.loading = true
+        await updateFaceCameraConfiguration(configuration.runtimeCameraId, {
+          cameraId: configuration.cameraId,
+          laneId: configuration.laneId,
+          autoRestore: event.target.checked,
+          rowVersion: configuration.rowVersion
+        })
+        await this.loadSavedConfigurations()
+      } catch (error) {
+        this.handleFaceServiceError(error)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async handleManualReconcile() {
+      try {
+        this.loading = true
+        await reconcileFaceCameras()
+        await this.loadSavedConfigurations()
+        if (this.selectedConfiguration?.runtimeEnabled) {
+          await this.loadCurrentStatus()
+        }
+      } catch (error) {
+        this.handleFaceServiceError(error)
+      } finally {
+        this.loading = false
+      }
+    },
+
     buildDirectCameraUrl(inputUrl) {
       const raw = String(inputUrl || "").trim()
       if (!raw) return ""
@@ -440,7 +587,7 @@ export default {
 
     async loadCurrentStatus() {
       try {
-        const res = await getCameraStatus(this.cameraId)
+        const res = await getCameraStatus(this.activeCameraId)
         this.clearFaceServiceError()
         await this.applyRealtimeState(res, false)
 
@@ -485,6 +632,14 @@ export default {
     },
 
     async handleTurnOnPreview() {
+      if (this.selectedConfiguration?.previewUrl) {
+        this.mountRegisteredPreview(
+          { urlView: this.selectedConfiguration.previewUrl },
+          ""
+        )
+        this.message = "Đã mở preview camera đã lưu"
+        return
+      }
       const ip = (this.cameraIp || this.currentIp || "").trim()
       if (!ip) {
         alert("Vui lòng nhập URL camera")
@@ -511,22 +666,24 @@ export default {
 
     async handleInitOrResetSession() {
       const ip = (this.cameraIp || this.currentIp || "").trim()
-      if (!ip) {
+      if (!this.selectedConfiguration && !ip) {
         alert("Vui lòng nhập URL camera")
         return
       }
 
       try {
         this.loading = true
-        const camera = await ensureCameraRegistered({
-          cameraName: "Face Monitor Camera",
-          cameraType: "Face",
-          streamUrl: ip,
-        })
+        if (!this.selectedConfiguration) {
+          const camera = await ensureCameraRegistered({
+            cameraName: "Face Monitor Camera",
+            cameraType: "Face",
+            streamUrl: ip,
+          })
 
-        this.currentIp = ip
-        if (!this.previewRunning) {
-          this.mountRegisteredPreview(camera, ip)
+          this.currentIp = ip
+          if (!this.previewRunning) {
+            this.mountRegisteredPreview(camera, ip)
+          }
         }
 
         this.clearResultStateOnly()
@@ -534,23 +691,33 @@ export default {
         if (!this.cameraRunning) {
           this.stopResultLoop()
 
-          const res = await startCamera(this.cameraId, ip, this.laneId)
+          const res = this.selectedConfiguration
+            ? await startConfiguredFaceCamera(this.activeCameraId)
+            : await startCamera(this.activeCameraId, ip, this.laneId)
           this.clearFaceServiceError()
-          if (!res?.success) {
+          if (!this.selectedConfiguration && !res?.success) {
             alert(res?.message || "Không thể khởi tạo phiên nhận diện")
             return
           }
 
           this.cameraRunning = true
-          this.currentIp = ip
-          this.message = res.message || "Khởi tạo phiên nhận diện thành công"
+          this.currentIp = ip || this.currentIp
+          this.message = res?.configuration
+            ? "Đã lưu trạng thái Running và đồng bộ Face Runtime"
+            : (res.message || "Khởi tạo phiên nhận diện thành công")
+          if (this.selectedConfiguration?.previewUrl && !this.previewRunning) {
+            this.mountRegisteredPreview(
+              { urlView: this.selectedConfiguration.previewUrl },
+              ""
+            )
+          }
 
           await this.refreshResult()
           this.startResultLoop()
           return
         }
 
-        const res = await resetCamera(this.cameraId)
+        const res = await resetCamera(this.activeCameraId)
         this.clearFaceServiceError()
         this.message = res?.message || "Đã reset phiên nhận diện"
 
@@ -573,9 +740,14 @@ export default {
         this.stopResultLoop()
 
         try {
-          const res = await stopCamera(this.cameraId)
+          const res = this.selectedConfiguration
+            ? await stopConfiguredFaceCamera(this.activeCameraId)
+            : await stopCamera(this.activeCameraId)
           this.clearFaceServiceError()
           this.message = res?.message || "Đã tắt camera"
+          if (this.selectedConfiguration) {
+            await this.loadSavedConfigurations()
+          }
         } catch (e) {
           this.handleFaceServiceError(e)
         }
@@ -591,7 +763,7 @@ export default {
 
     async refreshResult() {
       try {
-        const res = await getCameraResult(this.cameraId)
+        const res = await getCameraResult(this.activeCameraId)
         this.clearFaceServiceError()
         await this.applyRealtimeState(res, true)
       } catch (e) {
@@ -611,7 +783,7 @@ export default {
 
       this.isFetchingLockedImages = true
       try {
-        const res = await getLockedImages(this.cameraId)
+        const res = await getLockedImages(this.activeCameraId)
         this.clearFaceServiceError()
 
         if (res?.scan_locked) {
@@ -793,6 +965,37 @@ export default {
 
 .btn-off {
   background: #dc3545;
+}
+
+.saved-camera-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 auto 16px;
+  padding: 12px;
+  max-width: 1100px;
+  border: 1px solid #d7e1e8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.saved-camera-panel select {
+  margin-left: 8px;
+  padding: 8px;
+  min-width: 250px;
+}
+
+.auto-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-error {
+  flex-basis: 100%;
+  color: #b42318;
 }
 
 .btn-models {

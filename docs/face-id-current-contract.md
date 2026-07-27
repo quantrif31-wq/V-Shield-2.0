@@ -400,3 +400,39 @@ Session configuration and in-memory recognition state are not persisted across
 a Face Runtime restart. Physical RTSP connectivity is not accepted as passing.
 Liveness detection, enrollment, RecognitionEvent/database audit, VIP/appointment
 logic, and gate-opening integration are not part of Commit 8.
+
+## Commit 9: persisted desired state and runtime reconciliation
+
+The ASP.NET database is the canonical source for Face ID camera configuration.
+`FaceCameraConfiguration` has a one-to-one relationship with the existing
+`Camera` row and references an optional `Lane`. The canonical stream URL
+remains only in `Camera.StreamUrl`; the Face configuration stores a SHA-256
+fingerprint so an URL or lane change increments `ConfigurationVersion` without
+duplicating credentials.
+
+Python `CameraSession` objects remain ephemeral. `DesiredState` (`Running` or
+`Stopped`) records what ASP.NET wants, while the observed runtime state is
+merged from `GET /api/cameras`. A ten-second, non-overlapping background
+reconciler runs on startup by default. It restores missing `Running` sessions
+when `AutoRestore=true`, stops managed sessions whose desired state is
+`Stopped`, and performs one controlled restart when the configuration version
+changes. Failure of one camera does not prevent reconciliation of another.
+
+Runtime outages do not block API startup and do not roll back desired state.
+The reconciler records a sanitized `Unavailable` status and retries on the next
+cycle; after Face Runtime restarts, eligible sessions are recreated without an
+API restart or browser reload. Sessions present only in Python, including the
+transitional `default` session, are reported as `Unmanaged` and are never
+stopped automatically.
+
+Configuration reads require the existing `monitoring` operational permission.
+Until a dedicated camera-management permission is introduced, PUT, start,
+stop, and manual reconcile operations are restricted to `Admin`. All runtime
+calls still pass through the authenticated ASP.NET gateway. API responses may
+include only a credential-masked stream URL; validation errors and sync logs do
+not include the URL.
+
+Service-token enforcement between ASP.NET and Face Runtime is still pending.
+RecognitionEvent/audit persistence, enrollment, liveness, VIP/appointment
+logic, and gate opening remain out of scope. Physical RTSP camera connectivity
+has not been accepted as passing.
