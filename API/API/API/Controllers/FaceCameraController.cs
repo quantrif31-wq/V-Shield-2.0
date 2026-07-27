@@ -19,6 +19,66 @@ public class FaceCameraController : ControllerBase
         _faceRecognitionClient = faceRecognitionClient;
     }
 
+    [HttpGet("cameras")]
+    public Task<IActionResult> GetCameras(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GetCamerasAsync, cancellationToken);
+
+    [HttpPost("cameras/{cameraId}/start")]
+    public Task<IActionResult> StartCamera(
+        string cameraId,
+        [FromBody] FaceCameraStartRequest request,
+        CancellationToken cancellationToken) =>
+        ProxyCameraAsync(
+            cameraId,
+            (validId, token) =>
+                _faceRecognitionClient.StartCameraAsync(validId, request, token),
+            cancellationToken);
+
+    [HttpPost("cameras/{cameraId}/stop")]
+    public Task<IActionResult> StopCamera(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        ProxyCameraAsync(
+            cameraId,
+            _faceRecognitionClient.StopCameraAsync,
+            cancellationToken);
+
+    [HttpPost("cameras/{cameraId}/reset")]
+    public Task<IActionResult> ResetCamera(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        ProxyCameraAsync(
+            cameraId,
+            _faceRecognitionClient.ResetCameraAsync,
+            cancellationToken);
+
+    [HttpGet("cameras/{cameraId}/status")]
+    public Task<IActionResult> GetCameraStatus(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        ProxyCameraAsync(
+            cameraId,
+            _faceRecognitionClient.GetCameraStatusAsync,
+            cancellationToken);
+
+    [HttpGet("cameras/{cameraId}/result")]
+    public Task<IActionResult> GetCameraResult(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        ProxyCameraAsync(
+            cameraId,
+            _faceRecognitionClient.GetRecognitionResultAsync,
+            cancellationToken);
+
+    [HttpGet("cameras/{cameraId}/locked-images")]
+    public Task<IActionResult> GetLockedImages(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        ProxyCameraAsync(
+            cameraId,
+            _faceRecognitionClient.GetLockedImagesAsync,
+            cancellationToken);
+
     [HttpPost("camera/on")]
     public Task<IActionResult> TurnOnCamera(
         [FromBody] FaceCameraStartRequest request,
@@ -89,7 +149,7 @@ public class FaceCameraController : ControllerBase
             {
                 StatusCode = (int)response.StatusCode,
                 Content = response.Body,
-                ContentType = "application/json"
+                ContentType = response.ContentType ?? "application/json"
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -102,5 +162,21 @@ public class FaceCameraController : ControllerBase
                 StatusCodes.Status503ServiceUnavailable,
                 new { message = $"Khong the ket noi toi Face camera service: {ex.Message}" });
         }
+    }
+
+    private Task<IActionResult> ProxyCameraAsync(
+        string cameraId,
+        Func<string, CancellationToken, Task<FaceRuntimeResponse>> operation,
+        CancellationToken cancellationToken)
+    {
+        if (!FaceCameraIdValidator.TryValidate(cameraId, out var validCameraId))
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new { message = "cameraId is invalid." }));
+        }
+
+        return ProxyAsync(
+            token => operation(validCameraId, token),
+            cancellationToken);
     }
 }

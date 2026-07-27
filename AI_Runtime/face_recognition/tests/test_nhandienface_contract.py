@@ -14,6 +14,17 @@ import numpy as np
 RUNTIME_PATH = pathlib.Path(__file__).resolve().parents[1] / "nhandienface.py"
 
 
+class UnavailableCapture:
+    def set(self, *_args):
+        return True
+
+    def isOpened(self):
+        return False
+
+    def release(self):
+        return None
+
+
 def load_runtime_without_models():
     """Import the runtime without reading real biometric model files."""
     module_name = "nhandienface_contract_target"
@@ -48,13 +59,20 @@ class FaceRuntimeContractTests(unittest.TestCase):
         self.runtime.model_registry = self.runtime.FaceModelRegistry(
             self.model_tempdir.name
         )
+        self.runtime.camera_manager.shutdown_all()
+        self.runtime.camera_manager = self.runtime.CameraManager(
+            self.runtime.model_registry,
+            self.runtime.CONFIG,
+            capture_factory=lambda _url: UnavailableCapture(),
+        )
+        self.runtime.camera_manager.ensure_session("default")
         self.runtime.stop_event.clear()
         self.runtime.close_camera()
         self.runtime.reset_recognition_state("test setup")
         self.client = self.runtime.app.test_client()
 
     def tearDown(self):
-        self.runtime.close_camera()
+        self.runtime.camera_manager.shutdown_all()
         self.runtime.stop_event.clear()
         self.model_tempdir.cleanup()
 
@@ -99,19 +117,16 @@ class FaceRuntimeContractTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertIn("message", payload)
 
-    def test_camera_on_records_requested_ip_without_opening_real_capture(self):
+    def test_camera_on_records_requested_ip_when_capture_is_unavailable(self):
         camera_url = "http://camera.test:8080/video"
 
-        with mock.patch.object(self.runtime.cv2, "VideoCapture") as capture:
-            response = self.client.post("/api/camera/on", json={"ip": camera_url})
+        response = self.client.post("/api/camera/on", json={"ip": camera_url})
 
         self.assertEqual(200, response.status_code)
         payload = response.get_json()
         self.assertTrue(payload["success"])
         self.assertEqual(camera_url, payload["ip"])
         self.assertEqual("/api/camera/stream", payload["stream_url"])
-        capture.assert_not_called()
-
         status = self.client.get("/api/camera/status").get_json()
         self.assertTrue(status["camera_enabled"])
         self.assertFalse(status["camera_connected"])
@@ -183,6 +198,80 @@ class FaceRuntimeContractTests(unittest.TestCase):
         self.assertFalse(status["camera_connected"])
         self.assertEqual("", status["ip"])
         self.assertEqual("", status["stream_url"])
+
+    def test_legacy_and_camera_specific_routes_share_default_session(self):
+        camera_url = "http://camera.test/default"
+        self.client.post("/api/camera/on", json={"ip": camera_url})
+
+        status = self.client.get("/api/cameras/default/status")
+
+        self.assertEqual(200, status.status_code)
+        self.assertEqual(camera_url, status.get_json()["ip"])
+        self.client.post("/api/cameras/default/reset")
+        self.assertFalse(
+            self.client.get("/api/camera/status").get_json()["scan_locked"]
+        )
+
+    def test_camera_specific_routes_validate_and_report_missing_sessions(self):
+        self.assertEqual(
+            400,
+            self.client.get("/api/cameras/a..b/status").status_code,
+        )
+        self.assertEqual(
+            404,
+            self.client.get("/api/cameras/missing/status").status_code,
+        )
+
+    def test_camera_list_does_not_expose_stream_urls(self):
+        self.client.post(
+            "/api/cameras/gate-01/start",
+            json={"ip": "rtsp://user:secret@camera.test/live", "laneId": "lane-1"},
+        )
+
+        response = self.client.get("/api/cameras")
+
+        self.assertEqual(200, response.status_code)
+        serialized = response.get_data(as_text=True)
+        self.assertNotIn("secret", serialized)
+        self.assertNotIn("rtsp://", serialized)
+        payload = response.get_json()
+        session = next(
+            item for item in payload["sessions"] if item["cameraId"] == "gate-01"
+        )
+        self.assertEqual("lane-1", session["laneId"])
+
+    def test_camera_specific_start_is_idempotent_and_conflicts_on_new_url(self):
+        first = self.client.post(
+            "/api/cameras/gate-01/start",
+            json={"ip": "fake://one", "laneId": "lane-1"},
+        )
+        second = self.client.post(
+            "/api/cameras/gate-01/start",
+            json={"ip": "fake://one", "laneId": "lane-1"},
+        )
+        conflict = self.client.post(
+            "/api/cameras/gate-01/start",
+            json={"ip": "fake://two", "laneId": "lane-1"},
+        )
+
+        self.assertEqual(200, first.status_code)
+        self.assertFalse(first.get_json()["idempotent"])
+        self.assertEqual(200, second.status_code)
+        self.assertTrue(second.get_json()["idempotent"])
+        self.assertEqual(409, conflict.status_code)
+        self.assertEqual("CAMERA_CONFLICT", conflict.get_json()["errorCode"])
+
+    def test_camera_limit_returns_conflict(self):
+        self.client.post("/api/cameras/one/start", json={"ip": "fake://one"})
+        self.client.post("/api/cameras/two/start", json={"ip": "fake://two"})
+
+        response = self.client.post(
+            "/api/cameras/three/start",
+            json={"ip": "fake://three"},
+        )
+
+        self.assertEqual(409, response.status_code)
+        self.assertEqual("CAMERA_CONFLICT", response.get_json()["errorCode"])
 
     def test_models_endpoint_does_not_expose_encodings_or_token(self):
         response = self.client.get("/api/models")

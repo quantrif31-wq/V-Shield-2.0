@@ -27,5 +27,7 @@ RUN sed 's/^opencv-python==/opencv-python-headless==/' requirements.txt > requir
 COPY nhandienface.py ./
 COPY runtime_config.py ./
 COPY model_registry.py ./
+COPY camera_session.py ./
+COPY camera_manager.py ./
 
 EXPOSE 5001

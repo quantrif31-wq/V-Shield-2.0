@@ -98,7 +98,7 @@ Used fields:
 - Transport exceptions from the Python service become HTTP `503` and include
   the exception message.
 - Python HTTP status codes and response bodies are proxied unchanged.
-- Invalid JSON and empty bodies are still labeled `application/json`.
+- The upstream response status, raw body, and content type are preserved.
 - ASP.NET request cancellation is forwarded to the Python request and propagates
   as cancellation instead of being converted to HTTP `503`.
 
@@ -108,20 +108,19 @@ Used fields:
 `IFaceRecognitionClient`/`FaceRecognitionClient`. The client is registered with
 `AddHttpClient`, owns method/path selection, forwards cancellation tokens, and
 returns the upstream status, raw body, and content type as a
-`FaceRuntimeResponse`. The controller continues labeling proxied responses as
-`application/json` to preserve the existing public API contract, including
-invalid JSON and empty bodies.
+`FaceRuntimeResponse`. The controller preserves the upstream content type and
+falls back to `application/json` only when the runtime omits it.
 
 Backend-to-runtime route mapping:
 
 | ASP.NET route | Python Face Runtime route |
 | --- | --- |
-| `POST /api/FaceCamera/camera/on` | `POST /api/camera/on` |
-| `POST /api/FaceCamera/camera/off` | `POST /api/camera/off` |
-| `POST /api/FaceCamera/camera/reset` | `POST /api/camera/reset` |
-| `GET /api/FaceCamera/camera/status` | `GET /api/camera/status` |
-| `GET /api/FaceCamera/camera/result` | `GET /api/camera/result` |
-| `GET /api/FaceCamera/camera/locked-images` | `GET /api/camera/locked-images` |
+| `POST /api/FaceCamera/camera/on` | `POST /api/cameras/default/start` |
+| `POST /api/FaceCamera/camera/off` | `POST /api/cameras/default/stop` |
+| `POST /api/FaceCamera/camera/reset` | `POST /api/cameras/default/reset` |
+| `GET /api/FaceCamera/camera/status` | `GET /api/cameras/default/status` |
+| `GET /api/FaceCamera/camera/result` | `GET /api/cameras/default/result` |
+| `GET /api/FaceCamera/camera/locked-images` | `GET /api/cameras/default/locked-images` |
 | `GET /api/FaceCamera/models` | `GET /api/models` |
 | `POST /api/FaceCamera/models/reload` | `POST /api/models/reload` |
 
@@ -160,6 +159,7 @@ Defaults preserve the pre-configuration behavior:
 | `FACE_STREAM_WIDTH` | `640` | pixels |
 | `FACE_STREAM_HEIGHT` | `360` | pixels |
 | `FACE_JPEG_QUALITY` | `80` | OpenCV quality, 0–100 |
+| `FACE_MAX_CAMERAS` | `2` | concurrently active sessions |
 | `FACE_SERVICE_TOKEN` | unset; not enforced in Commit 2 | secret string |
 
 `PORT` (`5001`) and `HEADLESS_MODE` (`true`) are existing runtime settings
@@ -239,12 +239,12 @@ ends in `/api`. ASP.NET then forwards the same operation to Python:
 
 | Frontend service route | ASP.NET route | Python Face Runtime route |
 | --- | --- | --- |
-| `POST /FaceCamera/camera/on` | `POST /api/FaceCamera/camera/on` | `POST /api/camera/on` |
-| `POST /FaceCamera/camera/off` | `POST /api/FaceCamera/camera/off` | `POST /api/camera/off` |
-| `POST /FaceCamera/camera/reset` | `POST /api/FaceCamera/camera/reset` | `POST /api/camera/reset` |
-| `GET /FaceCamera/camera/status` | `GET /api/FaceCamera/camera/status` | `GET /api/camera/status` |
-| `GET /FaceCamera/camera/result` | `GET /api/FaceCamera/camera/result` | `GET /api/camera/result` |
-| `GET /FaceCamera/camera/locked-images` | `GET /api/FaceCamera/camera/locked-images` | `GET /api/camera/locked-images` |
+| `POST /FaceCamera/cameras/{cameraId}/start` | `POST /api/FaceCamera/cameras/{cameraId}/start` | `POST /api/cameras/{cameraId}/start` |
+| `POST /FaceCamera/cameras/{cameraId}/stop` | `POST /api/FaceCamera/cameras/{cameraId}/stop` | `POST /api/cameras/{cameraId}/stop` |
+| `POST /FaceCamera/cameras/{cameraId}/reset` | `POST /api/FaceCamera/cameras/{cameraId}/reset` | `POST /api/cameras/{cameraId}/reset` |
+| `GET /FaceCamera/cameras/{cameraId}/status` | `GET /api/FaceCamera/cameras/{cameraId}/status` | `GET /api/cameras/{cameraId}/status` |
+| `GET /FaceCamera/cameras/{cameraId}/result` | `GET /api/FaceCamera/cameras/{cameraId}/result` | `GET /api/cameras/{cameraId}/result` |
+| `GET /FaceCamera/cameras/{cameraId}/locked-images` | `GET /api/FaceCamera/cameras/{cameraId}/locked-images` | `GET /api/cameras/{cameraId}/locked-images` |
 | `GET /FaceCamera/models` | `GET /api/FaceCamera/models` | `GET /api/models` |
 | `POST /FaceCamera/models/reload` | `POST /api/FaceCamera/models/reload` | `POST /api/models/reload` |
 
@@ -261,8 +261,8 @@ Reload sends no request body and accepts no path or filename.
 
 The obsolete frontend Face Runtime base URL setting has been removed from
 frontend environment files, Docker build arguments, and Compose. Nginx no
-longer has a direct Face Runtime proxy. The runtime is still global and
-single-camera, including when the legacy two-lane component uses it.
+longer has a direct Face Runtime proxy. Face camera state is isolated per
+validated camera ID.
 `FACE_SERVICE_TOKEN` remains unenforced.
 
 ### Exposed Face Camera screen
@@ -277,8 +277,8 @@ ASP.NET remains the final authorization boundary.
 The camera source is entered by an authorized operator. It is not embedded in
 the route, hard-coded in source, or newly persisted in browser storage.
 `ThongHanh.vue` remains an unrouted legacy component while the active gate
-transit workflow remains `GateTransitMonitor.vue`; the Face Runtime is still
-single-camera.
+transit workflow remains `GateTransitMonitor.vue`; its two face lanes now use
+separate camera sessions.
 
 RTSP URLs are not assigned directly to an HTML image element because browsers
 cannot decode RTSP. The screen registers the source through the existing camera
@@ -292,7 +292,7 @@ Local integration verification confirmed:
 - an unauthenticated visit redirects to
   `/login?redirect=/monitoring/face-camera`;
 - an authorized guard can load the route;
-- the browser requested `GET /api/FaceCamera/camera/status` and
+- the browser requested `GET /api/FaceCamera/cameras/monitoring-face-camera/status` and
   `GET /api/FaceCamera/models`;
 - model metadata returned HTTP `200`, a version, 5 model files, and 665
   encodings, without vectors, tokens, or absolute model paths;
@@ -347,3 +347,56 @@ host and camera addresses are in the same configured `/8` subnet and the host
 can resolve the camera MAC address, so remaining checks are the camera app's
 LAN/server setting, Wi-Fi client isolation, device firewall, single-client
 limits, and the RTSP port/path. The UI now reports this condition accurately.
+
+## Commit 8: isolated multi-camera sessions
+
+Face Runtime now owns a thread-safe `CameraManager` containing independent
+`CameraSession` instances keyed by validated `cameraId`. Each session owns its
+stream URL and lane metadata, capture and recognition workers, stop event,
+latest frame, recognition/confirmation state, lost-face timing, cooldown,
+locked images, errors, locks, and generation token. Mutable camera state is not
+shared. A generation change on stop, reset, or restart prevents an old worker
+from publishing frames or recognition state into the new session generation.
+
+The immutable Face model registry remains shared by all sessions. Each
+recognition comparison reads exactly one complete registry snapshot. Model
+reload does not restart camera sessions, and a rejected reload leaves the
+previous snapshot active for every session.
+
+`FACE_MAX_CAMERAS` is a positive integer with default `2`. It limits
+concurrently enabled sessions; stopped sessions do not consume capacity.
+Starting the same `cameraId` with the same URL is idempotent. Starting an active
+ID with a different URL, or exceeding the limit, returns HTTP `409`. Invalid
+IDs/body return `400`; unknown GET/stop/reset operations return `404`.
+
+The camera-specific Python routes are:
+
+- `GET /api/cameras`
+- `POST /api/cameras/{cameraId}/start`
+- `POST /api/cameras/{cameraId}/stop`
+- `POST /api/cameras/{cameraId}/reset`
+- `GET /api/cameras/{cameraId}/status`
+- `GET /api/cameras/{cameraId}/result`
+- `GET /api/cameras/{cameraId}/locked-images`
+
+The ASP.NET gateway exposes the corresponding authenticated routes below
+`/api/FaceCamera/cameras`, keeps the `monitoring` operational permission, and
+uses the typed Face Runtime client. Status, body, and content type are proxied
+without parsing. Transport failure remains HTTP `503`, while caller
+cancellation still propagates.
+
+The transitional Python `/api/camera/*` and ASP.NET
+`/api/FaceCamera/camera/*` routes remain available and map to the same session
+with `cameraId=default`; there is no second legacy state store. They will be
+removed only after all consumers migrate.
+
+`FaceCamera.vue` accepts stable `cameraId` and `laneId` props and defaults to
+`monitoring-face-camera`. The legacy, currently unrouted `ThongHanh.vue` uses
+the independent IDs `lane-1-face` and `lane-2-face`. All requests continue
+through the authenticated ASP.NET client; neither component contacts Python
+directly.
+
+Session configuration and in-memory recognition state are not persisted across
+a Face Runtime restart. Physical RTSP connectivity is not accepted as passing.
+Liveness detection, enrollment, RecognitionEvent/database audit, VIP/appointment
+logic, and gate-opening integration are not part of Commit 8.

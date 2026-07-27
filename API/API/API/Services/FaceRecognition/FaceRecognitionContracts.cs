@@ -5,6 +5,8 @@ namespace API.Services.FaceRecognition;
 public sealed class FaceCameraStartRequest
 {
     public string Ip { get; init; } = string.Empty;
+
+    public string? LaneId { get; init; }
 }
 
 public sealed record FaceRuntimeResponse(

@@ -15,35 +15,96 @@ public sealed class FaceRecognitionClient : IFaceRecognitionClient
         _httpClient = httpClient;
     }
 
+    public Task<FaceRuntimeResponse> GetCamerasAsync(
+        CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Get, "cameras", null, cancellationToken);
+
     public Task<FaceRuntimeResponse> StartCameraAsync(
+        string cameraId,
         FaceCameraStartRequest request,
         CancellationToken cancellationToken) =>
         SendAsync(
             HttpMethod.Post,
-            "camera/on",
+            CameraPath(cameraId, "start"),
             JsonContent.Create(request, options: RequestJsonOptions),
             cancellationToken);
 
+    public Task<FaceRuntimeResponse> StopCameraAsync(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        SendAsync(
+            HttpMethod.Post,
+            CameraPath(cameraId, "stop"),
+            null,
+            cancellationToken);
+
+    public Task<FaceRuntimeResponse> ResetCameraAsync(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        SendAsync(
+            HttpMethod.Post,
+            CameraPath(cameraId, "reset"),
+            null,
+            cancellationToken);
+
+    public Task<FaceRuntimeResponse> GetCameraStatusAsync(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        SendAsync(
+            HttpMethod.Get,
+            CameraPath(cameraId, "status"),
+            null,
+            cancellationToken);
+
+    public Task<FaceRuntimeResponse> GetRecognitionResultAsync(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        SendAsync(
+            HttpMethod.Get,
+            CameraPath(cameraId, "result"),
+            null,
+            cancellationToken);
+
+    public Task<FaceRuntimeResponse> GetLockedImagesAsync(
+        string cameraId,
+        CancellationToken cancellationToken) =>
+        SendAsync(
+            HttpMethod.Get,
+            CameraPath(cameraId, "locked-images"),
+            null,
+            cancellationToken);
+
+    public Task<FaceRuntimeResponse> StartCameraAsync(
+        FaceCameraStartRequest request,
+        CancellationToken cancellationToken) =>
+        StartCameraAsync("default", request, cancellationToken);
+
     public Task<FaceRuntimeResponse> StopCameraAsync(CancellationToken cancellationToken) =>
-        SendAsync(HttpMethod.Post, "camera/off", null, cancellationToken);
+        StopCameraAsync("default", cancellationToken);
 
     public Task<FaceRuntimeResponse> ResetCameraAsync(CancellationToken cancellationToken) =>
-        SendAsync(HttpMethod.Post, "camera/reset", null, cancellationToken);
+        ResetCameraAsync("default", cancellationToken);
 
     public Task<FaceRuntimeResponse> GetCameraStatusAsync(CancellationToken cancellationToken) =>
-        SendAsync(HttpMethod.Get, "camera/status", null, cancellationToken);
+        GetCameraStatusAsync("default", cancellationToken);
 
     public Task<FaceRuntimeResponse> GetRecognitionResultAsync(CancellationToken cancellationToken) =>
-        SendAsync(HttpMethod.Get, "camera/result", null, cancellationToken);
+        GetRecognitionResultAsync("default", cancellationToken);
 
     public Task<FaceRuntimeResponse> GetLockedImagesAsync(CancellationToken cancellationToken) =>
-        SendAsync(HttpMethod.Get, "camera/locked-images", null, cancellationToken);
+        GetLockedImagesAsync("default", cancellationToken);
 
     public Task<FaceRuntimeResponse> GetModelsAsync(CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Get, "models", null, cancellationToken);
 
     public Task<FaceRuntimeResponse> ReloadModelsAsync(CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Post, "models/reload", null, cancellationToken);
+
+    private static string CameraPath(string cameraId, string operation)
+    {
+        var validCameraId = FaceCameraIdValidator.Validate(cameraId);
+        return $"cameras/{Uri.EscapeDataString(validCameraId)}/{operation}";
+    }
 
     private async Task<FaceRuntimeResponse> SendAsync(
         HttpMethod method,

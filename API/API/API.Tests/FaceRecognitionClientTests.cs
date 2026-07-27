@@ -10,10 +10,10 @@ namespace API.Tests;
 public sealed class FaceRecognitionClientTests
 {
     [Theory]
-    [InlineData("http://face-runtime:5001", "http://face-runtime:5001/api/camera/status")]
-    [InlineData("http://face-runtime:5001/", "http://face-runtime:5001/api/camera/status")]
-    [InlineData("http://face-runtime:5001/api", "http://face-runtime:5001/api/camera/status")]
-    [InlineData("http://face-runtime:5001/api/", "http://face-runtime:5001/api/camera/status")]
+    [InlineData("http://face-runtime:5001", "http://face-runtime:5001/api/cameras/default/status")]
+    [InlineData("http://face-runtime:5001/", "http://face-runtime:5001/api/cameras/default/status")]
+    [InlineData("http://face-runtime:5001/api", "http://face-runtime:5001/api/cameras/default/status")]
+    [InlineData("http://face-runtime:5001/api/", "http://face-runtime:5001/api/cameras/default/status")]
     public async Task BaseUrlVariants_CreateTheSameRequest(string configuredUrl, string expectedUrl)
     {
         var handler = RecordingHandler.Returning(HttpStatusCode.OK, "{}");
@@ -37,14 +37,14 @@ public sealed class FaceRecognitionClientTests
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal("http://face.test/api/camera/on", request.Uri);
+        Assert.Equal("http://face.test/api/cameras/default/start", request.Uri);
         using var json = JsonDocument.Parse(Assert.IsType<string>(request.Body));
         Assert.Equal(cameraUrl, json.RootElement.GetProperty("ip").GetString());
     }
 
     [Theory]
-    [InlineData("off", "http://face.test/api/camera/off")]
-    [InlineData("reset", "http://face.test/api/camera/reset")]
+    [InlineData("off", "http://face.test/api/cameras/default/stop")]
+    [InlineData("reset", "http://face.test/api/cameras/default/reset")]
     public async Task CameraPostWithoutBody_UsesExpectedPath(string operation, string expectedUrl)
     {
         var handler = RecordingHandler.Returning(HttpStatusCode.OK, "{}");
@@ -66,9 +66,9 @@ public sealed class FaceRecognitionClientTests
     }
 
     [Theory]
-    [InlineData("status", "http://face.test/api/camera/status")]
-    [InlineData("result", "http://face.test/api/camera/result")]
-    [InlineData("locked", "http://face.test/api/camera/locked-images")]
+    [InlineData("status", "http://face.test/api/cameras/default/status")]
+    [InlineData("result", "http://face.test/api/cameras/default/result")]
+    [InlineData("locked", "http://face.test/api/cameras/default/locked-images")]
     [InlineData("models", "http://face.test/api/models")]
     public async Task GetOperations_UseExpectedPath(string operation, string expectedUrl)
     {
@@ -100,6 +100,83 @@ public sealed class FaceRecognitionClientTests
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal("http://face.test/api/models/reload", request.Uri);
         Assert.Null(request.Body);
+    }
+
+    [Fact]
+    public async Task CameraSpecificOperations_UseExpectedPathsAndBody()
+    {
+        var handler = RecordingHandler.Returning(HttpStatusCode.OK, "{}");
+        var client = CreateClient(handler);
+        var request = new FaceCameraStartRequest
+        {
+            Ip = "rtsp://camera.test/live",
+            LaneId = "lane-01"
+        };
+
+        await client.GetCamerasAsync(CancellationToken.None);
+        await client.StartCameraAsync("gate-01.face_A", request, CancellationToken.None);
+        await client.StopCameraAsync("gate-01.face_A", CancellationToken.None);
+        await client.ResetCameraAsync("gate-01.face_A", CancellationToken.None);
+        await client.GetCameraStatusAsync("gate-01.face_A", CancellationToken.None);
+        await client.GetRecognitionResultAsync("gate-01.face_A", CancellationToken.None);
+        await client.GetLockedImagesAsync("gate-01.face_A", CancellationToken.None);
+
+        Assert.Collection(
+            handler.Requests,
+            item => Assert.Equal("http://face.test/api/cameras", item.Uri),
+            item =>
+            {
+                Assert.Equal(HttpMethod.Post, item.Method);
+                Assert.Equal(
+                    "http://face.test/api/cameras/gate-01.face_A/start",
+                    item.Uri);
+                using var json = JsonDocument.Parse(Assert.IsType<string>(item.Body));
+                Assert.Equal("rtsp://camera.test/live", json.RootElement.GetProperty("ip").GetString());
+                Assert.Equal("lane-01", json.RootElement.GetProperty("laneId").GetString());
+            },
+            item => Assert.EndsWith("/cameras/gate-01.face_A/stop", item.Uri),
+            item => Assert.EndsWith("/cameras/gate-01.face_A/reset", item.Uri),
+            item => Assert.EndsWith("/cameras/gate-01.face_A/status", item.Uri),
+            item => Assert.EndsWith("/cameras/gate-01.face_A/result", item.Uri),
+            item => Assert.EndsWith("/cameras/gate-01.face_A/locked-images", item.Uri));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("../gate")]
+    [InlineData("gate/one")]
+    [InlineData("gate one")]
+    [InlineData("a..b")]
+    public async Task InvalidCameraId_IsRejectedBeforeSending(string cameraId)
+    {
+        var handler = RecordingHandler.Returning(HttpStatusCode.OK, "{}");
+        var client = CreateClient(handler);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => client.GetCameraStatusAsync(cameraId, CancellationToken.None));
+
+        Assert.Empty(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Conflict)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task CameraSpecificStatusAndBody_AreReturnedUnchanged(
+        HttpStatusCode status)
+    {
+        const string body = """{"success":false,"cameraId":"gate-01"}""";
+        var handler = RecordingHandler.Returning(status, body);
+        var client = CreateClient(handler);
+
+        var response = await client.GetCameraStatusAsync(
+            "gate-01",
+            CancellationToken.None);
+
+        Assert.Equal(status, response.StatusCode);
+        Assert.Equal(body, response.Body);
     }
 
     [Theory]

@@ -164,9 +164,9 @@
 
 <script>
 import {
-  turnOnCamera,
-  turnOffCamera,
-  resetCameraState,
+  startCamera,
+  stopCamera,
+  resetCamera,
   getCameraStatus,
   getCameraResult,
   getLockedImages,
@@ -178,6 +178,17 @@ import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
 
 export default {
   name: "FaceIdSecurity",
+
+  props: {
+    cameraId: {
+      type: String,
+      default: "monitoring-face-camera"
+    },
+    laneId: {
+      type: String,
+      default: null
+    }
+  },
 
   data() {
     return {
@@ -429,7 +440,7 @@ export default {
 
     async loadCurrentStatus() {
       try {
-        const res = await getCameraStatus()
+        const res = await getCameraStatus(this.cameraId)
         this.clearFaceServiceError()
         await this.applyRealtimeState(res, false)
 
@@ -523,7 +534,7 @@ export default {
         if (!this.cameraRunning) {
           this.stopResultLoop()
 
-          const res = await turnOnCamera(ip)
+          const res = await startCamera(this.cameraId, ip, this.laneId)
           this.clearFaceServiceError()
           if (!res?.success) {
             alert(res?.message || "Không thể khởi tạo phiên nhận diện")
@@ -539,7 +550,7 @@ export default {
           return
         }
 
-        const res = await resetCameraState()
+        const res = await resetCamera(this.cameraId)
         this.clearFaceServiceError()
         this.message = res?.message || "Đã reset phiên nhận diện"
 
@@ -562,7 +573,7 @@ export default {
         this.stopResultLoop()
 
         try {
-          const res = await turnOffCamera()
+          const res = await stopCamera(this.cameraId)
           this.clearFaceServiceError()
           this.message = res?.message || "Đã tắt camera"
         } catch (e) {
@@ -580,7 +591,7 @@ export default {
 
     async refreshResult() {
       try {
-        const res = await getCameraResult()
+        const res = await getCameraResult(this.cameraId)
         this.clearFaceServiceError()
         await this.applyRealtimeState(res, true)
       } catch (e) {
@@ -600,7 +611,7 @@ export default {
 
       this.isFetchingLockedImages = true
       try {
-        const res = await getLockedImages()
+        const res = await getLockedImages(this.cameraId)
         this.clearFaceServiceError()
 
         if (res?.scan_locked) {

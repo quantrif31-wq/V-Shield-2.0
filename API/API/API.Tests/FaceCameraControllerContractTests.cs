@@ -20,8 +20,8 @@ namespace API.Tests;
 public sealed class FaceCameraControllerContractTests
 {
     [Theory]
-    [InlineData("camera/off")]
-    [InlineData("camera/reset")]
+    [InlineData("cameras/default/stop")]
+    [InlineData("cameras/default/reset")]
     public async Task PostWithoutBody_ForwardsStatusAndPayload(string action)
     {
         var client = StubClient.Returning(
@@ -31,7 +31,7 @@ public sealed class FaceCameraControllerContractTests
                 "application/json"));
         var controller = CreateController(client);
 
-        var result = action == "camera/off"
+        var result = action.EndsWith("/stop", StringComparison.Ordinal)
             ? await controller.TurnOffCamera(CancellationToken.None)
             : await controller.ResetCameraState(CancellationToken.None);
 
@@ -43,9 +43,9 @@ public sealed class FaceCameraControllerContractTests
     }
 
     [Theory]
-    [InlineData("status", "camera/status")]
-    [InlineData("result", "camera/result")]
-    [InlineData("locked-images", "camera/locked-images")]
+    [InlineData("status", "cameras/default/status")]
+    [InlineData("result", "cameras/default/result")]
+    [InlineData("locked-images", "cameras/default/locked-images")]
     public async Task Get_ForwardsStatusAndPayload(string action, string expectedOperation)
     {
         var client = StubClient.Returning(
@@ -82,7 +82,7 @@ public sealed class FaceCameraControllerContractTests
 
         Assert.IsType<ContentResult>(result);
         Assert.Equal(cameraUrl, client.StartRequest?.Ip);
-        Assert.Equal("camera/on", Assert.Single(client.Operations));
+        Assert.Equal("cameras/default/start", Assert.Single(client.Operations));
     }
 
     [Theory]
@@ -102,7 +102,7 @@ public sealed class FaceCameraControllerContractTests
         var content = Assert.IsType<ContentResult>(result);
         Assert.Equal((int)pythonStatus, content.StatusCode);
         Assert.Equal(pythonPayload, content.Content);
-        Assert.Equal("application/json", content.ContentType);
+        Assert.Equal("text/plain", content.ContentType);
     }
 
     [Theory]
@@ -253,6 +253,70 @@ public sealed class FaceCameraControllerContractTests
         Assert.Empty(client.Operations);
     }
 
+    [Fact]
+    public async Task CameraSpecificController_ForwardsIdLaneAndRawConflict()
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(
+                HttpStatusCode.Conflict,
+                """{"success":false,"errorCode":"CAMERA_CONFLICT"}""",
+                "application/problem+json"));
+        var controller = CreateController(client);
+        var request = new FaceCameraStartRequest
+        {
+            Ip = "rtsp://camera.test/live",
+            LaneId = "lane-01"
+        };
+
+        var result = await controller.StartCamera(
+            "gate-01",
+            request,
+            CancellationToken.None);
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal((int)HttpStatusCode.Conflict, content.StatusCode);
+        Assert.Equal("application/problem+json", content.ContentType);
+        Assert.Equal("lane-01", client.StartRequest?.LaneId);
+        Assert.Equal("cameras/gate-01/start", Assert.Single(client.Operations));
+    }
+
+    [Theory]
+    [InlineData("../camera")]
+    [InlineData("camera id")]
+    [InlineData("a..b")]
+    public async Task InvalidCameraId_Returns400WithoutRuntimeCall(string cameraId)
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, "{}", "application/json"));
+        var controller = CreateController(client);
+
+        var result = await controller.GetCameraStatus(
+            cameraId,
+            CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Empty(client.Operations);
+    }
+
+    [Fact]
+    public async Task CameraSpecificTransportFailure_Returns503()
+    {
+        var client = StubClient.Throwing(
+            new FaceRuntimeUnavailableException(
+                FaceRuntimeFailureKind.ConnectionFailure,
+                "runtime unavailable",
+                new HttpRequestException("runtime unavailable")));
+        var controller = CreateController(client);
+
+        var result = await controller.GetCameraStatus(
+            "gate-01",
+            CancellationToken.None);
+
+        var unavailable = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, unavailable.StatusCode);
+        Assert.Equal("cameras/gate-01/status", Assert.Single(client.Operations));
+    }
+
     private static FaceCameraController CreateController(StubClient client) =>
         new(client)
         {
@@ -288,23 +352,61 @@ public sealed class FaceCameraControllerContractTests
             CancellationToken cancellationToken)
         {
             StartRequest = request;
-            return Complete("camera/on", cancellationToken);
+            return StartCameraAsync("default", request, cancellationToken);
         }
 
         public Task<FaceRuntimeResponse> StopCameraAsync(CancellationToken cancellationToken) =>
-            Complete("camera/off", cancellationToken);
+            StopCameraAsync("default", cancellationToken);
 
         public Task<FaceRuntimeResponse> ResetCameraAsync(CancellationToken cancellationToken) =>
-            Complete("camera/reset", cancellationToken);
+            ResetCameraAsync("default", cancellationToken);
 
         public Task<FaceRuntimeResponse> GetCameraStatusAsync(CancellationToken cancellationToken) =>
-            Complete("camera/status", cancellationToken);
+            GetCameraStatusAsync("default", cancellationToken);
 
         public Task<FaceRuntimeResponse> GetRecognitionResultAsync(CancellationToken cancellationToken) =>
-            Complete("camera/result", cancellationToken);
+            GetRecognitionResultAsync("default", cancellationToken);
 
         public Task<FaceRuntimeResponse> GetLockedImagesAsync(CancellationToken cancellationToken) =>
-            Complete("camera/locked-images", cancellationToken);
+            GetLockedImagesAsync("default", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetCamerasAsync(
+            CancellationToken cancellationToken) =>
+            Complete("cameras", cancellationToken);
+
+        public Task<FaceRuntimeResponse> StartCameraAsync(
+            string cameraId,
+            FaceCameraStartRequest request,
+            CancellationToken cancellationToken)
+        {
+            StartRequest = request;
+            return Complete($"cameras/{cameraId}/start", cancellationToken);
+        }
+
+        public Task<FaceRuntimeResponse> StopCameraAsync(
+            string cameraId,
+            CancellationToken cancellationToken) =>
+            Complete($"cameras/{cameraId}/stop", cancellationToken);
+
+        public Task<FaceRuntimeResponse> ResetCameraAsync(
+            string cameraId,
+            CancellationToken cancellationToken) =>
+            Complete($"cameras/{cameraId}/reset", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetCameraStatusAsync(
+            string cameraId,
+            CancellationToken cancellationToken) =>
+            Complete($"cameras/{cameraId}/status", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetRecognitionResultAsync(
+            string cameraId,
+            CancellationToken cancellationToken) =>
+            Complete($"cameras/{cameraId}/result", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetLockedImagesAsync(
+            string cameraId,
+            CancellationToken cancellationToken) =>
+            Complete($"cameras/{cameraId}/locked-images", cancellationToken);
 
         public Task<FaceRuntimeResponse> GetModelsAsync(CancellationToken cancellationToken) =>
             Complete("models", cancellationToken);
@@ -355,6 +457,8 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
 
     [Theory]
     [InlineData("/api/FaceCamera/camera/status")]
+    [InlineData("/api/FaceCamera/cameras")]
+    [InlineData("/api/FaceCamera/cameras/gate-01/status")]
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
     [InlineData("/api/FaceCamera/discover-ipwebcam")]
@@ -371,6 +475,8 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
 
     [Theory]
     [InlineData("/api/FaceCamera/camera/status")]
+    [InlineData("/api/FaceCamera/cameras")]
+    [InlineData("/api/FaceCamera/cameras/gate-01/status")]
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
     [InlineData("/api/FaceCamera/discover-ipwebcam")]
@@ -389,6 +495,8 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
 
     [Theory]
     [InlineData("/api/FaceCamera/camera/status")]
+    [InlineData("/api/FaceCamera/cameras")]
+    [InlineData("/api/FaceCamera/cameras/gate-01/status")]
     [InlineData("/api/FaceCamera/models")]
     [InlineData("/api/FaceCamera/models/reload")]
     public async Task AdminWithMonitoringPermission_CanCallProxy(string path)

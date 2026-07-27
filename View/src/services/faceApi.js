@@ -15,6 +15,21 @@ export const FACE_API_ERROR_CODES = Object.freeze({
 })
 
 const FACE_CAMERA_BASE_PATH = "/FaceCamera"
+const FACE_CAMERAS_PATH = "/FaceCamera/cameras"
+const CAMERA_ID_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/
+
+function encodeCameraId(cameraId) {
+  const value = String(cameraId || "")
+  if (!CAMERA_ID_PATTERN.test(value) || value.includes("..")) {
+    throw normalizeFaceApiError({
+      response: {
+        status: 400,
+        data: { message: "cameraId khÃ´ng há»£p lá»‡." }
+      }
+    })
+  }
+  return encodeURIComponent(value)
+}
 
 const safeResponseMessage = (error) => {
   const message = error?.response?.data?.message
@@ -86,45 +101,68 @@ async function faceRequest(config) {
 }
 
 export function turnOnCamera(ip) {
-  return faceRequest({
-    method: "post",
-    url: `${FACE_CAMERA_BASE_PATH}/camera/on`,
-    data: { ip }
-  })
+  return startCamera("default", ip)
 }
 
 export function turnOffCamera() {
-  return faceRequest({
-    method: "post",
-    url: `${FACE_CAMERA_BASE_PATH}/camera/off`
-  })
+  return stopCamera("default")
 }
 
 export function resetCameraState() {
+  return resetCamera("default")
+}
+
+export function getCameras() {
+  return faceRequest({
+    method: "get",
+    url: FACE_CAMERAS_PATH
+  })
+}
+
+export function startCamera(cameraId, ip, laneId = null) {
+  const data = { ip }
+  if (laneId !== null && laneId !== undefined) {
+    data.laneId = laneId
+  }
   return faceRequest({
     method: "post",
-    url: `${FACE_CAMERA_BASE_PATH}/camera/reset`
+    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/start`,
+    data
   })
 }
 
-export function getCameraStatus() {
+export function stopCamera(cameraId) {
   return faceRequest({
-    method: "get",
-    url: `${FACE_CAMERA_BASE_PATH}/camera/status`
+    method: "post",
+    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/stop`
   })
 }
 
-export function getCameraResult() {
+export function resetCamera(cameraId) {
   return faceRequest({
-    method: "get",
-    url: `${FACE_CAMERA_BASE_PATH}/camera/result`
+    method: "post",
+    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/reset`
   })
 }
 
-export function getLockedImages() {
+export function getCameraStatus(cameraId = "default") {
   return faceRequest({
     method: "get",
-    url: `${FACE_CAMERA_BASE_PATH}/camera/locked-images`
+    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/status`
+  })
+}
+
+export function getCameraResult(cameraId = "default") {
+  return faceRequest({
+    method: "get",
+    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/result`
+  })
+}
+
+export function getLockedImages(cameraId = "default") {
+  return faceRequest({
+    method: "get",
+    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/locked-images`
   })
 }
 

@@ -22,6 +22,7 @@ DEFAULT_STREAM_HEIGHT = 360
 DEFAULT_JPEG_QUALITY = 80
 DEFAULT_API_PORT = 5001
 DEFAULT_HEADLESS_MODE = True
+DEFAULT_MAX_CAMERAS = 2
 
 
 class FaceRuntimeConfigError(ValueError):
@@ -141,6 +142,7 @@ class FaceRuntimeConfig:
     stream_width: int
     stream_height: int
     jpeg_quality: int
+    max_cameras: int = DEFAULT_MAX_CAMERAS
     service_token: str | None = field(default=None, repr=False)
     api_port: int = DEFAULT_API_PORT
     headless_mode: bool = DEFAULT_HEADLESS_MODE
@@ -208,6 +210,9 @@ class FaceRuntimeConfig:
                 DEFAULT_JPEG_QUALITY,
                 minimum=0,
                 maximum=100,
+            ),
+            max_cameras=_parse_int(
+                source, "FACE_MAX_CAMERAS", DEFAULT_MAX_CAMERAS, minimum=1
             ),
             service_token=token if token else None,
             api_port=_parse_int(source, "PORT", DEFAULT_API_PORT, minimum=1, maximum=65535),

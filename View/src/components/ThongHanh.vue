@@ -336,10 +336,11 @@ export default {
       lanes: [
         {
           id: "lane1",
+          laneId: "lane-1",
+          faceCameraId: "lane-1-face",
           name: "Làn 1",
           desc: "Face trên / Biển dưới",
           loading: false,
-          // Face Runtime remains global/single-camera; both lanes intentionally share it.
           faceApi,
           plateApi: plateLane1Api,
           face: createFaceModule(),
@@ -347,6 +348,8 @@ export default {
         },
         {
           id: "lane2",
+          laneId: "lane-2",
+          faceCameraId: "lane-2-face",
           name: "Làn 2",
           desc: "Face trên / Biển dưới",
           loading: false,
@@ -623,7 +626,7 @@ export default {
 
     async loadStatusFace(lane) {
       try {
-        const res = await lane.faceApi.getCameraStatus()
+        const res = await lane.faceApi.getCameraStatus(lane.faceCameraId)
         this.clearLaneFaceError(lane)
         await this.applyFaceRealtimeState(lane, res, false)
 
@@ -652,7 +655,7 @@ export default {
 
     async refreshFace(lane) {
       try {
-        const res = await lane.faceApi.getCameraResult()
+        const res = await lane.faceApi.getCameraResult(lane.faceCameraId)
         this.clearLaneFaceError(lane)
         await this.applyFaceRealtimeState(lane, res, true)
       } catch (e) {
@@ -682,7 +685,7 @@ export default {
 
       face.isFetchingLockedImages = true
       try {
-        const res = await lane.faceApi.getLockedImages()
+        const res = await lane.faceApi.getLockedImages(lane.faceCameraId)
         this.clearLaneFaceError(lane)
         if (res?.scan_locked) {
           face.lockedSnapshot = res.locked_snapshot || ""
@@ -902,7 +905,11 @@ export default {
 
         if (!lane.face.cameraRunning) {
           this.stopFaceLoop(lane)
-          const resFace = await lane.faceApi.turnOnCamera(lane.face.currentIp)
+          const resFace = await lane.faceApi.startCamera(
+            lane.faceCameraId,
+            lane.face.currentIp,
+            lane.laneId
+          )
           this.clearLaneFaceError(lane)
           if (!resFace?.success) {
             alert(resFace?.message || "Không thể khởi tạo Face")
@@ -911,7 +918,7 @@ export default {
           lane.face.cameraRunning = true
           lane.face.message = resFace.message || "Khởi tạo Face thành công"
         } else {
-          const resFace = await lane.faceApi.resetCameraState()
+          const resFace = await lane.faceApi.resetCamera(lane.faceCameraId)
           this.clearLaneFaceError(lane)
           lane.face.message = resFace?.message || "Đã reset Face"
         }
@@ -978,7 +985,11 @@ export default {
 
         if (!lane.face.cameraRunning) {
           this.stopFaceLoop(lane)
-          const res = await lane.faceApi.turnOnCamera(lane.face.currentIp)
+          const res = await lane.faceApi.startCamera(
+            lane.faceCameraId,
+            lane.face.currentIp,
+            lane.laneId
+          )
           this.clearLaneFaceError(lane)
           if (!res?.success) {
             alert(res?.message || "Không thể khởi tạo Face")
@@ -987,7 +998,7 @@ export default {
           lane.face.cameraRunning = true
           lane.face.message = res.message || "Khởi tạo Face thành công"
         } else {
-          const res = await lane.faceApi.resetCameraState()
+          const res = await lane.faceApi.resetCamera(lane.faceCameraId)
           this.clearLaneFaceError(lane)
           lane.face.message = res?.message || "Đã reset Face"
         }
@@ -1062,7 +1073,7 @@ export default {
         this.stopPlateLoop(lane)
 
         try {
-          const resFace = await lane.faceApi.turnOffCamera()
+          const resFace = await lane.faceApi.stopCamera(lane.faceCameraId)
           this.clearLaneFaceError(lane)
           lane.face.message = resFace?.message || "Đã tắt Face"
         } catch (e) {
