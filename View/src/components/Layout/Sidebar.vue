@@ -354,6 +354,15 @@ const navGroups = ref([
                 taskKey: 'monitoring',
             },
             {
+                path: '/monitoring/face-camera',
+                label: 'Nhận diện khuôn mặt',
+                hint: 'Face ID qua API xác thực',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3"/><path d="M5 21v-2a7 7 0 0114 0v2"/><path d="M3 5V3h2"/><path d="M19 3h2v2"/><path d="M3 19v2h2"/><path d="M21 19v2h-2"/></svg>',
+                badge: 'Face ID',
+                roles: ['Admin', 'BaoVe'],
+                taskKey: 'monitoring',
+            },
+            {
                 path: '/camera-archive/0',
                 label: 'Lưu trữ camera',
                 hint: 'Xem lại bản ghi hình cũ',

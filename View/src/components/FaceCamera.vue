@@ -26,12 +26,26 @@
       <button class="btn btn-off" @click="handleTurnOff" :disabled="loading">
         {{ loading ? "Đang xử lý..." : "Tắt camera" }}
       </button>
+
+      <button class="btn btn-models" @click="handleCheckModels" :disabled="loading">
+        {{ loading ? "Đang xử lý..." : "Kiểm tra model" }}
+      </button>
+    </div>
+
+    <div v-if="faceServiceError" class="service-error" role="status">
+      {{ faceServiceError.message }}
+    </div>
+
+    <div v-if="modelInfo" class="model-status">
+      <span><b>Model version:</b> {{ modelInfo.version }}</span>
+      <span><b>Số model:</b> {{ modelInfo.modelCount }}</span>
+      <span><b>Số encoding:</b> {{ modelInfo.encodingCount }}</span>
     </div>
 
     <div class="status-bar">
       <span><b>Camera:</b> {{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
       <span><b>Kết nối:</b> {{ cameraConnected ? "Đã kết nối" : "Chưa kết nối" }}</span>
-      <span><b>Preview:</b> {{ previewRunning ? "Đang mở" : "Đang tắt" }}</span>
+      <span><b>Preview:</b> {{ previewRunning ? (previewHealthy ? "Đang hiển thị" : "Đang kết nối") : "Đang tắt" }}</span>
       <span><b>Input URL:</b> {{ currentIp || cameraIp || "-----" }}</span>
       <span><b>FPS:</b> {{ fps }}</span>
       <span><b>Tracking:</b> {{ trackingActive ? "Đang theo dõi" : "Idle" }}</span>
@@ -45,7 +59,7 @@
         :key="directCameraKey"
         :src="directCameraUrl"
         class="video"
-        alt="Direct Camera Preview"
+        alt="Camera Preview"
         @load="handleDirectPreviewLoaded"
         @error="handleDirectPreviewError"
       />
@@ -155,7 +169,10 @@ import {
   resetCameraState,
   getCameraStatus,
   getCameraResult,
-  getLockedImages
+  getLockedImages,
+  getModels,
+  normalizeFaceApiError,
+  shouldStopFacePolling
 } from "../services/faceApi"
 import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
 
@@ -189,10 +206,15 @@ export default {
       fps: 0,
       message: "",
       lastUpdate: "",
+      faceServiceError: null,
+      modelInfo: null,
 
       directCameraUrl: "",
+      directCameraSourceUrl: "",
       directCameraKey: 0,
       previewHealthy: false,
+      previewRetryCount: 0,
+      previewRetryTimer: null,
 
       resultTimer: null,
       busyResult: false,
@@ -274,6 +296,31 @@ export default {
       return `${raw}${sep}t=${Date.now()}`
     },
 
+    mountRegisteredPreview(camera, sourceUrl) {
+      const previewUrl = String(camera?.urlView || "").trim()
+      const directWebUrl = /^https?:\/\//i.test(sourceUrl || "") ? String(sourceUrl).trim() : ""
+      let browserUrl = previewUrl || directWebUrl
+
+      if (previewUrl) {
+        try {
+          const parsed = new URL(previewUrl, window.location.origin)
+          const streamName = parsed.searchParams.get("src")
+          if (streamName && parsed.pathname.endsWith("/stream.html")) {
+            const basePath = parsed.pathname.slice(0, -"/stream.html".length)
+            browserUrl = `${parsed.origin}${basePath}/api/stream.mjpeg?src=${encodeURIComponent(streamName)}`
+          }
+        } catch {
+          browserUrl = previewUrl
+        }
+      }
+
+      if (!browserUrl) {
+        throw new Error("Camera chưa có URL preview cho trình duyệt. Vui lòng kiểm tra go2rtc.")
+      }
+
+      this.mountDirectPreview(browserUrl)
+    },
+
     clearResultStateOnly() {
       this.employeeId = ""
       this.trackingActive = false
@@ -306,16 +353,28 @@ export default {
       const cleanUrl = String(url || "").trim()
       if (!cleanUrl) return
 
+      if (this.previewRetryTimer) {
+        clearTimeout(this.previewRetryTimer)
+        this.previewRetryTimer = null
+      }
+      this.directCameraSourceUrl = cleanUrl
       this.directCameraUrl = this.buildDirectCameraUrl(cleanUrl)
       this.directCameraKey += 1
       this.previewHealthy = false
+      this.previewRetryCount = 0
       this.previewRunning = true
     },
 
     resetDirectPreview() {
+      if (this.previewRetryTimer) {
+        clearTimeout(this.previewRetryTimer)
+        this.previewRetryTimer = null
+      }
       this.directCameraUrl = ""
+      this.directCameraSourceUrl = ""
       this.directCameraKey += 1
       this.previewHealthy = false
+      this.previewRetryCount = 0
       this.previewRunning = false
     },
 
@@ -325,6 +384,30 @@ export default {
         this.resultTimer = null
       }
       this.busyResult = false
+    },
+
+    clearFaceServiceError() {
+      this.faceServiceError = null
+    },
+
+    handleFaceServiceError(error, { polling = false } = {}) {
+      const normalized = normalizeFaceApiError(error)
+      if (normalized.cancelled || this.destroyed) return
+
+      const isNewError = this.faceServiceError?.code !== normalized.code
+      this.faceServiceError = {
+        code: normalized.code,
+        message: normalized.message
+      }
+      this.cameraConnected = false
+
+      if (shouldStopFacePolling(normalized)) {
+        this.stopResultLoop()
+      }
+
+      if (!polling && isNewError) {
+        alert(normalized.message)
+      }
     },
 
     startResultLoop() {
@@ -347,6 +430,7 @@ export default {
     async loadCurrentStatus() {
       try {
         const res = await getCameraStatus()
+        this.clearFaceServiceError()
         await this.applyRealtimeState(res, false)
 
         if (this.currentIp) {
@@ -354,7 +438,12 @@ export default {
         }
 
         if (this.currentIp) {
-          this.mountDirectPreview(this.currentIp)
+          const camera = await ensureCameraRegistered({
+            cameraName: "Face Monitor Camera",
+            cameraType: "Face",
+            streamUrl: this.currentIp,
+          })
+          this.mountRegisteredPreview(camera, this.currentIp)
         } else {
           this.resetDirectPreview()
         }
@@ -363,7 +452,24 @@ export default {
           await this.fetchLockedImagesIfNeeded(true)
         }
       } catch (e) {
-        console.error("Load status error:", e)
+        this.handleFaceServiceError(e, { polling: true })
+      }
+    },
+
+    async handleCheckModels() {
+      try {
+        this.loading = true
+        const res = await getModels()
+        this.clearFaceServiceError()
+        this.modelInfo = {
+          version: res?.version ?? "-----",
+          modelCount: Number(res?.successfulFileCount ?? res?.models?.length ?? 0),
+          encodingCount: Number(res?.encodingCount ?? 0)
+        }
+      } catch (e) {
+        this.handleFaceServiceError(e)
+      } finally {
+        this.loading = false
       }
     },
 
@@ -376,14 +482,14 @@ export default {
 
       try {
         this.loading = true
-        await ensureCameraRegistered({
+        const camera = await ensureCameraRegistered({
           cameraName: "Face Monitor Camera",
           cameraType: "Face",
           streamUrl: ip,
         })
         this.currentIp = ip
-        this.mountDirectPreview(ip)
-        this.message = "Đã mở preview camera trên giao diện"
+        this.mountRegisteredPreview(camera, ip)
+        this.message = "Đã mở preview camera qua go2rtc"
       } catch (e) {
         console.error("Turn on preview error:", e)
         alert(e?.message || "Lỗi mở preview camera")
@@ -401,7 +507,7 @@ export default {
 
       try {
         this.loading = true
-        await ensureCameraRegistered({
+        const camera = await ensureCameraRegistered({
           cameraName: "Face Monitor Camera",
           cameraType: "Face",
           streamUrl: ip,
@@ -409,7 +515,7 @@ export default {
 
         this.currentIp = ip
         if (!this.previewRunning) {
-          this.mountDirectPreview(ip)
+          this.mountRegisteredPreview(camera, ip)
         }
 
         this.clearResultStateOnly()
@@ -418,6 +524,7 @@ export default {
           this.stopResultLoop()
 
           const res = await turnOnCamera(ip)
+          this.clearFaceServiceError()
           if (!res?.success) {
             alert(res?.message || "Không thể khởi tạo phiên nhận diện")
             return
@@ -433,6 +540,7 @@ export default {
         }
 
         const res = await resetCameraState()
+        this.clearFaceServiceError()
         this.message = res?.message || "Đã reset phiên nhận diện"
 
         await this.refreshResult()
@@ -441,8 +549,7 @@ export default {
           this.startResultLoop()
         }
       } catch (e) {
-        console.error("Init/Reset session error:", e)
-        alert(e?.message || "Lỗi khởi tạo / reset phiên nhận diện")
+        this.handleFaceServiceError(e)
       } finally {
         this.loading = false
       }
@@ -456,16 +563,16 @@ export default {
 
         try {
           const res = await turnOffCamera()
+          this.clearFaceServiceError()
           this.message = res?.message || "Đã tắt camera"
         } catch (e) {
-          console.warn("Turn off warning:", e)
+          this.handleFaceServiceError(e)
         }
 
         this.hardResetUiState()
         this.resetDirectPreview()
       } catch (e) {
-        console.error("Turn off error:", e)
-        alert(e?.message || "Lỗi tắt camera")
+        this.handleFaceServiceError(e)
       } finally {
         this.loading = false
       }
@@ -474,9 +581,10 @@ export default {
     async refreshResult() {
       try {
         const res = await getCameraResult()
+        this.clearFaceServiceError()
         await this.applyRealtimeState(res, true)
       } catch (e) {
-        console.warn("Result polling error:", e)
+        this.handleFaceServiceError(e, { polling: true })
       }
     },
 
@@ -493,6 +601,7 @@ export default {
       this.isFetchingLockedImages = true
       try {
         const res = await getLockedImages()
+        this.clearFaceServiceError()
 
         if (res?.scan_locked) {
           this.lockedSnapshot = res.locked_snapshot || ""
@@ -502,7 +611,7 @@ export default {
           this.lockedFaceCrop = ""
         }
       } catch (e) {
-        console.warn("Fetch locked images error:", e)
+        this.handleFaceServiceError(e, { polling: true })
       } finally {
         this.isFetchingLockedImages = false
       }
@@ -552,10 +661,24 @@ export default {
 
     handleDirectPreviewLoaded() {
       this.previewHealthy = true
+      this.previewRetryCount = 0
     },
 
     handleDirectPreviewError() {
       this.previewHealthy = false
+      this.message = "Không nhận được hình ảnh camera. Hãy kiểm tra địa chỉ, mạng và trạng thái go2rtc."
+
+      if (!this.previewRunning || !this.directCameraSourceUrl || this.previewRetryCount >= 1) {
+        return
+      }
+
+      this.previewRetryCount += 1
+      this.previewRetryTimer = setTimeout(() => {
+        this.previewRetryTimer = null
+        if (!this.previewRunning || !this.directCameraSourceUrl) return
+        this.directCameraUrl = this.buildDirectCameraUrl(this.directCameraSourceUrl)
+        this.directCameraKey += 1
+      }, 1500)
     },
 
     async handleDoubleClick() {
@@ -661,6 +784,10 @@ export default {
   background: #dc3545;
 }
 
+.btn-models {
+  background: #6f42c1;
+}
+
 .status-bar {
   display: flex;
   gap: 20px;
@@ -668,6 +795,31 @@ export default {
   flex-wrap: wrap;
   margin-bottom: 20px;
   font-size: 14px;
+}
+
+.service-error {
+  width: 800px;
+  margin: 0 auto 15px;
+  padding: 10px 14px;
+  border: 1px solid #f5c2c7;
+  border-radius: 8px;
+  background: #f8d7da;
+  color: #842029;
+  font-weight: 700;
+}
+
+.model-status {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 800px;
+  margin: 0 auto 15px;
+  padding: 10px 14px;
+  border: 1px solid #cfe2ff;
+  border-radius: 8px;
+  background: #e7f1ff;
+  color: #084298;
 }
 
 .video-wrapper {
