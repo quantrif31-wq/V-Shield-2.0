@@ -1,0 +1,417 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using API.Controllers;
+using API.Services.FaceRecognition;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
+using Xunit;
+
+namespace API.Tests;
+
+public sealed class FaceCameraControllerContractTests
+{
+    [Theory]
+    [InlineData("camera/off")]
+    [InlineData("camera/reset")]
+    public async Task PostWithoutBody_ForwardsStatusAndPayload(string action)
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(
+                HttpStatusCode.Accepted,
+                """{"success":true,"message":"forwarded"}""",
+                "application/json"));
+        var controller = CreateController(client);
+
+        var result = action == "camera/off"
+            ? await controller.TurnOffCamera(CancellationToken.None)
+            : await controller.ResetCameraState(CancellationToken.None);
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal((int)HttpStatusCode.Accepted, content.StatusCode);
+        Assert.Equal("application/json", content.ContentType);
+        Assert.Equal("""{"success":true,"message":"forwarded"}""", content.Content);
+        Assert.Equal(action, Assert.Single(client.Operations));
+    }
+
+    [Theory]
+    [InlineData("status", "camera/status")]
+    [InlineData("result", "camera/result")]
+    [InlineData("locked-images", "camera/locked-images")]
+    public async Task Get_ForwardsStatusAndPayload(string action, string expectedOperation)
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(
+                HttpStatusCode.OK,
+                """{"success":true,"camera_enabled":false}""",
+                "application/json"));
+        var controller = CreateController(client);
+
+        var result = action switch
+        {
+            "status" => await controller.GetCameraStatus(CancellationToken.None),
+            "result" => await controller.GetCameraResult(CancellationToken.None),
+            _ => await controller.GetLockedImages(CancellationToken.None)
+        };
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal((int)HttpStatusCode.OK, content.StatusCode);
+        Assert.Equal("""{"success":true,"camera_enabled":false}""", content.Content);
+        Assert.Equal(expectedOperation, Assert.Single(client.Operations));
+    }
+
+    [Fact]
+    public async Task CameraOn_ForwardsRequestWithoutChangingIp()
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, """{"success":true}""", "application/json"));
+        var controller = CreateController(client);
+        const string cameraUrl = "http://camera.local:8080/video?profile=main";
+
+        var result = await controller.TurnOnCamera(
+            new FaceCameraStartRequest { Ip = cameraUrl },
+            CancellationToken.None);
+
+        Assert.IsType<ContentResult>(result);
+        Assert.Equal(cameraUrl, client.StartRequest?.Ip);
+        Assert.Equal("camera/on", Assert.Single(client.Operations));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError, """{"success":false,"message":"python error"}""")]
+    [InlineData(HttpStatusCode.OK, "not-json")]
+    [InlineData(HttpStatusCode.OK, "")]
+    public async Task PythonResponse_IsProxiedVerbatim(
+        HttpStatusCode pythonStatus,
+        string pythonPayload)
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(pythonStatus, pythonPayload, "text/plain"));
+        var controller = CreateController(client);
+
+        var result = await controller.GetCameraStatus(CancellationToken.None);
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal((int)pythonStatus, content.StatusCode);
+        Assert.Equal(pythonPayload, content.Content);
+        Assert.Equal("application/json", content.ContentType);
+    }
+
+    [Theory]
+    [InlineData(FaceRuntimeFailureKind.ConnectionFailure, "simulated connection refused")]
+    [InlineData(FaceRuntimeFailureKind.Timeout, "simulated timeout")]
+    public async Task TransportFailure_Returns503WithCurrentErrorEnvelope(
+        FaceRuntimeFailureKind kind,
+        string message)
+    {
+        var client = StubClient.Throwing(
+            new FaceRuntimeUnavailableException(kind, message, new Exception(message)));
+        var controller = CreateController(client);
+
+        var result = await controller.GetCameraStatus(CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, objectResult.StatusCode);
+        var json = JsonSerializer.Serialize(objectResult.Value);
+        Assert.Contains("Khong the ket noi toi Face camera service", json);
+        Assert.Contains(message, json);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Conflict)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task Models_ProxiesPythonStatusAndRawBody(HttpStatusCode status)
+    {
+        const string body = """{"version":4,"models":[]}""";
+        var client = StubClient.Returning(new FaceRuntimeResponse(status, body, "application/json"));
+        var controller = CreateController(client);
+
+        var result = await controller.GetModels(CancellationToken.None);
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal((int)status, content.StatusCode);
+        Assert.Equal(body, content.Content);
+        Assert.Equal("models", Assert.Single(client.Operations));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Conflict)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task ReloadModels_ProxiesPythonStatusAndRawBody(HttpStatusCode status)
+    {
+        const string body = """{"success":false,"version":3}""";
+        var client = StubClient.Returning(new FaceRuntimeResponse(status, body, "application/json"));
+        var controller = CreateController(client);
+
+        var result = await controller.ReloadModels(CancellationToken.None);
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal((int)status, content.StatusCode);
+        Assert.Equal(body, content.Content);
+        Assert.Equal("models/reload", Assert.Single(client.Operations));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-json")]
+    public async Task ReloadModels_PreservesEmptyOrInvalidJsonBody(string body)
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, body, "application/json"));
+        var controller = CreateController(client);
+
+        var result = await controller.ReloadModels(CancellationToken.None);
+
+        var content = Assert.IsType<ContentResult>(result);
+        Assert.Equal(body, content.Content);
+        Assert.Equal("application/json", content.ContentType);
+        Assert.Equal("models/reload", Assert.Single(client.Operations));
+    }
+
+    [Fact]
+    public async Task ReloadModels_WithRequestBody_Returns400WithoutCallingRuntime()
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, "{}", "application/json"));
+        var controller = CreateController(client);
+        controller.Request.ContentLength = 17;
+
+        var result = await controller.ReloadModels(CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Empty(client.Operations);
+    }
+
+    [Fact]
+    public async Task Controller_PassesCancellationTokenToClient()
+    {
+        var client = StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, "{}", "application/json"));
+        var controller = CreateController(client);
+        using var cancellation = new CancellationTokenSource();
+
+        await controller.GetModels(cancellation.Token);
+
+        Assert.Equal(cancellation.Token, client.LastCancellationToken);
+    }
+
+    [Fact]
+    public async Task CallerCancellation_IsNotConvertedTo503()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var client = StubClient.Throwing(new OperationCanceledException(cancellation.Token));
+        var controller = CreateController(client);
+
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(
+            () => controller.GetModels(cancellation.Token));
+
+        Assert.Equal(cancellation.Token, exception.CancellationToken);
+    }
+
+    private static FaceCameraController CreateController(StubClient client) =>
+        new(client)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+    internal sealed class StubClient : IFaceRecognitionClient
+    {
+        private readonly FaceRuntimeResponse? _response;
+        private readonly Exception? _exception;
+
+        private StubClient(FaceRuntimeResponse? response, Exception? exception)
+        {
+            _response = response;
+            _exception = exception;
+        }
+
+        public List<string> Operations { get; } = [];
+
+        public FaceCameraStartRequest? StartRequest { get; private set; }
+
+        public CancellationToken LastCancellationToken { get; private set; }
+
+        public static StubClient Returning(FaceRuntimeResponse response) => new(response, null);
+
+        public static StubClient Throwing(Exception exception) => new(null, exception);
+
+        public Task<FaceRuntimeResponse> StartCameraAsync(
+            FaceCameraStartRequest request,
+            CancellationToken cancellationToken)
+        {
+            StartRequest = request;
+            return Complete("camera/on", cancellationToken);
+        }
+
+        public Task<FaceRuntimeResponse> StopCameraAsync(CancellationToken cancellationToken) =>
+            Complete("camera/off", cancellationToken);
+
+        public Task<FaceRuntimeResponse> ResetCameraAsync(CancellationToken cancellationToken) =>
+            Complete("camera/reset", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetCameraStatusAsync(CancellationToken cancellationToken) =>
+            Complete("camera/status", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetRecognitionResultAsync(CancellationToken cancellationToken) =>
+            Complete("camera/result", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetLockedImagesAsync(CancellationToken cancellationToken) =>
+            Complete("camera/locked-images", cancellationToken);
+
+        public Task<FaceRuntimeResponse> GetModelsAsync(CancellationToken cancellationToken) =>
+            Complete("models", cancellationToken);
+
+        public Task<FaceRuntimeResponse> ReloadModelsAsync(CancellationToken cancellationToken) =>
+            Complete("models/reload", cancellationToken);
+
+        private Task<FaceRuntimeResponse> Complete(
+            string operation,
+            CancellationToken cancellationToken)
+        {
+            Operations.Add(operation);
+            LastCancellationToken = cancellationToken;
+            return _exception == null
+                ? Task.FromResult(_response!)
+                : Task.FromException<FaceRuntimeResponse>(_exception);
+        }
+    }
+}
+
+public sealed class FaceCameraAuthorizationContractTests : IClassFixture<SecurityWebApplicationFactory>
+{
+    private readonly SecurityWebApplicationFactory _factory;
+
+    public FaceCameraAuthorizationContractTests(SecurityWebApplicationFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Theory]
+    [InlineData("/api/FaceCamera/camera/status")]
+    [InlineData("/api/FaceCamera/models")]
+    [InlineData("/api/FaceCamera/models/reload")]
+    public async Task AnonymousUser_IsRejected(string path)
+    {
+        using var client = CreateClientWithFakeFaceRuntime();
+
+        var response = path.EndsWith("reload", StringComparison.Ordinal)
+            ? await client.PostAsync(path, null)
+            : await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/FaceCamera/camera/status")]
+    [InlineData("/api/FaceCamera/models")]
+    [InlineData("/api/FaceCamera/models/reload")]
+    public async Task UserWithoutMonitoringPermission_IsRejected(string path)
+    {
+        using var client = CreateClientWithFakeFaceRuntime();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1003, "staff.role", "Staff"));
+
+        var response = path.EndsWith("reload", StringComparison.Ordinal)
+            ? await client.PostAsync(path, null)
+            : await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/FaceCamera/camera/status")]
+    [InlineData("/api/FaceCamera/models")]
+    [InlineData("/api/FaceCamera/models/reload")]
+    public async Task AdminWithMonitoringPermission_CanCallProxy(string path)
+    {
+        using var client = CreateClientWithFakeFaceRuntime();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var response = path.EndsWith("reload", StringComparison.Ordinal)
+            ? await client.PostAsync(path, null)
+            : await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("""{"success":true,"camera_enabled":false}""",
+            await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ReloadModels_WithBody_IsRejectedBeforeRuntimeCall()
+    {
+        var runtime = FaceCameraControllerContractTests.StubClient.Returning(
+            new FaceRuntimeResponse(HttpStatusCode.OK, "{}", "application/json"));
+        using var client = CreateClientWithFakeFaceRuntime(runtime);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var response = await client.PostAsync(
+            "/api/FaceCamera/models/reload",
+            new StringContent("""{"path":"forbidden.pkl"}""", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(runtime.Operations);
+    }
+
+    private HttpClient CreateClientWithFakeFaceRuntime(
+        FaceCameraControllerContractTests.StubClient? runtime = null)
+    {
+        runtime ??= FaceCameraControllerContractTests.StubClient.Returning(
+            new FaceRuntimeResponse(
+                HttpStatusCode.OK,
+                """{"success":true,"camera_enabled":false}""",
+                "application/json"));
+
+        return _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IFaceRecognitionClient>();
+                services.AddSingleton<IFaceRecognitionClient>(runtime);
+            });
+        }).CreateClient();
+    }
+
+    private static string CreateJwtToken(int userId, string username, string role)
+    {
+        const string secret = "LOCAL_DEVELOPMENT_ONLY_CHANGE_ME_32CHARS!";
+        var credentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            SecurityAlgorithms.HmacSha256);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.UniqueName, username),
+            new Claim(ClaimTypes.Role, role),
+            new Claim("token_version", "0"),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
+        };
+        var token = new JwtSecurityToken(
+            issuer: "VShieldAPI",
+            audience: "VShieldClient",
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(10),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}

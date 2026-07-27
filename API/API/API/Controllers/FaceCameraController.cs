@@ -1,5 +1,5 @@
-﻿using System.Net.Http.Json;
 using API.Middleware;
+using API.Services.FaceRecognition;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,113 +11,81 @@ namespace API.Controllers;
 [RequireOperationalTask("monitoring")]
 public class FaceCameraController : ControllerBase
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly string _serviceBaseUrl;
+    private readonly IFaceRecognitionClient _faceRecognitionClient;
 
-    public FaceCameraController(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    public FaceCameraController(IFaceRecognitionClient faceRecognitionClient)
     {
-        _httpClientFactory = httpClientFactory;
-        _serviceBaseUrl = ResolveNormalizedServiceBaseUrl(
-            configuration["AiServices:FaceCameraBaseUrl"],
-            "http://127.0.0.1:5001/api"
-        );
+        _faceRecognitionClient = faceRecognitionClient;
     }
 
     [HttpPost("camera/on")]
-    public Task<IActionResult> TurnOnCamera([FromBody] CameraOnRequest request) =>
-        ProxyPostJsonToServiceAsync("/camera/on", request);
+    public Task<IActionResult> TurnOnCamera(
+        [FromBody] FaceCameraStartRequest request,
+        CancellationToken cancellationToken) =>
+        ProxyAsync(
+            token => _faceRecognitionClient.StartCameraAsync(request, token),
+            cancellationToken);
 
     [HttpPost("camera/off")]
-    public Task<IActionResult> TurnOffCamera() =>
-        ProxyPostToServiceAsync("/camera/off");
+    public Task<IActionResult> TurnOffCamera(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.StopCameraAsync, cancellationToken);
 
     [HttpPost("camera/reset")]
-    public Task<IActionResult> ResetCameraState() =>
-        ProxyPostToServiceAsync("/camera/reset");
+    public Task<IActionResult> ResetCameraState(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.ResetCameraAsync, cancellationToken);
 
     [HttpGet("camera/status")]
-    public Task<IActionResult> GetCameraStatus() =>
-        ProxyGetFromServiceAsync("/camera/status");
+    public Task<IActionResult> GetCameraStatus(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GetCameraStatusAsync, cancellationToken);
 
     [HttpGet("camera/result")]
-    public Task<IActionResult> GetCameraResult() =>
-        ProxyGetFromServiceAsync("/camera/result");
+    public Task<IActionResult> GetCameraResult(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GetRecognitionResultAsync, cancellationToken);
 
     [HttpGet("camera/locked-images")]
-    public Task<IActionResult> GetLockedImages() =>
-        ProxyGetFromServiceAsync("/camera/locked-images");
+    public Task<IActionResult> GetLockedImages(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GetLockedImagesAsync, cancellationToken);
 
-    private async Task<IActionResult> ProxyGetFromServiceAsync(string relativePath)
+    [HttpGet("models")]
+    public Task<IActionResult> GetModels(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GetModelsAsync, cancellationToken);
+
+    [HttpPost("models/reload")]
+    public Task<IActionResult> ReloadModels(CancellationToken cancellationToken)
+    {
+        if ((Request.ContentLength ?? 0) > 0 || Request.Headers.TransferEncoding.Count > 0)
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new { message = "Request body is not allowed." }));
+        }
+
+        return ProxyAsync(_faceRecognitionClient.ReloadModelsAsync, cancellationToken);
+    }
+
+    private async Task<IActionResult> ProxyAsync(
+        Func<CancellationToken, Task<FaceRuntimeResponse>> operation,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.GetAsync(BuildServiceEndpointUrl(relativePath));
-            var content = await response.Content.ReadAsStringAsync();
+            var response = await operation(cancellationToken);
 
             return new ContentResult
             {
                 StatusCode = (int)response.StatusCode,
-                Content = content,
+                Content = response.Body,
                 ContentType = "application/json"
             };
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return StatusCode(503, new { message = $"Khong the ket noi toi Face camera service: {ex.Message}" });
+            throw;
         }
-    }
-
-    private async Task<IActionResult> ProxyPostToServiceAsync(string relativePath)
-    {
-        try
+        catch (FaceRuntimeUnavailableException ex)
         {
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsync(BuildServiceEndpointUrl(relativePath), null);
-            var content = await response.Content.ReadAsStringAsync();
-
-            return new ContentResult
-            {
-                StatusCode = (int)response.StatusCode,
-                Content = content,
-                ContentType = "application/json"
-            };
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new { message = $"Khong the ket noi toi Face camera service: {ex.Message}" });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(503, new { message = $"Khong the ket noi toi Face camera service: {ex.Message}" });
-        }
-    }
-
-    private async Task<IActionResult> ProxyPostJsonToServiceAsync<TRequest>(string relativePath, TRequest request)
-    {
-        try
-        {
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsJsonAsync(BuildServiceEndpointUrl(relativePath), request);
-            var content = await response.Content.ReadAsStringAsync();
-
-            return new ContentResult
-            {
-                StatusCode = (int)response.StatusCode,
-                Content = content,
-                ContentType = "application/json"
-            };
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(503, new { message = $"Khong the ket noi toi Face camera service: {ex.Message}" });
-        }
-    }
-
-    private string BuildServiceEndpointUrl(string relativePath) => $"{_serviceBaseUrl}{relativePath}";
-
-    private static string ResolveNormalizedServiceBaseUrl(string? configuredValue, string fallbackValue) =>
-        (configuredValue ?? fallbackValue).Trim().TrimEnd('/');
-
-    public sealed class CameraOnRequest
-    {
-        public string Ip { get; set; } = string.Empty;
     }
 }
-

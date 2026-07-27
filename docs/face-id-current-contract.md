@@ -93,6 +93,53 @@ Used fields:
 - `locked_snapshot`
 - `locked_face_crop`
 
+## Current error behavior preserved by tests
+
+- Transport exceptions from the Python service become HTTP `503` and include
+  the exception message.
+- Python HTTP status codes and response bodies are proxied unchanged.
+- Invalid JSON and empty bodies are still labeled `application/json`.
+- ASP.NET request cancellation is forwarded to the Python request and propagates
+  as cancellation instead of being converted to HTTP `503`.
+
+## ASP.NET Face Runtime typed client
+
+`FaceCameraController` delegates all Face Runtime HTTP transport to the typed
+`IFaceRecognitionClient`/`FaceRecognitionClient`. The client is registered with
+`AddHttpClient`, owns method/path selection, forwards cancellation tokens, and
+returns the upstream status, raw body, and content type as a
+`FaceRuntimeResponse`. The controller continues labeling proxied responses as
+`application/json` to preserve the existing public API contract, including
+invalid JSON and empty bodies.
+
+Backend-to-runtime route mapping:
+
+| ASP.NET route | Python Face Runtime route |
+| --- | --- |
+| `POST /api/FaceCamera/camera/on` | `POST /api/camera/on` |
+| `POST /api/FaceCamera/camera/off` | `POST /api/camera/off` |
+| `POST /api/FaceCamera/camera/reset` | `POST /api/camera/reset` |
+| `GET /api/FaceCamera/camera/status` | `GET /api/camera/status` |
+| `GET /api/FaceCamera/camera/result` | `GET /api/camera/result` |
+| `GET /api/FaceCamera/camera/locked-images` | `GET /api/camera/locked-images` |
+| `GET /api/FaceCamera/models` | `GET /api/models` |
+| `POST /api/FaceCamera/models/reload` | `POST /api/models/reload` |
+
+All ASP.NET routes above require authentication and the existing `monitoring`
+operational permission. The reload proxy rejects a request body before calling
+the runtime.
+
+`AiServices:FaceCameraBaseUrl` is required and is validated as an absolute HTTP
+or HTTPS URI at startup. A host-only value is normalized to an `/api/` base;
+configured paths have one trailing slash. `AiServices:FaceCameraTimeoutSeconds`
+must be greater than zero and defaults to 100 seconds, matching the previous
+default `HttpClient` timeout. Connection/DNS/socket failures and client timeouts
+become HTTP `503`; upstream HTTP 4xx/5xx responses remain proxy responses.
+
+Commit 4 does not add retry or a circuit breaker because start, stop, reset, and
+reload do not yet have an idempotency design. `FACE_SERVICE_TOKEN` remains
+unenforced and no backend service-token header is prepared in this commit.
+
 ## Face Runtime environment configuration
 
 The Flask runtime reads configuration from process environment variables.
@@ -112,7 +159,7 @@ Defaults preserve the pre-configuration behavior:
 | `FACE_ALERT_TIMEOUT` | `8.0` | seconds |
 | `FACE_STREAM_WIDTH` | `640` | pixels |
 | `FACE_STREAM_HEIGHT` | `360` | pixels |
-| `FACE_JPEG_QUALITY` | `80` | OpenCV quality, 0ƒ?"100 |
+| `FACE_JPEG_QUALITY` | `80` | OpenCV quality, 0â€“100 |
 | `FACE_SERVICE_TOKEN` | unset; not enforced in Commit 2 | secret string |
 
 `PORT` (`5001`) and `HEADLESS_MODE` (`true`) are existing runtime settings

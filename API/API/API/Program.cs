@@ -10,6 +10,7 @@ using API.Models;
 using API.Services;
 using API.Services.AI;
 using API.Services.Abstractions;
+using API.Services.FaceRecognition;
 using API.Services.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -198,6 +199,14 @@ namespace API
                 builder.Services.AddHostedService<CentralSyncInboxWorker>();
             }
             builder.Services.AddHttpClient();
+            var faceRecognitionClientOptions =
+                FaceRecognitionClientOptions.FromConfiguration(builder.Configuration);
+            builder.Services.AddSingleton(faceRecognitionClientOptions);
+            builder.Services.AddHttpClient<IFaceRecognitionClient, FaceRecognitionClient>(client =>
+            {
+                client.BaseAddress = faceRecognitionClientOptions.BaseAddress;
+                client.Timeout = faceRecognitionClientOptions.Timeout;
+            });
             builder.Services.AddHttpClient("AiGateway", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(35);
