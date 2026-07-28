@@ -260,6 +260,7 @@ public partial class ApplicationDbContext
 
         ConfigureCompanySecurityFoundation(modelBuilder);
         ConfigureAccessPolicyEngine(modelBuilder);
+        ConfigureFacePolicyComparisons(modelBuilder);
         ConfigureVisitorVehicleOperations(modelBuilder);
         ConfigureVehicleDelegation(modelBuilder);
         ConfigureDeviceProtocolOperations(modelBuilder);

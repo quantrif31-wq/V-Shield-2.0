@@ -236,6 +236,37 @@
         </table>
       </div>
     </section>
+    <section class="event-history">
+      <div class="event-history__header">
+        <h2>So sánh chính sách truy cập</h2>
+      </div>
+      <div class="comparison-warning">
+        Kết quả so sánh chỉ phục vụ đánh giá chính sách. Không phải quyết định mở cổng.
+      </div>
+      <div class="comparison-summary">
+        <span>Đồng thuận Allow: {{ comparisonSummary.agreeAllow || 0 }}</span>
+        <span>Đồng thuận Deny: {{ comparisonSummary.agreeDeny || 0 }}</span>
+        <span>Legacy Allow / Enterprise Deny: {{ comparisonSummary.legacyAllowEnterpriseDeny || 0 }}</span>
+        <span>Legacy Deny / Enterprise Allow: {{ comparisonSummary.legacyDenyEnterpriseAllow || 0 }}</span>
+        <span>Không đủ dữ liệu: {{ comparisonSummary.indeterminate || 0 }}</span>
+      </div>
+      <div class="event-table-wrap">
+        <table class="event-table">
+          <thead><tr><th>Thời gian</th><th>Camera / Gate / AP</th><th>Legacy</th>
+            <th>Enterprise</th><th>So sánh</th></tr></thead>
+          <tbody>
+            <tr v-for="item in policyComparisons" :key="item.id">
+              <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
+              <td>{{ item.cameraId }} / {{ item.gateId ?? "-" }} / {{ item.accessPointId ?? "-" }}</td>
+              <td>{{ item.legacyDecision }} — {{ item.legacyReasonCode }}</td>
+              <td>{{ item.enterpriseDecision }} — {{ item.enterpriseReasonCode }}</td>
+              <td>{{ item.comparisonResult }}</td>
+            </tr>
+            <tr v-if="!policyComparisons.length"><td colspan="5">Chưa có dữ liệu so sánh.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -263,6 +294,10 @@ import {
   getFaceRecognitionEvents,
   getFaceRecognitionCollectorHealth
 } from "../services/faceRecognitionEventsApi"
+import {
+  getFacePolicyComparisons,
+  getFacePolicyComparisonSummary
+} from "../services/faceAccessPolicyComparisonApi"
 
 export default {
   name: "FaceIdSecurity",
@@ -325,6 +360,8 @@ export default {
       eventHistoryError: false,
       collectorGap: false,
       eventFilters: { cameraId: "", employeeId: "", fromUtc: "" },
+      policyComparisons: [],
+      comparisonSummary: {},
 
       destroyed: false
     }
@@ -452,6 +489,12 @@ export default {
         this.collectorGap = Number(health?.gapCount || 0) > 0 ||
           this.recognitionEvents.some(item => item.historyGapWarning)
         this.eventHistoryError = false
+        const [comparisons, summary] = await Promise.all([
+          getFacePolicyComparisons({ page: 1, pageSize: 50 }),
+          getFacePolicyComparisonSummary()
+        ])
+        this.policyComparisons = Array.isArray(comparisons?.items) ? comparisons.items : []
+        this.comparisonSummary = summary || {}
       } catch {
         this.eventHistoryError = true
       }
@@ -1336,6 +1379,8 @@ export default {
 .history-badge--success { background: #d1e7dd; color: #0f5132; }
 .history-badge--warning { background: #fff3cd; color: #664d03; }
 .history-badge--danger { background: #f8d7da; color: #842029; }
+.comparison-warning { padding: 10px; margin-bottom: 12px; background: #fff3cd; color: #664d03; }
+.comparison-summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 
 /* Fullscreen mode */
 .video-wrapper:fullscreen {

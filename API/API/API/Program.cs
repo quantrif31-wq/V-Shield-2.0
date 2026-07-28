@@ -12,6 +12,7 @@ using API.Services;
 using API.Services.AI;
 using API.Services.Abstractions;
 using API.Services.FaceRecognition;
+using API.Services.AccessPolicyComparison;
 using API.Services.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -250,6 +251,24 @@ namespace API
             builder.Services.AddSingleton<FaceRecognitionEventCollector>();
             builder.Services.AddSingleton<IFaceRecognitionEventCollector>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
+            var comparisonOptions = new FaceAccessPolicyComparisonOptions();
+            builder.Configuration.GetSection(FaceAccessPolicyComparisonOptions.SectionName)
+                .Bind(comparisonOptions);
+            if (comparisonOptions.PollIntervalMilliseconds < 250 ||
+                comparisonOptions.BatchSize is < 1 or > 500 ||
+                comparisonOptions.MaxParallelism <= 0 ||
+                comparisonOptions.EvaluationVersion <= 0)
+                throw new InvalidOperationException("FaceAccessPolicyComparison settings are invalid.");
+            try { comparisonOptions.TimeZone = TimeZoneInfo.FindSystemTimeZoneById(comparisonOptions.TimeZoneId); }
+            catch (TimeZoneNotFoundException ex) {
+                throw new InvalidOperationException("FaceAccessPolicyComparison:TimeZoneId is invalid.", ex);
+            }
+            builder.Services.AddSingleton(comparisonOptions);
+            builder.Services.AddScoped<ILegacyGateAccessEvaluator, LegacyGateAccessEvaluator>();
+            builder.Services.AddScoped<IEnterpriseAccessPolicyEvaluator, EnterpriseAccessPolicyEvaluator>();
+            builder.Services.AddSingleton<FaceAccessPolicyComparisonProcessor>();
+            builder.Services.AddSingleton<IFaceAccessPolicyComparisonProcessor>(sp =>
+                sp.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
             builder.Services.AddSingleton<FaceCameraSessionReconciler>();
             builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
@@ -262,6 +281,9 @@ namespace API
                 if (faceRecognitionEventOptions.CollectorEnabled)
                     builder.Services.AddHostedService(serviceProvider =>
                         serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
+                if (comparisonOptions.ProcessorEnabled)
+                    builder.Services.AddHostedService(serviceProvider =>
+                        serviceProvider.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
             }
             builder.Services.AddHttpClient("AiGateway", client =>
             {
