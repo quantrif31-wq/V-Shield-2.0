@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using API.Data;
 using API.Models;
+using API.Services.AccessCredentials;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Services.AccessPolicyComparison;
@@ -22,6 +23,9 @@ public interface ILegacyGateAccessEvaluator
 public interface IEnterpriseAccessPolicyEvaluator
 {
     Task<PolicyEvaluationResult> EvaluateAsync(EnterprisePolicyEvaluationInput input, CancellationToken token);
+    Task<PolicyEvaluationResult> EvaluateAsync(
+        EnterprisePolicyEvaluationInput input, AccessCredentialContext credential,
+        CancellationToken token);
 }
 
 public sealed class LegacyGateAccessEvaluator(ApplicationDbContext db) : ILegacyGateAccessEvaluator
@@ -56,6 +60,33 @@ public sealed class EnterpriseAccessPolicyEvaluator(
     ApplicationDbContext db, FaceAccessPolicyComparisonOptions options)
     : IEnterpriseAccessPolicyEvaluator
 {
+    public Task<PolicyEvaluationResult> EvaluateAsync(
+        EnterprisePolicyEvaluationInput input,
+        AccessCredentialContext credential,
+        CancellationToken token)
+    {
+        if (credential.EmployeeId != input.EmployeeId)
+            return Task.FromResult(Basic(PolicyEvaluationDecisions.Indeterminate,
+                "EnterpriseCredentialOwnershipMismatch", input));
+        if (credential.OccurredAtUtc != input.OccurredAtUtc)
+            return Task.FromResult(Basic(PolicyEvaluationDecisions.Indeterminate,
+                "EnterpriseCredentialTimeMismatch", input));
+        if (credential.EffectiveStatus != EffectiveCredentialStatuses.Active)
+        {
+            var reason = credential.EffectiveStatus switch
+            {
+                EffectiveCredentialStatuses.Pending => "EnterpriseCredentialPending",
+                EffectiveCredentialStatuses.Inactive => "EnterpriseCredentialInactive",
+                EffectiveCredentialStatuses.Expired => "EnterpriseCredentialExpired",
+                EffectiveCredentialStatuses.Revoked => "EnterpriseCredentialRevoked",
+                EffectiveCredentialStatuses.NotYetEffective => "EnterpriseCredentialNotYetEffective",
+                _ => "EnterpriseCredentialInvalid"
+            };
+            return Task.FromResult(Basic(PolicyEvaluationDecisions.Indeterminate, reason, input));
+        }
+        return EvaluateAsync(input with { CredentialType = credential.CredentialType }, token);
+    }
+
     public async Task<PolicyEvaluationResult> EvaluateAsync(
         EnterprisePolicyEvaluationInput input, CancellationToken token)
     {

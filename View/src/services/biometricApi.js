@@ -8,3 +8,4 @@ export const createFaceEnrollmentJob = (employeeId, employeeFaceVideoId) =>
 export const cancelFaceEnrollmentJob = (jobId) => http.post(`/FaceEnrollments/${jobId}/cancel`)
 export const retryFaceEnrollmentJob = (jobId) => http.post(`/FaceEnrollments/${jobId}/retry`)
 export const activateFaceEnrollmentJob = (jobId) => http.post(`/FaceEnrollments/${jobId}/activate`)
+export const getAccessCredentials = () => http.get('/AccessCredentials')

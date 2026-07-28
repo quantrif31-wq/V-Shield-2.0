@@ -13,6 +13,7 @@ using API.Services.AI;
 using API.Services.Abstractions;
 using API.Services.FaceRecognition;
 using API.Services.AccessPolicyComparison;
+using API.Services.AccessCredentials;
 using API.Services.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -266,6 +267,18 @@ namespace API
             builder.Services.AddSingleton(comparisonOptions);
             builder.Services.AddScoped<ILegacyGateAccessEvaluator, LegacyGateAccessEvaluator>();
             builder.Services.AddScoped<IEnterpriseAccessPolicyEvaluator, EnterpriseAccessPolicyEvaluator>();
+            var accessCredentialOptions = new AccessCredentialOptions();
+            builder.Configuration.GetSection(AccessCredentialOptions.SectionName)
+                .Bind(accessCredentialOptions);
+            builder.Services.AddSingleton(accessCredentialOptions);
+            builder.Services.AddSingleton<IAccessCredentialStateEvaluator, AccessCredentialStateEvaluator>();
+            builder.Services.AddSingleton<IAccessCredentialIdentifierProtector,
+                AccessCredentialIdentifierProtector>();
+            builder.Services.AddScoped<AccessCredentialService>();
+            builder.Services.AddScoped<IAccessCredentialService>(sp =>
+                sp.GetRequiredService<AccessCredentialService>());
+            builder.Services.AddScoped<IAccessCredentialContextResolver>(sp =>
+                sp.GetRequiredService<AccessCredentialService>());
             builder.Services.AddSingleton<FaceAccessPolicyComparisonProcessor>();
             builder.Services.AddSingleton<IFaceAccessPolicyComparisonProcessor>(sp =>
                 sp.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
@@ -384,6 +397,13 @@ namespace API
                 });
             });
             var app = builder.Build();
+            if (args.Length > 0 &&
+                string.Equals(args[0], "access-credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.ExitCode = await RunAccessCredentialCommandAsync(
+                    app.Services, args, CancellationToken.None);
+                return;
+            }
             if (args.Length > 0 &&
                 string.Equals(args[0], "face-models", StringComparison.OrdinalIgnoreCase))
             {
@@ -541,6 +561,76 @@ namespace API
             }
 
             app.Run();
+        }
+
+        private static async Task<int> RunAccessCredentialCommandAsync(
+            IServiceProvider services, string[] args, CancellationToken cancellationToken)
+        {
+            if (args.Length != 2 ||
+                !string.Equals(args[1], "inventory", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.Error.WriteLine("Usage: access-credentials inventory");
+                return 2;
+            }
+            using var scope = services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var qrRows = await db.EmployeeDynamicQrs.AsNoTracking()
+                .Select(x => new { x.Id, x.EmployeeId, x.IsActive }).ToListAsync(cancellationToken);
+            var credentialRows = await db.AccessCredentials.AsNoTracking()
+                .Select(x => new
+                {
+                    x.Id, x.EmployeeId, x.CredentialType, x.Status,
+                    x.EffectiveFromUtc, x.ExpiresAtUtc, x.RevokedAtUtc,
+                    x.EmployeeDynamicQrId, x.MaskedIdentifier
+                }).ToListAsync(cancellationToken);
+            var policyTypes = await db.AccessRules.AsNoTracking()
+                .GroupBy(x => x.CredentialType)
+                .Select(x => new { credentialType = x.Key, count = x.Count() })
+                .OrderBy(x => x.credentialType).ToListAsync(cancellationToken);
+            var employeeIds = new[] { 1, 2, 3, 4, 5 };
+            var report = new
+            {
+                generatedAtUtc = DateTime.UtcNow,
+                employeeDynamicQr = new
+                {
+                    total = qrRows.Count,
+                    active = qrRows.Count(x => x.IsActive),
+                    inactive = qrRows.Count(x => !x.IsActive),
+                    employeesWithQr = qrRows.Select(x => x.EmployeeId).Distinct().Count(),
+                    employeesWithMultipleQr = qrRows.GroupBy(x => x.EmployeeId).Count(x => x.Count() > 1),
+                    employees1To5 = employeeIds.Select(id => new
+                    {
+                        employeeId = id,
+                        count = qrRows.Count(x => x.EmployeeId == id),
+                        active = qrRows.Count(x => x.EmployeeId == id && x.IsActive),
+                        inactive = qrRows.Count(x => x.EmployeeId == id && !x.IsActive)
+                    })
+                },
+                accessCredentials = new
+                {
+                    total = credentialRows.Count,
+                    byType = credentialRows.GroupBy(x => x.CredentialType)
+                        .ToDictionary(x => x.Key, x => x.Count()),
+                    byStoredStatus = credentialRows.GroupBy(x => x.Status)
+                        .ToDictionary(x => x.Key, x => x.Count())
+                },
+                policyCredentialTypes = policyTypes,
+                unmappedPolicyCredentialTypes = policyTypes
+                    .Where(x => x.credentialType != "Any" &&
+                        AccessCredentialTypes.Normalize(x.credentialType) is null)
+                    .Select(x => x.credentialType).ToArray()
+            };
+            var json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
+            var root = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (root.Parent is not null &&
+                   !Directory.Exists(Path.Combine(root.FullName, "runtime", "face-data")))
+                root = root.Parent;
+            var path = Path.Combine(root.FullName, "runtime", "face-data", "manifests",
+                "access-credential-inventory.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllTextAsync(path, json, cancellationToken);
+            Console.WriteLine(json);
+            return 0;
         }
 
         private static async Task<int> RunFaceModelCommandAsync(

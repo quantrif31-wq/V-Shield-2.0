@@ -98,6 +98,31 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
+                    <span class="panel-kicker">Enterprise credentials</span>
+                    <h2 class="panel-title">Credential nhân viên canonical</h2>
+                </div>
+                <span class="soft-chip">{{ accessCredentials.length }} credential</span>
+            </div>
+            <div v-if="accessCredentials.length" class="table-container">
+                <table class="data-table">
+                    <thead><tr><th>Nhân viên</th><th>Loại</th><th>Stored / effective</th><th>Identifier</th><th>Hiệu lực</th></tr></thead>
+                    <tbody>
+                        <tr v-for="credential in accessCredentials" :key="credential.id">
+                            <td>{{ credential.employeeName }}<div class="table-sub">ID {{ credential.employeeId }}</div></td>
+                            <td>{{ credential.credentialType }}</td>
+                            <td>{{ credential.storedStatus }} / {{ credential.effectiveStatus }}</td>
+                            <td><code>{{ credential.maskedIdentifier || 'Không lưu identifier' }}</code></td>
+                            <td>{{ formatDateTime(credential.effectiveFromUtc) }} → {{ formatDateTime(credential.expiresAtUtc) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else class="empty-card">Chưa có credential nhân viên canonical. QR hiện hữu vẫn hoạt động độc lập.</div>
+        </section>
+
+        <section class="ops-panel">
+            <div class="panel-head">
+                <div>
                     <span class="panel-kicker">Controlled enrollment</span>
                     <h2 class="panel-title">Tạo model từ video đã quản lý</h2>
                 </div>
@@ -232,6 +257,7 @@ import {
     getBiometricOverview, getFaceModelHealth, getFaceEnrollmentJobs,
     createFaceEnrollmentJob, cancelFaceEnrollmentJob,
     retryFaceEnrollmentJob, activateFaceEnrollmentJob,
+    getAccessCredentials,
 } from '../services/biometricApi'
 import { getEmployeeVideos } from '../services/faceVideoApi'
 
@@ -252,6 +278,7 @@ const recentVideos = ref([])
 const faceModels = ref([])
 const registryVersion = ref(null)
 const enrollmentJobs = ref([])
+const accessCredentials = ref([])
 const selectedEmployeeId = ref('')
 const selectedVideoId = ref('')
 const employeeVideos = ref([])
@@ -297,10 +324,11 @@ const fetchOverview = async () => {
     isLoading.value = true
     bCurrentPage.value = 1
     try {
-        const [{ data }, modelHealth, jobs] = await Promise.all([
+        const [{ data }, modelHealth, jobs, credentials] = await Promise.all([
             getBiometricOverview({ query: query.value || undefined }),
             getFaceModelHealth(),
             getFaceEnrollmentJobs(),
+            getAccessCredentials(),
         ])
         summary.value = { ...summary.value, ...(data.summary || {}) }
         employees.value = data.employees || []
@@ -309,6 +337,7 @@ const fetchOverview = async () => {
         faceModels.value = modelHealth.data?.models || []
         registryVersion.value = modelHealth.data?.registryVersion || null
         enrollmentJobs.value = jobs.data || []
+        accessCredentials.value = credentials.data || []
     } catch (error) {
         console.error('Biometric overview error:', error)
         employees.value = []
@@ -316,6 +345,7 @@ const fetchOverview = async () => {
         recentVideos.value = []
         faceModels.value = []
         registryVersion.value = null
+        accessCredentials.value = []
     } finally {
         isLoading.value = false
     }

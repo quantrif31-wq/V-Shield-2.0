@@ -35,3 +35,10 @@ mutation, approval, override, gate-command or attendance endpoints.
 The existing QR flow remains unchanged. Reports are intended to help the
 business select a future canonical policy and precedence. Physical RTSP camera
 verification remains pending, and Face Model revoke remains unpublished.
+# Credential-aware evaluation foundation
+
+The enterprise evaluator now also accepts a canonical `AccessCredentialContext`. This
+path validates employee ownership and effective lifecycle before applying the existing
+policy algorithm. The legacy type-only path and the Face comparison processor remain
+unchanged: Face events continue to produce `EnterpriseMissingCredentialContext` until an
+explicit Face credential binding exists. Existing comparison rows are never re-evaluated.
