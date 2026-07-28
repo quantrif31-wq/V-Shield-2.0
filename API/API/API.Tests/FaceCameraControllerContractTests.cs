@@ -469,6 +469,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceEnrollments")]
     [InlineData("/api/FaceRecognitionEvents")]
     [InlineData("/api/FaceAccessPolicyComparisons")]
+    [InlineData("/api/FaceCredentialBindings")]
     public async Task AnonymousUser_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -494,6 +495,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceEnrollments")]
     [InlineData("/api/FaceRecognitionEvents")]
     [InlineData("/api/FaceAccessPolicyComparisons")]
+    [InlineData("/api/FaceCredentialBindings")]
     public async Task UserWithoutMonitoringPermission_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -535,6 +537,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceEnrollments")]
     [InlineData("/api/FaceRecognitionEvents")]
     [InlineData("/api/FaceAccessPolicyComparisons")]
+    [InlineData("/api/FaceCredentialBindings")]
     public async Task AdminWithIdentityManagementPermission_CanReadFaceModelMetadata(string path)
     {
         var runtime = FaceCameraControllerContractTests.StubClient.Returning(
@@ -624,6 +627,31 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
         Assert.Equal(
             HttpStatusCode.OK,
             (await admin.PostAsync("/api/FaceCameraConfigurations/reconcile", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task FaceCredentialBindingMutation_RequiresIdentityManagePermission()
+    {
+        const string payload = """{"employeeId":999,"accessCredentialId":999,"reason":"test"}""";
+
+        using var anonymous = CreateClientWithFakeFaceRuntime();
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await anonymous.PostAsync("/api/FaceCredentialBindings",
+                new StringContent(payload, Encoding.UTF8, "application/json"))).StatusCode);
+
+        using var staff = CreateClientWithFakeFaceRuntime();
+        staff.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1003, "staff.role", "Staff"));
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await staff.PostAsync("/api/FaceCredentialBindings",
+                new StringContent(payload, Encoding.UTF8, "application/json"))).StatusCode);
+
+        using var admin = CreateClientWithFakeFaceRuntime();
+        admin.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await admin.PostAsync("/api/FaceCredentialBindings",
+                new StringContent(payload, Encoding.UTF8, "application/json"))).StatusCode);
     }
 
     private HttpClient CreateClientWithFakeFaceRuntime(

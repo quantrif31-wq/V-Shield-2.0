@@ -69,3 +69,13 @@ rows, no inactive/orphan/multiple-owner rows, and Employee IDs 1–5 each retain
 one active QR row and zero canonical credentials. The QR flow remains
 independent, Face binding is not implemented, and physical RTSP verification is
 still pending.
+## Face credential binding
+
+Credential `FaceBiometric` chỉ trở thành context cho face policy comparison sau
+khi có `EmployeeFaceCredentialBinding` explicit và được audit. Cùng EmployeeId
+không đồng nghĩa đã bind. Binding không cấp permission, không tạo rule và không
+thay đổi lifecycle của credential.
+
+Binding và credential đều được resolve tại `FaceRecognitionEvent.OccurredAtUtc`;
+không dùng thời gian processor và không áp dụng hồi tố. Xem
+`docs/face-credential-bindings.md`.

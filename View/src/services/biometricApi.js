@@ -9,3 +9,8 @@ export const cancelFaceEnrollmentJob = (jobId) => http.post(`/FaceEnrollments/${
 export const retryFaceEnrollmentJob = (jobId) => http.post(`/FaceEnrollments/${jobId}/retry`)
 export const activateFaceEnrollmentJob = (jobId) => http.post(`/FaceEnrollments/${jobId}/activate`)
 export const getAccessCredentials = () => http.get('/AccessCredentials')
+export const getFaceCredentialBindings = () => http.get('/FaceCredentialBindings')
+export const getEmployeeFaceCredentialBinding = (employeeId) =>
+    http.get(`/Employees/${employeeId}/face-credential-binding`)
+export const getEmployeeFaceCredentialCandidates = (employeeId) =>
+    http.get(`/Employees/${employeeId}/face-credential-candidates`)

@@ -47,3 +47,10 @@ The comparison-to-recognition-event foreign key uses `NO ACTION`. Comparison
 snapshots are historical and cannot be cascade-deleted with recognition events.
 The Docker development migration chain is applied and the normal API workers
 run without the former Testing fallback. No comparison fixture was introduced.
+## Face biometric credential context
+
+Với event `Matched`, enterprise comparison resolve binding đã phê duyệt tại
+`OccurredAtUtc`, rồi đánh giá credential `FaceBiometric` tại cùng thời điểm.
+Thiếu/revoked binding hoặc credential không hiệu lực trả reason code explicit.
+Rule precedence, schedule, legacy evaluator và comparison đã lưu không thay đổi.
+Processor không tạo `AccessDecision`.

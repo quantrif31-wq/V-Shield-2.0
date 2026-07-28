@@ -14,6 +14,7 @@ using API.Services.Abstractions;
 using API.Services.FaceRecognition;
 using API.Services.AccessPolicyComparison;
 using API.Services.AccessCredentials;
+using API.Services.FaceCredentialBindings;
 using API.Services.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -279,6 +280,8 @@ namespace API
                 sp.GetRequiredService<AccessCredentialService>());
             builder.Services.AddScoped<IAccessCredentialContextResolver>(sp =>
                 sp.GetRequiredService<AccessCredentialService>());
+            builder.Services.AddScoped<IFaceCredentialBindingService, FaceCredentialBindingService>();
+            builder.Services.AddScoped<FaceCredentialBindingManifestService>();
             builder.Services.AddSingleton<FaceAccessPolicyComparisonProcessor>();
             builder.Services.AddSingleton<IFaceAccessPolicyComparisonProcessor>(sp =>
                 sp.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
@@ -408,6 +411,15 @@ namespace API
                 string.Equals(args[0], "face-models", StringComparison.OrdinalIgnoreCase))
             {
                 Environment.ExitCode = await RunFaceModelCommandAsync(
+                    app.Services,
+                    args,
+                    CancellationToken.None);
+                return;
+            }
+            if (args.Length > 0 &&
+                string.Equals(args[0], "face-credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.ExitCode = await RunFaceCredentialCommandAsync(
                     app.Services,
                     args,
                     CancellationToken.None);
@@ -674,6 +686,65 @@ namespace API
                 cancellationToken);
             Console.WriteLine(JsonSerializer.Serialize(result));
             return result.Success ? 0 : 3;
+        }
+
+        private static async Task<int> RunFaceCredentialCommandAsync(
+            IServiceProvider services,
+            string[] args,
+            CancellationToken cancellationToken)
+        {
+            if (args.Length < 2)
+            {
+                Console.Error.WriteLine("Usage: face-credentials generate-binding-template | validate-bindings --manifest <path> | apply-bindings --manifest <path> [--apply --confirm-bindings]");
+                return 2;
+            }
+
+            using var scope = services.CreateScope();
+            var manifestService = scope.ServiceProvider.GetRequiredService<FaceCredentialBindingManifestService>();
+            var command = args[1];
+
+            if (string.Equals(command, "generate-binding-template", StringComparison.OrdinalIgnoreCase))
+            {
+                var template = await manifestService.GenerateTemplateAsync(cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(template, new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
+
+            if (string.Equals(command, "validate-bindings", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifestPath = ReadManifestPath(args);
+                var result = await manifestService.ValidateManifestAsync(
+                    manifestPath,
+                    requireApproval: false,
+                    cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                return result.Success ? 0 : 3;
+            }
+
+            if (string.Equals(command, "apply-bindings", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifestPath = ReadManifestPath(args);
+                var apply = args.Contains("--apply", StringComparer.Ordinal);
+                var confirm = args.Contains("--confirm-bindings", StringComparer.Ordinal);
+                var result = await manifestService.ApplyManifestAsync(
+                    manifestPath,
+                    apply,
+                    confirm,
+                    cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                return result.Success ? 0 : 3;
+            }
+
+            Console.Error.WriteLine("Unsupported face-credentials command.");
+            return 2;
+        }
+
+        private static string ReadManifestPath(string[] args)
+        {
+            var index = Array.FindIndex(args, x => string.Equals(x, "--manifest", StringComparison.Ordinal));
+            if (index < 0 || index + 1 >= args.Length)
+                throw new InvalidOperationException("--manifest <path> is required.");
+            return args[index + 1];
         }
 
         private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)

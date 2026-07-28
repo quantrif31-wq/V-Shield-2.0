@@ -203,6 +203,8 @@ public sealed class AccessCredentialService(
     private CredentialResolution Resolve(AccessCredential row, DateTime occurredAtUtc)
     {
         occurredAtUtc = DateTime.SpecifyKind(occurredAtUtc, DateTimeKind.Utc);
+        if (row.CreatedAtUtc > occurredAtUtc)
+            return new(null, "EnterpriseCredentialInactive");
         var state = stateEvaluator.Evaluate(new(row.Status, row.EffectiveFromUtc,
             row.ExpiresAtUtc, row.RevokedAtUtc, occurredAtUtc));
         return new(new(row.Id, row.EmployeeId, row.CredentialType, row.Status,

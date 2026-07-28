@@ -123,6 +123,33 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
+                    <span class="panel-kicker">Face credential binding</span>
+                    <h2 class="panel-title">Liên kết danh tính khuôn mặt với enterprise credential</h2>
+                </div>
+                <span class="soft-chip">{{ faceCredentialBindings.length }} binding</span>
+            </div>
+            <div v-if="faceCredentialBindings.length" class="table-container">
+                <table class="data-table">
+                    <thead><tr><th>Nhân viên</th><th>Credential</th><th>Trạng thái</th><th>Identifier</th><th>Thời gian</th></tr></thead>
+                    <tbody>
+                        <tr v-for="binding in faceCredentialBindings" :key="binding.id">
+                            <td>{{ binding.employeeName }}<div class="table-sub">ID {{ binding.employeeId }}</div></td>
+                            <td>{{ binding.credentialType }} #{{ binding.accessCredentialId }}</td>
+                            <td>{{ binding.bindingStatus }} · {{ binding.credentialEffectiveStatus }}</td>
+                            <td><code>{{ binding.maskedIdentifier || 'Không lưu identifier' }}</code></td>
+                            <td>{{ formatDateTime(binding.activatedAtUtc) }} → {{ formatDateTime(binding.revokedAtUtc) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else class="empty-card">
+                Chưa có binding được phê duyệt. Hệ thống không tự chọn credential và không tự bind nhân viên.
+            </div>
+        </section>
+
+        <section class="ops-panel">
+            <div class="panel-head">
+                <div>
                     <span class="panel-kicker">Controlled enrollment</span>
                     <h2 class="panel-title">Tạo model từ video đã quản lý</h2>
                 </div>
@@ -143,6 +170,17 @@
                 <button class="btn btn-primary" :disabled="!selectedVideoId || enrollmentBusy" @click="createEnrollment">
                     Tạo enrollment job
                 </button>
+            </div>
+            <div v-if="selectedEmployeeId" class="chip-row">
+                <span class="soft-chip" :class="bindingReadiness === 'Ready' ? 'success' : 'warn'">
+                    Enterprise readiness: {{ bindingReadiness }}
+                </span>
+                <span v-if="selectedEmployeeBinding" class="soft-chip">
+                    Binding #{{ selectedEmployeeBinding.id }} · {{ selectedEmployeeBinding.credentialEffectiveStatus }}
+                </span>
+                <span v-for="candidate in selectedEmployeeCandidates" :key="candidate.accessCredentialId" class="soft-chip">
+                    {{ candidate.credentialType }} #{{ candidate.accessCredentialId }} · {{ candidate.candidateClassification }}
+                </span>
             </div>
             <div v-if="enrollmentJobs.length" class="table-container">
                 <table class="data-table">
@@ -257,7 +295,8 @@ import {
     getBiometricOverview, getFaceModelHealth, getFaceEnrollmentJobs,
     createFaceEnrollmentJob, cancelFaceEnrollmentJob,
     retryFaceEnrollmentJob, activateFaceEnrollmentJob,
-    getAccessCredentials,
+    getAccessCredentials, getFaceCredentialBindings,
+    getEmployeeFaceCredentialBinding, getEmployeeFaceCredentialCandidates,
 } from '../services/biometricApi'
 import { getEmployeeVideos } from '../services/faceVideoApi'
 
@@ -279,6 +318,9 @@ const faceModels = ref([])
 const registryVersion = ref(null)
 const enrollmentJobs = ref([])
 const accessCredentials = ref([])
+const faceCredentialBindings = ref([])
+const selectedEmployeeBinding = ref(null)
+const selectedEmployeeCandidates = ref([])
 const selectedEmployeeId = ref('')
 const selectedVideoId = ref('')
 const employeeVideos = ref([])
@@ -329,6 +371,7 @@ const fetchOverview = async () => {
             getFaceModelHealth(),
             getFaceEnrollmentJobs(),
             getAccessCredentials(),
+            getFaceCredentialBindings(),
         ])
         summary.value = { ...summary.value, ...(data.summary || {}) }
         employees.value = data.employees || []
@@ -338,6 +381,7 @@ const fetchOverview = async () => {
         registryVersion.value = modelHealth.data?.registryVersion || null
         enrollmentJobs.value = jobs.data || []
         accessCredentials.value = credentials.data || []
+        faceCredentialBindings.value = bindings.data || []
     } catch (error) {
         console.error('Biometric overview error:', error)
         employees.value = []
@@ -346,6 +390,7 @@ const fetchOverview = async () => {
         faceModels.value = []
         registryVersion.value = null
         accessCredentials.value = []
+        faceCredentialBindings.value = []
     } finally {
         isLoading.value = false
     }
@@ -354,10 +399,29 @@ const fetchOverview = async () => {
 const loadEmployeeVideos = async () => {
     selectedVideoId.value = ''
     employeeVideos.value = []
+    selectedEmployeeBinding.value = null
+    selectedEmployeeCandidates.value = []
     if (!selectedEmployeeId.value) return
-    const { data } = await getEmployeeVideos(selectedEmployeeId.value)
-    employeeVideos.value = data || []
+    const [videos, binding, candidates] = await Promise.allSettled([
+        getEmployeeVideos(selectedEmployeeId.value),
+        getEmployeeFaceCredentialBinding(selectedEmployeeId.value),
+        getEmployeeFaceCredentialCandidates(selectedEmployeeId.value),
+    ])
+    employeeVideos.value = videos.status === 'fulfilled' ? (videos.value.data || []) : []
+    selectedEmployeeBinding.value = binding.status === 'fulfilled' ? binding.value.data : null
+    selectedEmployeeCandidates.value = candidates.status === 'fulfilled' ? (candidates.value.data || []) : []
 }
+
+const bindingReadiness = computed(() => {
+    if (selectedEmployeeBinding.value?.bindingStatus === 'Active') return 'Ready'
+    if (!selectedEmployeeId.value) return '--'
+    if (selectedEmployeeCandidates.value.length === 0) return 'NoFaceCredential'
+    const ready = selectedEmployeeCandidates.value.filter(item => item.candidateClassification === 'Ready')
+    if (ready.length > 1) return 'MultipleCandidates'
+    if (ready.length === 1) return 'BindingMissing'
+    const blocking = selectedEmployeeCandidates.value[0]?.blockingReasonCode
+    return blocking || 'NoFaceCredential'
+})
 
 const createEnrollment = async () => {
     enrollmentBusy.value = true

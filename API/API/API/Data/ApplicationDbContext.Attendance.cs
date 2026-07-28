@@ -261,6 +261,7 @@ public partial class ApplicationDbContext
         ConfigureCompanySecurityFoundation(modelBuilder);
         ConfigureAccessPolicyEngine(modelBuilder);
         ConfigureAccessCredentials(modelBuilder);
+        ConfigureFaceCredentialBindings(modelBuilder);
         ConfigureFacePolicyComparisons(modelBuilder);
         ConfigureVisitorVehicleOperations(modelBuilder);
         ConfigureVehicleDelegation(modelBuilder);

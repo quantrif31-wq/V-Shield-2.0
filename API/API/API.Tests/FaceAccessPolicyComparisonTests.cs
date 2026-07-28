@@ -1,6 +1,9 @@
 using API.Data;
 using API.Models;
 using API.Services.AccessPolicyComparison;
+using API.Services.AccessCredentials;
+using API.Services.FaceCredentialBindings;
+using API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -122,6 +125,17 @@ public sealed class FaceAccessPolicyComparisonTests
         services.AddSingleton(Options());
         services.AddScoped<ILegacyGateAccessEvaluator, LegacyGateAccessEvaluator>();
         services.AddScoped<IEnterpriseAccessPolicyEvaluator, EnterpriseAccessPolicyEvaluator>();
+        services.AddScoped<IAccessCredentialStateEvaluator, AccessCredentialStateEvaluator>();
+        services.AddScoped<IAccessCredentialIdentifierProtector>(_ =>
+            new AccessCredentialIdentifierProtector(new AccessCredentialOptions
+            {
+                IdentifierHmacKey = "test-key-with-at-least-thirty-two-characters!"
+            }));
+        services.AddScoped<AccessCredentialService>();
+        services.AddScoped<IAccessCredentialContextResolver>(sp =>
+            sp.GetRequiredService<AccessCredentialService>());
+        services.AddScoped<IFaceCredentialBindingService, FaceCredentialBindingService>();
+        services.AddScoped<ICurrentUserContext, TestUser>();
         services.AddSingleton<FaceAccessPolicyComparisonProcessor>();
         services.AddSingleton<IFaceAccessPolicyComparisonProcessor>(sp =>
             sp.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
@@ -173,5 +187,11 @@ public sealed class FaceAccessPolicyComparisonTests
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase($"policy-comparison-{Guid.NewGuid():N}").Options;
         return new ApplicationDbContext(options);
+    }
+
+    private sealed class TestUser : ICurrentUserContext
+    {
+        public int? UserId => null;
+        public string? Username => "test";
     }
 }

@@ -1,5 +1,7 @@
 using API.Data;
 using API.Models;
+using API.Services.AccessCredentials;
+using API.Services.FaceCredentialBindings;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Services.AccessPolicyComparison;
@@ -115,9 +117,7 @@ public sealed class FaceAccessPolicyComparisonProcessor(
         {
             legacy = await services.GetRequiredService<ILegacyGateAccessEvaluator>()
                 .EvaluateAsync(new(item.EmployeeId.Value, mapping.GateId!.Value, item.OccurredAtUtc), token);
-            enterprise = await services.GetRequiredService<IEnterpriseAccessPolicyEvaluator>()
-                .EvaluateAsync(new(item.EmployeeId.Value, mapping.AccessPointId!.Value,
-                    item.OccurredAtUtc, null), token);
+            enterprise = await EvaluateEnterpriseAsync(services, item, mapping, token);
         }
         var result = Compare(legacy.Decision, enterprise.Decision, mapping.Status);
         db.FaceAccessPolicyComparisons.Add(new FaceAccessPolicyComparison {
@@ -155,6 +155,70 @@ public sealed class FaceAccessPolicyComparisonProcessor(
         }
     }
 
+    private static async Task<PolicyEvaluationResult> EvaluateEnterpriseAsync(
+        IServiceProvider services,
+        FaceRecognitionEvent item,
+        FacePolicyMapping mapping,
+        CancellationToken token)
+    {
+        var bindingService = services.GetRequiredService<IFaceCredentialBindingService>();
+        var evaluator = services.GetRequiredService<IEnterpriseAccessPolicyEvaluator>();
+        var credentialResolver = services.GetRequiredService<IAccessCredentialContextResolver>();
+
+        var input = new EnterprisePolicyEvaluationInput(
+            item.EmployeeId!.Value,
+            mapping.AccessPointId!.Value,
+            item.OccurredAtUtc,
+            null);
+
+        var binding = await bindingService.ResolveAsync(item.EmployeeId.Value, item.OccurredAtUtc, token);
+        if (binding.Context is null)
+        {
+            return new PolicyEvaluationResult(
+                PolicyEvaluationDecisions.Indeterminate,
+                binding.ReasonCode,
+                PolicyFingerprint.Create(
+                    "enterprise-face-binding",
+                    item.EmployeeId.Value,
+                    mapping.AccessPointId!.Value,
+                    item.OccurredAtUtc,
+                    binding.ReasonCode));
+        }
+
+        var credential = await credentialResolver.ResolveByCredentialIdAsync(
+            binding.Context.AccessCredentialId,
+            item.EmployeeId.Value,
+            item.OccurredAtUtc,
+            token);
+        if (credential.Context is null)
+        {
+            return new PolicyEvaluationResult(
+                PolicyEvaluationDecisions.Indeterminate,
+                credential.ReasonCode,
+                CreateEnterpriseBindingFingerprint(
+                    item,
+                    binding.Context,
+                    null,
+                    null,
+                    null,
+                    null,
+                    credential.ReasonCode));
+        }
+
+        var result = await evaluator.EvaluateAsync(input, credential.Context, token);
+        return result with
+        {
+            Fingerprint = CreateEnterpriseBindingFingerprint(
+                item,
+                binding.Context,
+                credential.Context,
+                result.PolicyVersionId,
+                result.RuleId,
+                result.ScheduleId,
+                result.ReasonCode)
+        };
+    }
+
     private static async Task<FacePolicyMapping> ResolveAsync(
         ApplicationDbContext db, FaceRecognitionEvent item, CancellationToken token)
     {
@@ -190,5 +254,31 @@ public sealed class FaceAccessPolicyComparisonProcessor(
         if (enterprise == PolicyEvaluationDecisions.NotConfigured)
             return PolicyComparisonResults.LegacyConfiguredEnterpriseMissing;
         return PolicyComparisonResults.EnterpriseConfiguredLegacyMissing;
+    }
+
+    private static string CreateEnterpriseBindingFingerprint(
+        FaceRecognitionEvent item,
+        EmployeeFaceCredentialBindingContext binding,
+        AccessCredentialContext? credential,
+        int? policyVersionId,
+        int? ruleId,
+        int? scheduleId,
+        string reasonCode)
+    {
+        return PolicyFingerprint.Create(
+            "enterprise-face-binding",
+            binding.BindingId,
+            binding.ActivatedAtUtc,
+            binding.AccessCredentialId,
+            credential?.CredentialType ?? AccessCredentialTypes.FaceBiometric,
+            credential?.StoredStatus,
+            credential?.EffectiveStatus,
+            credential?.EffectiveFromUtc,
+            credential?.ExpiresAtUtc,
+            policyVersionId,
+            ruleId,
+            scheduleId,
+            item.OccurredAtUtc,
+            reasonCode);
     }
 }
