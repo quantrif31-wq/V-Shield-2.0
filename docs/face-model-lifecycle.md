@@ -43,6 +43,9 @@ Reconciliation states are `Synced`, `MissingInRuntime`,
 `SubjectMismatch`, `DatabaseMetadataMissing`, and `RuntimeUnavailable`.
 Reads do not repair, activate, archive, or revoke models.
 
-The legacy source remains unchanged for rollback. There is no candidate,
-enrollment, activation, archive, or revoke workflow yet. Physical RTSP camera
+The legacy source remains unchanged for rollback. Commit 11 adds controlled,
+video-only employee enrollment with manual activation, atomic runtime
+promotion/rollback and crash-window reconciliation. Model revoke remains
+hidden from ASP.NET/UI until a durable revoke request marker supports safe
+crash recovery. See `docs/face-enrollment.md`. Physical RTSP camera
 connectivity remains unverified.

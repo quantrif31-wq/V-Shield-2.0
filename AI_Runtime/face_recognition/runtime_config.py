@@ -23,6 +23,11 @@ DEFAULT_JPEG_QUALITY = 80
 DEFAULT_API_PORT = 5001
 DEFAULT_HEADLESS_MODE = True
 DEFAULT_MAX_CAMERAS = 2
+DEFAULT_ENROLLMENT_MIN_ENCODINGS = 10
+DEFAULT_ENROLLMENT_MAX_FRAMES = 300
+DEFAULT_ENROLLMENT_FRAME_INTERVAL = 3
+DEFAULT_ENROLLMENT_DUPLICATE_THRESHOLD = 0.35
+DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES = 50 * 1024 * 1024
 
 
 class FaceRuntimeConfigError(ValueError):
@@ -186,6 +191,11 @@ class FaceRuntimeConfig:
     stream_height: int
     jpeg_quality: int
     max_cameras: int = DEFAULT_MAX_CAMERAS
+    enrollment_min_encodings: int = DEFAULT_ENROLLMENT_MIN_ENCODINGS
+    enrollment_max_frames: int = DEFAULT_ENROLLMENT_MAX_FRAMES
+    enrollment_frame_interval: int = DEFAULT_ENROLLMENT_FRAME_INTERVAL
+    enrollment_duplicate_threshold: float = DEFAULT_ENROLLMENT_DUPLICATE_THRESHOLD
+    enrollment_max_video_bytes: int = DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES
     service_token: str | None = field(default=None, repr=False)
     api_port: int = DEFAULT_API_PORT
     headless_mode: bool = DEFAULT_HEADLESS_MODE
@@ -270,6 +280,17 @@ class FaceRuntimeConfig:
                 (model_staging_dir, model_dir, model_archive_dir, model_failed_dir),
             )
 
+        enrollment_min_encodings = _parse_int(
+            source, "FACE_ENROLLMENT_MIN_ENCODINGS",
+            DEFAULT_ENROLLMENT_MIN_ENCODINGS, minimum=1)
+        enrollment_max_frames = _parse_int(
+            source, "FACE_ENROLLMENT_MAX_FRAMES",
+            DEFAULT_ENROLLMENT_MAX_FRAMES, minimum=1)
+        if enrollment_max_frames < enrollment_min_encodings:
+            raise FaceRuntimeConfigError(
+                "FACE_ENROLLMENT_MAX_FRAMES must be greater than or equal to "
+                "FACE_ENROLLMENT_MIN_ENCODINGS")
+
         return cls(
             model_dir=model_dir,
             canonical_model_active_dir=canonical_model_active_dir,
@@ -326,6 +347,17 @@ class FaceRuntimeConfig:
             max_cameras=_parse_int(
                 source, "FACE_MAX_CAMERAS", DEFAULT_MAX_CAMERAS, minimum=1
             ),
+            enrollment_min_encodings=enrollment_min_encodings,
+            enrollment_max_frames=enrollment_max_frames,
+            enrollment_frame_interval=_parse_int(
+                source, "FACE_ENROLLMENT_FRAME_INTERVAL",
+                DEFAULT_ENROLLMENT_FRAME_INTERVAL, minimum=1),
+            enrollment_duplicate_threshold=_parse_float(
+                source, "FACE_ENROLLMENT_DUPLICATE_THRESHOLD",
+                DEFAULT_ENROLLMENT_DUPLICATE_THRESHOLD, minimum=0.0),
+            enrollment_max_video_bytes=_parse_int(
+                source, "FACE_ENROLLMENT_MAX_VIDEO_BYTES",
+                DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES, minimum=1),
             service_token=token if token else None,
             api_port=_parse_int(source, "PORT", DEFAULT_API_PORT, minimum=1, maximum=65535),
             headless_mode=_parse_bool(source, "HEADLESS_MODE", DEFAULT_HEADLESS_MODE),

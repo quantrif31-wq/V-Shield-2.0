@@ -44,6 +44,7 @@ namespace API.Models
         public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
         public Employee Employee { get; set; } = null!;
+        public FaceEnrollmentJob? SourceEnrollmentJob { get; set; }
     }
 
     public static class FaceModelLifecycleStatuses

@@ -309,6 +309,35 @@ class FaceRuntimeConfigTests(unittest.TestCase):
                         }
                     )
 
+    def test_enrollment_defaults_and_overrides(self):
+        config = FaceRuntimeConfig.from_env({})
+        self.assertGreater(config.enrollment_min_encodings, 0)
+        self.assertGreaterEqual(config.enrollment_max_frames, config.enrollment_min_encodings)
+        overridden = FaceRuntimeConfig.from_env({
+            "FACE_ENROLLMENT_MIN_ENCODINGS": "4",
+            "FACE_ENROLLMENT_MAX_FRAMES": "20",
+            "FACE_ENROLLMENT_FRAME_INTERVAL": "2",
+            "FACE_ENROLLMENT_DUPLICATE_THRESHOLD": "0.25",
+            "FACE_ENROLLMENT_MAX_VIDEO_BYTES": "4096",
+        })
+        self.assertEqual((4, 20, 2, .25, 4096), (
+            overridden.enrollment_min_encodings,
+            overridden.enrollment_max_frames,
+            overridden.enrollment_frame_interval,
+            overridden.enrollment_duplicate_threshold,
+            overridden.enrollment_max_video_bytes))
+
+    def test_enrollment_invalid_values_are_rejected(self):
+        for env in (
+            {"FACE_ENROLLMENT_MIN_ENCODINGS": "0"},
+            {"FACE_ENROLLMENT_FRAME_INTERVAL": "0"},
+            {"FACE_ENROLLMENT_DUPLICATE_THRESHOLD": "nan"},
+            {"FACE_ENROLLMENT_MAX_VIDEO_BYTES": "0"},
+            {"FACE_ENROLLMENT_MIN_ENCODINGS": "10", "FACE_ENROLLMENT_MAX_FRAMES": "9"},
+        ):
+            with self.subTest(env=env), self.assertRaises(FaceRuntimeConfigError):
+                FaceRuntimeConfig.from_env(env)
+
 
 if __name__ == "__main__":
     unittest.main()

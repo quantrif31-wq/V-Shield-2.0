@@ -25,6 +25,7 @@ from camera_manager import (
 )
 from model_registry import FaceModelRegistry
 from runtime_config import FaceRuntimeConfig
+from enrollment_service import EnrollmentError, EnrollmentService
 
 
 if site.USER_SITE is None:
@@ -48,6 +49,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 print("Loading face models...")
 print("Face model directory:", CONFIG.model_dir)
 model_registry = FaceModelRegistry(CONFIG.model_dir)
+enrollment_service = EnrollmentService(CONFIG, model_registry)
 initial_model_snapshot = model_registry.current_snapshot()
 print("Loaded models:", initial_model_snapshot.successful_file_count)
 print("Total encodings:", initial_model_snapshot.encoding_count)
@@ -521,7 +523,64 @@ def run_api_server() -> None:
         debug=False,
         use_reloader=False,
         threaded=True,
-    )
+        )
+
+
+def enrollment_error_response(error: EnrollmentError):
+    return jsonify({"success": False, "failureCode": error.code,
+                    "message": str(error), **error.details}), error.status_code
+
+
+@app.post("/api/enrollments/<job_id>/prepare")
+def prepare_enrollment(job_id):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"failureCode": "InvalidRequest", "message": "JSON body required."}), 400
+    try:
+        return jsonify(enrollment_service.prepare_enrollment(
+            job_id, str(payload.get("subjectId", "")),
+            str(payload.get("sourceReference", ""))))
+    except EnrollmentError as error:
+        return enrollment_error_response(error)
+    except Exception:
+        return jsonify({"failureCode": "EnrollmentFailed",
+                        "message": "Enrollment preparation failed."}), 500
+
+
+@app.post("/api/enrollments/<job_id>/activate")
+def activate_enrollment(job_id):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"failureCode": "InvalidRequest", "message": "JSON body required."}), 400
+    try:
+        return jsonify(enrollment_service.activate_candidate(
+            job_id, str(payload.get("subjectId", "")), payload.get("version"),
+            str(payload.get("expectedChecksum", "")),
+            str(payload.get("expectedModelFileName", ""))))
+    except EnrollmentError as error:
+        return enrollment_error_response(error)
+    except Exception:
+        return jsonify({"failureCode": "ActivationFailed",
+                        "message": "Candidate activation failed."}), 500
+
+
+@app.post("/api/enrollments/<job_id>/discard")
+def discard_enrollment(job_id):
+    try:
+        return jsonify(enrollment_service.discard_candidate(job_id))
+    except EnrollmentError as error:
+        return enrollment_error_response(error)
+
+
+@app.post("/api/models/subjects/<subject_id>/revoke")
+def revoke_subject_model(subject_id):
+    try:
+        return jsonify(enrollment_service.revoke_subject_model(subject_id))
+    except EnrollmentError as error:
+        return enrollment_error_response(error)
+    except Exception:
+        return jsonify({"failureCode": "RevokeFailed",
+                        "message": "Model revocation failed."}), 500
 
 
 def debug_view_loop() -> None:

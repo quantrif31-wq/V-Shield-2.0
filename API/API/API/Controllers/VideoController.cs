@@ -15,7 +15,7 @@ namespace API.Controllers
     [ApiController]
     [EnableRateLimiting("ops")]
     [Authorize]
-    [RequireOperationalTask("monitoring")]
+    [RequireOperationalTask("identity-mgmt")]
     public class VideoController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -28,6 +28,7 @@ namespace API.Controllers
         }
 
         [HttpPost("upload")]
+        [RequireOperationalTask("identity-mgmt", requireManage: true)]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(50_000_000)]
         public async Task<IActionResult> UploadVideo([FromForm] UploadVideoRequest request)
@@ -101,9 +102,9 @@ namespace API.Controllers
                 {
                     EmployeeId = finalEmployeeId,
                     FileName = fileName,
-                    FilePath = "/uploads/VideoFace/video_notok/" + fileName,
+                    FilePath = "video_notok/" + fileName,
                     FileSize = file.Length,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 _context.EmployeeFaceVideos.Add(video);
@@ -166,6 +167,7 @@ namespace API.Controllers
         }
 
         [Authorize(Roles = "Admin")]
+        [RequireOperationalTask("identity-mgmt", requireManage: true)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteVideo(int id)
         {

@@ -380,6 +380,32 @@ class FaceRuntimeContractTests(unittest.TestCase):
         self.assertEqual("MODEL_RELOAD_INTERNAL_ERROR", payload["errorCode"])
         self.assertNotIn("sensitive filesystem detail", response.get_data(as_text=True))
 
+    def test_enrollment_endpoints_reject_unmanaged_inputs(self):
+        job = "12345678-1234-1234-1234-123456789abc"
+        missing_body = self.client.post(f"/api/enrollments/{job}/prepare")
+        self.assertEqual(400, missing_body.status_code)
+        absolute = self.client.post(f"/api/enrollments/{job}/prepare", json={
+            "subjectId": "1", "sourceReference": "C:/unmanaged/video.mp4"})
+        self.assertEqual(400, absolute.status_code)
+        self.assertNotIn("c:/", absolute.get_data(as_text=True).lower())
+        invalid_job = self.client.post("/api/enrollments/not-a-guid/discard")
+        self.assertEqual(400, invalid_job.status_code)
+
+    def test_enrollment_response_never_exposes_candidate_path_or_vector(self):
+        job = "12345678-1234-1234-1234-123456789abc"
+        with mock.patch.object(
+            self.runtime.enrollment_service, "prepare_enrollment",
+            return_value={"candidateReference": f"{job}.pkl",
+                          "candidateChecksum": "a" * 64,
+                          "encodingCount": 10}):
+            response = self.client.post(f"/api/enrollments/{job}/prepare", json={
+                "subjectId": "1", "sourceReference": "video_notok/managed.mp4"})
+        self.assertEqual(200, response.status_code)
+        body = response.get_data(as_text=True).lower()
+        self.assertNotIn("/data/", body)
+        self.assertNotIn("encoding\":", body)
+        self.assertNotIn("vector", body)
+
 
 if __name__ == "__main__":
     unittest.main()

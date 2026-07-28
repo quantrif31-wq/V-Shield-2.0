@@ -70,6 +70,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<VisitorDetail> VisitorDetails { get; set; }
     public virtual DbSet<EmployeeFaceVideo> EmployeeFaceVideos { get; set; }
     public virtual DbSet<EmployeeFaceModel> EmployeeFaceModels { get; set; }
+    public virtual DbSet<FaceEnrollmentJob> FaceEnrollmentJobs { get; set; }
     public virtual DbSet<EmployeeDynamicQr> EmployeeDynamicQrs { get; set; }
     public virtual DbSet<DynamicQrScanLog> DynamicQrScanLogs { get; set; }
     public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
@@ -433,8 +434,26 @@ public partial class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Employee)
                   .WithMany()
                   .HasForeignKey(e => e.EmployeeId)
-                  .OnDelete(DeleteBehavior.Cascade)
+                  .OnDelete(DeleteBehavior.Restrict)
                   .HasConstraintName("FK_EmployeeFaceVideo_Employee");
+        });
+        modelBuilder.Entity<FaceEnrollmentJob>(entity =>
+        {
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.Property(e => e.QualityScore).HasPrecision(9, 6);
+            entity.Property(e => e.DuplicateDistance).HasPrecision(9, 6);
+            entity.HasIndex(e => e.EmployeeId)
+                .IsUnique()
+                .HasFilter("[Status] IN ('Pending','Processing','Prepared','Activating','RecoveryRequired')")
+                .HasDatabaseName("UX_FaceEnrollmentJobs_NonTerminalEmployee");
+            entity.HasIndex(e => new { e.Status, e.CreatedAtUtc })
+                .HasDatabaseName("IX_FaceEnrollmentJobs_Status_CreatedAtUtc");
+            entity.HasOne(e => e.Employee).WithMany()
+                .HasForeignKey(e => e.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.EmployeeFaceVideo).WithMany(e => e.EnrollmentJobs)
+                .HasForeignKey(e => e.EmployeeFaceVideoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RequestedByUser).WithMany()
+                .HasForeignKey(e => e.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<EmployeeFaceModel>(entity =>
         {
@@ -478,6 +497,10 @@ public partial class ApplicationDbContext : DbContext
                   .HasForeignKey(e => e.EmployeeId)
                   .OnDelete(DeleteBehavior.Cascade)
                   .HasConstraintName("FK_EmployeeFaceModel_Employee");
+            entity.HasOne(e => e.SourceEnrollmentJob)
+                  .WithOne(e => e.ResultModel)
+                  .HasForeignKey<EmployeeFaceModel>(e => e.SourceEnrollmentJobId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Department>(entity =>

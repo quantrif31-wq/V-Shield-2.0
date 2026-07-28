@@ -227,6 +227,14 @@ namespace API
                 serviceProvider.GetRequiredService<FaceCameraConfigurationService>());
             builder.Services.AddScoped<FaceCameraReconciliationCycle>();
             builder.Services.AddScoped<IFaceModelMetadataService, FaceModelMetadataService>();
+            var faceEnrollmentOptions = new FaceEnrollmentOptions();
+            builder.Configuration.GetSection(FaceEnrollmentOptions.SectionName).Bind(faceEnrollmentOptions);
+            if (faceEnrollmentOptions.PollIntervalSeconds <= 0 ||
+                faceEnrollmentOptions.MaxConcurrentJobs <= 0 ||
+                faceEnrollmentOptions.MaxAttempts <= 0)
+                throw new InvalidOperationException("FaceEnrollment worker settings must be greater than zero.");
+            builder.Services.AddSingleton(faceEnrollmentOptions);
+            builder.Services.AddScoped<IFaceEnrollmentService, FaceEnrollmentService>();
             builder.Services.AddSingleton<FaceCameraSessionReconciler>();
             builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
@@ -234,6 +242,8 @@ namespace API
             {
                 builder.Services.AddHostedService(serviceProvider =>
                     serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
+                if (faceEnrollmentOptions.WorkerEnabled)
+                    builder.Services.AddHostedService<FaceEnrollmentWorker>();
             }
             builder.Services.AddHttpClient("AiGateway", client =>
             {

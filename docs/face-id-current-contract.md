@@ -551,3 +551,22 @@ database metadata, or runtime unavailable states. Enrollment and
 candidate/activate/archive/revoke workflows are not implemented. The legacy
 source remains unchanged for rollback, and physical RTSP camera connectivity
 has not passed acceptance. See `docs/face-model-lifecycle.md`.
+
+## Controlled employee enrollment
+
+Employee face enrollment starts only from an existing managed
+`EmployeeFaceVideo`. ASP.NET validates employee ownership and queues a
+background job; Face Runtime prepares an isolated candidate and does not reload
+the active registry during preparation. Prepared candidates require explicit
+administrator activation.
+
+Activation uses deterministic filenames, atomic same-filesystem moves, strict
+registry reload and rollback to the previous model on reload failure.
+`Activating` database markers allow worker recovery after the runtime succeeds
+but before database finalization. Quality score is the deterministic ratio of
+usable to processed frames, not an authentication probability. Cross-subject
+duplicates are rejected while same-subject re-enrollment is allowed.
+
+No liveness, guest/VIP enrollment, RecognitionEvent, access decision or gate
+operation is included. Revoke is not exposed by ASP.NET/UI until durable
+crash-recovery intent is implemented. See `docs/face-enrollment.md`.

@@ -46,4 +46,16 @@ public interface IFaceRecognitionClient
     Task<FaceRuntimeResponse> GetModelsAsync(CancellationToken cancellationToken);
 
     Task<FaceRuntimeResponse> ReloadModelsAsync(CancellationToken cancellationToken);
+    Task<FaceRuntimeResponse> PrepareEnrollmentAsync(Guid jobId, FacePrepareEnrollmentRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    Task<FaceRuntimeResponse> ActivateEnrollmentAsync(Guid jobId, FaceActivateEnrollmentRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    Task<FaceRuntimeResponse> DiscardEnrollmentAsync(Guid jobId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    Task<FaceRuntimeResponse> RevokeSubjectModelAsync(string subjectId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }
+
+public sealed record FacePrepareEnrollmentRequest(string SubjectId, string SourceReference);
+public sealed record FaceActivateEnrollmentRequest(
+    string SubjectId, int Version, string ExpectedChecksum, string ExpectedModelFileName);

@@ -100,6 +100,20 @@ public sealed class FaceRecognitionClient : IFaceRecognitionClient
     public Task<FaceRuntimeResponse> ReloadModelsAsync(CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Post, "models/reload", null, cancellationToken);
 
+    public Task<FaceRuntimeResponse> PrepareEnrollmentAsync(Guid jobId, FacePrepareEnrollmentRequest request, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, $"enrollments/{jobId:D}/prepare",
+            JsonContent.Create(request, options: RequestJsonOptions), cancellationToken);
+
+    public Task<FaceRuntimeResponse> ActivateEnrollmentAsync(Guid jobId, FaceActivateEnrollmentRequest request, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, $"enrollments/{jobId:D}/activate",
+            JsonContent.Create(request, options: RequestJsonOptions), cancellationToken);
+
+    public Task<FaceRuntimeResponse> DiscardEnrollmentAsync(Guid jobId, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, $"enrollments/{jobId:D}/discard", null, cancellationToken);
+
+    public Task<FaceRuntimeResponse> RevokeSubjectModelAsync(string subjectId, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, $"models/subjects/{Uri.EscapeDataString(subjectId)}/revoke", null, cancellationToken);
+
     private static string CameraPath(string cameraId, string operation)
     {
         var validCameraId = FaceCameraIdValidator.Validate(cameraId);
