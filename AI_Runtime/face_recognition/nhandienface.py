@@ -416,7 +416,9 @@ def registry_snapshot_payload(snapshot) -> dict[str, Any]:
             {
                 "fileName": model.file_name,
                 "subjectId": model.subject_id,
+                "checksum": model.checksum,
                 "encodingCount": model.encoding_count,
+                "registryVersion": snapshot.version,
             }
             for model in snapshot.model_files
         ],

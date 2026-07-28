@@ -95,6 +95,43 @@
             </div>
         </section>
 
+        <section class="ops-panel">
+            <div class="panel-head">
+                <div>
+                    <span class="panel-kicker">Model lifecycle</span>
+                    <h2 class="panel-title">Trạng thái model khuôn mặt</h2>
+                </div>
+                <span class="soft-chip" :class="modelRuntimeUnavailable ? 'danger' : 'success'">
+                    {{ modelRuntimeUnavailable ? 'Runtime unavailable' : `Registry v${registryVersion || '--'}` }}
+                </span>
+            </div>
+            <div v-if="faceModels.length" class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nhân viên</th>
+                            <th>Version / trạng thái</th>
+                            <th>Encoding</th>
+                            <th>Checksum</th>
+                            <th>Activated</th>
+                            <th>Registry</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="model in faceModels" :key="model.id">
+                            <td>{{ model.employeeName }}<div class="table-sub">{{ model.modelFileName }}</div></td>
+                            <td>v{{ model.version || '--' }} · {{ model.status || 'Metadata missing' }}</td>
+                            <td>{{ model.encodingCount || '--' }}</td>
+                            <td><code>{{ model.checksumPrefix || '--' }}</code></td>
+                            <td>{{ formatDateTime(model.activatedAtUtc) }}</td>
+                            <td><span class="soft-chip" :class="model.registrySyncState === 'Synced' ? 'success' : 'warn'">{{ model.registrySyncState }}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else class="empty-card">Chưa có metadata vòng đời model.</div>
+        </section>
+
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
@@ -143,7 +180,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { getBiometricOverview } from '../services/biometricApi'
+import { getBiometricOverview, getFaceModelHealth } from '../services/biometricApi'
 
 const isLoading = ref(true)
 const query = ref('')
@@ -159,6 +196,10 @@ const summary = ref({
 const employees = ref([])
 const recentModels = ref([])
 const recentVideos = ref([])
+const faceModels = ref([])
+const registryVersion = ref(null)
+const modelRuntimeUnavailable = computed(() =>
+    faceModels.value.some(model => model.registrySyncState === 'RuntimeUnavailable'))
 
 const bCurrentPage = ref(1)
 const bPageSize = 10
@@ -198,16 +239,23 @@ const fetchOverview = async () => {
     isLoading.value = true
     bCurrentPage.value = 1
     try {
-        const { data } = await getBiometricOverview({ query: query.value || undefined })
+        const [{ data }, modelHealth] = await Promise.all([
+            getBiometricOverview({ query: query.value || undefined }),
+            getFaceModelHealth(),
+        ])
         summary.value = { ...summary.value, ...(data.summary || {}) }
         employees.value = data.employees || []
         recentModels.value = data.recentModels || []
         recentVideos.value = data.recentVideos || []
+        faceModels.value = modelHealth.data?.models || []
+        registryVersion.value = modelHealth.data?.registryVersion || null
     } catch (error) {
         console.error('Biometric overview error:', error)
         employees.value = []
         recentModels.value = []
         recentVideos.value = []
+        faceModels.value = []
+        registryVersion.value = null
     } finally {
         isLoading.value = false
     }

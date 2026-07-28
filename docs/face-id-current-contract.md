@@ -528,3 +528,26 @@ rollback. A runtime rollback restores the legacy `FACE_MODEL_DIR` and recreates
 only `face-runtime`; it does not remove canonical files or database rows and
 does not run adoption rollback. Enrollment remains unimplemented, and physical
 RTSP camera connectivity remains unverified.
+
+## Face model lifecycle metadata
+
+`EmployeeFaceModels` now stores nullable lifecycle metadata for recovery-safe
+rollout: Version, string Status, SHA-256 checksum, encoding count, activation,
+archive and revoke timestamps, sanitized failure fields, nullable future
+enrollment-job linkage, and SQL Server rowversion. Unique indexes protect model
+filename, `(EmployeeId, Version)`, the filtered Active model per employee, and
+non-null enrollment-job linkage.
+
+The five adopted canonical models were explicitly bootstrapped as Version 1,
+Active. Their original `CreatedAt` adoption timestamps were preserved and also
+used as `ActivatedAtUtc`; these timestamps are not training dates. Registry
+metadata and database metadata reconcile as `Synced` with five models, 665
+encodings, and zero runtime errors.
+
+The administrative read APIs require `identity-mgmt` and expose only checksum
+prefixes, never paths, vectors, or model content. Reconciliation is read-only
+and reports missing, unexpected, checksum/encoding/subject mismatch, incomplete
+database metadata, or runtime unavailable states. Enrollment and
+candidate/activate/archive/revoke workflows are not implemented. The legacy
+source remains unchanged for rollback, and physical RTSP camera connectivity
+has not passed acceptance. See `docs/face-model-lifecycle.md`.

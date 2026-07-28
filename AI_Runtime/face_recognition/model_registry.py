@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pickle
+import hashlib
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ import numpy as np
 class ModelDescriptor:
     file_name: str
     subject_id: str
+    checksum: str
     encoding_count: int
 
 
@@ -106,6 +108,7 @@ class FaceModelRegistry:
                 continue
 
             try:
+                checksum = self._sha256(safe_path)
                 with safe_path.open("rb") as model_stream:
                     raw_encodings = pickle.load(model_stream)
             except Exception:
@@ -166,6 +169,7 @@ class FaceModelRegistry:
                 ModelDescriptor(
                     file_name=model_path.name,
                     subject_id=subject_id,
+                    checksum=checksum,
                     encoding_count=len(immutable_encodings),
                 )
             )
@@ -226,6 +230,14 @@ class FaceModelRegistry:
     def _subject_id_from_path(model_path: Path) -> str:
         parts = model_path.stem.split("_")
         return parts[1] if len(parts) > 1 else model_path.stem
+
+    @staticmethod
+    def _sha256(model_path: Path) -> str:
+        digest = hashlib.sha256()
+        with model_path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
 
     def _make_snapshot(
         self,

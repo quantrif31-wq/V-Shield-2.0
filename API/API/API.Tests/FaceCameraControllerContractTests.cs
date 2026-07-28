@@ -463,6 +463,9 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceCamera/models/reload")]
     [InlineData("/api/FaceCamera/discover-ipwebcam")]
     [InlineData("/api/FaceCameraConfigurations")]
+    [InlineData("/api/FaceModels")]
+    [InlineData("/api/FaceModels/health")]
+    [InlineData("/api/Employees/1/face-models")]
     public async Task AnonymousUser_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -482,6 +485,9 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceCamera/models/reload")]
     [InlineData("/api/FaceCamera/discover-ipwebcam")]
     [InlineData("/api/FaceCameraConfigurations")]
+    [InlineData("/api/FaceModels")]
+    [InlineData("/api/FaceModels/health")]
+    [InlineData("/api/Employees/1/face-models")]
     public async Task UserWithoutMonitoringPermission_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -514,6 +520,27 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("""{"success":true,"camera_enabled":false}""",
             await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/api/FaceModels")]
+    [InlineData("/api/FaceModels/health")]
+    [InlineData("/api/Employees/1/face-models")]
+    public async Task AdminWithIdentityManagementPermission_CanReadFaceModelMetadata(string path)
+    {
+        var runtime = FaceCameraControllerContractTests.StubClient.Returning(
+            new FaceRuntimeResponse(
+                HttpStatusCode.OK,
+                """{"version":1,"successfulFileCount":0,"encodingCount":0,"errorCount":0,"models":[]}""",
+                "application/json"));
+        using var client = CreateClientWithFakeFaceRuntime(runtime);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwtToken(1002, "admin.test", "Admin"));
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("ModelPath", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

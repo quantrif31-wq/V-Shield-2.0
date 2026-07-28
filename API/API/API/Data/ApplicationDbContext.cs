@@ -449,6 +449,30 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                   .HasDefaultValueSql("(getdate())");
 
+            entity.Property(e => e.Status).HasMaxLength(20);
+            entity.Property(e => e.ModelChecksum).HasMaxLength(64);
+            entity.Property(e => e.FailureCode).HasMaxLength(80);
+            entity.Property(e => e.FailureMessage).HasMaxLength(500);
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+
+            entity.HasIndex(e => e.ModelFileName)
+                  .IsUnique()
+                  .HasDatabaseName("UX_EmployeeFaceModels_ModelFileName");
+            entity.HasIndex(e => new { e.EmployeeId, e.Version })
+                  .IsUnique()
+                  .HasFilter("[Version] IS NOT NULL")
+                  .HasDatabaseName("UX_EmployeeFaceModels_EmployeeId_Version");
+            entity.HasIndex(e => e.EmployeeId)
+                  .HasDatabaseName("IX_EmployeeFaceModels_EmployeeId");
+            entity.HasIndex(e => new { e.EmployeeId, e.Status })
+                  .IsUnique()
+                  .HasFilter("[Status] = 'Active'")
+                  .HasDatabaseName("UX_EmployeeFaceModels_ActiveEmployee");
+            entity.HasIndex(e => e.SourceEnrollmentJobId)
+                  .IsUnique()
+                  .HasFilter("[SourceEnrollmentJobId] IS NOT NULL")
+                  .HasDatabaseName("UX_EmployeeFaceModels_SourceEnrollmentJobId");
+
             entity.HasOne(e => e.Employee)
                   .WithMany()
                   .HasForeignKey(e => e.EmployeeId)

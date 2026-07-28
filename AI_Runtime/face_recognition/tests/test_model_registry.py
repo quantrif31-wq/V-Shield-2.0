@@ -2,6 +2,7 @@
 
 import pathlib
 import pickle
+import hashlib
 import tempfile
 import threading
 import time
@@ -46,13 +47,15 @@ class FaceModelRegistryTests(unittest.TestCase):
 
     def test_single_file_preserves_all_encodings_and_old_subject_convention(self):
         with tempfile.TemporaryDirectory() as directory:
-            write_model(directory, "emp_17_timestamp.pkl", [encoding(1), encoding(2)])
+            path = write_model(directory, "emp_17_timestamp.pkl", [encoding(1), encoding(2)])
+            expected_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
             snapshot = FaceModelRegistry(directory).current_snapshot()
 
         self.assertEqual(1, snapshot.successful_file_count)
         self.assertEqual(2, snapshot.encoding_count)
         self.assertEqual(("17", "17"), snapshot.subject_ids)
         self.assertEqual("emp_17_timestamp.pkl", snapshot.model_files[0].file_name)
+        self.assertEqual(expected_checksum, snapshot.model_files[0].checksum)
         self.assertEqual(2, snapshot.model_files[0].encoding_count)
 
     def test_multiple_files_are_loaded_in_deterministic_filename_order(self):
@@ -162,6 +165,29 @@ class FaceModelRegistryTests(unittest.TestCase):
         self.assertEqual(1, registry.current_snapshot().version)
         self.assertEqual(previous.subject_ids, registry.current_snapshot().subject_ids)
         self.assertEqual(previous.encoding_count, registry.current_snapshot().encoding_count)
+        self.assertEqual(
+            previous.model_files[0].checksum,
+            registry.current_snapshot().model_files[0].checksum,
+        )
+
+    def test_reload_refreshes_checksum_snapshot_without_exposing_path_or_vectors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = write_model(directory, "emp_1_ok.pkl", [encoding(1)])
+            registry = FaceModelRegistry(directory)
+            previous = registry.current_snapshot()
+            old_checksum = previous.model_files[0].checksum
+            write_model(directory, "emp_1_ok.pkl", [encoding(2)])
+
+            # The immutable active snapshot remains unchanged until reload.
+            self.assertEqual(old_checksum, registry.current_snapshot().model_files[0].checksum)
+            result = registry.reload()
+            expected_checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+
+        descriptor = result.current_snapshot.model_files[0]
+        self.assertNotEqual(old_checksum, descriptor.checksum)
+        self.assertEqual(expected_checksum, descriptor.checksum)
+        self.assertNotIn(directory, repr(descriptor))
+        self.assertNotIn("array", repr(descriptor).lower())
 
     def test_symlink_outside_model_directory_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using API.Data;
 using API.Hubs;
@@ -27,7 +28,7 @@ namespace API
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
             ConfigureDataProtection(builder);
@@ -225,6 +226,7 @@ namespace API
             builder.Services.AddScoped<IFaceCameraConfigurationStore>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceCameraConfigurationService>());
             builder.Services.AddScoped<FaceCameraReconciliationCycle>();
+            builder.Services.AddScoped<IFaceModelMetadataService, FaceModelMetadataService>();
             builder.Services.AddSingleton<FaceCameraSessionReconciler>();
             builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
@@ -332,6 +334,15 @@ namespace API
                 });
             });
             var app = builder.Build();
+            if (args.Length > 0 &&
+                string.Equals(args[0], "face-models", StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.ExitCode = await RunFaceModelCommandAsync(
+                    app.Services,
+                    args,
+                    CancellationToken.None);
+                return;
+            }
             if (!app.Environment.IsEnvironment("Testing"))
             {
                 EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
@@ -480,6 +491,49 @@ namespace API
             }
 
             app.Run();
+        }
+
+        private static async Task<int> RunFaceModelCommandAsync(
+            IServiceProvider services,
+            string[] args,
+            CancellationToken cancellationToken)
+        {
+            if (args.Length < 2 ||
+                !string.Equals(
+                    args[1],
+                    "bootstrap-metadata",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                Console.Error.WriteLine(
+                    "Usage: face-models bootstrap-metadata [--apply --confirm-bootstrap]");
+                return 2;
+            }
+
+            var apply = args.Contains("--apply", StringComparer.Ordinal);
+            var confirm = args.Contains("--confirm-bootstrap", StringComparer.Ordinal);
+            var supported = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "face-models",
+                "bootstrap-metadata",
+                "--dry-run",
+                "--apply",
+                "--confirm-bootstrap"
+            };
+            if (args.Any(argument => !supported.Contains(argument)))
+            {
+                Console.Error.WriteLine("Unsupported face model bootstrap argument.");
+                return 2;
+            }
+
+            using var scope = services.CreateScope();
+            var bootstrap = scope.ServiceProvider
+                .GetRequiredService<IFaceModelMetadataService>();
+            var result = await bootstrap.BootstrapAsync(
+                apply,
+                confirm,
+                cancellationToken);
+            Console.WriteLine(JsonSerializer.Serialize(result));
+            return result.Success ? 0 : 3;
         }
 
         private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)
