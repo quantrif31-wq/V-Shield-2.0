@@ -20,6 +20,7 @@ from face_model_inventory import (
     READY,
     DatabaseModelRow,
     FaceModelInventory,
+    SqlServerInventoryRepository,
     copy_ready_models,
     rollback_import,
 )
@@ -184,6 +185,34 @@ class FaceModelInventoryTests(unittest.TestCase):
 
         self.assertEqual([source_file.name], removed)
         self.assertFalse((active / source_file.name).exists())
+
+    def test_sql_repository_queries_the_audited_employee_table(self):
+        executed = []
+
+        class Cursor:
+            def execute(self, query):
+                executed.append(query)
+                return self
+
+            def fetchall(self):
+                return [(1,), (2,)]
+
+        class Connection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def cursor(self):
+                return Cursor()
+
+        repository = SqlServerInventoryRepository("not-used")
+        repository._connect = lambda: Connection()
+
+        self.assertEqual({1, 2}, repository.employee_ids())
+        self.assertIn("FROM Employee", executed[0])
+        self.assertNotIn("FROM Employees", executed[0])
 
 
 if __name__ == "__main__":

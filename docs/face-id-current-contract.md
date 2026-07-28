@@ -470,7 +470,7 @@ variables prepared for that process are:
 - `FACE_MODEL_FAILED_DIR=/data/face/models/failed`
 
 `scripts/face_model_inventory.py` is dry-run by default. It compares sanitized
-legacy `.pkl` basenames with `EmployeeFaceModels` and `Employees`, validates
+legacy `.pkl` basenames with `EmployeeFaceModels` and `Employee`, validates
 encoding shape and finiteness, calculates SHA-256 and encoding counts, and
 writes no vectors or database credentials. A filename is only corroborating
 evidence, never the authoritative identity mapping. Database/filename
@@ -489,3 +489,36 @@ backfill, and model activation are not implemented by this foundation. The
 legacy model directory remains the rollback source. If the real database and
 all five existing models cannot be verified as `Ready` with 665 total
 encodings, deployment cutover remains pending.
+
+## Explicit legacy model adoption
+
+The live database audit found zero `EmployeeFaceModels` rows, so the five
+legacy `.pkl` files are `Orphaned`. They must not be backfilled by migration or
+mapped automatically from `emp_<id>_` filenames. The filename ID is only a
+non-authoritative `suggestedEmployeeId`.
+
+`scripts/adopt_legacy_face_models.py` requires an ignored, operator-approved
+manifest. Template generation leaves `employeeId=null` and `approved=false`.
+Validation requires explicit unique mappings, UTC approval metadata, matching
+checksums and encoding counts, existing employees, an unambiguous database,
+safe source paths, and a non-conflicting canonical destination. A mapping that
+differs from the filename suggestion is warned and blocked unless the operator
+adds the dedicated mismatch confirmation.
+
+Apply requires both `--apply` and `--confirm-adoption`, prepares and verifies
+all files before publication, then inserts all rows in one database
+transaction. `ModelPath` is stored as the canonical relative path
+`models/active/<basename>`. `CreatedAt` is the UTC adoption timestamp, not the
+unknown original training timestamp. Any failure rolls back the transaction
+and removes only newly created, checksum-matching destination files.
+
+Adoption is idempotent and produces ignored result and rollback manifests.
+Rollback is dry-run by default, requires its exact apply manifest, and requires
+explicit confirmation that runtime has been restored to legacy storage before
+deleting adoption-created rows or files. The legacy source is never moved or
+deleted.
+
+Adoption does not change `FACE_MODEL_DIR`, restart Face Runtime, perform
+cutover, create enrollment jobs, or introduce model lifecycle versions. See
+`docs/face-storage-legacy-adoption.md` for the operator procedure. Physical
+RTSP camera connectivity remains unverified.

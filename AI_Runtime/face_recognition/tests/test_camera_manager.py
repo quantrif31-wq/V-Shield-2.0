@@ -51,8 +51,19 @@ class FakeCapture:
 class CameraManagerTests(unittest.TestCase):
     def setUp(self):
         self.models = tempfile.TemporaryDirectory(prefix="camera-manager-models-")
+        self.storage = tempfile.TemporaryDirectory(prefix="camera-manager-storage-")
+        storage_root = pathlib.Path(self.storage.name)
+        input_root = storage_root / "input"
+        input_root.mkdir()
         self.config = FaceRuntimeConfig.from_env(
-            {"FACE_MODEL_DIR": self.models.name, "FACE_MAX_CAMERAS": "2"}
+            {
+                "FACE_MODEL_DIR": self.models.name,
+                "FACE_MAX_CAMERAS": "2",
+                "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+                "FACE_MODEL_STAGING_DIR": str(storage_root / "models" / "staging"),
+                "FACE_MODEL_ARCHIVE_DIR": str(storage_root / "models" / "archive"),
+                "FACE_MODEL_FAILED_DIR": str(storage_root / "models" / "failed"),
+            }
         )
         self.registry = FaceModelRegistry(self.models.name)
         self.captures = []
@@ -75,6 +86,7 @@ class CameraManagerTests(unittest.TestCase):
         self.manager.shutdown_all()
         self.face_locations.stop()
         self.models.cleanup()
+        self.storage.cleanup()
 
     def wait_until(self, predicate, timeout=1.5):
         deadline = time.monotonic() + timeout

@@ -55,6 +55,10 @@ class InventoryRepository(Protocol):
     def employee_ids(self) -> set[int]: ...
 
 
+class DatabaseSchemaError(RuntimeError):
+    """Raised when the live database does not expose the audited face schema."""
+
+
 class SqlServerInventoryRepository:
     def __init__(self, connection_string: str):
         if not connection_string.strip():
@@ -67,26 +71,37 @@ class SqlServerInventoryRepository:
         return pyodbc.connect(self._connection_string)
 
     def model_rows(self) -> list[DatabaseModelRow]:
-        with self._connect() as connection:
-            cursor = connection.cursor()
-            cursor.execute(
-                "SELECT Id, EmployeeId, ModelFileName, ModelPath FROM EmployeeFaceModels"
-            )
-            return [
-                DatabaseModelRow(
-                    row_id=int(row[0]),
-                    employee_id=int(row[1]),
-                    model_file_name=str(row[2] or ""),
-                    model_path=str(row[3]) if row[3] is not None else None,
+        try:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                cursor.execute(
+                    "SELECT Id, EmployeeId, ModelFileName, ModelPath FROM EmployeeFaceModels"
                 )
-                for row in cursor.fetchall()
-            ]
+                return [
+                    DatabaseModelRow(
+                        row_id=int(row[0]),
+                        employee_id=int(row[1]),
+                        model_file_name=str(row[2] or ""),
+                        model_path=str(row[3]) if row[3] is not None else None,
+                    )
+                    for row in cursor.fetchall()
+                ]
+        except Exception as exc:
+            raise DatabaseSchemaError(
+                "Database schema mismatch: EmployeeFaceModels must expose "
+                "Id, EmployeeId, ModelFileName, and ModelPath."
+            ) from exc
 
     def employee_ids(self) -> set[int]:
-        with self._connect() as connection:
-            cursor = connection.cursor()
-            cursor.execute("SELECT EmployeeId FROM Employees")
-            return {int(row[0]) for row in cursor.fetchall()}
+        try:
+            with self._connect() as connection:
+                cursor = connection.cursor()
+                cursor.execute("SELECT EmployeeId FROM Employee")
+                return {int(row[0]) for row in cursor.fetchall()}
+        except Exception as exc:
+            raise DatabaseSchemaError(
+                "Database schema mismatch: Employee must expose EmployeeId."
+            ) from exc
 
 
 @dataclass
