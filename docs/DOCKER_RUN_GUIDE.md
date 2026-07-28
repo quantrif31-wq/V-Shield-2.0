@@ -74,6 +74,18 @@ ASP.NET co xac thuc `/api/FaceCamera/models`; `face-runtime:5001` chi resolve
 trong Docker network `vshield-face-backend`. FastAPI `FaceID.py`,
 `faceid-runtime` va port `8000` da bi loai bo.
 
+Face Runtime doc model da duoc verify tai
+`/data/face/models/active` (`FACE_MODEL_DIR`). Thu muc host tuong ung la
+`runtime/face-data/models/active`; toan bo cay `models` duoc mount read/write de
+staging, active, archive va failed cung filesystem. Input enrollment duoc mount
+read-only vao Face Runtime tai `/data/face/input`. Model legacy van duoc giu
+nguyen de rollback va khong duoc scan dong thoi voi canonical active.
+
+Rollback runtime: dat `FACE_MODEL_DIR` ve thu muc legacy, khoi phuc legacy mount
+neu deployment da go no, sau do force-recreate rieng `face-runtime`. Khong xoa
+canonical model, khong xoa `EmployeeFaceModels`, va khong chay adoption
+rollback chi vi runtime cutover loi.
+
 Ket qua mong doi:
 - API: `{"status":"ok","service":"v-shield-api"}`
 - QR runtime: JSON co cac truong `running`, `scan_enabled`, `locked`, ...

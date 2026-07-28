@@ -459,13 +459,12 @@ mount: lifecycle transitions may use atomic rename only after configuration
 validates that every model directory is on the same filesystem. A missing input
 mount is a startup configuration error and is not silently created.
 
-The deployed `FACE_MODEL_DIR` remains the legacy source-tree model directory
-until controlled inventory and copy verification succeeds. The canonical
-variables prepared for that process are:
+The deployed `FACE_MODEL_DIR` now uses the verified canonical active directory.
+The canonical variables are:
 
 - `FACE_ENROLLMENT_INPUT_ROOT=/data/face/input`
 - `FACE_MODEL_STAGING_DIR=/data/face/models/staging`
-- future cutover `FACE_MODEL_DIR=/data/face/models/active`
+- `FACE_MODEL_DIR=/data/face/models/active`
 - `FACE_MODEL_ARCHIVE_DIR=/data/face/models/archive`
 - `FACE_MODEL_FAILED_DIR=/data/face/models/failed`
 
@@ -518,7 +517,14 @@ explicit confirmation that runtime has been restored to legacy storage before
 deleting adoption-created rows or files. The legacy source is never moved or
 deleted.
 
-Adoption does not change `FACE_MODEL_DIR`, restart Face Runtime, perform
-cutover, create enrollment jobs, or introduce model lifecycle versions. See
-`docs/face-storage-legacy-adoption.md` for the operator procedure. Physical
+The approved adoption run created five `EmployeeFaceModels` rows and copied
+five verified models with 665 encodings into canonical active storage. The
+deployment then cut over Face Runtime to `/data/face/models/active`; startup
+and strict reload both retained 5 models, 665 encodings, and zero errors. The
+ignored adoption result and rollback manifests remain outside Git.
+
+The legacy source directory remains unchanged and available for runtime
+rollback. A runtime rollback restores the legacy `FACE_MODEL_DIR` and recreates
+only `face-runtime`; it does not remove canonical files or database rows and
+does not run adoption rollback. Enrollment remains unimplemented, and physical
 RTSP camera connectivity remains unverified.
