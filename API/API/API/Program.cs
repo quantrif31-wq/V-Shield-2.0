@@ -161,6 +161,9 @@ namespace API
             builder.Services.AddScoped<ZoneAuthorityService>();
             builder.Services.AddScoped<UserOperationalScopeService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.Configure<FaceStorageOptions>(
+                builder.Configuration.GetSection(FaceStorageOptions.SectionName));
+            builder.Services.AddSingleton<IFaceStoragePathResolver, FaceStoragePathResolver>();
             builder.Services.Configure<SyncRuntimeOptions>(builder.Configuration.GetSection(SyncRuntimeOptions.SectionName));
             builder.Services.AddSingleton<ISyncExecutionContext, SyncExecutionContext>();
             builder.Services.AddScoped<SyncEntityEventFactory>();

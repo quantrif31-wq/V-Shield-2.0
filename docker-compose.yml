@@ -46,6 +46,7 @@ services:
       AiServices__PlateBaseUrl: "${PLATE_SERVICE_URL:-http://plate-runtime:5002/api}"
       AiServices__FaceCameraBaseUrl: "${FACE_SERVICE_URL:-http://face-runtime:5001/api}"
       Authentication__DemoBypassMfa: "${AUTH_DEMO_BYPASS_MFA:-false}"
+      FaceStorage__InputRoot: "/app/wwwroot/uploads/VideoFace"
       Sync__Mode: "${SYNC_MODE:-Standalone}"
       Sync__CentralBaseUrl: "${SYNC_CENTRAL_BASE_URL:-}"
       Sync__RegistrationKey: "${SYNC_REGISTRATION_KEY:-}"
@@ -71,6 +72,7 @@ services:
       - vshield_data_protection:/var/app/data-protection
       - ./runtime/go2rtc:/runtime/go2rtc
       - ./runtime/uploads:/app/wwwroot/uploads
+      - ./runtime/face-data/input:/app/wwwroot/uploads/VideoFace
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health/ready"]
       interval: 15s
@@ -168,8 +170,14 @@ services:
     command: ["sh", "-lc", "cd /workspace/V-Shield/AI_Runtime/face_recognition && python3 nhandienface.py"]
     environment:
       PORT: 5001
+      FACE_ENROLLMENT_INPUT_ROOT: /data/face/input
+      FACE_MODEL_STAGING_DIR: /data/face/models/staging
+      FACE_MODEL_ARCHIVE_DIR: /data/face/models/archive
+      FACE_MODEL_FAILED_DIR: /data/face/models/failed
     volumes:
       - ./:/workspace/V-Shield
+      - ./runtime/face-data/input:/data/face/input:ro
+      - ./runtime/face-data/models:/data/face/models
     expose:
       - "5001"
     healthcheck:

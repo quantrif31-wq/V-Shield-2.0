@@ -33,10 +33,21 @@ def load_runtime_without_models():
     module = importlib.util.module_from_spec(spec)
     runtime_directory = str(RUNTIME_PATH.parent)
     model_tempdir = tempfile.TemporaryDirectory(prefix="face-contract-models-")
+    model_root = pathlib.Path(model_tempdir.name).parent / (
+        pathlib.Path(model_tempdir.name).name + "-lifecycle"
+    )
+    input_root = model_root / "input"
+    input_root.mkdir(parents=True)
 
     with mock.patch.dict(
         "os.environ",
-        {"FACE_MODEL_DIR": model_tempdir.name},
+        {
+            "FACE_MODEL_DIR": model_tempdir.name,
+            "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+            "FACE_MODEL_STAGING_DIR": str(model_root / "models" / "staging"),
+            "FACE_MODEL_ARCHIVE_DIR": str(model_root / "models" / "archive"),
+            "FACE_MODEL_FAILED_DIR": str(model_root / "models" / "failed"),
+        },
         clear=False,
     ):
         sys.path.insert(0, runtime_directory)
@@ -46,6 +57,7 @@ def load_runtime_without_models():
             sys.path.remove(runtime_directory)
 
     module._contract_model_tempdir = model_tempdir
+    module._contract_storage_root = model_root
     return module
 
 
@@ -53,6 +65,13 @@ class FaceRuntimeContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.runtime = load_runtime_without_models()
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+
+        cls.runtime._contract_model_tempdir.cleanup()
+        shutil.rmtree(cls.runtime._contract_storage_root, ignore_errors=True)
 
     def setUp(self):
         self.model_tempdir = tempfile.TemporaryDirectory(prefix="face-endpoint-models-")

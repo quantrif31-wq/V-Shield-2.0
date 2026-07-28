@@ -117,6 +117,17 @@ API/API/API/appsettings.Production.json
 API/API/API/App_Data/
 API/API/API/wwwroot/uploads/faces/
 runtime/uploads/
+runtime/face-data/**
+!runtime/face-data/input/
+!runtime/face-data/input/video_notok/
+!runtime/face-data/input/video_ok/
+!runtime/face-data/models/
+!runtime/face-data/models/staging/
+!runtime/face-data/models/active/
+!runtime/face-data/models/archive/
+!runtime/face-data/models/failed/
+!runtime/face-data/manifests/
+!runtime/face-data/**/.gitkeep
 
 # ----- Local tools / bridge binaries -----
 AI_Project/cam/go2rtc_win64/

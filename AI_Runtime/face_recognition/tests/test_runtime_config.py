@@ -45,6 +45,14 @@ class FaceRuntimeConfigTests(unittest.TestCase):
         self.assertEqual(DEFAULT_HEADLESS_MODE, config.headless_mode)
         self.assertIsNone(config.snapshot_dir)
         self.assertIsNone(config.service_token)
+        self.assertEqual(
+            pathlib.Path(__file__).resolve().parents[3] / "runtime" / "face-data" / "input",
+            config.enrollment_input_root,
+        )
+        self.assertEqual(
+            pathlib.Path(__file__).resolve().parents[3] / "runtime" / "face-data" / "models" / "active",
+            config.canonical_model_active_dir,
+        )
 
     def test_numeric_environment_overrides_are_parsed(self):
         config = FaceRuntimeConfig.from_env(
@@ -86,50 +94,74 @@ class FaceRuntimeConfigTests(unittest.TestCase):
 
     def test_absolute_model_path_is_preserved_even_when_missing(self):
         with tempfile.TemporaryDirectory(prefix="face config ") as temp_dir:
-            missing = pathlib.Path(temp_dir) / "models not created"
+            root = pathlib.Path(temp_dir)
+            missing = root / "models" / "active"
+            input_root = root / "input"
+            input_root.mkdir()
 
-            config = FaceRuntimeConfig.from_env({"FACE_MODEL_DIR": str(missing)})
+            config = FaceRuntimeConfig.from_env(
+                {
+                    "FACE_MODEL_DIR": str(missing),
+                    "FACE_MODEL_STAGING_DIR": str(root / "models" / "staging"),
+                    "FACE_MODEL_ARCHIVE_DIR": str(root / "models" / "archive"),
+                    "FACE_MODEL_FAILED_DIR": str(root / "models" / "failed"),
+                    "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+                }
+            )
 
             self.assertEqual(missing.resolve(), config.model_dir)
-            self.assertFalse(config.model_dir.exists())
+            self.assertTrue(config.model_dir.is_dir())
 
     def test_relative_paths_resolve_from_repository_root(self):
-        module_file = pathlib.Path("/work/renamed-repository/AI_Runtime/face_recognition/runtime_config.py")
-        config = FaceRuntimeConfig.from_env(
-            {
-                "FACE_MODEL_DIR": "var/face models",
-                "FACE_SNAPSHOT_DIR": "var/face snapshots",
-            },
-            module_file=module_file,
-        )
-        expected_root = module_file.resolve().parents[2]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module_file = pathlib.Path(temp_dir) / "repo" / "AI_Runtime" / "face_recognition" / "runtime_config.py"
+            expected_root = module_file.resolve().parents[2]
+            input_root = expected_root / "face-input"
+            input_root.mkdir(parents=True)
+            config = FaceRuntimeConfig.from_env(
+                {
+                    "FACE_MODEL_DIR": "var/models/active",
+                    "FACE_MODEL_STAGING_DIR": "var/models/staging",
+                    "FACE_MODEL_ARCHIVE_DIR": "var/models/archive",
+                    "FACE_MODEL_FAILED_DIR": "var/models/failed",
+                    "FACE_ENROLLMENT_INPUT_ROOT": "face-input",
+                    "FACE_SNAPSHOT_DIR": "var/face snapshots",
+                },
+                module_file=module_file,
+            )
 
-        self.assertEqual((expected_root / "var/face models").resolve(), config.model_dir)
-        self.assertEqual(
-            (expected_root / "var/face snapshots").resolve(),
-            config.snapshot_dir,
-        )
+            self.assertEqual((expected_root / "var/models/active").resolve(), config.model_dir)
+            self.assertEqual(
+                (expected_root / "var/face snapshots").resolve(),
+                config.snapshot_dir,
+            )
 
     def test_fallback_uses_file_position_not_repository_name_or_cwd(self):
-        module_file = pathlib.Path(
-            "/work/repository-with-a-different-name/AI_Runtime/face_recognition/runtime_config.py"
-        )
-        expected = (
-            module_file.resolve().parents[2]
-            / "API"
-            / "API"
-            / "API"
-            / "wwwroot"
-            / "uploads"
-            / "VideoFace"
-            / "FaceID"
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            module_file = (
+                pathlib.Path(temp_dir)
+                / "repository-with-a-different-name"
+                / "AI_Runtime"
+                / "face_recognition"
+                / "runtime_config.py"
+            )
+            repo_root = module_file.resolve().parents[2]
+            (repo_root / "runtime" / "face-data" / "input").mkdir(parents=True)
+            expected = (
+                repo_root
+                / "API"
+                / "API"
+                / "API"
+                / "wwwroot"
+                / "uploads"
+                / "VideoFace"
+                / "FaceID"
+            )
 
-        with tempfile.TemporaryDirectory() as unrelated_cwd:
-            with mock.patch("os.getcwd", return_value=unrelated_cwd):
+            with mock.patch("os.getcwd", return_value=str(pathlib.Path(temp_dir) / "unrelated")):
                 config = FaceRuntimeConfig.from_env({}, module_file=module_file)
 
-        self.assertEqual(expected.resolve(), config.model_dir)
+            self.assertEqual(expected.resolve(), config.model_dir)
 
     def test_invalid_integer_names_the_environment_variable(self):
         with self.assertRaisesRegex(FaceRuntimeConfigError, "FACE_CONFIRM_FRAMES"):
@@ -181,6 +213,101 @@ class FaceRuntimeConfigTests(unittest.TestCase):
             self.assertEqual(0.51, FaceRuntimeConfig.from_env().threshold)
 
         self.assertEqual(original, os.environ.get("FACE_THRESHOLD"))
+
+    def test_storage_overrides_create_model_directories_but_not_input(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            input_root = root / "read-only-input"
+            input_root.mkdir()
+            model_root = root / "models"
+            env = {
+                "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+                "FACE_MODEL_DIR": str(model_root / "active"),
+                "FACE_MODEL_STAGING_DIR": str(model_root / "staging"),
+                "FACE_MODEL_ARCHIVE_DIR": str(model_root / "archive"),
+                "FACE_MODEL_FAILED_DIR": str(model_root / "failed"),
+            }
+
+            config = FaceRuntimeConfig.from_env(env)
+
+            self.assertEqual(input_root.resolve(), config.enrollment_input_root)
+            self.assertTrue(config.model_dir.is_dir())
+            self.assertTrue(config.model_staging_dir.is_dir())
+            self.assertTrue(config.model_archive_dir.is_dir())
+            self.assertTrue(config.model_failed_dir.is_dir())
+
+    def test_missing_input_mount_is_rejected_and_not_created(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_input = pathlib.Path(temp_dir) / "missing"
+            with self.assertRaisesRegex(FaceRuntimeConfigError, "must exist"):
+                FaceRuntimeConfig.from_env(
+                    {"FACE_ENROLLMENT_INPUT_ROOT": str(missing_input)}
+                )
+            self.assertFalse(missing_input.exists())
+
+    def test_read_only_input_root_is_accepted_without_writes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            input_root = root / "input"
+            input_root.mkdir()
+            input_root.chmod(0o555)
+            model_root = root / "models"
+            try:
+                config = FaceRuntimeConfig.from_env(
+                    {
+                        "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+                        "FACE_MODEL_DIR": str(model_root / "active"),
+                        "FACE_MODEL_STAGING_DIR": str(model_root / "staging"),
+                        "FACE_MODEL_ARCHIVE_DIR": str(model_root / "archive"),
+                        "FACE_MODEL_FAILED_DIR": str(model_root / "failed"),
+                    }
+                )
+                self.assertEqual(input_root.resolve(), config.enrollment_input_root)
+            finally:
+                input_root.chmod(0o755)
+
+    def test_parent_traversal_is_rejected(self):
+        with self.assertRaisesRegex(FaceRuntimeConfigError, "parent traversal"):
+            FaceRuntimeConfig.from_env({"FACE_MODEL_DIR": "../outside"})
+
+    def test_model_directory_inside_input_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_root = pathlib.Path(temp_dir) / "input"
+            input_root.mkdir()
+            with self.assertRaisesRegex(FaceRuntimeConfigError, "must not be located inside"):
+                FaceRuntimeConfig.from_env(
+                    {
+                        "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+                        "FACE_MODEL_STAGING_DIR": str(input_root / "models" / "staging"),
+                        "FACE_MODEL_ARCHIVE_DIR": str(input_root / "models" / "archive"),
+                        "FACE_MODEL_FAILED_DIR": str(input_root / "models" / "failed"),
+                    }
+                )
+
+    def test_model_lifecycle_directories_require_same_filesystem(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            input_root = root / "input"
+            input_root.mkdir()
+            model_root = root / "models"
+            real_stat = pathlib.Path.stat
+
+            def fake_stat(path, *args, **kwargs):
+                result = real_stat(path, *args, **kwargs)
+                if pathlib.Path(path).name == "archive":
+                    return mock.Mock(st_dev=result.st_dev + 1)
+                return result
+
+            with mock.patch.object(pathlib.Path, "stat", fake_stat):
+                with self.assertRaisesRegex(FaceRuntimeConfigError, "same filesystem"):
+                    FaceRuntimeConfig.from_env(
+                        {
+                            "FACE_ENROLLMENT_INPUT_ROOT": str(input_root),
+                            "FACE_MODEL_STAGING_DIR": str(model_root / "staging"),
+                            "FACE_MODEL_ARCHIVE_DIR": str(model_root / "archive"),
+                            "FACE_MODEL_FAILED_DIR": str(model_root / "failed"),
+                        }
+                    )
 
 
 if __name__ == "__main__":

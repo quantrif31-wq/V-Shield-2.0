@@ -44,6 +44,10 @@ def default_model_dir(module_file: str | Path = __file__) -> Path:
     return repository_root(module_file) / "API" / "API" / "API" / "wwwroot" / "uploads" / "VideoFace" / "FaceID"
 
 
+def default_face_data_root(module_file: str | Path = __file__) -> Path:
+    return repository_root(module_file) / "runtime" / "face-data"
+
+
 def _parse_int(
     env: Mapping[str, str],
     name: str,
@@ -122,14 +126,53 @@ def _parse_path(
         return default.resolve() if default is not None else None
 
     path = Path(raw.strip()).expanduser()
+    if ".." in path.parts:
+        raise FaceRuntimeConfigError(f"{name} must not contain parent traversal")
     if not path.is_absolute():
         path = base_dir / path
     return path.resolve()
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _prepare_storage_layout(
+    input_root: Path,
+    model_directories: tuple[Path, ...],
+) -> None:
+    if not input_root.is_dir():
+        raise FaceRuntimeConfigError(
+            "FACE_ENROLLMENT_INPUT_ROOT must exist; the runtime will not create the input mount"
+        )
+
+    for directory in model_directories:
+        if _is_within(directory, input_root):
+            raise FaceRuntimeConfigError(
+                "Model directories must not be located inside FACE_ENROLLMENT_INPUT_ROOT"
+            )
+        directory.mkdir(parents=True, exist_ok=True)
+
+    devices = {directory.stat().st_dev for directory in model_directories}
+    if len(devices) != 1:
+        raise FaceRuntimeConfigError(
+            "FACE_MODEL_STAGING_DIR, FACE_MODEL_DIR, FACE_MODEL_ARCHIVE_DIR, and "
+            "FACE_MODEL_FAILED_DIR must be on the same filesystem for atomic rename"
+        )
+
+
 @dataclass(frozen=True)
 class FaceRuntimeConfig:
     model_dir: Path
+    canonical_model_active_dir: Path
+    enrollment_input_root: Path
+    model_staging_dir: Path
+    model_archive_dir: Path
+    model_failed_dir: Path
     snapshot_dir: Path | None
     threshold: float
     confirm_frames: int
@@ -156,15 +199,84 @@ class FaceRuntimeConfig:
     ) -> "FaceRuntimeConfig":
         source = os.environ if env is None else env
         repo_root = repository_root(module_file)
+        face_data_root = default_face_data_root(module_file)
         token = source.get("FACE_SERVICE_TOKEN")
 
-        return cls(
-            model_dir=_parse_path(
+        model_dir = _parse_path(
                 source,
                 "FACE_MODEL_DIR",
                 default_model_dir(module_file),
                 base_dir=repo_root,
+            )
+        enrollment_input_root = _parse_path(
+            source,
+            "FACE_ENROLLMENT_INPUT_ROOT",
+            face_data_root / "input",
+            base_dir=repo_root,
+        )
+        model_staging_dir = _parse_path(
+            source,
+            "FACE_MODEL_STAGING_DIR",
+            face_data_root / "models" / "staging",
+            base_dir=repo_root,
+        )
+        model_archive_dir = _parse_path(
+            source,
+            "FACE_MODEL_ARCHIVE_DIR",
+            face_data_root / "models" / "archive",
+            base_dir=repo_root,
+        )
+        model_failed_dir = _parse_path(
+            source,
+            "FACE_MODEL_FAILED_DIR",
+            face_data_root / "models" / "failed",
+            base_dir=repo_root,
+        )
+        model_parents = {
+            model_staging_dir.parent,
+            model_archive_dir.parent,
+            model_failed_dir.parent,
+        }
+        if len(model_parents) != 1:
+            raise FaceRuntimeConfigError(
+                "Canonical staging, archive, and failed directories must share one model root"
+            )
+        canonical_model_active_dir = model_staging_dir.parent / "active"
+        if any(
+            path is None
+            for path in (
+                model_dir,
+                enrollment_input_root,
+                model_staging_dir,
+                model_archive_dir,
+                model_failed_dir,
+            )
+        ):
+            raise FaceRuntimeConfigError("Face storage paths must not be empty")
+        _prepare_storage_layout(
+            enrollment_input_root,
+            (
+                model_staging_dir,
+                canonical_model_active_dir,
+                model_archive_dir,
+                model_failed_dir,
             ),
+        )
+        if model_dir != default_model_dir(module_file).resolve() and model_dir != canonical_model_active_dir:
+            # Custom deployments may use another active directory, but it must
+            # retain atomic rename guarantees with the lifecycle directories.
+            _prepare_storage_layout(
+                enrollment_input_root,
+                (model_staging_dir, model_dir, model_archive_dir, model_failed_dir),
+            )
+
+        return cls(
+            model_dir=model_dir,
+            canonical_model_active_dir=canonical_model_active_dir,
+            enrollment_input_root=enrollment_input_root,
+            model_staging_dir=model_staging_dir,
+            model_archive_dir=model_archive_dir,
+            model_failed_dir=model_failed_dir,
             # Snapshots are currently held in memory as Base64. The optional
             # path is parsed now but intentionally not used for filesystem I/O.
             snapshot_dir=_parse_path(

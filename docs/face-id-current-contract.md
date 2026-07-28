@@ -436,3 +436,56 @@ Service-token enforcement between ASP.NET and Face Runtime is still pending.
 RecognitionEvent/audit persistence, enrollment, liveness, VIP/appointment
 logic, and gate opening remain out of scope. Physical RTSP camera connectivity
 has not been accepted as passing.
+
+## Canonical biometric storage foundation
+
+Runtime enrollment inputs and model lifecycle artifacts use one canonical host
+root at `runtime/face-data`. Input data is separated into
+`input/video_notok` and `input/video_ok`. Model data is separated into
+`models/staging`, `models/active`, `models/archive`, and `models/failed`;
+administrative manifests use `manifests`. Generated content under this root is
+ignored by Git. Only empty `.gitkeep` files preserve the required layout.
+
+ASP.NET mounts `runtime/face-data/input` read/write at
+`/app/wwwroot/uploads/VideoFace`. `FaceStorage:InputRoot` selects that root,
+while the existing public contract remains
+`/uploads/VideoFace/video_notok/<generated-file-name>`. Storage paths are
+resolved beneath the configured root and reject path traversal.
+
+Face Runtime mounts the same input read-only at `/data/face/input`, and mounts
+the complete `runtime/face-data/models` tree read/write at
+`/data/face/models`. Staging, active, archive, and failed are intentionally one
+mount: lifecycle transitions may use atomic rename only after configuration
+validates that every model directory is on the same filesystem. A missing input
+mount is a startup configuration error and is not silently created.
+
+The deployed `FACE_MODEL_DIR` remains the legacy source-tree model directory
+until controlled inventory and copy verification succeeds. The canonical
+variables prepared for that process are:
+
+- `FACE_ENROLLMENT_INPUT_ROOT=/data/face/input`
+- `FACE_MODEL_STAGING_DIR=/data/face/models/staging`
+- future cutover `FACE_MODEL_DIR=/data/face/models/active`
+- `FACE_MODEL_ARCHIVE_DIR=/data/face/models/archive`
+- `FACE_MODEL_FAILED_DIR=/data/face/models/failed`
+
+`scripts/face_model_inventory.py` is dry-run by default. It compares sanitized
+legacy `.pkl` basenames with `EmployeeFaceModels` and `Employees`, validates
+encoding shape and finiteness, calculates SHA-256 and encoding counts, and
+writes no vectors or database credentials. A filename is only corroborating
+evidence, never the authoritative identity mapping. Database/filename
+mismatch, duplicate rows/models, invalid models, and missing employees block
+cutover.
+
+Inventory statuses are `Ready`, `Orphaned`, `MissingFile`, `Conflict`,
+`DuplicateDatabaseRows`, `DuplicateEmployeeModels`, `InvalidModel`, and
+`EmployeeMissing`. The explicit `--copy-ready-models` mode copies only `Ready`
+models using a flushed temporary file and atomic rename, verifies checksum and
+encoding count, never overwrites differing content, never moves or deletes the
+legacy source, and emits a checksum-guarded rollback manifest.
+
+Enrollment jobs, enrollment APIs, model version database fields, automatic
+backfill, and model activation are not implemented by this foundation. The
+legacy model directory remains the rollback source. If the real database and
+all five existing models cannot be verified as `Ready` with 665 total
+encodings, deployment cutover remains pending.
