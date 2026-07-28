@@ -65,25 +65,25 @@ namespace API.Migrations
                         column: x => x.EmployeeFaceModelId,
                         principalTable: "EmployeeFaceModels",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_FaceRecognitionEvents_Employee_EmployeeId",
                         column: x => x.EmployeeId,
                         principalTable: "Employee",
                         principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_FaceRecognitionEvents_FaceCameraConfigurations_FaceCameraConfigurationId",
                         column: x => x.FaceCameraConfigurationId,
                         principalTable: "FaceCameraConfigurations",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_FaceRecognitionEvents_Lanes_LaneId",
                         column: x => x.LaneId,
                         principalTable: "Lanes",
                         principalColumn: "LaneId",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(

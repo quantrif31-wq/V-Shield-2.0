@@ -62,3 +62,13 @@ Commit 12 does not create AccessDecision or attendance records, open a gate,
 process guests/VIPs, add liveness, publish model revocation, or store face
 images/vectors. Physical RTSP camera verification remains a separate operational
 test.
+
+## SQL Server history retention
+
+All foreign keys from `FaceRecognitionEvents` to Employee, EmployeeFaceModel,
+FaceCameraConfiguration and Lane use `NO ACTION`. The event is historical
+evidence: deleting or changing a principal must use an explicit workflow and
+must not cascade-delete or automatically null its references. This also removes
+the SQL Server multiple-cascade-path graph created by parallel `SET NULL`
+relationships. The pending migration chain was validated from an empty SQL
+Server database and applied to the Docker development database successfully.

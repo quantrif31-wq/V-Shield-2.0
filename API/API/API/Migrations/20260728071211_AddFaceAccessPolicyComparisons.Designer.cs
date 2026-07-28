@@ -8986,7 +8986,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.FaceRecognitionEvent", "FaceRecognitionEvent")
                         .WithMany()
                         .HasForeignKey("FaceRecognitionEventId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("FaceRecognitionEvent");
@@ -9042,22 +9042,22 @@ namespace API.Migrations
                     b.HasOne("API.Models.EmployeeFaceModel", "EmployeeFaceModel")
                         .WithMany()
                         .HasForeignKey("EmployeeFaceModelId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.FaceCameraConfiguration", "FaceCameraConfiguration")
                         .WithMany()
                         .HasForeignKey("FaceCameraConfigurationId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.Lane", "Lane")
                         .WithMany()
                         .HasForeignKey("LaneId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Employee");
 

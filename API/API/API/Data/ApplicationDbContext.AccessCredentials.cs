@@ -42,9 +42,9 @@ public partial class ApplicationDbContext
             entity.HasOne(x => x.EmployeeDynamicQr).WithMany()
                 .HasForeignKey(x => x.EmployeeDynamicQrId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.CreatedByUser).WithMany()
-                .HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+                .HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(x => x.RevokedByUser).WithMany()
-                .HasForeignKey(x => x.RevokedByUserId).OnDelete(DeleteBehavior.SetNull);
+                .HasForeignKey(x => x.RevokedByUserId).OnDelete(DeleteBehavior.NoAction);
         });
     }
 }

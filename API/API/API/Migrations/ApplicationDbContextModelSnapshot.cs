@@ -8388,7 +8388,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.AppUser", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.EmployeeDynamicQr", "EmployeeDynamicQr")
                         .WithMany()
@@ -8404,7 +8404,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.AppUser", "RevokedByUser")
                         .WithMany()
                         .HasForeignKey("RevokedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("CreatedByUser");
 
@@ -9116,7 +9116,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.FaceRecognitionEvent", "FaceRecognitionEvent")
                         .WithMany()
                         .HasForeignKey("FaceRecognitionEventId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("FaceRecognitionEvent");
@@ -9172,22 +9172,22 @@ namespace API.Migrations
                     b.HasOne("API.Models.EmployeeFaceModel", "EmployeeFaceModel")
                         .WithMany()
                         .HasForeignKey("EmployeeFaceModelId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.FaceCameraConfiguration", "FaceCameraConfiguration")
                         .WithMany()
                         .HasForeignKey("FaceCameraConfigurationId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("API.Models.Lane", "Lane")
                         .WithMany()
                         .HasForeignKey("LaneId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Employee");
 

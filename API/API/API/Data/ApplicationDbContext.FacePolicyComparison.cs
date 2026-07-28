@@ -19,6 +19,6 @@ public partial class ApplicationDbContext
         entity.HasIndex(x => x.GateId);
         entity.HasIndex(x => x.AccessPointId);
         entity.HasOne(x => x.FaceRecognitionEvent).WithMany()
-            .HasForeignKey(x => x.FaceRecognitionEventId).OnDelete(DeleteBehavior.Restrict);
+            .HasForeignKey(x => x.FaceRecognitionEventId).OnDelete(DeleteBehavior.NoAction);
     }
 }

@@ -466,13 +466,13 @@ public partial class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.FaceCameraConfigurationId, e.OccurredAtUtc });
             entity.HasIndex(e => e.MatchStatus);
             entity.HasOne(e => e.Employee).WithMany().HasForeignKey(e => e.EmployeeId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.EmployeeFaceModel).WithMany().HasForeignKey(e => e.EmployeeFaceModelId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.FaceCameraConfiguration).WithMany()
-                .HasForeignKey(e => e.FaceCameraConfigurationId).OnDelete(DeleteBehavior.SetNull);
+                .HasForeignKey(e => e.FaceCameraConfigurationId).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.Lane).WithMany().HasForeignKey(e => e.LaneId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<FaceRecognitionCollectorCheckpoint>(entity =>
         {

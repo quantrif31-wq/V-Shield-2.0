@@ -58,3 +58,14 @@ remain immutable.
 This foundation does not select a canonical policy, bind face models, create access
 decisions, open a gate, or write attendance. Physical RTSP camera verification remains
 outside this change.
+
+## Development migration verification
+
+The SQL Server migration chain uses `NO ACTION` for credential ownership and
+actor relationships, preventing parallel referential-action paths without
+weakening ownership. Development inventory after migration contains zero
+`AccessCredentials`; no QR row was backfilled. There are 175 active Dynamic QR
+rows, no inactive/orphan/multiple-owner rows, and Employee IDs 1–5 each retain
+one active QR row and zero canonical credentials. The QR flow remains
+independent, Face binding is not implemented, and physical RTSP verification is
+still pending.

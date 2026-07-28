@@ -42,3 +42,8 @@ path validates employee ownership and effective lifecycle before applying the ex
 policy algorithm. The legacy type-only path and the Face comparison processor remain
 unchanged: Face events continue to produce `EnterpriseMissingCredentialContext` until an
 explicit Face credential binding exists. Existing comparison rows are never re-evaluated.
+
+The comparison-to-recognition-event foreign key uses `NO ACTION`. Comparison
+snapshots are historical and cannot be cascade-deleted with recognition events.
+The Docker development migration chain is applied and the normal API workers
+run without the former Testing fallback. No comparison fixture was introduced.

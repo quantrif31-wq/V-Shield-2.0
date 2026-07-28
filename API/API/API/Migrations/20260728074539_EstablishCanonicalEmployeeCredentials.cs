@@ -43,13 +43,13 @@ namespace API.Migrations
                         column: x => x.CreatedByUserId,
                         principalTable: "AppUsers",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_AccessCredentials_AppUsers_RevokedByUserId",
                         column: x => x.RevokedByUserId,
                         principalTable: "AppUsers",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_AccessCredentials_EmployeeDynamicQrs_EmployeeDynamicQrId",
                         column: x => x.EmployeeDynamicQrId,

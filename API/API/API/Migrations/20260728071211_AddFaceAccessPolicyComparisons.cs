@@ -50,7 +50,7 @@ namespace API.Migrations
                         column: x => x.FaceRecognitionEventId,
                         principalTable: "FaceRecognitionEvents",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(
