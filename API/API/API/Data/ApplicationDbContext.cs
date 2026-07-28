@@ -71,6 +71,8 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<EmployeeFaceVideo> EmployeeFaceVideos { get; set; }
     public virtual DbSet<EmployeeFaceModel> EmployeeFaceModels { get; set; }
     public virtual DbSet<FaceEnrollmentJob> FaceEnrollmentJobs { get; set; }
+    public virtual DbSet<FaceRecognitionEvent> FaceRecognitionEvents { get; set; }
+    public virtual DbSet<FaceRecognitionCollectorCheckpoint> FaceRecognitionCollectorCheckpoints { get; set; }
     public virtual DbSet<EmployeeDynamicQr> EmployeeDynamicQrs { get; set; }
     public virtual DbSet<DynamicQrScanLog> DynamicQrScanLogs { get; set; }
     public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
@@ -454,6 +456,27 @@ public partial class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.EmployeeFaceVideoId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.RequestedByUser).WithMany()
                 .HasForeignKey(e => e.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<FaceRecognitionEvent>(entity =>
+        {
+            entity.HasIndex(e => e.RuntimeEventId).IsUnique();
+            entity.HasIndex(e => e.OccurredAtUtc);
+            entity.HasIndex(e => new { e.EmployeeId, e.OccurredAtUtc });
+            entity.HasIndex(e => new { e.CameraId, e.OccurredAtUtc });
+            entity.HasIndex(e => new { e.FaceCameraConfigurationId, e.OccurredAtUtc });
+            entity.HasIndex(e => e.MatchStatus);
+            entity.HasOne(e => e.Employee).WithMany().HasForeignKey(e => e.EmployeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.EmployeeFaceModel).WithMany().HasForeignKey(e => e.EmployeeFaceModelId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.FaceCameraConfiguration).WithMany()
+                .HasForeignKey(e => e.FaceCameraConfigurationId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Lane).WithMany().HasForeignKey(e => e.LaneId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+        modelBuilder.Entity<FaceRecognitionCollectorCheckpoint>(entity =>
+        {
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
         });
         modelBuilder.Entity<EmployeeFaceModel>(entity =>
         {

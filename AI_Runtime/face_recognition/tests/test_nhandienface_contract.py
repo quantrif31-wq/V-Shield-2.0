@@ -241,6 +241,32 @@ class FaceRuntimeContractTests(unittest.TestCase):
             self.client.get("/api/cameras/missing/status").status_code,
         )
 
+    def test_camera_events_route_validates_query_and_reports_missing_session(self):
+        self.assertEqual(
+            400,
+            self.client.get("/api/cameras/default/events?afterSequence=-1").status_code,
+        )
+        self.assertEqual(
+            400,
+            self.client.get("/api/cameras/default/events?limit=201").status_code,
+        )
+        self.assertEqual(
+            404,
+            self.client.get("/api/cameras/missing/events").status_code,
+        )
+
+    def test_camera_events_route_returns_redacted_incremental_events(self):
+        session = self.runtime.camera_manager.get_session("default")
+        session._emit_event_locked("Recognized", "4", 0.281, None, None)
+        response = self.client.get("/api/cameras/default/events?afterSequence=0&limit=10")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.get_json()
+        self.assertEqual([1], [item["sequence"] for item in payload["events"]])
+        serialized = str(payload).lower()
+        for forbidden in ("encoding", "frame", "snapshot", "streamurl", "token"):
+            self.assertNotIn(forbidden, serialized)
+
     def test_camera_list_does_not_expose_stream_urls(self):
         self.client.post(
             "/api/cameras/gate-01/start",

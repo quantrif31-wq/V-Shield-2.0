@@ -100,6 +100,26 @@ public sealed class FaceRecognitionClient : IFaceRecognitionClient
     public Task<FaceRuntimeResponse> ReloadModelsAsync(CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Post, "models/reload", null, cancellationToken);
 
+    public async Task<FaceCameraEventsRuntimeResult> GetCameraEventsAsync(
+        string cameraId, long afterSequence, long? sessionGeneration,
+        int limit, CancellationToken cancellationToken)
+    {
+        var id = FaceCameraIdValidator.Validate(cameraId);
+        var query = new Dictionary<string, string?> {
+            ["afterSequence"] = afterSequence.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["limit"] = limit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["sessionGeneration"] = sessionGeneration?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
+        var path = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+            $"cameras/{Uri.EscapeDataString(id)}/events", query);
+        var response = await SendAsync(HttpMethod.Get, path, null, cancellationToken);
+        FaceCameraEventsResponse? payload = null;
+        if ((int)response.StatusCode is >= 200 and < 300)
+            payload = JsonSerializer.Deserialize<FaceCameraEventsResponse>(
+                response.Body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return new(response.StatusCode, payload);
+    }
+
     public Task<FaceRuntimeResponse> PrepareEnrollmentAsync(Guid jobId, FacePrepareEnrollmentRequest request, CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Post, $"enrollments/{jobId:D}/prepare",
             JsonContent.Create(request, options: RequestJsonOptions), cancellationToken);

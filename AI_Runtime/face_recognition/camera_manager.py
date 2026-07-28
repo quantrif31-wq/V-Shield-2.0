@@ -154,6 +154,13 @@ class CameraManager:
     def get_locked_images(self, camera_id: str) -> dict[str, Any]:
         return self.get_session(camera_id).locked_image_result()
 
+    def get_events(self, camera_id: str, *, after_sequence: int = 0,
+                   session_generation: int | None = None,
+                   limit: int = 100) -> dict[str, Any]:
+        return self.get_session(camera_id).events(
+            after_sequence=after_sequence,
+            session_generation=session_generation, limit=limit)
+
     def shutdown_all(self) -> None:
         with self._lock:
             sessions = list(self._sessions.values())

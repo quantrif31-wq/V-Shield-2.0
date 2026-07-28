@@ -49,3 +49,10 @@ promotion/rollback and crash-window reconciliation. Model revoke remains
 hidden from ASP.NET/UI until a durable revoke request marker supports safe
 crash recovery. See `docs/face-enrollment.md`. Physical RTSP camera
 connectivity remains unverified.
+# Recognition event linkage
+
+Persisted recognition events reference the active face-model metadata by
+employee, model filename, and checksum prefix. They never update lifecycle
+metadata and never contain model content, encodings, full paths, or images.
+Revocation UI/API remains deferred. See `docs/face-recognition-events.md` for the
+runtime buffer and collector contract.

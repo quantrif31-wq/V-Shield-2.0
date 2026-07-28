@@ -235,6 +235,21 @@ namespace API
                 throw new InvalidOperationException("FaceEnrollment worker settings must be greater than zero.");
             builder.Services.AddSingleton(faceEnrollmentOptions);
             builder.Services.AddScoped<IFaceEnrollmentService, FaceEnrollmentService>();
+            var faceRecognitionEventOptions = new FaceRecognitionEventOptions();
+            builder.Configuration.GetSection(FaceRecognitionEventOptions.SectionName)
+                .Bind(faceRecognitionEventOptions);
+            if (faceRecognitionEventOptions.PollIntervalMilliseconds < 250 ||
+                faceRecognitionEventOptions.BatchSize is < 1 or > 200 ||
+                faceRecognitionEventOptions.MaxParallelCameras <= 0 ||
+                faceRecognitionEventOptions.RetentionDays <= 0)
+            {
+                throw new InvalidOperationException(
+                    "FaceRecognitionEvents settings are invalid.");
+            }
+            builder.Services.AddSingleton(faceRecognitionEventOptions);
+            builder.Services.AddSingleton<FaceRecognitionEventCollector>();
+            builder.Services.AddSingleton<IFaceRecognitionEventCollector>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
             builder.Services.AddSingleton<FaceCameraSessionReconciler>();
             builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
@@ -244,6 +259,9 @@ namespace API
                     serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
                 if (faceEnrollmentOptions.WorkerEnabled)
                     builder.Services.AddHostedService<FaceEnrollmentWorker>();
+                if (faceRecognitionEventOptions.CollectorEnabled)
+                    builder.Services.AddHostedService(serviceProvider =>
+                        serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
             }
             builder.Services.AddHttpClient("AiGateway", client =>
             {

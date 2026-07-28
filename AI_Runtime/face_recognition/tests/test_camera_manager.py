@@ -319,6 +319,50 @@ class CameraManagerTests(unittest.TestCase):
             two.result()["total_encodings"],
         )
 
+    def test_event_buffers_and_sequences_are_isolated_per_camera(self):
+        one, two = self.start_two()
+        one._emit_event_locked("Recognized", "1", 0.21, None, None)
+        one._emit_event_locked("Unknown", None, 0.7, None, None)
+        two._emit_event_locked("Recognized", "2", 0.25, None, None)
+
+        one_events = one.events()
+        two_events = two.events()
+        self.assertEqual([1, 2], [item["sequence"] for item in one_events["events"]])
+        self.assertEqual([1], [item["sequence"] for item in two_events["events"]])
+        self.assertEqual("lane-1", one_events["events"][0]["laneId"])
+        self.assertEqual("lane-2", two_events["events"][0]["laneId"])
+        self.assertEqual(
+            3,
+            len({item["eventId"] for item in
+                 one_events["events"] + two_events["events"]}),
+        )
+
+    def test_event_query_is_incremental_bounded_and_reports_gap(self):
+        object.__setattr__(self.config, "event_buffer_size", 2)
+        session, _ = self.manager.start_session("events", "fake://one", "lane-e")
+        for subject in ("1", "2", "3", "4"):
+            session._emit_event_locked("Recognized", subject, 0.2, None, None)
+
+        result = session.events(after_sequence=1, limit=1)
+        self.assertTrue(result["gapDetected"])
+        self.assertTrue(result["hasMore"])
+        self.assertEqual(3, result["oldestSequence"])
+        self.assertEqual([3], [item["sequence"] for item in result["events"]])
+        with self.assertRaises(ValueError):
+            session.events(limit=201)
+
+    def test_generation_reset_is_reported_without_removing_other_camera_events(self):
+        one, two = self.start_two()
+        one._emit_event_locked("Recognized", "1", 0.2, None, None)
+        two._emit_event_locked("Recognized", "2", 0.2, None, None)
+        previous_generation = one.generation
+        self.manager.reset_session("camera-one")
+
+        result = one.events(session_generation=previous_generation)
+        self.assertTrue(result["gapDetected"])
+        self.assertNotEqual(previous_generation, result["sessionGeneration"])
+        self.assertEqual(1, len(two.events()["events"]))
+
 
 if __name__ == "__main__":
     unittest.main()

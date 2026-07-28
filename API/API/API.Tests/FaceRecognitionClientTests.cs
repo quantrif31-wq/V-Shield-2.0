@@ -141,6 +141,32 @@ public sealed class FaceRecognitionClientTests
             item => Assert.EndsWith("/cameras/gate-01.face_A/locked-images", item.Uri));
     }
 
+    [Fact]
+    public async Task CameraEvents_UsesEncodedPathTypedQueryAndDeserializesResponse()
+    {
+        const string body = """
+            {"cameraId":"gate-01.face_A","sessionGeneration":3,"oldestSequence":1,
+             "latestSequence":1,"events":[{"eventId":"76d00000-0000-0000-0000-000000000001",
+             "cameraId":"gate-01.face_A","laneId":"lane-1","sequence":1,
+             "sessionGeneration":3,"eventType":"Recognized","subjectId":"4",
+             "occurredAtUtc":"2026-07-28T04:30:00Z","distance":0.281,
+             "modelRegistryVersion":4,"modelFileName":"emp_4.pkl",
+             "modelChecksumPrefix":"fe03ea82b695"}],"hasMore":false,"gapDetected":false}
+            """;
+        var handler = RecordingHandler.Returning(HttpStatusCode.OK, body);
+        var client = CreateClient(handler);
+
+        var response = await client.GetCameraEventsAsync(
+            "gate-01.face_A", 8, 3, 25, CancellationToken.None);
+
+        Assert.Equal(
+            "http://face.test/api/cameras/gate-01.face_A/events?afterSequence=8&limit=25&sessionGeneration=3",
+            Assert.Single(handler.Requests).Uri);
+        var payload = Assert.IsType<FaceCameraEventsResponse>(response.Payload);
+        Assert.Equal("4", Assert.Single(payload.Events).SubjectId);
+        Assert.Equal(0.281, payload.Events[0].Distance);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("../gate")]

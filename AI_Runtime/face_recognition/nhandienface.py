@@ -254,6 +254,23 @@ def api_camera_specific_locked_images(camera_id: str):
         return _error_payload(error)
 
 
+@app.get("/api/cameras/<camera_id>/events")
+def api_camera_specific_events(camera_id: str):
+    try:
+        after_sequence = int(request.args.get("afterSequence", "0"))
+        limit = int(request.args.get("limit", "100"))
+        raw_generation = request.args.get("sessionGeneration")
+        generation = int(raw_generation) if raw_generation is not None else None
+        return jsonify(camera_manager.get_events(
+            camera_id, after_sequence=after_sequence,
+            session_generation=generation, limit=limit)), 200
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "errorCode": "INVALID_EVENT_QUERY",
+                        "message": "Event query is invalid."}), 400
+    except Exception as error:
+        return _error_payload(error)
+
+
 # Legacy camera routes are transitional aliases for cameraId="default".
 @app.post("/api/camera/on")
 def api_camera_on():

@@ -28,6 +28,8 @@ DEFAULT_ENROLLMENT_MAX_FRAMES = 300
 DEFAULT_ENROLLMENT_FRAME_INTERVAL = 3
 DEFAULT_ENROLLMENT_DUPLICATE_THRESHOLD = 0.35
 DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES = 50 * 1024 * 1024
+DEFAULT_EVENT_BUFFER_SIZE = 500
+DEFAULT_EVENT_RETENTION_SECONDS = 3600
 
 
 class FaceRuntimeConfigError(ValueError):
@@ -196,6 +198,8 @@ class FaceRuntimeConfig:
     enrollment_frame_interval: int = DEFAULT_ENROLLMENT_FRAME_INTERVAL
     enrollment_duplicate_threshold: float = DEFAULT_ENROLLMENT_DUPLICATE_THRESHOLD
     enrollment_max_video_bytes: int = DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES
+    event_buffer_size: int = DEFAULT_EVENT_BUFFER_SIZE
+    event_retention_seconds: int = DEFAULT_EVENT_RETENTION_SECONDS
     service_token: str | None = field(default=None, repr=False)
     api_port: int = DEFAULT_API_PORT
     headless_mode: bool = DEFAULT_HEADLESS_MODE
@@ -358,6 +362,11 @@ class FaceRuntimeConfig:
             enrollment_max_video_bytes=_parse_int(
                 source, "FACE_ENROLLMENT_MAX_VIDEO_BYTES",
                 DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES, minimum=1),
+            event_buffer_size=_parse_int(
+                source, "FACE_EVENT_BUFFER_SIZE", DEFAULT_EVENT_BUFFER_SIZE, minimum=1),
+            event_retention_seconds=_parse_int(
+                source, "FACE_EVENT_RETENTION_SECONDS",
+                DEFAULT_EVENT_RETENTION_SECONDS, minimum=1),
             service_token=token if token else None,
             api_port=_parse_int(source, "PORT", DEFAULT_API_PORT, minimum=1, maximum=65535),
             headless_mode=_parse_bool(source, "HEADLESS_MODE", DEFAULT_HEADLESS_MODE),

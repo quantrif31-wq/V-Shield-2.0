@@ -197,6 +197,45 @@
       <div><b>Message:</b> {{ message || "-----" }}</div>
       <div><b>Last Update:</b> {{ lastUpdate || "-----" }}</div>
     </div>
+
+    <section class="event-history">
+      <div class="event-history__header">
+        <h2>Lịch sử nhận diện gần đây</h2>
+        <span v-if="eventHistoryError" class="history-badge history-badge--danger">
+          Runtime/collector unavailable
+        </span>
+        <span v-if="collectorGap" class="history-badge history-badge--warning">
+          Lịch sử có thể bị thiếu
+        </span>
+      </div>
+      <div class="event-filters">
+        <input v-model.trim="eventFilters.cameraId" placeholder="Camera ID" />
+        <input v-model.trim="eventFilters.employeeId" type="number" min="1" placeholder="Employee ID" />
+        <input v-model="eventFilters.fromUtc" type="datetime-local" />
+        <button class="btn btn-models" @click="loadRecognitionEvents">Lọc / làm mới</button>
+      </div>
+      <div class="event-table-wrap">
+        <table class="event-table">
+          <thead><tr><th>Thời gian</th><th>Camera / lane</th><th>Nhân viên</th>
+            <th>Distance</th><th>Model</th><th>Trạng thái</th></tr></thead>
+          <tbody>
+            <tr v-for="item in recognitionEvents" :key="item.id">
+              <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
+              <td>{{ item.cameraId }} / {{ item.laneId ?? "-----" }}</td>
+              <td>{{ item.employeeName || item.employeeId || item.runtimeSubjectId || "-----" }}</td>
+              <td>{{ formatEventDistance(item.recognitionDistance) }}</td>
+              <td>v{{ item.modelVersion ?? "-----" }}</td>
+              <td>
+                <span :class="['history-badge', eventStatusClass(item.matchStatus)]">
+                  {{ item.matchStatus }}
+                </span>
+              </td>
+            </tr>
+            <tr v-if="!recognitionEvents.length"><td colspan="6">Chưa có sự kiện nhận diện.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -220,6 +259,10 @@ import {
   stopConfiguredFaceCamera,
   reconcileFaceCameras
 } from "../services/faceCameraConfigurationApi"
+import {
+  getFaceRecognitionEvents,
+  getFaceRecognitionCollectorHealth
+} from "../services/faceRecognitionEventsApi"
 
 export default {
   name: "FaceIdSecurity",
@@ -277,6 +320,11 @@ export default {
       resultTimer: null,
       busyResult: false,
       isFetchingLockedImages: false,
+      recognitionEvents: [],
+      eventHistoryTimer: null,
+      eventHistoryError: false,
+      collectorGap: false,
+      eventFilters: { cameraId: "", employeeId: "", fromUtc: "" },
 
       destroyed: false
     }
@@ -357,17 +405,21 @@ export default {
     if (this.cameraRunning) {
       this.startResultLoop()
     }
+    await this.loadRecognitionEvents()
+    this.startEventHistoryLoop()
   },
 
   beforeUnmount() {
     this.destroyed = true
     this.stopResultLoop()
+    this.stopEventHistoryLoop()
     this.resetDirectPreview()
   },
 
   activated() {
     // Resuming from keep-alive: restart timers if camera was running
     this.destroyed = false
+    this.startEventHistoryLoop()
     if (this.cameraRunning) {
       if (this.currentIp && !this.previewRunning) {
         this.mountDirectPreview(this.currentIp)
@@ -379,9 +431,59 @@ export default {
   deactivated() {
     // Pausing for keep-alive: stop timers but keep state
     this.stopResultLoop()
+    this.stopEventHistoryLoop()
   },
 
   methods: {
+    async loadRecognitionEvents() {
+      if (this.destroyed) return
+      try {
+        const params = { page: 1, pageSize: 50 }
+        if (this.eventFilters.cameraId) params.cameraId = this.eventFilters.cameraId
+        if (this.eventFilters.employeeId) params.employeeId = Number(this.eventFilters.employeeId)
+        if (this.eventFilters.fromUtc) {
+          params.fromUtc = new Date(this.eventFilters.fromUtc).toISOString()
+        }
+        const [history, health] = await Promise.all([
+          getFaceRecognitionEvents(params),
+          getFaceRecognitionCollectorHealth()
+        ])
+        this.recognitionEvents = Array.isArray(history?.items) ? history.items : []
+        this.collectorGap = Number(health?.gapCount || 0) > 0 ||
+          this.recognitionEvents.some(item => item.historyGapWarning)
+        this.eventHistoryError = false
+      } catch {
+        this.eventHistoryError = true
+      }
+    },
+
+    startEventHistoryLoop() {
+      this.stopEventHistoryLoop()
+      this.eventHistoryTimer = setInterval(() => this.loadRecognitionEvents(), 5000)
+    },
+
+    stopEventHistoryLoop() {
+      if (this.eventHistoryTimer) clearInterval(this.eventHistoryTimer)
+      this.eventHistoryTimer = null
+    },
+
+    formatEventTime(value) {
+      return value ? new Date(value).toLocaleString("vi-VN") : "-----"
+    },
+
+    formatEventDistance(value) {
+      const number = Number(value)
+      return Number.isFinite(number) ? number.toFixed(4) : "-----"
+    },
+
+    eventStatusClass(status) {
+      if (status === "Matched") return "history-badge--success"
+      if (status === "ModelMismatch" || status === "EmployeeMissing") {
+        return "history-badge--danger"
+      }
+      return "history-badge--warning"
+    },
+
     async loadSavedConfigurations() {
       try {
         const overview = await getFaceCameraConfigurations()
@@ -1205,6 +1307,35 @@ export default {
   font-size: 15px;
   line-height: 1.8;
 }
+
+.event-history {
+  margin: 24px auto 0;
+  width: 1000px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid #d7e1e8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.event-history__header,
+.event-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.event-history__header h2 { margin-right: auto; }
+.event-filters { margin-bottom: 12px; }
+.event-filters input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+.event-table-wrap { overflow-x: auto; }
+.event-table { width: 100%; border-collapse: collapse; }
+.event-table th, .event-table td { padding: 9px; border-bottom: 1px solid #e5e5e5; }
+.history-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+.history-badge--success { background: #d1e7dd; color: #0f5132; }
+.history-badge--warning { background: #fff3cd; color: #664d03; }
+.history-badge--danger { background: #f8d7da; color: #842029; }
 
 /* Fullscreen mode */
 .video-wrapper:fullscreen {

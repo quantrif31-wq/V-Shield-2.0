@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import threading
 import time
+import uuid
 from collections import deque
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -75,6 +76,10 @@ class CameraSession:
 
         self.session_lock = threading.RLock()
         self.frame_lock = threading.Lock()
+        self.event_lock = threading.Lock()
+        self._events: deque[dict[str, Any]] = deque(
+            maxlen=getattr(config, "event_buffer_size", 500))
+        self._event_sequence = 0
         self.generation = 0
         self.created_at = _utc_now()
         self.updated_at = self.created_at
@@ -295,6 +300,43 @@ class CameraSession:
                 "lock_reason": self._lock_reason,
                 "locked_snapshot": self.locked_images["snapshot"],
                 "locked_face_crop": self.locked_images["face_crop"],
+            }
+
+    def events(
+        self, *, after_sequence: int = 0,
+        session_generation: int | None = None, limit: int = 100,
+    ) -> dict[str, Any]:
+        if after_sequence < 0 or limit < 1 or limit > 200:
+            raise ValueError("Event query is invalid.")
+        now = time.time()
+        with self.event_lock:
+            self._prune_events_locked(now)
+            generation = self.generation
+            current = [event for event in self._events
+                       if event["sessionGeneration"] == generation]
+            oldest = current[0]["sequence"] if current else None
+            latest = current[-1]["sequence"] if current else 0
+            generation_reset = (
+                session_generation is not None and
+                session_generation != generation)
+            gap = generation_reset or (
+                oldest is not None and after_sequence > 0 and
+                after_sequence < oldest - 1)
+            selected = [event for event in current
+                        if event["sequence"] > after_sequence][:limit]
+            has_more = bool(selected and latest > selected[-1]["sequence"])
+            return {
+                "cameraId": self.camera_id,
+                "sessionGeneration": generation,
+                "oldestSequence": oldest,
+                "latestSequence": latest,
+                "events": [
+                    {key: value for key, value in event.items()
+                     if not key.startswith("_")}
+                    for event in selected
+                ],
+                "hasMore": has_more,
+                "gapDetected": gap,
             }
 
     def latest_frame_copy(self) -> tuple[np.ndarray | None, float]:
@@ -553,6 +595,13 @@ class CameraSession:
                 ):
                     self._identity_confirmed = True
                     self._lock_result_locked("confirmed", frame, face_crop)
+                    descriptor = next(
+                        (item for item in model_snapshot.model_files
+                         if item.subject_id == self.confirmed_subject_id),
+                        None)
+                    self._emit_event_locked(
+                        "Recognized", self.confirmed_subject_id,
+                        self._last_distance, model_snapshot, descriptor)
             else:
                 self._last_face_match = False
                 self.confirmed_subject_id = None
@@ -626,6 +675,38 @@ class CameraSession:
             self.locked_images["snapshot"] = self._image_to_base64(frame)
         if face_crop is not None and getattr(face_crop, "size", 0) > 0:
             self.locked_images["face_crop"] = self._image_to_base64(face_crop)
+        if reason in {"timeout", "alert"}:
+            self._emit_event_locked("Unknown", None, self._last_distance, None, None)
+
+    def _emit_event_locked(
+        self, event_type: str, subject_id: str | None, distance: float | None,
+        snapshot: Any | None, descriptor: Any | None,
+    ) -> None:
+        self._event_sequence += 1
+        event = {
+            "eventId": str(uuid.uuid4()),
+            "cameraId": self.camera_id,
+            "laneId": self.lane_id,
+            "sequence": self._event_sequence,
+            "sessionGeneration": self.generation,
+            "eventType": event_type,
+            "subjectId": subject_id,
+            "occurredAtUtc": _utc_now(),
+            "distance": distance,
+            "modelRegistryVersion": getattr(snapshot, "version", None),
+            "modelFileName": getattr(descriptor, "file_name", None),
+            "modelChecksumPrefix": (
+                getattr(descriptor, "checksum", "")[:12] or None),
+            "_createdMonotonic": time.time(),
+        }
+        with self.event_lock:
+            self._prune_events_locked(event["_createdMonotonic"])
+            self._events.append(event)
+
+    def _prune_events_locked(self, now: float) -> None:
+        cutoff = now - getattr(self._config, "event_retention_seconds", 3600)
+        while self._events and self._events[0]["_createdMonotonic"] < cutoff:
+            self._events.popleft()
 
     def _reset_recognition_locked(self, reason: str) -> None:
         self._tracking_active = False

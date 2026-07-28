@@ -46,6 +46,9 @@ public interface IFaceRecognitionClient
     Task<FaceRuntimeResponse> GetModelsAsync(CancellationToken cancellationToken);
 
     Task<FaceRuntimeResponse> ReloadModelsAsync(CancellationToken cancellationToken);
+    Task<FaceCameraEventsRuntimeResult> GetCameraEventsAsync(
+        string cameraId, long afterSequence, long? sessionGeneration,
+        int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
     Task<FaceRuntimeResponse> PrepareEnrollmentAsync(Guid jobId, FacePrepareEnrollmentRequest request, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
     Task<FaceRuntimeResponse> ActivateEnrollmentAsync(Guid jobId, FaceActivateEnrollmentRequest request, CancellationToken cancellationToken) =>

@@ -10,6 +10,8 @@ from runtime_config import (
     DEFAULT_ALERT_TIMEOUT,
     DEFAULT_CONFIRM_FRAMES,
     DEFAULT_ENCODE_INTERVAL,
+    DEFAULT_EVENT_BUFFER_SIZE,
+    DEFAULT_EVENT_RETENTION_SECONDS,
     DEFAULT_FRAME_WIDTH,
     DEFAULT_HEADLESS_MODE,
     DEFAULT_JPEG_QUALITY,
@@ -41,6 +43,8 @@ class FaceRuntimeConfigTests(unittest.TestCase):
         self.assertEqual(DEFAULT_STREAM_HEIGHT, config.stream_height)
         self.assertEqual(DEFAULT_JPEG_QUALITY, config.jpeg_quality)
         self.assertEqual(DEFAULT_MAX_CAMERAS, config.max_cameras)
+        self.assertEqual(DEFAULT_EVENT_BUFFER_SIZE, config.event_buffer_size)
+        self.assertEqual(DEFAULT_EVENT_RETENTION_SECONDS, config.event_retention_seconds)
         self.assertEqual(5001, config.api_port)
         self.assertEqual(DEFAULT_HEADLESS_MODE, config.headless_mode)
         self.assertIsNone(config.snapshot_dir)
@@ -69,6 +73,8 @@ class FaceRuntimeConfigTests(unittest.TestCase):
                 "FACE_STREAM_HEIGHT": "720",
                 "FACE_JPEG_QUALITY": "95",
                 "FACE_MAX_CAMERAS": "4",
+                "FACE_EVENT_BUFFER_SIZE": "25",
+                "FACE_EVENT_RETENTION_SECONDS": "45",
             }
         )
 
@@ -84,6 +90,16 @@ class FaceRuntimeConfigTests(unittest.TestCase):
         self.assertEqual(720, config.stream_height)
         self.assertEqual(95, config.jpeg_quality)
         self.assertEqual(4, config.max_cameras)
+        self.assertEqual(25, config.event_buffer_size)
+        self.assertEqual(45, config.event_retention_seconds)
+
+    def test_non_positive_event_buffer_settings_are_rejected(self):
+        for name in ("FACE_EVENT_BUFFER_SIZE", "FACE_EVENT_RETENTION_SECONDS"):
+            for value in ("0", "-1", "not-a-number"):
+                with self.subTest(name=name, value=value):
+                    with self.assertRaises(FaceRuntimeConfigError) as error:
+                        FaceRuntimeConfig.from_env({name: value})
+                    self.assertIn(name, str(error.exception))
 
     def test_non_positive_max_cameras_is_rejected(self):
         for value in ("0", "-1", "not-a-number"):

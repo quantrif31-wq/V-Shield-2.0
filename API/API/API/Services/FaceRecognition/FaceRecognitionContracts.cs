@@ -14,6 +14,20 @@ public sealed record FaceRuntimeResponse(
     string Body,
     string? ContentType);
 
+public sealed record FaceRuntimeRecognitionEvent(
+    string EventId, string CameraId, string? LaneId, long Sequence,
+    long SessionGeneration, string EventType, string? SubjectId,
+    DateTime OccurredAtUtc, double? Distance, long? ModelRegistryVersion,
+    string? ModelFileName, string? ModelChecksumPrefix);
+
+public sealed record FaceCameraEventsResponse(
+    string CameraId, long SessionGeneration, long? OldestSequence,
+    long LatestSequence, IReadOnlyList<FaceRuntimeRecognitionEvent> Events,
+    bool HasMore, bool GapDetected);
+
+public sealed record FaceCameraEventsRuntimeResult(
+    HttpStatusCode StatusCode, FaceCameraEventsResponse? Payload);
+
 public enum FaceRuntimeFailureKind
 {
     ConnectionFailure,

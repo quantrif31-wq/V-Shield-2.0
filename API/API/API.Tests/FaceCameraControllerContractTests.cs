@@ -467,6 +467,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceModels/health")]
     [InlineData("/api/Employees/1/face-models")]
     [InlineData("/api/FaceEnrollments")]
+    [InlineData("/api/FaceRecognitionEvents")]
     public async Task AnonymousUser_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -490,6 +491,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceModels/health")]
     [InlineData("/api/Employees/1/face-models")]
     [InlineData("/api/FaceEnrollments")]
+    [InlineData("/api/FaceRecognitionEvents")]
     public async Task UserWithoutMonitoringPermission_IsRejected(string path)
     {
         using var client = CreateClientWithFakeFaceRuntime();
@@ -529,6 +531,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceModels/health")]
     [InlineData("/api/Employees/1/face-models")]
     [InlineData("/api/FaceEnrollments")]
+    [InlineData("/api/FaceRecognitionEvents")]
     public async Task AdminWithIdentityManagementPermission_CanReadFaceModelMetadata(string path)
     {
         var runtime = FaceCameraControllerContractTests.StubClient.Returning(
