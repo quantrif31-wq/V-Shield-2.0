@@ -24,6 +24,7 @@ ENV QR_PROXY_BASE=http://qr-runtime:8001
 ENV QR_PROXY_BASE_LANE2=http://qr-runtime-lane2:8001
 ENV PLATE_PROXY_BASE=http://plate-runtime:5002
 ENV GO2RTC_PROXY_BASE=http://go2rtc:1984
+ENV NGINX_ENVSUBST_FILTER="^(API_PROXY_BASE|QR_PROXY_BASE|QR_PROXY_BASE_LANE2|PLATE_PROXY_BASE|GO2RTC_PROXY_BASE)$"
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

@@ -23,12 +23,13 @@ services:
     container_name: vshield-api
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
-      ASPNETCORE_URLS: http://+:5107
+      ASPNETCORE_HTTP_PORTS: "5107"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=AccessControlDB;User Id=sa;Password=${MSSQL_SA_PASSWORD:-VshieldSqlLocal@2026};Encrypt=True;TrustServerCertificate=True;"
       VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:-VshieldLocalJwtSecretKey_2026_ChangeMe123}"
       VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:-admin}"
       VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:-AdminLocal@2026}"
       Runtime__Mode: docker
+      Security__EnableHttpsRedirection: "false"
       DataProtection__KeyRingPath: "/var/app/data-protection"
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:-}"
       AppSettings__Go2RtcPublicBaseUrl: "${APP_GO2RTC_PUBLIC_BASE_URL:-}"

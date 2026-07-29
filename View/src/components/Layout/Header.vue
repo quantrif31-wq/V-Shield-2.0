@@ -255,7 +255,6 @@ const currentDate = ref('')
 const dbNotifications = ref([])
 const unreadCount = ref(0)
 const ackLoading = ref({})
-const audioUnlocked = ref(false)
 
 const severityLegend = [
     { key: 'success', label: 'Chat' },
@@ -615,10 +614,7 @@ function closeDropdowns() {
     showUserMenu.value = false
 }
 
-async function toggleNotifications() {
-    try {
-        await unlockAudio()
-    } catch {}
+function toggleNotifications() {
     showNotifications.value = !showNotifications.value
     showUserMenu.value = false
 }
@@ -703,84 +699,11 @@ function handleDocumentClick(event) {
 let timer = null
 let removeNotificationSubscription = null
 let removeUnreadSubscription = null
-let audioContext = null
-let alarmTimer = null
-
-async function unlockAudio() {
-    if (typeof window === 'undefined') return
-
-    if (!audioContext) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext
-        if (!AudioContextClass) return
-        audioContext = new AudioContextClass()
-    }
-
-    if (audioContext.state === 'suspended') {
-        await audioContext.resume()
-    }
-
-    audioUnlocked.value = audioContext.state === 'running'
-}
-
-function playCriticalPulse() {
-    if (!audioContext || audioContext.state !== 'running') {
-        return
-    }
-
-    const startAt = audioContext.currentTime + 0.01
-    const gainNode = audioContext.createGain()
-    gainNode.gain.value = 0
-    gainNode.connect(audioContext.destination)
-
-    ;[
-        { at: 0, frequency: 880, duration: 0.18, volume: 0.12 },
-        { at: 0.26, frequency: 660, duration: 0.18, volume: 0.1 },
-    ].forEach((tone) => {
-        const oscillator = audioContext.createOscillator()
-        oscillator.type = 'square'
-        oscillator.frequency.setValueAtTime(tone.frequency, startAt + tone.at)
-        oscillator.connect(gainNode)
-
-        gainNode.gain.setValueAtTime(0.0001, startAt + tone.at)
-        gainNode.gain.exponentialRampToValueAtTime(tone.volume, startAt + tone.at + 0.02)
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + tone.at + tone.duration)
-
-        oscillator.start(startAt + tone.at)
-        oscillator.stop(startAt + tone.at + tone.duration)
-    })
-}
-
-function stopCriticalAlarm() {
-    if (alarmTimer) {
-        window.clearInterval(alarmTimer)
-        alarmTimer = null
-    }
-}
-
-function syncCriticalAlarm() {
-    const hasCriticalSecurityAlert = normalizedSecurityAlerts.value.some(
-        (item) => item.isActive && item.severity === 'critical'
-    )
-
-    if (!hasCriticalSecurityAlert || !audioUnlocked.value) {
-        stopCriticalAlarm()
-        return
-    }
-
-    if (alarmTimer) {
-        return
-    }
-
-    playCriticalPulse()
-    alarmTimer = window.setInterval(playCriticalPulse, 2400)
-}
 
 onMounted(async () => {
     updateTime()
     timer = window.setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
-    document.addEventListener('pointerdown', unlockAudio, { passive: true })
-    document.addEventListener('keydown', unlockAudio)
 
     await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts()])
 
@@ -804,11 +727,8 @@ onUnmounted(() => {
         window.clearInterval(timer)
     }
     document.removeEventListener('click', handleDocumentClick)
-    document.removeEventListener('pointerdown', unlockAudio)
-    document.removeEventListener('keydown', unlockAudio)
     removeNotificationSubscription?.()
     removeUnreadSubscription?.()
-    stopCriticalAlarm()
     disconnectNotificationHub()
 })
 
@@ -828,20 +748,6 @@ watch(
     }
 )
 
-watch(
-    () => normalizedSecurityAlerts.value.map((item) => `${item.id}-${item.severity}-${item.isActive}`).join('|'),
-    () => {
-        syncCriticalAlarm()
-    },
-    { immediate: true }
-)
-
-watch(
-    () => audioUnlocked.value,
-    () => {
-        syncCriticalAlarm()
-    }
-)
 </script>
 
 <style scoped>

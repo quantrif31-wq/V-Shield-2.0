@@ -139,6 +139,131 @@ Commit 4 does not add retry or a circuit breaker because start, stop, reset, and
 reload do not yet have an idempotency design. `FACE_SERVICE_TOKEN` remains
 unenforced and no backend service-token header is prepared in this commit.
 
+## Authenticated frontend routing
+
+The Vue Face Camera service now uses the shared ASP.NET HTTP client. That client
+uses `VITE_API_BASE_URL`, attaches the current JWT, and preserves the existing
+single-flight refresh-token behavior. `faceApi.js` still returns `response.data`,
+so camera response fields consumed by the components are unchanged.
+
+Frontend calls use `/FaceCamera/...` because the shared client base URL already
+ends in `/api`. ASP.NET then forwards the same operation to Python:
+
+| Frontend service route | ASP.NET route | Python Face Runtime route |
+| --- | --- | --- |
+| `POST /FaceCamera/cameras/{cameraId}/start` | `POST /api/FaceCamera/cameras/{cameraId}/start` | `POST /api/cameras/{cameraId}/start` |
+| `POST /FaceCamera/cameras/{cameraId}/stop` | `POST /api/FaceCamera/cameras/{cameraId}/stop` | `POST /api/cameras/{cameraId}/stop` |
+| `POST /FaceCamera/cameras/{cameraId}/reset` | `POST /api/FaceCamera/cameras/{cameraId}/reset` | `POST /api/cameras/{cameraId}/reset` |
+| `GET /FaceCamera/cameras/{cameraId}/status` | `GET /api/FaceCamera/cameras/{cameraId}/status` | `GET /api/cameras/{cameraId}/status` |
+| `GET /FaceCamera/cameras/{cameraId}/result` | `GET /api/FaceCamera/cameras/{cameraId}/result` | `GET /api/cameras/{cameraId}/result` |
+| `GET /FaceCamera/cameras/{cameraId}/locked-images` | `GET /api/FaceCamera/cameras/{cameraId}/locked-images` | `GET /api/cameras/{cameraId}/locked-images` |
+| `GET /FaceCamera/models` | `GET /api/FaceCamera/models` | `GET /api/models` |
+| `POST /FaceCamera/models/reload` | `POST /api/FaceCamera/models/reload` | `POST /api/models/reload` |
+
+The frontend classifies `401` as an expired session and leaves refresh/login
+handling to the shared client, `403` as missing monitoring permission, and
+`503` as Face Runtime unavailable. Validation (`400`), reload conflict (`409`),
+rejected models (`422`), server errors (`500`), backend connection failures, and
+request cancellation remain distinct. Polling displays one current error state
+instead of producing repeated alerts or stack-trace logs; successful polling
+clears the state without a page reload.
+
+`getModels()` and `reloadModels()` are available from the frontend service.
+Reload sends no request body and accepts no path or filename.
+
+The obsolete frontend Face Runtime base URL setting has been removed from
+frontend environment files, Docker build arguments, and Compose. Nginx no
+longer has a direct Face Runtime proxy. Face camera state is isolated per
+validated camera ID.
+`FACE_SERVICE_TOKEN` remains unenforced.
+
+### Exposed Face Camera screen
+
+The primary Face ID screen is `FaceCamera.vue`, exposed at
+`/monitoring/face-camera` and from the `Nhận diện khuôn mặt` sidebar entry.
+The route inherits the authenticated main layout, is limited to the existing
+`Admin` and `BaoVe` roles, and uses the existing `monitoring` operational task.
+The frontend guard controls navigation visibility and early routing only;
+ASP.NET remains the final authorization boundary.
+
+The camera source is entered by an authorized operator. It is not embedded in
+the route, hard-coded in source, or newly persisted in browser storage.
+`ThongHanh.vue` remains an unrouted legacy component while the active gate
+transit workflow remains `GateTransitMonitor.vue`; its two face lanes now use
+separate camera sessions.
+
+RTSP URLs are not assigned directly to an HTML image element because browsers
+cannot decode RTSP. The screen registers the source through the existing camera
+runtime API and renders the go2rtc MJPEG preview URL. Preview load/error events
+now represent the media request rather than merely loading a wrapper page, and
+one delayed retry covers the short go2rtc restart window. A failed source keeps
+the screen active and displays a camera/network/go2rtc diagnostic message.
+
+Critical notification tones in the application header are disabled. Visual
+notification counts, the notification center, and text error states remain
+available.
+
+Local integration verification confirmed:
+
+- an unauthenticated visit redirects to
+  `/login?redirect=/monitoring/face-camera`;
+- an authorized guard can load the route;
+- the browser requested `GET /api/FaceCamera/cameras/monitoring-face-camera/status` and
+  `GET /api/FaceCamera/models`;
+- model metadata returned HTTP `200`, a version, 5 model files, and 665
+  encodings, without vectors, tokens, or absolute model paths;
+- stopping Face Runtime produced HTTP `503` and the inline
+  `Face ID unavailable` state without logout or repeated alerts;
+- restarting Face Runtime allowed the next model request to succeed without a
+  page reload;
+- no Face Camera request used `/face-api`, port `5001`, or the
+  `face-runtime` hostname.
+
+The production build contains a separate `FaceCamera-*.js`/`.css` lazy chunk.
+
+## Docker network isolation
+
+Browser requests terminate at frontend/Nginx and Face Camera operations use
+the authenticated ASP.NET `/api/FaceCamera/...` routes. Nginx no longer proxies
+any path directly to Python, and the frontend bundle has no Face Runtime
+hostname, port, or deployment variable.
+
+ASP.NET and `face-runtime` share the deterministic `vshield-face-backend`
+bridge. The backend uses `http://face-runtime:5001/api`. The runtime declares
+container port `5001` with Compose `expose`, but neither the default nor VPS
+Compose publishes that port to the host. The frontend is not attached to this
+bridge.
+
+The bridge deliberately does not use `internal: true`: Face Runtime must retain
+outbound access to RTSP cameras on the LAN. Absence of a published port prevents
+host/LAN inbound access while the normal bridge permits outbound camera
+connections.
+
+Docker checks runtime liveness from inside the container with Python standard
+library code calling `GET /api/health`. This checks the Flask process/API only;
+it neither contacts a camera nor reloads models. ASP.NET does not depend on the
+runtime becoming healthy, so the main application can start and continue
+returning the established `503` response while Face Runtime is unavailable.
+
+The legacy FastAPI `FaceID.py`, `FaceRecognitionController`, Docker service
+`faceid-runtime`, autostart configuration, and port `8000` have been removed.
+The only supported Face ID runtime is Flask `nhandienface.py` in
+`face-runtime`; `/api/FaceCamera/...` is the only ASP.NET Face ID surface.
+The retired `/api/face-recognition/*` routes are no longer mapped.
+
+`FACE_SERVICE_TOKEN` is still not enforced. Physical RTSP camera connectivity
+has not been accepted as passing. Preview remains routed through go2rtc, and
+this network change does not alter camera data, model files, or go2rtc
+configuration.
+
+The physical test source at the time of verification was not reachable from
+the Docker host: ICMP, TCP, and direct FFmpeg connectivity to its RTSP endpoint
+timed out, and both go2rtc and Face Runtime reported connection timeouts. The
+host and camera addresses are in the same configured `/8` subnet and the host
+can resolve the camera MAC address, so remaining checks are the camera app's
+LAN/server setting, Wi-Fi client isolation, device firewall, single-client
+limits, and the RTSP port/path. The UI now reports this condition accurately.
+
 ## Face Runtime environment configuration
 
 The Flask runtime reads configuration from process environment variables.
@@ -226,127 +351,6 @@ validation do not make pickle safe. Model files must be generated by the
 trusted system, and write access to `FACE_MODEL_DIR` must be restricted.
 The reload API never accepts a filename, path, upload, or pickle content.
 A future migration should replace pickle with a non-executable model format.
-
-## Authenticated frontend routing
-
-The Vue Face Camera service now uses the shared ASP.NET HTTP client. That client
-uses `VITE_API_BASE_URL`, attaches the current JWT, and preserves the existing
-single-flight refresh-token behavior. `faceApi.js` still returns `response.data`,
-so camera response fields consumed by the components are unchanged.
-
-Frontend calls use `/FaceCamera/...` because the shared client base URL already
-ends in `/api`. ASP.NET then forwards the same operation to Python:
-
-| Frontend service route | ASP.NET route | Python Face Runtime route |
-| --- | --- | --- |
-| `POST /FaceCamera/cameras/{cameraId}/start` | `POST /api/FaceCamera/cameras/{cameraId}/start` | `POST /api/cameras/{cameraId}/start` |
-| `POST /FaceCamera/cameras/{cameraId}/stop` | `POST /api/FaceCamera/cameras/{cameraId}/stop` | `POST /api/cameras/{cameraId}/stop` |
-| `POST /FaceCamera/cameras/{cameraId}/reset` | `POST /api/FaceCamera/cameras/{cameraId}/reset` | `POST /api/cameras/{cameraId}/reset` |
-| `GET /FaceCamera/cameras/{cameraId}/status` | `GET /api/FaceCamera/cameras/{cameraId}/status` | `GET /api/cameras/{cameraId}/status` |
-| `GET /FaceCamera/cameras/{cameraId}/result` | `GET /api/FaceCamera/cameras/{cameraId}/result` | `GET /api/cameras/{cameraId}/result` |
-| `GET /FaceCamera/cameras/{cameraId}/locked-images` | `GET /api/FaceCamera/cameras/{cameraId}/locked-images` | `GET /api/cameras/{cameraId}/locked-images` |
-| `GET /FaceCamera/models` | `GET /api/FaceCamera/models` | `GET /api/models` |
-| `POST /FaceCamera/models/reload` | `POST /api/FaceCamera/models/reload` | `POST /api/models/reload` |
-
-The frontend classifies `401` as an expired session and leaves refresh/login
-handling to the shared client, `403` as missing monitoring permission, and
-`503` as Face Runtime unavailable. Validation (`400`), reload conflict (`409`),
-rejected models (`422`), server errors (`500`), backend connection failures, and
-request cancellation remain distinct. Polling displays one current error state
-instead of producing repeated alerts or stack-trace logs; successful polling
-clears the state without a page reload.
-
-`getModels()` and `reloadModels()` are available from the frontend service.
-Reload sends no request body and accepts no path or filename.
-
-The obsolete frontend Face Runtime base URL setting has been removed from
-frontend environment files, Docker build arguments, and Compose. Nginx no
-longer has a direct Face Runtime proxy. Face camera state is isolated per
-validated camera ID.
-`FACE_SERVICE_TOKEN` remains unenforced.
-
-### Exposed Face Camera screen
-
-The primary Face ID screen is `FaceCamera.vue`, exposed at
-`/monitoring/face-camera` and from the `Nhận diện khuôn mặt` sidebar entry.
-The route inherits the authenticated main layout, is limited to the existing
-`Admin` and `BaoVe` roles, and uses the existing `monitoring` operational task.
-The frontend guard controls navigation visibility and early routing only;
-ASP.NET remains the final authorization boundary.
-
-The camera source is entered by an authorized operator. It is not embedded in
-the route, hard-coded in source, or newly persisted in browser storage.
-`ThongHanh.vue` remains an unrouted legacy component while the active gate
-transit workflow remains `GateTransitMonitor.vue`; its two face lanes now use
-separate camera sessions.
-
-RTSP URLs are not assigned directly to an HTML image element because browsers
-cannot decode RTSP. The screen registers the source through the existing camera
-runtime API and renders the go2rtc MJPEG preview URL. Preview load/error events
-now represent the media request rather than merely loading a wrapper page, and
-one delayed retry covers the short go2rtc restart window. A failed source keeps
-the screen active and displays a camera/network/go2rtc diagnostic message.
-
-Local integration verification confirmed:
-
-- an unauthenticated visit redirects to
-  `/login?redirect=/monitoring/face-camera`;
-- an authorized guard can load the route;
-- the browser requested `GET /api/FaceCamera/cameras/monitoring-face-camera/status` and
-  `GET /api/FaceCamera/models`;
-- model metadata returned HTTP `200`, a version, 5 model files, and 665
-  encodings, without vectors, tokens, or absolute model paths;
-- stopping Face Runtime produced HTTP `503` and the inline
-  `Face ID unavailable` state without logout or repeated alerts;
-- restarting Face Runtime allowed the next model request to succeed without a
-  page reload;
-- no Face Camera request used `/face-api`, port `5001`, or the
-  `face-runtime` hostname.
-
-The production build contains a separate `FaceCamera-*.js`/`.css` lazy chunk.
-
-## Docker network isolation
-
-Browser requests terminate at frontend/Nginx and Face Camera operations use
-the authenticated ASP.NET `/api/FaceCamera/...` routes. Nginx no longer proxies
-any path directly to Python, and the frontend bundle has no Face Runtime
-hostname, port, or deployment variable.
-
-ASP.NET and `face-runtime` share the deterministic `vshield-face-backend`
-bridge. The backend uses `http://face-runtime:5001/api`. The runtime declares
-container port `5001` with Compose `expose`, but neither the default nor VPS
-Compose publishes that port to the host. The frontend is not attached to this
-bridge.
-
-The bridge deliberately does not use `internal: true`: Face Runtime must retain
-outbound access to RTSP cameras on the LAN. Absence of a published port prevents
-host/LAN inbound access while the normal bridge permits outbound camera
-connections.
-
-Docker checks runtime liveness from inside the container with Python standard
-library code calling `GET /api/health`. This checks the Flask process/API only;
-it neither contacts a camera nor reloads models. ASP.NET does not depend on the
-runtime becoming healthy, so the main application can start and continue
-returning the established `503` response while Face Runtime is unavailable.
-
-The legacy FastAPI `FaceID.py`, `FaceRecognitionController`, Docker service
-`faceid-runtime`, autostart configuration, and port `8000` have been removed.
-The only supported Face ID runtime is Flask `nhandienface.py` in
-`face-runtime`; `/api/FaceCamera/...` is the only ASP.NET Face ID surface.
-The retired `/api/face-recognition/*` routes are no longer mapped.
-
-`FACE_SERVICE_TOKEN` is still not enforced. Physical RTSP camera connectivity
-has not been accepted as passing. Preview remains routed through go2rtc, and
-this network change does not alter camera data, model files, or go2rtc
-configuration.
-
-The physical test source at the time of verification was not reachable from
-the Docker host: ICMP, TCP, and direct FFmpeg connectivity to its RTSP endpoint
-timed out, and both go2rtc and Face Runtime reported connection timeouts. The
-host and camera addresses are in the same configured `/8` subnet and the host
-can resolve the camera MAC address, so remaining checks are the camera app's
-LAN/server setting, Wi-Fi client isolation, device firewall, single-client
-limits, and the RTSP port/path. The UI now reports this condition accurately.
 
 ## Commit 8: isolated multi-camera sessions
 

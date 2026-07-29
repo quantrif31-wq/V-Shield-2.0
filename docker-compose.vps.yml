@@ -23,7 +23,7 @@ services:
     container_name: vshield-api
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:5107
+      ASPNETCORE_HTTP_PORTS: "5107"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=${SQL_DATABASE:-AccessControlDB};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in your environment or .env.vps file};Encrypt=True;TrustServerCertificate=True;"
       VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:?Set VSHIELD_JWT_SECRET in your environment or .env.vps file}"
       JwtSettings__Issuer: "${JWT_ISSUER:-VShieldAPI-VPS}"
