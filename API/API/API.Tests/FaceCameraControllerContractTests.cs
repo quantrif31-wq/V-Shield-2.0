@@ -469,6 +469,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceEnrollments")]
     [InlineData("/api/FaceRecognitionEvents")]
     [InlineData("/api/FaceAccessPolicyComparisons")]
+    [InlineData("/api/FaceAccessDecisions")]
     [InlineData("/api/FaceCredentialBindings")]
     public async Task AnonymousUser_IsRejected(string path)
     {
@@ -495,6 +496,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceEnrollments")]
     [InlineData("/api/FaceRecognitionEvents")]
     [InlineData("/api/FaceAccessPolicyComparisons")]
+    [InlineData("/api/FaceAccessDecisions")]
     [InlineData("/api/FaceCredentialBindings")]
     public async Task UserWithoutMonitoringPermission_IsRejected(string path)
     {
@@ -537,6 +539,7 @@ public sealed class FaceCameraAuthorizationContractTests : IClassFixture<Securit
     [InlineData("/api/FaceEnrollments")]
     [InlineData("/api/FaceRecognitionEvents")]
     [InlineData("/api/FaceAccessPolicyComparisons")]
+    [InlineData("/api/FaceAccessDecisions")]
     [InlineData("/api/FaceCredentialBindings")]
     public async Task AdminWithIdentityManagementPermission_CanReadFaceModelMetadata(string path)
     {

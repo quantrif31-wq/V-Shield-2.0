@@ -285,6 +285,9 @@ namespace API
             builder.Services.AddSingleton<FaceAccessPolicyComparisonProcessor>();
             builder.Services.AddSingleton<IFaceAccessPolicyComparisonProcessor>(sp =>
                 sp.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
+            builder.Services.AddSingleton<FaceAccessDecisionProcessor>();
+            builder.Services.AddSingleton<IFaceAccessDecisionProcessor>(sp =>
+                sp.GetRequiredService<FaceAccessDecisionProcessor>());
             builder.Services.AddSingleton<FaceCameraSessionReconciler>();
             builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
                 serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
@@ -298,8 +301,12 @@ namespace API
                     builder.Services.AddHostedService(serviceProvider =>
                         serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
                 if (comparisonOptions.ProcessorEnabled)
+                {
                     builder.Services.AddHostedService(serviceProvider =>
                         serviceProvider.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
+                    builder.Services.AddHostedService(serviceProvider =>
+                        serviceProvider.GetRequiredService<FaceAccessDecisionProcessor>());
+                }
             }
             builder.Services.AddHttpClient("AiGateway", client =>
             {

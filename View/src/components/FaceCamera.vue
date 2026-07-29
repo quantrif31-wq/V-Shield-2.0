@@ -267,6 +267,38 @@
         </table>
       </div>
     </section>
+    <section class="event-history">
+      <div class="event-history__header">
+        <h2>Quyết định truy cập Face ID</h2>
+      </div>
+      <div class="comparison-warning">
+        Allowed chỉ là quyết định phần mềm phục vụ kiểm tra và audit. Không phải lệnh mở cổng.
+      </div>
+      <div class="comparison-summary">
+        <span>Allowed: {{ decisionSummary.allowed || 0 }}</span>
+        <span>Denied: {{ decisionSummary.denied || 0 }}</span>
+        <span>Review required: {{ decisionSummary.reviewRequired || 0 }}</span>
+        <span>Indeterminate: {{ decisionSummary.indeterminate || 0 }}</span>
+      </div>
+      <div class="event-table-wrap">
+        <table class="event-table">
+          <thead><tr><th>Thời gian</th><th>Camera / Gate / AP</th><th>Quyết định</th>
+            <th>Lý do</th><th>Đầu vào</th></tr></thead>
+          <tbody>
+            <tr v-for="item in accessDecisions" :key="item.id">
+              <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
+              <td>{{ item.cameraId }} / {{ item.gateId ?? "-" }} / {{ item.accessPointId ?? "-" }}</td>
+              <td><span :class="['history-badge', decisionStatusClass(item.decision)]">
+                {{ item.decision }}
+              </span></td>
+              <td>{{ item.reasonCode }}</td>
+              <td>{{ item.legacyDecision }} AND {{ item.enterpriseDecision }}</td>
+            </tr>
+            <tr v-if="!accessDecisions.length"><td colspan="5">Chưa có quyết định truy cập.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -298,6 +330,10 @@ import {
   getFacePolicyComparisons,
   getFacePolicyComparisonSummary
 } from "../services/faceAccessPolicyComparisonApi"
+import {
+  getFaceAccessDecisions,
+  getFaceAccessDecisionSummary
+} from "../services/faceAccessDecisionApi"
 
 export default {
   name: "FaceIdSecurity",
@@ -362,6 +398,8 @@ export default {
       eventFilters: { cameraId: "", employeeId: "", fromUtc: "" },
       policyComparisons: [],
       comparisonSummary: {},
+      accessDecisions: [],
+      decisionSummary: {},
 
       destroyed: false
     }
@@ -489,12 +527,16 @@ export default {
         this.collectorGap = Number(health?.gapCount || 0) > 0 ||
           this.recognitionEvents.some(item => item.historyGapWarning)
         this.eventHistoryError = false
-        const [comparisons, summary] = await Promise.all([
+        const [comparisons, summary, decisions, decisionSummary] = await Promise.all([
           getFacePolicyComparisons({ page: 1, pageSize: 50 }),
-          getFacePolicyComparisonSummary()
+          getFacePolicyComparisonSummary(),
+          getFaceAccessDecisions({ page: 1, pageSize: 50 }),
+          getFaceAccessDecisionSummary()
         ])
         this.policyComparisons = Array.isArray(comparisons?.items) ? comparisons.items : []
         this.comparisonSummary = summary || {}
+        this.accessDecisions = Array.isArray(decisions?.items) ? decisions.items : []
+        this.decisionSummary = decisionSummary || {}
       } catch {
         this.eventHistoryError = true
       }
@@ -522,6 +564,14 @@ export default {
     eventStatusClass(status) {
       if (status === "Matched") return "history-badge--success"
       if (status === "ModelMismatch" || status === "EmployeeMissing") {
+        return "history-badge--danger"
+      }
+      return "history-badge--warning"
+    },
+
+    decisionStatusClass(status) {
+      if (status === "Allowed") return "history-badge--success"
+      if (status === "Denied" || status === "Indeterminate") {
         return "history-badge--danger"
       }
       return "history-badge--warning"

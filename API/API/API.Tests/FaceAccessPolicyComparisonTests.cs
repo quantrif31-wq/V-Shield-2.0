@@ -143,7 +143,7 @@ public sealed class FaceAccessPolicyComparisonTests
         using (var scope = provider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            db.Employees.Add(new Employee { EmployeeId = 1, FullName = "Test" });
+            db.Employees.Add(new Employee { EmployeeId = 1, FullName = "Test", Status = true });
             db.Gates.Add(new Gate { GateId = 1, GateName = "Gate" });
             db.Lanes.Add(new Lane { LaneId = 1, SiteId = 1, GateId = 1, AccessPointId = 1 });
             db.Cameras.Add(new Camera { CameraId = 1, CameraName = "Face" });

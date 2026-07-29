@@ -85,6 +85,7 @@ public partial class ApplicationDbContext : DbContext
 
     public override int SaveChanges()
     {
+        EnsureFaceAccessDecisionsAreAppendOnly();
         if (_isWritingAudit)
             return base.SaveChanges();
 
@@ -136,6 +137,7 @@ public partial class ApplicationDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        EnsureFaceAccessDecisionsAreAppendOnly();
         if (_isWritingAudit)
             return await base.SaveChangesAsync(cancellationToken);
 
@@ -182,6 +184,16 @@ public partial class ApplicationDbContext : DbContext
         finally
         {
             _isWritingAudit = false;
+        }
+    }
+
+    private void EnsureFaceAccessDecisionsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<FaceAccessDecision>().Any(x =>
+                x.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "FaceAccessDecision records are immutable and append-only.");
         }
     }
 

@@ -263,6 +263,7 @@ public partial class ApplicationDbContext
         ConfigureAccessCredentials(modelBuilder);
         ConfigureFaceCredentialBindings(modelBuilder);
         ConfigureFacePolicyComparisons(modelBuilder);
+        ConfigureFaceAccessDecisions(modelBuilder);
         ConfigureVisitorVehicleOperations(modelBuilder);
         ConfigureVehicleDelegation(modelBuilder);
         ConfigureDeviceProtocolOperations(modelBuilder);

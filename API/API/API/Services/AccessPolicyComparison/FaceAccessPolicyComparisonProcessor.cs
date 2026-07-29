@@ -113,6 +113,13 @@ public sealed class FaceAccessPolicyComparisonProcessor(
                 "MappingUnavailable", PolicyFingerprint.Create(item.Id, mapping.Status, "legacy"));
             enterprise = legacy with { Fingerprint = PolicyFingerprint.Create(item.Id, mapping.Status, "enterprise") };
         }
+        else if (!await EmployeeWasActiveAsync(db, item.EmployeeId.Value, item.OccurredAtUtc, token))
+        {
+            legacy = new(PolicyEvaluationDecisions.Deny,
+                "EmployeeInactive", PolicyFingerprint.Create(item.Id, item.EmployeeId, item.OccurredAtUtc, "legacy"));
+            enterprise = new(PolicyEvaluationDecisions.Deny,
+                "EmployeeInactive", PolicyFingerprint.Create(item.Id, item.EmployeeId, item.OccurredAtUtc, "enterprise"));
+        }
         else
         {
             legacy = await services.GetRequiredService<ILegacyGateAccessEvaluator>()
@@ -153,6 +160,22 @@ public sealed class FaceAccessPolicyComparisonProcessor(
                 .AnyAsync(x => x.FaceRecognitionEventId == id, token))
                 throw;
         }
+    }
+
+    private static async Task<bool> EmployeeWasActiveAsync(
+        ApplicationDbContext db, int employeeId, DateTime occurredAtUtc, CancellationToken token)
+    {
+        var employee = await db.Employees.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.EmployeeId == employeeId, token);
+        if (employee is null || employee.Status == false) return false;
+        var lifecycle = await db.EmployeeLifecycleEvents.AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId && x.EffectiveAtUtc <= occurredAtUtc)
+            .OrderByDescending(x => x.EffectiveAtUtc)
+            .ThenByDescending(x => x.EmployeeLifecycleEventId)
+            .Select(x => x.NewState)
+            .FirstOrDefaultAsync(token);
+        var state = lifecycle ?? employee.LifecycleStatus;
+        return state is EmployeeLifecycleStates.Active or EmployeeLifecycleStates.ContractorActive;
     }
 
     private static async Task<PolicyEvaluationResult> EvaluateEnterpriseAsync(
