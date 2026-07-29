@@ -695,7 +695,7 @@ namespace API
         {
             if (args.Length < 2)
             {
-                Console.Error.WriteLine("Usage: face-credentials generate-binding-template | validate-bindings --manifest <path> | apply-bindings --manifest <path> [--apply --confirm-bindings]");
+                Console.Error.WriteLine("Usage: face-credentials generate-binding-template | validate-bindings --manifest <path> | apply-bindings --manifest <path> [--apply --confirm-bindings --actor-user-id <id>] | reconcile-binding-audits --manifest <path> [--apply --confirm-audit-reconciliation --actor-user-id <id>]");
                 return 2;
             }
 
@@ -726,10 +726,25 @@ namespace API
                 var manifestPath = ReadManifestPath(args);
                 var apply = args.Contains("--apply", StringComparer.Ordinal);
                 var confirm = args.Contains("--confirm-bindings", StringComparer.Ordinal);
+                var actorUserId = ReadOptionalIntArgument(args, "--actor-user-id");
                 var result = await manifestService.ApplyManifestAsync(
                     manifestPath,
                     apply,
                     confirm,
+                    actorUserId,
+                    cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                return result.Success ? 0 : 3;
+            }
+
+            if (string.Equals(command, "reconcile-binding-audits", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifestPath = ReadManifestPath(args);
+                var result = await manifestService.ReconcileBindingAuditsAsync(
+                    manifestPath,
+                    args.Contains("--apply", StringComparer.Ordinal),
+                    args.Contains("--confirm-audit-reconciliation", StringComparer.Ordinal),
+                    ReadOptionalIntArgument(args, "--actor-user-id"),
                     cancellationToken);
                 Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
                 return result.Success ? 0 : 3;
@@ -745,6 +760,15 @@ namespace API
             if (index < 0 || index + 1 >= args.Length)
                 throw new InvalidOperationException("--manifest <path> is required.");
             return args[index + 1];
+        }
+
+        private static int? ReadOptionalIntArgument(string[] args, string name)
+        {
+            var index = Array.FindIndex(args, x => string.Equals(x, name, StringComparison.Ordinal));
+            if (index < 0) return null;
+            if (index + 1 >= args.Length || !int.TryParse(args[index + 1], out var value) || value <= 0)
+                throw new InvalidOperationException($"{name} requires a positive integer.");
+            return value;
         }
 
         private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)

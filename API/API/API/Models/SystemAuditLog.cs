@@ -3,6 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace API.Models;
 
+public static class SystemAuditLogLimits
+{
+    public const int ActionTypeMaxLength = 64;
+}
+
 [Table("SystemAuditLogs")]
 public class SystemAuditLog
 {
@@ -26,7 +31,7 @@ public class SystemAuditLog
     public string? HttpMethod { get; set; }
     [MaxLength(300)]
     public string? Path { get; set; }
-    [MaxLength(20)]
+    [MaxLength(SystemAuditLogLimits.ActionTypeMaxLength)]
     public string ActionType { get; set; } = string.Empty; // CREATE|UPDATE|DELETE|REQUEST
     [MaxLength(120)]
     public string? EntityName { get; set; }

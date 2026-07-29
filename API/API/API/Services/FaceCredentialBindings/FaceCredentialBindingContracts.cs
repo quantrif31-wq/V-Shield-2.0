@@ -34,7 +34,9 @@ public sealed record FaceCredentialCandidateDto(
 public sealed record CreateFaceCredentialBindingRequest(
     int EmployeeId,
     long AccessCredentialId,
-    string? Reason);
+    string? Reason,
+    int? AuditActorUserId = null,
+    string? AuditActorUsername = null);
 
 public sealed record RevokeFaceCredentialBindingRequest(
     string? Reason,

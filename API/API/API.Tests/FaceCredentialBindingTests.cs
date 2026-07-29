@@ -2,6 +2,7 @@ using API.Data;
 using API.Models;
 using API.Services;
 using API.Services.AccessCredentials;
+using API.Services.Audit;
 using API.Services.FaceCredentialBindings;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -43,6 +44,27 @@ public sealed class FaceCredentialBindingTests
         Assert.Empty(await db.AccessRules.ToListAsync());
         Assert.Empty(await db.EmployeeAccessPermissions.ToListAsync());
         Assert.Empty(await db.AccessDecisions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Create_AssignsIdentityBeforeBuildingAuditAndPreservesExplicitActor()
+    {
+        await using var db = Database();
+        db.Employees.Add(Employee(1));
+        db.AccessCredentials.Add(Credential(10, 1, AccessCredentialTypes.FaceBiometric));
+        await db.SaveChangesAsync();
+
+        var created = await Service(db).CreateAsync(
+            new(1, 10, "approved", 1, "admin"),
+            default);
+
+        var audit = await db.SystemAuditLogs.SingleAsync(
+            x => x.ActionType == SystemAuditActions.FaceCredentialBindingCreated);
+        Assert.True(created.Id > 0);
+        Assert.Equal(created.Id.ToString(), audit.EntityId);
+        Assert.Equal(1, audit.UserId);
+        Assert.Equal("admin", audit.Username);
+        Assert.Contains($"\"bindingId\":{created.Id}", audit.NewValuesJson);
     }
 
     [Theory]

@@ -1,6 +1,7 @@
 using API.Data;
 using API.Models;
 using API.Services.AccessCredentials;
+using API.Services.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Services.FaceCredentialBindings;
@@ -120,6 +121,10 @@ public sealed class FaceCredentialBindingService(
 
     public async Task<FaceCredentialBindingDto> CreateAsync(CreateFaceCredentialBindingRequest request, CancellationToken token)
     {
+        var ownsTransaction = db.Database.IsRelational() && db.Database.CurrentTransaction is null;
+        await using var transaction = ownsTransaction
+            ? await db.Database.BeginTransactionAsync(token)
+            : null;
         var now = DateTime.UtcNow;
         var employee = await db.Employees.AsNoTracking()
             .SingleOrDefaultAsync(x => x.EmployeeId == request.EmployeeId, token)
@@ -170,21 +175,33 @@ public sealed class FaceCredentialBindingService(
             Status = EmployeeFaceCredentialBindingStatuses.Active,
             ActivatedAtUtc = now,
             CreatedAtUtc = now,
-            CreatedByUserId = currentUser.UserId,
+            CreatedByUserId = request.AuditActorUserId ?? currentUser.UserId,
             Reason = Sanitize(request.Reason)
         };
 
         db.EmployeeFaceCredentialBindings.Add(row);
-        AddAudit("FaceCredentialBindingCreated", row, true, row.Reason);
 
         try
         {
+            // Keep the transaction open: SQL Server must assign the identity before
+            // the authoritative business audit is constructed.
             await db.SaveChangesAsync(token);
+            AddAudit(
+                SystemAuditActions.FaceCredentialBindingCreated,
+                row,
+                true,
+                row.Reason,
+                request.AuditActorUserId,
+                request.AuditActorUsername);
+            await db.SaveChangesAsync(token);
+            if (transaction is not null)
+                await transaction.CommitAsync(token);
         }
         catch (DbUpdateException)
         {
+            if (transaction is not null)
+                await transaction.RollbackAsync(token);
             db.ChangeTracker.Clear();
-            AddRejectedAudit(request.EmployeeId, request.AccessCredentialId, "FaceCredentialBindingConflict", "Database uniqueness or ownership conflict.");
             throw Fail("FaceCredentialBindingConflict", "Binding conflicts with an existing active employee or credential binding.", 409);
         }
 
@@ -223,7 +240,7 @@ public sealed class FaceCredentialBindingService(
         row.RevokedAtUtc = now;
         row.RevokedByUserId = currentUser.UserId;
         row.Reason = Sanitize(request.Reason) ?? row.Reason;
-        AddAudit("FaceCredentialBindingRevoked", row, true, row.Reason);
+        AddAudit(SystemAuditActions.FaceCredentialBindingRevoked, row, true, row.Reason);
 
         try
         {
@@ -391,13 +408,19 @@ public sealed class FaceCredentialBindingService(
         });
     }
 
-    private void AddAudit(string action, EmployeeFaceCredentialBinding binding, bool success, string? reason)
+    private void AddAudit(
+        string action,
+        EmployeeFaceCredentialBinding binding,
+        bool success,
+        string? reason,
+        int? actorUserId = null,
+        string? actorUsername = null)
     {
         db.SystemAuditLogs.Add(new SystemAuditLog
         {
             TimestampUtc = DateTime.UtcNow,
-            UserId = currentUser.UserId,
-            Username = currentUser.Username,
+            UserId = actorUserId ?? currentUser.UserId,
+            Username = actorUsername ?? currentUser.Username,
             EventCategory = "FACE_CREDENTIAL_BINDING",
             ActionType = action,
             EntityName = nameof(EmployeeFaceCredentialBinding),
@@ -406,7 +429,7 @@ public sealed class FaceCredentialBindingService(
             FailureReason = reason,
             NewValuesJson = System.Text.Json.JsonSerializer.Serialize(new
             {
-                actor = currentUser.Username,
+                actor = actorUsername ?? currentUser.Username,
                 bindingId = binding.Id,
                 employeeId = binding.EmployeeId,
                 accessCredentialId = binding.AccessCredentialId,

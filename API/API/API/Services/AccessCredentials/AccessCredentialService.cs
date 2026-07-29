@@ -1,6 +1,7 @@
 using API.Data;
 using API.Models;
 using API.Services;
+using API.Services.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Services.AccessCredentials;
@@ -104,11 +105,11 @@ public sealed class AccessCredentialService(
             Employee = employee
         };
         db.AccessCredentials.Add(row);
-        AddAudit("CredentialCreated", row, true, null);
+        AddAudit(SystemAuditActions.CredentialCreated, row, true, null);
         try { await db.SaveChangesAsync(token); }
         catch (DbUpdateException)
         {
-            AddAudit("CredentialCreationRejected", row, false, "Database uniqueness or ownership constraint.");
+            AddAudit(SystemAuditActions.CredentialCreationRejected, row, false, "Database uniqueness or ownership constraint.");
             throw Fail("CredentialConflict", "Credential conflicts with an existing record.", 409);
         }
         return Map(row, now);
@@ -157,7 +158,14 @@ public sealed class AccessCredentialService(
             row.RevokedByUserId = currentUser.UserId;
             row.RevocationReason = Sanitize(reason);
         }
-        AddAudit($"Credential{normalizedTarget}", row, true, Sanitize(reason));
+        var action = normalizedTarget switch
+        {
+            AccessCredentialStatuses.Active => SystemAuditActions.CredentialActivated,
+            AccessCredentialStatuses.Inactive => SystemAuditActions.CredentialDeactivated,
+            AccessCredentialStatuses.Revoked => SystemAuditActions.CredentialRevoked,
+            _ => throw new InvalidOperationException($"Unsupported credential audit transition: {normalizedTarget}.")
+        };
+        AddAudit(action, row, true, Sanitize(reason));
         try { await db.SaveChangesAsync(token); }
         catch (DbUpdateConcurrencyException)
         {

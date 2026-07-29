@@ -1,6 +1,7 @@
 using System.Text.Json;
 using API.Data;
 using API.Models;
+using API.Services.Audit;
 using API.Services.AccessCredentials;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,8 +9,7 @@ namespace API.Services.FaceCredentialBindings;
 
 public sealed class FaceCredentialBindingManifestService(
     ApplicationDbContext db,
-    IFaceCredentialBindingService bindingService,
-    ICurrentUserContext currentUser)
+    IFaceCredentialBindingService bindingService)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -151,6 +151,7 @@ public sealed class FaceCredentialBindingManifestService(
         string manifestPath,
         bool apply,
         bool confirmBindings,
+        int? actorUserId,
         CancellationToken token)
     {
         if (!apply || !confirmBindings)
@@ -161,6 +162,9 @@ public sealed class FaceCredentialBindingManifestService(
             return new(false, "ManifestValidationFailed", []);
 
         var manifest = await ReadManifestAsync(manifestPath, token);
+        var actor = await ResolveActorAsync(manifest, actorUserId, token);
+        if (!actor.Success)
+            return new(false, actor.Error, []);
         var applied = new List<object>();
         await using var transaction = await db.Database.BeginTransactionAsync(token);
         try
@@ -168,7 +172,12 @@ public sealed class FaceCredentialBindingManifestService(
             foreach (var item in manifest.Bindings)
             {
                 var result = await bindingService.CreateAsync(
-                    new CreateFaceCredentialBindingRequest(item.EmployeeId, item.AccessCredentialId!.Value, "Manifest approved face credential binding"),
+                    new CreateFaceCredentialBindingRequest(
+                        item.EmployeeId,
+                        item.AccessCredentialId!.Value,
+                        "Manifest approved face credential binding",
+                        actor.User!.UserId,
+                        actor.User.Username),
                     token);
                 applied.Add(new
                 {
@@ -182,10 +191,10 @@ public sealed class FaceCredentialBindingManifestService(
             db.SystemAuditLogs.Add(new SystemAuditLog
             {
                 TimestampUtc = DateTime.UtcNow,
-                UserId = currentUser.UserId,
-                Username = currentUser.Username,
+                UserId = actor.User!.UserId,
+                Username = actor.User.Username,
                 EventCategory = "FACE_CREDENTIAL_BINDING",
-                ActionType = "FaceCredentialBindingManifestApplied",
+                ActionType = SystemAuditActions.FaceCredentialBindingManifestApplied,
                 EntityName = nameof(EmployeeFaceCredentialBinding),
                 IsSuccess = true,
                 NewValuesJson = JsonSerializer.Serialize(new
@@ -204,6 +213,131 @@ public sealed class FaceCredentialBindingManifestService(
         {
             await transaction.RollbackAsync(token);
             return new(false, ex.Message, applied);
+        }
+    }
+
+    public async Task<FaceCredentialAuditReconciliationResult> ReconcileBindingAuditsAsync(
+        string reconciliationManifestPath,
+        bool apply,
+        bool confirm,
+        int? actorUserId,
+        CancellationToken token)
+    {
+        var reconciliation = await ReadReconciliationManifestAsync(reconciliationManifestPath, token);
+        if (!reconciliation.Approved ||
+            reconciliation.SchemaVersion != 1 ||
+            !reconciliation.ApprovedAtUtc.HasValue ||
+            reconciliation.ApprovedAtUtc.Value.Kind != DateTimeKind.Utc)
+            return new(false, false, "AuditReconciliationManifestInvalid", []);
+        if (actorUserId.HasValue && actorUserId != reconciliation.ApprovedByUserId)
+            return new(false, false, "Execution actor flag conflicts with reconciliation manifest.", []);
+
+        var actor = await ResolveExecutionActorAsync(reconciliation, token);
+        if (!actor.Success)
+            return new(false, false, actor.Error, []);
+
+        var bindingManifestPath = Path.Combine(
+            Path.GetDirectoryName(reconciliationManifestPath)!,
+            reconciliation.OriginalBindingApproval.ManifestReference);
+        var manifest = await ReadManifestAsync(bindingManifestPath, token);
+        var validation = await ValidateManifestAsync(bindingManifestPath, requireApproval: true, token);
+        if (!validation.Success)
+            return new(false, false, "ManifestValidationFailed", []);
+        if (!string.Equals(
+                manifest.ApprovedBy.Trim(),
+                reconciliation.OriginalBindingApproval.ApprovedBy.Trim(),
+                StringComparison.Ordinal))
+            return new(false, false, "Original binding approval identity mismatch.", []);
+
+        var candidates = new List<FaceCredentialAuditReconciliationCandidate>();
+        foreach (var item in manifest.Bindings)
+        {
+            if (!item.AccessCredentialId.HasValue)
+                return new(false, false, $"Credential ID missing for employee {item.EmployeeId}.", []);
+            var credentialId = item.AccessCredentialId.Value;
+            var binding = await db.EmployeeFaceCredentialBindings.AsNoTracking().SingleOrDefaultAsync(
+                x => x.EmployeeId == item.EmployeeId &&
+                     x.AccessCredentialId == credentialId &&
+                     x.Status == EmployeeFaceCredentialBindingStatuses.Active,
+                token);
+            if (binding is null)
+                return new(false, false, $"Active binding missing for employee {item.EmployeeId}.", []);
+
+            var originals = await db.SystemAuditLogs.AsNoTracking()
+                .Where(x => x.ActionType == SystemAuditActions.FaceCredentialBindingCreated &&
+                            x.EntityName == nameof(EmployeeFaceCredentialBinding) &&
+                            x.EntityId == null &&
+                            x.UserId == null)
+                .ToListAsync(token);
+            var original = originals.SingleOrDefault(x => AuditMatches(x, item.EmployeeId, credentialId));
+            if (original is null)
+                return new(false, false, $"Legacy audit missing or ambiguous for binding {binding.Id}.", []);
+
+            var already = await db.SystemAuditLogs.AsNoTracking()
+                .AnyAsync(x => x.ActionType == SystemAuditActions.FaceCredentialBindingAuditReconciled &&
+                               x.EntityId == binding.Id.ToString() &&
+                               x.OldValuesJson != null &&
+                               x.OldValuesJson.Contains($"\"originalAuditId\":{original.Id}"), token);
+            candidates.Add(new(original.Id, binding.Id, item.EmployeeId, credentialId, already));
+        }
+
+        if (!apply)
+            return new(true, false, null, candidates);
+        if (!confirm)
+            return new(false, false, "ApplyRequiresAuditReconciliationConfirmation", candidates);
+        if (candidates.All(x => x.AlreadyReconciled))
+            return new(true, false, null, candidates);
+        if (candidates.Any(x => x.AlreadyReconciled))
+            return new(false, false, "PartialAuditReconciliationDetected", candidates);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        try
+        {
+            var reconciledAtUtc = DateTime.UtcNow;
+            foreach (var candidate in candidates)
+            {
+                db.SystemAuditLogs.Add(new SystemAuditLog
+                {
+                    TimestampUtc = reconciledAtUtc,
+                    UserId = actor.User!.UserId,
+                    Username = actor.User.Username,
+                    EventCategory = "FACE_CREDENTIAL_BINDING",
+                    ActionType = SystemAuditActions.FaceCredentialBindingAuditReconciled,
+                    EntityName = nameof(EmployeeFaceCredentialBinding),
+                    EntityId = candidate.BindingId.ToString(),
+                    IsSuccess = true,
+                    OldValuesJson = JsonSerializer.Serialize(new
+                    {
+                        originalAuditId = candidate.OriginalAuditId,
+                        originalActionType = SystemAuditActions.FaceCredentialBindingCreated
+                    }),
+                    NewValuesJson = JsonSerializer.Serialize(new
+                    {
+                        candidate.BindingId,
+                        candidate.EmployeeId,
+                        candidate.AccessCredentialId,
+                        correctionReason = "Original binding-created audit was recorded before identity assignment and without a resolved CLI actor. This reconciliation record supplies the authoritative Binding ID and approved actor without modifying the original audit.",
+                        originalApprovalIdentity = manifest.ApprovedBy,
+                        originalBindingManifest = reconciliation.OriginalBindingApproval.ManifestReference,
+                        executionActorUserId = actor.User.UserId,
+                        executionActorUsername = actor.User.Username,
+                        executionActorFullName = actor.User.FullName,
+                        executionActorRole = actor.User.Role,
+                        reconciliationApprovedAtUtc = reconciliation.ApprovedAtUtc,
+                        reconciliationApprovalMethod = reconciliation.ApprovalMethod,
+                        reconciliationReason = reconciliation.Reason,
+                        reconciledAtUtc
+                    })
+                });
+            }
+            await db.SaveChangesAsync(token);
+            await transaction.CommitAsync(token);
+            return new(true, true, null, candidates);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(token);
+            return new(false, false, ex.Message, candidates);
         }
     }
 
@@ -323,6 +457,68 @@ public sealed class FaceCredentialBindingManifestService(
         return manifest ?? throw new InvalidOperationException("Manifest content is invalid.");
     }
 
+    private async Task<FaceCredentialAuditReconciliationManifest> ReadReconciliationManifestAsync(
+        string path,
+        CancellationToken token)
+    {
+        await using var stream = File.OpenRead(path);
+        var manifest = await JsonSerializer.DeserializeAsync<FaceCredentialAuditReconciliationManifest>(
+            stream, JsonOptions, token);
+        return manifest ?? throw new InvalidOperationException("Audit reconciliation manifest content is invalid.");
+    }
+
+    private async Task<(bool Success, string? Error, AppUser? User)> ResolveActorAsync(
+        FaceCredentialBindingManifestTemplate manifest,
+        int? actorUserId,
+        CancellationToken token)
+    {
+        var resolvedId = actorUserId ?? manifest.ApprovedByUserId;
+        if (!resolvedId.HasValue)
+            return (false, "Explicit actor user ID is required.", null);
+        var user = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == resolvedId.Value, token);
+        if (user is null || !user.IsActive)
+            return (false, "Approved actor user does not exist or is inactive.", null);
+        if (!string.Equals(user.FullName?.Trim(), manifest.ApprovedBy.Trim(), StringComparison.Ordinal))
+            return (false, "Approved actor user name does not match approvedBy.", null);
+        if (!string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+            return (false, "Approved actor user is not an active administrator.", null);
+        return (true, null, user);
+    }
+
+    private async Task<(bool Success, string? Error, AppUser? User)> ResolveExecutionActorAsync(
+        FaceCredentialAuditReconciliationManifest manifest,
+        CancellationToken token)
+    {
+        var user = await db.AppUsers.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.UserId == manifest.ApprovedByUserId, token);
+        if (user is null || !user.IsActive)
+            return (false, "Reconciliation execution actor does not exist or is inactive.", null);
+        if (!string.Equals(user.FullName?.Trim(), manifest.ApprovedBy.Trim(), StringComparison.Ordinal) ||
+            !string.Equals(user.Role, manifest.ApproverRole, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+            return (false, "Reconciliation execution actor identity or role mismatch.", null);
+        return (true, null, user);
+    }
+
+    private static bool AuditMatches(SystemAuditLog audit, int employeeId, long credentialId)
+    {
+        if (string.IsNullOrWhiteSpace(audit.NewValuesJson)) return false;
+        try
+        {
+            using var json = JsonDocument.Parse(audit.NewValuesJson);
+            var root = json.RootElement;
+            return root.TryGetProperty("employeeId", out var employee) &&
+                   employee.GetInt32() == employeeId &&
+                   root.TryGetProperty("accessCredentialId", out var credential) &&
+                   credential.GetInt64() == credentialId &&
+                   (!root.TryGetProperty("bindingId", out var binding) || binding.GetInt64() == 0);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     private static async Task WriteJsonAsync<T>(string path, T payload, CancellationToken token)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -355,7 +551,10 @@ public sealed record FaceCredentialBindingManifestTemplate(
     bool Approved,
     string ApprovedBy,
     DateTime? ApprovedAtUtc,
-    IReadOnlyList<FaceCredentialBindingManifestItem> Bindings);
+    IReadOnlyList<FaceCredentialBindingManifestItem> Bindings,
+    int? ApprovedByUserId = null,
+    string? ApproverRole = null,
+    string? ApprovalMethod = null);
 
 public sealed record FaceCredentialBindingManifestItem(
     int EmployeeId,
@@ -375,3 +574,31 @@ public sealed record FaceCredentialBindingApplyResult(
     bool Success,
     string? Error,
     IReadOnlyList<object> AppliedBindings);
+
+public sealed record FaceCredentialAuditReconciliationCandidate(
+    long OriginalAuditId,
+    long BindingId,
+    int EmployeeId,
+    long AccessCredentialId,
+    bool AlreadyReconciled);
+
+public sealed record FaceCredentialAuditReconciliationResult(
+    bool Success,
+    bool Applied,
+    string? Error,
+    IReadOnlyList<FaceCredentialAuditReconciliationCandidate> Candidates);
+
+public sealed record FaceCredentialAuditReconciliationManifest(
+    int SchemaVersion,
+    bool Approved,
+    int ApprovedByUserId,
+    string ApprovedBy,
+    string ApproverRole,
+    DateTime? ApprovedAtUtc,
+    string ApprovalMethod,
+    string Reason,
+    FaceCredentialOriginalBindingApproval OriginalBindingApproval);
+
+public sealed record FaceCredentialOriginalBindingApproval(
+    string ApprovedBy,
+    string ManifestReference);
