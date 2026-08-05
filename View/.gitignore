@@ -10,6 +10,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+playwright-report
+test-results
+uat-results
+uat-report
+release-artifacts
+.auth
+*.storage-state.json
+*.storageState.json
 *.local
 
 # Editor directories and files

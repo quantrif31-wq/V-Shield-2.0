@@ -149,6 +149,17 @@ server {
     proxy_buffering off;
   }
 
+  # Always revalidate the application shell so a rebuilt local UI is visible
+  # immediately; versioned assets can remain cached safely.
+  location = /index.html {
+    expires -1;
+  }
+
+  location ~* \.(?:css|js|woff2?|png|jpe?g|gif|svg|webp|ico)$ {
+    expires 1y;
+    try_files $uri =404;
+  }
+
   location / {
     try_files $uri $uri/ /index.html;
   }

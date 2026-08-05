@@ -1,12 +1,16 @@
 import http from './http'
 import * as signalR from '@microsoft/signalr'
 import { API_ORIGIN } from '../config/api'
+import { captureError, captureEvent } from './observability'
+import { getRealtimeStatus, markRealtimeUpdated, onRealtimeStatus, updateRealtimeStatus } from './realtimeStatus'
 
 const API_URL = import.meta.env.VITE_API_URL || API_ORIGIN
 
 let connection = null
-let notificationCallbacks = []
-let unreadCountCallbacks = []
+let connectionPromise = null
+let staleTimer = null
+const notificationCallbacks = new Set()
+const unreadCountCallbacks = new Set()
 
 const SEVERITY_RANK = {
   success: 1,
@@ -21,47 +25,86 @@ export async function connectNotificationHub(token) {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
     return connection
   }
+  if (connectionPromise) return connectionPromise
+  if (connection && [signalR.HubConnectionState.Connecting, signalR.HubConnectionState.Reconnecting].includes(connection.state)) return connection
   connection = new signalR.HubConnectionBuilder()
     .withUrl(`${API_URL}/hubs/notifications`, {
-      accessTokenFactory: () => token
+      accessTokenFactory: () => sessionStorage.getItem('v_shield_token') || localStorage.getItem('v_shield_token') || token || ''
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .configureLogging(signalR.LogLevel.Warning)
     .build()
 
   connection.on('NewNotification', (notification) => {
+    markRealtimeUpdated('notifications')
     notificationCallbacks.forEach(cb => cb(notification))
   })
 
   connection.on('UnreadCountUpdated', (count) => {
+    markRealtimeUpdated('notifications')
     unreadCountCallbacks.forEach(cb => cb(count))
   })
 
-  connection.onreconnecting(() => console.log('NotificationHub reconnecting...'))
-  connection.onreconnected(() => console.log('NotificationHub reconnected'))
-  connection.onclose(() => console.log('NotificationHub closed'))
+  connection.onreconnecting(() => {
+    updateRealtimeStatus('notifications', 'reconnecting')
+    captureEvent('signalr_reconnecting', { channel: 'notifications' }, 'warning')
+    clearTimeout(staleTimer)
+    staleTimer = setTimeout(() => updateRealtimeStatus('notifications', 'stale'), 15000)
+  })
+  connection.onreconnected((connectionId) => {
+    clearTimeout(staleTimer)
+    updateRealtimeStatus('notifications', 'live', { connectionId, lastUpdated: new Date().toISOString() })
+    captureEvent('signalr_reconnected', { channel: 'notifications' })
+  })
+  connection.onclose((error) => {
+    clearTimeout(staleTimer)
+    updateRealtimeStatus('notifications', 'disconnected', { connectionId: null })
+    captureEvent('signalr_disconnected', { channel: 'notifications', reason: error?.name || 'closed' }, error ? 'error' : 'warning')
+  })
 
-  await connection.start()
-  return connection
+  updateRealtimeStatus('notifications', 'connecting')
+  const activeConnection = connection
+  connectionPromise = activeConnection.start()
+    .then(() => {
+      updateRealtimeStatus('notifications', 'live', { connectionId: activeConnection.connectionId, lastUpdated: new Date().toISOString() })
+      captureEvent('signalr_connected', { channel: 'notifications' })
+      return activeConnection
+    })
+    .catch((error) => {
+      if (connection === activeConnection) connection = null
+      updateRealtimeStatus('notifications', 'disconnected', { connectionId: null })
+      captureError(error, 'signalr_connection_failure', { channel: 'notifications' })
+      throw error
+    })
+    .finally(() => { connectionPromise = null })
+  return connectionPromise
 }
 
 export async function disconnectNotificationHub() {
-  if (connection) {
-    await connection.stop()
-    connection = null
-  }
+  const activeConnection = connection
+  connection = null
+  connectionPromise = null
+  clearTimeout(staleTimer)
+  staleTimer = null
+  if (activeConnection) await activeConnection.stop()
+  notificationCallbacks.clear()
+  unreadCountCallbacks.clear()
+  updateRealtimeStatus('notifications', 'disconnected', { connectionId: null })
 }
 
 // Subscribe / unsubscribe
 export function onNotification(callback) {
-  notificationCallbacks.push(callback)
-  return () => { notificationCallbacks = notificationCallbacks.filter(c => c !== callback) }
+  notificationCallbacks.add(callback)
+  return () => notificationCallbacks.delete(callback)
 }
 
 export function onUnreadCountChanged(callback) {
-  unreadCountCallbacks.push(callback)
-  return () => { unreadCountCallbacks = unreadCountCallbacks.filter(c => c !== callback) }
+  unreadCountCallbacks.add(callback)
+  return () => unreadCountCallbacks.delete(callback)
 }
+
+export const onNotificationConnectionState = (callback) => onRealtimeStatus('notifications', callback)
+export const getNotificationConnectionState = () => getRealtimeStatus('notifications')
 
 export function getSeverityRank(severity) {
   return SEVERITY_RANK[severity] || SEVERITY_RANK.info

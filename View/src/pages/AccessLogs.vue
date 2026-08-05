@@ -1,603 +1,80 @@
 <template>
-    <div class="page-container ops-page animate-in">
-        <div class="page-header-bar">
-            <div>
-                <span class="panel-kicker">Access logs</span>
-                <h1 class="page-title">Lịch sử ra vào</h1>
-            </div>
-        </div>
+  <div class="page-container access-page">
+    <PageHeader title="Lịch sử ra vào" description="Tra cứu sự kiện kiểm soát, bằng chứng camera và các lượt ngoại lệ trên toàn hệ thống." :breadcrumbs="[{label:'Kiểm soát ra vào'},{label:'Lịch sử'}]">
+      <template #actions><BaseButton variant="secondary" @click="showExportModal=true">Xuất dữ liệu</BaseButton><BaseButton variant="secondary" :loading="isLoading" @click="refreshPage">Làm mới</BaseButton></template>
+    </PageHeader>
 
-        <section class="metric-grid">
-            <article class="metric-tile">
-                <span class="metric-label">Tổng lượt hôm nay</span>
-                <strong class="metric-value">{{ summary.totalToday }}</strong>
-                <span class="metric-note">Tất cả bản ghi phát sinh trong ngày.</span>
-            </article>
-            <article class="metric-tile">
-                <span class="metric-label">Bypass thủ công</span>
-                <strong class="metric-value">{{ summary.bypassToday }}</strong>
-                <span class="metric-note">Trường hợp mở thủ công cần được rà soát kỹ.</span>
-            </article>
-            <article class="metric-tile">
-                <span class="metric-label">Xe đang trong khu vực</span>
-                <strong class="metric-value">{{ summary.vehiclesInside }}</strong>
-                <span class="metric-note">Đọc từ trạng thái đỗ xe hiện tại.</span>
-            </article>
-            <article class="metric-tile">
-                <span class="metric-label">Tỷ lệ thành công</span>
-                <strong class="metric-value">{{ summary.successRate }}%</strong>
-                <span class="metric-note">So sánh giữa lượt thường và lượt ngoại lệ.</span>
-            </article>
-        </section>
+    <section class="summary-grid" aria-label="Tổng quan ra vào hôm nay">
+      <BaseCard variant="kpi"><span>Tổng lượt hôm nay</span><strong>{{ summary.totalToday }}</strong><small>{{ summary.entriesToday }} vào · {{ summary.exitsToday }} ra</small></BaseCard>
+      <BaseCard variant="kpi"><span>Bypass thủ công</span><strong>{{ summary.bypassToday }}</strong><small>Cần rà soát theo quy trình</small></BaseCard>
+      <BaseCard variant="kpi"><span>Xe trong khu vực</span><strong>{{ summary.vehiclesInside }}</strong><small>Trạng thái đỗ xe hiện tại</small></BaseCard>
+      <BaseCard variant="kpi"><span>Tỷ lệ thành công</span><strong>{{ summary.successRate }}%</strong><small>{{ summary.exceptionsToday }} ngoại lệ hôm nay</small></BaseCard>
+    </section>
 
-        <section class="ops-panel">
-            <div class="panel-head">
-                <div>
-                    <span class="panel-kicker">Filter controls</span>
-                    <h2 class="panel-title">Bộ lọc lịch sử ra vào</h2>
-                    <p class="panel-copy">
-                        Chỉ áp dụng khi bấm nút lọc để tránh rỗng dữ liệu tạm thời lúc đang nhập.
-                    </p>
-                </div>
-                <div class="filter-summary">
-                    <span class="soft-chip success">{{ total }} bản ghi</span>
-                    <span v-for="tag in appliedFilterTags" :key="tag" class="soft-chip">{{ tag }}</span>
-                </div>
-            </div>
+    <BaseCard variant="panel" class="filter-panel">
+      <div class="filter-heading"><div><h2>Bộ lọc lịch sử</h2><p>Điều kiện chỉ được áp dụng khi bạn xác nhận để tránh thay đổi bảng trong lúc nhập.</p></div><div class="filter-tags"><StatusBadge status="info" :label="`${total} bản ghi`"/><StatusBadge v-for="tag in appliedFilterTags" :key="tag" status="neutral" :label="tag"/></div></div>
+      <div class="filter-grid">
+        <BaseField for-id="access-query" label="Từ khóa" v-slot="field"><BaseInput id="access-query" v-model="draftFilters.query" type="search" placeholder="Tên, biển số hoặc ghi chú" :describedby="field.describedby" @keyup.enter="applyFilters"/></BaseField>
+        <BaseField for-id="access-direction" label="Chiều di chuyển" v-slot="field"><BaseSelect id="access-direction" v-model="draftFilters.direction" :describedby="field.describedby"><option value="">Tất cả chiều</option><option value="IN">Vào</option><option value="OUT">Ra</option></BaseSelect></BaseField>
+        <BaseField for-id="access-gate" label="Cổng" v-slot="field"><BaseSelect id="access-gate" v-model="draftFilters.gateId" :describedby="field.describedby"><option value="">Tất cả cổng</option><option v-for="gate in gates" :key="gate.gateId" :value="String(gate.gateId)">{{ gate.gateName }}</option></BaseSelect></BaseField>
+        <BaseField for-id="access-status" label="Trạng thái" v-slot="field"><BaseSelect id="access-status" v-model="draftFilters.status" :describedby="field.describedby"><option value="">Tất cả trạng thái</option><option v-for="status in statusOptions" :key="status" :value="status">{{ status }}</option></BaseSelect></BaseField>
+        <BaseField for-id="access-date-from" label="Từ ngày" v-slot="field"><BaseInput id="access-date-from" v-model="draftFilters.dateFrom" type="date" :describedby="field.describedby"/></BaseField>
+        <BaseField for-id="access-date-to" label="Đến ngày" v-slot="field"><BaseInput id="access-date-to" v-model="draftFilters.dateTo" type="date" :describedby="field.describedby"/></BaseField>
+      </div>
+      <footer class="filter-footer"><p :class="{'is-notice':filterNotice}" aria-live="polite">{{ filterNotice || 'Khoảng ngày nhập ngược sẽ được tự động chuẩn hóa.' }}</p><div><BaseButton variant="ghost" :disabled="isLoading&&!hasPendingChanges" @click="resetFilters">Đặt lại</BaseButton><BaseButton :disabled="!hasPendingChanges&&!filterNotice" @click="applyFilters">Áp dụng lọc</BaseButton></div></footer>
+    </BaseCard>
 
-            <div class="filter-card">
-                <div class="filter-grid access-filter-grid">
-                    <label class="filter-field filter-field-query">
-                        <span class="field-label">Từ khóa</span>
-                        <div class="search-bar">
-                            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8" />
-                                <path d="M21 21l-4.35-4.35" />
-                            </svg>
-                            <input
-                                v-model="draftFilters.query"
-                                type="text"
-                                placeholder="Tìm theo tên, biển số, ghi chú..."
-                                @keyup.enter="applyFilters"
-                            />
-                        </div>
-                    </label>
+    <section class="list-panel" aria-labelledby="access-list-title"><div class="list-title"><h2 id="access-list-title">Bản ghi truy cập</h2><p>Ảnh bằng chứng được tải trì hoãn để giảm thời gian hiển thị ban đầu.</p></div>
+      <DataTable :columns="columns" :rows="items" row-key="logId" :loading="isLoading" :error="loadError" :permission-denied="permissionDenied" empty-title="Không có bản ghi phù hợp" :empty-description="hasActiveFilters?'Thử nới lỏng điều kiện hoặc đặt lại bộ lọc.':'Sự kiện mới sẽ xuất hiện tại đây.'">
+        <template #retry><BaseButton variant="secondary" @click="fetchLogs">Thử lại</BaseButton></template><template #empty-actions><BaseButton v-if="hasActiveFilters" variant="secondary" @click="resetFilters">Đặt lại bộ lọc</BaseButton></template>
+        <template #cell-timestamp="{value}"><time :datetime="value">{{ formatDateTime(value) }}</time></template>
+        <template #cell-actor="{row}"><div class="stacked-cell"><strong>{{ row.actorName||'Chưa xác định' }}</strong><small>{{ actorTypeLabel(row.actorType) }}</small></div></template>
+        <template #cell-direction="{value}"><StatusBadge :status="value==='IN'?'success':'info'" :label="value==='IN'?'Vào':'Ra'" dot/></template>
+        <template #cell-gate="{row}"><div class="stacked-cell"><strong>{{ row.gateName||'Chưa gán cổng' }}</strong><small>{{ row.cameraName||'Không có camera' }}</small></div></template>
+        <template #cell-capturedLicensePlate="{value}"><span v-if="value" class="license-plate">{{ value }}</span><span v-else class="muted">Không ghi nhận</span></template>
+        <template #cell-method="{value}"><StatusBadge :status="methodSemantic(value)" :label="methodLabel(value)"/></template>
+        <template #cell-evidence="{row}"><div v-if="evidenceUrls(row).length" class="evidence-thumbs"><BaseButton v-for="(item,index) in evidenceUrls(row).slice(0,3)" :key="item.url" variant="secondary" size="small" class="evidence-thumb" :aria-label="`Xem ${item.label}`" @click="openEvidence(row,index)"><img :src="item.url" :alt="item.label" loading="lazy" @error="$event.currentTarget.parentElement.hidden=true"/></BaseButton><span v-if="evidenceUrls(row).length>3" class="muted">+{{ evidenceUrls(row).length-3 }}</span></div><span v-else class="muted">Không có</span></template>
+        <template #cell-resultStatus="{row}"><div class="status-stack"><StatusBadge v-if="row.resultStatus" :status="resultSemantic(row.resultStatus)" :label="row.resultStatus" dot/><StatusBadge v-if="row.isBypass" status="danger" label="BYPASS"/><StatusBadge v-if="row.isException" status="warning" label="NGOẠI LỆ"/></div></template>
+        <template #actions="{row}"><BaseButton variant="ghost" size="small" @click="openDetail(row.logId)">Chi tiết</BaseButton></template>
+      </DataTable>
+      <footer v-if="!isLoading&&!loadError&&total" class="pagination-bar"><span>Hiển thị {{ items.length }} trong {{ total }} bản ghi</span><div class="pagination-actions"><BaseButton variant="secondary" size="small" :disabled="page<=1" @click="setPage(page-1)">Trang trước</BaseButton><span>Trang {{ page }} / {{ totalPages }}</span><BaseButton variant="secondary" size="small" :disabled="page>=totalPages" @click="setPage(page+1)">Trang sau</BaseButton></div></footer>
+    </section>
 
-                    <label class="filter-field filter-field-direction">
-                        <span class="field-label">Chiều di chuyển</span>
-                        <select v-model="draftFilters.direction" class="filter-select">
-                            <option value="">Tất cả chiều</option>
-                            <option value="IN">Vào</option>
-                            <option value="OUT">Ra</option>
-                        </select>
-                    </label>
+    <BaseModal :open="showDetailModal" :title="`Chi tiết bản ghi #${detail?.logId||detailId||''}`" description="Ngữ cảnh nhận diện, kết quả và bằng chứng liên quan." @close="closeDetail">
+      <LoadingSkeleton v-if="detailLoading" variant="card" :lines="5"/><EmptyState v-else-if="detailError" kind="error" title="Không thể tải chi tiết" :description="detailError"><template #actions><BaseButton variant="secondary" @click="openDetail(detailId)">Thử lại</BaseButton></template></EmptyState>
+      <div v-else-if="detail" class="detail-content"><dl class="detail-grid"><div><dt>Thời gian</dt><dd>{{ formatDateTime(detail.timestamp) }}</dd></div><div><dt>Kết quả</dt><dd><StatusBadge :status="resultSemantic(detail.resultStatus)" :label="detail.resultStatus||'Không xác định'"/></dd></div><div><dt>Đối tượng</dt><dd>{{ detail.actorName||'—' }}</dd></div><div><dt>Loại đối tượng</dt><dd>{{ actorTypeLabel(detail.actorType) }}</dd></div><div><dt>Cổng</dt><dd>{{ detail.gateName||'—' }}</dd></div><div><dt>Camera</dt><dd>{{ detail.cameraName||'—' }}</dd></div><div><dt>Phương thức</dt><dd>{{ methodLabel(detail.method) }}</dd></div><div><dt>Biển số</dt><dd>{{ detail.capturedLicensePlate||'—' }}</dd></div><div class="wide"><dt>Ghi chú / ngoại lệ</dt><dd>{{ detail.note||detail.exceptionReasonDescription||'Không có' }}</dd></div></dl><section v-if="evidenceUrls(detail).length" class="detail-evidence"><h3>Bằng chứng</h3><div><BaseButton v-for="(item,index) in evidenceUrls(detail)" :key="item.url" variant="secondary" class="evidence-card" @click="openEvidence(detail,index)"><img :src="item.url" :alt="item.label" loading="lazy"/><span>{{ item.label }}</span></BaseButton></div></section></div>
+    </BaseModal>
 
-                    <label class="filter-field filter-field-gate">
-                        <span class="field-label">Cổng</span>
-                        <select v-model="draftFilters.gateId" class="filter-select">
-                            <option value="">Tất cả cổng</option>
-                            <option v-for="gate in gates" :key="gate.gateId" :value="String(gate.gateId)">{{ gate.gateName }}</option>
-                        </select>
-                    </label>
-
-                    <label class="filter-field filter-field-status">
-                        <span class="field-label">Trạng thái</span>
-                        <select v-model="draftFilters.status" class="filter-select">
-                            <option value="">Tất cả trạng thái</option>
-                            <option v-for="status in statusOptions" :key="status" :value="status">{{ status }}</option>
-                        </select>
-                    </label>
-
-                    <label class="filter-field filter-field-date">
-                        <span class="field-label">Từ ngày</span>
-                        <input v-model="draftFilters.dateFrom" type="date" class="filter-select" />
-                    </label>
-
-                    <label class="filter-field filter-field-date">
-                        <span class="field-label">Đến ngày</span>
-                        <input v-model="draftFilters.dateTo" type="date" class="filter-select" />
-                    </label>
-                </div>
-
-                <div class="filter-footer">
-                    <div>
-                        <p class="filter-hint">Khoảng ngày sẽ tự đổi lại nếu nhập ngược thứ tự.</p>
-                        <p v-if="filterNotice" class="filter-notice">{{ filterNotice }}</p>
-                    </div>
-                    <div class="filter-actions">
-                        <button class="btn btn-secondary btn-sm" :disabled="isLoading && !hasPendingChanges" @click="resetFilters">
-                            Đặt lại
-                        </button>
-                        <button class="btn btn-primary btn-sm" :disabled="!hasPendingChanges && !filterNotice" @click="applyFilters">
-                            Áp dụng lọc
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="isLoading" class="empty-card">Đang tải lịch sử ra vào...</div>
-            <div v-else-if="items.length === 0" class="empty-card">
-                {{ hasActiveFilters ? 'Không có bản ghi nào khớp với bộ lọc đã áp dụng.' : 'Chưa có bản ghi ra vào nào để hiển thị.' }}
-            </div>
-            <div v-else class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Thời gian</th>
-                            <th>Đối tượng</th>
-                            <th>Chiều</th>
-                            <th>Cổng / Camera</th>
-                            <th>Biển số</th>
-                            <th>Phương thức</th>
-                            <th>Bằng chứng</th>
-                            <th>Trạng thái</th>
-                            <th>Ghi chú</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="item in items" :key="item.logId">
-                            <td>
-                                <div class="table-main">{{ formatDateTime(item.timestamp) }}</div>
-                            </td>
-                            <td>
-                                <div class="table-main">{{ item.actorName }}</div>
-                                <div class="table-sub">{{ actorTypeLabel(item.actorType) }}</div>
-                            </td>
-                            <td>
-                                <span class="badge" :class="item.direction === 'IN' ? 'active' : 'pending'">
-                                    {{ item.direction === 'IN' ? 'VÀO' : 'RA' }}
-                                </span>
-                            </td>
-                            <td>
-                                <div class="table-main">{{ item.gateName || 'Chưa gán cổng' }}</div>
-                                <div class="table-sub">{{ item.cameraName || 'Không có camera' }}</div>
-                            </td>
-                            <td>
-                                <span v-if="item.capturedLicensePlate" class="plate-pill">{{ item.capturedLicensePlate }}</span>
-                                <span v-else class="table-sub">Đi bộ / không ghi nhận</span>
-                            </td>
-                            <td>
-                                <span class="soft-chip" :class="methodClass(item.method)">{{ methodLabel(item.method) }}</span>
-                            </td>
-                            <td>
-                                <div class="evidence-thumbs">
-                                    <a v-if="item.capturedSnapshotUrl" :href="item.capturedSnapshotUrl" target="_blank" class="evidence-thumb" title="Snapshot camera">
-                                        <img :src="item.capturedSnapshotUrl" alt="snapshot" loading="lazy" />
-                                    </a>
-                                    <a v-if="item.capturedPlateCropUrl" :href="item.capturedPlateCropUrl" target="_blank" class="evidence-thumb" title="Cropped plate">
-                                        <img :src="item.capturedPlateCropUrl" alt="plate" loading="lazy" />
-                                    </a>
-                                    <a v-if="item.capturedFaceCropUrl" :href="item.capturedFaceCropUrl" target="_blank" class="evidence-thumb" title="Cropped face">
-                                        <img :src="item.capturedFaceCropUrl" alt="face" loading="lazy" />
-                                    </a>
-                                    <a v-if="item.capturedQrSnapshotUrl" :href="item.capturedQrSnapshotUrl" target="_blank" class="evidence-thumb" title="QR snapshot">
-                                        <img :src="item.capturedQrSnapshotUrl" alt="qr" loading="lazy" />
-                                    </a>
-                                    <span v-if="!item.capturedSnapshotUrl && !item.capturedPlateCropUrl && !item.capturedFaceCropUrl && !item.capturedQrSnapshotUrl" class="table-sub">Không có</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="chip-row">
-                                    <span v-if="item.resultStatus" class="soft-chip">{{ item.resultStatus }}</span>
-                                    <span v-if="item.isBypass" class="soft-chip danger">BYPASS</span>
-                                    <span v-if="item.isException" class="soft-chip warn">NGOẠI LỆ</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="table-sub note-cell">
-                                    {{ item.note || item.exceptionReasonDescription || '—' }}
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div v-if="total > 0" class="pagination">
-                <div class="pagination-info">Hiển thị {{ items.length }} / {{ total }} bản ghi</div>
-                <div class="pagination-buttons">
-                    <button class="pagination-btn" :disabled="page === 1" @click="setPage(page - 1)">‹</button>
-                    <button
-                        v-for="current in visiblePages"
-                        :key="current"
-                        class="pagination-btn"
-                        :class="{ active: current === page }"
-                        @click="setPage(current)"
-                    >
-                        {{ current }}
-                    </button>
-                    <button class="pagination-btn" :disabled="page === totalPages" @click="setPage(page + 1)">›</button>
-                </div>
-            </div>
-        </section>
-    </div>
+    <BaseModal :open="Boolean(evidencePreview)" :title="evidencePreview?.label||'Bằng chứng'" description="Ảnh bằng chứng gốc của sự kiện truy cập." @close="evidencePreview=null"><figure v-if="evidencePreview" class="evidence-preview"><img :src="evidencePreview.url" :alt="evidencePreview.label"/><figcaption>{{ evidencePreview.position }} · {{ formatDateTime(evidencePreview.timestamp) }}</figcaption></figure><template #footer><BaseButton variant="secondary" @click="evidencePreview=null">Đóng</BaseButton><BaseButton :href="evidencePreview?.url" target="_blank" rel="noopener noreferrer">Mở ảnh gốc</BaseButton></template></BaseModal>
+    <ExportModal v-if="showExportModal" entity-type="AccessLog" entity-display-name="Lịch sử ra vào" :available-columns="['LogId','Timestamp','ActorName','ActorType','Direction','GateName','CameraName','CapturedLicensePlate','Method','ResultStatus','Note']" @close="showExportModal=false"/>
+  </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { getAccessLogs, getAccessLogSummary } from '../services/accessLogApi'
+import { useRoute, useRouter } from 'vue-router'
+import { getAccessLogDetail, getAccessLogs, getAccessLogSummary } from '../services/accessLogApi'
 import { getGates } from '../services/deviceManagementApi'
+import BaseButton from '../components/ui/BaseButton.vue';import BaseCard from '../components/ui/BaseCard.vue';import BaseField from '../components/ui/BaseField.vue';import BaseInput from '../components/ui/BaseInput.vue';import BaseModal from '../components/ui/BaseModal.vue';import BaseSelect from '../components/ui/BaseSelect.vue';import DataTable from '../components/ui/DataTable.vue';import EmptyState from '../components/ui/EmptyState.vue';import LoadingSkeleton from '../components/ui/LoadingSkeleton.vue';import PageHeader from '../components/ui/PageHeader.vue';import StatusBadge from '../components/ui/StatusBadge.vue';import ExportModal from '../components/import-export/ExportModal.vue'
 
-const pageSize = 12
-
-const createDefaultFilters = () => ({
-    query: '',
-    direction: '',
-    gateId: '',
-    status: '',
-    dateFrom: '',
-    dateTo: '',
-})
-
-const isLoading = ref(true)
-const items = ref([])
-const total = ref(0)
-const page = ref(1)
-const gates = ref([])
-const filterNotice = ref('')
-const draftFilters = reactive(createDefaultFilters())
-const appliedFilters = ref(createDefaultFilters())
-const summary = ref({
-    totalToday: 0,
-    entriesToday: 0,
-    exitsToday: 0,
-    exceptionsToday: 0,
-    bypassToday: 0,
-    vehiclesInside: 0,
-    successRate: 0,
-})
-
-const defaultStatusOptions = ['APPROVED', 'SUCCESS', 'MATCHED', 'GRANTED', 'OK', 'DENIED', 'FAILED', 'REJECTED']
-
-const normalizeFilters = (source) => {
-    const normalized = {
-        query: source.query?.trim() || '',
-        direction: source.direction || '',
-        gateId: source.gateId || '',
-        status: source.status || '',
-        dateFrom: source.dateFrom || '',
-        dateTo: source.dateTo || '',
-    }
-
-    let swapped = false
-    if (normalized.dateFrom && normalized.dateTo && normalized.dateFrom > normalized.dateTo) {
-        ;[normalized.dateFrom, normalized.dateTo] = [normalized.dateTo, normalized.dateFrom]
-        swapped = true
-    }
-
-    return { normalized, swapped }
-}
-
-const serializeFilters = (source) => JSON.stringify(normalizeFilters(source).normalized)
-
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
-const visiblePages = computed(() => {
-    const start = Math.max(1, page.value - 2)
-    const end = Math.min(totalPages.value, start + 4)
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index)
-})
-
-const hasPendingChanges = computed(() => serializeFilters(draftFilters) !== serializeFilters(appliedFilters.value))
-const hasActiveFilters = computed(() =>
-    Object.values(normalizeFilters(appliedFilters.value).normalized).some((value) => Boolean(value))
-)
-
-const statusOptions = computed(() => {
-    const uniqueStatuses = new Set(defaultStatusOptions)
-    items.value.forEach((item) => {
-        if (item.resultStatus) {
-            uniqueStatuses.add(item.resultStatus)
-        }
-    })
-    return Array.from(uniqueStatuses)
-})
-
-const appliedFilterTags = computed(() => {
-    const current = normalizeFilters(appliedFilters.value).normalized
-    const tags = []
-
-    if (current.query) tags.push(`Từ khóa: ${current.query}`)
-    if (current.direction) tags.push(current.direction === 'IN' ? 'Chiều: Vào' : 'Chiều: Ra')
-
-    if (current.gateId) {
-        const gate = gates.value.find((item) => String(item.gateId) === current.gateId)
-        tags.push(`Cổng: ${gate?.gateName || current.gateId}`)
-    }
-
-    if (current.status) tags.push(`Trạng thái: ${current.status}`)
-    if (current.dateFrom) tags.push(`Từ: ${formatDate(current.dateFrom)}`)
-    if (current.dateTo) tags.push(`Đến: ${formatDate(current.dateTo)}`)
-
-    return tags
-})
-
-function formatDate(value) {
-    if (!value) return '--'
-    return new Date(value).toLocaleDateString('vi-VN')
-}
-
-function formatDateTime(value) {
-    if (!value) return '--'
-    return new Date(value).toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    })
-}
-
-function actorTypeLabel(value) {
-    const map = {
-        Employee: 'Nhân sự nội bộ',
-        Guest: 'Khách / đăng ký trước',
-        Unknown: 'Chưa xác định',
-    }
-    return map[value] || 'Chưa phân loại'
-}
-
-function methodLabel(value) {
-    const map = {
-        face: 'Khuôn mặt',
-        plate: 'Biển số',
-        manual: 'Thủ công',
-        qr: 'QR Code',
-        'face-and-plate': 'Khuôn mặt + biển số',
-        system: 'Hệ thống',
-    }
-    return map[value] || value
-}
-
-function methodClass(value) {
-    if (value === 'manual') return 'danger'
-    if (value === 'plate') return 'warn'
-    if (value === 'face' || value === 'qr') return 'success'
-    return ''
-}
-
-async function fetchSummary() {
-    try {
-        const { data } = await getAccessLogSummary()
-        summary.value = { ...summary.value, ...data }
-    } catch (error) {
-        console.error('Access log summary error:', error)
-    }
-}
-
-async function fetchGates() {
-    try {
-        const { data } = await getGates()
-        gates.value = data || []
-    } catch (error) {
-        console.error('Gate list error:', error)
-    }
-}
-
-async function fetchLogs() {
-    isLoading.value = true
-    try {
-        const current = normalizeFilters(appliedFilters.value).normalized
-        const params = {
-            page: page.value,
-            pageSize,
-            query: current.query || undefined,
-            direction: current.direction || undefined,
-            gateId: current.gateId || undefined,
-            resultStatus: current.status || undefined,
-            dateFrom: current.dateFrom || undefined,
-            dateTo: current.dateTo || undefined,
-        }
-
-        const { data } = await getAccessLogs(params)
-        items.value = data.items || []
-        total.value = data.total || 0
-    } catch (error) {
-        console.error('Access logs error:', error)
-        items.value = []
-        total.value = 0
-    } finally {
-        isLoading.value = false
-    }
-}
-
-function commitFilters(nextFilters) {
-    appliedFilters.value = { ...nextFilters }
-    if (page.value === 1) {
-        fetchLogs()
-        return
-    }
-    page.value = 1
-}
-
-function applyFilters() {
-    const { normalized, swapped } = normalizeFilters(draftFilters)
-    Object.assign(draftFilters, normalized)
-    filterNotice.value = swapped ? 'Khoảng ngày đã được đổi lại để đúng thứ tự từ ngày đến ngày.' : ''
-    commitFilters(normalized)
-}
-
-function resetFilters() {
-    const defaults = createDefaultFilters()
-    Object.assign(draftFilters, defaults)
-    filterNotice.value = ''
-    commitFilters(defaults)
-}
-
-function setPage(nextPage) {
-    if (nextPage < 1 || nextPage > totalPages.value) return
-    page.value = nextPage
-}
-
-watch(page, fetchLogs)
-
-onMounted(async () => {
-    await Promise.all([fetchSummary(), fetchGates()])
-    await fetchLogs()
-})
+const route=useRoute();const router=useRouter();const pageSize=12;const defaults=()=>({query:'',direction:'',gateId:'',status:'',dateFrom:'',dateTo:''})
+const isLoading=ref(true);const loadError=ref('');const permissionDenied=ref(false);const items=ref([]);const total=ref(0);const page=ref(1);const gates=ref([]);const filterNotice=ref('');const draftFilters=reactive(defaults());const appliedFilters=ref(defaults());const summary=ref({totalToday:0,entriesToday:0,exitsToday:0,exceptionsToday:0,bypassToday:0,vehiclesInside:0,successRate:0});const showExportModal=ref(false);const showDetailModal=ref(false);const detail=ref(null);const detailId=ref(null);const detailLoading=ref(false);const detailError=ref('');const evidencePreview=ref(null)
+const columns=[{key:'timestamp',label:'Thời gian'},{key:'actor',label:'Đối tượng'},{key:'direction',label:'Chiều'},{key:'gate',label:'Cổng / Camera'},{key:'capturedLicensePlate',label:'Biển số'},{key:'method',label:'Phương thức'},{key:'evidence',label:'Bằng chứng'},{key:'resultStatus',label:'Trạng thái'}];const defaultStatuses=['APPROVED','SUCCESS','MATCHED','GRANTED','OK','DENIED','FAILED','REJECTED']
+function normalize(source){const normalized={query:source.query?.trim()||'',direction:source.direction||'',gateId:String(source.gateId||''),status:source.status||'',dateFrom:source.dateFrom||'',dateTo:source.dateTo||''};let swapped=false;if(normalized.dateFrom&&normalized.dateTo&&normalized.dateFrom>normalized.dateTo){[normalized.dateFrom,normalized.dateTo]=[normalized.dateTo,normalized.dateFrom];swapped=true}return{normalized,swapped}}const serialize=source=>JSON.stringify(normalize(source).normalized);const totalPages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize)));const hasPendingChanges=computed(()=>serialize(draftFilters)!==serialize(appliedFilters.value));const hasActiveFilters=computed(()=>Object.values(normalize(appliedFilters.value).normalized).some(Boolean));const statusOptions=computed(()=>[...new Set([...defaultStatuses,...items.value.map(item=>item.resultStatus).filter(Boolean)])]);const appliedFilterTags=computed(()=>{const current=normalize(appliedFilters.value).normalized;const tags=[];if(current.query)tags.push(`Từ khóa: ${current.query}`);if(current.direction)tags.push(`Chiều: ${current.direction==='IN'?'Vào':'Ra'}`);if(current.gateId)tags.push(`Cổng: ${gates.value.find(item=>String(item.gateId)===current.gateId)?.gateName||current.gateId}`);if(current.status)tags.push(`Trạng thái: ${current.status}`);if(current.dateFrom)tags.push(`Từ: ${formatDate(current.dateFrom)}`);if(current.dateTo)tags.push(`Đến: ${formatDate(current.dateTo)}`);return tags})
+function applyRoute(){const query=route.query;const next={query:String(query.search||''),direction:['IN','OUT'].includes(String(query.direction))?String(query.direction):'',gateId:String(query.gate||''),status:String(query.status||''),dateFrom:String(query.from||''),dateTo:String(query.to||'')};Object.assign(draftFilters,next);appliedFilters.value={...next};page.value=Math.max(1,Number(query.page)||1)}function queryFor(filters,nextPage=1){return{search:filters.query||undefined,direction:filters.direction||undefined,gate:filters.gateId||undefined,status:filters.status||undefined,from:filters.dateFrom||undefined,to:filters.dateTo||undefined,page:nextPage>1?nextPage:undefined}}
+function applyFilters(){const{normalized,swapped}=normalize(draftFilters);Object.assign(draftFilters,normalized);filterNotice.value=swapped?'Khoảng ngày đã được đổi lại đúng thứ tự.':'';router.replace({query:queryFor(normalized,1)})}function resetFilters(){Object.assign(draftFilters,defaults());filterNotice.value='';router.replace({query:{}})}function setPage(next){if(next<1||next>totalPages.value)return;router.replace({query:queryFor(appliedFilters.value,next)})}
+async function fetchSummary(){try{summary.value={...summary.value,...(await getAccessLogSummary()).data}}catch{}}async function fetchGates(){try{gates.value=(await getGates()).data||[]}catch{gates.value=[]}}
+async function fetchLogs(){isLoading.value=true;loadError.value='';permissionDenied.value=false;try{const current=normalize(appliedFilters.value).normalized;const{data}=await getAccessLogs({page:page.value,pageSize,query:current.query||undefined,direction:current.direction||undefined,gateId:current.gateId||undefined,resultStatus:current.status||undefined,dateFrom:current.dateFrom||undefined,dateTo:current.dateTo||undefined});items.value=data.items||[];total.value=data.total||0;if(page.value>totalPages.value)setPage(totalPages.value)}catch(error){items.value=[];total.value=0;if(error.response?.status===403)permissionDenied.value=true;else loadError.value=error.response?.data?.message||'Không thể tải lịch sử ra vào.'}finally{isLoading.value=false}}async function refreshPage(){await Promise.all([fetchSummary(),fetchLogs()])}
+async function openDetail(id){detailId.value=id;showDetailModal.value=true;detailLoading.value=true;detailError.value='';detail.value=null;try{detail.value=(await getAccessLogDetail(id)).data}catch(error){detailError.value=error.response?.status===403?'Bạn không có quyền xem bản ghi này.':error.response?.data?.message||'Không thể tải chi tiết bản ghi.'}finally{detailLoading.value=false}}function closeDetail(){showDetailModal.value=false;detail.value=null;detailError.value=''}
+function evidenceUrls(row){return[{url:row?.capturedSnapshotUrl,label:'Snapshot camera'},{url:row?.capturedPlateCropUrl,label:'Ảnh biển số'},{url:row?.capturedFaceCropUrl,label:'Ảnh khuôn mặt'},{url:row?.capturedQrSnapshotUrl,label:'Snapshot QR'}].filter(item=>item.url)}function openEvidence(row,index){const item=evidenceUrls(row)[index];if(item)evidencePreview.value={...item,position:row.gateName||row.cameraName||'Không rõ vị trí',timestamp:row.timestamp}}
+function formatDate(value){if(!value)return'—';const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleDateString('vi-VN')}function formatDateTime(value){if(!value)return'—';const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'})}function actorTypeLabel(value){return{Employee:'Nhân sự nội bộ',Guest:'Khách / đăng ký trước',Unknown:'Chưa xác định'}[value]||'Chưa phân loại'}function methodLabel(value){return{face:'Khuôn mặt',plate:'Biển số',manual:'Thủ công',qr:'QR Code','face-and-plate':'Khuôn mặt + biển số',system:'Hệ thống'}[value]||value||'Không rõ'}function methodSemantic(value){return value==='manual'?'danger':value==='plate'?'warning':['face','qr','face-and-plate'].includes(value)?'success':'neutral'}function resultSemantic(value){const status=String(value||'').toUpperCase();return['DENIED','FAILED','REJECTED'].includes(status)?'danger':['APPROVED','SUCCESS','MATCHED','GRANTED','OK'].includes(status)?'success':'neutral'}
+onMounted(async()=>{applyRoute();await Promise.all([fetchSummary(),fetchGates(),fetchLogs()])});watch(()=>route.query,async()=>{applyRoute();await fetchLogs()},{deep:true})
 </script>
 
 <style scoped>
-.filter-summary {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 8px;
-}
-
-.filter-card {
-    display: grid;
-    gap: 18px;
-    padding: 18px;
-    border-radius: 22px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.56);
-}
-
-.filter-grid {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.access-filter-grid .filter-field-query {
-    grid-column: span 6;
-}
-
-.access-filter-grid .filter-field-direction,
-.access-filter-grid .filter-field-gate {
-    grid-column: span 3;
-}
-
-.access-filter-grid .filter-field-status,
-.access-filter-grid .filter-field-date {
-    grid-column: span 4;
-}
-
-.filter-field {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.field-label {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 700;
-}
-
-.filter-footer {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.filter-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.filter-hint,
-.filter-notice {
-    font-size: 0.84rem;
-}
-
-.filter-hint {
-    color: var(--text-muted);
-}
-
-.filter-notice {
-    margin-top: 4px;
-    color: var(--accent-primary);
-    font-weight: 600;
-}
-
-.table-main {
-    color: var(--text-primary);
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.table-sub {
-    margin-top: 4px;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-}
-
-.plate-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 10px;
-    background: rgba(236, 244, 246, 0.92);
-    border: 1px solid rgba(24, 49, 77, 0.12);
-    color: var(--text-primary);
-    font-family: var(--font-heading);
-    font-size: 0.84rem;
-    font-weight: 700;
-}
-
-.evidence-thumbs {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.evidence-thumb {
-    display: block;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(24, 49, 77, 0.12);
-    transition: transform 0.15s;
-}
-
-.evidence-thumb:hover {
-    transform: scale(2.5);
-    z-index: 10;
-    position: relative;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.evidence-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.note-cell {
-    max-width: 220px;
-    white-space: normal;
-}
-
-@media (max-width: 1180px) {
-    .filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .filter-grid .filter-field {
-        grid-column: span 1;
-    }
-}
-
-@media (max-width: 768px) {
-    .filter-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .filter-summary {
-        justify-content: flex-start;
-    }
-
-    .filter-actions {
-        width: 100%;
-    }
-
-    .filter-actions .btn {
-        flex: 1;
-    }
-}
+.access-page{display:grid;gap:var(--space-6)}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4)}.summary-grid span,.summary-grid small{display:block;color:var(--text-secondary);font-size:var(--type-caption-size);line-height:var(--type-caption-line)}.summary-grid strong{display:block;margin-block:var(--space-2);font-size:var(--type-h2-size);line-height:var(--type-h2-line)}
+.filter-panel{display:grid;gap:var(--space-5)}.filter-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)}.filter-heading h2,.list-title h2{font-size:var(--type-h2-size);line-height:var(--type-h2-line)}.filter-heading p,.list-title p{color:var(--text-secondary);font-size:var(--type-body-size)}.filter-tags{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:var(--space-2)}.filter-grid{display:grid;grid-template-columns:2fr repeat(3,1fr) 1fr 1fr;gap:var(--space-3)}.filter-footer{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)}.filter-footer p{color:var(--text-muted);font-size:var(--type-caption-size)}.filter-footer p.is-notice{color:var(--status-info-text)}.filter-footer>div{display:flex;gap:var(--space-2)}
+.list-panel{display:grid;gap:var(--space-4)}.stacked-cell{display:grid;gap:var(--space-1)}.stacked-cell small,.muted{color:var(--text-muted);font-size:var(--type-caption-size)}.license-plate{display:inline-flex;padding:var(--space-1) var(--space-2);border:1px solid var(--border-strong);border-radius:var(--radius-control);background:var(--surface-subtle);font-weight:800;letter-spacing:.05em}.status-stack{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-1)}.evidence-thumbs{display:flex;align-items:center;gap:var(--space-1)}.evidence-thumb{width:36px;height:36px;padding:0;border:1px solid var(--border-default);border-radius:var(--radius-control);overflow:hidden}.evidence-thumb:focus-visible{outline:3px solid var(--border-focus);outline-offset:2px}.evidence-thumb img{width:100%;height:100%;object-fit:cover}.pagination-bar,.pagination-actions{display:flex;align-items:center;gap:var(--space-3)}.pagination-bar{justify-content:space-between;color:var(--text-secondary);font-size:var(--type-body-size)}
+.detail-content{display:grid;gap:var(--space-5)}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin:0}.detail-grid div{display:grid;gap:var(--space-1);padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-control);background:var(--surface-subtle)}.detail-grid .wide{grid-column:1/-1}.detail-grid dt{color:var(--text-muted);font-size:var(--type-caption-size)}.detail-grid dd{margin:0;font-weight:700}.detail-evidence{display:grid;gap:var(--space-3)}.detail-evidence h3{font-size:var(--type-h3-size)}.detail-evidence>div{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-3)}.detail-evidence .evidence-card{min-height:auto;height:auto;display:grid;gap:var(--space-2);padding:var(--space-2);text-align:left}.detail-evidence img{width:100%;height:140px;border-radius:var(--radius-control);object-fit:cover}.evidence-preview{display:grid;gap:var(--space-3);margin:0}.evidence-preview img{width:100%;max-height:60vh;border-radius:var(--radius-card);object-fit:contain;background:var(--surface-subtle)}.evidence-preview figcaption{color:var(--text-secondary);font-size:var(--type-body-size)}
+@media(max-width:1200px){.summary-grid{grid-template-columns:repeat(2,1fr)}.filter-grid{grid-template-columns:repeat(3,1fr)}.filter-grid>:first-child{grid-column:span 2}}@media(max-width:768px){.summary-grid,.filter-grid,.detail-grid,.detail-evidence>div{grid-template-columns:1fr}.filter-grid>:first-child,.detail-grid .wide{grid-column:auto}.filter-heading,.filter-footer,.pagination-bar{align-items:flex-start;display:grid}.filter-tags{justify-content:flex-start}.filter-footer>div,.pagination-actions{flex-wrap:wrap}}
 </style>

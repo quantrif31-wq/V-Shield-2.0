@@ -30,6 +30,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { routingApi } from '../../services/routingApi'
+import { captureError, recordMetric } from '../../services/observability'
 
 export default {
   name: 'AlarmMap',
@@ -58,21 +59,28 @@ export default {
   methods: {
     initMap() {
       if (!this.alarm?.latitude) return
-
-      this.map = new maplibregl.Map({
-        container: this.$refs.mapContainer,
-        style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-        center: [this.alarm.longitude, this.alarm.latitude],
-        zoom: 16,
-        attributionControl: false
-      })
+      const startedAt = performance.now()
+      try {
+        this.map = new maplibregl.Map({
+          container: this.$refs.mapContainer,
+          style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+          center: [this.alarm.longitude, this.alarm.latitude],
+          zoom: 16,
+          attributionControl: false
+        })
+      } catch (error) {
+        captureError(error, 'map_initialization_failure', { component: 'AlarmMap' })
+        throw error
+      }
 
       this.map.addControl(new maplibregl.NavigationControl(), 'top-right')
 
       this.map.on('load', () => {
+        recordMetric('map_initialization', performance.now() - startedAt, { component: 'AlarmMap' })
         this.addAlarmMarker()
         this.fitBounds()
       })
+      this.map.on('error', event => captureError(event?.error || 'Map error', 'map_initialization_failure', { component: 'AlarmMap' }))
     },
     addAlarmMarker() {
       if (!this.map || !this.alarm?.latitude) return

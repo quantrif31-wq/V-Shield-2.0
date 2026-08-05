@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { API_BASE_URL } from '../config/api'
+import { captureApiFailure, recordMetric } from './observability'
 
 const http = axios.create({
     baseURL: API_BASE_URL,
@@ -39,6 +40,7 @@ function redirectToLoginOnce() {
 }
 
 http.interceptors.request.use((config) => {
+    config.metadata = { ...(config.metadata || {}), observabilityStartedAt: performance.now() }
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY)
     if (token) {
         config.headers.Authorization = `Bearer ${token}`
@@ -47,8 +49,20 @@ http.interceptors.request.use((config) => {
 })
 
 http.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const startedAt = response.config?.metadata?.observabilityStartedAt
+        if (Number.isFinite(startedAt)) {
+            recordMetric('api_request', performance.now() - startedAt, {
+                method: String(response.config?.method || 'GET').toUpperCase(),
+                path: String(response.config?.url || '').split('?')[0],
+                httpStatus: response.status,
+                correlationId: response.headers?.['x-correlation-id'] || response.headers?.['trace-id'] || undefined,
+            })
+        }
+        return response
+    },
     async (error) => {
+        captureApiFailure(error)
         const requestUrl = String(error.config?.url || '').toLowerCase()
         const isLoginRequest = requestUrl.includes('/auth/login')
         const isRefreshRequest = requestUrl.includes('/auth/refresh')

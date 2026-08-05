@@ -7,6 +7,7 @@
             'is-mobile': isMobile,
         }"
     >
+        <a class="skip-link" href="#main-content">Bỏ qua điều hướng</a>
         <div class="shell-background" aria-hidden="true">
             <div class="shell-grid"></div>
         </div>
@@ -33,8 +34,8 @@
                 :is-mobile="isMobile"
                 @toggle-sidebar="handleSidebarToggle"
             />
-            <main class="main-content">
-                <div class="content-shell">
+            <main id="main-content" class="main-content" tabindex="-1">
+                <div class="content-shell unified-ui">
                     <router-view v-slot="{ Component, route }">
                         <keep-alive>
                             <component :is="Component" :key="route.name" v-if="route.meta.keepAlive" />
@@ -49,7 +50,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
 import AIChatBot from '../AIChatBot.vue'
@@ -78,9 +79,14 @@ function handleSidebarToggle() {
 }
 
 onMounted(() => {
+    desktopCollapsed.value = localStorage.getItem('vshield-sidebar-collapsed') === 'true'
     syncViewport()
     window.addEventListener('resize', syncViewport)
     startSecurityAlertPolling()
+})
+
+watch(desktopCollapsed, (value) => {
+    localStorage.setItem('vshield-sidebar-collapsed', String(value))
 })
 
 onUnmounted(() => {

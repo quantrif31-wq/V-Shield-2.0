@@ -54,6 +54,21 @@
                 <span v-if="pendingCount" class="notification-count">{{ pendingCount }}</span>
             </button>
 
+            <button
+                type="button"
+                class="header-action"
+                :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang chế độ phòng điều khiển tối'"
+                :title="isDark ? 'Giao diện sáng' : 'Chế độ phòng điều khiển'"
+                @click="toggleTheme"
+            >
+                <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/>
+                </svg>
+            </button>
+
             <div class="header-user-wrap">
                 <button type="button" class="header-user" @click="toggleUserMenu">
                     <div class="user-avatar">{{ userInitial }}</div>
@@ -80,6 +95,14 @@
                             <div class="dropdown-summary">
                                 <span>Truy cập hiện tại</span>
                                 <strong>{{ pageTitle }}</strong>
+                            </div>
+
+                            <div class="dropdown-summary preference-summary">
+                                <span>Mật độ hiển thị</span>
+                                <div class="density-actions" role="group" aria-label="Mật độ hiển thị">
+                                    <button type="button" :aria-pressed="density === 'comfortable'" @click="setDensity('comfortable')">Thoải mái</button>
+                                    <button type="button" :aria-pressed="density === 'compact'" @click="setDensity('compact')">Gọn</button>
+                                </div>
                             </div>
 
                             <button type="button" class="dropdown-item" @click="handleLogout">
@@ -237,6 +260,7 @@ import {
 import { enterpriseApi } from '../../services/enterpriseSecurityApi'
 import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
 import { socApi } from '../../services/socApi'
+import { usePreferences } from '../../composables/usePreferences'
 
 defineProps({
     collapsed: Boolean,
@@ -255,6 +279,7 @@ const currentDate = ref('')
 const dbNotifications = ref([])
 const unreadCount = ref(0)
 const ackLoading = ref({})
+const { density, isDark, setDensity, toggleTheme } = usePreferences()
 
 const severityLegend = [
     { key: 'success', label: 'Chat' },
@@ -751,6 +776,34 @@ watch(
 </script>
 
 <style scoped>
+.preference-summary {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.density-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--surface-subtle);
+}
+
+.density-actions button {
+    min-height: 34px;
+    border-radius: calc(var(--radius-control) - 3px);
+    color: var(--text-secondary);
+    font-size: var(--type-caption-size);
+    font-weight: 700;
+}
+
+.density-actions button[aria-pressed='true'] {
+    background: var(--surface-default);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-xs);
+}
 .app-header {
     position: fixed;
     top: 16px;

@@ -2,6 +2,9 @@
     <aside
         ref="sidebarRootRef"
         class="sidebar"
+        aria-label="Điều hướng chính"
+        :aria-hidden="isMobile && !mobileOpen ? 'true' : undefined"
+        :inert="isMobile && !mobileOpen"
         :class="{
             collapsed,
             'is-mobile': isMobile,
@@ -66,6 +69,7 @@
                             </svg>
                             <input
                                 id="sidebar-search"
+                                ref="searchInputRef"
                                 v-model="searchQuery"
                                 type="text"
                                 placeholder="Nhân sự, khách thăm..."
@@ -205,11 +209,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authState } from '../../stores/auth'
 import { getAll as getAllEmployees } from '../../services/employeeApi'
-import { getGuestProfiles } from '../../services/guestProfileApi'
+import { searchGlobal } from '../../services/globalSearchProviders'
 
 const props = defineProps({
     collapsed: Boolean,
@@ -956,6 +960,7 @@ onMounted(async () => {
     document.addEventListener('mousedown', handleNavOutsideClick)
     window.addEventListener('resize', refreshFlyoutPosition, { passive: true })
     window.addEventListener('scroll', refreshFlyoutPosition, { passive: true })
+    window.addEventListener('keydown', handleGlobalSearchShortcut)
 
     try {
         const employeesRes = await getAllEmployees()
@@ -975,6 +980,7 @@ onUnmounted(() => {
     document.removeEventListener('mousedown', handleNavOutsideClick)
     window.removeEventListener('resize', refreshFlyoutPosition)
     window.removeEventListener('scroll', refreshFlyoutPosition)
+    window.removeEventListener('keydown', handleGlobalSearchShortcut)
     if (hoverLeaveTimer) {
         clearTimeout(hoverLeaveTimer)
         hoverLeaveTimer = null
@@ -1000,8 +1006,23 @@ const isSearching = ref(false)
 const searchResults = ref([])
 const noResultsFound = ref(false)
 const searchContainerRef = ref(null)
+const searchInputRef = ref(null)
 
 let quickSearchDebounceTimer = null
+
+async function handleGlobalSearchShortcut(event) {
+    const target = event.target
+    const editing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable
+    const isCommand = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k'
+    const isSlash = event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey
+    if ((!isCommand && !isSlash) || editing) return
+
+    event.preventDefault()
+    if (props.collapsed || (props.isMobile && !props.mobileOpen)) emit('toggle')
+    await nextTick()
+    searchInputRef.value?.focus()
+    showDropdown.value = true
+}
 
 const debouncedSearch = () => {
     if (quickSearchDebounceTimer) clearTimeout(quickSearchDebounceTimer)
@@ -1020,38 +1041,7 @@ const debouncedSearch = () => {
 
     quickSearchDebounceTimer = setTimeout(async () => {
         try {
-            const keyword = searchQuery.value.trim()
-            const [employeesRes, guestsRes] = await Promise.all([
-                getAllEmployees({ search: keyword }),
-                getGuestProfiles({ query: keyword, page: 1, pageSize: 6 }),
-            ])
-
-            const results = []
-
-            if (employeesRes.data?.length) {
-                employeesRes.data.forEach((employee) => {
-                    results.push({
-                        id: `emp_${employee.employeeId}`,
-                        type: 'employee',
-                        name: employee.fullName,
-                        sub: employee.departmentName || 'Chưa gán phòng ban',
-                        badge: 'Nhân sự',
-                    })
-                })
-            }
-
-            if (guestsRes.data?.items?.length) {
-                guestsRes.data.items.forEach((guest) => {
-                    results.push({
-                        id: `guest_${guest.guestId}`,
-                        type: 'guest',
-                        name: guest.fullName,
-                        sub: guest.phone || guest.defaultLicensePlate || 'Hồ sơ khách',
-                        badge: 'Khách',
-                    })
-                })
-            }
-
+            const results = await searchGlobal(searchQuery.value)
             searchResults.value = results
             noResultsFound.value = results.length === 0
         } catch (error) {

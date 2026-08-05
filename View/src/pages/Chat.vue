@@ -1,5 +1,11 @@
 <template>
   <div class="chat-container">
+    <div class="chat-realtime-status chat-realtime-global" :class="`is-${hubStatus}`" role="status" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>{{ hubStatusLabel }}</span>
+      <span v-if="hubLastUpdated">· Cập nhật {{ formatTime(hubLastUpdated) }}</span>
+      <span v-if="hubStatus !== 'live'">· Tin nhắn vẫn được gửi qua API</span>
+    </div>
     <div class="chat-sidebar">
       <div class="sidebar-tabs">
         <button :class="{ active: activeTab === 'conversations' }" @click="activeTab = 'conversations'">Hội thoại</button>
@@ -101,7 +107,6 @@
       </div>
 
       <div class="typing-indicator" v-if="typingUser">{{ typingUser }} đang nhập...</div>
-      <div class="chat-warning" v-else-if="!hubConnected">Realtime đang tạm mất kết nối, hệ thống sẽ tự động gửi qua API.</div>
       <div class="chat-error" v-if="sendError">{{ sendError }}</div>
 
       <div class="chat-input">
@@ -147,11 +152,23 @@ export default {
       filterPosition: '',
       sendError: '',
       hubConnected: false,
+      hubStatus: 'disconnected',
+      hubLastUpdated: null,
+      hubUnsubscribers: [],
       refreshTimer: null,
     }
   },
   computed: {
     user() { return authState.user },
+    hubStatusLabel() {
+      return {
+        connecting: 'Đang kết nối',
+        live: 'Live',
+        reconnecting: 'Đang kết nối lại',
+        stale: 'Dữ liệu có thể đã cũ',
+        disconnected: 'Đã ngắt kết nối',
+      }[this.hubStatus] || 'Đã ngắt kết nối'
+    },
     filteredConversations() {
       if (!this.searchQuery) return this.conversations
       const q = this.searchQuery.toLowerCase()
@@ -197,7 +214,9 @@ export default {
       clearInterval(this.refreshTimer)
       this.refreshTimer = null
     }
-    chatApi.disconnectChatHub()
+    this.hubUnsubscribers.forEach(unsubscribe => unsubscribe())
+    this.hubUnsubscribers = []
+    void chatApi.disconnectChatHub()
   },
   methods: {
     normalizeEmployeeId(value) {
@@ -292,17 +311,22 @@ export default {
       }, 3000)
     },
     async connectSignalR() {
+      this.hubUnsubscribers.push(chatApi.onChatConnectionState((state) => {
+        this.hubStatus = state.status
+        this.hubConnected = state.status === 'live'
+        this.hubLastUpdated = state.lastUpdated
+      }))
       try {
         await chatApi.connectChatHub()
-        this.hubConnected = true
-        chatApi.onMessage(this.handleNewMessage)
-        chatApi.onTyping(this.handleTyping)
-        chatApi.onRead(this.handleRead)
-        chatApi.onIncomingCall(this.handleIncomingCall)
-        chatApi.onCallResponse(this.handleCallResponse)
-        chatApi.onCallEnded(this.handleCallEnded)
+        this.hubUnsubscribers.push(
+          chatApi.onMessage(this.handleNewMessage),
+          chatApi.onTyping(this.handleTyping),
+          chatApi.onRead(this.handleRead),
+          chatApi.onIncomingCall(this.handleIncomingCall),
+          chatApi.onCallResponse(this.handleCallResponse),
+          chatApi.onCallEnded(this.handleCallEnded),
+        )
       } catch (e) {
-        this.hubConnected = false
         console.error('Failed to connect chat hub', e)
       }
     },
@@ -510,6 +534,7 @@ export default {
 
 <style scoped>
 .chat-container {
+  position: relative;
   display: flex;
   height: calc(100vh - 120px);
   background: #f5f5f5;
@@ -843,15 +868,26 @@ export default {
   font-style: italic;
 }
 
-.chat-warning,
+.chat-realtime-status,
 .chat-error {
   padding: 4px 20px 0;
   font-size: 12px;
 }
 
-.chat-warning {
+.chat-realtime-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #2e7d32;
+}
+.chat-realtime-global { position: absolute; z-index: 2; right: 16px; top: 8px; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.92); }
+
+.chat-realtime-status:not(.is-live) {
   color: #8a6d3b;
 }
+
+.chat-realtime-status.is-disconnected { color: #c62828; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
 .chat-error {
   color: #c62828;

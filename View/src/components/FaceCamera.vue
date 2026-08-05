@@ -334,6 +334,7 @@ import {
   getFaceAccessDecisions,
   getFaceAccessDecisionSummary
 } from "../services/faceAccessDecisionApi"
+import { captureError, recordMetric } from "../services/observability"
 
 export default {
   name: "FaceIdSecurity",
@@ -860,6 +861,7 @@ export default {
     },
 
     async handleInitOrResetSession() {
+      const initializationStartedAt = performance.now()
       const ip = (this.cameraIp || this.currentIp || "").trim()
       if (!this.selectedConfiguration && !ip) {
         alert("Vui lòng nhập URL camera")
@@ -922,8 +924,10 @@ export default {
           this.startResultLoop()
         }
       } catch (e) {
+        captureError(e, "camera_initialization_failure", { component: "FaceCamera" })
         this.handleFaceServiceError(e)
       } finally {
+        recordMetric("camera_initialization", performance.now() - initializationStartedAt, { component: "FaceCamera" })
         this.loading = false
       }
     },
