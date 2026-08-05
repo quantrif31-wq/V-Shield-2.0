@@ -9,7 +9,7 @@ const MAX_QUEUE_SIZE = 100
 const MAX_METRIC_SAMPLES = 200
 
 const environment = import.meta.env.MODE || 'unknown'
-const appVersion = import.meta.env.VITE_APP_VERSION || '2.0.0-rc1'
+const appVersion = import.meta.env.VITE_APP_VERSION || '2.0.0-rc2'
 const endpoint = String(import.meta.env.VITE_OBSERVABILITY_ENDPOINT || '').trim()
 const queue = []
 const metricSamples = new Map()
