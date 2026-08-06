@@ -1,14 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi" data-theme="light" data-density="comfortable">
   <head>
+    <meta name="v-shield-version" content="%VITE_APP_VERSION%" />
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f7c82" />
+    <script>
+      (() => {
+        try {
+          const theme = localStorage.getItem('vshield-theme')
+          const density = localStorage.getItem('vshield-density')
+          if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
+          if (density === 'compact' || density === 'comfortable') document.documentElement.dataset.density = density
+        } catch (_) {}
+      })()
+    </script>
+    <style>
+      html,body,#app{min-height:100%;margin:0}body{background:#eef4f6}.app-boot{min-height:100vh;display:grid;place-items:center;align-content:center;gap:14px;background:#eef4f6;color:#3f586b;font:600 14px/20px "Segoe UI",sans-serif}.app-boot__mark{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:#0f7c82;color:#fff;font-size:24px;font-weight:800}html[data-theme="dark"] body,html[data-theme="dark"] .app-boot{background:#0b1622;color:#bed0d8}
+    </style>
     <title>V-Shield</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app"><div class="app-boot" role="status" aria-label="Đang khởi động V-Shield"><span class="app-boot__mark">V</span><span>Đang khởi động trung tâm điều phối...</span></div></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

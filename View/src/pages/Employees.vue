@@ -1,749 +1,199 @@
 <template>
-    <div class="page-container animate-in">
-        <!-- Minimalist Header -->
-        <header class="page-header bento-header">
-            <div class="greeting">
-                <h1 class="page-title">Quản lý Nhân sự</h1>
-                <p class="page-subtitle">Danh sách nhân viên, thông tin và quyền hạn</p>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-outline" @click="showImportModal = true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    Import
-                </button>
-                <button class="btn btn-outline" @click="showExportModal = true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Export
-                </button>
-                <button class="btn btn-primary" @click="openCreateModal">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Thêm nhân viên
-                </button>
-            </div>
-        </header>
+  <div class="page-container employees-page">
+    <PageHeader
+      title="Hồ sơ nhân viên"
+      description="Quản lý hồ sơ, trạng thái truy cập và dữ liệu nhận diện của nhân sự nội bộ."
+      :breadcrumbs="[{ label: 'Nhân sự' }, { label: 'Hồ sơ nhân viên' }]"
+    >
+      <template #actions>
+        <BaseButton variant="secondary" @click="showImportModal = true">Nhập dữ liệu</BaseButton>
+        <BaseButton variant="secondary" @click="showExportModal = true">Xuất dữ liệu</BaseButton>
+        <BaseButton @click="openCreateModal">Thêm nhân viên</BaseButton>
+      </template>
+    </PageHeader>
 
-        <!-- Stats Overview Row -->
-        <div class="bento-grid-mini">
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper blue">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val">{{ employeeSummary.totalEmployees || employees.length }}</div>
-                    <div class="stat-lbl">Tổng số</div>
-                </div>
-            </div>
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper green">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val green">{{ activeCount }}</div>
-                    <div class="stat-lbl">Hoạt động</div>
-                </div>
-            </div>
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper red">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val red">{{ inactiveCount }}</div>
-                    <div class="stat-lbl">Ngừng HĐ</div>
-                </div>
-            </div>
+    <section class="summary-grid" aria-label="Tổng quan nhân sự">
+      <BaseCard variant="kpi"><span>Tổng nhân sự</span><strong>{{ employeeSummary.totalEmployees || employees.length }}</strong><small>Hồ sơ trong hệ thống</small></BaseCard>
+      <BaseCard variant="kpi"><span>Đang hoạt động</span><strong>{{ activeCount }}</strong><small>Có quyền truy cập</small></BaseCard>
+      <BaseCard variant="kpi"><span>Đã khóa</span><strong>{{ inactiveCount }}</strong><small>Không thể sử dụng cổng</small></BaseCard>
+    </section>
+
+    <section class="list-panel" aria-labelledby="employee-list-title">
+      <div class="list-toolbar">
+        <div><h2 id="employee-list-title">Danh sách nhân viên</h2><p>{{ employees.length }} kết quả phù hợp</p></div>
+        <div class="filter-bar" role="search">
+          <BaseInput id="employee-search" v-model="searchQuery" type="search" placeholder="Tìm theo tên, email hoặc số điện thoại" aria-label="Tìm nhân viên" @input="debouncedCommitFilters" />
+          <BaseSelect id="employee-status" v-model="filterStatus" aria-label="Lọc theo trạng thái" @update:model-value="commitFilters">
+            <option value="">Tất cả trạng thái</option><option value="true">Đang hoạt động</option><option value="false">Đã khóa</option>
+          </BaseSelect>
+          <BaseButton v-if="hasActiveFilters" variant="ghost" @click="clearFilters">Xóa bộ lọc</BaseButton>
+          <BaseButton variant="secondary" :loading="loading" @click="fetchEmployees">Làm mới</BaseButton>
         </div>
+      </div>
 
-        <!-- Main Content Box -->
-        <div class="bento-card table-section">
-            <div class="table-toolbar">
-                <div class="search-box">
-                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="M21 21l-4.35-4.35" />
-                    </svg>
-                    <input v-model="searchQuery" type="text" placeholder="Tìm kiếm tên, SĐT, Email..." @input="debouncedFetch" />
-                </div>
-                <div class="filter-box">
-                    <select v-model="filterStatus" class="minimal-select" @change="fetchEmployees">
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="true">Đang hoạt động</option>
-                        <option value="false">Ngừng hoạt động</option>
-                    </select>
-                </div>
-            </div>
+      <DataTable
+        :columns="columns"
+        :rows="paginatedEmployees"
+        row-key="employeeId"
+        :loading="loading"
+        :error="loadError"
+        :permission-denied="permissionDenied"
+        :sort-key="sortKey"
+        :sort-direction="sortDirection"
+        empty-title="Không có nhân viên phù hợp"
+        empty-description="Thử thay đổi bộ lọc hoặc tạo hồ sơ nhân viên mới."
+        @sort="handleSort"
+      >
+        <template #retry><BaseButton variant="secondary" @click="fetchEmployees">Thử lại</BaseButton></template>
+        <template #empty-actions><BaseButton @click="openCreateModal">Thêm nhân viên</BaseButton></template>
+        <template #cell-fullName="{ row }">
+          <div class="identity-cell">
+            <img v-if="getEmployeeAvatarSrc(row)" :src="getEmployeeAvatarSrc(row)" class="avatar" alt="" @error="markEmployeeAvatarBroken(row.employeeId, $event)" />
+            <span v-else class="avatar avatar-fallback" :class="`tone-${row.employeeId % 5}`" aria-hidden="true">{{ getInitials(row.fullName) }}</span>
+            <span><strong>{{ row.fullName }}</strong><small>ID {{ row.employeeId }}</small></span>
+          </div>
+        </template>
+        <template #cell-contact="{ row }"><div class="stacked-cell"><span>{{ row.phone || 'Chưa có số điện thoại' }}</span><small>{{ row.email || 'Chưa có email' }}</small></div></template>
+        <template #cell-organization="{ row }"><div class="stacked-cell"><span>{{ row.departmentName || 'Chưa xếp phòng' }}</span><small>{{ row.positionName || 'Chưa có chức vụ' }}</small></div></template>
+        <template #cell-status="{ row }"><StatusBadge :status="row.status ? 'active' : 'inactive'" :label="row.status ? 'Hoạt động' : 'Đã khóa'" dot /></template>
+        <template #actions="{ row }">
+          <div class="row-actions">
+            <BaseButton variant="ghost" size="small" @click="openEditModal(row)">Sửa</BaseButton>
+            <BaseButton variant="ghost" size="small" @click="requestFaceUpload(row)">Face ID</BaseButton>
+            <BaseButton variant="ghost" size="small" @click="confirmDelete(row)">Xóa</BaseButton>
+          </div>
+        </template>
+      </DataTable>
 
-            <!-- States -->
-            <div v-if="loading" class="empty-layout">
-                <div class="spinner-lg"></div>
-                <p>Đang tải hệ thống...</p>
-            </div>
-            <div v-else-if="loadError" class="empty-layout error-layout">
-                <p>{{ loadError }}</p>
-                <button class="btn btn-primary" @click="fetchEmployees">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
-                        <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                    </svg>
-                    Thử lại
-                </button>
-            </div>
-            
-            <!-- Sleek Table -->
-            <div v-else class="sleek-table-container">
-                <table class="sleek-table">
-                    <thead>
-                        <tr>
-                            <th>Nhân viên</th>
-                            <th>Liên hệ</th>
-                            <th>Phòng ban / Chức vụ</th>
-                            <th>Trạng thái</th>
-                            <th class="text-right">Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="emp in paginatedEmployees" :key="emp.employeeId" class="table-row">
-                            <td>
-                                <div class="user-cell">
-                                    <div class="avatar" v-if="!emp.faceImageUrl" :style="{ background: getAvatarColor(emp.employeeId) }">
-                                        {{ getInitials(emp.fullName) }}
-                                    </div>
-                                    <img v-else :src="getEmployeeAvatarSrc(emp)" class="avatar-img" @error="markEmployeeAvatarBroken(emp.employeeId, $event)" />
-                                    <div class="user-info">
-                                        <span class="user-name">{{ emp.fullName }}</span>
-                                        <span class="user-id">ID: {{ emp.employeeId }}</span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="contact-cell">
-                                    <span class="contact-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>{{ emp.phone || '—' }}</span>
-                                    <span class="contact-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>{{ emp.email || '—' }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="role-cell">
-                                    <span class="dept">{{ emp.departmentName || 'Chưa xếp phòng' }}</span>
-                                    <span class="pos">{{ emp.positionName || '—' }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="status-pill" :class="emp.status ? 'active' : 'inactive'">
-                                    <span class="pill-dot"></span>
-                                    {{ emp.status ? 'Hoạt động' : 'Đã khóa' }}
-                                </span>
-                            </td>
-                            <td class="text-right">
-                                <div class="action-menu">
-                                    <button class="icon-btn" @click="openEditModal(emp)" title="Sửa">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                    </button>
-                                    <label class="icon-btn" title="Cập nhật FaceID" style="cursor: pointer;">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                        <input type="file" accept="image/*" hidden @change="handleFaceUpload(emp.employeeId, $event)" />
-                                    </label>
-                                    <button class="icon-btn danger" @click="confirmDelete(emp)" title="Xóa">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="employees.length === 0">
-                            <td colspan="5" class="empty-state">Không có nhân viên nào phù hợp</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div v-if="!loading && !loadError && employees.length > 0" class="pagination-bar">
-                <span>Hiển thị {{ pagStart }}–{{ pagEnd }} / {{ employees.length }}</span>
-                <div class="page-buttons">
-                    <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">‹</button>
-                    <button v-for="p in totalPages" :key="p" class="page-btn" :class="{ active: p === currentPage }" @click="currentPage = p">{{ p }}</button>
-                    <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">›</button>
-                </div>
-            </div>
+      <footer v-if="!loading && !loadError && employees.length" class="pagination-bar">
+        <span>Hiển thị {{ pagStart }}–{{ pagEnd }} trong {{ employees.length }}</span>
+        <div class="pagination-actions" aria-label="Phân trang">
+          <BaseButton variant="secondary" size="small" :disabled="currentPage <= 1" @click="setPage(currentPage - 1)">Trang trước</BaseButton>
+          <span aria-current="page">Trang {{ currentPage }} / {{ totalPages }}</span>
+          <BaseButton variant="secondary" size="small" :disabled="currentPage >= totalPages" @click="setPage(currentPage + 1)">Trang sau</BaseButton>
         </div>
+      </footer>
+    </section>
 
-        <!-- Create/Edit Modal Override -->
-        <transition name="modal">
-            <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
-                <div class="modern-modal">
-                    <div class="modal-top">
-                        <h3>{{ isEditing ? 'Cập nhật Thông tin' : 'Thêm Nhân sự' }}</h3>
-                        <button class="icon-close" @click="closeModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                    </div>
-                    
-                    <form @submit.prevent="handleSubmit" class="modal-body">
-                        <div class="input-pane">
-                            <label>Họ và tên <span class="req">*</span></label>
-                            <input v-model="modalForm.fullName" type="text" class="sleek-input" required placeholder="VD: Nguyễn Văn An"
-                                @input="runNameValidation"
-                                @blur="empNameValidation.touched = true; runNameValidation()"
-                                :class="{ 'input-error': empNameValidation.touched && !empNameValidation.isValid && modalForm.fullName.length >= 2, 'input-success': empNameValidation.isValid }" />
-                            <div v-if="empNameValidation.touched && modalForm.fullName.length >= 2" class="name-feedback">
-                                <span v-if="empNameValidation.isValid" class="feedback-success">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
-                                    Hợp lệ
-                                </span>
-                                <span v-else class="feedback-error">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
-                                    {{ empNameValidation.error }}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="grid-2">
-                            <div class="input-pane">
-                                <label>Điện thoại</label>
-                                <input v-model="modalForm.phone" type="tel" class="sleek-input" placeholder="09xx xxx xxx" />
-                            </div>
-                            <div class="input-pane">
-                                <label>Email</label>
-                                <input v-model="modalForm.email" type="email" class="sleek-input" placeholder="mail@example.com" />
-                            </div>
-                        </div>
-                        <div class="grid-2">
-                            <div class="input-pane">
-                                <label>Phòng ban</label>
-                                <select v-model="modalForm.departmentId" class="sleek-select">
-                                    <option :value="null">-- Chọn phòng ban --</option>
-                                    <option v-for="d in departments" :key="d.departmentId" :value="d.departmentId">{{d.name}}</option>
-                                </select>
-                            </div>
-                            <div class="input-pane">
-                                <label>Chức vụ</label>
-                                <select v-model="modalForm.positionId" class="sleek-select">
-                                    <option :value="null">-- Chọn chức vụ --</option>
-                                    <option v-for="p in positions" :key="p.positionId" :value="p.positionId">{{p.name}}</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="input-pane" v-if="isEditing">
-                            <label>Trạng thái truy cập</label>
-                            <select v-model="modalForm.status" class="sleek-select">
-                                <option :value="true">Hoạt động bình thường</option>
-                                <option :value="false">Khóa truy cập</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Face Upload -->
-                        <div class="input-pane">
-                            <label>Dữ liệu nhận diện (Face ID)</label>
-                            
-                            <div class="face-input-tabs">
-                                <button type="button" class="pill-btn" :class="{ active: uploadMode === 'file' }" @click="uploadMode = 'file'; urlError = false">Tải file lên</button>
-                                <button type="button" class="pill-btn" :class="{ active: uploadMode === 'url' }" @click="uploadMode = 'url'">Dùng URL ảnh</button>
-                            </div>
+    <input ref="faceUploadInput" class="sr-only" type="file" accept="image/*" aria-label="Chọn ảnh Face ID cho nhân viên" @change="handleFaceUpload" />
 
-                            <div v-show="uploadMode === 'file'">
-                                <div class="face-dropzone" @click="$refs.faceInput.click()" @dragover.prevent @drop.prevent="handleDrop">
-                                    <img v-if="facePreview" :src="facePreview" class="face-preview-img" />
-                                    <div v-else class="dropzone-text">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4-4 4 4"/></svg>
-                                        <span>Tải ảnh khuôn mặt lên</span>
-                                        <small>Định dạng JPG/PNG/WebP, Max 5MB</small>
-                                    </div>
-                                </div>
-                                <input ref="faceInput" type="file" accept="image/*" hidden @change="handleFaceSelect" />
-                                <div class="text-right" v-if="facePreview" style="margin-top: 8px;">
-                                    <button type="button" class="btn-text danger" @click.stop="removeFace">Xóa ảnh này</button>
-                                </div>
-                            </div>
+    <BaseModal :open="showModal" :title="isEditing ? 'Cập nhật nhân viên' : 'Thêm nhân viên'" description="Thông tin được sử dụng trong các luồng kiểm soát ra vào." @close="requestCloseModal">
+      <form id="employee-form" class="employee-form" @submit.prevent="handleSubmit">
+        <BaseField for-id="employee-name" label="Họ và tên" required :error="nameError" :success="empNameValidation.isValid ? 'Tên hợp lệ' : ''" v-slot="field">
+          <BaseInput id="employee-name" v-model="modalForm.fullName" :describedby="field.describedby" :invalid="field.invalid" autocomplete="name" placeholder="Ví dụ: Nguyễn Văn An" @input="runNameValidation" @blur="empNameValidation.touched = true; runNameValidation()" />
+        </BaseField>
+        <div class="form-grid">
+          <BaseField for-id="employee-phone" label="Điện thoại" v-slot="field"><BaseInput id="employee-phone" v-model="modalForm.phone" type="tel" :describedby="field.describedby" autocomplete="tel" placeholder="09xx xxx xxx" /></BaseField>
+          <BaseField for-id="employee-email" label="Email" v-slot="field"><BaseInput id="employee-email" v-model="modalForm.email" type="email" :describedby="field.describedby" autocomplete="email" placeholder="mail@example.com" /></BaseField>
+          <BaseField for-id="employee-department" label="Phòng ban" v-slot="field"><BaseSelect id="employee-department" v-model="modalForm.departmentId" :describedby="field.describedby"><option :value="null">Chọn phòng ban</option><option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option></BaseSelect></BaseField>
+          <BaseField for-id="employee-position" label="Chức vụ" v-slot="field"><BaseSelect id="employee-position" v-model="modalForm.positionId" :describedby="field.describedby"><option :value="null">Chọn chức vụ</option><option v-for="item in positions" :key="item.positionId" :value="item.positionId">{{ item.name }}</option></BaseSelect></BaseField>
+        </div>
+        <BaseSwitch v-if="isEditing" v-model="modalForm.status" label="Cho phép truy cập" description="Tắt để khóa quyền sử dụng cổng nhưng vẫn giữ hồ sơ và lịch sử." />
+        <fieldset class="face-section"><legend>Dữ liệu nhận diện Face ID</legend><div class="mode-actions"><BaseButton :variant="uploadMode === 'file' ? 'primary' : 'secondary'" size="small" @click="uploadMode = 'file'">Tải tệp</BaseButton><BaseButton :variant="uploadMode === 'url' ? 'primary' : 'secondary'" size="small" @click="uploadMode = 'url'">Dùng URL</BaseButton></div>
+          <div v-if="uploadMode === 'file'" class="face-upload"><BaseButton variant="secondary" class="dropzone" @click="$refs.faceInput.click()" @dragover.prevent @drop.prevent="handleDrop"><img v-if="facePreview" :src="facePreview" alt="Ảnh Face ID đang chọn"/><span v-else>Chọn hoặc kéo ảnh JPG/PNG/WebP vào đây</span></BaseButton><input ref="faceInput" class="sr-only" type="file" accept="image/*" aria-label="Chọn ảnh Face ID trong biểu mẫu" @change="handleFaceSelect"/><BaseButton v-if="facePreview" variant="link" @click="removeFace">Xóa ảnh đã chọn</BaseButton></div>
+          <div v-else class="face-upload"><BaseField for-id="employee-face-url" label="URL ảnh" :error="urlError ? 'Không thể tải ảnh từ URL này.' : ''" v-slot="field"><BaseInput id="employee-face-url" v-model="modalForm.faceImageUrl" type="url" :describedby="field.describedby" :invalid="field.invalid" placeholder="https://example.com/face.jpg" @input="urlError = false"/><img v-if="modalForm.faceImageUrl && !urlError" :src="modalForm.faceImageUrl" class="url-preview" alt="Xem trước ảnh Face ID" @error="urlError = true"/></BaseField><BaseButton v-if="modalForm.faceImageUrl" variant="link" @click="modalForm.faceImageUrl = ''; urlError = false">Xóa URL ảnh</BaseButton></div>
+        </fieldset>
+        <p v-if="modalError" class="form-error" role="alert">{{ modalError }}</p>
+      </form>
+      <template #footer><BaseButton variant="secondary" :disabled="saving" @click="requestCloseModal">Hủy</BaseButton><BaseButton type="submit" form="employee-form" :loading="saving" :disabled="Boolean(nameError)">{{ isEditing ? 'Lưu thay đổi' : 'Tạo nhân viên' }}</BaseButton></template>
+    </BaseModal>
 
-                            <div v-show="uploadMode === 'url'" class="url-input-pane">
-                                <input v-model="modalForm.faceImageUrl" type="url" class="sleek-input" placeholder="https://example.com/face.jpg" @input="urlError = false" />
-                                <div v-if="modalForm.faceImageUrl" class="face-dropzone url-preview">
-                                    <img v-show="!urlError" :src="modalForm.faceImageUrl" @error="urlError = true" @load="urlError = false" class="face-preview-img" />
-                                    <div v-show="urlError" class="dropzone-text" style="color: var(--accent-danger);">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                        <span>URL ảnh không hợp lệ</span>
-                                    </div>
-                                </div>
-                                <div class="text-right" v-if="modalForm.faceImageUrl" style="margin-top: 8px;">
-                                    <button type="button" class="btn-text danger" @click.stop="modalForm.faceImageUrl = ''; urlError = false">Xóa đường dẫn</button>
-                                </div>
-                            </div>
-                        </div>
+    <ConfirmDialog :open="showDeleteModal" kind="destructive" title="Xóa hồ sơ nhân viên?" :description="`Hồ sơ ${deleteTarget?.fullName || ''} và dữ liệu Face ID liên quan sẽ bị xóa. Hành động này không thể hoàn tác.`" confirm-label="Xóa nhân viên" :loading="saving" @cancel="showDeleteModal = false" @confirm="handleDelete" />
+    <ConfirmDialog :open="showDiscardDialog" title="Bỏ thay đổi chưa lưu?" description="Các thông tin bạn vừa nhập sẽ bị mất." confirm-label="Bỏ thay đổi" @cancel="showDiscardDialog = false" @confirm="closeModal(true)" />
 
-                        <div v-if="modalError" class="alert-box error">{{ modalError }}</div>
-
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-secondary" @click="closeModal">Hủy</button>
-                            <button type="submit" class="btn btn-primary" :disabled="saving || (empNameValidation.touched && !empNameValidation.isValid)">
-                                <span v-if="saving" class="spinner-sm"></span> {{ isEditing ? 'Lưu Thông Tin' : 'Tạo Nhân Sự' }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </transition>
-
-        <!-- Delete Confirm Override -->
-        <transition name="modal">
-            <div v-if="showDeleteModal" class="modal-backdrop" @click.self="showDeleteModal = false">
-                <div class="modern-modal mini">
-                    <div class="modal-top borderless">
-                        <h3>Cảnh báo Xóa</h3>
-                    </div>
-                    <div class="modal-body text-center">
-                        <div class="warning-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-                        <p>Bạn sắp xóa dữ liệu của nhân viên <strong>{{ deleteTarget?.fullName }}</strong>.</p>
-                        <p class="text-danger mt-1">Hành động này sẽ xóa toàn bộ lịch sử và FaceID liên quan. Vẫn tiếp tục?</p>
-
-                        <div class="modal-actions mt-4" style="justify-content: center; gap: 12px; flex-wrap: wrap;">
-                            <button class="btn btn-secondary" @click="showDeleteModal = false" style="flex: 1; min-width: 100px; max-width: 140px; justify-content: center;">Hủy bỏ</button>
-                            <button class="btn btn-danger" @click="handleDelete" :disabled="saving" style="flex: 1; min-width: 100px; max-width: 140px; justify-content: center;">
-                                <span v-if="saving" class="spinner-sm"></span> Xác nhận Xóa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </transition>
-
-        <!-- Import / Export Modals -->
-        <ImportModal
-            v-if="showImportModal"
-            entityType="Employee"
-            entityDisplayName="Nhân viên"
-            @close="showImportModal = false"
-            @import-complete="onImportComplete"
-        />
-        <ExportModal
-            v-if="showExportModal"
-            entityType="Employee"
-            entityDisplayName="Nhân viên"
-            :availableColumns="['EmployeeId','FullName','Email','Phone','DepartmentName','PositionName','Status']"
-            @close="showExportModal = false"
-        />
-
-        <!-- Toast -->
-        <transition name="toast">
-            <div v-if="toast" class="toast-card" :class="toast.type">{{ toast.message }}</div>
-        </transition>
-    </div>
+    <ImportModal v-if="showImportModal" entity-type="Employee" entity-display-name="Nhân viên" @close="showImportModal = false" @import-complete="onImportComplete" />
+    <ExportModal v-if="showExportModal" entity-type="Employee" entity-display-name="Nhân viên" :available-columns="['EmployeeId','FullName','Email','Phone','DepartmentName','PositionName','Status']" @close="showExportModal = false" />
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
-import { getAll, create, update, deleteEmployee, uploadFace, getProtectedFaceImage } from '../services/employeeApi'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { create, deleteEmployee, getAll, getProtectedFaceImage, update, uploadFace } from '../services/employeeApi'
 import { getDepartments, getPositions } from '../services/lookupApi'
-import { API_ORIGIN } from '../config/api'
+import { getSummary as getEmployeeSummary } from '../services/statisticsApi'
+import { normalizeVietnameseName, validateVietnameseName } from '../utils/nameValidator'
+import BaseButton from '../components/ui/BaseButton.vue'
+import BaseCard from '../components/ui/BaseCard.vue'
+import BaseField from '../components/ui/BaseField.vue'
+import BaseInput from '../components/ui/BaseInput.vue'
+import BaseModal from '../components/ui/BaseModal.vue'
+import BaseSelect from '../components/ui/BaseSelect.vue'
+import BaseSwitch from '../components/ui/BaseSwitch.vue'
+import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
+import DataTable from '../components/ui/DataTable.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import StatusBadge from '../components/ui/StatusBadge.vue'
 import ImportModal from '../components/import-export/ImportModal.vue'
 import ExportModal from '../components/import-export/ExportModal.vue'
-import { validateVietnameseName, normalizeVietnameseName } from '../utils/nameValidator'
-import { getSummary as getEmployeeSummary } from '../services/statisticsApi'
+import { useToasts } from '../composables/useToasts'
 
-const route = useRoute()
-const API_BASE = API_ORIGIN
+const route = useRoute(); const router = useRouter(); const { success, error: showError } = useToasts()
+const employees = ref([]); const departments = ref([]); const positions = ref([]); const loading = ref(true); const loadError = ref(''); const permissionDenied = ref(false)
+const searchQuery = ref(''); const filterStatus = ref(''); const currentPage = ref(1); const pageSize = 10; const sortKey = ref('fullName'); const sortDirection = ref('asc')
+const employeeSummary = ref({ totalEmployees: 0, activeEmployees: 0, inactiveEmployees: 0 }); const protectedAvatarUrls = ref({}); const brokenEmployeeAvatarIds = ref({})
+const showModal = ref(false); const showDeleteModal = ref(false); const showDiscardDialog = ref(false); const showImportModal = ref(false); const showExportModal = ref(false)
+const isEditing = ref(false); const editingId = ref(null); const saving = ref(false); const modalError = ref(''); const deleteTarget = ref(null); const formBaseline = ref('')
+const modalForm = reactive({ fullName: '', phone: '', email: '', departmentId: null, positionId: null, status: true, faceImageUrl: '' }); const faceFile = ref(null); const facePreview = ref(''); const uploadMode = ref('file'); const urlError = ref(false)
+const faceUploadInput = ref(null); const faceUploadTarget = ref(null); let searchTimer = null
+const empNameValidation = reactive({ touched: false, isValid: false, error: '' })
+const columns = [{ key: 'fullName', label: 'Nhân viên', sortable: true }, { key: 'contact', label: 'Liên hệ' }, { key: 'organization', label: 'Đơn vị' }, { key: 'status', label: 'Trạng thái', sortable: true }]
+const sortedEmployees = computed(() => [...employees.value].sort((a,b) => { const av=sortKey.value==='status'?Number(a.status):String(a.fullName||''); const bv=sortKey.value==='status'?Number(b.status):String(b.fullName||''); return (typeof av==='string'?av.localeCompare(bv,'vi'):av-bv)*(sortDirection.value==='asc'?1:-1) }))
+const totalPages = computed(() => Math.max(1, Math.ceil(sortedEmployees.value.length / pageSize))); const paginatedEmployees = computed(() => sortedEmployees.value.slice((currentPage.value-1)*pageSize,currentPage.value*pageSize)); const pagStart = computed(() => employees.value.length ? (currentPage.value-1)*pageSize+1 : 0); const pagEnd = computed(() => Math.min(currentPage.value*pageSize,employees.value.length))
+const activeCount = computed(() => employeeSummary.value.activeEmployees || employees.value.filter(item=>item.status).length); const inactiveCount = computed(() => employeeSummary.value.inactiveEmployees || employees.value.filter(item=>!item.status).length); const hasActiveFilters = computed(() => Boolean(searchQuery.value || filterStatus.value)); const nameError = computed(() => empNameValidation.touched && !empNameValidation.isValid ? empNameValidation.error : '')
+const formState = computed(() => JSON.stringify({ ...modalForm, uploadMode: uploadMode.value, face: faceFile.value?.name || facePreview.value })); const formDirty = computed(() => showModal.value && formState.value !== formBaseline.value)
 
-const employees = ref([])
-const departments = ref([])
-const positions = ref([])
-const loading = ref(true)
-const loadError = ref('')
-const searchQuery = ref('')
-const showImportModal = ref(false)
-const showExportModal = ref(false)
-const filterStatus = ref('')
-const protectedAvatarUrls = ref({})
-const brokenEmployeeAvatarIds = ref({})
-const employeeSummary = ref({
-    totalEmployees: 0,
-    activeEmployees: 0,
-    inactiveEmployees: 0,
-})
-
-const showModal = ref(false)
-const isEditing = ref(false)
-const editingId = ref(null)
-const saving = ref(false)
-const modalError = ref('')
-
-const modalForm = reactive({ fullName: '', phone: '', email: '', departmentId: null, positionId: null, status: true, faceImageUrl: null })
-const faceFile = ref(null)
-const facePreview = ref(null)
-const uploadMode = ref('file')
-const urlError = ref(false)
-
-const showDeleteModal = ref(false)
-const deleteTarget = ref(null)
-
-const toast = ref(null)
-let toastTimer = null
-
-// Name validation state
-const empNameValidation = reactive({
-    touched: false,
-    isValid: false,
-    error: ''
-})
-
-function runNameValidation() {
-    const val = modalForm.fullName?.trim()
-    if (!val) {
-        empNameValidation.touched = false
-        empNameValidation.isValid = false
-        empNameValidation.error = ''
-        return
-    }
-    empNameValidation.touched = true
-    const result = validateVietnameseName(val)
-    empNameValidation.isValid = result.isValid
-    empNameValidation.error = result.error
-}
-
-function showToast(message, type = 'success') {
-    if (toastTimer) clearTimeout(toastTimer)
-    toast.value = { message, type }
-    toastTimer = setTimeout(() => { toast.value = null }, 3000)
-}
-
-function onImportComplete(result) {
-    showImportModal.value = false
-    fetchEmployees()
-    fetchEmployeeSummary()
-    showToast(`Import hoàn tất: ${result.successCount} thành công${result.errorCount > 0 ? `, ${result.errorCount} lỗi` : ''}`, result.errorCount > 0 ? 'error' : 'success')
-}
-
-const currentPage = ref(1)
-const pageSize = 10
-const totalPages = computed(() => Math.max(1, Math.ceil(employees.value.length / pageSize)))
-const paginatedEmployees = computed(() => {
-    const start = (currentPage.value - 1) * pageSize
-    return employees.value.slice(start, start + pageSize)
-})
-const pagStart = computed(() => employees.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize + 1)
-const pagEnd = computed(() => Math.min(currentPage.value * pageSize, employees.value.length))
-
-const activeCount = computed(() => employeeSummary.value.activeEmployees || employees.value.filter(e => e.status).length)
-const inactiveCount = computed(() => employeeSummary.value.inactiveEmployees || employees.value.filter(e => !e.status).length)
-
-let searchTimer = null
-function debouncedFetch() {
-    if (searchTimer) clearTimeout(searchTimer)
-    searchTimer = setTimeout(() => fetchEmployees(), 400)
-}
-
-async function fetchEmployees() {
-    loading.value = true
-    loadError.value = ''
-    currentPage.value = 1
-    try {
-        const params = {}
-        if (searchQuery.value.trim()) params.search = searchQuery.value.trim()
-        if (filterStatus.value !== '') params.status = filterStatus.value === 'true'
-        const res = await getAll(params)
-        employees.value = res.data
-        await hydrateEmployeeAvatars(employees.value)
-    } catch (err) {
-        loadError.value = 'Không thể kết nối đến máy chủ.'
-    } finally { loading.value = false }
-}
-
-async function fetchEmployeeSummary() {
-    try {
-        const summary = await getEmployeeSummary()
-        employeeSummary.value = {
-            totalEmployees: summary?.totalEmployees || 0,
-            activeEmployees: summary?.activeEmployees || 0,
-            inactiveEmployees: summary?.inactiveEmployees || 0,
-        }
-    } catch {
-        employeeSummary.value = {
-            totalEmployees: employees.value.length,
-            activeEmployees: employees.value.filter((item) => item.status).length,
-            inactiveEmployees: employees.value.filter((item) => !item.status).length,
-        }
-    }
-}
-
-function openCreateModal() {
-    isEditing.value = false; editingId.value = null; modalError.value = ''; faceFile.value = null; facePreview.value = null;
-    uploadMode.value = 'file'; urlError.value = false;
-    empNameValidation.touched = false; empNameValidation.isValid = false; empNameValidation.error = '';
-    Object.assign(modalForm, { fullName: '', phone: '', email: '', departmentId: null, positionId: null, status: true, faceImageUrl: null })
-    showModal.value = true
-}
-
-function openEditModal(emp) {
-    isEditing.value = true; editingId.value = emp.employeeId; modalError.value = ''; faceFile.value = null; urlError.value = false;
-    
-    const isUrl = emp.faceImageUrl && (emp.faceImageUrl.startsWith('http://') || emp.faceImageUrl.startsWith('https://'));
-    uploadMode.value = isUrl ? 'url' : 'file';
-    
-    facePreview.value = emp.faceImageUrl ? (isUrl ? null : getEmployeeAvatarSrc(emp)) : null
-    Object.assign(modalForm, { 
-        fullName: emp.fullName, 
-        phone: emp.phone || '', 
-        email: emp.email || '', 
-        departmentId: emp.departmentId || null, 
-        positionId: emp.positionId || null, 
-        status: emp.status ?? true,
-        faceImageUrl: isUrl ? emp.faceImageUrl : null
-    })
-    showModal.value = true
-}
-
-function closeModal() { showModal.value = false; modalError.value = ''; faceFile.value = null; facePreview.value = null; urlError.value = false; }
-
-async function handleSubmit() {
-    // Validate name
-    runNameValidation()
-    if (!empNameValidation.isValid) {
-        modalError.value = empNameValidation.error || 'Họ và tên không hợp lệ'
-        return
-    }
-    // Normalize name
-    modalForm.fullName = normalizeVietnameseName(modalForm.fullName)
-
-    saving.value = true; modalError.value = ''
-    try {
-        const data = { fullName: modalForm.fullName, phone: modalForm.phone || null, email: modalForm.email || null, departmentId: modalForm.departmentId || null, positionId: modalForm.positionId || null }
-        
-        if (uploadMode.value === 'url') {
-            data.faceImageUrl = modalForm.faceImageUrl || '';
-        } else if (uploadMode.value === 'file') {
-            if (!faceFile.value && !facePreview.value) {
-                data.faceImageUrl = '';
-            }
-        }
-
-        let employeeId = editingId.value
-        if (isEditing.value) { data.status = modalForm.status; await update(editingId.value, data) } 
-        else { data.status = true; const res = await create(data); employeeId = res.data.employeeId }
-        
-        if (uploadMode.value === 'file' && faceFile.value && employeeId) await uploadFace(employeeId, faceFile.value)
-        showToast(isEditing.value ? 'Đã lưu thay đổi' : 'Đã tạo hồ sơ nhân sự')
-        closeModal(); await Promise.all([fetchEmployees(), fetchEmployeeSummary()])
-    } catch (err) { modalError.value = err.response?.data?.message || 'Có lỗi khi lưu dữ liệu' } 
-    finally { saving.value = false }
-}
-
-function handleFaceSelect(e) {
-    const f = e.target.files[0]; if (!f) return; e.target.value = ''; faceFile.value = f; facePreview.value = URL.createObjectURL(f);
-}
-function handleDrop(e) {
-    const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) { faceFile.value = f; facePreview.value = URL.createObjectURL(f) }
-}
-function removeFace() { faceFile.value = null; facePreview.value = null }
-
-async function handleFaceUpload(id, e) {
-    const f = e.target.files[0]; if (!f) return; e.target.value = ''
-    try { await uploadFace(id, f); showToast('Cập nhật FaceID thành công!'); await fetchEmployees() } 
-    catch (err) { showToast('Upload FaceID thất bại', 'error') }
-}
-
-function confirmDelete(emp) { deleteTarget.value = emp; modalError.value = ''; showDeleteModal.value = true }
-async function handleDelete() {
-    saving.value = true; modalError.value = ''
-    try { await deleteEmployee(deleteTarget.value.employeeId); showDeleteModal.value = false; showToast('Đã xóa dữ liệu nhân sự'); await Promise.all([fetchEmployees(), fetchEmployeeSummary()]) } 
-    catch (err) { modalError.value = 'Mất kết nối nội bộ' } finally { saving.value = false }
-}
-
-function getInitials(name) { return name ? name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase() : '?' }
-const avColors = [ '#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f43f5e' ]
-function getAvatarColor(id) { return avColors[id % avColors.length] }
-
-async function hydrateEmployeeAvatars(list) {
-    releaseProtectedAvatars()
-    const entries = await Promise.all((list || []).map(async (emp) => {
-        if (!emp?.employeeId || !emp?.faceImageUrl || emp.faceImageUrl.startsWith('http')) {
-            return [emp?.employeeId, '']
-        }
-        try {
-            const response = await getProtectedFaceImage(emp.employeeId)
-            return [emp.employeeId, URL.createObjectURL(response.data)]
-        } catch {
-            return [emp.employeeId, '']
-        }
-    }))
-    protectedAvatarUrls.value = Object.fromEntries(entries.filter(([id]) => !!id))
-}
-
-function getEmployeeAvatarSrc(emp) {
-    if (!emp?.faceImageUrl) return ''
-    if (emp.faceImageUrl.startsWith('http://') || emp.faceImageUrl.startsWith('https://')) return emp.faceImageUrl
-    return protectedAvatarUrls.value[emp.employeeId] || ''
-}
-
-function markEmployeeAvatarBroken(employeeId, event) {
-    if (event?.target) event.target.style.display = 'none'
-    if (!employeeId || brokenEmployeeAvatarIds.value[employeeId]) return
-    brokenEmployeeAvatarIds.value = { ...brokenEmployeeAvatarIds.value, [employeeId]: true }
-}
-
-function releaseProtectedAvatars() {
-    Object.values(protectedAvatarUrls.value).forEach((url) => {
-        if (url) URL.revokeObjectURL(url)
-    })
-    protectedAvatarUrls.value = {}
-}
-
-onMounted(async () => {
-    if (route.query.search) { searchQuery.value = route.query.search }
-    try { const [dRes, pRes] = await Promise.all([getDepartments(), getPositions()]); departments.value = dRes.data; positions.value = pRes.data } catch {}
-    await Promise.all([fetchEmployees(), fetchEmployeeSummary()])
-})
-
-onBeforeUnmount(() => {
-    releaseProtectedAvatars()
-})
-
-watch(() => route.query.search, (val) => { if (val !== undefined) { searchQuery.value = val; fetchEmployees() } })
+function applyQuery(){searchQuery.value=String(route.query.search||'');filterStatus.value=['true','false'].includes(String(route.query.status))?String(route.query.status):'';currentPage.value=Math.max(1,Number(route.query.page)||1);sortKey.value=['fullName','status'].includes(String(route.query.sort))?String(route.query.sort):'fullName';sortDirection.value=route.query.direction==='desc'?'desc':'asc'}
+function commitFilters(){router.replace({query:{...route.query,search:searchQuery.value.trim()||undefined,status:filterStatus.value||undefined,page:undefined}})}
+function debouncedCommitFilters(){clearTimeout(searchTimer);searchTimer=setTimeout(commitFilters,350)}
+function clearFilters(){searchQuery.value='';filterStatus.value='';commitFilters()}
+function setPage(page){router.replace({query:{...route.query,page:page>1?page:undefined}})}
+function handleSort(key){const direction=sortKey.value===key&&sortDirection.value==='asc'?'desc':'asc';router.replace({query:{...route.query,sort:key==='fullName'?undefined:key,direction:direction==='asc'?undefined:direction}})}
+async function fetchEmployees(){loading.value=true;loadError.value='';permissionDenied.value=false;try{const params={};if(searchQuery.value.trim())params.search=searchQuery.value.trim();if(filterStatus.value!=='')params.status=filterStatus.value==='true';const response=await getAll(params);employees.value=response.data||[];await hydrateEmployeeAvatars(employees.value);if(currentPage.value>totalPages.value)setPage(totalPages.value)}catch(err){if(err.response?.status===403)permissionDenied.value=true;else loadError.value=err.response?.data?.message||'Không thể tải danh sách nhân viên.'}finally{loading.value=false}}
+async function fetchEmployeeSummary(){try{const data=await getEmployeeSummary();employeeSummary.value={totalEmployees:data?.totalEmployees||0,activeEmployees:data?.activeEmployees||0,inactiveEmployees:data?.inactiveEmployees||0}}catch{employeeSummary.value={totalEmployees:employees.value.length,activeEmployees:employees.value.filter(item=>item.status).length,inactiveEmployees:employees.value.filter(item=>!item.status).length}}}
+function resetValidation(){Object.assign(empNameValidation,{touched:false,isValid:false,error:''})}
+function runNameValidation(){const value=modalForm.fullName?.trim();if(!value){empNameValidation.isValid=false;empNameValidation.error='Họ và tên là bắt buộc.';return}const result=validateVietnameseName(value);empNameValidation.isValid=result.isValid;empNameValidation.error=result.error}
+function snapshotForm(){formBaseline.value=formState.value}
+function openCreateModal(){isEditing.value=false;editingId.value=null;modalError.value='';faceFile.value=null;facePreview.value='';uploadMode.value='file';urlError.value=false;resetValidation();Object.assign(modalForm,{fullName:'',phone:'',email:'',departmentId:null,positionId:null,status:true,faceImageUrl:''});showModal.value=true;queueMicrotask(snapshotForm)}
+function openEditModal(emp){isEditing.value=true;editingId.value=emp.employeeId;modalError.value='';faceFile.value=null;urlError.value=false;const isUrl=/^https?:\/\//.test(emp.faceImageUrl||'');uploadMode.value=isUrl?'url':'file';facePreview.value=emp.faceImageUrl&&!isUrl?getEmployeeAvatarSrc(emp):'';Object.assign(modalForm,{fullName:emp.fullName,phone:emp.phone||'',email:emp.email||'',departmentId:emp.departmentId||null,positionId:emp.positionId||null,status:emp.status??true,faceImageUrl:isUrl?emp.faceImageUrl:''});resetValidation();runNameValidation();showModal.value=true;queueMicrotask(snapshotForm)}
+function requestCloseModal(){if(formDirty.value){showDiscardDialog.value=true;return}closeModal(true)}
+function closeModal(force=false){if(!force&&formDirty.value)return requestCloseModal();showModal.value=false;showDiscardDialog.value=false;modalError.value='';faceFile.value=null;if(facePreview.value?.startsWith('blob:'))URL.revokeObjectURL(facePreview.value);facePreview.value=''}
+async function handleSubmit(){empNameValidation.touched=true;runNameValidation();if(!empNameValidation.isValid)return;saving.value=true;modalError.value='';try{modalForm.fullName=normalizeVietnameseName(modalForm.fullName);const data={fullName:modalForm.fullName,phone:modalForm.phone||null,email:modalForm.email||null,departmentId:modalForm.departmentId||null,positionId:modalForm.positionId||null};if(uploadMode.value==='url')data.faceImageUrl=modalForm.faceImageUrl||'';else if(!faceFile.value&&!facePreview.value)data.faceImageUrl='';let id=editingId.value;if(isEditing.value){data.status=modalForm.status;await update(id,data)}else{data.status=true;id=(await create(data)).data.employeeId}if(uploadMode.value==='file'&&faceFile.value&&id)await uploadFace(id,faceFile.value);closeModal(true);success(isEditing.value?'Đã lưu thay đổi':'Đã tạo hồ sơ nhân viên');await Promise.all([fetchEmployees(),fetchEmployeeSummary()])}catch(err){modalError.value=err.response?.data?.message||'Không thể lưu hồ sơ. Dữ liệu bạn nhập vẫn được giữ lại.'}finally{saving.value=false}}
+function handleFaceSelect(event){const file=event.target.files?.[0];event.target.value='';if(!file)return;if(facePreview.value?.startsWith('blob:'))URL.revokeObjectURL(facePreview.value);faceFile.value=file;facePreview.value=URL.createObjectURL(file)}
+function handleDrop(event){const file=event.dataTransfer.files?.[0];if(file?.type.startsWith('image/'))handleFaceSelect({target:{files:[file],value:''}})}
+function removeFace(){faceFile.value=null;if(facePreview.value?.startsWith('blob:'))URL.revokeObjectURL(facePreview.value);facePreview.value=''}
+function requestFaceUpload(employee){faceUploadTarget.value=employee;faceUploadInput.value?.click()}
+async function handleFaceUpload(event){const file=event.target.files?.[0];event.target.value='';if(!file||!faceUploadTarget.value)return;try{await uploadFace(faceUploadTarget.value.employeeId,file);success('Đã cập nhật Face ID');await fetchEmployees()}catch{showError('Không thể cập nhật Face ID','Tệp ảnh chưa được lưu. Vui lòng thử lại.')}finally{faceUploadTarget.value=null}}
+function confirmDelete(employee){deleteTarget.value=employee;showDeleteModal.value=true}
+async function handleDelete(){if(!deleteTarget.value)return;saving.value=true;try{await deleteEmployee(deleteTarget.value.employeeId);showDeleteModal.value=false;success('Đã xóa hồ sơ nhân viên');await Promise.all([fetchEmployees(),fetchEmployeeSummary()])}catch(err){showError('Không thể xóa nhân viên',err.response?.data?.message||'Máy chủ không xử lý được yêu cầu.')}finally{saving.value=false}}
+function onImportComplete(result){showImportModal.value=false;Promise.all([fetchEmployees(),fetchEmployeeSummary()]);const message=`${result.successCount} bản ghi thành công${result.errorCount?`, ${result.errorCount} lỗi`:''}`;result.errorCount?showError('Import hoàn tất có lỗi',message):success('Import hoàn tất',message)}
+function getInitials(name){return name?name.split(' ').filter(Boolean).slice(-2).map(word=>word[0]).join('').toUpperCase():'?'}
+async function hydrateEmployeeAvatars(list){releaseProtectedAvatars();const entries=await Promise.all((list||[]).map(async employee=>{if(!employee?.employeeId||!employee.faceImageUrl||/^https?:\/\//.test(employee.faceImageUrl))return[employee?.employeeId,''];try{return[employee.employeeId,URL.createObjectURL((await getProtectedFaceImage(employee.employeeId)).data)]}catch{return[employee.employeeId,'']}}));protectedAvatarUrls.value=Object.fromEntries(entries.filter(([id])=>id))}
+function getEmployeeAvatarSrc(employee){if(!employee?.faceImageUrl||brokenEmployeeAvatarIds.value[employee.employeeId])return'';return /^https?:\/\//.test(employee.faceImageUrl)?employee.faceImageUrl:protectedAvatarUrls.value[employee.employeeId]||''}
+function markEmployeeAvatarBroken(id,event){if(event?.target)event.target.hidden=true;brokenEmployeeAvatarIds.value={...brokenEmployeeAvatarIds.value,[id]:true}}
+function releaseProtectedAvatars(){Object.values(protectedAvatarUrls.value).forEach(url=>url&&URL.revokeObjectURL(url));protectedAvatarUrls.value={}}
+function handleBeforeUnload(event){if(!formDirty.value)return;event.preventDefault();event.returnValue=''}
+onMounted(async()=>{applyQuery();window.addEventListener('beforeunload',handleBeforeUnload);try{const[d,p]=await Promise.all([getDepartments(),getPositions()]);departments.value=d.data;positions.value=p.data}catch{}await Promise.all([fetchEmployees(),fetchEmployeeSummary()])})
+onBeforeUnmount(()=>{clearTimeout(searchTimer);window.removeEventListener('beforeunload',handleBeforeUnload);releaseProtectedAvatars();if(facePreview.value?.startsWith('blob:'))URL.revokeObjectURL(facePreview.value)})
+watch(()=>route.query,async()=>{applyQuery();await fetchEmployees()},{deep:true})
 </script>
 
 <style scoped>
-/* Page Layout */
-.bento-header { margin-bottom: 24px; padding: 0 4px; display: flex; justify-content: space-between; align-items: center; }
-.bento-header .greeting h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
-.bento-header .greeting p { color: var(--text-secondary); font-size: 0.95rem; }
-
-/* Grid Mini */
-.bento-grid-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
-.bento-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-lg); padding: 24px; }
-.stat-card { display: flex; align-items: center; gap: 16px; transition: transform var(--transition-normal); }
-.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.stat-icon-wrapper { width: 56px; height: 56px; border-radius: 14px; display: flex; justify-content: center; align-items: center; }
-.stat-icon-wrapper svg { width: 28px; height: 28px; }
-.stat-icon-wrapper.blue { background: rgba(16, 121, 196, 0.1); color: var(--accent-primary); }
-.stat-icon-wrapper.green { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); }
-.stat-icon-wrapper.red { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); }
-.stat-val { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
-.stat-val.green { color: var(--accent-success); }
-.stat-val.red { color: var(--accent-danger); }
-.stat-lbl { font-size: 0.9rem; color: var(--text-muted); font-weight: 500;}
-
-/* Table Box */
-.table-section { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 500px; }
-.table-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
-.search-box { position: relative; width: 320px; display: flex; align-items: center; }
-.search-icon { position: absolute; left: 14px; color: var(--text-muted); width: 18px; }
-.search-box input { width: 100%; padding: 10px 14px 10px 42px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); outline: none; transition: border 0.2s; }
-.search-box input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(16, 121, 196, 0.2); }
-.minimal-select { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; outline: none; }
-
-/* Table Elements */
-.sleek-table-container { flex: 1; overflow-x: auto; }
-.sleek-table { width: 100%; border-collapse: collapse; text-align: left; }
-.sleek-table th { padding: 16px 24px; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.1); }
-.sleek-table td { padding: 18px 24px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-.table-row { transition: background var(--transition-fast); }
-.table-row:hover { background: var(--bg-card-hover); cursor: default; }
-
-.user-cell { display: flex; align-items: center; gap: 14px; }
-.avatar, .avatar-img { width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; color: white; object-fit: cover; }
-.user-info { display: flex; flex-direction: column; }
-.user-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
-.user-id { font-size: 0.8rem; color: var(--text-muted); font-family: monospace; }
-
-.contact-cell { display: flex; flex-direction: column; gap: 4px; }
-.contact-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
-.contact-item svg { width: 14px; color: var(--text-muted); }
-
-.role-cell { display: flex; flex-direction: column; gap: 2px; }
-.dept { font-weight: 500; font-size: 0.9rem; color: var(--text-primary); }
-.pos { font-size: 0.8rem; color: var(--accent-primary); }
-
-.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;}
-.status-pill.active { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); }
-.status-pill.inactive { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); }
-.pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-.action-menu { display: flex; gap: 8px; justify-content: flex-end; }
-.icon-btn { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
-.icon-btn svg { width: 18px; }
-.icon-btn:hover { background: var(--bg-input); color: var(--text-primary); }
-.icon-btn.danger:hover { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); }
-
-/* Spinners & Empties */
-.empty-layout { padding: 60px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 16px; }
-.spinner-lg { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Modern Modals */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 16px;}
-.modern-modal { background: var(--bg-card); width: 100%; max-width: 520px; max-height: 90vh; border-radius: var(--border-radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-xl); overflow: hidden; display: flex; flex-direction: column;}
-.modern-modal.mini { max-width: 420px; }
-.modal-top { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--border-color); }
-.modal-top.borderless { border: none; padding-bottom: 0; }
-.modal-top h3 { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin: 0;}
-.icon-close { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 24px; transition: color 0.2s; }
-.icon-close:hover { color: var(--accent-danger); }
-
-.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.input-pane { display: flex; flex-direction: column; gap: 8px; }
-.input-pane label { font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); }
-.req { color: var(--accent-danger); }
-
-.sleek-input, .sleek-select { width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); outline: none; transition: border 0.2s; font-size: 0.9rem; }
-.sleek-input:focus, .sleek-select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(16, 121, 196, 0.15); }
-
-.face-dropzone { border: 2px dashed var(--border-color); border-radius: 12px; height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s; background: rgba(0,0,0,0.1); }
-.face-dropzone:hover { border-color: var(--accent-primary); background: rgba(16, 121, 196, 0.05); }
-.dropzone-text { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-muted); }
-.dropzone-text svg { width: 36px; height: 36px; color: var(--text-secondary); }
-.face-preview-img { width: 100%; height: 100%; object-fit: contain; }
-
-.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-.modal-actions:not(.centered) .btn { width: auto; flex: 0 0 auto; }
-.modal-actions.centered { justify-content: center; }
-
-/* Notice elements */
-.alert-box { padding: 12px 16px; border-radius: 8px; font-size: 0.9rem; }
-.alert-box.error { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); border: 1px solid rgba(239, 68, 68, 0.2); }
-
-/* Name validation feedback */
-.name-feedback { margin-top: 4px; font-size: 0.82rem; display: flex; align-items: center; }
-.feedback-success { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-success); font-weight: 500; }
-.feedback-error { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-danger); font-weight: 500; }
-.input-error { border-color: var(--accent-danger) !important; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important; }
-.input-success { border-color: var(--accent-success) !important; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15) !important; }
-
-.btn-text.danger { background: none; color: var(--accent-danger); border: none; font-size: 0.85rem; cursor: pointer;}
-.warning-icon svg { width: 48px; height: 48px; color: var(--accent-danger); margin-bottom: 16px; }
-.text-danger { color: var(--accent-danger); }
-.mt-4 { margin-top: 24px; }
-.mt-1 { margin-top: 4px; }
-.text-right { text-align: right; }
-.text-center { text-align: center; }
-
-/* Toast Modern */
-.toast-card { position: fixed; bottom: 30px; right: 30px; padding: 16px 24px; border-radius: 12px; background: var(--bg-card); color: var(--text-primary); font-weight: 600; box-shadow: var(--shadow-xl); z-index: 9999; border: 1px solid var(--border-color); }
-.toast-card.success { background: var(--accent-success); color: #fff; border: none;}
-.toast-card.error { background: var(--accent-danger); color: #fff; border: none;}
-
-.modal-enter-active, .modal-leave-active, .toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; transform: scale(0.95); }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(20px); }
-
-@media (max-width: 992px) { .bento-grid-mini { grid-template-columns: 1fr; } }
-@media (max-width: 768px) {
-    .grid-2 { grid-template-columns: 1fr; }
-    .table-toolbar { flex-direction: column; gap: 16px; align-items: stretch;}
-    .search-box { width: 100%; }
-    .modern-modal { max-width: 100%; max-height: 95vh; border-radius: 12px; }
-    .modal-backdrop { padding: 8px; }
-    .modal-body { padding: 16px; gap: 12px; }
-    .modal-top { padding: 16px; }
-    .face-dropzone { height: 100px; }
-}
-
-/* Face mode tabs */
-.face-input-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.pill-btn { padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
-.pill-btn:hover { background: var(--bg-input); }
-.pill-btn.active { background: rgba(16, 121, 196, 0.1); color: var(--accent-primary); border-color: rgba(16, 121, 196, 0.3); font-weight: 600; }
-.url-preview { margin-top: 12px; cursor: default; border-style: solid; height: 120px; }
+.employees-page{display:grid;gap:var(--space-6)}
+.summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-4)}
+.summary-grid span,.summary-grid small{display:block;color:var(--text-secondary);font-size:var(--type-caption-size);line-height:var(--type-caption-line)}
+.summary-grid strong{display:block;margin-block:var(--space-2);font-size:var(--type-h2-size);line-height:var(--type-h2-line)}
+.list-panel{display:grid;gap:var(--space-4)}
+.list-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4)}
+.list-toolbar h2{font-size:var(--type-h2-size);line-height:var(--type-h2-line)}.list-toolbar p{color:var(--text-muted);font-size:var(--type-body-size)}
+.filter-bar{display:grid;grid-template-columns:minmax(240px,1fr) minmax(170px,220px) auto auto;gap:var(--space-2);width:min(100%,760px)}
+.identity-cell{display:flex;align-items:center;gap:var(--space-3)}.identity-cell>span:last-child,.stacked-cell{display:grid;gap:var(--space-1)}.identity-cell small,.stacked-cell small{color:var(--text-muted)}
+.avatar{width:40px;height:40px;flex:0 0 40px;border-radius:var(--radius-pill);object-fit:cover}.avatar-fallback{display:grid;place-items:center;color:var(--text-on-interactive);font-weight:800;background:var(--interactive-primary)}.tone-1{background:var(--interactive-secondary)}.tone-2{background:var(--status-success-text)}.tone-3{background:var(--status-warning-text)}.tone-4{background:var(--status-danger-text)}
+.row-actions,.pagination-actions,.mode-actions{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}.pagination-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);color:var(--text-secondary);font-size:var(--type-body-size)}
+.employee-form{display:grid;gap:var(--space-5)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+.face-section{display:grid;gap:var(--space-3);padding:var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-card)}.face-section legend{padding-inline:var(--space-2);font-weight:700}
+.face-upload{display:grid;gap:var(--space-2)}.dropzone{min-height:140px;display:grid;place-items:center;padding:var(--space-4);border:1px dashed var(--border-strong);border-radius:var(--radius-control);background:var(--surface-subtle);color:var(--text-secondary)}.dropzone:hover{background:var(--surface-hover)}.dropzone img,.url-preview{max-height:180px;margin-inline:auto;border-radius:var(--radius-control);object-fit:contain}
+.form-error{padding:var(--space-3);border:1px solid var(--status-danger-border);border-radius:var(--radius-control);background:var(--status-danger-bg);color:var(--status-danger-text);font-size:var(--type-body-size)}
+@media(max-width:1024px){.list-toolbar{align-items:stretch;display:grid}.filter-bar{width:100%}}
+@media(max-width:768px){.summary-grid{grid-template-columns:1fr}.filter-bar,.form-grid{grid-template-columns:1fr}.pagination-bar{align-items:flex-start;display:grid}.pagination-actions{flex-wrap:wrap}.row-actions{flex-wrap:wrap}}
 </style>

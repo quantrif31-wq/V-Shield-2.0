@@ -74,7 +74,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in attendances" :key="item.attendanceId">
+                        <tr v-for="item in paginatedAttendances" :key="item.attendanceId">
                             <td>{{ item.employeeName }}</td>
                             <td>{{ item.departmentName || '--' }}</td>
                             <td>{{ formatDate(item.workDate) }}</td>
@@ -102,6 +102,26 @@
                         </tr>
                     </tbody>
                 </table>
+                <footer class="pagination-bar">
+                    <div class="pagination-info">
+                        <span>Hiển thị {{ attendances.length ? (currentPage - 1) * pageSize + 1 : 0 }}–{{ Math.min(currentPage * pageSize, attendances.length) }} trong {{ attendances.length }} bản ghi</span>
+                        <span class="page-size-selector">
+                            · Số dòng:
+                            <select v-model="pageSize" class="size-select" @change="currentPage = 1">
+                                <option :value="5">5</option>
+                                <option :value="10">10</option>
+                                <option :value="15">15</option>
+                                <option :value="20">20</option>
+                                <option :value="50">50</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="pagination-actions">
+                        <button class="btn btn-secondary btn-sm" :disabled="currentPage <= 1" @click="currentPage--">Trang trước</button>
+                        <span>Trang {{ currentPage }} / {{ totalPages }}</span>
+                        <button class="btn btn-secondary btn-sm" :disabled="currentPage >= totalPages" @click="currentPage++">Trang sau</button>
+                    </div>
+                </footer>
             </div>
         </section>
 
@@ -247,7 +267,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { authState } from '../stores/auth'
 import { getAll as getEmployees } from '../services/employeeApi'
 import { getDepartments } from '../services/lookupApi'
@@ -270,6 +290,13 @@ const myEmployeeId = authState.user?.employeeId || null
 const attendances = ref([])
 const employees = ref([])
 const departments = ref([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalPages = computed(() => Math.max(1, Math.ceil(attendances.value.length / pageSize.value)))
+const paginatedAttendances = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value
+    return attendances.value.slice(start, start + pageSize.value)
+})
 const loading = ref(false)
 const actionLoading = ref(false)
 const error = ref('')
@@ -445,6 +472,7 @@ const loadLookup = async () => {
 }
 
 const loadAttendances = async () => {
+    currentPage.value = 1
     loading.value = true
     error.value = ''
     try {
@@ -849,6 +877,36 @@ onMounted(async () => {
     font-size: 0.78rem;
     color: var(--text-muted);
     font-style: italic;
+}
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    background: var(--surface-default);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+.pagination-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.pagination-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.size-select {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 2px 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    margin-left: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
 }
 </style>
 

@@ -54,6 +54,21 @@
                 <span v-if="pendingCount" class="notification-count">{{ pendingCount }}</span>
             </button>
 
+            <button
+                type="button"
+                class="header-action"
+                :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang chế độ phòng điều khiển tối'"
+                :title="isDark ? 'Giao diện sáng' : 'Chế độ phòng điều khiển'"
+                @click="toggleTheme"
+            >
+                <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/>
+                </svg>
+            </button>
+
             <div class="header-user-wrap">
                 <button type="button" class="header-user" @click="toggleUserMenu">
                     <div class="user-avatar">{{ userInitial }}</div>
@@ -80,6 +95,14 @@
                             <div class="dropdown-summary">
                                 <span>Truy cập hiện tại</span>
                                 <strong>{{ pageTitle }}</strong>
+                            </div>
+
+                            <div class="dropdown-summary preference-summary">
+                                <span>Mật độ hiển thị</span>
+                                <div class="density-actions" role="group" aria-label="Mật độ hiển thị">
+                                    <button type="button" :aria-pressed="density === 'comfortable'" @click="setDensity('comfortable')">Thoải mái</button>
+                                    <button type="button" :aria-pressed="density === 'compact'" @click="setDensity('compact')">Gọn</button>
+                                </div>
                             </div>
 
                             <button type="button" class="dropdown-item" @click="handleLogout">
@@ -237,6 +260,7 @@ import {
 import { enterpriseApi } from '../../services/enterpriseSecurityApi'
 import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
 import { socApi } from '../../services/socApi'
+import { usePreferences } from '../../composables/usePreferences'
 
 defineProps({
     collapsed: Boolean,
@@ -255,7 +279,7 @@ const currentDate = ref('')
 const dbNotifications = ref([])
 const unreadCount = ref(0)
 const ackLoading = ref({})
-const audioUnlocked = ref(false)
+const { density, isDark, setDensity, toggleTheme } = usePreferences()
 
 const severityLegend = [
     { key: 'success', label: 'Chat' },
@@ -615,10 +639,7 @@ function closeDropdowns() {
     showUserMenu.value = false
 }
 
-async function toggleNotifications() {
-    try {
-        await unlockAudio()
-    } catch {}
+function toggleNotifications() {
     showNotifications.value = !showNotifications.value
     showUserMenu.value = false
 }
@@ -703,84 +724,11 @@ function handleDocumentClick(event) {
 let timer = null
 let removeNotificationSubscription = null
 let removeUnreadSubscription = null
-let audioContext = null
-let alarmTimer = null
-
-async function unlockAudio() {
-    if (typeof window === 'undefined') return
-
-    if (!audioContext) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext
-        if (!AudioContextClass) return
-        audioContext = new AudioContextClass()
-    }
-
-    if (audioContext.state === 'suspended') {
-        await audioContext.resume()
-    }
-
-    audioUnlocked.value = audioContext.state === 'running'
-}
-
-function playCriticalPulse() {
-    if (!audioContext || audioContext.state !== 'running') {
-        return
-    }
-
-    const startAt = audioContext.currentTime + 0.01
-    const gainNode = audioContext.createGain()
-    gainNode.gain.value = 0
-    gainNode.connect(audioContext.destination)
-
-    ;[
-        { at: 0, frequency: 880, duration: 0.18, volume: 0.12 },
-        { at: 0.26, frequency: 660, duration: 0.18, volume: 0.1 },
-    ].forEach((tone) => {
-        const oscillator = audioContext.createOscillator()
-        oscillator.type = 'square'
-        oscillator.frequency.setValueAtTime(tone.frequency, startAt + tone.at)
-        oscillator.connect(gainNode)
-
-        gainNode.gain.setValueAtTime(0.0001, startAt + tone.at)
-        gainNode.gain.exponentialRampToValueAtTime(tone.volume, startAt + tone.at + 0.02)
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + tone.at + tone.duration)
-
-        oscillator.start(startAt + tone.at)
-        oscillator.stop(startAt + tone.at + tone.duration)
-    })
-}
-
-function stopCriticalAlarm() {
-    if (alarmTimer) {
-        window.clearInterval(alarmTimer)
-        alarmTimer = null
-    }
-}
-
-function syncCriticalAlarm() {
-    const hasCriticalSecurityAlert = normalizedSecurityAlerts.value.some(
-        (item) => item.isActive && item.severity === 'critical'
-    )
-
-    if (!hasCriticalSecurityAlert || !audioUnlocked.value) {
-        stopCriticalAlarm()
-        return
-    }
-
-    if (alarmTimer) {
-        return
-    }
-
-    playCriticalPulse()
-    alarmTimer = window.setInterval(playCriticalPulse, 2400)
-}
 
 onMounted(async () => {
     updateTime()
     timer = window.setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
-    document.addEventListener('pointerdown', unlockAudio, { passive: true })
-    document.addEventListener('keydown', unlockAudio)
 
     await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts()])
 
@@ -804,11 +752,8 @@ onUnmounted(() => {
         window.clearInterval(timer)
     }
     document.removeEventListener('click', handleDocumentClick)
-    document.removeEventListener('pointerdown', unlockAudio)
-    document.removeEventListener('keydown', unlockAudio)
     removeNotificationSubscription?.()
     removeUnreadSubscription?.()
-    stopCriticalAlarm()
     disconnectNotificationHub()
 })
 
@@ -828,23 +773,37 @@ watch(
     }
 )
 
-watch(
-    () => normalizedSecurityAlerts.value.map((item) => `${item.id}-${item.severity}-${item.isActive}`).join('|'),
-    () => {
-        syncCriticalAlarm()
-    },
-    { immediate: true }
-)
-
-watch(
-    () => audioUnlocked.value,
-    () => {
-        syncCriticalAlarm()
-    }
-)
 </script>
 
 <style scoped>
+.preference-summary {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.density-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--surface-subtle);
+}
+
+.density-actions button {
+    min-height: 34px;
+    border-radius: calc(var(--radius-control) - 3px);
+    color: var(--text-secondary);
+    font-size: var(--type-caption-size);
+    font-weight: 700;
+}
+
+.density-actions button[aria-pressed='true'] {
+    background: var(--surface-default);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-xs);
+}
 .app-header {
     position: fixed;
     top: 16px;

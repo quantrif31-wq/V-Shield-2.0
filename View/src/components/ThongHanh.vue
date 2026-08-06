@@ -125,6 +125,10 @@
               </span>
             </div>
 
+            <div v-if="lane.face.serviceErrorMessage" class="lane-service-error" role="status">
+              {{ lane.face.serviceErrorMessage }}
+            </div>
+
             <div class="cam-preview">
               <img
                 v-if="lane.face.previewRunning && lane.face.directCameraUrl"
@@ -243,9 +247,8 @@
 
 <script>
 
-import * as faceLane1Api from "../services/faceApi"
+import * as faceApi from "../services/faceApi"
 import * as plateLane1Api from "../services/plateCameraApi"
-import * as faceLane2Api from "../services/faceApi"
 import * as plateLane2Api from "../services/plateCameraApi"
 import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
 import { scanGate } from "../services/gateTransitApi"
@@ -275,6 +278,8 @@ function createFaceModule() {
     message: "",
     fps: 0,
     lastUpdate: "",
+    serviceErrorCode: "",
+    serviceErrorMessage: "",
 
     directCameraUrl: "",
     directCameraKey: 0,
@@ -331,20 +336,24 @@ export default {
       lanes: [
         {
           id: "lane1",
+          laneId: "lane-1",
+          faceCameraId: "lane-1-face",
           name: "Làn 1",
           desc: "Face trên / Biển dưới",
           loading: false,
-          faceApi: faceLane1Api,
+          faceApi,
           plateApi: plateLane1Api,
           face: createFaceModule(),
           plate: createPlateModule()
         },
         {
           id: "lane2",
+          laneId: "lane-2",
+          faceCameraId: "lane-2-face",
           name: "Làn 2",
           desc: "Face trên / Biển dưới",
           loading: false,
-          faceApi: faceLane2Api,
+          faceApi,
           plateApi: plateLane2Api,
           face: createFaceModule(),
           plate: createPlateModule()
@@ -548,6 +557,30 @@ export default {
       face.busyResult = false
     },
 
+    clearLaneFaceError(lane) {
+      lane.face.serviceErrorCode = ""
+      lane.face.serviceErrorMessage = ""
+    },
+
+    handleLaneFaceError(lane, error, { polling = false } = {}) {
+      const normalized = faceApi.normalizeFaceApiError(error)
+      if (normalized.cancelled || lane.face.destroyed) return
+
+      const isNewError = lane.face.serviceErrorCode !== normalized.code
+      lane.face.serviceErrorCode = normalized.code
+      lane.face.serviceErrorMessage = normalized.message
+      lane.face.message = normalized.message
+      lane.face.cameraConnected = false
+
+      if (faceApi.shouldStopFacePolling(normalized)) {
+        this.stopFaceLoop(lane)
+      }
+
+      if (!polling && isNewError) {
+        alert(`${lane.name}: ${normalized.message}`)
+      }
+    },
+
     stopPlateLoop(lane) {
       const plate = lane.plate
       if (plate.resultTimer) {
@@ -593,7 +626,8 @@ export default {
 
     async loadStatusFace(lane) {
       try {
-        const res = await lane.faceApi.getCameraStatus()
+        const res = await lane.faceApi.getCameraStatus(lane.faceCameraId)
+        this.clearLaneFaceError(lane)
         await this.applyFaceRealtimeState(lane, res, false)
 
         if (lane.face.currentIp) {
@@ -601,7 +635,7 @@ export default {
           this.mountPreview(lane.face, lane.face.currentIp)
         }
       } catch (e) {
-        console.error("loadStatusFace error:", e)
+        this.handleLaneFaceError(lane, e, { polling: true })
       }
     },
 
@@ -621,10 +655,11 @@ export default {
 
     async refreshFace(lane) {
       try {
-        const res = await lane.faceApi.getCameraResult()
+        const res = await lane.faceApi.getCameraResult(lane.faceCameraId)
+        this.clearLaneFaceError(lane)
         await this.applyFaceRealtimeState(lane, res, true)
       } catch (e) {
-        console.warn("refreshFace error:", e)
+        this.handleLaneFaceError(lane, e, { polling: true })
       }
     },
 
@@ -650,7 +685,8 @@ export default {
 
       face.isFetchingLockedImages = true
       try {
-        const res = await lane.faceApi.getLockedImages()
+        const res = await lane.faceApi.getLockedImages(lane.faceCameraId)
+        this.clearLaneFaceError(lane)
         if (res?.scan_locked) {
           face.lockedSnapshot = res.locked_snapshot || ""
           face.lockedFaceCrop = res.locked_face_crop || ""
@@ -659,7 +695,7 @@ export default {
           face.lockedFaceCrop = ""
         }
       } catch (e) {
-        console.warn("fetchFaceLockedImages error:", e)
+        this.handleLaneFaceError(lane, e, { polling: true })
       } finally {
         face.isFetchingLockedImages = false
       }
@@ -869,7 +905,12 @@ export default {
 
         if (!lane.face.cameraRunning) {
           this.stopFaceLoop(lane)
-          const resFace = await lane.faceApi.turnOnCamera(lane.face.currentIp)
+          const resFace = await lane.faceApi.startCamera(
+            lane.faceCameraId,
+            lane.face.currentIp,
+            lane.laneId
+          )
+          this.clearLaneFaceError(lane)
           if (!resFace?.success) {
             alert(resFace?.message || "Không thể khởi tạo Face")
             return
@@ -877,7 +918,8 @@ export default {
           lane.face.cameraRunning = true
           lane.face.message = resFace.message || "Khởi tạo Face thành công"
         } else {
-          const resFace = await lane.faceApi.resetCameraState()
+          const resFace = await lane.faceApi.resetCamera(lane.faceCameraId)
+          this.clearLaneFaceError(lane)
           lane.face.message = resFace?.message || "Đã reset Face"
         }
 
@@ -909,8 +951,12 @@ export default {
         if (!lane.face.resultTimer) this.startFaceLoop(lane)
         if (!lane.plate.resultTimer) this.startPlateLoop(lane)
       } catch (e) {
-        console.error("readAllLane error:", e)
-        alert(e?.message || "Lỗi đọc cả 2")
+        if (e?.isFaceApiError) {
+          this.handleLaneFaceError(lane, e)
+        } else {
+          console.error("readAllLane error:", e)
+          alert(e?.message || "Lỗi đọc cả 2")
+        }
       } finally {
         lane.loading = false
       }
@@ -939,7 +985,12 @@ export default {
 
         if (!lane.face.cameraRunning) {
           this.stopFaceLoop(lane)
-          const res = await lane.faceApi.turnOnCamera(lane.face.currentIp)
+          const res = await lane.faceApi.startCamera(
+            lane.faceCameraId,
+            lane.face.currentIp,
+            lane.laneId
+          )
+          this.clearLaneFaceError(lane)
           if (!res?.success) {
             alert(res?.message || "Không thể khởi tạo Face")
             return
@@ -947,15 +998,15 @@ export default {
           lane.face.cameraRunning = true
           lane.face.message = res.message || "Khởi tạo Face thành công"
         } else {
-          const res = await lane.faceApi.resetCameraState()
+          const res = await lane.faceApi.resetCamera(lane.faceCameraId)
+          this.clearLaneFaceError(lane)
           lane.face.message = res?.message || "Đã reset Face"
         }
 
         await this.refreshFace(lane)
         if (!lane.face.resultTimer) this.startFaceLoop(lane)
       } catch (e) {
-        console.error("retryFace error:", e)
-        alert(e?.message || "Lỗi đọc lại Face")
+        this.handleLaneFaceError(lane, e)
       } finally {
         lane.loading = false
       }
@@ -1022,10 +1073,11 @@ export default {
         this.stopPlateLoop(lane)
 
         try {
-          const resFace = await lane.faceApi.turnOffCamera()
+          const resFace = await lane.faceApi.stopCamera(lane.faceCameraId)
+          this.clearLaneFaceError(lane)
           lane.face.message = resFace?.message || "Đã tắt Face"
         } catch (e) {
-          console.warn("turnOff face warning:", e)
+          this.handleLaneFaceError(lane, e)
         }
 
         try {
@@ -1322,6 +1374,17 @@ export default {
   margin-bottom: 10px;
   font-size: 14px;
   font-weight: 800;
+}
+
+.lane-service-error {
+  margin: -2px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .mini-status {

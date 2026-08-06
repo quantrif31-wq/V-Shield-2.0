@@ -24,7 +24,11 @@ COPY requirements.txt ./
 RUN sed 's/^opencv-python==/opencv-python-headless==/' requirements.txt > requirements.docker.txt \
     && pip install --no-cache-dir -r requirements.docker.txt
 
-COPY FaceID.py ./
 COPY nhandienface.py ./
+COPY runtime_config.py ./
+COPY model_registry.py ./
+COPY enrollment_service.py ./
+COPY camera_session.py ./
+COPY camera_manager.py ./
 
-EXPOSE 5001 8000
+EXPOSE 5001

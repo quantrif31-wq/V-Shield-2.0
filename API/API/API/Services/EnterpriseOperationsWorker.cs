@@ -122,6 +122,8 @@ public class EnterpriseOperationsWorker : BackgroundService
                 item.State != "Escalated" &&
                 item.CreatedAtUtc <= now.AddMinutes(-15) &&
                 (item.Severity == "High" || item.Severity == "Critical"))
+            .OrderBy(item => item.CreatedAtUtc)
+            .ThenBy(item => item.AlarmId)
             .Take(50)
             .ToListAsync(cancellationToken);
 
@@ -165,6 +167,8 @@ public class EnterpriseOperationsWorker : BackgroundService
             .Where(item =>
                 item.Status == "CheckedIn" &&
                 item.ExpectedOutUtc < now)
+            .OrderBy(item => item.ExpectedOutUtc)
+            .ThenBy(item => item.VisitId)
             .Take(50)
             .ToListAsync(cancellationToken);
 
@@ -198,6 +202,8 @@ public class EnterpriseOperationsWorker : BackgroundService
                 item.LastSeenAtUtc <= now.AddMinutes(-5) &&
                 item.Status != "Offline" &&
                 item.Status != "Disabled")
+            .OrderBy(item => item.LastSeenAtUtc)
+            .ThenBy(item => item.SecurityDeviceId)
             .Take(50)
             .ToListAsync(cancellationToken);
 
@@ -233,6 +239,8 @@ public class EnterpriseOperationsWorker : BackgroundService
                 e.LifecycleStatus == EmployeeLifecycleStates.Suspended &&
                 e.LifecycleUpdatedAtUtc != null &&
                 e.LifecycleUpdatedAtUtc <= suspendThreshold)
+            .OrderBy(e => e.LifecycleUpdatedAtUtc)
+            .ThenBy(e => e.EmployeeId)
             .Take(20)
             .ToListAsync(cancellationToken);
 
@@ -287,6 +295,8 @@ public class EnterpriseOperationsWorker : BackgroundService
                 m.LastSyncedAtUtc <= staleSyncThreshold &&
                 m.Employee != null &&
                 m.Employee.LifecycleStatus == EmployeeLifecycleStates.Active)
+            .OrderBy(m => m.LastSyncedAtUtc)
+            .ThenBy(m => m.ExternalIdentityMappingId)
             .Take(20)
             .ToListAsync(cancellationToken);
 
@@ -338,6 +348,8 @@ public class EnterpriseOperationsWorker : BackgroundService
                 r.Status == "Pending" &&
                 r.ExpiresAtUtc != null &&
                 r.ExpiresAtUtc <= now)
+            .OrderBy(r => r.ExpiresAtUtc)
+            .ThenBy(r => r.OperationalInterventionRequestId)
             .Take(100)
             .ToListAsync(cancellationToken);
 

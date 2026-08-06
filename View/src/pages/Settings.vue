@@ -238,9 +238,9 @@ import {
   isRtspCameraUrl,
   normalizeCameraUrl,
 } from "../utils/cameraNetwork"
+import { discoverIpWebcams } from "../services/faceApi"
 
 const SYSTEM_SETTINGS_STORAGE_KEY = "vshield-system-settings-v1"
-const DISCOVERY_API_BASE = `${API_BASE_URL}/FaceID`
 const CAMERA_PROBE_TIMEOUT_MS = 3500
 
 const activeTab = ref("general")
@@ -561,7 +561,7 @@ const discoverLanCameras = async () => {
   discoveryLoading.value = true
   clearDiscoveryState()
   try {
-    const { data } = await axios.get(`${DISCOVERY_API_BASE}/discover-ipwebcam`)
+    const data = await discoverIpWebcams()
     discoveredCameras.value = Array.isArray(data?.cameras) ? data.cameras : []
 
     const nextSelections = { ...discoveredTargetIds.value }

@@ -19,5 +19,6 @@ namespace API.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public virtual Employee Employee { get; set; } = null!;
+        public virtual ICollection<FaceEnrollmentJob> EnrollmentJobs { get; set; } = new List<FaceEnrollmentJob>();
     }
 }

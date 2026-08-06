@@ -13,7 +13,6 @@
 - Proxy sang AI services:
   - Face camera service (mac dinh `127.0.0.1:5001/api`)
   - Plate service (mac dinh `127.0.0.1:5002/api`)
-  - FaceId service (mac dinh `127.0.0.1:8000`)
 - Runtime orchestration (bat/tat process) qua `RuntimeOrchestrator`
 
 3. AI Runtime (`AI_Runtime`)
@@ -39,9 +38,8 @@
 3. API -> SQL Server (EF Core)
 4. API -> Python Face camera (`AiServices:FaceCameraBaseUrl`)
 5. API -> Python Plate (`AiServices:PlateBaseUrl`)
-6. API -> Python FaceId (`AiServices:FaceIdBaseUrl`)
-7. Frontend -> QR service truc tiep (mot so tinh nang goi `VITE_QR_API_BASE_URL`, fallback `http://localhost:8001`)
-8. API -> go2rtc/cloudflared qua process management (hien dang legacy local process)
+6. Frontend -> QR service truc tiep (mot so tinh nang goi `VITE_QR_API_BASE_URL`, fallback `http://localhost:8001`)
+7. API -> go2rtc/cloudflared qua process management (hien dang legacy local process)
 
 ---
 
@@ -57,9 +55,8 @@
 2. API
 - `appsettings*.json`: mac dinh localhost/127.0.0.1 cho AI services + origins
 - Controller fallback:
-  - `FaceCameraController` fallback `http://127.0.0.1:5001/api`
+  - `FaceCameraController` dung typed client voi `http://127.0.0.1:5001/api` trong local development
   - `PlateCameraController` fallback `http://127.0.0.1:5002/api`
-  - `FaceRecognitionController` fallback `http://127.0.0.1:8000`
 - CORS fallback hardcode localhost ports trong `Program.cs`
 
 3. Runtime orchestration
@@ -100,7 +97,7 @@
 3. Tach AI runtime thanh cac container rieng
 - `qr-runtime` (8001)
 - `plate-runtime` (5002)
-- co the bo sung `face-runtime`/`faceid-runtime` tuy code thuc te dang dung
+- `face-runtime` (5001 noi bo), runtime Face ID duy nhat chay `nhandienface.py`
 
 4. Compose quan ly startup sequence + healthcheck
 - API cho db/ai healthy roi moi nhan request.

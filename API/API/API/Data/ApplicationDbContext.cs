@@ -42,6 +42,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
 
     public virtual DbSet<Camera> Cameras { get; set; }
+    public virtual DbSet<FaceCameraConfiguration> FaceCameraConfigurations { get; set; }
     public DbSet<RecordedSegment> RecordedSegments { get; set; }
     public virtual DbSet<CameraPlate> CameraPlates { get; set; }
 
@@ -69,6 +70,9 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<VisitorDetail> VisitorDetails { get; set; }
     public virtual DbSet<EmployeeFaceVideo> EmployeeFaceVideos { get; set; }
     public virtual DbSet<EmployeeFaceModel> EmployeeFaceModels { get; set; }
+    public virtual DbSet<FaceEnrollmentJob> FaceEnrollmentJobs { get; set; }
+    public virtual DbSet<FaceRecognitionEvent> FaceRecognitionEvents { get; set; }
+    public virtual DbSet<FaceRecognitionCollectorCheckpoint> FaceRecognitionCollectorCheckpoints { get; set; }
     public virtual DbSet<EmployeeDynamicQr> EmployeeDynamicQrs { get; set; }
     public virtual DbSet<DynamicQrScanLog> DynamicQrScanLogs { get; set; }
     public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
@@ -81,6 +85,7 @@ public partial class ApplicationDbContext : DbContext
 
     public override int SaveChanges()
     {
+        EnsureFaceAccessDecisionsAreAppendOnly();
         if (_isWritingAudit)
             return base.SaveChanges();
 
@@ -132,6 +137,7 @@ public partial class ApplicationDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        EnsureFaceAccessDecisionsAreAppendOnly();
         if (_isWritingAudit)
             return await base.SaveChangesAsync(cancellationToken);
 
@@ -178,6 +184,16 @@ public partial class ApplicationDbContext : DbContext
         finally
         {
             _isWritingAudit = false;
+        }
+    }
+
+    private void EnsureFaceAccessDecisionsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<FaceAccessDecision>().Any(x =>
+                x.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "FaceAccessDecision records are immutable and append-only.");
         }
     }
 
@@ -432,8 +448,47 @@ public partial class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Employee)
                   .WithMany()
                   .HasForeignKey(e => e.EmployeeId)
-                  .OnDelete(DeleteBehavior.Cascade)
+                  .OnDelete(DeleteBehavior.Restrict)
                   .HasConstraintName("FK_EmployeeFaceVideo_Employee");
+        });
+        modelBuilder.Entity<FaceEnrollmentJob>(entity =>
+        {
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.Property(e => e.QualityScore).HasPrecision(9, 6);
+            entity.Property(e => e.DuplicateDistance).HasPrecision(9, 6);
+            entity.HasIndex(e => e.EmployeeId)
+                .IsUnique()
+                .HasFilter("[Status] IN ('Pending','Processing','Prepared','Activating','RecoveryRequired')")
+                .HasDatabaseName("UX_FaceEnrollmentJobs_NonTerminalEmployee");
+            entity.HasIndex(e => new { e.Status, e.CreatedAtUtc })
+                .HasDatabaseName("IX_FaceEnrollmentJobs_Status_CreatedAtUtc");
+            entity.HasOne(e => e.Employee).WithMany()
+                .HasForeignKey(e => e.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.EmployeeFaceVideo).WithMany(e => e.EnrollmentJobs)
+                .HasForeignKey(e => e.EmployeeFaceVideoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RequestedByUser).WithMany()
+                .HasForeignKey(e => e.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<FaceRecognitionEvent>(entity =>
+        {
+            entity.HasIndex(e => e.RuntimeEventId).IsUnique();
+            entity.HasIndex(e => e.OccurredAtUtc);
+            entity.HasIndex(e => new { e.EmployeeId, e.OccurredAtUtc });
+            entity.HasIndex(e => new { e.CameraId, e.OccurredAtUtc });
+            entity.HasIndex(e => new { e.FaceCameraConfigurationId, e.OccurredAtUtc });
+            entity.HasIndex(e => e.MatchStatus);
+            entity.HasOne(e => e.Employee).WithMany().HasForeignKey(e => e.EmployeeId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.EmployeeFaceModel).WithMany().HasForeignKey(e => e.EmployeeFaceModelId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.FaceCameraConfiguration).WithMany()
+                .HasForeignKey(e => e.FaceCameraConfigurationId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Lane).WithMany().HasForeignKey(e => e.LaneId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<FaceRecognitionCollectorCheckpoint>(entity =>
+        {
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
         });
         modelBuilder.Entity<EmployeeFaceModel>(entity =>
         {
@@ -448,11 +503,39 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                   .HasDefaultValueSql("(getdate())");
 
+            entity.Property(e => e.Status).HasMaxLength(20);
+            entity.Property(e => e.ModelChecksum).HasMaxLength(64);
+            entity.Property(e => e.FailureCode).HasMaxLength(80);
+            entity.Property(e => e.FailureMessage).HasMaxLength(500);
+            entity.Property(e => e.RowVersion).IsRowVersion().IsConcurrencyToken();
+
+            entity.HasIndex(e => e.ModelFileName)
+                  .IsUnique()
+                  .HasDatabaseName("UX_EmployeeFaceModels_ModelFileName");
+            entity.HasIndex(e => new { e.EmployeeId, e.Version })
+                  .IsUnique()
+                  .HasFilter("[Version] IS NOT NULL")
+                  .HasDatabaseName("UX_EmployeeFaceModels_EmployeeId_Version");
+            entity.HasIndex(e => e.EmployeeId)
+                  .HasDatabaseName("IX_EmployeeFaceModels_EmployeeId");
+            entity.HasIndex(e => new { e.EmployeeId, e.Status })
+                  .IsUnique()
+                  .HasFilter("[Status] = 'Active'")
+                  .HasDatabaseName("UX_EmployeeFaceModels_ActiveEmployee");
+            entity.HasIndex(e => e.SourceEnrollmentJobId)
+                  .IsUnique()
+                  .HasFilter("[SourceEnrollmentJobId] IS NOT NULL")
+                  .HasDatabaseName("UX_EmployeeFaceModels_SourceEnrollmentJobId");
+
             entity.HasOne(e => e.Employee)
                   .WithMany()
                   .HasForeignKey(e => e.EmployeeId)
                   .OnDelete(DeleteBehavior.Cascade)
                   .HasConstraintName("FK_EmployeeFaceModel_Employee");
+            entity.HasOne(e => e.SourceEnrollmentJob)
+                  .WithOne(e => e.ResultModel)
+                  .HasForeignKey<EmployeeFaceModel>(e => e.SourceEnrollmentJobId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Department>(entity =>

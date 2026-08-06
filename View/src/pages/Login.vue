@@ -9,11 +9,10 @@
 
         <div class="login-shell animate-in">
             <section class="login-story">
-                <span class="story-eyebrow">V-Shield Control Room</span>
-                <h1>Kiểm soát ra vào với giao diện rõ ngữ cảnh, phản hồi nhanh và đủ tin cậy để vận hành mỗi ngày.</h1>
+                <span class="story-eyebrow">Trung tâm điều phối V-Shield</span>
+                <h1>Kiểm soát ra vào rõ ràng và tin cậy.</h1>
                 <p class="story-copy">
-                    Theo dõi nhân sự, phương tiện và camera trên cùng một mặt phẳng điều phối.
-                    Mọi quyết định truy cập đều được gắn với dữ liệu nhận diện và lịch sử sự kiện rõ ràng.
+                    Theo dõi nhân sự, phương tiện, camera và cảnh báo trên cùng một không gian vận hành.
                 </p>
 
                 <div class="story-metrics">
@@ -33,10 +32,10 @@
 
                 <div class="story-panel">
                     <div class="panel-heading">
-                        <span class="panel-chip">Live pipeline</span>
+                        <span class="panel-chip">Luồng vận hành</span>
                         <span class="panel-status">
                             <span class="panel-dot"></span>
-                            Ready
+                            Sẵn sàng
                         </span>
                     </div>
 
@@ -76,7 +75,7 @@
                         </svg>
                     </div>
                     <div>
-                        <span class="brand-kicker">Secure sign in</span>
+                        <span class="brand-kicker">Đăng nhập an toàn</span>
                         <h2>Truy cập trung tâm điều phối</h2>
                     </div>
                 </div>
@@ -86,15 +85,11 @@
                         Đăng nhập bằng tài khoản được cấp để theo dõi camera, kiểm tra lịch sử
                         và xử lý cảnh báo ngay tại trung tâm điều phối.
                     </p>
-                    <div class="login-badges">
-                        <span>Phân quyền theo vai trò</span>
-                        <span>Giám sát tập trung</span>
-                    </div>
                 </div>
 
-                <form class="login-form" @submit.prevent="handleLogin">
+                <form class="login-form" novalidate @submit.prevent="handleLogin">
                     <div class="form-group">
-                        <label for="username">Tài khoản quản trị</label>
+                        <label for="username">Tên đăng nhập</label>
                         <div class="input-shell">
                             <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
@@ -115,7 +110,7 @@
                     <div class="form-group">
                         <div class="label-row">
                             <label for="password">Mật khẩu truy cập</label>
-                            <span class="field-hint">Bảo mật cấp vận hành</span>
+                            <span class="field-hint" title="Liên hệ quản trị viên nếu bạn không thể đăng nhập">Không thể đăng nhập?</span>
                         </div>
                         <div class="input-shell">
                             <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -154,7 +149,7 @@
                     <div v-if="mfaRequired" class="form-group">
                         <div class="label-row">
                             <label for="mfa-code">Mã xác thực 6 số</label>
-                            <span class="field-hint">Authenticator</span>
+                            <span class="field-hint">Ứng dụng xác thực</span>
                         </div>
                         <div class="input-shell">
                             <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -164,6 +159,7 @@
                             </svg>
                             <input
                                 id="mfa-code"
+                                ref="mfaInputRef"
                                 v-model="form.mfaCode"
                                 type="text"
                                 inputmode="numeric"
@@ -171,9 +167,12 @@
                                 placeholder="Nhập mã đang hiện trên ứng dụng"
                                 autocomplete="one-time-code"
                                 :disabled="loading"
+                                aria-describedby="mfa-help"
+                                @input="normalizeMfaCode"
                                 @keydown.enter.prevent="handleLogin"
                             />
                         </div>
+                        <p id="mfa-help" class="mfa-help">Mở ứng dụng xác thực và nhập mã gồm 6 chữ số đang hiển thị.</p>
                     </div>
 
                     <div v-if="mfaSetupSecret" class="mfa-setup">
@@ -192,7 +191,7 @@
                     </div>
 
                     <transition name="slide-error">
-                        <div v-if="feedbackMessage" class="login-alert" :class="feedbackType">
+                        <div v-if="feedbackMessage" class="login-alert" :class="feedbackType" :role="feedbackType === 'danger' ? 'alert' : 'status'" aria-live="polite">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                 <circle cx="12" cy="12" r="10" />
                                 <path d="M12 8v4" />
@@ -202,10 +201,9 @@
                         </div>
                     </transition>
 
-                    <button type="submit" class="btn-login" :disabled="loading">
-                        <span v-if="loading" class="spinner"></span>
-                        <span v-else>Vào trung tâm điều phối</span>
-                    </button>
+                    <BaseButton type="submit" size="large" class="btn-login" :loading="loading" :disabled="loading">
+                        {{ mfaRequired ? 'Xác thực và đăng nhập' : 'Vào trung tâm điều phối' }}
+                    </BaseButton>
                 </form>
 
                 <div v-if="ssoProviders.length" class="sso-divider">
@@ -248,13 +246,15 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import QRCode from 'qrcode'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { login } from '../stores/auth'
 import { identityApi } from '../services/identityApi'
+import BaseButton from '../components/ui/BaseButton.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const form = reactive({ username: '', password: '', mfaCode: '' })
 const loading = ref(false)
@@ -266,6 +266,7 @@ const mfaRequired = ref(false)
 const mfaSetupSecret = ref('')
 const mfaSetupUri = ref('')
 const mfaQrDataUrl = ref('')
+const mfaInputRef = ref(null)
 let redirectTimer = null
 const ssoProviders = ref([])
 
@@ -294,6 +295,11 @@ async function handleSSO(provider) {
 function setFeedback(message, type = 'danger') {
     feedbackMessage.value = message
     feedbackType.value = type
+}
+
+function normalizeMfaCode(event) {
+    const normalized = String(event.target.value || '').replace(/\D/g, '').slice(0, 6)
+    if (form.mfaCode !== normalized) form.mfaCode = normalized
 }
 
 async function updateMfaQr(uri) {
@@ -348,23 +354,28 @@ async function handleLogin() {
             mfaSetupUri.value = result.mfaSetupUri || ''
             await updateMfaQr(mfaSetupUri.value)
             feedbackType.value = 'danger'
-            feedbackMessage.value = result.message || 'Tai khoan can ma xac thuc hai lop.'
+            feedbackMessage.value = result.message || 'Tài khoản cần mã xác thực hai lớp.'
+            await nextTick()
+            mfaInputRef.value?.focus()
             return
         }
 
         feedbackType.value = 'success'
         feedbackMessage.value = 'Đăng nhập thành công. Đang chuyển vào trung tâm điều phối...'
         redirectTimer = setTimeout(() => {
-            router.push('/')
+            const requestedPath = String(route.query.redirect || '')
+            router.push(requestedPath.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/')
         }, 900)
     } catch (err) {
         if (err.response?.status === 401) {
-            mfaRequired.value = false
-            mfaSetupSecret.value = ''
-            mfaSetupUri.value = ''
-            mfaQrDataUrl.value = ''
-            form.mfaCode = ''
-            error.value = 'Sai tài khoản hoặc mật khẩu.'
+            if (mfaRequired.value) {
+                form.mfaCode = ''
+                error.value = 'Mã xác thực không đúng hoặc đã hết hạn. Vui lòng thử mã mới.'
+                await nextTick()
+                mfaInputRef.value?.focus()
+                return
+            }
+            error.value = 'Tên đăng nhập hoặc mật khẩu không đúng.'
             return
         } else if (err.code === 'ERR_NETWORK') {
             error.value = 'Không thể kết nối tới Core Server. Vui lòng kiểm tra API.'
@@ -390,8 +401,9 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 28px;
-    overflow: hidden;
+    padding: 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .login-bg {
@@ -443,29 +455,29 @@ onUnmounted(() => {
 .login-shell {
     position: relative;
     z-index: 1;
-    width: min(1040px, 100%);
+    width: min(1080px, 100%);
     display: grid;
-    grid-template-columns: minmax(380px, 440px) minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: minmax(390px, 460px) minmax(0, 1fr);
+    gap: 16px;
     align-items: center;
 }
 
 .login-story,
 .login-card {
-    border: 1px solid rgba(255, 255, 255, 0.66);
-    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--surface-default) 92%, transparent);
     backdrop-filter: var(--glass-blur);
     box-shadow: var(--shadow-lg);
 }
 
 .login-story {
     order: 2;
-    padding: 28px 30px;
-    border-radius: 32px;
+    padding: 24px 26px;
+    border-radius: var(--radius-panel);
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 18px;
+    gap: 16px;
 }
 
 .story-eyebrow {
@@ -484,10 +496,10 @@ onUnmounted(() => {
 
 .login-story h1 {
     font-family: var(--font-heading);
-    font-size: clamp(1.95rem, 3vw, 2.7rem);
+    font-size: clamp(2.25rem, 3vw, 3rem);
     font-weight: 700;
     line-height: 1.08;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.025em;
     color: var(--text-primary);
     max-width: 15ch;
 }
@@ -640,12 +652,12 @@ onUnmounted(() => {
 
 .login-card {
     order: 1;
-    border-radius: 28px;
-    padding: 30px 28px;
+    border-radius: var(--radius-panel);
+    padding: 26px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 20px;
+    gap: 16px;
 }
 
 .brand-lockup {
@@ -691,11 +703,11 @@ onUnmounted(() => {
 
 .login-intro {
     display: grid;
-    gap: 12px;
-    padding: 14px 16px;
-    border-radius: 18px;
-    background: rgba(236, 244, 246, 0.62);
-    border: 1px solid rgba(24, 49, 77, 0.08);
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: var(--radius-card);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
 }
 
 .login-intro p {
@@ -725,8 +737,7 @@ onUnmounted(() => {
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    margin-top: 6px;
+    gap: 16px;
 }
 
 .label-row {
@@ -741,6 +752,13 @@ onUnmounted(() => {
     font-size: 0.75rem;
 }
 
+.mfa-help {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: var(--type-caption-size);
+    line-height: var(--type-caption-line);
+}
+
 .input-shell {
     position: relative;
 }
@@ -749,8 +767,8 @@ onUnmounted(() => {
     width: 100%;
     min-height: 52px;
     padding: 0 48px 0 46px;
-    border-radius: 16px;
-    border: 1px solid rgba(24, 49, 77, 0.12);
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border-default);
     background: var(--bg-input);
     color: var(--text-primary);
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -872,7 +890,7 @@ onUnmounted(() => {
     align-items: flex-start;
     gap: 10px;
     padding: 14px 16px;
-    border-radius: 16px;
+    border-radius: var(--radius-control);
     font-size: 0.88rem;
     line-height: 1.45;
 }
@@ -913,18 +931,16 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    border-radius: 18px;
+    border-radius: var(--radius-control);
     background: var(--accent-gradient);
     color: #fff;
     font-weight: 700;
-    box-shadow: 0 18px 34px rgba(15, 124, 130, 0.22);
+    box-shadow: var(--shadow-sm);
     transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
 }
 
 .btn-login:hover:not(:disabled) {
-    transform: translateY(-1px);
-    filter: brightness(1.03);
-    box-shadow: 0 22px 42px rgba(15, 124, 130, 0.3);
+    box-shadow: var(--shadow-md);
 }
 
 .btn-login:disabled {
@@ -1013,13 +1029,14 @@ onUnmounted(() => {
 .btn-sso:disabled { opacity: 0.6; cursor: not-allowed; }
 .sso-icon { width: 18px; height: 18px; color: var(--text-muted); }
 
-@media (max-width: 1080px) {
+@media (max-width: 900px) {
     .login-shell {
         grid-template-columns: 1fr;
+        width: min(480px, 100%);
     }
 
-    .login-story h1 {
-        max-width: none;
+    .login-story {
+        display: none;
     }
 }
 
@@ -1030,19 +1047,34 @@ onUnmounted(() => {
 
     .login-story,
     .login-card {
-        padding: 22px;
-        border-radius: 24px;
+        padding: 20px;
+        border-radius: var(--radius-panel);
     }
 
-    .story-metrics,
-    .login-footer {
+    .story-metrics {
         grid-template-columns: 1fr;
+    }
+
+    .login-footer {
+        display: none;
     }
 
     .label-row {
         align-items: flex-start;
         flex-direction: column;
         gap: 4px;
+    }
+}
+
+@media (max-height: 760px) and (min-width: 901px) {
+    .story-panel,
+    .login-footer {
+        display: none;
+    }
+
+    .login-card,
+    .login-story {
+        padding: 22px;
     }
 }
 </style>

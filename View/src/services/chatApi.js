@@ -1,17 +1,21 @@
 import http from './http'
 import * as signalR from '@microsoft/signalr'
 import { API_ORIGIN } from '../config/api'
+import { captureError, captureEvent } from './observability'
+import { getRealtimeStatus, markRealtimeUpdated, onRealtimeStatus, updateRealtimeStatus } from './realtimeStatus'
 
 const API_URL = import.meta.env.VITE_API_URL || API_ORIGIN
 const AUTH_TOKEN_KEY = 'v_shield_token'
 
 let connection = null
-let messageCallbacks = []
-let typingCallbacks = []
-let readCallbacks = []
-let callCallbacks = []
-let callResponseCallbacks = []
-let callEndedCallbacks = []
+let connectionPromise = null
+let staleTimer = null
+const messageCallbacks = new Set()
+const typingCallbacks = new Set()
+const readCallbacks = new Set()
+const callCallbacks = new Set()
+const callResponseCallbacks = new Set()
+const callEndedCallbacks = new Set()
 
 function createClientMessageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -33,18 +37,19 @@ export async function connectChatHub(token) {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
     return connection
   }
-
-  const accessToken = token || readAuthToken()
+  if (connectionPromise) return connectionPromise
+  if (connection && [signalR.HubConnectionState.Connecting, signalR.HubConnectionState.Reconnecting].includes(connection.state)) return connection
 
   connection = new signalR.HubConnectionBuilder()
     .withUrl(`${API_URL}/hubs/chat`, {
-      accessTokenFactory: () => accessToken
+      accessTokenFactory: () => readAuthToken() || token || ''
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .configureLogging(signalR.LogLevel.Warning)
     .build()
 
   connection.on('ReceiveMessage', (msg) => {
+    markRealtimeUpdated('chat')
     messageCallbacks.forEach(cb => cb(msg))
   })
 
@@ -69,59 +74,90 @@ export async function connectChatHub(token) {
   })
 
   connection.onreconnecting(() => {
-    console.log('ChatHub reconnecting...')
+    updateRealtimeStatus('chat', 'reconnecting')
+    captureEvent('signalr_reconnecting', { channel: 'chat' }, 'warning')
+    clearTimeout(staleTimer)
+    staleTimer = setTimeout(() => updateRealtimeStatus('chat', 'stale'), 15000)
   })
 
-  connection.onreconnected(() => {
-    console.log('ChatHub reconnected')
+  connection.onreconnected((connectionId) => {
+    clearTimeout(staleTimer)
+    updateRealtimeStatus('chat', 'live', { connectionId, lastUpdated: new Date().toISOString() })
+    captureEvent('signalr_reconnected', { channel: 'chat' })
   })
 
-  await connection.start()
-  return connection
+  connection.onclose((error) => {
+    clearTimeout(staleTimer)
+    updateRealtimeStatus('chat', 'disconnected', { connectionId: null })
+    captureEvent('signalr_disconnected', { channel: 'chat', reason: error?.name || 'closed' }, error ? 'error' : 'warning')
+  })
+
+  updateRealtimeStatus('chat', 'connecting')
+  const activeConnection = connection
+  connectionPromise = activeConnection.start()
+    .then(() => {
+      updateRealtimeStatus('chat', 'live', { connectionId: activeConnection.connectionId, lastUpdated: new Date().toISOString() })
+      captureEvent('signalr_connected', { channel: 'chat' })
+      return activeConnection
+    })
+    .catch((error) => {
+      if (connection === activeConnection) connection = null
+      updateRealtimeStatus('chat', 'disconnected', { connectionId: null })
+      captureError(error, 'signalr_connection_failure', { channel: 'chat' })
+      throw error
+    })
+    .finally(() => { connectionPromise = null })
+  return connectionPromise
 }
 
-export function disconnectChatHub() {
-  if (connection) {
-    connection.stop()
-    connection = null
-  }
-  messageCallbacks = []
-  typingCallbacks = []
-  readCallbacks = []
-  callCallbacks = []
-  callResponseCallbacks = []
-  callEndedCallbacks = []
+export async function disconnectChatHub() {
+  const activeConnection = connection
+  connection = null
+  connectionPromise = null
+  clearTimeout(staleTimer)
+  staleTimer = null
+  if (activeConnection) await activeConnection.stop()
+  messageCallbacks.clear()
+  typingCallbacks.clear()
+  readCallbacks.clear()
+  callCallbacks.clear()
+  callResponseCallbacks.clear()
+  callEndedCallbacks.clear()
+  updateRealtimeStatus('chat', 'disconnected', { connectionId: null })
 }
 
 export function onMessage(callback) {
-  messageCallbacks.push(callback)
-  return () => { messageCallbacks = messageCallbacks.filter(c => c !== callback) }
+  messageCallbacks.add(callback)
+  return () => messageCallbacks.delete(callback)
 }
 
 export function onTyping(callback) {
-  typingCallbacks.push(callback)
-  return () => { typingCallbacks = typingCallbacks.filter(c => c !== callback) }
+  typingCallbacks.add(callback)
+  return () => typingCallbacks.delete(callback)
 }
 
 export function onRead(callback) {
-  readCallbacks.push(callback)
-  return () => { readCallbacks = readCallbacks.filter(c => c !== callback) }
+  readCallbacks.add(callback)
+  return () => readCallbacks.delete(callback)
 }
 
 export function onIncomingCall(callback) {
-  callCallbacks.push(callback)
-  return () => { callCallbacks = callCallbacks.filter(c => c !== callback) }
+  callCallbacks.add(callback)
+  return () => callCallbacks.delete(callback)
 }
 
 export function onCallResponse(callback) {
-  callResponseCallbacks.push(callback)
-  return () => { callResponseCallbacks = callResponseCallbacks.filter(c => c !== callback) }
+  callResponseCallbacks.add(callback)
+  return () => callResponseCallbacks.delete(callback)
 }
 
 export function onCallEnded(callback) {
-  callEndedCallbacks.push(callback)
-  return () => { callEndedCallbacks = callEndedCallbacks.filter(c => c !== callback) }
+  callEndedCallbacks.add(callback)
+  return () => callEndedCallbacks.delete(callback)
 }
+
+export const onChatConnectionState = (callback) => onRealtimeStatus('chat', callback)
+export const getChatConnectionState = () => getRealtimeStatus('chat')
 
 export async function sendMessage(conversationId, content, messageType = 'Text', signalingData = null, clientMessageId = createClientMessageId()) {
   const trimmedContent = String(content || '').trim()

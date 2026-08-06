@@ -1,945 +1,170 @@
 <template>
-    <div class="page-container animate-in">
-        <header class="page-header bento-header">
-            <div class="greeting">
-                <h1 class="page-title">Đăng ký trước</h1>
-                <p class="page-subtitle">Quản lý đơn đăng ký khách thăm quan trước khi đến</p>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-primary" @click="showCreateLinkModal = true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
-                        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
-                        <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
-                    </svg>
-                    Tạo link đăng ký
-                </button>
-            </div>
-        </header>
+  <div class="page-container visitor-page">
+    <PageHeader
+      title="Đăng ký khách trước"
+      description="Theo dõi yêu cầu, phê duyệt khách và phát hành đường dẫn đăng ký an toàn."
+      :breadcrumbs="[{ label: 'Khách' }, { label: 'Đăng ký trước' }]"
+    >
+      <template #actions>
+        <BaseButton variant="secondary" :loading="isLoading" @click="refreshPage">Làm mới</BaseButton>
+        <BaseButton @click="openCreateLink">Tạo link đăng ký</BaseButton>
+      </template>
+    </PageHeader>
 
-        <div class="bento-grid-mini" style="grid-template-columns: repeat(4, 1fr);">
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper blue">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val blue">{{ stats.total }}</div>
-                    <div class="stat-lbl">Tổng đơn</div>
-                </div>
-            </div>
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper orange" style="background: rgba(249, 115, 22, 0.1); color: var(--accent-warning);">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val" style="color: var(--accent-warning);">{{ stats.pending }}</div>
-                    <div class="stat-lbl">Chờ duyệt</div>
-                </div>
-            </div>
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper green">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M9 12l2 2 4-4" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val green">{{ stats.approved }}</div>
-                    <div class="stat-lbl">Đã duyệt</div>
-                </div>
-            </div>
-            <div class="bento-card stat-card">
-                <div class="stat-icon-wrapper red">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M15 9l-6 6" /><path d="M9 9l6 6" /></svg>
-                </div>
-                <div class="stat-details">
-                    <div class="stat-val red">{{ stats.rejected }}</div>
-                    <div class="stat-lbl">Từ chối</div>
-                </div>
-            </div>
+    <section class="summary-grid" aria-label="Tổng quan đăng ký khách">
+      <BaseCard variant="kpi"><span>Tổng yêu cầu</span><strong>{{ stats.total }}</strong><small>Tất cả đăng ký đã nhận</small></BaseCard>
+      <BaseCard variant="kpi"><span>Chờ duyệt</span><strong>{{ stats.pending }}</strong><small>Cần xử lý bởi lễ tân</small></BaseCard>
+      <BaseCard variant="kpi"><span>Đã duyệt</span><strong>{{ stats.approved }}</strong><small>Sẵn sàng tiếp đón</small></BaseCard>
+      <BaseCard variant="kpi"><span>Đã từ chối</span><strong>{{ stats.rejected }}</strong><small>Không được cấp quyền</small></BaseCard>
+    </section>
+
+    <section class="list-panel" aria-labelledby="visitor-list-title">
+      <div class="list-toolbar">
+        <div><h2 id="visitor-list-title">Danh sách yêu cầu</h2><p>Hiển thị {{ registrations.length }} trong {{ totalItems }} yêu cầu</p></div>
+        <div class="filter-bar" role="search">
+          <BaseInput id="visitor-search" v-model="searchQuery" type="search" aria-label="Tìm khách" placeholder="Tên khách hoặc số điện thoại" @input="debouncedCommitFilters" />
+          <BaseSelect id="visitor-status" v-model="filterStatus" aria-label="Lọc trạng thái" @update:model-value="commitFilters">
+            <option value="">Tất cả trạng thái</option><option value="Pending">Chờ duyệt</option><option value="Approved">Đã duyệt</option><option value="Rejected">Đã từ chối</option>
+          </BaseSelect>
+          <BaseInput id="visitor-date" v-model="filterDate" type="date" aria-label="Lọc theo ngày" @input="commitFilters" />
+          <BaseButton v-if="hasActiveFilters" variant="ghost" @click="clearFilters">Xóa lọc</BaseButton>
         </div>
+      </div>
 
-        <div class="bento-card table-section">
-            <div class="table-toolbar">
-                <div class="search-box">
-                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
-                    <input v-model="searchQuery" type="text" placeholder="Tìm tên khách, SĐT..." />
-                </div>
-                <div class="filter-box" style="display: flex; gap: 12px;">
-                    <select v-model="filterStatus" class="minimal-select">
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="Pending">Chờ duyệt</option>
-                        <option value="Approved">Đã duyệt</option>
-                        <option value="Rejected">Từ chối</option>
-                    </select>
-                    <input v-model="filterDate" type="date" class="minimal-select" />
-                </div>
-            </div>
+      <DataTable
+        :columns="columns"
+        :rows="registrations"
+        row-key="registrationId"
+        :loading="isLoading"
+        :error="loadError"
+        :permission-denied="permissionDenied"
+        empty-title="Chưa có yêu cầu đăng ký"
+        empty-description="Tạo đường dẫn và gửi cho khách để bắt đầu quy trình đăng ký."
+      >
+        <template #retry><BaseButton variant="secondary" @click="refreshPage">Thử lại</BaseButton></template>
+        <template #empty-actions><BaseButton @click="openCreateLink">Tạo link đăng ký</BaseButton></template>
+        <template #cell-guest="{ row }"><div class="identity-cell"><span class="avatar" :class="`tone-${tone(row.guestFullName)}`" aria-hidden="true">{{ getInitials(row.guestFullName) }}</span><span><strong>{{ row.guestFullName || 'Chưa cung cấp tên' }}</strong><small>{{ row.guestPhone || 'Chưa có số điện thoại' }}</small></span></div></template>
+        <template #cell-schedule="{ row }"><div class="stacked-cell"><strong>{{ row.hostEmployeeName || 'Chưa chọn host' }}</strong><small>{{ formatDateTime(row.expectedTimeIn) }} – {{ formatDateTime(row.expectedTimeOut) }}</small></div></template>
+        <template #cell-numberOfVisitors="{ value }">{{ value || 1 }} khách</template>
+        <template #cell-status="{ row }"><StatusBadge :status="statusSemantic(row.status)" :label="getStatusLabel(row.status)" dot /></template>
+        <template #actions="{ row }"><div class="row-actions"><BaseButton variant="ghost" size="small" @click="viewDetail(row.registrationId)">Chi tiết</BaseButton><BaseButton v-if="row.status === 'Pending'" variant="ghost" size="small" @click="handleUpdateStatus(row.registrationId, 'Approved')">Duyệt</BaseButton><BaseButton v-if="row.status === 'Pending'" variant="ghost" size="small" @click="requestReject(row)">Từ chối</BaseButton></div></template>
+      </DataTable>
 
-            <div v-if="isLoading" class="empty-layout">
-                <div class="spinner-lg"></div>
-                <p>Đang tải dữ liệu đăng ký...</p>
-            </div>
-            <div v-else-if="registrations.length === 0" class="empty-layout">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 12px;"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><path d="M9 14l2 2 4-4" /></svg>
-                <p style="font-size: 1.05rem; font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">Chưa có đơn đăng ký nào</p>
-                <p style="font-size: 0.9rem;">Tạo link đăng ký và gửi cho khách để bắt đầu</p>
-            </div>
-            
-            <div v-else class="sleek-table-container">
-                <table class="sleek-table">
-                    <thead>
-                        <tr>
-                            <th>Khách</th>
-                            <th>Host / Thời gian</th>
-                            <th>Khách đi cùng</th>
-                            <th>Trạng thái</th>
-                            <th class="text-right">Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="reg in registrations" :key="reg.registrationId" class="table-row">
-                            <td>
-                                <div class="user-cell">
-                                    <div class="avatar" :style="{ background: getAvatarColor(getInitials(reg.guestFullName)) }">
-                                        {{ getInitials(reg.guestFullName) }}
-                                    </div>
-                                    <div class="user-info">
-                                        <span class="user-name">{{ reg.guestFullName }}</span>
-                                        <span class="user-id">SĐT: {{ reg.guestPhone || '—' }}</span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="host-cell">
-                                    <span class="host-name">Host: {{ reg.hostEmployeeName }}</span>
-                                    <span class="time-range-txt">
-                                        {{ formatDateTime(reg.expectedTimeIn) }} 
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 12px; height: 12px;"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                                        {{ formatDateTime(reg.expectedTimeOut) }}
-                                    </span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="visitors-count">
-                                    {{ reg.numberOfVisitors }} khách
-                                </div>
-                            </td>
-                            <td>
-                                <span class="status-pill minimal" :class="getStatusClass(reg.status)">
-                                    <span class="pill-dot"></span>
-                                    {{ getStatusLabel(reg.status) }}
-                                </span>
-                            </td>
-                            <td class="text-right">
-                                <div class="action-menu">
-                                    <button class="icon-btn" @click="viewDetail(reg.registrationId)" title="Xem chi tiết">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                                    </button>
-                                    <button v-if="reg.status === 'Pending'" class="icon-btn action-approve" @click="handleUpdateStatus(reg.registrationId, 'Approved')" title="Duyệt">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" /></svg>
-                                    </button>
-                                    <button v-if="reg.status === 'Pending'" class="icon-btn action-reject" @click="handleUpdateStatus(reg.registrationId, 'Rejected')" title="Từ chối">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+      <footer v-if="!isLoading && !loadError && registrations.length" class="pagination-bar">
+        <span>Trang {{ currentPage }} / {{ totalPages }}</span>
+        <div class="pagination-actions" aria-label="Phân trang"><BaseButton variant="secondary" size="small" :disabled="currentPage <= 1" @click="setPage(currentPage - 1)">Trang trước</BaseButton><BaseButton variant="secondary" size="small" :disabled="currentPage >= totalPages" @click="setPage(currentPage + 1)">Trang sau</BaseButton></div>
+      </footer>
+    </section>
 
-            <div class="pagination-footer" v-if="registrations.length > 0">
-                <span class="showing-txt">Hiển thị {{ registrations.length }} / {{ totalItems }} đơn</span>
-                <div class="pg-controls">
-                    <button class="pg-btn" :disabled="currentPage <= 1" @click="currentPage--; fetchRegistrations()">‹</button>
-                    <button v-for="p in totalPages" :key="p" class="pg-btn" :class="{ active: p === currentPage }" @click="currentPage = p; fetchRegistrations()">{{ p }}</button>
-                    <button class="pg-btn" :disabled="currentPage >= totalPages" @click="currentPage++; fetchRegistrations()">›</button>
-                </div>
-            </div>
-        </div>
+    <BaseModal :open="showDetailModal" :title="`Chi tiết đăng ký #${detail?.registrationId || ''}`" description="Thông tin khách, đoàn đi cùng và lịch sử kiểm soát." @close="closeDetail">
+      <LoadingSkeleton v-if="isLoadingDetail" variant="card" :lines="5" />
+      <EmptyState v-else-if="detailError" kind="error" title="Không thể tải chi tiết" :description="detailError"><template #actions><BaseButton variant="secondary" @click="viewDetail(detailId)">Thử lại</BaseButton></template></EmptyState>
+      <div v-else-if="detail" class="detail-content">
+        <dl class="detail-grid">
+          <div><dt>Khách đại diện</dt><dd>{{ detail.guestFullName || '—' }}</dd></div><div><dt>Liên hệ</dt><dd>{{ detail.guestPhone || '—' }}</dd></div>
+          <div><dt>Nhân sự host</dt><dd>{{ detail.hostEmployeeName || '—' }}</dd></div><div><dt>Trạng thái</dt><dd><StatusBadge :status="statusSemantic(detail.status)" :label="getStatusLabel(detail.status)" dot /></dd></div>
+          <div class="wide"><dt>Thời gian dự kiến</dt><dd>{{ formatDateTime(detail.expectedTimeIn) }} – {{ formatDateTime(detail.expectedTimeOut) }}</dd></div>
+        </dl>
 
-        <transition name="modal">
-            <div v-if="showDetailModal" class="modal-backdrop" @click.self="showDetailModal = false">
-                <div class="modern-modal" style="max-width: 720px;">
-                    <div class="modal-top">
-                        <h3>Chi tiết Đăng ký #{{ detail?.registrationId }}</h3>
-                        <button class="icon-close" @click="showDetailModal = false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                    </div>
+        <section v-if="detail.visitors?.length" class="detail-section"><h3>Đoàn khách đi cùng ({{ detail.visitors.length }})</h3><article v-for="(visitor, index) in detail.visitors" :key="visitor.visitorId || index" :ref="element => setQrCardRef(element, index, visitor.visitorPortalUrl || visitor.qrCodeData)" class="visitor-card"><div class="identity-cell"><span class="avatar" :class="`tone-${tone(visitor.fullName)}`">{{ getInitials(visitor.fullName) }}</span><span><strong>{{ visitor.fullName }}</strong><small>CCCD: {{ visitor.idCardNumber || '—' }}</small></span></div><div v-if="visitor.visitorPortalUrl || visitor.qrCodeData" class="qr-area"><canvas width="96" height="96" :aria-label="`QR của ${visitor.fullName}`"></canvas><div><small>QR truy cập động</small><div class="row-actions"><BaseButton variant="secondary" size="small" @click="downloadVisitorQr(index, visitor)">Tải QR</BaseButton><BaseButton variant="ghost" size="small" @click="copyText(visitor.visitorPortalUrl || visitor.qrCodeData)">Sao chép</BaseButton></div></div></div></article></section>
 
-                    <div v-if="isLoadingDetail" class="empty-layout">
-                        <div class="spinner-lg"></div>
-                        <p>Đang tải dữ liệu...</p>
-                    </div>
-                    <div v-else-if="detail" class="modal-body scrollable-body">
-                        <div class="detail-section-bento">
-                            <h4 class="bento-subtitle">Thông tin Đăng ký</h4>
-                            <div class="mini-grid-info">
-                                <div class="info-block">
-                                    <span class="lbl">Họ tên Khách</span>
-                                    <span class="val">{{ detail.guestFullName }}</span>
-                                </div>
-                                <div class="info-block">
-                                    <span class="lbl">Liên hệ</span>
-                                    <span class="val">{{ detail.guestPhone || '—' }}</span>
-                                </div>
-                                <div class="info-block">
-                                    <span class="lbl">Nhân sự Host</span>
-                                    <span class="val text-primary">{{ detail.hostEmployeeName }}</span>
-                                </div>
-                                <div class="info-block">
-                                    <span class="lbl">Thời gian Dự kiến</span>
-                                    <span class="val">{{ formatDateTime(detail.expectedTimeIn) }} <br/>đến {{ formatDateTime(detail.expectedTimeOut) }}</span>
-                                </div>
-                                <div class="info-block">
-                                    <span class="lbl">Trạng thái</span>
-                                    <span class="status-pill minimal" :class="getStatusClass(detail.status)" style="margin-top: 4px;">
-                                        <span class="pill-dot"></span>
-                                        {{ getStatusLabel(detail.status) }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+        <section v-if="detail.accessLogs?.length" class="detail-section"><h3>Lịch sử ra vào</h3><ol class="timeline"><li v-for="log in detail.accessLogs" :key="log.logId"><StatusBadge :status="log.direction === 'IN' ? 'success' : 'info'" :label="log.direction === 'IN' ? 'Vào' : 'Ra'" /><span>{{ formatDateTime(log.timestamp) }}</span><small v-if="log.capturedLicensePlate">{{ log.capturedLicensePlate }}</small></li></ol></section>
+      </div>
+      <template v-if="detail?.status === 'Pending'" #footer><BaseButton variant="secondary" :disabled="statusSaving" @click="requestReject(detail)">Từ chối</BaseButton><BaseButton :loading="statusSaving" @click="handleUpdateStatus(detail.registrationId, 'Approved', true)">Duyệt đăng ký</BaseButton></template>
+    </BaseModal>
 
-                        <div v-if="detail.visitors && detail.visitors.length > 0" class="detail-section-bento mt-2">
-    <h4 class="bento-subtitle">Đoàn khách đi cùng ({{ detail.visitors.length }})</h4>
-    <div class="pill-list mt-1">
-        <div
-            v-for="(v, i) in detail.visitors"
-            :key="v.visitorId || i"
-            class="visitor-card visitor-card-qr"
-            :ref="el => setQrCardRef(el, i, v.visitorPortalUrl || v.qrCodeData)"
-        >
-            <div class="visitor-left">
-                <div class="avatar mini" :style="{ background: getAvatarColor(getInitials(v.fullName)) }">
-                    {{ getInitials(v.fullName) }}
-                </div>
-                <div class="v-details">
-                    <span class="v-name">{{ v.fullName }}</span>
-                    <span class="v-id">CCCD: {{ v.idCardNumber || '—' }}</span>
-                </div>
-            </div>
+    <BaseModal :open="showCreateLinkModal" title="Tạo link đăng ký" description="Chọn host chịu trách nhiệm và thời hạn sử dụng của đường dẫn." @close="requestCloseCreateLink">
+      <form v-if="!createdLink" id="visitor-link-form" class="link-form" @submit.prevent="handleCreateLink">
+        <BaseField for-id="visitor-host" label="Nhân sự host" required :error="linkSubmitted && !linkForm.hostEmployeeId ? 'Vui lòng chọn nhân sự host.' : ''" v-slot="field">
+          <BaseSelect id="visitor-host" v-model="linkForm.hostEmployeeId" :describedby="field.describedby" :invalid="field.invalid" :loading="employeesLoading"><option value="">Chọn nhân sự</option><option v-for="employee in employees" :key="employee.employeeId" :value="employee.employeeId">{{ employee.fullName }}{{ employee.departmentName ? ` · ${employee.departmentName}` : '' }}</option></BaseSelect>
+        </BaseField>
+        <BaseField for-id="visitor-expiry" label="Thời gian hiệu lực (giờ)" required hint="Từ 1 đến 168 giờ." :error="expiryError" v-slot="field"><BaseInput id="visitor-expiry" v-model="linkForm.expiryHours" type="number" min="1" max="168" :describedby="field.describedby" :invalid="field.invalid" /></BaseField>
+        <p v-if="linkError" class="form-error" role="alert">{{ linkError }}</p>
+      </form>
+      <div v-else class="success-state" role="status"><StatusBadge status="approved" label="Tạo đường dẫn thành công" dot /><p>Hiệu lực đến {{ formatDateTime(createdLink.expiredAt) }}</p><BaseField for-id="created-registration-link" label="Đường dẫn đăng ký" v-slot="field"><BaseInput id="created-registration-link" :model-value="createdLink.registrationUrl" readonly :describedby="field.describedby" /></BaseField><div class="created-actions"><BaseButton @click="copyText(createdLink.registrationUrl)">{{ copied ? 'Đã sao chép' : 'Sao chép link' }}</BaseButton><BaseButton variant="secondary" @click="openCreatedLink">Mở tab mới</BaseButton></div></div>
+      <template #footer><template v-if="!createdLink"><BaseButton variant="secondary" :disabled="isCreatingLink" @click="requestCloseCreateLink">Hủy</BaseButton><BaseButton type="submit" form="visitor-link-form" :loading="isCreatingLink">Tạo link</BaseButton></template><BaseButton v-else variant="secondary" @click="closeCreateLink(true)">Đóng</BaseButton></template>
+    </BaseModal>
 
-            <div class="visitor-right" v-if="v.visitorPortalUrl || v.qrCodeData">
-                <canvas width="120" height="120"></canvas>
-
-                <div class="qr-meta">
-                    <span class="qr-label">QR động</span>
-                    <code class="qr-text">{{ v.visitorPortalUrl || v.qrCodeData }}</code>
-
-                    <div class="qr-actions">
-                        <button class="btn btn-secondary" @click="downloadVisitorQr(i, v)">
-                            Tải QR
-                        </button>
-                        <button class="btn btn-primary" @click="copyQrText(v.visitorPortalUrl || v.qrCodeData)">
-                            {{ copied ? 'Đã Copy!' : 'Copy mã' }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-                        <div v-if="detail.accessLogs && detail.accessLogs.length > 0" class="detail-section-bento mt-2">
-                            <h4 class="bento-subtitle">Lịch sử check-in / check-out</h4>
-                            <div class="timeline-box mt-1">
-                                <div v-for="log in detail.accessLogs" :key="log.logId" class="timeline-row">
-                                    <div class="tl-chip" :class="log.direction === 'IN' ? 'check-in' : 'check-out'">{{ log.direction === 'IN' ? 'VÀO' : 'RA' }}</div>
-                                    <div class="tl-time">{{ formatDateTime(log.timestamp) }}</div>
-                                    <div class="tl-plate" v-if="log.capturedLicensePlate">{{ log.capturedLicensePlate }}</div>
-                                    <div class="tl-note" v-if="log.note">{{ log.note }}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div v-if="detail.status === 'Pending'" class="action-footer mt-4">
-                            <button class="btn btn-danger" @click="handleUpdateStatus(detail.registrationId, 'Rejected'); showDetailModal = false">
-                                Từ chối Đơn
-                            </button>
-                            <button class="btn btn-primary" @click="handleUpdateStatus(detail.registrationId, 'Approved'); showDetailModal = false" style="background: var(--accent-success); box-shadow: 0 4px 14px rgba(16,185,129,0.3);">
-                                Duyệt Đăng ký
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </transition>
-
-        <transition name="modal">
-            <div v-if="showCreateLinkModal" class="modal-backdrop" @click.self="showCreateLinkModal = false">
-                <div class="modern-modal" style="max-width: 480px;">
-                    <div class="modal-top">
-                        <h3>Tạo Link Đăng ký</h3>
-                        <button class="icon-close" @click="closeCreateLinkModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                    </div>
-
-                    <div class="modal-body">
-                        <template v-if="!createdLink">
-                            <div class="input-pane relative">
-                                <label>Nhân sự Host đại diện <span class="req">*</span></label>
-                                <div class="combobox-wrapper" v-click-outside="closeHostDropdown">
-                                    <div class="input-with-avatar">
-                                        <div v-if="selectedHostEmployee && !showHostDropdown" class="selected-avatar-preview">
-                                            <img
-                                                v-if="canShowEmployeeAvatar(selectedHostEmployee)"
-                                                :src="getEmployeeAvatarSrc(selectedHostEmployee)"
-                                                class="avatar-img avatar-mini-inline"
-                                                @error="markEmployeeAvatarBroken(selectedHostEmployee.employeeId)"
-                                            />
-                                            <div
-                                                v-else
-                                                class="avatar mini avatar-mini-inline"
-                                                :style="{ background: getAvatarColor(getInitials(selectedHostEmployee.fullName)) }"
-                                            >
-                                                {{ getInitials(selectedHostEmployee.fullName) }}
-                                            </div>
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            v-model="hostSearchQuery" 
-                                            @focus="onHostInputFocus"
-                                            placeholder="-- Nhập tên để tìm nhân sự --" 
-                                            class="sleek-input combobox-input"
-                                            :class="{ 'has-avatar': linkForm.hostEmployeeId && !showHostDropdown }"
-                                        />
-                                    </div>
-                                    <svg class="dropdown-icon" :class="{ 'rotated': showHostDropdown }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                                    
-                                    <div v-if="showHostDropdown" class="combobox-dropdown">
-                                        <div v-if="filteredEmployees.length === 0" class="no-results">
-                                            Không tìm thấy nhân sự
-                                        </div>
-                                        <div 
-                                            v-else
-                                            v-for="emp in filteredEmployees" 
-                                            :key="emp.employeeId" 
-                                            class="combobox-item"
-                                            :class="{ 'selected': linkForm.hostEmployeeId === emp.employeeId }"
-                                            @click="selectHost(emp)"
-                                        >
-                                            <img
-                                                v-if="canShowEmployeeAvatar(emp)"
-                                                :src="getEmployeeAvatarSrc(emp)"
-                                                class="avatar-img avatar-img-mini"
-                                                @error="markEmployeeAvatarBroken(emp.employeeId)"
-                                            />
-                                            <div v-else class="avatar mini" :style="{ background: getAvatarColor(getInitials(emp.fullName)) }">
-                                                {{ getInitials(emp.fullName) }}
-                                            </div>
-                                            <div class="emp-details">
-                                                <span class="emp-name">{{ emp.fullName }}</span>
-                                                <span class="emp-dept" v-if="emp.departmentName">{{ emp.departmentName }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="input-pane mt-2">
-                                <label>Thời gian hiệu lực (giờ)</label>
-                                <input v-model.number="linkForm.expiryHours" type="number" min="1" max="168" class="sleek-input" placeholder="Mặc định: 24h" />
-                                <small class="note-txt">Link đăng ký sẽ hết hạn sau số giờ thiết lập (Max: 168h).</small>
-                            </div>
-                            <div class="modal-actions mt-4">
-                                <button class="btn btn-secondary" @click="closeCreateLinkModal">Hủy bỏ</button>
-                                <button class="btn btn-primary" @click="handleCreateLink" :disabled="!linkForm.hostEmployeeId || isCreatingLink">
-                                    <span v-if="isCreatingLink" class="spinner-sm"></span> {{ isCreatingLink ? 'Đang tạo...' : 'Khởi tạo Link' }}
-                                </button>
-                            </div>
-                        </template>
-
-                        <template v-else>
-                            <div class="success-box">
-                                <div class="success-icon lg">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
-                                </div>
-                                <h4 class="mb-1">Khởi tạo Thành công</h4>
-                                <p class="text-secondary text-sm">Hiệu lực đến: {{ formatDateTime(createdLink.expiredAt) }}</p>
-
-                                <div class="copy-box mt-3">
-                                    <input type="text" readonly :value="createdLink.registrationUrl" class="sleek-input" />
-                                    <div class="flex gap-2 mt-2">
-                                        <button class="btn btn-primary flex-1" @click="copyLink">
-                                            {{ copied ? 'Đã Copy!' : 'Copy Link' }}
-                                        </button>
-                                        <a :href="createdLink.registrationUrl" target="_blank" rel="noopener noreferrer" class="btn btn-secondary flex-1 text-center" style="display: flex; align-items: center; justify-content: center; text-decoration: none;">
-                                            Mở tab mới ↗
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="modal-actions mt-4 centered">
-                                <button class="btn btn-secondary" @click="closeCreateLinkModal" style="width: 100%;">Đóng Cửa sổ</button>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </transition>
-    </div>
+    <ConfirmDialog :open="showRejectDialog" kind="destructive" title="Từ chối đăng ký?" :description="`Yêu cầu của ${rejectTarget?.guestFullName || 'khách'} sẽ bị từ chối và không được cấp quyền truy cập.`" confirm-label="Từ chối yêu cầu" :loading="statusSaving" @cancel="showRejectDialog = false" @confirm="confirmReject" />
+    <ConfirmDialog :open="showDiscardDialog" title="Bỏ thông tin đang nhập?" description="Host và thời hạn link chưa được lưu sẽ bị mất." confirm-label="Bỏ thay đổi" @cancel="showDiscardDialog = false" @confirm="closeCreateLink(true)" />
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, onBeforeUnmount, onMounted, watch, computed } from 'vue'
-import { getAll, getDetail, updateStatus, createLink } from '../services/preRegistrationApi'
-import { getAll as getAllEmployees, getProtectedFaceImage } from '../services/employeeApi'
-import { API_ORIGIN } from '../config/api'
-
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import QRCode from 'qrcode'
+import { createLink, getAll, getDetail, updateStatus } from '../services/preRegistrationApi'
+import { getAll as getAllEmployees } from '../services/employeeApi'
+import BaseButton from '../components/ui/BaseButton.vue'
+import BaseCard from '../components/ui/BaseCard.vue'
+import BaseField from '../components/ui/BaseField.vue'
+import BaseInput from '../components/ui/BaseInput.vue'
+import BaseModal from '../components/ui/BaseModal.vue'
+import BaseSelect from '../components/ui/BaseSelect.vue'
+import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
+import DataTable from '../components/ui/DataTable.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton.vue'
+import PageHeader from '../components/ui/PageHeader.vue'
+import StatusBadge from '../components/ui/StatusBadge.vue'
+import { useToasts } from '../composables/useToasts'
 
-const API_BASE = API_ORIGIN
+const route = useRoute(); const router = useRouter(); const { success, error: showError } = useToasts()
+const registrations = ref([]); const totalItems = ref(0); const currentPage = ref(1); const pageSize = 10; const totalPages = ref(1)
+const isLoading = ref(true); const loadError = ref(''); const permissionDenied = ref(false); const searchQuery = ref(''); const filterStatus = ref(''); const filterDate = ref('')
+const stats = reactive({ total: 0, pending: 0, approved: 0, rejected: 0 }); const detail = ref(null); const detailId = ref(null); const isLoadingDetail = ref(false); const detailError = ref(''); const showDetailModal = ref(false)
+const employees = ref([]); const employeesLoading = ref(false); const showCreateLinkModal = ref(false); const createdLink = ref(null); const isCreatingLink = ref(false); const linkError = ref(''); const linkSubmitted = ref(false); const copied = ref(false); const linkForm = reactive({ hostEmployeeId: '', expiryHours: 24 }); const formBaseline = ref('')
+const showRejectDialog = ref(false); const rejectTarget = ref(null); const statusSaving = ref(false); const showDiscardDialog = ref(false); const qrCardRefs = ref([]); let searchTimer = null; let copiedTimer = null
+const columns = [{ key: 'guest', label: 'Khách' }, { key: 'schedule', label: 'Host / Thời gian' }, { key: 'numberOfVisitors', label: 'Quy mô' }, { key: 'status', label: 'Trạng thái' }]
+const hasActiveFilters = computed(() => Boolean(searchQuery.value || filterStatus.value || filterDate.value)); const expiryError = computed(() => { const value=Number(linkForm.expiryHours); return linkSubmitted.value && (!Number.isFinite(value)||value<1||value>168) ? 'Thời hạn phải từ 1 đến 168 giờ.' : '' }); const formState = computed(() => JSON.stringify(linkForm)); const formDirty = computed(() => showCreateLinkModal.value && !createdLink.value && formState.value !== formBaseline.value)
 
-const registrations = ref([])
-const totalItems = ref(0)
-const currentPage = ref(1)
-const pageSize = 10
-const isLoading = ref(false)
-const searchQuery = ref('')
-const filterStatus = ref('')
-const filterDate = ref('')
-
-const stats = reactive({ total: 0, pending: 0, approved: 0, rejected: 0 })
-
-const showDetailModal = ref(false)
-const detail = ref(null)
-const isLoadingDetail = ref(false)
-
-const showCreateLinkModal = ref(false)
-const linkForm = reactive({ hostEmployeeId: null, expiryHours: 24 })
-const createdLink = ref(null)
-const isCreatingLink = ref(false)
-const copied = ref(false)
-const employees = ref([])
-const totalPages = ref(1)
-const qrCardRefs = ref([])
-const renderQr = async (text, canvas) => {
-    if (!canvas || !text) return
-    try {
-        await QRCode.toCanvas(canvas, text, {
-            width: 120,
-            margin: 2
-        })
-    } catch (e) {
-        console.error('QR error', e)
-    }
-}
-
-const setQrCardRef = (el, index, text) => {
-    if (!el) return
-
-    qrCardRefs.value[index] = el
-
-    const canvas = el.querySelector('canvas')
-    if (canvas && text) {
-        renderQr(text, canvas)
-    }
-}
-
-const safeFileName = (name) => {
-    return String(name || 'visitor')
-        .replace(/[\\/:*?"<>|]+/g, '_')
-        .replace(/\s+/g, '_')
-        .slice(0, 80)
-}
-
-const downloadVisitorQr = (index, visitor) => {
-    const wrapper = qrCardRefs.value[index]
-    const canvas = wrapper?.querySelector('canvas')
-
-    if (!canvas) {
-        alert('Không tìm thấy QR để tải xuống')
-        return
-    }
-
-    const url = canvas.toDataURL('image/png')
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${safeFileName(visitor.fullName)}_QR.png`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-}
-
-const copyQrText = async (text) => {
-    try {
-        await navigator.clipboard.writeText(text)
-        copied.value = true
-        setTimeout(() => (copied.value = false), 2000)
-    } catch {
-        alert('Không copy được mã QR')
-    }
-}
-// Custom Click Outside Directive
-const vClickOutside = {
-  mounted(el, binding) {
-    el.clickOutsideEvent = function(event) {
-      if (!(el === event.target || el.contains(event.target))) {
-        binding.value(event, el);
-      }
-    };
-    document.addEventListener("click", el.clickOutsideEvent);
-  },
-  unmounted(el) {
-    document.removeEventListener("click", el.clickOutsideEvent);
-  }
-};
-
-// Combobox logic
-const showHostDropdown = ref(false)
-const hostSearchQuery = ref('')
-const brokenEmployeeAvatarIds = ref({})
-const protectedAvatarUrls = ref({})
-
-const selectedHostEmployee = computed(() => {
-    if (!linkForm.hostEmployeeId) return null
-    return (employees.value || []).find(e => e.employeeId === linkForm.hostEmployeeId) || null
-})
-
-
-const filteredEmployees = computed(() => {
-    if (!hostSearchQuery.value) return employees.value || []
-    
-    // Check if query is just the selected employee's name (user hasn't typed anything new yet)
-    if (employees.value && employees.value.length > 0) {
-        const selectedEmp = employees.value.find(e => e.employeeId === linkForm.hostEmployeeId)
-        if (selectedEmp && hostSearchQuery.value === selectedEmp.fullName) {
-            return employees.value // Show all if they just clicked to open
-        }
-    }
-
-    const q = hostSearchQuery.value.toLowerCase()
-    return (employees.value || []).filter(e => e && e.fullName && e.fullName.toLowerCase().includes(q))
-})
-
-const onHostInputFocus = () => {
-    showHostDropdown.value = true
-    // Optionally clear input on focus to easily search another
-    // if (linkForm.hostEmployeeId) hostSearchQuery.value = ''
-}
-
-const selectHost = (emp) => {
-    linkForm.hostEmployeeId = emp.employeeId
-    hostSearchQuery.value = emp.fullName
-    showHostDropdown.value = false
-}
-
-const closeHostDropdown = () => {
-    showHostDropdown.value = false
-    // Restore name if they clicked away without selecting, but had something selected
-    if (linkForm.hostEmployeeId) {
-        const emp = employees.value.find(e => e.employeeId === linkForm.hostEmployeeId)
-        if (emp) hostSearchQuery.value = emp.fullName
-    } else {
-        hostSearchQuery.value = ''
-    }
-}
-
-const getInitials = (name) => {
-    if (!name || !name.trim()) return '??'
-    return name.trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(-2).toUpperCase()
-}
-
-const canShowEmployeeAvatar = (employee) => {
-    return !!employee?.faceImageUrl && !brokenEmployeeAvatarIds.value[employee.employeeId]
-}
-
-const getEmployeeAvatarSrc = (employee) => {
-    if (!employee?.faceImageUrl) return ''
-    return employee.faceImageUrl.startsWith('http') ? employee.faceImageUrl : (protectedAvatarUrls.value[employee.employeeId] || '')
-}
-
-const markEmployeeAvatarBroken = (employeeId) => {
-    if (!employeeId || brokenEmployeeAvatarIds.value[employeeId]) return
-    brokenEmployeeAvatarIds.value = { ...brokenEmployeeAvatarIds.value, [employeeId]: true }
-}
-
-const formatDateTime = (dt) => {
-    if (!dt) return '—'
-    const d = new Date(dt)
-    const pad = (n) => String(n).padStart(2, '0')
-    return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
-}
-
-const getStatusLabel = (s) => {
-    const map = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Đã từ chối' }
-    return map[s] || s
-}
-
-const getStatusClass = (s) => {
-    const map = { Pending: 'pending', Approved: 'check-in', Rejected: 'inactive' }
-    return map[s] || ''
-}
-
-const getAvatarColor = (str) => {
-    let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    const avColors = [ '#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f43f5e' ];
-    return avColors[Math.abs(hash) % avColors.length];
-}
-
-const fetchRegistrations = async () => {
-    isLoading.value = true
-    try {
-        const params = { page: currentPage.value, pageSize }
-        if (filterStatus.value) params.status = filterStatus.value
-        if (filterDate.value) params.date = filterDate.value
-
-        const res = await getAll(params)
-        const data = res.data
-        registrations.value = data.items || []
-        totalItems.value = data.total || 0
-        totalPages.value = Math.max(1, Math.ceil(totalItems.value / pageSize))
-
-        if (searchQuery.value.trim()) {
-            const q = searchQuery.value.toLowerCase()
-            registrations.value = registrations.value.filter(r =>
-                (r.guestFullName && r.guestFullName.toLowerCase().includes(q)) ||
-                (r.guestPhone && r.guestPhone.includes(q))
-            )
-        }
-    } catch (err) {
-        console.error('Lỗi khi tải danh sách đăng ký:', err)
-    } finally {
-        isLoading.value = false
-    }
-}
-
-const fetchStats = async () => {
-    try {
-        const [all, pending, approved, rejected] = await Promise.all([
-            getAll({ pageSize: 1 }),
-            getAll({ status: 'Pending', pageSize: 1 }),
-            getAll({ status: 'Approved', pageSize: 1 }),
-            getAll({ status: 'Rejected', pageSize: 1 }),
-        ])
-        stats.total = all.data.total || 0
-        stats.pending = pending.data.total || 0
-        stats.approved = approved.data.total || 0
-        stats.rejected = rejected.data.total || 0
-    } catch (err) {}
-}
-
-const fetchEmployees = async () => {
-    try {
-        const res = await getAllEmployees()
-        employees.value = res.data || []
-        await hydrateProtectedAvatars(employees.value)
-    } catch (err) {}
-}
-
-async function hydrateProtectedAvatars(list) {
-    releaseProtectedAvatars()
-    const entries = await Promise.all((list || []).map(async (emp) => {
-        if (!emp?.employeeId || !emp?.faceImageUrl || emp.faceImageUrl.startsWith('http')) {
-            return [emp?.employeeId, '']
-        }
-        try {
-            const response = await getProtectedFaceImage(emp.employeeId)
-            return [emp.employeeId, URL.createObjectURL(response.data)]
-        } catch {
-            return [emp.employeeId, '']
-        }
-    }))
-    protectedAvatarUrls.value = Object.fromEntries(entries.filter(([id]) => !!id))
-}
-
-function releaseProtectedAvatars() {
-    Object.values(protectedAvatarUrls.value).forEach((url) => {
-        if (url) URL.revokeObjectURL(url)
-    })
-    protectedAvatarUrls.value = {}
-}
-
-const viewDetail = async (id) => {
-    showDetailModal.value = true
-    isLoadingDetail.value = true
-    detail.value = null
-    try {
-        const res = await getDetail(id)
-        detail.value = res.data
-    } catch (err) {} finally { isLoadingDetail.value = false }
-}
-
-const handleUpdateStatus = async (id, status) => {
-    try {
-        await updateStatus(id, status)
-        await fetchRegistrations()
-        await fetchStats()
-    } catch (err) { alert(err.response?.data?.message || 'Có lỗi xảy ra') }
-}
-
-const handleCreateLink = async () => {
-    isCreatingLink.value = true
-    try {
-        const res = await createLink({ hostEmployeeId: linkForm.hostEmployeeId, expiryHours: linkForm.expiryHours })
-        createdLink.value = res.data
-        if (res.data.registrationUrl) {
-            window.open(res.data.registrationUrl, '_blank')
-            closeCreateLinkModal()
-        }
-    } catch (err) { alert('Có lỗi xảy ra khi tạo link') } finally { isCreatingLink.value = false }
-}
-
-const copyLink = () => {
-    const url = createdLink.value.registrationUrl
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => { copied.value = true; setTimeout(() => (copied.value = false), 2000) }).catch(() => fallbackCopy(url))
-    } else { fallbackCopy(url) }
-}
-
-const fallbackCopy = (text) => {
-    const textarea = document.createElement('textarea')
-    textarea.value = text; textarea.style.position = 'fixed'; textarea.style.left = '-9999px';
-    document.body.appendChild(textarea); textarea.select();
-    try { document.execCommand('copy'); copied.value = true; setTimeout(() => (copied.value = false), 2000) } catch (e) { alert('Copy thủ công: ' + text) }
-    document.body.removeChild(textarea)
-}
-
-const closeCreateLinkModal = () => {
-    showCreateLinkModal.value = false
-    createdLink.value = null
-    copied.value = false
-    linkForm.hostEmployeeId = null
-    linkForm.expiryHours = 24
-    hostSearchQuery.value = ''
-    showHostDropdown.value = false
-}
-
-let searchTimeout = null
-watch(searchQuery, () => {
-    if (searchTimeout) clearTimeout(searchTimeout)
-    searchTimeout = setTimeout(() => { currentPage.value = 1; fetchRegistrations() }, 400)
-})
-
-watch([filterStatus, filterDate], () => { currentPage.value = 1; fetchRegistrations() })
-
-onMounted(() => { fetchRegistrations(); fetchStats(); fetchEmployees() })
-onBeforeUnmount(() => { releaseProtectedAvatars() })
+function applyQuery(){searchQuery.value=String(route.query.search||'');filterStatus.value=['Pending','Approved','Rejected'].includes(String(route.query.status))?String(route.query.status):'';filterDate.value=String(route.query.date||'');currentPage.value=Math.max(1,Number(route.query.page)||1)}
+function commitFilters(){router.replace({query:{...route.query,search:searchQuery.value.trim()||undefined,status:filterStatus.value||undefined,date:filterDate.value||undefined,page:undefined}})}
+function debouncedCommitFilters(){clearTimeout(searchTimer);searchTimer=setTimeout(commitFilters,350)}
+function clearFilters(){searchQuery.value='';filterStatus.value='';filterDate.value='';commitFilters()}
+function setPage(page){router.replace({query:{...route.query,page:page>1?page:undefined}})}
+async function fetchRegistrations(){isLoading.value=true;loadError.value='';permissionDenied.value=false;try{const params={page:currentPage.value,pageSize};if(filterStatus.value)params.status=filterStatus.value;if(filterDate.value)params.date=filterDate.value;const {data}=await getAll(params);let items=data.items||[];if(searchQuery.value.trim()){const q=searchQuery.value.trim().toLocaleLowerCase('vi');items=items.filter(item=>String(item.guestFullName||'').toLocaleLowerCase('vi').includes(q)||String(item.guestPhone||'').includes(q))}registrations.value=items;totalItems.value=data.total||0;totalPages.value=Math.max(1,Math.ceil(totalItems.value/pageSize));if(currentPage.value>totalPages.value)setPage(totalPages.value)}catch(err){registrations.value=[];if(err.response?.status===403)permissionDenied.value=true;else loadError.value=err.response?.data?.message||'Không thể tải danh sách đăng ký khách.'}finally{isLoading.value=false}}
+async function fetchStats(){try{const responses=await Promise.all([getAll({pageSize:1}),getAll({status:'Pending',pageSize:1}),getAll({status:'Approved',pageSize:1}),getAll({status:'Rejected',pageSize:1})]);Object.assign(stats,{total:responses[0].data.total||0,pending:responses[1].data.total||0,approved:responses[2].data.total||0,rejected:responses[3].data.total||0})}catch{Object.assign(stats,{total:totalItems.value,pending:0,approved:0,rejected:0})}}
+async function refreshPage(){await Promise.all([fetchRegistrations(),fetchStats()])}
+async function fetchEmployees(){employeesLoading.value=true;try{employees.value=(await getAllEmployees()).data||[]}catch{showError('Không thể tải danh sách host','Bạn vẫn có thể đóng hộp thoại và thử lại.')}finally{employeesLoading.value=false}}
+async function viewDetail(id){detailId.value=id;showDetailModal.value=true;isLoadingDetail.value=true;detailError.value='';detail.value=null;try{detail.value=(await getDetail(id)).data}catch(err){detailError.value=err.response?.status===403?'Bạn không có quyền xem chi tiết đăng ký này.':err.response?.data?.message||'Máy chủ không trả về dữ liệu chi tiết.'}finally{isLoadingDetail.value=false}}
+function closeDetail(){showDetailModal.value=false;detail.value=null;detailError.value='';qrCardRefs.value=[]}
+function requestReject(item){rejectTarget.value=item;showRejectDialog.value=true}
+async function confirmReject(){if(!rejectTarget.value)return;const id=rejectTarget.value.registrationId;showRejectDialog.value=false;await handleUpdateStatus(id,'Rejected',detail.value?.registrationId===id)}
+async function handleUpdateStatus(id,status,closeAfter=false){statusSaving.value=true;try{await updateStatus(id,status);success(status==='Approved'?'Đã duyệt đăng ký':'Đã từ chối đăng ký');if(closeAfter)closeDetail();await refreshPage()}catch(err){showError('Không thể cập nhật trạng thái',err.response?.data?.message||'Yêu cầu chưa được thay đổi.')}finally{statusSaving.value=false}}
+function openCreateLink(){showCreateLinkModal.value=true;createdLink.value=null;linkError.value='';linkSubmitted.value=false;Object.assign(linkForm,{hostEmployeeId:'',expiryHours:24});queueMicrotask(()=>{formBaseline.value=formState.value});if(!employees.value.length)fetchEmployees()}
+function requestCloseCreateLink(){if(formDirty.value){showDiscardDialog.value=true;return}closeCreateLink(true)}
+function closeCreateLink(force=false){if(!force&&formDirty.value)return requestCloseCreateLink();showCreateLinkModal.value=false;showDiscardDialog.value=false;createdLink.value=null;linkError.value='';copied.value=false;Object.assign(linkForm,{hostEmployeeId:'',expiryHours:24})}
+async function handleCreateLink(){linkSubmitted.value=true;const expiry=Number(linkForm.expiryHours);if(!linkForm.hostEmployeeId||!Number.isFinite(expiry)||expiry<1||expiry>168)return;isCreatingLink.value=true;linkError.value='';try{createdLink.value=(await createLink({hostEmployeeId:Number(linkForm.hostEmployeeId),expiryHours:expiry})).data;success('Đã tạo link đăng ký')}catch(err){linkError.value=err.response?.data?.message||'Không thể tạo link. Thông tin bạn nhập vẫn được giữ lại.'}finally{isCreatingLink.value=false}}
+async function copyText(value){try{await navigator.clipboard.writeText(value);copied.value=true;success('Đã sao chép vào clipboard');clearTimeout(copiedTimer);copiedTimer=setTimeout(()=>{copied.value=false},2000)}catch{showError('Không thể sao chép','Hãy chọn và sao chép đường dẫn thủ công.')}}
+function openCreatedLink(){if(createdLink.value?.registrationUrl)window.open(createdLink.value.registrationUrl,'_blank','noopener,noreferrer')}
+function getInitials(name){return String(name||'?').trim().split(/\s+/).filter(Boolean).slice(-2).map(word=>word[0]).join('').toUpperCase()}
+function tone(value){return [...String(value||'')].reduce((sum,char)=>sum+char.charCodeAt(0),0)%5}
+function formatDateTime(value){if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?'—':new Intl.DateTimeFormat('vi-VN',{dateStyle:'short',timeStyle:'short'}).format(date)}
+function getStatusLabel(status){return {Pending:'Chờ duyệt',Approved:'Đã duyệt',Rejected:'Đã từ chối'}[status]||status||'Không xác định'}
+function statusSemantic(status){return {Pending:'pending',Approved:'approved',Rejected:'rejected'}[status]||'neutral'}
+async function renderQr(text,canvas){if(canvas&&text)try{await QRCode.toCanvas(canvas,text,{width:96,margin:2})}catch{showError('Không thể tạo QR','Dữ liệu QR không hợp lệ.')}}
+function setQrCardRef(element,index,text){if(!element)return;qrCardRefs.value[index]=element;renderQr(text,element.querySelector('canvas'))}
+function safeFileName(value){return String(value||'visitor').replace(/[\\/:*?"<>|]+/g,'_').replace(/\s+/g,'_').slice(0,80)}
+function downloadVisitorQr(index,visitor){const canvas=qrCardRefs.value[index]?.querySelector('canvas');if(!canvas)return showError('Không thể tải QR','Mã QR chưa được tạo.');const anchor=document.createElement('a');anchor.href=canvas.toDataURL('image/png');anchor.download=`${safeFileName(visitor.fullName)}_QR.png`;anchor.click()}
+function beforeUnload(event){if(!formDirty.value)return;event.preventDefault();event.returnValue=''}
+onMounted(async()=>{applyQuery();window.addEventListener('beforeunload',beforeUnload);await Promise.all([refreshPage(),fetchEmployees()])})
+onBeforeUnmount(()=>{clearTimeout(searchTimer);clearTimeout(copiedTimer);window.removeEventListener('beforeunload',beforeUnload)})
+watch(()=>route.query,async()=>{applyQuery();await fetchRegistrations()},{deep:true})
 </script>
 
 <style scoped>
-/* Common Page Layout */
-.bento-header { margin-bottom: 24px; padding: 0 4px; display: flex; justify-content: space-between; align-items: center; }
-.bento-header .greeting h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
-.bento-header .greeting p { color: var(--text-secondary); font-size: 0.95rem; }
-
-/* Grid Mini */
-.bento-grid-mini { display: grid; gap: 20px; margin-bottom: 24px; }
-.bento-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius-lg); padding: 24px; }
-.stat-card { display: flex; align-items: center; gap: 16px; transition: transform var(--transition-normal); }
-.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.stat-icon-wrapper { width: 56px; height: 56px; border-radius: 14px; display: flex; justify-content: center; align-items: center; }
-.stat-icon-wrapper svg { width: 28px; height: 28px; }
-.stat-icon-wrapper.blue { background: rgba(16, 121, 196, 0.1); color: var(--accent-primary); }
-.stat-icon-wrapper.green { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); }
-.stat-icon-wrapper.red { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); }
-.stat-val { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
-.stat-val.blue { color: var(--accent-primary); }
-.stat-val.green { color: var(--accent-success); }
-.stat-val.red { color: var(--accent-danger); }
-.stat-lbl { font-size: 0.9rem; color: var(--text-muted); font-weight: 500;}
-
-/* Table Box */
-.table-section { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 500px; }
-.table-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
-.search-box { position: relative; width: 320px; display: flex; align-items: center; }
-.search-icon { position: absolute; left: 14px; color: var(--text-muted); width: 18px; }
-.search-box input { width: 100%; padding: 10px 14px 10px 42px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); outline: none; transition: border 0.2s; }
-.search-box input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(16, 121, 196, 0.2); }
-.minimal-select { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; outline: none; }
-input[type="date"].minimal-select { padding: 8px 14px; }
-
-/* Table Elements */
-.sleek-table-container { flex: 1; overflow-x: auto; }
-.sleek-table { width: 100%; border-collapse: collapse; text-align: left; }
-.sleek-table th { padding: 16px 24px; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.1); }
-.sleek-table td { padding: 18px 24px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-.table-row { transition: background var(--transition-fast); }
-.table-row:hover { background: var(--bg-card-hover); cursor: default; }
-
-.user-cell { display: flex; align-items: center; gap: 14px; }
-.avatar, .avatar-img { width: 38px; height: 38px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; color: white; object-fit: cover; flex-shrink: 0; }
-.avatar.mini, .avatar-img-mini { width: 32px; height: 32px; font-size: 0.8rem; }
-.user-info { display: flex; flex-direction: column; }
-.user-name { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
-.user-id { font-size: 0.8rem; color: var(--text-muted); font-family: monospace; }
-
-.host-cell { display: flex; flex-direction: column; gap: 4px; }
-.host-name { font-weight: 500; font-size: 0.9rem; color: var(--text-primary); }
-.time-range-txt { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
-
-.status-pill.minimal { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; border: 1px solid transparent; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 6px;}
-.status-pill.check-in { background: rgba(16, 185, 129, 0.05); color: var(--accent-success); border-color: rgba(16, 185, 129, 0.2); }
-.status-pill.pending { background: rgba(249, 115, 22, 0.05); color: var(--accent-warning); border-color: rgba(249, 115, 22, 0.2); }
-.status-pill.inactive { background: rgba(239, 68, 68, 0.05); color: var(--accent-danger); border-color: rgba(239, 68, 68, 0.2); }
-.pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-.visitors-count { display: inline-flex; padding: 4px 10px; background: var(--bg-input); border-radius: 6px; font-size: 0.85rem; color: var(--text-secondary); border: 1px solid var(--border-color); }
-
-.action-menu { display: flex; gap: 8px; justify-content: flex-end; }
-.icon-btn { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
-.icon-btn svg { width: 18px; }
-.icon-btn:hover { background: var(--bg-input); color: var(--text-primary); }
-.icon-btn.action-approve:hover { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); }
-.icon-btn.action-reject:hover { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); }
-
-/* Spinners & Empties */
-.empty-layout { padding: 60px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 16px; }
-.spinner-lg { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-.spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; margin-right: 6px; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Pagination Area */
-.pagination-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border-color); }
-.showing-txt { font-size: 0.9rem; color: var(--text-secondary); }
-.pg-controls { display: flex; gap: 6px; }
-.pg-btn { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 500; transition: border 0.2s; }
-.pg-btn:hover:not(:disabled) { border-color: var(--text-muted); }
-.pg-btn.active { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
-.pg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Modern Modals */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 20px;}
-.modern-modal { background: var(--bg-card); width: 100%; border-radius: var(--border-radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-xl); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; }
-.scrollable-body { overflow-y: auto; padding: 24px; }
-.modal-top { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--border-color); }
-.modal-top h3 { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;}
-.icon-close { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 24px; transition: color 0.2s; }
-.icon-close:hover { color: var(--accent-danger); }
-
-.modal-body { padding: 24px; display: flex; flex-direction: column; }
-.detail-section-bento { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; }
-.bento-subtitle { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 16px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;}
-
-.mini-grid-info { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.info-block { display: flex; flex-direction: column; gap: 4px; }
-.info-block .lbl { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.info-block .val { font-size: 0.95rem; font-weight: 500; color: var(--text-primary); }
-.text-primary { color: var(--accent-primary) !important; font-weight: 600 !important; }
-
-.pill-list { display: flex; flex-direction: column; gap: 8px; }
-.visitor-card { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); padding: 10px 14px; border-radius: 8px; }
-.v-details { display: flex; flex-direction: column; }
-.v-name { font-weight: 600; font-size: 0.9rem; }
-.v-id { font-size: 0.8rem; color: var(--text-secondary); }
-
-.timeline-box { display: flex; flex-direction: column; gap: 10px; }
-.timeline-row { display: flex; align-items: center; gap: 12px; background: var(--bg-card); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); }
-.tl-chip { font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; }
-.tl-chip.check-in { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); }
-.tl-chip.check-out { background: rgba(16, 121, 196, 0.1); color: var(--accent-primary); }
-.tl-time { font-family: monospace; font-size: 0.85rem; color: var(--text-secondary); width: 140px; }
-.tl-plate { font-family: monospace; font-weight: 700; font-size: 0.85rem; padding: 2px 6px; background: var(--bg-input); border-radius: 4px; border: 1px solid var(--border-color); }
-.tl-note { font-style: italic; color: var(--text-muted); font-size: 0.85rem; margin-left: auto; }
-
-.input-pane { display: flex; flex-direction: column; gap: 8px; }
-.input-pane label { font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); }
-.req { color: var(--accent-danger); }
-.note-txt { font-size: 0.8rem; color: var(--text-muted); }
-
-.sleek-input, .sleek-select { width: 100%; padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); outline: none; transition: border 0.2s; font-size: 0.95rem; }
-.sleek-input:focus, .sleek-select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(16, 121, 196, 0.15); }
-
-/* Success Box */
-.success-box { text-align: center; padding: 20px 10px; }
-.success-icon.lg { width: 64px; height: 64px; border-radius: 50%; background: rgba(16, 185, 129, 0.1); color: var(--accent-success); display: flex; justify-content: center; align-items: center; margin: 0 auto 16px; }
-.success-icon.lg svg { width: 32px; height: 32px; }
-.mb-1 { margin-bottom: 4px; }
-.text-sm { font-size: 0.85rem; }
-.copy-box { background: var(--bg-card); padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; text-align: left; }
-.flex { display: flex; }
-.gap-2 { gap: 8px; }
-.flex-1 { flex: 1; }
-.mt-1 { margin-top: 8px; }
-.mt-2 { margin-top: 16px; }
-.mt-3 { margin-top: 24px; }
-.mt-4 { margin-top: 32px; }
-
-.modal-actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
-.modal-actions:not(.centered) .btn { width: auto; flex: 0 0 auto; }
-.action-footer { display: flex; justify-content: flex-end; gap: 16px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
-.action-footer .btn { width: auto; flex: 0 0 auto; }
-
-.modal-enter-active, .modal-leave-active { transition: all 0.3s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; transform: scale(0.95); }
-
-/* Custom Combobox */
-.combobox-wrapper { position: relative; width: 100%; border-radius: 8px; }
-.input-with-avatar { position: relative; width: 100%; display: flex; align-items: center; }
-.selected-avatar-preview { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; z-index: 2; }
-.avatar-mini-inline { width: 24px; height: 24px; font-size: 0.7rem; }
-.combobox-input { width: 100%; padding-right: 40px; background: #fff !important; cursor: text; }
-.combobox-input.has-avatar { padding-left: 52px; }
-
-.dropdown-icon { position: absolute; right: 14px; top: 14px; width: 18px; height: 18px; color: var(--accent-primary); pointer-events: none; transition: transform 0.2s; }
-.dropdown-icon.rotated { transform: rotate(180deg); color: var(--accent-primary); }
-
-.combobox-dropdown { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; max-height: 240px; overflow-y: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 100; padding: 4px 0;}
-.combobox-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color); }
-.combobox-item:last-child { border-bottom: none; }
-.combobox-item:hover { background: rgba(16, 121, 196, 0.03); }
-.combobox-item.selected { background: rgba(16, 121, 196, 0.06); }
-.emp-details { display: flex; flex-direction: column; }
-.emp-name { font-size: 0.95rem; font-weight: 500; color: var(--text-primary); }
-.emp-dept { font-size: 0.85rem; color: var(--accent-primary); }
-.no-results { padding: 14px; text-align: center; color: var(--text-muted); font-size: 0.9rem; font-style: italic; }
-
-@media (max-width: 1200px) { .bento-grid-mini { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px) {
-    .bento-grid-mini { grid-template-columns: 1fr; }
-    .table-toolbar { flex-direction: column; gap: 16px; align-items: stretch;}
-    .search-box { width: 100%; }
-    .mini-grid-info { grid-template-columns: 1fr; }
-    .timeline-row { flex-wrap: wrap; }
-}
-.visitor-card-qr {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.visitor-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.visitor-right {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-}
-
-.qr-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-width: 280px;
-}
-
-.qr-label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
-
-.qr-text {
-    font-size: 0.72rem;
-    word-break: break-all;
-    white-space: normal;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    padding: 8px;
-    border-radius: 8px;
-    color: var(--text-primary);
-}
-
-.qr-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
+.visitor-page{display:grid;gap:var(--space-6)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4)}
+.summary-grid span,.summary-grid small{display:block;color:var(--text-secondary);font-size:var(--type-caption-size);line-height:var(--type-caption-line)}.summary-grid strong{display:block;margin-block:var(--space-2);font-size:var(--type-h2-size);line-height:var(--type-h2-line)}
+.list-panel{display:grid;gap:var(--space-4)}.list-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4)}.list-toolbar h2{font-size:var(--type-h2-size);line-height:var(--type-h2-line)}.list-toolbar p{color:var(--text-muted);font-size:var(--type-body-size)}
+.filter-bar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(160px,200px) minmax(150px,180px) auto;gap:var(--space-2);width:min(100%,820px)}
+.identity-cell{display:flex;align-items:center;gap:var(--space-3)}.identity-cell>span:last-child,.stacked-cell{display:grid;gap:var(--space-1)}.identity-cell small,.stacked-cell small{color:var(--text-muted)}.avatar{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;border-radius:var(--radius-pill);background:var(--interactive-primary);color:var(--text-on-interactive);font-weight:800}.tone-1{background:var(--interactive-secondary)}.tone-2{background:var(--status-success-text)}.tone-3{background:var(--status-warning-text)}.tone-4{background:var(--status-danger-text)}
+.row-actions,.pagination-actions,.created-actions{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}.pagination-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);color:var(--text-secondary);font-size:var(--type-body-size)}
+.detail-content,.link-form,.success-state{display:grid;gap:var(--space-5)}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin:0}.detail-grid div{display:grid;gap:var(--space-1);padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-control);background:var(--surface-subtle)}.detail-grid .wide{grid-column:1/-1}.detail-grid dt{color:var(--text-muted);font-size:var(--type-caption-size)}.detail-grid dd{margin:0;font-weight:700}
+.detail-section{display:grid;gap:var(--space-3);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)}.detail-section h3{font-size:var(--type-h3-size);line-height:var(--type-h3-line)}.visitor-card{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:var(--space-3);border:1px solid var(--border-subtle);border-radius:var(--radius-card)}.qr-area{display:flex;align-items:center;gap:var(--space-3)}.qr-area canvas{width:96px;height:96px;padding:var(--space-1);background:var(--surface-default);border:1px solid var(--border-subtle);border-radius:var(--radius-control)}.qr-area>div{display:grid;gap:var(--space-2)}.timeline{display:grid;gap:var(--space-2);margin:0;padding:0;list-style:none}.timeline li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--space-3);padding:var(--space-2) 0}.timeline small{color:var(--text-muted)}
+.form-error{padding:var(--space-3);border:1px solid var(--status-danger-border);border-radius:var(--radius-control);background:var(--status-danger-bg);color:var(--status-danger-text);font-size:var(--type-body-size)}.success-state>p{color:var(--text-secondary)}
+@media(max-width:1100px){.summary-grid{grid-template-columns:repeat(2,1fr)}.list-toolbar{align-items:stretch;display:grid}.filter-bar{width:100%}}
+@media(max-width:768px){.summary-grid,.filter-bar,.detail-grid{grid-template-columns:1fr}.pagination-bar,.visitor-card,.qr-area{align-items:flex-start;display:grid}.row-actions,.created-actions{flex-wrap:wrap}.detail-grid .wide{grid-column:auto}.qr-area canvas{width:80px;height:80px}}
 </style>
-

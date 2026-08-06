@@ -70,7 +70,11 @@ server {
   }
 
   location /qr-api/ {
-    proxy_pass ${QR_PROXY_BASE}/;
+    # Resolve optional profile services at request time so nginx can still
+    # start when the lightweight stack is running without AI containers.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $qr_proxy_base ${QR_PROXY_BASE};
+    proxy_pass $qr_proxy_base/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -84,7 +88,9 @@ server {
   }
 
   location /qr-api-lane2/ {
-    proxy_pass ${QR_PROXY_BASE_LANE2}/;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $qr_proxy_base_lane2 ${QR_PROXY_BASE_LANE2};
+    proxy_pass $qr_proxy_base_lane2/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -98,21 +104,9 @@ server {
   }
 
   location /plate-api/ {
-    proxy_pass ${PLATE_PROXY_BASE}/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $http_host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_connect_timeout 60s;
-    proxy_send_timeout 300s;
-    proxy_read_timeout 300s;
-    proxy_buffering off;
-  }
-
-  location /face-api/ {
-    proxy_pass ${FACE_PROXY_BASE}/;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $plate_proxy_base ${PLATE_PROXY_BASE};
+    proxy_pass $plate_proxy_base/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -153,6 +147,17 @@ server {
     proxy_send_timeout 300s;
     proxy_read_timeout 300s;
     proxy_buffering off;
+  }
+
+  # Always revalidate the application shell so a rebuilt local UI is visible
+  # immediately; versioned assets can remain cached safely.
+  location = /index.html {
+    expires -1;
+  }
+
+  location ~* \.(?:css|js|woff2?|png|jpe?g|gif|svg|webp|ico)$ {
+    expires 1y;
+    try_files $uri =404;
   }
 
   location / {

@@ -2,13 +2,51 @@
   <div class="security-container">
     <h1 class="title">V-Shield FaceID Monitor</h1>
 
+    <section class="saved-camera-panel">
+      <label>
+        Camera đã lưu
+        <select v-model="selectedRuntimeCameraId" @change="handleConfiguredCameraChange">
+          <option value="">Chế độ nhập thủ công</option>
+          <option
+            v-for="item in savedConfigurations"
+            :key="item.runtimeCameraId"
+            :value="item.runtimeCameraId"
+          >
+            {{ item.cameraName }} ({{ item.runtimeCameraId }})
+          </option>
+        </select>
+      </label>
+      <template v-if="selectedConfiguration">
+        <span><b>Runtime ID:</b> {{ selectedConfiguration.runtimeCameraId }}</span>
+        <span><b>Lane:</b> {{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</span>
+        <span><b>Desired:</b> {{ selectedConfiguration.desiredState }}</span>
+        <span><b>Runtime:</b> {{ selectedConfiguration.runtimeStatus }}</span>
+        <span><b>Sync:</b> {{ selectedConfiguration.lastSyncStatus }}</span>
+        <label class="auto-restore">
+          <input
+            type="checkbox"
+            :checked="selectedConfiguration.autoRestore"
+            :disabled="loading"
+            @change="handleAutoRestoreChange"
+          />
+          Auto restore
+        </label>
+        <button class="btn btn-models" :disabled="loading" @click="handleManualReconcile">
+          Đồng bộ ngay
+        </button>
+        <div v-if="selectedConfiguration.lastSyncError" class="sync-error">
+          {{ selectedConfiguration.lastSyncError }}
+        </div>
+      </template>
+    </section>
+
     <div class="control-panel">
       <input
         v-model="cameraIp"
         type="text"
         class="ip-input"
         placeholder="Nhập URL camera / stream URL..."
-        :disabled="loading"
+        :disabled="loading || !!selectedConfiguration"
       />
 
       <button class="btn btn-on" @click="handleTurnOnPreview" :disabled="loading">
@@ -18,7 +56,7 @@
       <button
         class="btn btn-reset"
         @click="handleInitOrResetSession"
-        :disabled="loading || !cameraIp.trim()"
+        :disabled="loading || (!selectedConfiguration && !cameraIp.trim())"
       >
         {{ loading ? "Đang xử lý..." : sessionActionLabel }}
       </button>
@@ -26,13 +64,27 @@
       <button class="btn btn-off" @click="handleTurnOff" :disabled="loading">
         {{ loading ? "Đang xử lý..." : "Tắt camera" }}
       </button>
+
+      <button class="btn btn-models" @click="handleCheckModels" :disabled="loading">
+        {{ loading ? "Đang xử lý..." : "Kiểm tra model" }}
+      </button>
+    </div>
+
+    <div v-if="faceServiceError" class="service-error" role="status">
+      {{ faceServiceError.message }}
+    </div>
+
+    <div v-if="modelInfo" class="model-status">
+      <span><b>Model version:</b> {{ modelInfo.version }}</span>
+      <span><b>Số model:</b> {{ modelInfo.modelCount }}</span>
+      <span><b>Số encoding:</b> {{ modelInfo.encodingCount }}</span>
     </div>
 
     <div class="status-bar">
       <span><b>Camera:</b> {{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
       <span><b>Kết nối:</b> {{ cameraConnected ? "Đã kết nối" : "Chưa kết nối" }}</span>
-      <span><b>Preview:</b> {{ previewRunning ? "Đang mở" : "Đang tắt" }}</span>
-      <span><b>Input URL:</b> {{ currentIp || cameraIp || "-----" }}</span>
+      <span><b>Preview:</b> {{ previewRunning ? (previewHealthy ? "Đang hiển thị" : "Đang kết nối") : "Đang tắt" }}</span>
+      <span><b>Input URL:</b> {{ safeInputUrl }}</span>
       <span><b>FPS:</b> {{ fps }}</span>
       <span><b>Tracking:</b> {{ trackingActive ? "Đang theo dõi" : "Idle" }}</span>
       <span><b>Lock:</b> {{ scanLocked ? "Đã khóa" : "Đang quét" }}</span>
@@ -45,7 +97,7 @@
         :key="directCameraKey"
         :src="directCameraUrl"
         class="video"
-        alt="Direct Camera Preview"
+        alt="Camera Preview"
         @load="handleDirectPreviewLoaded"
         @error="handleDirectPreviewError"
       />
@@ -145,26 +197,164 @@
       <div><b>Message:</b> {{ message || "-----" }}</div>
       <div><b>Last Update:</b> {{ lastUpdate || "-----" }}</div>
     </div>
+
+    <section class="event-history">
+      <div class="event-history__header">
+        <h2>Lịch sử nhận diện gần đây</h2>
+        <span v-if="eventHistoryError" class="history-badge history-badge--danger">
+          Runtime/collector unavailable
+        </span>
+        <span v-if="collectorGap" class="history-badge history-badge--warning">
+          Lịch sử có thể bị thiếu
+        </span>
+      </div>
+      <div class="event-filters">
+        <input v-model.trim="eventFilters.cameraId" placeholder="Camera ID" />
+        <input v-model.trim="eventFilters.employeeId" type="number" min="1" placeholder="Employee ID" />
+        <input v-model="eventFilters.fromUtc" type="datetime-local" />
+        <button class="btn btn-models" @click="loadRecognitionEvents">Lọc / làm mới</button>
+      </div>
+      <div class="event-table-wrap">
+        <table class="event-table">
+          <thead><tr><th>Thời gian</th><th>Camera / lane</th><th>Nhân viên</th>
+            <th>Distance</th><th>Model</th><th>Trạng thái</th></tr></thead>
+          <tbody>
+            <tr v-for="item in recognitionEvents" :key="item.id">
+              <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
+              <td>{{ item.cameraId }} / {{ item.laneId ?? "-----" }}</td>
+              <td>{{ item.employeeName || item.employeeId || item.runtimeSubjectId || "-----" }}</td>
+              <td>{{ formatEventDistance(item.recognitionDistance) }}</td>
+              <td>v{{ item.modelVersion ?? "-----" }}</td>
+              <td>
+                <span :class="['history-badge', eventStatusClass(item.matchStatus)]">
+                  {{ item.matchStatus }}
+                </span>
+              </td>
+            </tr>
+            <tr v-if="!recognitionEvents.length"><td colspan="6">Chưa có sự kiện nhận diện.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="event-history">
+      <div class="event-history__header">
+        <h2>So sánh chính sách truy cập</h2>
+      </div>
+      <div class="comparison-warning">
+        Kết quả so sánh chỉ phục vụ đánh giá chính sách. Không phải quyết định mở cổng.
+      </div>
+      <div class="comparison-summary">
+        <span>Đồng thuận Allow: {{ comparisonSummary.agreeAllow || 0 }}</span>
+        <span>Đồng thuận Deny: {{ comparisonSummary.agreeDeny || 0 }}</span>
+        <span>Legacy Allow / Enterprise Deny: {{ comparisonSummary.legacyAllowEnterpriseDeny || 0 }}</span>
+        <span>Legacy Deny / Enterprise Allow: {{ comparisonSummary.legacyDenyEnterpriseAllow || 0 }}</span>
+        <span>Không đủ dữ liệu: {{ comparisonSummary.indeterminate || 0 }}</span>
+      </div>
+      <div class="event-table-wrap">
+        <table class="event-table">
+          <thead><tr><th>Thời gian</th><th>Camera / Gate / AP</th><th>Legacy</th>
+            <th>Enterprise</th><th>So sánh</th></tr></thead>
+          <tbody>
+            <tr v-for="item in policyComparisons" :key="item.id">
+              <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
+              <td>{{ item.cameraId }} / {{ item.gateId ?? "-" }} / {{ item.accessPointId ?? "-" }}</td>
+              <td>{{ item.legacyDecision }} — {{ item.legacyReasonCode }}</td>
+              <td>{{ item.enterpriseDecision }} — {{ item.enterpriseReasonCode }}</td>
+              <td>{{ item.comparisonResult }}</td>
+            </tr>
+            <tr v-if="!policyComparisons.length"><td colspan="5">Chưa có dữ liệu so sánh.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="event-history">
+      <div class="event-history__header">
+        <h2>Quyết định truy cập Face ID</h2>
+      </div>
+      <div class="comparison-warning">
+        Allowed chỉ là quyết định phần mềm phục vụ kiểm tra và audit. Không phải lệnh mở cổng.
+      </div>
+      <div class="comparison-summary">
+        <span>Allowed: {{ decisionSummary.allowed || 0 }}</span>
+        <span>Denied: {{ decisionSummary.denied || 0 }}</span>
+        <span>Review required: {{ decisionSummary.reviewRequired || 0 }}</span>
+        <span>Indeterminate: {{ decisionSummary.indeterminate || 0 }}</span>
+      </div>
+      <div class="event-table-wrap">
+        <table class="event-table">
+          <thead><tr><th>Thời gian</th><th>Camera / Gate / AP</th><th>Quyết định</th>
+            <th>Lý do</th><th>Đầu vào</th></tr></thead>
+          <tbody>
+            <tr v-for="item in accessDecisions" :key="item.id">
+              <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
+              <td>{{ item.cameraId }} / {{ item.gateId ?? "-" }} / {{ item.accessPointId ?? "-" }}</td>
+              <td><span :class="['history-badge', decisionStatusClass(item.decision)]">
+                {{ item.decision }}
+              </span></td>
+              <td>{{ item.reasonCode }}</td>
+              <td>{{ item.legacyDecision }} AND {{ item.enterpriseDecision }}</td>
+            </tr>
+            <tr v-if="!accessDecisions.length"><td colspan="5">Chưa có quyết định truy cập.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
 <script>
 import {
-  turnOnCamera,
-  turnOffCamera,
-  resetCameraState,
+  startCamera,
+  stopCamera,
+  resetCamera,
   getCameraStatus,
   getCameraResult,
-  getLockedImages
+  getLockedImages,
+  getModels,
+  normalizeFaceApiError,
+  shouldStopFacePolling
 } from "../services/faceApi"
 import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
+import {
+  getFaceCameraConfigurations,
+  updateFaceCameraConfiguration,
+  startConfiguredFaceCamera,
+  stopConfiguredFaceCamera,
+  reconcileFaceCameras
+} from "../services/faceCameraConfigurationApi"
+import {
+  getFaceRecognitionEvents,
+  getFaceRecognitionCollectorHealth
+} from "../services/faceRecognitionEventsApi"
+import {
+  getFacePolicyComparisons,
+  getFacePolicyComparisonSummary
+} from "../services/faceAccessPolicyComparisonApi"
+import {
+  getFaceAccessDecisions,
+  getFaceAccessDecisionSummary
+} from "../services/faceAccessDecisionApi"
+import { captureError, recordMetric } from "../services/observability"
 
 export default {
   name: "FaceIdSecurity",
 
+  props: {
+    cameraId: {
+      type: String,
+      default: "monitoring-face-camera"
+    },
+    laneId: {
+      type: String,
+      default: null
+    }
+  },
+
   data() {
     return {
       cameraIp: "",
+      savedConfigurations: [],
+      selectedRuntimeCameraId: "",
       currentIp: "",
       cameraRunning: false,
       cameraConnected: false,
@@ -189,20 +379,61 @@ export default {
       fps: 0,
       message: "",
       lastUpdate: "",
+      faceServiceError: null,
+      modelInfo: null,
 
       directCameraUrl: "",
+      directCameraSourceUrl: "",
       directCameraKey: 0,
       previewHealthy: false,
+      previewRetryCount: 0,
+      previewRetryTimer: null,
 
       resultTimer: null,
       busyResult: false,
       isFetchingLockedImages: false,
+      recognitionEvents: [],
+      eventHistoryTimer: null,
+      eventHistoryError: false,
+      collectorGap: false,
+      eventFilters: { cameraId: "", employeeId: "", fromUtc: "" },
+      policyComparisons: [],
+      comparisonSummary: {},
+      accessDecisions: [],
+      decisionSummary: {},
 
       destroyed: false
     }
   },
 
   computed: {
+    selectedConfiguration() {
+      return this.savedConfigurations.find(
+        item => item.runtimeCameraId === this.selectedRuntimeCameraId
+      ) || null
+    },
+
+    activeCameraId() {
+      return this.selectedRuntimeCameraId || this.cameraId
+    },
+
+    safeInputUrl() {
+      const value = String(
+        this.selectedConfiguration?.streamUrlMasked || this.currentIp || this.cameraIp || ""
+      ).trim()
+      if (!value) return "-----"
+      try {
+        const parsed = new URL(value)
+        if (parsed.username || parsed.password) {
+          parsed.username = "***"
+          parsed.password = "***"
+        }
+        return parsed.toString()
+      } catch {
+        return "Camera stream đã cấu hình"
+      }
+    },
+
     bboxText() {
       if (!this.bbox) return "-----"
 
@@ -236,22 +467,35 @@ export default {
 
   async mounted() {
     this.destroyed = false
-    await this.loadCurrentStatus()
+    await this.loadSavedConfigurations()
+    if (!this.selectedConfiguration || this.selectedConfiguration.runtimeEnabled) {
+      await this.loadCurrentStatus()
+    }
+    if (this.selectedConfiguration?.previewUrl && !this.previewRunning) {
+      this.mountRegisteredPreview(
+        { urlView: this.selectedConfiguration.previewUrl },
+        ""
+      )
+    }
 
     if (this.cameraRunning) {
       this.startResultLoop()
     }
+    await this.loadRecognitionEvents()
+    this.startEventHistoryLoop()
   },
 
   beforeUnmount() {
     this.destroyed = true
     this.stopResultLoop()
+    this.stopEventHistoryLoop()
     this.resetDirectPreview()
   },
 
   activated() {
     // Resuming from keep-alive: restart timers if camera was running
     this.destroyed = false
+    this.startEventHistoryLoop()
     if (this.cameraRunning) {
       if (this.currentIp && !this.previewRunning) {
         this.mountDirectPreview(this.currentIp)
@@ -263,15 +507,172 @@ export default {
   deactivated() {
     // Pausing for keep-alive: stop timers but keep state
     this.stopResultLoop()
+    this.stopEventHistoryLoop()
   },
 
   methods: {
+    async loadRecognitionEvents() {
+      if (this.destroyed) return
+      try {
+        const params = { page: 1, pageSize: 50 }
+        if (this.eventFilters.cameraId) params.cameraId = this.eventFilters.cameraId
+        if (this.eventFilters.employeeId) params.employeeId = Number(this.eventFilters.employeeId)
+        if (this.eventFilters.fromUtc) {
+          params.fromUtc = new Date(this.eventFilters.fromUtc).toISOString()
+        }
+        const [history, health] = await Promise.all([
+          getFaceRecognitionEvents(params),
+          getFaceRecognitionCollectorHealth()
+        ])
+        this.recognitionEvents = Array.isArray(history?.items) ? history.items : []
+        this.collectorGap = Number(health?.gapCount || 0) > 0 ||
+          this.recognitionEvents.some(item => item.historyGapWarning)
+        this.eventHistoryError = false
+        const [comparisons, summary, decisions, decisionSummary] = await Promise.all([
+          getFacePolicyComparisons({ page: 1, pageSize: 50 }),
+          getFacePolicyComparisonSummary(),
+          getFaceAccessDecisions({ page: 1, pageSize: 50 }),
+          getFaceAccessDecisionSummary()
+        ])
+        this.policyComparisons = Array.isArray(comparisons?.items) ? comparisons.items : []
+        this.comparisonSummary = summary || {}
+        this.accessDecisions = Array.isArray(decisions?.items) ? decisions.items : []
+        this.decisionSummary = decisionSummary || {}
+      } catch {
+        this.eventHistoryError = true
+      }
+    },
+
+    startEventHistoryLoop() {
+      this.stopEventHistoryLoop()
+      this.eventHistoryTimer = setInterval(() => this.loadRecognitionEvents(), 5000)
+    },
+
+    stopEventHistoryLoop() {
+      if (this.eventHistoryTimer) clearInterval(this.eventHistoryTimer)
+      this.eventHistoryTimer = null
+    },
+
+    formatEventTime(value) {
+      return value ? new Date(value).toLocaleString("vi-VN") : "-----"
+    },
+
+    formatEventDistance(value) {
+      const number = Number(value)
+      return Number.isFinite(number) ? number.toFixed(4) : "-----"
+    },
+
+    eventStatusClass(status) {
+      if (status === "Matched") return "history-badge--success"
+      if (status === "ModelMismatch" || status === "EmployeeMissing") {
+        return "history-badge--danger"
+      }
+      return "history-badge--warning"
+    },
+
+    decisionStatusClass(status) {
+      if (status === "Allowed") return "history-badge--success"
+      if (status === "Denied" || status === "Indeterminate") {
+        return "history-badge--danger"
+      }
+      return "history-badge--warning"
+    },
+
+    async loadSavedConfigurations() {
+      try {
+        const overview = await getFaceCameraConfigurations()
+        this.savedConfigurations = Array.isArray(overview?.configurations)
+          ? overview.configurations
+          : []
+        if (!this.selectedRuntimeCameraId && this.savedConfigurations.length) {
+          this.selectedRuntimeCameraId = this.savedConfigurations[0].runtimeCameraId
+        }
+      } catch (error) {
+        this.handleFaceServiceError(error, { polling: true })
+      }
+    },
+
+    async handleConfiguredCameraChange() {
+      this.stopResultLoop()
+      this.hardResetUiState()
+      this.resetDirectPreview()
+      if (this.selectedConfiguration?.previewUrl) {
+        this.mountRegisteredPreview(
+          { urlView: this.selectedConfiguration.previewUrl },
+          ""
+        )
+      }
+      if (this.selectedConfiguration?.runtimeEnabled) {
+        await this.loadCurrentStatus()
+        if (this.cameraRunning) this.startResultLoop()
+      }
+    },
+
+    async handleAutoRestoreChange(event) {
+      const configuration = this.selectedConfiguration
+      if (!configuration) return
+      try {
+        this.loading = true
+        await updateFaceCameraConfiguration(configuration.runtimeCameraId, {
+          cameraId: configuration.cameraId,
+          laneId: configuration.laneId,
+          autoRestore: event.target.checked,
+          rowVersion: configuration.rowVersion
+        })
+        await this.loadSavedConfigurations()
+      } catch (error) {
+        this.handleFaceServiceError(error)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async handleManualReconcile() {
+      try {
+        this.loading = true
+        await reconcileFaceCameras()
+        await this.loadSavedConfigurations()
+        if (this.selectedConfiguration?.runtimeEnabled) {
+          await this.loadCurrentStatus()
+        }
+      } catch (error) {
+        this.handleFaceServiceError(error)
+      } finally {
+        this.loading = false
+      }
+    },
+
     buildDirectCameraUrl(inputUrl) {
       const raw = String(inputUrl || "").trim()
       if (!raw) return ""
 
       const sep = raw.includes("?") ? "&" : "?"
       return `${raw}${sep}t=${Date.now()}`
+    },
+
+    mountRegisteredPreview(camera, sourceUrl) {
+      const previewUrl = String(camera?.urlView || "").trim()
+      const directWebUrl = /^https?:\/\//i.test(sourceUrl || "") ? String(sourceUrl).trim() : ""
+      let browserUrl = previewUrl || directWebUrl
+
+      if (previewUrl) {
+        try {
+          const parsed = new URL(previewUrl, window.location.origin)
+          const streamName = parsed.searchParams.get("src")
+          if (streamName && parsed.pathname.endsWith("/stream.html")) {
+            const basePath = parsed.pathname.slice(0, -"/stream.html".length)
+            browserUrl = `${parsed.origin}${basePath}/api/stream.mjpeg?src=${encodeURIComponent(streamName)}`
+          }
+        } catch {
+          browserUrl = previewUrl
+        }
+      }
+
+      if (!browserUrl) {
+        throw new Error("Camera chưa có URL preview cho trình duyệt. Vui lòng kiểm tra go2rtc.")
+      }
+
+      this.mountDirectPreview(browserUrl)
     },
 
     clearResultStateOnly() {
@@ -306,16 +707,28 @@ export default {
       const cleanUrl = String(url || "").trim()
       if (!cleanUrl) return
 
+      if (this.previewRetryTimer) {
+        clearTimeout(this.previewRetryTimer)
+        this.previewRetryTimer = null
+      }
+      this.directCameraSourceUrl = cleanUrl
       this.directCameraUrl = this.buildDirectCameraUrl(cleanUrl)
       this.directCameraKey += 1
       this.previewHealthy = false
+      this.previewRetryCount = 0
       this.previewRunning = true
     },
 
     resetDirectPreview() {
+      if (this.previewRetryTimer) {
+        clearTimeout(this.previewRetryTimer)
+        this.previewRetryTimer = null
+      }
       this.directCameraUrl = ""
+      this.directCameraSourceUrl = ""
       this.directCameraKey += 1
       this.previewHealthy = false
+      this.previewRetryCount = 0
       this.previewRunning = false
     },
 
@@ -325,6 +738,30 @@ export default {
         this.resultTimer = null
       }
       this.busyResult = false
+    },
+
+    clearFaceServiceError() {
+      this.faceServiceError = null
+    },
+
+    handleFaceServiceError(error, { polling = false } = {}) {
+      const normalized = normalizeFaceApiError(error)
+      if (normalized.cancelled || this.destroyed) return
+
+      const isNewError = this.faceServiceError?.code !== normalized.code
+      this.faceServiceError = {
+        code: normalized.code,
+        message: normalized.message
+      }
+      this.cameraConnected = false
+
+      if (shouldStopFacePolling(normalized)) {
+        this.stopResultLoop()
+      }
+
+      if (!polling && isNewError) {
+        alert(normalized.message)
+      }
     },
 
     startResultLoop() {
@@ -346,7 +783,8 @@ export default {
 
     async loadCurrentStatus() {
       try {
-        const res = await getCameraStatus()
+        const res = await getCameraStatus(this.activeCameraId)
+        this.clearFaceServiceError()
         await this.applyRealtimeState(res, false)
 
         if (this.currentIp) {
@@ -354,7 +792,12 @@ export default {
         }
 
         if (this.currentIp) {
-          this.mountDirectPreview(this.currentIp)
+          const camera = await ensureCameraRegistered({
+            cameraName: "Face Monitor Camera",
+            cameraType: "Face",
+            streamUrl: this.currentIp,
+          })
+          this.mountRegisteredPreview(camera, this.currentIp)
         } else {
           this.resetDirectPreview()
         }
@@ -363,11 +806,36 @@ export default {
           await this.fetchLockedImagesIfNeeded(true)
         }
       } catch (e) {
-        console.error("Load status error:", e)
+        this.handleFaceServiceError(e, { polling: true })
+      }
+    },
+
+    async handleCheckModels() {
+      try {
+        this.loading = true
+        const res = await getModels()
+        this.clearFaceServiceError()
+        this.modelInfo = {
+          version: res?.version ?? "-----",
+          modelCount: Number(res?.successfulFileCount ?? res?.models?.length ?? 0),
+          encodingCount: Number(res?.encodingCount ?? 0)
+        }
+      } catch (e) {
+        this.handleFaceServiceError(e)
+      } finally {
+        this.loading = false
       }
     },
 
     async handleTurnOnPreview() {
+      if (this.selectedConfiguration?.previewUrl) {
+        this.mountRegisteredPreview(
+          { urlView: this.selectedConfiguration.previewUrl },
+          ""
+        )
+        this.message = "Đã mở preview camera đã lưu"
+        return
+      }
       const ip = (this.cameraIp || this.currentIp || "").trim()
       if (!ip) {
         alert("Vui lòng nhập URL camera")
@@ -376,14 +844,14 @@ export default {
 
       try {
         this.loading = true
-        await ensureCameraRegistered({
+        const camera = await ensureCameraRegistered({
           cameraName: "Face Monitor Camera",
           cameraType: "Face",
           streamUrl: ip,
         })
         this.currentIp = ip
-        this.mountDirectPreview(ip)
-        this.message = "Đã mở preview camera trên giao diện"
+        this.mountRegisteredPreview(camera, ip)
+        this.message = "Đã mở preview camera qua go2rtc"
       } catch (e) {
         console.error("Turn on preview error:", e)
         alert(e?.message || "Lỗi mở preview camera")
@@ -393,23 +861,26 @@ export default {
     },
 
     async handleInitOrResetSession() {
+      const initializationStartedAt = performance.now()
       const ip = (this.cameraIp || this.currentIp || "").trim()
-      if (!ip) {
+      if (!this.selectedConfiguration && !ip) {
         alert("Vui lòng nhập URL camera")
         return
       }
 
       try {
         this.loading = true
-        await ensureCameraRegistered({
-          cameraName: "Face Monitor Camera",
-          cameraType: "Face",
-          streamUrl: ip,
-        })
+        if (!this.selectedConfiguration) {
+          const camera = await ensureCameraRegistered({
+            cameraName: "Face Monitor Camera",
+            cameraType: "Face",
+            streamUrl: ip,
+          })
 
-        this.currentIp = ip
-        if (!this.previewRunning) {
-          this.mountDirectPreview(ip)
+          this.currentIp = ip
+          if (!this.previewRunning) {
+            this.mountRegisteredPreview(camera, ip)
+          }
         }
 
         this.clearResultStateOnly()
@@ -417,22 +888,34 @@ export default {
         if (!this.cameraRunning) {
           this.stopResultLoop()
 
-          const res = await turnOnCamera(ip)
-          if (!res?.success) {
+          const res = this.selectedConfiguration
+            ? await startConfiguredFaceCamera(this.activeCameraId)
+            : await startCamera(this.activeCameraId, ip, this.laneId)
+          this.clearFaceServiceError()
+          if (!this.selectedConfiguration && !res?.success) {
             alert(res?.message || "Không thể khởi tạo phiên nhận diện")
             return
           }
 
           this.cameraRunning = true
-          this.currentIp = ip
-          this.message = res.message || "Khởi tạo phiên nhận diện thành công"
+          this.currentIp = ip || this.currentIp
+          this.message = res?.configuration
+            ? "Đã lưu trạng thái Running và đồng bộ Face Runtime"
+            : (res.message || "Khởi tạo phiên nhận diện thành công")
+          if (this.selectedConfiguration?.previewUrl && !this.previewRunning) {
+            this.mountRegisteredPreview(
+              { urlView: this.selectedConfiguration.previewUrl },
+              ""
+            )
+          }
 
           await this.refreshResult()
           this.startResultLoop()
           return
         }
 
-        const res = await resetCameraState()
+        const res = await resetCamera(this.activeCameraId)
+        this.clearFaceServiceError()
         this.message = res?.message || "Đã reset phiên nhận diện"
 
         await this.refreshResult()
@@ -441,9 +924,10 @@ export default {
           this.startResultLoop()
         }
       } catch (e) {
-        console.error("Init/Reset session error:", e)
-        alert(e?.message || "Lỗi khởi tạo / reset phiên nhận diện")
+        captureError(e, "camera_initialization_failure", { component: "FaceCamera" })
+        this.handleFaceServiceError(e)
       } finally {
+        recordMetric("camera_initialization", performance.now() - initializationStartedAt, { component: "FaceCamera" })
         this.loading = false
       }
     },
@@ -455,17 +939,22 @@ export default {
         this.stopResultLoop()
 
         try {
-          const res = await turnOffCamera()
+          const res = this.selectedConfiguration
+            ? await stopConfiguredFaceCamera(this.activeCameraId)
+            : await stopCamera(this.activeCameraId)
+          this.clearFaceServiceError()
           this.message = res?.message || "Đã tắt camera"
+          if (this.selectedConfiguration) {
+            await this.loadSavedConfigurations()
+          }
         } catch (e) {
-          console.warn("Turn off warning:", e)
+          this.handleFaceServiceError(e)
         }
 
         this.hardResetUiState()
         this.resetDirectPreview()
       } catch (e) {
-        console.error("Turn off error:", e)
-        alert(e?.message || "Lỗi tắt camera")
+        this.handleFaceServiceError(e)
       } finally {
         this.loading = false
       }
@@ -473,10 +962,11 @@ export default {
 
     async refreshResult() {
       try {
-        const res = await getCameraResult()
+        const res = await getCameraResult(this.activeCameraId)
+        this.clearFaceServiceError()
         await this.applyRealtimeState(res, true)
       } catch (e) {
-        console.warn("Result polling error:", e)
+        this.handleFaceServiceError(e, { polling: true })
       }
     },
 
@@ -492,7 +982,8 @@ export default {
 
       this.isFetchingLockedImages = true
       try {
-        const res = await getLockedImages()
+        const res = await getLockedImages(this.activeCameraId)
+        this.clearFaceServiceError()
 
         if (res?.scan_locked) {
           this.lockedSnapshot = res.locked_snapshot || ""
@@ -502,7 +993,7 @@ export default {
           this.lockedFaceCrop = ""
         }
       } catch (e) {
-        console.warn("Fetch locked images error:", e)
+        this.handleFaceServiceError(e, { polling: true })
       } finally {
         this.isFetchingLockedImages = false
       }
@@ -552,10 +1043,24 @@ export default {
 
     handleDirectPreviewLoaded() {
       this.previewHealthy = true
+      this.previewRetryCount = 0
     },
 
     handleDirectPreviewError() {
       this.previewHealthy = false
+      this.message = "Không nhận được hình ảnh camera. Hãy kiểm tra địa chỉ, mạng và trạng thái go2rtc."
+
+      if (!this.previewRunning || !this.directCameraSourceUrl || this.previewRetryCount >= 1) {
+        return
+      }
+
+      this.previewRetryCount += 1
+      this.previewRetryTimer = setTimeout(() => {
+        this.previewRetryTimer = null
+        if (!this.previewRunning || !this.directCameraSourceUrl) return
+        this.directCameraUrl = this.buildDirectCameraUrl(this.directCameraSourceUrl)
+        this.directCameraKey += 1
+      }, 1500)
     },
 
     async handleDoubleClick() {
@@ -661,6 +1166,41 @@ export default {
   background: #dc3545;
 }
 
+.saved-camera-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 auto 16px;
+  padding: 12px;
+  max-width: 1100px;
+  border: 1px solid #d7e1e8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.saved-camera-panel select {
+  margin-left: 8px;
+  padding: 8px;
+  min-width: 250px;
+}
+
+.auto-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-error {
+  flex-basis: 100%;
+  color: #b42318;
+}
+
+.btn-models {
+  background: #6f42c1;
+}
+
 .status-bar {
   display: flex;
   gap: 20px;
@@ -668,6 +1208,31 @@ export default {
   flex-wrap: wrap;
   margin-bottom: 20px;
   font-size: 14px;
+}
+
+.service-error {
+  width: 800px;
+  margin: 0 auto 15px;
+  padding: 10px 14px;
+  border: 1px solid #f5c2c7;
+  border-radius: 8px;
+  background: #f8d7da;
+  color: #842029;
+  font-weight: 700;
+}
+
+.model-status {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 800px;
+  margin: 0 auto 15px;
+  padding: 10px 14px;
+  border: 1px solid #cfe2ff;
+  border-radius: 8px;
+  background: #e7f1ff;
+  color: #084298;
 }
 
 .video-wrapper {
@@ -839,6 +1404,37 @@ export default {
   font-size: 15px;
   line-height: 1.8;
 }
+
+.event-history {
+  margin: 24px auto 0;
+  width: 1000px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid #d7e1e8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.event-history__header,
+.event-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.event-history__header h2 { margin-right: auto; }
+.event-filters { margin-bottom: 12px; }
+.event-filters input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+.event-table-wrap { overflow-x: auto; }
+.event-table { width: 100%; border-collapse: collapse; }
+.event-table th, .event-table td { padding: 9px; border-bottom: 1px solid #e5e5e5; }
+.history-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+.history-badge--success { background: #d1e7dd; color: #0f5132; }
+.history-badge--warning { background: #fff3cd; color: #664d03; }
+.history-badge--danger { background: #f8d7da; color: #842029; }
+.comparison-warning { padding: 10px; margin-bottom: 12px; background: #fff3cd; color: #664d03; }
+.comparison-summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 
 /* Fullscreen mode */
 .video-wrapper:fullscreen {

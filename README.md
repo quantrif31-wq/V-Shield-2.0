@@ -81,7 +81,6 @@ Stack day du gom:
 - `qr-runtime-lane2`
 - `plate-runtime`
 - `face-runtime`
-- `faceid-runtime`
 
 Neu ban chi muon len web/API co ban, dung lenh nhe hon ben duoi:
 
@@ -126,7 +125,7 @@ docker compose --profile ai-heavy up -d --build
 Luu y:
 
 - `--profile ai` bat `qr-runtime` va `qr-runtime-lane2`
-- `--profile ai-heavy` bat `plate-runtime`, `face-runtime`, `faceid-runtime`
+- `--profile ai-heavy` bat `plate-runtime` va `face-runtime`
 - Neu muon may local dung du het QR, plate, face ngay tu dau thi dung:
 
 ```powershell
@@ -140,8 +139,7 @@ Phan bo tinh nang theo service:
 - QR lane 1: `qr-runtime`
 - QR lane 2: `qr-runtime-lane2`
 - Plate recognition: `plate-runtime`
-- Face camera: `face-runtime`
-- FaceID API: `faceid-runtime`
+- Face ID: Flask `nhandienface.py` trong service `face-runtime`
 - Streaming camera/WebRTC/MSE: `go2rtc`
 
 Kiem tra nhanh:
@@ -151,10 +149,14 @@ curl http://localhost:5107/health
 curl http://localhost:8001/qr/result
 curl http://localhost:8002/qr/result
 curl http://localhost:5002/api/camera/status
-curl http://localhost:5001/api/camera/status
-curl http://localhost:8000/docs
 curl http://localhost:1984/
 ```
+
+Face ID chi duoc truy cap qua ASP.NET (`/api/FaceCamera/...`). Python Face
+Runtime khong publish port `5001` ra host; backend ket noi service duy nhat
+`face-runtime` bang `http://face-runtime:5001/api` tren Docker bridge rieng.
+FastAPI `FaceID.py`, service `faceid-runtime`, port `8000` va route
+`/api/face-recognition/*` da bi loai bo.
 
 ### 2.4. Tu lan sau
 
@@ -224,7 +226,6 @@ docker logs vshield-qr-runtime --tail 100
 docker logs vshield-qr-runtime-lane2 --tail 100
 docker logs vshield-plate-runtime --tail 100
 docker logs vshield-face-runtime --tail 100
-docker logs vshield-faceid-runtime --tail 100
 ```
 
 Neu Docker Desktop co hien tuong "luc duoc luc khong":

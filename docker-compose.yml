@@ -23,12 +23,13 @@ services:
     container_name: vshield-api
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
-      ASPNETCORE_URLS: http://+:5107
+      ASPNETCORE_HTTP_PORTS: "5107"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=AccessControlDB;User Id=sa;Password=${MSSQL_SA_PASSWORD:-VshieldSqlLocal@2026};Encrypt=True;TrustServerCertificate=True;"
       VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:-VshieldLocalJwtSecretKey_2026_ChangeMe123}"
       VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:-admin}"
       VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:-AdminLocal@2026}"
       Runtime__Mode: docker
+      Security__EnableHttpsRedirection: "false"
       DataProtection__KeyRingPath: "/var/app/data-protection"
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:-}"
       AppSettings__Go2RtcPublicBaseUrl: "${APP_GO2RTC_PUBLIC_BASE_URL:-}"
@@ -45,9 +46,8 @@ services:
       Go2Rtc__StreamMode: "${GO2RTC_STREAM_MODE:-webrtc}"
       AiServices__PlateBaseUrl: "${PLATE_SERVICE_URL:-http://plate-runtime:5002/api}"
       AiServices__FaceCameraBaseUrl: "${FACE_SERVICE_URL:-http://face-runtime:5001/api}"
-      AiServices__FaceIdBaseUrl: "${FACEID_SERVICE_URL:-http://faceid-runtime:8000}"
-      AiServices__AutoStartFaceId: "false"
       Authentication__DemoBypassMfa: "${AUTH_DEMO_BYPASS_MFA:-false}"
+      FaceStorage__InputRoot: "/app/wwwroot/uploads/VideoFace"
       Sync__Mode: "${SYNC_MODE:-Standalone}"
       Sync__CentralBaseUrl: "${SYNC_CENTRAL_BASE_URL:-}"
       Sync__RegistrationKey: "${SYNC_REGISTRATION_KEY:-}"
@@ -73,11 +73,15 @@ services:
       - vshield_data_protection:/var/app/data-protection
       - ./runtime/go2rtc:/runtime/go2rtc
       - ./runtime/uploads:/app/wwwroot/uploads
+      - ./runtime/face-data/input:/app/wwwroot/uploads/VideoFace
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health/ready"]
       interval: 15s
       timeout: 5s
       retries: 10
+    networks:
+      - default
+      - face-backend
     restart: unless-stopped
 
   frontend:
@@ -89,14 +93,12 @@ services:
         VITE_QR_API_BASE_URL: "${VITE_QR_API_BASE_URL:-/qr-api}"
         VITE_QR_API_BASE_URL_LANE2: "${VITE_QR_API_BASE_URL_LANE2:-/qr-api-lane2}"
         VITE_PLATE_API_BASE_URL: "${VITE_PLATE_API_BASE_URL:-/plate-api/api}"
-        VITE_FACE_API_BASE_URL: "${VITE_FACE_API_BASE_URL:-/face-api/api}"
     container_name: vshield-frontend
     environment:
       API_PROXY_BASE: "${API_PROXY_BASE:-http://api:5107}"
       QR_PROXY_BASE: "${QR_PROXY_BASE:-http://qr-runtime:8001}"
       QR_PROXY_BASE_LANE2: "${QR_PROXY_BASE_LANE2:-http://qr-runtime-lane2:8001}"
       PLATE_PROXY_BASE: "${PLATE_PROXY_BASE:-http://plate-runtime:5002}"
-      FACE_PROXY_BASE: "${FACE_PROXY_BASE:-http://face-runtime:5001}"
       GO2RTC_PROXY_BASE: "${GO2RTC_PROXY_BASE:-http://go2rtc:1984}"
     ports:
       - "5173:80"
@@ -169,26 +171,33 @@ services:
     command: ["sh", "-lc", "cd /workspace/V-Shield/AI_Runtime/face_recognition && python3 nhandienface.py"]
     environment:
       PORT: 5001
+      FACE_MODEL_DIR: "${FACE_MODEL_DIR:-/data/face/models/active}"
+      FACE_ENROLLMENT_INPUT_ROOT: /data/face/input
+      FACE_MODEL_STAGING_DIR: /data/face/models/staging
+      FACE_MODEL_ARCHIVE_DIR: /data/face/models/archive
+      FACE_MODEL_FAILED_DIR: /data/face/models/failed
     volumes:
       - ./:/workspace/V-Shield
-    ports:
-      - "5001:5001"
-    restart: unless-stopped
-    profiles: ["ai-heavy"]
-
-  faceid-runtime:
-    build:
-      context: ./AI_Runtime/face_recognition
-      dockerfile: Dockerfile
-    container_name: vshield-faceid-runtime
-    command: ["sh", "-lc", "cd /workspace/V-Shield/AI_Runtime/face_recognition && uvicorn FaceID:app --host 0.0.0.0 --port 8000"]
-    volumes:
-      - ./:/workspace/V-Shield
-    ports:
-      - "8000:8000"
+      - ./runtime/face-data/input:/data/face/input:ro
+      - ./runtime/face-data/models:/data/face/models
+    expose:
+      - "5001"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/api/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - face-backend
     restart: unless-stopped
     profiles: ["ai-heavy"]
 
 volumes:
   vshield_mssql_data:
   vshield_data_protection:
+
+networks:
+  face-backend:
+    name: vshield-face-backend
+    driver: bridge

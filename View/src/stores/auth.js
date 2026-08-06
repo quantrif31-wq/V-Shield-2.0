@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { login as loginApi, getMe, logoutApi as logoutApiRequest } from '../services/authApi'
+import { captureEvent } from '../services/observability'
 
 const AUTH_TOKEN_KEY = 'v_shield_token'
 const AUTH_USER_KEY = 'v_shield_user'
@@ -77,6 +78,7 @@ export async function login(username, password, mfaCode = null) {
     }
 
     writeAuthState(data.token, state.user, data.refreshToken)
+    captureEvent('authentication_success', { role: data.role, mfaEnabled: !!data.mfaEnabled })
 
     return { success: true }
 }
@@ -94,6 +96,7 @@ export async function logout() {
     state.refreshToken = null
     state.user = null
     clearAuthState()
+    captureEvent('authentication_logout')
 }
 
 /** Kiểm tra đã đăng nhập chưa */
@@ -122,6 +125,7 @@ export async function fetchUser() {
             operationalTaskKeys: res.data.operationalTaskKeys || [],
         }
         writeAuthState(state.token, state.user, state.refreshToken)
+        captureEvent('authentication_session_verified', { role: state.user.role })
         return true
     } catch {
         await logout()

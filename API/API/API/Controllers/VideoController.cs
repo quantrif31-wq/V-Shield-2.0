@@ -3,6 +3,7 @@ using API.Data;
 using System.IdentityModel.Tokens.Jwt;
 using API.Middleware;
 using API.Models;
+using API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
@@ -14,19 +15,20 @@ namespace API.Controllers
     [ApiController]
     [EnableRateLimiting("ops")]
     [Authorize]
-    [RequireOperationalTask("monitoring")]
+    [RequireOperationalTask("identity-mgmt")]
     public class VideoController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IWebHostEnvironment _env;
+        private readonly IFaceStoragePathResolver _storage;
 
-        public VideoController(ApplicationDbContext context, IWebHostEnvironment env)
+        public VideoController(ApplicationDbContext context, IFaceStoragePathResolver storage)
         {
             _context = context;
-            _env = env;
+            _storage = storage;
         }
 
         [HttpPost("upload")]
+        [RequireOperationalTask("identity-mgmt", requireManage: true)]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(50_000_000)]
         public async Task<IActionResult> UploadVideo([FromForm] UploadVideoRequest request)
@@ -83,18 +85,13 @@ namespace API.Controllers
                     finalEmployeeId = user.Employee.EmployeeId;
                 }
 
-                string folder = Path.Combine(
-                    _env.WebRootPath,
-                    "uploads",
-                    "VideoFace",
-                    "video_notok"
-                );
+                string folder = _storage.ResolveDirectory("video_notok");
 
                 if (!Directory.Exists(folder))
                     Directory.CreateDirectory(folder);
 
                 string fileName = $"emp_{finalEmployeeId}_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
-                string fullPath = Path.Combine(folder, fileName);
+                string fullPath = _storage.ResolveFile("video_notok", fileName);
 
                 using (var stream = new FileStream(fullPath, FileMode.Create))
                 {
@@ -105,9 +102,9 @@ namespace API.Controllers
                 {
                     EmployeeId = finalEmployeeId,
                     FileName = fileName,
-                    FilePath = "/uploads/VideoFace/video_notok/" + fileName,
+                    FilePath = "video_notok/" + fileName,
                     FileSize = file.Length,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 _context.EmployeeFaceVideos.Add(video);
@@ -119,12 +116,12 @@ namespace API.Controllers
                     filePath = video.FilePath
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(500, new
                 {
                     message = "Upload thất bại",
-                    error = ex.Message
+                    error = "Không thể lưu file video"
                 });
             }
         }
@@ -152,12 +149,17 @@ namespace API.Controllers
             if (video == null)
                 return NotFound(new { message = "Khong tim thay video" });
 
-            var webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            var videoFolder = Path.Combine(webRoot, "uploads", "VideoFace", "video_notok");
-            var fullPath = Path.GetFullPath(Path.Combine(videoFolder, video.FileName));
-            var allowedRoot = Path.GetFullPath(videoFolder);
+            string fullPath;
+            try
+            {
+                fullPath = _storage.ResolveFile("video_notok", video.FileName);
+            }
+            catch (ArgumentException)
+            {
+                return NotFound(new { message = "Khong tim thay file video" });
+            }
 
-            if (!fullPath.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(fullPath))
+            if (!System.IO.File.Exists(fullPath))
                 return NotFound(new { message = "Khong tim thay file video" });
 
             await AuditEvidenceRead("EmployeeFaceVideo", id.ToString(), video.FileName);
@@ -165,6 +167,7 @@ namespace API.Controllers
         }
 
         [Authorize(Roles = "Admin")]
+        [RequireOperationalTask("identity-mgmt", requireManage: true)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteVideo(int id)
         {
@@ -175,13 +178,7 @@ namespace API.Controllers
                 if (video == null)
                     return NotFound(new { message = "Không tìm thấy video" });
 
-                string fullPath = Path.Combine(
-                    _env.WebRootPath,
-                    "uploads",
-                    "VideoFace",
-                    "video_notok",
-                    video.FileName
-                );
+                string fullPath = _storage.ResolveFile("video_notok", video.FileName);
 
                 if (System.IO.File.Exists(fullPath))
                     System.IO.File.Delete(fullPath);
@@ -191,12 +188,16 @@ namespace API.Controllers
 
                 return Ok(new { message = "Xóa video thành công" });
             }
-            catch (Exception ex)
+            catch (ArgumentException)
+            {
+                return NotFound(new { message = "Không tìm thấy video" });
+            }
+            catch (Exception)
             {
                 return StatusCode(500, new
                 {
                     message = "Xóa video thất bại",
-                    error = ex.Message
+                    error = "Không thể xử lý file video"
                 });
             }
         }

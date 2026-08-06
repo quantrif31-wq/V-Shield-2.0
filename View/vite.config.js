@@ -7,15 +7,29 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [vue()],
+    test: {
+      environment: "jsdom",
+      css: true,
+      include: ["src/**/*.{test,spec}.{js,ts}"],
+      exclude: ["e2e/**", "node_modules/**", "dist/**"]
+    },
     build: {
-      chunkSizeWarningLimit: 1700,
+      chunkSizeWarningLimit: 600,
       rollupOptions: {
+        onwarn(warning, warn) {
+          // SignalR 10 ships a dependency annotation Rollup cannot place after transpilation.
+          // It does not affect runtime/tree-shaking; suppress only that exact vendor warning.
+          if (warning.code === "INVALID_ANNOTATION" && String(warning.id || "").includes("@microsoft/signalr")) return
+          warn(warning)
+        },
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
               if (id.includes("@microsoft/signalr")) return "signalr-vendor"
-              if (id.includes("maplibre-gl") || id.includes("three")) return "map-vendor"
-              if (id.includes("html5-qrcode") || id.includes("jsqr") || id.includes("qrcode")) return "qr-vendor"
+              if (id.includes("maplibre-gl")) return "maplibre-vendor"
+              if (id.includes("three")) return "three-vendor"
+              if (id.includes("html5-qrcode") || id.includes("jsqr")) return "qr-scanner-vendor"
+              if (id.includes("qrcode")) return "qrcode-vendor"
             }
           }
         }

@@ -23,9 +23,7 @@
   },
   "AiServices": {
     "FaceCameraBaseUrl": "http://127.0.0.1:5001/api",
-    "PlateBaseUrl": "http://127.0.0.1:5002/api",
-    "FaceIdBaseUrl": "http://127.0.0.1:8000",
-    "AutoStartFaceId": true
+    "PlateBaseUrl": "http://127.0.0.1:5002/api"
   },
   "AppSettings": {
     "FrontendUrl": "http://localhost:5173",

@@ -52,6 +52,107 @@ namespace API.Migrations
                     b.ToTable("AccessControllerDevices");
                 });
 
+            modelBuilder.Entity("API.Models.AccessCredential", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CredentialType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("EffectiveFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EmployeeDynamicQrId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IdentifierHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("IdentifierHashVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("MaskedIdentifier")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RevokedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CredentialType");
+
+                    b.HasIndex("EmployeeDynamicQrId")
+                        .IsUnique()
+                        .HasFilter("[EmployeeDynamicQrId] IS NOT NULL");
+
+                    b.HasIndex("EmployeeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccessCredentials_ActiveFace_Employee")
+                        .HasFilter("[CredentialType] = 'FaceBiometric' AND [Status] = 'Active'");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("RevokedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("CredentialType", "IdentifierHash")
+                        .IsUnique()
+                        .HasFilter("[IdentifierHash] IS NOT NULL");
+
+                    b.HasIndex("EmployeeId", "CredentialType");
+
+                    b.ToTable("AccessCredentials");
+                });
+
             modelBuilder.Entity("API.Models.AccessDecision", b =>
                 {
                     b.Property<long>("AccessDecisionId")
@@ -3064,6 +3165,75 @@ namespace API.Migrations
                     b.ToTable("EmployeeDynamicQrs");
                 });
 
+            modelBuilder.Entity("API.Models.EmployeeFaceCredentialBinding", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AccessCredentialId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ActivatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RevokedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessCredentialId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EmployeeFaceCredentialBindings_ActiveCredential")
+                        .HasFilter("[Status] = 'Active'");
+
+                    b.HasIndex("ActivatedAtUtc");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("EmployeeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EmployeeFaceCredentialBindings_ActiveEmployee")
+                        .HasFilter("[Status] = 'Active'");
+
+                    b.HasIndex("RevokedAtUtc");
+
+                    b.HasIndex("RevokedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("EmployeeFaceCredentialBindings");
+                });
+
             modelBuilder.Entity("API.Models.EmployeeFaceModel", b =>
                 {
                     b.Property<int>("Id")
@@ -3072,6 +3242,12 @@ namespace API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ActivatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ArchivedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -3079,6 +3255,21 @@ namespace API.Migrations
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
+
+                    b.Property<int?>("EncodingCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("FailureMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ModelChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("ModelFileName")
                         .IsRequired()
@@ -3090,9 +3281,48 @@ namespace API.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("SourceEnrollmentJobId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("Version")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("EmployeeId")
+                        .HasDatabaseName("IX_EmployeeFaceModels_EmployeeId");
+
+                    b.HasIndex("ModelFileName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EmployeeFaceModels_ModelFileName");
+
+                    b.HasIndex("SourceEnrollmentJobId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EmployeeFaceModels_SourceEnrollmentJobId")
+                        .HasFilter("[SourceEnrollmentJobId] IS NOT NULL");
+
+                    b.HasIndex("EmployeeId", "Status")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EmployeeFaceModels_ActiveEmployee")
+                        .HasFilter("[Status] = 'Active'");
+
+                    b.HasIndex("EmployeeId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EmployeeFaceModels_EmployeeId_Version")
+                        .HasFilter("[Version] IS NOT NULL");
 
                     b.ToTable("EmployeeFaceModels");
                 });
@@ -3596,6 +3826,585 @@ namespace API.Migrations
                         .IsUnique();
 
                     b.ToTable("ExternalIdentityProviders");
+                });
+
+            modelBuilder.Entity("API.Models.FaceAccessDecision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("AccessPointId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CameraId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DecidedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EnterpriseDecision")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<int?>("EnterprisePolicyVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EnterpriseReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("EnterpriseRuleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EnterpriseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EvaluationVersion")
+                        .HasColumnType("int");
+
+                    b.Property<long>("FaceAccessPolicyComparisonId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("FaceRecognitionEventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("GateId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InputFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("LaneId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegacyDecision")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<int?>("LegacyPermissionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegacyReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PolicySnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ScheduleTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessPointId");
+
+                    b.HasIndex("Decision");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("FaceAccessPolicyComparisonId")
+                        .IsUnique();
+
+                    b.HasIndex("FaceRecognitionEventId")
+                        .IsUnique();
+
+                    b.HasIndex("GateId");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.ToTable("FaceAccessDecisions");
+                });
+
+            modelBuilder.Entity("API.Models.FaceAccessPolicyComparison", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("AccessPointId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CameraId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ComparisonResult")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EnterpriseDecision")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<string>("EnterpriseInputFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("EnterprisePolicyVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EnterpriseReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("EnterpriseRuleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EnterpriseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EvaluatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EvaluationVersion")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FaceCameraConfigurationId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("FaceRecognitionEventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("GateId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LaneId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegacyDecision")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<string>("LegacyInputFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("LegacyPermissionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegacyReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("MappingStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ScheduleTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessPointId");
+
+                    b.HasIndex("ComparisonResult");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("EnterpriseDecision");
+
+                    b.HasIndex("FaceRecognitionEventId")
+                        .IsUnique();
+
+                    b.HasIndex("GateId");
+
+                    b.HasIndex("LegacyDecision");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.ToTable("FaceAccessPolicyComparisons");
+                });
+
+            modelBuilder.Entity("API.Models.FaceCameraConfiguration", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoRestore")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("CameraId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConfigurationFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("ConfigurationVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DesiredState")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int?>("LaneId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("LastAppliedVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastSyncAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastSyncStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("RuntimeCameraId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CameraId")
+                        .IsUnique();
+
+                    b.HasIndex("LaneId");
+
+                    b.HasIndex("RuntimeCameraId")
+                        .IsUnique();
+
+                    b.ToTable("FaceCameraConfigurations");
+                });
+
+            modelBuilder.Entity("API.Models.FaceEnrollmentJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ActivationRequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CandidateChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("CandidateEncodingCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CandidateReference")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("DuplicateDistance")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("float(9)");
+
+                    b.Property<string>("DuplicateSubjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("EmployeeFaceVideoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExpectedModelFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("FailureMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("InvalidFrameCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MultipleFaceFrameCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NoFaceFrameCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PreparedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProcessedFrameCount")
+                        .HasColumnType("int");
+
+                    b.Property<double?>("QualityScore")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("float(9)");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<int?>("TargetModelVersion")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TotalInputFrames")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UsableFrameCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeFaceVideoId");
+
+                    b.HasIndex("EmployeeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FaceEnrollmentJobs_NonTerminalEmployee")
+                        .HasFilter("[Status] IN ('Pending','Processing','Prepared','Activating','RecoveryRequired')");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("Status", "CreatedAtUtc")
+                        .HasDatabaseName("IX_FaceEnrollmentJobs_Status_CreatedAtUtc");
+
+                    b.ToTable("FaceEnrollmentJobs");
+                });
+
+            modelBuilder.Entity("API.Models.FaceRecognitionCollectorCheckpoint", b =>
+                {
+                    b.Property<string>("CameraId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("GapDetectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("LastErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("LastEventOccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastPollAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("LastSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LastSuccessAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long>("RuntimeSessionGeneration")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("CameraId");
+
+                    b.ToTable("FaceRecognitionCollectorCheckpoints");
+                });
+
+            modelBuilder.Entity("API.Models.FaceRecognitionEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CameraId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EmployeeFaceModelId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("FaceCameraConfigurationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LaneId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MatchStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ModelChecksumPrefix")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("ModelFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long?>("ModelRegistryVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("RecognitionDistance")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("RuntimeEventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("RuntimeSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RuntimeSessionGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RuntimeSubjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Guid>("SyncRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeFaceModelId");
+
+                    b.HasIndex("LaneId");
+
+                    b.HasIndex("MatchStatus");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.HasIndex("RuntimeEventId")
+                        .IsUnique();
+
+                    b.HasIndex("CameraId", "OccurredAtUtc");
+
+                    b.HasIndex("EmployeeId", "OccurredAtUtc");
+
+                    b.HasIndex("FaceCameraConfigurationId", "OccurredAtUtc");
+
+                    b.ToTable("FaceRecognitionEvents");
                 });
 
             modelBuilder.Entity("API.Models.FacilityFloor", b =>
@@ -6612,8 +7421,8 @@ namespace API.Migrations
 
                     b.Property<string>("ActionType")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("ClientIp")
                         .HasMaxLength(80)
@@ -7763,6 +8572,38 @@ namespace API.Migrations
                     b.Navigation("SecurityDevice");
                 });
 
+            modelBuilder.Entity("API.Models.AccessCredential", b =>
+                {
+                    b.HasOne("API.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("API.Models.EmployeeDynamicQr", "EmployeeDynamicQr")
+                        .WithMany()
+                        .HasForeignKey("EmployeeDynamicQrId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("API.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.AppUser", "RevokedByUser")
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("EmployeeDynamicQr");
+
+                    b.Navigation("RevokedByUser");
+                });
+
             modelBuilder.Entity("API.Models.AccessDecision", b =>
                 {
                     b.HasOne("API.Models.AccessPolicyVersion", "AccessPolicyVersion")
@@ -8355,6 +9196,39 @@ namespace API.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("API.Models.EmployeeFaceCredentialBinding", b =>
+                {
+                    b.HasOne("API.Models.AccessCredential", "AccessCredential")
+                        .WithMany()
+                        .HasForeignKey("AccessCredentialId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("API.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.AppUser", "RevokedByUser")
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("AccessCredential");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("RevokedByUser");
+                });
+
             modelBuilder.Entity("API.Models.EmployeeFaceModel", b =>
                 {
                     b.HasOne("API.Models.Employee", "Employee")
@@ -8364,7 +9238,14 @@ namespace API.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_EmployeeFaceModel_Employee");
 
+                    b.HasOne("API.Models.FaceEnrollmentJob", "SourceEnrollmentJob")
+                        .WithOne("ResultModel")
+                        .HasForeignKey("API.Models.EmployeeFaceModel", "SourceEnrollmentJobId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Employee");
+
+                    b.Navigation("SourceEnrollmentJob");
                 });
 
             modelBuilder.Entity("API.Models.EmployeeFaceVideo", b =>
@@ -8372,7 +9253,7 @@ namespace API.Migrations
                     b.HasOne("API.Models.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_EmployeeFaceVideo_Employee");
 
@@ -8450,6 +9331,112 @@ namespace API.Migrations
                     b.Navigation("Provider");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("API.Models.FaceAccessDecision", b =>
+                {
+                    b.HasOne("API.Models.FaceAccessPolicyComparison", "FaceAccessPolicyComparison")
+                        .WithMany()
+                        .HasForeignKey("FaceAccessPolicyComparisonId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.FaceRecognitionEvent", "FaceRecognitionEvent")
+                        .WithMany()
+                        .HasForeignKey("FaceRecognitionEventId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("FaceAccessPolicyComparison");
+
+                    b.Navigation("FaceRecognitionEvent");
+                });
+
+            modelBuilder.Entity("API.Models.FaceAccessPolicyComparison", b =>
+                {
+                    b.HasOne("API.Models.FaceRecognitionEvent", "FaceRecognitionEvent")
+                        .WithMany()
+                        .HasForeignKey("FaceRecognitionEventId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("FaceRecognitionEvent");
+                });
+
+            modelBuilder.Entity("API.Models.FaceCameraConfiguration", b =>
+                {
+                    b.HasOne("API.Models.Camera", "Camera")
+                        .WithOne("FaceCameraConfiguration")
+                        .HasForeignKey("API.Models.FaceCameraConfiguration", "CameraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.Lane", "Lane")
+                        .WithMany()
+                        .HasForeignKey("LaneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Camera");
+
+                    b.Navigation("Lane");
+                });
+
+            modelBuilder.Entity("API.Models.FaceEnrollmentJob", b =>
+                {
+                    b.HasOne("API.Models.EmployeeFaceVideo", "EmployeeFaceVideo")
+                        .WithMany("EnrollmentJobs")
+                        .HasForeignKey("EmployeeFaceVideoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("API.Models.AppUser", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("EmployeeFaceVideo");
+
+                    b.Navigation("RequestedByUser");
+                });
+
+            modelBuilder.Entity("API.Models.FaceRecognitionEvent", b =>
+                {
+                    b.HasOne("API.Models.EmployeeFaceModel", "EmployeeFaceModel")
+                        .WithMany()
+                        .HasForeignKey("EmployeeFaceModelId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("API.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("API.Models.FaceCameraConfiguration", "FaceCameraConfiguration")
+                        .WithMany()
+                        .HasForeignKey("FaceCameraConfigurationId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("API.Models.Lane", "Lane")
+                        .WithMany()
+                        .HasForeignKey("LaneId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("EmployeeFaceModel");
+
+                    b.Navigation("FaceCameraConfiguration");
+
+                    b.Navigation("Lane");
                 });
 
             modelBuilder.Entity("API.Models.FacilityFloor", b =>
@@ -9460,6 +10447,8 @@ namespace API.Migrations
                 {
                     b.Navigation("AccessLogs");
 
+                    b.Navigation("FaceCameraConfiguration");
+
                     b.Navigation("RecordedSegments");
                 });
 
@@ -9497,9 +10486,19 @@ namespace API.Migrations
                     b.Navigation("Vehicles");
                 });
 
+            modelBuilder.Entity("API.Models.EmployeeFaceVideo", b =>
+                {
+                    b.Navigation("EnrollmentJobs");
+                });
+
             modelBuilder.Entity("API.Models.ExceptionReason", b =>
                 {
                     b.Navigation("AccessLogs");
+                });
+
+            modelBuilder.Entity("API.Models.FaceEnrollmentJob", b =>
+                {
+                    b.Navigation("ResultModel");
                 });
 
             modelBuilder.Entity("API.Models.FacilityFloor", b =>

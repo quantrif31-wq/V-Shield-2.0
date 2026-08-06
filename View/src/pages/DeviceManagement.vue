@@ -1,490 +1,78 @@
 <template>
-    <div class="page-container ops-page animate-in">
-        <div class="page-header-bar">
-            <div>
-                <span class="panel-kicker">AI devices</span>
-                <h1 class="page-title">Quản lý camera & cổng</h1>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-primary" @click="openCameraModal()">Thêm camera</button>
-                <button class="btn btn-secondary" @click="openGateModal()">Thêm cổng</button>
-            </div>
-        </div>
+  <div class="page-container device-page">
+    <PageHeader title="Quản lý camera & cổng" description="Cấu hình thiết bị nhận diện, luồng stream và liên kết camera với các điểm kiểm soát." :breadcrumbs="[{label:'Thiết bị'},{label:'Camera & cổng'}]">
+      <template #actions><BaseButton variant="secondary" :loading="isLoading" @click="fetchOverview">Làm mới</BaseButton><BaseButton variant="secondary" @click="openGateModal()">Thêm cổng</BaseButton><BaseButton @click="openCameraModal()">Thêm camera</BaseButton></template>
+    </PageHeader>
 
-        <section class="ops-grid two">
-            <article class="ops-panel">
-                <div class="panel-head">
-                    <div>
-                        <span class="panel-kicker">Cameras</span>
-                        <h2 class="panel-title">Danh sách camera</h2>
-                    </div>
-                    <button class="btn btn-secondary btn-sm" @click="openCameraModal()">Thêm camera</button>
-                </div>
+    <section class="summary-grid" aria-label="Tổng quan thiết bị">
+      <BaseCard variant="kpi"><span>Camera cấu hình</span><strong>{{ summary.camerasConfigured }}</strong><small>Thiết bị trong danh mục</small></BaseCard>
+      <BaseCard variant="kpi"><span>Cổng kiểm soát</span><strong>{{ summary.gatesConfigured }}</strong><small>Điểm ra vào được quản lý</small></BaseCard>
+      <BaseCard variant="kpi"><span>Camera đã gắn cổng</span><strong>{{ summary.camerasLinkedToGate }}</strong><small>Sẵn sàng theo luồng nghiệp vụ</small></BaseCard>
+      <BaseCard variant="kpi"><span>Chưa gán vị trí</span><strong>{{ summary.unassignedCameras }}</strong><small>Cần hoàn tất cấu hình</small></BaseCard>
+    </section>
 
-                <div v-if="isLoading" class="empty-card">Đang tải cấu hình camera...</div>
-                <div v-else-if="cameras.length === 0" class="empty-card">Chưa có camera nào trong hệ thống.</div>
-                <div v-else class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Tên camera</th>
-                                <th>Loại</th>
-                                <th>Cổng</th>
-                                <th>Biển số gần nhất</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="camera in paginatedCameras" :key="camera.cameraId">
-                                <td>{{ camera.cameraName }}</td>
-                                <td>{{ camera.cameraType || '—' }}</td>
-                                <td>{{ camera.gateName || 'Chưa gắn cổng' }}</td>
-                                <td>
-                                    <span v-if="camera.latestPlate" class="plate-pill">{{ camera.latestPlate }}</span>
-                                    <span v-else class="table-sub">Chưa có</span>
-                                </td>
-                                <td>
-                                    <div class="panel-actions">
-                                        <button class="btn btn-secondary btn-sm" @click="openCameraModal(camera)">Sửa</button>
-                                        <button class="btn btn-danger btn-sm" @click="handleDeleteCamera(camera)">Xóa</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <!-- Camera Pagination -->
-                <div v-if="!isLoading && cameras.length > 0" class="pagination-bar">
-                    <span>Hiển thị {{ camPagStart }}–{{ camPagEnd }} / {{ cameras.length }}</span>
-                    <div class="page-buttons">
-                        <button class="page-btn" :disabled="cameraCurrentPage <= 1" @click="cameraCurrentPage--">‹</button>
-                        <button class="page-btn" disabled>{{ cameraCurrentPage }} / {{ cameraTotalPages }}</button>
-                        <button class="page-btn" :disabled="cameraCurrentPage >= cameraTotalPages" @click="cameraCurrentPage++">›</button>
-                    </div>
-                </div>
-            </article>
+    <div class="resource-grid">
+      <section class="resource-panel" aria-labelledby="camera-list-title"><header><div><h2 id="camera-list-title">Camera</h2><p>{{ cameras.length }} thiết bị đã cấu hình</p></div><BaseButton variant="secondary" size="small" @click="openCameraModal()">Thêm camera</BaseButton></header>
+        <DataTable :columns="cameraColumns" :rows="paginatedCameras" row-key="cameraId" :loading="isLoading" :error="loadError" :permission-denied="permissionDenied" empty-title="Chưa có camera" empty-description="Thêm camera đầu tiên và gắn vào một cổng kiểm soát."><template #retry><BaseButton variant="secondary" @click="fetchOverview">Thử lại</BaseButton></template><template #empty-actions><BaseButton @click="openCameraModal()">Thêm camera</BaseButton></template>
+          <template #cell-cameraName="{row}"><div class="stacked-cell"><strong>{{ row.cameraName }}</strong><small>ID {{ row.cameraId }}</small></div></template>
+          <template #cell-cameraType="{value}"><StatusBadge status="info" :label="value||'Chưa phân loại'"/></template>
+          <template #cell-gateName="{row}"><div class="stacked-cell"><strong>{{ row.gateName||'Chưa gắn cổng' }}</strong><small>{{ streamProtocol(row.streamUrl) }}</small></div></template>
+          <template #cell-health="{row}"><StatusBadge :status="cameraStatus(row).status" :label="cameraStatus(row).label" dot/></template>
+          <template #actions="{row}"><div class="row-actions"><BaseButton variant="ghost" size="small" @click="openCameraModal(row)">Sửa</BaseButton><BaseButton variant="ghost" size="small" @click="requestDelete('camera',row)">Xóa</BaseButton></div></template>
+        </DataTable>
+        <footer v-if="!isLoading&&!loadError&&cameras.length" class="pagination-bar"><span>{{ cameraPagStart }}–{{ cameraPagEnd }} / {{ cameras.length }}</span><div><BaseButton variant="secondary" size="small" :disabled="cameraPage<=1" @click="cameraPage--">Trước</BaseButton><span>{{ cameraPage }} / {{ cameraTotalPages }}</span><BaseButton variant="secondary" size="small" :disabled="cameraPage>=cameraTotalPages" @click="cameraPage++">Sau</BaseButton></div></footer>
+      </section>
 
-            <article class="ops-panel">
-                <div class="panel-head">
-                    <div>
-                        <span class="panel-kicker">Gates</span>
-                        <h2 class="panel-title">Danh sách cổng</h2>
-                    </div>
-                    <button class="btn btn-secondary btn-sm" @click="openGateModal()">Thêm cổng</button>
-                </div>
-
-                <div v-if="isLoading" class="empty-card">Đang tải cấu hình cổng...</div>
-                <div v-else-if="gates.length === 0" class="empty-card">Chưa có cổng nào trong hệ thống.</div>
-                <div v-else class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Cổng</th>
-                                <th>Vị trí</th>
-                                <th>Camera</th>
-                                <th>Log liên quan</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="gate in paginatedGates" :key="gate.gateId">
-                                <td>{{ gate.gateName }}</td>
-                                <td>{{ gate.location || '—' }}</td>
-                                <td>{{ gate.cameraCount }}</td>
-                                <td>{{ gate.accessLogCount }}</td>
-                                <td>
-                                    <div class="panel-actions">
-                                        <button class="btn btn-secondary btn-sm" @click="openGateModal(gate)">Sửa</button>
-                                        <button class="btn btn-danger btn-sm" @click="handleDeleteGate(gate)">Xóa</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <!-- Gate Pagination -->
-                <div v-if="!isLoading && gates.length > 0" class="pagination-bar">
-                    <span>Hiển thị {{ gatePagStart }}–{{ gatePagEnd }} / {{ gates.length }}</span>
-                    <div class="page-buttons">
-                        <button class="page-btn" :disabled="gateCurrentPage <= 1" @click="gateCurrentPage--">‹</button>
-                        <button class="page-btn" disabled>{{ gateCurrentPage }} / {{ gateTotalPages }}</button>
-                        <button class="page-btn" :disabled="gateCurrentPage >= gateTotalPages" @click="gateCurrentPage++">›</button>
-                    </div>
-                </div>
-            </article>
-        </section>
-
-        <transition name="modal">
-            <div v-if="showCameraModal" class="modal-overlay" @click.self="closeCameraModal">
-                <div class="modal">
-                    <div class="modal-header">
-                        <h3 class="modal-title">{{ editingCameraId ? 'Cập nhật camera' : 'Thêm camera' }}</h3>
-                        <button class="modal-close" @click="closeCameraModal">×</button>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Tên camera</label>
-                            <input v-model="cameraForm.cameraName" type="text" placeholder="Camera cổng A" />
-                        </div>
-                        <div class="form-group">
-                            <label>Loại camera</label>
-                            <input v-model="cameraForm.cameraType" type="text" placeholder="ANPR / Face / Overview" />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>URL stream (RTSP/HTTP)</label>
-                        <input v-model="cameraForm.streamUrl" type="text" placeholder="rtsp://... hoặc http://IP:8081/video" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Gắn vào cổng</label>
-                        <select v-model="cameraForm.gateId" class="filter-select">
-                            <option value="">Chưa gắn cổng</option>
-                            <option v-for="gate in gates" :key="gate.gateId" :value="gate.gateId">{{ gate.gateName }}</option>
-                        </select>
-                    </div>
-
-                    <div v-if="formError" class="empty-card error-card">{{ formError }}</div>
-
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="closeCameraModal">Hủy</button>
-                        <button class="btn btn-primary" :disabled="isSaving" @click="handleSaveCamera">
-                            {{ isSaving ? 'Đang lưu...' : editingCameraId ? 'Lưu thay đổi' : 'Tạo camera' }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </transition>
-
-        <transition name="modal">
-            <div v-if="showGateModal" class="modal-overlay" @click.self="closeGateModal">
-                <div class="modal">
-                    <div class="modal-header">
-                        <h3 class="modal-title">{{ editingGateId ? 'Cập nhật cổng' : 'Thêm cổng' }}</h3>
-                        <button class="modal-close" @click="closeGateModal">×</button>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Tên cổng</label>
-                            <input v-model="gateForm.gateName" type="text" placeholder="Cổng A" />
-                        </div>
-                        <div class="form-group">
-                            <label>Vị trí</label>
-                            <input v-model="gateForm.location" type="text" placeholder="Khối văn phòng / bãi xe..." />
-                        </div>
-                    </div>
-
-                    <div v-if="formError" class="empty-card error-card">{{ formError }}</div>
-
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="closeGateModal">Hủy</button>
-                        <button class="btn btn-primary" :disabled="isSaving" @click="handleSaveGate">
-                            {{ isSaving ? 'Đang lưu...' : editingGateId ? 'Lưu thay đổi' : 'Tạo cổng' }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </transition>
+      <section class="resource-panel" aria-labelledby="gate-list-title"><header><div><h2 id="gate-list-title">Cổng kiểm soát</h2><p>{{ gates.length }} điểm ra vào</p></div><BaseButton variant="secondary" size="small" @click="openGateModal()">Thêm cổng</BaseButton></header>
+        <DataTable :columns="gateColumns" :rows="paginatedGates" row-key="gateId" :loading="isLoading" :error="loadError" :permission-denied="permissionDenied" empty-title="Chưa có cổng" empty-description="Tạo cổng để liên kết camera và sự kiện truy cập."><template #retry><BaseButton variant="secondary" @click="fetchOverview">Thử lại</BaseButton></template><template #empty-actions><BaseButton @click="openGateModal()">Thêm cổng</BaseButton></template>
+          <template #cell-gateName="{row}"><div class="stacked-cell"><strong>{{ row.gateName }}</strong><small>ID {{ row.gateId }}</small></div></template>
+          <template #cell-location="{value}">{{ value||'Chưa khai báo vị trí' }}</template>
+          <template #cell-cameraCount="{value}"><StatusBadge :status="value?'success':'warning'" :label="`${value||0} camera`"/></template>
+          <template #cell-accessLogCount="{value}">{{ value||0 }} lượt</template>
+          <template #actions="{row}"><div class="row-actions"><BaseButton variant="ghost" size="small" @click="openGateModal(row)">Sửa</BaseButton><BaseButton variant="ghost" size="small" @click="requestDelete('gate',row)">Xóa</BaseButton></div></template>
+        </DataTable>
+        <footer v-if="!isLoading&&!loadError&&gates.length" class="pagination-bar"><span>{{ gatePagStart }}–{{ gatePagEnd }} / {{ gates.length }}</span><div><BaseButton variant="secondary" size="small" :disabled="gatePage<=1" @click="gatePage--">Trước</BaseButton><span>{{ gatePage }} / {{ gateTotalPages }}</span><BaseButton variant="secondary" size="small" :disabled="gatePage>=gateTotalPages" @click="gatePage++">Sau</BaseButton></div></footer>
+      </section>
     </div>
+
+    <BaseModal :open="showCameraModal" :title="editingCameraId?'Cập nhật camera':'Thêm camera'" description="Luồng stream được lưu nguyên trạng và chỉ hiển thị giao thức trong danh sách." @close="requestCloseCamera">
+      <form id="camera-form" class="device-form" @submit.prevent="saveCamera"><div class="form-grid"><BaseField for-id="camera-name" label="Tên camera" required :error="cameraNameError" v-slot="field"><BaseInput id="camera-name" v-model="cameraForm.cameraName" :describedby="field.describedby" :invalid="field.invalid" placeholder="Camera cổng A" @input="formError=''"/></BaseField><BaseField for-id="camera-type" label="Loại camera" description="Ví dụ: ANPR, Face hoặc Overview." v-slot="field"><BaseInput id="camera-type" v-model="cameraForm.cameraType" :describedby="field.describedby" placeholder="ANPR"/></BaseField></div>
+        <BaseField for-id="camera-stream" label="URL stream" description="Hỗ trợ rtsp://, http:// và https://." :error="streamError" v-slot="field"><BaseInput id="camera-stream" v-model="cameraForm.streamUrl" :describedby="field.describedby" :invalid="field.invalid" placeholder="rtsp://camera.local/stream"/></BaseField>
+        <BaseField for-id="camera-gate" label="Gắn vào cổng" v-slot="field"><BaseSelect id="camera-gate" v-model="cameraForm.gateId" :describedby="field.describedby"><option value="">Chưa gắn cổng</option><option v-for="gate in gates" :key="gate.gateId" :value="gate.gateId">{{ gate.gateName }}</option></BaseSelect></BaseField>
+        <p v-if="formError" class="form-error" role="alert">{{ formError }}</p></form>
+      <template #footer><BaseButton variant="secondary" :disabled="isSaving" @click="requestCloseCamera">Hủy</BaseButton><BaseButton type="submit" form="camera-form" :loading="isSaving">{{ editingCameraId?'Lưu thay đổi':'Tạo camera' }}</BaseButton></template>
+    </BaseModal>
+
+    <BaseModal :open="showGateModal" :title="editingGateId?'Cập nhật cổng':'Thêm cổng'" description="Tên cổng sẽ xuất hiện trong bộ lọc, log truy cập và màn giám sát." @close="requestCloseGate">
+      <form id="gate-form" class="device-form" @submit.prevent="saveGate"><BaseField for-id="gate-name" label="Tên cổng" required :error="gateNameError" v-slot="field"><BaseInput id="gate-name" v-model="gateForm.gateName" :describedby="field.describedby" :invalid="field.invalid" placeholder="Cổng A" @input="formError=''"/></BaseField><BaseField for-id="gate-location" label="Vị trí" v-slot="field"><BaseInput id="gate-location" v-model="gateForm.location" :describedby="field.describedby" placeholder="Khối văn phòng hoặc bãi xe"/></BaseField><p v-if="formError" class="form-error" role="alert">{{ formError }}</p></form>
+      <template #footer><BaseButton variant="secondary" :disabled="isSaving" @click="requestCloseGate">Hủy</BaseButton><BaseButton type="submit" form="gate-form" :loading="isSaving">{{ editingGateId?'Lưu thay đổi':'Tạo cổng' }}</BaseButton></template>
+    </BaseModal>
+
+    <ConfirmDialog :open="Boolean(deleteTarget)" kind="destructive" :title="deleteKind==='camera'?'Xóa camera?':'Xóa cổng?'" :description="deleteDescription" :confirm-label="deleteKind==='camera'?'Xóa camera':'Xóa cổng'" :loading="isSaving" @cancel="deleteTarget=null" @confirm="executeDelete"/>
+    <ConfirmDialog :open="showDiscardDialog" title="Bỏ thay đổi chưa lưu?" description="Thông tin cấu hình vừa nhập sẽ bị mất." confirm-label="Bỏ thay đổi" @cancel="showDiscardDialog=false" @confirm="discardActiveForm"/>
+  </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, computed } from 'vue'
-import {
-    createCamera,
-    createGate,
-    deleteCamera,
-    deleteGate,
-    getDeviceOverview,
-    updateCamera,
-    updateGate,
-} from '../services/deviceManagementApi'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { createCamera,createGate,deleteCamera,deleteGate,getDeviceOverview,updateCamera,updateGate } from '../services/deviceManagementApi'
+import BaseButton from '../components/ui/BaseButton.vue';import BaseCard from '../components/ui/BaseCard.vue';import BaseField from '../components/ui/BaseField.vue';import BaseInput from '../components/ui/BaseInput.vue';import BaseModal from '../components/ui/BaseModal.vue';import BaseSelect from '../components/ui/BaseSelect.vue';import ConfirmDialog from '../components/ui/ConfirmDialog.vue';import DataTable from '../components/ui/DataTable.vue';import PageHeader from '../components/ui/PageHeader.vue';import StatusBadge from '../components/ui/StatusBadge.vue';import {useToasts} from '../composables/useToasts'
 
-const isLoading = ref(true)
-const isSaving = ref(false)
-const summary = ref({
-    camerasConfigured: 0,
-    gatesConfigured: 0,
-    camerasLinkedToGate: 0,
-    unassignedCameras: 0,
-})
-const cameras = ref([])
-const gates = ref([])
-
-// Pagination
-const itemsPerPage = 4
-
-const cameraCurrentPage = ref(1)
-const cameraTotalPages = computed(() => Math.max(1, Math.ceil(cameras.value.length / itemsPerPage)))
-const paginatedCameras = computed(() => {
-    const start = (cameraCurrentPage.value - 1) * itemsPerPage
-    return cameras.value.slice(start, start + itemsPerPage)
-})
-const camPagStart = computed(() => cameras.value.length === 0 ? 0 : (cameraCurrentPage.value - 1) * itemsPerPage + 1)
-const camPagEnd = computed(() => Math.min(cameraCurrentPage.value * itemsPerPage, cameras.value.length))
-
-const gateCurrentPage = ref(1)
-const gateTotalPages = computed(() => Math.max(1, Math.ceil(gates.value.length / itemsPerPage)))
-const paginatedGates = computed(() => {
-    const start = (gateCurrentPage.value - 1) * itemsPerPage
-    return gates.value.slice(start, start + itemsPerPage)
-})
-const gatePagStart = computed(() => gates.value.length === 0 ? 0 : (gateCurrentPage.value - 1) * itemsPerPage + 1)
-const gatePagEnd = computed(() => Math.min(gateCurrentPage.value * itemsPerPage, gates.value.length))
-
-const showCameraModal = ref(false)
-const showGateModal = ref(false)
-const editingCameraId = ref(null)
-const editingGateId = ref(null)
-const formError = ref('')
-
-const cameraForm = reactive({
-    cameraName: '',
-    cameraType: '',
-    gateId: '',
-    streamUrl: '',
-})
-
-const gateForm = reactive({
-    gateName: '',
-    location: '',
-})
-
-const fetchOverview = async () => {
-    isLoading.value = true
-    try {
-        const { data } = await getDeviceOverview()
-        summary.value = { ...summary.value, ...(data.summary || {}) }
-        cameras.value = data.cameras || []
-        gates.value = data.gates || []
-        cameraCurrentPage.value = 1
-        gateCurrentPage.value = 1
-    } catch (error) {
-        console.error('Device overview error:', error)
-        cameras.value = []
-        gates.value = []
-    } finally {
-        isLoading.value = false
-    }
-}
-
-const openCameraModal = (camera = null) => {
-    editingCameraId.value = camera?.cameraId || null
-    cameraForm.cameraName = camera?.cameraName || ''
-    cameraForm.cameraType = camera?.cameraType || ''
-    cameraForm.gateId = camera?.gateId || ''
-    cameraForm.streamUrl = camera?.streamUrl || ''
-    formError.value = ''
-    showCameraModal.value = true
-}
-
-const closeCameraModal = () => {
-    showCameraModal.value = false
-    editingCameraId.value = null
-    cameraForm.cameraName = ''
-    cameraForm.cameraType = ''
-    cameraForm.gateId = ''
-    cameraForm.streamUrl = ''
-    formError.value = ''
-}
-
-const openGateModal = (gate = null) => {
-    editingGateId.value = gate?.gateId || null
-    gateForm.gateName = gate?.gateName || ''
-    gateForm.location = gate?.location || ''
-    formError.value = ''
-    showGateModal.value = true
-}
-
-const closeGateModal = () => {
-    showGateModal.value = false
-    editingGateId.value = null
-    gateForm.gateName = ''
-    gateForm.location = ''
-    formError.value = ''
-}
-
-const handleSaveCamera = async () => {
-    if (!cameraForm.cameraName.trim()) {
-        formError.value = 'Tên camera là bắt buộc.'
-        return
-    }
-
-    isSaving.value = true
-    formError.value = ''
-    try {
-        const payload = {
-            cameraName: cameraForm.cameraName.trim(),
-            cameraType: cameraForm.cameraType || null,
-            gateId: cameraForm.gateId || null,
-            streamUrl: String(cameraForm.streamUrl || '').trim() || null,
-        }
-
-        if (editingCameraId.value) {
-            await updateCamera(editingCameraId.value, payload)
-        } else {
-            await createCamera(payload)
-        }
-
-        await fetchOverview()
-        closeCameraModal()
-    } catch (error) {
-        console.error('Save camera error:', error)
-        formError.value = error.response?.data?.message || 'Không thể lưu camera.'
-    } finally {
-        isSaving.value = false
-    }
-}
-
-const handleSaveGate = async () => {
-    if (!gateForm.gateName.trim()) {
-        formError.value = 'Tên cổng là bắt buộc.'
-        return
-    }
-
-    isSaving.value = true
-    formError.value = ''
-    try {
-        const payload = {
-            gateName: gateForm.gateName.trim(),
-            location: gateForm.location || null,
-        }
-
-        if (editingGateId.value) {
-            await updateGate(editingGateId.value, payload)
-        } else {
-            await createGate(payload)
-        }
-
-        await fetchOverview()
-        closeGateModal()
-    } catch (error) {
-        console.error('Save gate error:', error)
-        formError.value = error.response?.data?.message || 'Không thể lưu cổng.'
-    } finally {
-        isSaving.value = false
-    }
-}
-
-const handleDeleteCamera = async (camera) => {
-    const confirmed = window.confirm(`Xóa camera "${camera.cameraName}"?`)
-    if (!confirmed) return
-
-    try {
-        await deleteCamera(camera.cameraId)
-        await fetchOverview()
-    } catch (error) {
-        console.error('Delete camera error:', error)
-        window.alert(error.response?.data?.message || 'Không thể xóa camera này.')
-    }
-}
-
-const handleDeleteGate = async (gate) => {
-    const confirmed = window.confirm(`Xóa cổng "${gate.gateName}"?`)
-    if (!confirmed) return
-
-    try {
-        await deleteGate(gate.gateId)
-        await fetchOverview()
-    } catch (error) {
-        console.error('Delete gate error:', error)
-        window.alert(error.response?.data?.message || 'Không thể xóa cổng này.')
-    }
-}
-
-onMounted(fetchOverview)
+const{success,error:showError}=useToasts();const isLoading=ref(true);const isSaving=ref(false);const loadError=ref('');const permissionDenied=ref(false);const summary=ref({camerasConfigured:0,gatesConfigured:0,camerasLinkedToGate:0,unassignedCameras:0});const cameras=ref([]);const gates=ref([]);const itemsPerPage=6;const cameraPage=ref(1);const gatePage=ref(1)
+const cameraColumns=[{key:'cameraName',label:'Camera'},{key:'cameraType',label:'Loại'},{key:'gateName',label:'Cổng / Stream'},{key:'health',label:'Trạng thái'}];const gateColumns=[{key:'gateName',label:'Cổng'},{key:'location',label:'Vị trí'},{key:'cameraCount',label:'Camera'},{key:'accessLogCount',label:'Log liên quan'}]
+const cameraTotalPages=computed(()=>Math.max(1,Math.ceil(cameras.value.length/itemsPerPage)));const paginatedCameras=computed(()=>cameras.value.slice((cameraPage.value-1)*itemsPerPage,cameraPage.value*itemsPerPage));const cameraPagStart=computed(()=>cameras.value.length?(cameraPage.value-1)*itemsPerPage+1:0);const cameraPagEnd=computed(()=>Math.min(cameraPage.value*itemsPerPage,cameras.value.length));const gateTotalPages=computed(()=>Math.max(1,Math.ceil(gates.value.length/itemsPerPage)));const paginatedGates=computed(()=>gates.value.slice((gatePage.value-1)*itemsPerPage,gatePage.value*itemsPerPage));const gatePagStart=computed(()=>gates.value.length?(gatePage.value-1)*itemsPerPage+1:0);const gatePagEnd=computed(()=>Math.min(gatePage.value*itemsPerPage,gates.value.length))
+const showCameraModal=ref(false);const showGateModal=ref(false);const editingCameraId=ref(null);const editingGateId=ref(null);const formError=ref('');const formSubmitted=ref(false);const cameraForm=reactive({cameraName:'',cameraType:'',gateId:'',streamUrl:''});const gateForm=reactive({gateName:'',location:''});const formBaseline=ref('');const deleteTarget=ref(null);const deleteKind=ref('');const showDiscardDialog=ref(false);const discardKind=ref('')
+const cameraState=computed(()=>JSON.stringify(cameraForm));const gateState=computed(()=>JSON.stringify(gateForm));const cameraDirty=computed(()=>showCameraModal.value&&cameraState.value!==formBaseline.value);const gateDirty=computed(()=>showGateModal.value&&gateState.value!==formBaseline.value);const cameraNameError=computed(()=>formSubmitted.value&&!cameraForm.cameraName.trim()?'Tên camera là bắt buộc.':'');const gateNameError=computed(()=>formSubmitted.value&&!gateForm.gateName.trim()?'Tên cổng là bắt buộc.':'');const streamError=computed(()=>{const value=cameraForm.streamUrl.trim();return formSubmitted.value&&value&&!/^(rtsp|https?):\/\//i.test(value)?'URL phải bắt đầu bằng rtsp://, http:// hoặc https://.':''});const deleteDescription=computed(()=>deleteKind.value==='camera'?`Camera ${deleteTarget.value?.cameraName||''} sẽ bị xóa khỏi cấu hình. Hành động này không thể hoàn tác.`:`Cổng ${deleteTarget.value?.gateName||''} sẽ bị xóa. Camera đang liên kết có thể cần cấu hình lại.`)
+async function fetchOverview(){isLoading.value=true;loadError.value='';permissionDenied.value=false;try{const{data}=await getDeviceOverview();summary.value={...summary.value,...(data.summary||{})};cameras.value=data.cameras||[];gates.value=data.gates||[];cameraPage.value=Math.min(cameraPage.value,cameraTotalPages.value);gatePage.value=Math.min(gatePage.value,gateTotalPages.value)}catch(error){cameras.value=[];gates.value=[];if(error.response?.status===403)permissionDenied.value=true;else loadError.value=error.response?.data?.message||'Không thể tải cấu hình camera và cổng.'}finally{isLoading.value=false}}
+function openCameraModal(camera=null){editingCameraId.value=camera?.cameraId||null;Object.assign(cameraForm,{cameraName:camera?.cameraName||'',cameraType:camera?.cameraType||'',gateId:camera?.gateId||'',streamUrl:camera?.streamUrl||''});formError.value='';formSubmitted.value=false;showCameraModal.value=true;queueMicrotask(()=>{formBaseline.value=cameraState.value})}function requestCloseCamera(){if(cameraDirty.value){discardKind.value='camera';showDiscardDialog.value=true;return}closeCamera(true)}function closeCamera(force=false){if(!force&&cameraDirty.value)return requestCloseCamera();showCameraModal.value=false;editingCameraId.value=null;formError.value='';Object.assign(cameraForm,{cameraName:'',cameraType:'',gateId:'',streamUrl:''})}
+function openGateModal(gate=null){editingGateId.value=gate?.gateId||null;Object.assign(gateForm,{gateName:gate?.gateName||'',location:gate?.location||''});formError.value='';formSubmitted.value=false;showGateModal.value=true;queueMicrotask(()=>{formBaseline.value=gateState.value})}function requestCloseGate(){if(gateDirty.value){discardKind.value='gate';showDiscardDialog.value=true;return}closeGate(true)}function closeGate(force=false){if(!force&&gateDirty.value)return requestCloseGate();showGateModal.value=false;editingGateId.value=null;formError.value='';Object.assign(gateForm,{gateName:'',location:''})}function discardActiveForm(){showDiscardDialog.value=false;discardKind.value==='camera'?closeCamera(true):closeGate(true)}
+async function saveCamera(){formSubmitted.value=true;if(cameraNameError.value||streamError.value)return;isSaving.value=true;formError.value='';const isEditing=Boolean(editingCameraId.value);try{const payload={cameraName:cameraForm.cameraName.trim(),cameraType:cameraForm.cameraType||null,gateId:cameraForm.gateId?Number(cameraForm.gateId):null,streamUrl:cameraForm.streamUrl.trim()||null};if(isEditing)await updateCamera(editingCameraId.value,payload);else await createCamera(payload);closeCamera(true);success(isEditing?'Đã cập nhật camera':'Đã tạo camera');await fetchOverview()}catch(error){formError.value=error.response?.data?.message||'Không thể lưu camera. Thông tin nhập vẫn được giữ lại.'}finally{isSaving.value=false}}async function saveGate(){formSubmitted.value=true;if(gateNameError.value)return;isSaving.value=true;formError.value='';const isEditing=Boolean(editingGateId.value);try{const payload={gateName:gateForm.gateName.trim(),location:gateForm.location||null};if(isEditing)await updateGate(editingGateId.value,payload);else await createGate(payload);closeGate(true);success(isEditing?'Đã cập nhật cổng':'Đã tạo cổng');await fetchOverview()}catch(error){formError.value=error.response?.data?.message||'Không thể lưu cổng. Thông tin nhập vẫn được giữ lại.'}finally{isSaving.value=false}}
+function requestDelete(kind,target){deleteKind.value=kind;deleteTarget.value=target}async function executeDelete(){if(!deleteTarget.value)return;isSaving.value=true;try{if(deleteKind.value==='camera')await deleteCamera(deleteTarget.value.cameraId);else await deleteGate(deleteTarget.value.gateId);success(deleteKind.value==='camera'?'Đã xóa camera':'Đã xóa cổng');deleteTarget.value=null;await fetchOverview()}catch(error){showError(deleteKind.value==='camera'?'Không thể xóa camera':'Không thể xóa cổng',error.response?.data?.message||'Máy chủ không xử lý được yêu cầu.')}finally{isSaving.value=false}}
+function cameraStatus(camera){if(camera.isOnline===true||String(camera.status).toLowerCase()==='online')return{status:'online',label:'Trực tuyến'};if(camera.isOnline===false||['offline','disconnected'].includes(String(camera.status).toLowerCase()))return{status:'disconnected',label:'Mất kết nối'};return{status:camera.gateId?'neutral':'warning',label:camera.gateId?'Chưa có telemetry':'Chưa gắn cổng'}}function streamProtocol(value){if(!value)return'Chưa có stream';return`${String(value).split(':')[0].toUpperCase()} stream`}
+function beforeUnload(event){if(!cameraDirty.value&&!gateDirty.value)return;event.preventDefault();event.returnValue=''}onMounted(()=>{window.addEventListener('beforeunload',beforeUnload);fetchOverview()});onBeforeUnmount(()=>window.removeEventListener('beforeunload',beforeUnload))
 </script>
 
 <style scoped>
-
-
-.plate-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 10px;
-    background: rgba(236, 244, 246, 0.92);
-    border: 1px solid rgba(24, 49, 77, 0.12);
-    color: var(--text-primary);
-    font-family: var(--font-heading);
-    font-size: 0.84rem;
-    font-weight: 700;
-}
-
-.table-sub {
-    color: var(--text-muted);
-    font-size: 0.82rem;
-}
-.small-inline {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-}
-.mono {
-    font-family: "JetBrains Mono", monospace;
-}
-.table-link {
-    color: var(--accent-primary);
-    font-weight: 700;
-    text-decoration: none;
-}
-.table-link:hover {
-    text-decoration: underline;
-}
-
-.error-card {
-    border-style: solid;
-    border-color: rgba(195, 81, 70, 0.18);
-    color: var(--accent-danger);
-}
-
-@media (max-width: 1180px) {
-    .aside-metrics {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Pagination */
-.pagination-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    border-top: 1px solid var(--border-color);
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    background: transparent;
-}
-.page-buttons {
-    display: flex;
-    gap: 4px;
-}
-.page-btn {
-    width: auto;
-    min-width: 28px;
-    height: 28px;
-    padding: 0 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 0.85rem;
-}
-.page-btn:hover:not(:disabled) {
-    background: var(--bg-input);
-    color: var(--text-primary);
-}
-.page-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-    background: transparent;
-    border-color: transparent;
-}
+.device-page{display:grid;gap:var(--space-6)}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4)}.summary-grid span,.summary-grid small{display:block;color:var(--text-secondary);font-size:var(--type-caption-size);line-height:var(--type-caption-line)}.summary-grid strong{display:block;margin-block:var(--space-2);font-size:var(--type-h2-size);line-height:var(--type-h2-line)}.resource-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);align-items:start}.resource-panel{min-width:0;display:grid;gap:var(--space-4)}.resource-panel>header{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-3)}.resource-panel h2{font-size:var(--type-h2-size);line-height:var(--type-h2-line)}.resource-panel header p{color:var(--text-muted);font-size:var(--type-body-size)}.stacked-cell{display:grid;gap:var(--space-1)}.stacked-cell small{color:var(--text-muted)}.row-actions,.pagination-bar>div{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}.pagination-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);color:var(--text-secondary);font-size:var(--type-body-size)}.device-form{display:grid;gap:var(--space-5)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}.form-error{padding:var(--space-3);border:1px solid var(--status-danger-border);border-radius:var(--radius-control);background:var(--status-danger-bg);color:var(--status-danger-text);font-size:var(--type-body-size)}
+@media(max-width:1200px){.summary-grid,.resource-grid{grid-template-columns:repeat(2,1fr)}.resource-grid{grid-template-columns:1fr}}@media(max-width:768px){.summary-grid,.form-grid{grid-template-columns:1fr}.resource-panel>header,.pagination-bar{align-items:flex-start;display:grid}.row-actions,.pagination-bar>div{flex-wrap:wrap}}
 </style>

@@ -52,8 +52,7 @@ These controllers have explicit role requirements.
 | EnterpriseSituationalAwarenessController | `api/enterprise/situational-awareness` | privileged | `Admin,BaoVe`; map mutation `Admin` | Security events, correlation, video bookmarks, maps, AI adjudication and metrics |
 | EnterpriseSocController | `api/enterprise/soc` | privileged | `Admin,BaoVe`; rule/template mutation `Admin` | Alarm queue, SOP execution, incidents, dispatch, handover, muster snapshots |
 | EnterpriseVisitorVehicleController | `api/enterprise/visitor-vehicle` | privileged | `Admin,BaoVe`; governance/catalog actions `Admin` | Visitor lifecycle, forms, watchlist, parking, barrier, lane events |
-| FaceCameraController | `api/FaceCamera` | runtime-internal | `Admin,BaoVe` via `RuntimeOperator` policy | Face camera runtime control proxy |
-| FaceRecognitionController | `api/face-recognition` | runtime-internal | `Admin,BaoVe` | Face runtime wrapper |
+| FaceCameraController | `api/FaceCamera` | runtime-internal | authenticated `monitoring` permission | Face camera runtime control, model registry proxy, and LAN camera discovery |
 | GateTransitController | `api/gate-transit` | privileged | `Admin,BaoVe` | Gate/vehicle transit decisions |
 | GuestProfilesController | `api/guest-profiles` | privileged | `Admin,BaoVe` | Guest profile data |
 | LicensePlateController | `api/license-plates` | runtime-internal | `Admin,BaoVe` | Plate camera integration |

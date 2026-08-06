@@ -6,10 +6,23 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:a11y": "vitest run src/components/ui/__tests__/accessibility.spec.js",
+    "test:e2e": "playwright test",
+    "test:visual": "playwright test e2e/visual.spec.js",
+    "test:visual:update": "playwright test e2e/visual.spec.js --update-snapshots",
+    "test:uat": "node scripts/run-uat.mjs",
+    "test:smoke:uat": "node scripts/run-uat.mjs --smoke",
+    "test:axe": "playwright test e2e/accessibility.spec.js",
+    "security:artifact": "node scripts/scan-production-artifacts.mjs",
+    "security:artifacts:all": "node scripts/scan-production-artifacts.mjs && node scripts/scan-sensitive-artifacts.mjs",
+    "build:release": "npm run build && npm run security:artifact",
+    "design:check": "node scripts/check-design-system.mjs",
+    "check": "npm run design:check && npm run test && npm run build",
+    "check:release": "npm run design:check && npm run test && npm run build:release && npm run test:e2e"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@microsoft/signalr": "^10.0.0",
     "axios": "^1.13.6",
     "html5-qrcode": "^2.3.8",
@@ -21,10 +34,16 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-vue": "^6.0.2",
+    "@vue/test-utils": "^2.4.11",
     "autoprefixer": "^10.4.27",
+    "axe-core": "^4.12.1",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.19",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.1.10"
   }
 }

@@ -36,7 +36,7 @@ public class UserOperationalScopeService
     public static readonly IReadOnlyList<TaskAccessDefinition> TaskCatalog =
     [
         new(TaskDashboard, "Dashboard tổng quan", ["Admin", "QuanLy"], ["/dashboard", "/operations-dashboard"]),
-        new(TaskMonitoring, "Giám sát an ninh", ["Admin", "BaoVe"], ["/monitoring", "/soc-console", "/incident-map", "/ueba", "/campus-map", "/video-search", "/ai-review-queue", "/correlation-view", "/watchlist", "/exceptions"]),
+        new(TaskMonitoring, "Giám sát an ninh", ["Admin", "BaoVe", "QuanLy"], ["/monitoring", "/soc-console", "/incident-map", "/ueba", "/campus-map", "/video-search", "/ai-review-queue", "/correlation-view", "/watchlist", "/exceptions"]),
         new(TaskGateTransit, "Thông hành cổng/làn", ["Admin", "BaoVe"], ["/gate-transit-monitor", "/lane-dashboard"]),
         new(TaskQrAccess, "Quét QR vào cổng", ["Admin", "BaoVe"], ["/qr-access-monitor", "/kiosk", "/dynamic-qr-generator"]),
         new(TaskParking, "Gửi xe/tra xe", ["Admin", "BaoVe"], ["/vehicles", "/parking-kiosk", "/barrier-panel", "/license-plate-security"]),

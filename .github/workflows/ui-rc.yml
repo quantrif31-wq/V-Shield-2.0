@@ -1,0 +1,119 @@
+name: V-Shield UI RC gates
+
+on:
+  pull_request:
+    paths: ['View/**', '.github/workflows/ui-rc.yml']
+  push:
+    branches: ['release/**']
+    paths: ['View/**', '.github/workflows/ui-rc.yml']
+  workflow_dispatch:
+    inputs:
+      run_uat:
+        description: Run protected real-environment UAT
+        type: boolean
+        default: false
+      network_profile:
+        description: Approved performance network profile for this UAT run
+        type: choice
+        options: [corporate, slow]
+        default: corporate
+
+jobs:
+  frontend-release-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: View
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: View/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run design:check
+      - run: npm test
+      - run: npm run build:release
+      - run: npm run test:e2e
+      - id: local_artifact_scan
+        if: always()
+        run: npm run security:artifacts:all
+      - name: Retain reviewed Playwright artifacts
+        if: always() && steps.local_artifact_scan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-playwright-report-${{ github.run_id }}
+          path: |
+            View/playwright-report
+            View/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
+  protected-uat:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_uat
+    needs: frontend-release-gates
+    runs-on: ubuntu-latest
+    environment: v-shield-uat
+    defaults:
+      run:
+        working-directory: View
+    env:
+      VSHIELD_UAT_FRONTEND_URL: ${{ secrets.VSHIELD_UAT_FRONTEND_URL }}
+      VSHIELD_UAT_API_URL: ${{ secrets.VSHIELD_UAT_API_URL }}
+      VSHIELD_UAT_API_HEALTH_URL: ${{ secrets.VSHIELD_UAT_API_HEALTH_URL }}
+      VSHIELD_UAT_SIGNALR_URL: ${{ secrets.VSHIELD_UAT_SIGNALR_URL }}
+      VSHIELD_UAT_ENVIRONMENT: UAT
+      VSHIELD_UAT_TENANT: ${{ secrets.VSHIELD_UAT_TENANT }}
+      VSHIELD_UAT_SITE: ${{ secrets.VSHIELD_UAT_SITE }}
+      VSHIELD_UAT_EXPECTED_VERSION: ${{ vars.VSHIELD_UAT_EXPECTED_VERSION }}
+      VSHIELD_UAT_FRONTEND_SHA256: ${{ vars.VSHIELD_UAT_FRONTEND_SHA256 }}
+      VSHIELD_UAT_RC_ARTIFACT_DIGEST: ${{ vars.VSHIELD_UAT_RC_ARTIFACT_DIGEST }}
+      VSHIELD_UAT_PREVIOUS_ARTIFACT_DIGEST: ${{ vars.VSHIELD_UAT_PREVIOUS_ARTIFACT_DIGEST }}
+      VSHIELD_UAT_MFA_MODE: totp
+      VSHIELD_UAT_ADMIN_USERNAME: ${{ secrets.VSHIELD_UAT_ADMIN_USERNAME }}
+      VSHIELD_UAT_ADMIN_PASSWORD: ${{ secrets.VSHIELD_UAT_ADMIN_PASSWORD }}
+      VSHIELD_UAT_ADMIN_TOTP_SECRET: ${{ secrets.VSHIELD_UAT_ADMIN_TOTP_SECRET }}
+      VSHIELD_UAT_GUARD_USERNAME: ${{ secrets.VSHIELD_UAT_GUARD_USERNAME }}
+      VSHIELD_UAT_GUARD_PASSWORD: ${{ secrets.VSHIELD_UAT_GUARD_PASSWORD }}
+      VSHIELD_UAT_GUARD_TOTP_SECRET: ${{ secrets.VSHIELD_UAT_GUARD_TOTP_SECRET }}
+      VSHIELD_UAT_RECEPTIONIST_USERNAME: ${{ secrets.VSHIELD_UAT_RECEPTIONIST_USERNAME }}
+      VSHIELD_UAT_RECEPTIONIST_PASSWORD: ${{ secrets.VSHIELD_UAT_RECEPTIONIST_PASSWORD }}
+      VSHIELD_UAT_RECEPTIONIST_TOTP_SECRET: ${{ secrets.VSHIELD_UAT_RECEPTIONIST_TOTP_SECRET }}
+      VSHIELD_UAT_MANAGER_USERNAME: ${{ secrets.VSHIELD_UAT_MANAGER_USERNAME }}
+      VSHIELD_UAT_MANAGER_PASSWORD: ${{ secrets.VSHIELD_UAT_MANAGER_PASSWORD }}
+      VSHIELD_UAT_MANAGER_TOTP_SECRET: ${{ secrets.VSHIELD_UAT_MANAGER_TOTP_SECRET }}
+      VSHIELD_UAT_HR_USERNAME: ${{ secrets.VSHIELD_UAT_HR_USERNAME }}
+      VSHIELD_UAT_HR_PASSWORD: ${{ secrets.VSHIELD_UAT_HR_PASSWORD }}
+      VSHIELD_UAT_HR_TOTP_SECRET: ${{ secrets.VSHIELD_UAT_HR_TOTP_SECRET }}
+      VSHIELD_UAT_MUTATION_MANIFEST_JSON: ${{ secrets.VSHIELD_UAT_MUTATION_MANIFEST_JSON }}
+      VSHIELD_UAT_ROLE_MATRIX_JSON: ${{ secrets.VSHIELD_UAT_ROLE_MATRIX_JSON }}
+      VSHIELD_UAT_PERFORMANCE_PLAN_JSON: ${{ secrets.VSHIELD_UAT_PERFORMANCE_PLAN_JSON }}
+      VSHIELD_UAT_NETWORK_PROFILE: ${{ inputs.network_profile }}
+      VSHIELD_UAT_ALLOW_NEGATIVE_MFA: 'true'
+      VSHIELD_UAT_ALLOW_MUTATIONS: 'true'
+      VSHIELD_UAT_CLEANUP_POLICY: required
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: View/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:uat
+      - id: uat_artifact_scan
+        run: npm run security:artifacts:all
+        if: always()
+      - name: Retain sanitized UAT report
+        if: always() && steps.uat_artifact_scan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-uat-report-${{ github.run_id }}
+          path: |
+            View/uat-report
+            View/uat-results
+          if-no-files-found: ignore
+          retention-days: 14

@@ -48,7 +48,9 @@ class BiometricAuthManager(private val context: Context) {
 
     fun isBiometricReady(): Boolean {
         val biometricManager = BiometricManager.from(context)
-        return biometricManager.canAuthenticate(AUTHENTICATOR) == BiometricManager.BIOMETRIC_SUCCESS
+        val canWeak = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+        val canStrong = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+        return canWeak == BiometricManager.BIOMETRIC_SUCCESS || canStrong == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun authenticate(
@@ -141,16 +143,12 @@ class BiometricAuthManager(private val context: Context) {
         val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
+            .setNegativeButtonText("Huy")
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            builder
-                .setAllowedAuthenticators(AUTHENTICATOR)
-                .build()
-        } else {
-            builder
-                .setNegativeButtonText("Huy")
-                .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder.setAllowedAuthenticators(AUTHENTICATOR)
         }
+        return builder.build()
     }
 
     companion object {

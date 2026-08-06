@@ -31,29 +31,12 @@ public class CameraRecordingService : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var cameras = await db.Cameras
-                    .Where(c => !string.IsNullOrWhiteSpace(c.StreamUrl) || !string.IsNullOrWhiteSpace(c.UrlView))
+                    .Where(c =>
+                        c.IsRecordingEnabled &&
+                        c.StreamUrl != "rtsp://demo.local/qr" &&
+                        c.StreamUrl != "rtsp://demo.local/plate" &&
+                        (!string.IsNullOrWhiteSpace(c.StreamUrl) || !string.IsNullOrWhiteSpace(c.UrlView)))
                     .ToListAsync(stoppingToken);
-
-                var changed = false;
-                foreach (var cam in cameras)
-                {
-                    if (!cam.IsRecordingEnabled)
-                    {
-                        cam.IsRecordingEnabled = true;
-                        changed = true;
-                    }
-
-                    if (cam.RecordingRetentionDays <= 0)
-                    {
-                        cam.RecordingRetentionDays = 30;
-                        changed = true;
-                    }
-                }
-
-                if (changed)
-                {
-                    await db.SaveChangesAsync(stoppingToken);
-                }
 
                 var enabledIds = new ConcurrentDictionary<int, byte>();
                 var parallelOpts = new ParallelOptions { MaxDegreeOfParallelism = 4 };
@@ -343,11 +326,15 @@ public class CameraRecordingService : BackgroundService
             candidates.Add(new RecordingInputCandidate(trimmed, sourceLabel));
         }
 
-        AddCandidate(cam.StreamUrl, "stream-url");
-
         if (TryBuildInternalPreviewUrl(cam.StreamUrl, out var internalPreviewUrl))
         {
             AddCandidate(internalPreviewUrl, "internal-preview");
+        }
+        else
+        {
+            // Demo stream URLs are routing markers, not resolvable RTSP hosts.
+            // Real camera URLs remain the first direct recording candidate.
+            AddCandidate(cam.StreamUrl, "stream-url");
         }
 
         if (TryGetGo2RtcSource(cam.UrlView, out var src) && src != null)

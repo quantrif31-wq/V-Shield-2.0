@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using API.Data;
 using API.Hubs;
@@ -10,6 +11,10 @@ using API.Models;
 using API.Services;
 using API.Services.AI;
 using API.Services.Abstractions;
+using API.Services.FaceRecognition;
+using API.Services.AccessPolicyComparison;
+using API.Services.AccessCredentials;
+using API.Services.FaceCredentialBindings;
 using API.Services.Sync;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -26,7 +31,7 @@ namespace API
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
             ConfigureDataProtection(builder);
@@ -160,6 +165,9 @@ namespace API
             builder.Services.AddScoped<ZoneAuthorityService>();
             builder.Services.AddScoped<UserOperationalScopeService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.Configure<FaceStorageOptions>(
+                builder.Configuration.GetSection(FaceStorageOptions.SectionName));
+            builder.Services.AddSingleton<IFaceStoragePathResolver, FaceStoragePathResolver>();
             builder.Services.Configure<SyncRuntimeOptions>(builder.Configuration.GetSection(SyncRuntimeOptions.SectionName));
             builder.Services.AddSingleton<ISyncExecutionContext, SyncExecutionContext>();
             builder.Services.AddScoped<SyncEntityEventFactory>();
@@ -198,6 +206,108 @@ namespace API
                 builder.Services.AddHostedService<CentralSyncInboxWorker>();
             }
             builder.Services.AddHttpClient();
+            var faceRecognitionClientOptions =
+                FaceRecognitionClientOptions.FromConfiguration(builder.Configuration);
+            builder.Services.AddSingleton(faceRecognitionClientOptions);
+            builder.Services.AddHttpClient<IFaceRecognitionClient, FaceRecognitionClient>(client =>
+            {
+                client.BaseAddress = faceRecognitionClientOptions.BaseAddress;
+                client.Timeout = faceRecognitionClientOptions.Timeout;
+            });
+            var faceReconcileOptions = new FaceCameraReconcileOptions();
+            builder.Configuration.GetSection(FaceCameraReconcileOptions.SectionName)
+                .Bind(faceReconcileOptions);
+            if (faceReconcileOptions.ReconcileIntervalSeconds <= 0)
+            {
+                throw new InvalidOperationException(
+                    "FaceRecognition:ReconcileIntervalSeconds must be greater than zero.");
+            }
+            builder.Services.AddSingleton(faceReconcileOptions);
+            builder.Services.AddScoped<FaceCameraConfigurationService>();
+            builder.Services.AddScoped<IFaceCameraConfigurationService>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceCameraConfigurationService>());
+            builder.Services.AddScoped<IFaceCameraConfigurationStore>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceCameraConfigurationService>());
+            builder.Services.AddScoped<FaceCameraReconciliationCycle>();
+            builder.Services.AddScoped<IFaceModelMetadataService, FaceModelMetadataService>();
+            var faceEnrollmentOptions = new FaceEnrollmentOptions();
+            builder.Configuration.GetSection(FaceEnrollmentOptions.SectionName).Bind(faceEnrollmentOptions);
+            if (faceEnrollmentOptions.PollIntervalSeconds <= 0 ||
+                faceEnrollmentOptions.MaxConcurrentJobs <= 0 ||
+                faceEnrollmentOptions.MaxAttempts <= 0)
+                throw new InvalidOperationException("FaceEnrollment worker settings must be greater than zero.");
+            builder.Services.AddSingleton(faceEnrollmentOptions);
+            builder.Services.AddScoped<IFaceEnrollmentService, FaceEnrollmentService>();
+            var faceRecognitionEventOptions = new FaceRecognitionEventOptions();
+            builder.Configuration.GetSection(FaceRecognitionEventOptions.SectionName)
+                .Bind(faceRecognitionEventOptions);
+            if (faceRecognitionEventOptions.PollIntervalMilliseconds < 250 ||
+                faceRecognitionEventOptions.BatchSize is < 1 or > 200 ||
+                faceRecognitionEventOptions.MaxParallelCameras <= 0 ||
+                faceRecognitionEventOptions.RetentionDays <= 0)
+            {
+                throw new InvalidOperationException(
+                    "FaceRecognitionEvents settings are invalid.");
+            }
+            builder.Services.AddSingleton(faceRecognitionEventOptions);
+            builder.Services.AddSingleton<FaceRecognitionEventCollector>();
+            builder.Services.AddSingleton<IFaceRecognitionEventCollector>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
+            var comparisonOptions = new FaceAccessPolicyComparisonOptions();
+            builder.Configuration.GetSection(FaceAccessPolicyComparisonOptions.SectionName)
+                .Bind(comparisonOptions);
+            if (comparisonOptions.PollIntervalMilliseconds < 250 ||
+                comparisonOptions.BatchSize is < 1 or > 500 ||
+                comparisonOptions.MaxParallelism <= 0 ||
+                comparisonOptions.EvaluationVersion <= 0)
+                throw new InvalidOperationException("FaceAccessPolicyComparison settings are invalid.");
+            try { comparisonOptions.TimeZone = TimeZoneInfo.FindSystemTimeZoneById(comparisonOptions.TimeZoneId); }
+            catch (TimeZoneNotFoundException ex) {
+                throw new InvalidOperationException("FaceAccessPolicyComparison:TimeZoneId is invalid.", ex);
+            }
+            builder.Services.AddSingleton(comparisonOptions);
+            builder.Services.AddScoped<ILegacyGateAccessEvaluator, LegacyGateAccessEvaluator>();
+            builder.Services.AddScoped<IEnterpriseAccessPolicyEvaluator, EnterpriseAccessPolicyEvaluator>();
+            var accessCredentialOptions = new AccessCredentialOptions();
+            builder.Configuration.GetSection(AccessCredentialOptions.SectionName)
+                .Bind(accessCredentialOptions);
+            builder.Services.AddSingleton(accessCredentialOptions);
+            builder.Services.AddSingleton<IAccessCredentialStateEvaluator, AccessCredentialStateEvaluator>();
+            builder.Services.AddSingleton<IAccessCredentialIdentifierProtector,
+                AccessCredentialIdentifierProtector>();
+            builder.Services.AddScoped<AccessCredentialService>();
+            builder.Services.AddScoped<IAccessCredentialService>(sp =>
+                sp.GetRequiredService<AccessCredentialService>());
+            builder.Services.AddScoped<IAccessCredentialContextResolver>(sp =>
+                sp.GetRequiredService<AccessCredentialService>());
+            builder.Services.AddScoped<IFaceCredentialBindingService, FaceCredentialBindingService>();
+            builder.Services.AddScoped<FaceCredentialBindingManifestService>();
+            builder.Services.AddSingleton<FaceAccessPolicyComparisonProcessor>();
+            builder.Services.AddSingleton<IFaceAccessPolicyComparisonProcessor>(sp =>
+                sp.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
+            builder.Services.AddSingleton<FaceAccessDecisionProcessor>();
+            builder.Services.AddSingleton<IFaceAccessDecisionProcessor>(sp =>
+                sp.GetRequiredService<FaceAccessDecisionProcessor>());
+            builder.Services.AddSingleton<FaceCameraSessionReconciler>();
+            builder.Services.AddSingleton<IFaceCameraSessionReconciler>(serviceProvider =>
+                serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
+            if (!builder.Environment.IsEnvironment("Testing"))
+            {
+                builder.Services.AddHostedService(serviceProvider =>
+                    serviceProvider.GetRequiredService<FaceCameraSessionReconciler>());
+                if (faceEnrollmentOptions.WorkerEnabled)
+                    builder.Services.AddHostedService<FaceEnrollmentWorker>();
+                if (faceRecognitionEventOptions.CollectorEnabled)
+                    builder.Services.AddHostedService(serviceProvider =>
+                        serviceProvider.GetRequiredService<FaceRecognitionEventCollector>());
+                if (comparisonOptions.ProcessorEnabled)
+                {
+                    builder.Services.AddHostedService(serviceProvider =>
+                        serviceProvider.GetRequiredService<FaceAccessPolicyComparisonProcessor>());
+                    builder.Services.AddHostedService(serviceProvider =>
+                        serviceProvider.GetRequiredService<FaceAccessDecisionProcessor>());
+                }
+            }
             builder.Services.AddHttpClient("AiGateway", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(35);
@@ -297,6 +407,31 @@ namespace API
                 });
             });
             var app = builder.Build();
+            if (args.Length > 0 &&
+                string.Equals(args[0], "access-credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.ExitCode = await RunAccessCredentialCommandAsync(
+                    app.Services, args, CancellationToken.None);
+                return;
+            }
+            if (args.Length > 0 &&
+                string.Equals(args[0], "face-models", StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.ExitCode = await RunFaceModelCommandAsync(
+                    app.Services,
+                    args,
+                    CancellationToken.None);
+                return;
+            }
+            if (args.Length > 0 &&
+                string.Equals(args[0], "face-credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.ExitCode = await RunFaceCredentialCommandAsync(
+                    app.Services,
+                    args,
+                    CancellationToken.None);
+                return;
+            }
             if (!app.Environment.IsEnvironment("Testing"))
             {
                 EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
@@ -445,6 +580,202 @@ namespace API
             }
 
             app.Run();
+        }
+
+        private static async Task<int> RunAccessCredentialCommandAsync(
+            IServiceProvider services, string[] args, CancellationToken cancellationToken)
+        {
+            if (args.Length != 2 ||
+                !string.Equals(args[1], "inventory", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.Error.WriteLine("Usage: access-credentials inventory");
+                return 2;
+            }
+            using var scope = services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var qrRows = await db.EmployeeDynamicQrs.AsNoTracking()
+                .Select(x => new { x.Id, x.EmployeeId, x.IsActive }).ToListAsync(cancellationToken);
+            var credentialRows = await db.AccessCredentials.AsNoTracking()
+                .Select(x => new
+                {
+                    x.Id, x.EmployeeId, x.CredentialType, x.Status,
+                    x.EffectiveFromUtc, x.ExpiresAtUtc, x.RevokedAtUtc,
+                    x.EmployeeDynamicQrId, x.MaskedIdentifier
+                }).ToListAsync(cancellationToken);
+            var policyTypes = await db.AccessRules.AsNoTracking()
+                .GroupBy(x => x.CredentialType)
+                .Select(x => new { credentialType = x.Key, count = x.Count() })
+                .OrderBy(x => x.credentialType).ToListAsync(cancellationToken);
+            var employeeIds = new[] { 1, 2, 3, 4, 5 };
+            var report = new
+            {
+                generatedAtUtc = DateTime.UtcNow,
+                employeeDynamicQr = new
+                {
+                    total = qrRows.Count,
+                    active = qrRows.Count(x => x.IsActive),
+                    inactive = qrRows.Count(x => !x.IsActive),
+                    employeesWithQr = qrRows.Select(x => x.EmployeeId).Distinct().Count(),
+                    employeesWithMultipleQr = qrRows.GroupBy(x => x.EmployeeId).Count(x => x.Count() > 1),
+                    employees1To5 = employeeIds.Select(id => new
+                    {
+                        employeeId = id,
+                        count = qrRows.Count(x => x.EmployeeId == id),
+                        active = qrRows.Count(x => x.EmployeeId == id && x.IsActive),
+                        inactive = qrRows.Count(x => x.EmployeeId == id && !x.IsActive)
+                    })
+                },
+                accessCredentials = new
+                {
+                    total = credentialRows.Count,
+                    byType = credentialRows.GroupBy(x => x.CredentialType)
+                        .ToDictionary(x => x.Key, x => x.Count()),
+                    byStoredStatus = credentialRows.GroupBy(x => x.Status)
+                        .ToDictionary(x => x.Key, x => x.Count())
+                },
+                policyCredentialTypes = policyTypes,
+                unmappedPolicyCredentialTypes = policyTypes
+                    .Where(x => x.credentialType != "Any" &&
+                        AccessCredentialTypes.Normalize(x.credentialType) is null)
+                    .Select(x => x.credentialType).ToArray()
+            };
+            var json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
+            var root = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (root.Parent is not null &&
+                   !Directory.Exists(Path.Combine(root.FullName, "runtime", "face-data")))
+                root = root.Parent;
+            var path = Path.Combine(root.FullName, "runtime", "face-data", "manifests",
+                "access-credential-inventory.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllTextAsync(path, json, cancellationToken);
+            Console.WriteLine(json);
+            return 0;
+        }
+
+        private static async Task<int> RunFaceModelCommandAsync(
+            IServiceProvider services,
+            string[] args,
+            CancellationToken cancellationToken)
+        {
+            if (args.Length < 2 ||
+                !string.Equals(
+                    args[1],
+                    "bootstrap-metadata",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                Console.Error.WriteLine(
+                    "Usage: face-models bootstrap-metadata [--apply --confirm-bootstrap]");
+                return 2;
+            }
+
+            var apply = args.Contains("--apply", StringComparer.Ordinal);
+            var confirm = args.Contains("--confirm-bootstrap", StringComparer.Ordinal);
+            var supported = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "face-models",
+                "bootstrap-metadata",
+                "--dry-run",
+                "--apply",
+                "--confirm-bootstrap"
+            };
+            if (args.Any(argument => !supported.Contains(argument)))
+            {
+                Console.Error.WriteLine("Unsupported face model bootstrap argument.");
+                return 2;
+            }
+
+            using var scope = services.CreateScope();
+            var bootstrap = scope.ServiceProvider
+                .GetRequiredService<IFaceModelMetadataService>();
+            var result = await bootstrap.BootstrapAsync(
+                apply,
+                confirm,
+                cancellationToken);
+            Console.WriteLine(JsonSerializer.Serialize(result));
+            return result.Success ? 0 : 3;
+        }
+
+        private static async Task<int> RunFaceCredentialCommandAsync(
+            IServiceProvider services,
+            string[] args,
+            CancellationToken cancellationToken)
+        {
+            if (args.Length < 2)
+            {
+                Console.Error.WriteLine("Usage: face-credentials generate-binding-template | validate-bindings --manifest <path> | apply-bindings --manifest <path> [--apply --confirm-bindings --actor-user-id <id>] | reconcile-binding-audits --manifest <path> [--apply --confirm-audit-reconciliation --actor-user-id <id>]");
+                return 2;
+            }
+
+            using var scope = services.CreateScope();
+            var manifestService = scope.ServiceProvider.GetRequiredService<FaceCredentialBindingManifestService>();
+            var command = args[1];
+
+            if (string.Equals(command, "generate-binding-template", StringComparison.OrdinalIgnoreCase))
+            {
+                var template = await manifestService.GenerateTemplateAsync(cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(template, new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
+
+            if (string.Equals(command, "validate-bindings", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifestPath = ReadManifestPath(args);
+                var result = await manifestService.ValidateManifestAsync(
+                    manifestPath,
+                    requireApproval: false,
+                    cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                return result.Success ? 0 : 3;
+            }
+
+            if (string.Equals(command, "apply-bindings", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifestPath = ReadManifestPath(args);
+                var apply = args.Contains("--apply", StringComparer.Ordinal);
+                var confirm = args.Contains("--confirm-bindings", StringComparer.Ordinal);
+                var actorUserId = ReadOptionalIntArgument(args, "--actor-user-id");
+                var result = await manifestService.ApplyManifestAsync(
+                    manifestPath,
+                    apply,
+                    confirm,
+                    actorUserId,
+                    cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                return result.Success ? 0 : 3;
+            }
+
+            if (string.Equals(command, "reconcile-binding-audits", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifestPath = ReadManifestPath(args);
+                var result = await manifestService.ReconcileBindingAuditsAsync(
+                    manifestPath,
+                    args.Contains("--apply", StringComparer.Ordinal),
+                    args.Contains("--confirm-audit-reconciliation", StringComparer.Ordinal),
+                    ReadOptionalIntArgument(args, "--actor-user-id"),
+                    cancellationToken);
+                Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                return result.Success ? 0 : 3;
+            }
+
+            Console.Error.WriteLine("Unsupported face-credentials command.");
+            return 2;
+        }
+
+        private static string ReadManifestPath(string[] args)
+        {
+            var index = Array.FindIndex(args, x => string.Equals(x, "--manifest", StringComparison.Ordinal));
+            if (index < 0 || index + 1 >= args.Length)
+                throw new InvalidOperationException("--manifest <path> is required.");
+            return args[index + 1];
+        }
+
+        private static int? ReadOptionalIntArgument(string[] args, string name)
+        {
+            var index = Array.FindIndex(args, x => string.Equals(x, name, StringComparison.Ordinal));
+            if (index < 0) return null;
+            if (index + 1 >= args.Length || !int.TryParse(args[index + 1], out var value) || value <= 0)
+                throw new InvalidOperationException($"{name} requires a positive integer.");
+            return value;
         }
 
         private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)

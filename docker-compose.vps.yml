@@ -23,7 +23,7 @@ services:
     container_name: vshield-api
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:5107
+      ASPNETCORE_HTTP_PORTS: "5107"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=${SQL_DATABASE:-AccessControlDB};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in your environment or .env.vps file};Encrypt=True;TrustServerCertificate=True;"
       VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:?Set VSHIELD_JWT_SECRET in your environment or .env.vps file}"
       JwtSettings__Issuer: "${JWT_ISSUER:-VShieldAPI-VPS}"
@@ -46,6 +46,8 @@ services:
       AppSettings__AllowedOrigins__2: ""
       AppSettings__Go2RtcPublicBaseUrl: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
       Cloudflared__PublicHostname: "${APP_PUBLIC_HOSTNAME:-160.250.4.187}"
+      AiServices__FaceCameraBaseUrl: "${FACE_SERVICE_URL:-http://face-runtime:5001/api}"
+      FaceStorage__InputRoot: "/app/wwwroot/uploads/VideoFace"
       Sync__Mode: "${SYNC_MODE:-Central}"
       Sync__RegistrationKey: "${SYNC_REGISTRATION_KEY:?Set SYNC_REGISTRATION_KEY in your environment or .env.vps file}"
       Sync__Version: "${SYNC_VERSION:-2.0.0}"
@@ -57,6 +59,7 @@ services:
       - "5107"
     volumes:
       - vshield_data_protection:/var/app/data-protection
+      - ./runtime/face-data/input:/app/wwwroot/uploads/VideoFace
     depends_on:
       db:
         condition: service_healthy
@@ -65,6 +68,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+    networks:
+      - default
+      - face-backend
     restart: unless-stopped
 
   frontend:
@@ -75,13 +81,11 @@ services:
         VITE_API_BASE_URL: "${VITE_API_BASE_URL:-/api}"
         VITE_QR_API_BASE_URL: "${VITE_QR_API_BASE_URL:-/api}"
         VITE_PLATE_API_BASE_URL: "${VITE_PLATE_API_BASE_URL:-/api}"
-        VITE_FACE_API_BASE_URL: "${VITE_FACE_API_BASE_URL:-/api}"
     container_name: vshield-frontend
     environment:
       API_PROXY_BASE: "http://api:5107"
       QR_PROXY_BASE: "http://api:5107"
       PLATE_PROXY_BASE: "http://api:5107"
-      FACE_PROXY_BASE: "http://api:5107"
       GO2RTC_PROXY_BASE: "http://api:5107"
     ports:
       - "${APP_HTTP_PORT:-80}:80"
@@ -90,6 +94,41 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  face-runtime:
+    build:
+      context: ./AI_Runtime/face_recognition
+      dockerfile: Dockerfile
+    container_name: vshield-face-runtime
+    command: ["sh", "-lc", "cd /workspace/V-Shield/AI_Runtime/face_recognition && python3 nhandienface.py"]
+    environment:
+      PORT: 5001
+      FACE_MODEL_DIR: "${FACE_MODEL_DIR:-/data/face/models/active}"
+      FACE_ENROLLMENT_INPUT_ROOT: /data/face/input
+      FACE_MODEL_STAGING_DIR: /data/face/models/staging
+      FACE_MODEL_ARCHIVE_DIR: /data/face/models/archive
+      FACE_MODEL_FAILED_DIR: /data/face/models/failed
+    volumes:
+      - ./:/workspace/V-Shield
+      - ./runtime/face-data/input:/data/face/input:ro
+      - ./runtime/face-data/models:/data/face/models
+    expose:
+      - "5001"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/api/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - face-backend
+    restart: unless-stopped
+    profiles: ["ai-heavy"]
+
 volumes:
   vshield_mssql_data:
   vshield_data_protection:
+
+networks:
+  face-backend:
+    name: vshield-face-backend
+    driver: bridge
