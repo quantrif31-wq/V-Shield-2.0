@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.Middleware;
 using API.Models;
 using API.Services;
@@ -31,11 +31,9 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Nhận biển số và employeeId.
-        /// - Nếu đúng biển số và đúng employee đã tồn tại => toggle IN/OUT.
-        /// - Nếu chưa có đúng cặp đó:
-        ///     + Nếu biển đang thuộc người khác và đang IN => fail.
-        ///     + Ngược lại => thêm mới với trạng thái IN.
+        /// Xác nhận thông hành đa nguồn (QR + biển số hoặc FaceID + biển số).
+        /// Hướng di chuyển được lấy từ làn/cổng, không tự đảo theo số lần quét.
+        /// Chỉ giao dịch thành công mới tạo ZoneTransit và cập nhật Attendance.
         /// </summary>
         [HttpPost("scan")]
         [EnableRateLimiting("ops")]
@@ -58,10 +56,49 @@ namespace API.Controllers
                 return BadRequest(GateTransitApiResponse.CreateError("EmployeeId không hợp lệ."));
             }
 
-            if (request.GateId.HasValue &&
-                !await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, gateId: request.GateId, requireManage: true))
+            Lane? lane = null;
+            if (request.LaneId.HasValue)
+            {
+                lane = await _context.Lanes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.LaneId == request.LaneId.Value && item.IsActive);
+                if (lane == null || !lane.GateId.HasValue)
+                {
+                    return BadRequest(GateTransitApiResponse.CreateError("Làn kiểm soát không hợp lệ hoặc chưa liên kết với cổng."));
+                }
+
+                if (request.GateId.HasValue && request.GateId.Value != lane.GateId.Value)
+                {
+                    return BadRequest(GateTransitApiResponse.CreateError("Làn kiểm soát không thuộc cổng đã chọn."));
+                }
+
+                request.GateId = lane.GateId.Value;
+            }
+
+            if (!request.GateId.HasValue)
+            {
+                return BadRequest(GateTransitApiResponse.CreateError("Phải chọn cổng/làn trước khi xác nhận thông hành."));
+            }
+
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, gateId: request.GateId, requireManage: true))
             {
                 return Forbid();
+            }
+
+            var requestedDirection = NormalizeTransitDirection(request.Direction);
+            if (!string.IsNullOrWhiteSpace(request.Direction) && requestedDirection == null)
+            {
+                return BadRequest(GateTransitApiResponse.CreateError("Hướng di chuyển chỉ nhận IN hoặc OUT."));
+            }
+
+            if (lane != null)
+            {
+                var laneDirection = LaneDirectionToTransitDirection(lane.Direction, requestedDirection);
+                if (laneDirection == null)
+                {
+                    return BadRequest(GateTransitApiResponse.CreateError("Hướng di chuyển không phù hợp với cấu hình làn."));
+                }
+                requestedDirection = laneDirection;
             }
 
             var employee = await _context.Employees
@@ -87,43 +124,73 @@ namespace API.Controllers
                 var currentVehicle = samePlateVehicles
                     .FirstOrDefault(v => v.EmployeeId == request.EmployeeId);
 
+                var direction = requestedDirection
+                    ?? (currentVehicle != null && NormalizeParkingStatus(currentVehicle.ParkingStatus) == "IN" ? "OUT" : "IN");
+
+                async Task CaptureEvidenceAsync(AccessLog log)
+                {
+                    var sourceRef = $"access-log/{log.LogId}";
+                    log.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(
+                        request.PlateSnapshotBase64, "snapshot", sourceRef, createdByUserId: request.EmployeeId);
+                    log.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(
+                        request.PlateCropBase64, "plate-crop", sourceRef, createdByUserId: request.EmployeeId);
+                    log.CapturedFaceCropUrl = await _evidenceCapture.CaptureBase64Async(
+                        request.FaceSnapshotBase64, "face-crop", sourceRef, createdByUserId: request.EmployeeId);
+                    log.CapturedQrSnapshotUrl = await _evidenceCapture.CaptureBase64Async(
+                        request.QrSnapshotBase64, "qr-snapshot", sourceRef, createdByUserId: request.EmployeeId);
+                    log.CapturedSnapshotUrl ??= log.CapturedFaceCropUrl ?? log.CapturedQrSnapshotUrl;
+                    await _context.SaveChangesAsync();
+                }
+
+                AccessLog CreateLog(string plate, string resultStatus, string note) => new()
+                {
+                    Timestamp = DateTime.Now,
+                    Direction = direction,
+                    GateId = request.GateId,
+                    CameraId = request.CameraId,
+                    CapturedLicensePlate = plate,
+                    EmployeeId = request.EmployeeId,
+                    RegistrationId = null,
+                    ResultStatus = resultStatus,
+                    IsBypass = false,
+                    Note = $"[{NormalizeCredentialType(request.CredentialType)}] {note}",
+                    LaneNameSnapshot = lane?.Name
+                };
+
+                async Task CompleteSuccessfulTransitAsync(AccessLog log)
+                {
+                    await _zoneTransitService.ProcessAccessLogAsync(log.LogId);
+                    await transaction.CommitAsync();
+                    try
+                    {
+                        await _uebaService.AnalyzeAccessLogAsync(log);
+                    }
+                    catch
+                    {
+                        // UEBA không được làm thất bại giao dịch thông hành đã ghi nhận.
+                    }
+                }
+
                 if (currentVehicle != null)
                 {
                     var oldStatus = NormalizeParkingStatus(currentVehicle.ParkingStatus);
-                    var newStatus = oldStatus == "IN" ? "OUT" : "IN";
+                    currentVehicle.ParkingStatus = direction;
 
-                    currentVehicle.ParkingStatus = newStatus;
-
-                    var uebaLog1 = new AccessLog
-                    {
-                        Timestamp = DateTime.Now,
-                        Direction = newStatus,
-                        GateId = request.GateId,
-                        CameraId = request.CameraId,
-                        CapturedLicensePlate = currentVehicle.LicensePlate,
-                        EmployeeId = request.EmployeeId,
-                        RegistrationId = null,
-                        ResultStatus = "SUCCESS",
-                        IsBypass = false,
-                        Note = $"Đổi trạng thái xe từ {oldStatus} sang {newStatus}"
-                    };
-                    _context.AccessLogs.Add(uebaLog1);
+                    var accessLog = CreateLog(
+                        currentVehicle.LicensePlate,
+                        "SUCCESS",
+                        $"Xác nhận {direction} thành công; trạng thái xe {oldStatus} → {direction}.");
+                    _context.AccessLogs.Add(accessLog);
                     await _context.SaveChangesAsync();
-
-                    var ref1 = $"access-log/{uebaLog1.LogId}";
-                    uebaLog1.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref1, createdByUserId: request.EmployeeId);
-                    uebaLog1.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref1, createdByUserId: request.EmployeeId);
-                    await _context.SaveChangesAsync();
-
-                    await transaction.CommitAsync();
-
-                    _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, newStatus, DateTime.Now, ZoneTransitSources.AccessLog);
-                    _ = _uebaService.AnalyzeAccessLogAsync(uebaLog1);
+                    await CaptureEvidenceAsync(accessLog);
+                    await CompleteSuccessfulTransitAsync(accessLog);
 
                     return Ok(GateTransitApiResponse.CreateSuccess(
-                        $"Cập nhật trạng thái thành công: {oldStatus} -> {newStatus}.",
+                        $"Đã ghi nhận {direction} và cập nhật bảng chấm công.",
                         new
                         {
+                            accessLog.LogId,
+                            Direction = direction,
                             currentVehicle.VehicleId,
                             currentVehicle.LicensePlate,
                             currentVehicle.EmployeeId,
@@ -139,73 +206,40 @@ namespace API.Controllers
 
                 if (otherVehicle != null)
                 {
-                    // 2a. Xe đang IN trong bãi → conflict
-                    if (NormalizeParkingStatus(otherVehicle.ParkingStatus) == "IN")
+                    var otherStatus = NormalizeParkingStatus(otherVehicle.ParkingStatus);
+                    if (direction == "OUT" || otherStatus == "IN")
                     {
-                        var uebaLog2 = new AccessLog
-                        {
-                            Timestamp = DateTime.Now,
-                            Direction = "IN",
-                            GateId = request.GateId,
-                            CameraId = request.CameraId,
-                            CapturedLicensePlate = normalizedPlate,
-                            EmployeeId = request.EmployeeId,
-                            RegistrationId = null,
-                            ResultStatus = "FAILED",
-                            IsBypass = false,
-                            Note = $"Biển số đang được giữ bởi nhân viên có id là {otherVehicle.EmployeeId}"
-                        };
-                        _context.AccessLogs.Add(uebaLog2);
+                        var deniedLog = CreateLog(
+                            normalizedPlate,
+                            "FAILED",
+                            $"Từ chối: biển số thuộc nhân viên {otherVehicle.EmployeeId}, trạng thái {otherStatus}.");
+                        _context.AccessLogs.Add(deniedLog);
                         await _context.SaveChangesAsync();
-
-                        var ref2 = $"access-log/{uebaLog2.LogId}";
-                        uebaLog2.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref2, createdByUserId: request.EmployeeId);
-                        uebaLog2.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref2, createdByUserId: request.EmployeeId);
-                        await _context.SaveChangesAsync();
-
+                        await CaptureEvidenceAsync(deniedLog);
                         await transaction.CommitAsync();
 
-                        _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
-                        _ = _uebaService.AnalyzeAccessLogAsync(uebaLog2);
-
                         return Conflict(GateTransitApiResponse.CreateError(
-                            $"Biển số đang được giữ bởi 1 nhân viên có id là {otherVehicle.EmployeeId}."));
+                            $"Biển số không hợp lệ với nhân viên hiện tại; không ghi nhận chấm công."));
                     }
 
-                    // 2b. Xe đang OUT (không trong bãi) → cho phép nhận xe, gán lại chủ mới
                     otherVehicle.EmployeeId = request.EmployeeId;
-                    otherVehicle.ParkingStatus = "IN";
+                    otherVehicle.ParkingStatus = direction;
 
-                    var uebaLog2b = new AccessLog
-                    {
-                        Timestamp = DateTime.Now,
-                        Direction = "IN",
-                        GateId = request.GateId,
-                        CameraId = request.CameraId,
-                        CapturedLicensePlate = otherVehicle.LicensePlate,
-                        EmployeeId = request.EmployeeId,
-                        RegistrationId = null,
-                        ResultStatus = "SUCCESS",
-                        IsBypass = false,
-                        Note = $"Nhận xe từ nhân viên {otherVehicle.EmployeeId}, chuyển chủ sở hữu tạm thời"
-                    };
-                    _context.AccessLogs.Add(uebaLog2b);
+                    var reassignedLog = CreateLog(
+                        otherVehicle.LicensePlate,
+                        "SUCCESS",
+                        $"Xác nhận {direction} và chuyển liên kết phương tiện sang nhân viên hiện tại.");
+                    _context.AccessLogs.Add(reassignedLog);
                     await _context.SaveChangesAsync();
-
-                    var ref2b = $"access-log/{uebaLog2b.LogId}";
-                    uebaLog2b.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref2b, createdByUserId: request.EmployeeId);
-                    uebaLog2b.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref2b, createdByUserId: request.EmployeeId);
-                    await _context.SaveChangesAsync();
-
-                    await transaction.CommitAsync();
-
-                    _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
-                    _ = _uebaService.AnalyzeAccessLogAsync(uebaLog2b);
+                    await CaptureEvidenceAsync(reassignedLog);
+                    await CompleteSuccessfulTransitAsync(reassignedLog);
 
                     return Ok(GateTransitApiResponse.CreateSuccess(
-                        $"Đã nhận xe và gán chủ mới.",
+                        $"Đã ghi nhận {direction} và cập nhật bảng chấm công.",
                         new
                         {
+                            reassignedLog.LogId,
+                            Direction = direction,
                             otherVehicle.VehicleId,
                             otherVehicle.LicensePlate,
                             otherVehicle.EmployeeId,
@@ -215,47 +249,39 @@ namespace API.Controllers
                         }));
                 }
 
+                if (direction == "OUT")
+                {
+                    var deniedLog = CreateLog(normalizedPlate, "FAILED", "Từ chối OUT: phương tiện chưa có lượt vào hợp lệ.");
+                    _context.AccessLogs.Add(deniedLog);
+                    await _context.SaveChangesAsync();
+                    await CaptureEvidenceAsync(deniedLog);
+                    await transaction.CommitAsync();
+                    return Conflict(GateTransitApiResponse.CreateError("Không tìm thấy lượt vào của phương tiện; không ghi nhận chấm công."));
+                }
+
                 var newVehicle = new Vehicle
                 {
                     LicensePlate = normalizedPlate,
                     EmployeeId = request.EmployeeId,
                     VehicleTypeId = request.VehicleTypeId,
                     Description = request.Description,
-                    ParkingStatus = "IN"
+                    ParkingStatus = direction
                 };
 
                 _context.Vehicles.Add(newVehicle);
 
-                var uebaLog3 = new AccessLog
-                {
-                    Timestamp = DateTime.Now,
-                    Direction = "IN",
-                    GateId = request.GateId,
-                    CameraId = request.CameraId,
-                    CapturedLicensePlate = normalizedPlate,
-                    EmployeeId = request.EmployeeId,
-                    RegistrationId = null,
-                    ResultStatus = "SUCCESS",
-                    IsBypass = false,
-                    Note = "Thêm mới phương tiện và cho vào bãi với trạng thái IN"
-                };
-                _context.AccessLogs.Add(uebaLog3);
+                var newVehicleLog = CreateLog(normalizedPlate, "SUCCESS", "Thêm mới phương tiện và xác nhận IN.");
+                _context.AccessLogs.Add(newVehicleLog);
                 await _context.SaveChangesAsync();
-
-                var ref3 = $"access-log/{uebaLog3.LogId}";
-                uebaLog3.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(request.PlateSnapshotBase64, "snapshot", ref3, createdByUserId: request.EmployeeId);
-                uebaLog3.CapturedPlateCropUrl = await _evidenceCapture.CaptureBase64Async(request.PlateCropBase64, "plate-crop", ref3, createdByUserId: request.EmployeeId);
-                await _context.SaveChangesAsync();
-
-                await transaction.CommitAsync();
-
-                _ = _zoneTransitService.ProcessTransitAsync(request.EmployeeId!.Value, request.GateId, "IN", DateTime.Now, ZoneTransitSources.AccessLog);
-                _ = _uebaService.AnalyzeAccessLogAsync(uebaLog3);
+                await CaptureEvidenceAsync(newVehicleLog);
+                await CompleteSuccessfulTransitAsync(newVehicleLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
-                    "Chưa có dữ liệu trước đó. Đã thêm mới phương tiện với trạng thái IN.",
+                    "Đã ghi nhận IN và tạo chấm công đầu ngày.",
                     new
                     {
+                        newVehicleLog.LogId,
+                        Direction = direction,
                         newVehicle.VehicleId,
                         newVehicle.LicensePlate,
                         newVehicle.EmployeeId,
@@ -266,7 +292,7 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                try { await transaction.RollbackAsync(); } catch { }
 
                 return StatusCode(500, GateTransitApiResponse.CreateError(
                     "Có lỗi xảy ra khi xử lý dữ liệu.",
@@ -556,6 +582,35 @@ namespace API.Controllers
 
             return status.Trim().ToUpper() == "IN" ? "IN" : "OUT";
         }
+
+        private static string? NormalizeTransitDirection(string? direction)
+        {
+            if (string.IsNullOrWhiteSpace(direction)) return null;
+            return direction.Trim().ToUpperInvariant() switch
+            {
+                "IN" or "ENTRY" => "IN",
+                "OUT" or "EXIT" => "OUT",
+                _ => null
+            };
+        }
+
+        private static string? LaneDirectionToTransitDirection(string? laneDirection, string? requestedDirection)
+        {
+            if (string.Equals(laneDirection, "Entry", StringComparison.OrdinalIgnoreCase))
+                return requestedDirection is null or "IN" ? "IN" : null;
+            if (string.Equals(laneDirection, "Exit", StringComparison.OrdinalIgnoreCase))
+                return requestedDirection is null or "OUT" ? "OUT" : null;
+            if (string.Equals(laneDirection, "Bidirectional", StringComparison.OrdinalIgnoreCase))
+                return requestedDirection;
+            return null;
+        }
+
+        private static string NormalizeCredentialType(string? credentialType) =>
+            credentialType?.Trim().ToUpperInvariant() switch
+            {
+                "FACE" or "FACEID" or "FACE_AND_PLATE" => "FACEID+PLATE",
+                _ => "QR+PLATE"
+            };
     }
 
     public class GateTransitScanRequest
@@ -565,12 +620,17 @@ namespace API.Controllers
         public int? VehicleTypeId { get; set; }
         public string? Description { get; set; }
         public int? GateId { get; set; }
+        public int? LaneId { get; set; }
         public int? CameraId { get; set; }
+        public string? Direction { get; set; }
+        public string? CredentialType { get; set; }
         public int? GuestId { get; set; }
         public int? VisitorDetailId { get; set; }
         public string? QrPayload { get; set; }
         public string? PlateSnapshotBase64 { get; set; }
         public string? PlateCropBase64 { get; set; }
+        public string? FaceSnapshotBase64 { get; set; }
+        public string? QrSnapshotBase64 { get; set; }
     }
 
     public class GateTransitApiResponse
@@ -601,6 +661,3 @@ namespace API.Controllers
     }
 
 }
-
-
-

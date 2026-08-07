@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.DTOs.PreRegistration;
 using API.Middleware;
 using API.Models;

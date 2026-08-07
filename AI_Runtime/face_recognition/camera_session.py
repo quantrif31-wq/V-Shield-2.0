@@ -76,6 +76,10 @@ class CameraSession:
 
         self.session_lock = threading.RLock()
         self.frame_lock = threading.Lock()
+        # OpenCV/FFmpeg can segfault when release() races with a blocking read().
+        # Serialize native capture I/O so stop/reset never frees the capture while
+        # the worker is still using it.
+        self.capture_io_lock = threading.Lock()
         self.event_lock = threading.Lock()
         self._events: deque[dict[str, Any]] = deque(
             maxlen=getattr(config, "event_buffer_size", 500))
@@ -166,7 +170,8 @@ class CameraSession:
             self.lane_id = None
             self._touch_locked()
 
-        self._release_capture(capture)
+        with self.capture_io_lock:
+            self._release_capture(capture)
         self._join_workers(workers)
         with self.frame_lock:
             self.latest_frame = None
@@ -195,7 +200,8 @@ class CameraSession:
             self.last_error = None
             self._reset_recognition_locked("ÄÃ£ reset tráº¡ng thÃ¡i nháº­n diá»‡n")
 
-        self._release_capture(capture)
+        with self.capture_io_lock:
+            self._release_capture(capture)
         self._join_workers(workers)
         with self.frame_lock:
             self.latest_frame = None
@@ -425,7 +431,8 @@ class CameraSession:
                 read_fail_count = 0
                 while not stop_event.is_set():
                     try:
-                        ok, frame = capture.read()
+                        with self.capture_io_lock:
+                            ok, frame = capture.read()
                     except Exception:
                         ok, frame = False, None
                     if not ok or frame is None:

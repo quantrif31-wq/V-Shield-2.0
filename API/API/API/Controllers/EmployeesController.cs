@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.DTOs;
 using API.Hubs;
 using API.Models;
@@ -29,7 +29,7 @@ public class EmployeesController : ControllerBase
         _hubContext = hubContext;
     }
 
-    /// <summary>Láº¥y danh sÃ¡ch táº¥t cáº£ nhÃ¢n viÃªn (chá»‰ Admin)</summary>
+    /// <summary>Lấy danh sách tất cả nhân viên (chỉ Admin)</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? search,
@@ -42,7 +42,7 @@ public class EmployeesController : ControllerBase
             .Include(e => e.Position)
             .AsQueryable();
 
-        // Lá»c theo tÃªn hoáº·c email
+        // Lọc theo tên hoặc email
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(e =>
                 e.FullName.Contains(search) ||
@@ -78,7 +78,7 @@ public class EmployeesController : ControllerBase
         return Ok(employees);
     }
 
-    /// <summary>Láº¥y thÃ´ng tin nhÃ¢n viÃªn hiá»‡n táº¡i (NhanVien/NhanSu/Admin)</summary>
+    /// <summary>Lấy thông tin nhân viên hiện tại (NhanVien/NhanSu/Admin)</summary>
     [HttpGet("me")]
     [AllowAnonymous]
     public async Task<IActionResult> GetMyProfile()
@@ -110,7 +110,7 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>Láº¥y thÃ´ng tin 1 nhÃ¢n viÃªn theo ID (chá»‰ Admin/NhanSu)</summary>
+    /// <summary>Lấy thông tin 1 nhân viên theo ID (chỉ Admin/NhanSu)</summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -120,7 +120,7 @@ public class EmployeesController : ControllerBase
             .FirstOrDefaultAsync(x => x.EmployeeId == id);
 
         if (e == null)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
+            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
 
         return Ok(new EmployeeResponse
         {
@@ -137,22 +137,22 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>Táº¡o nhÃ¢n viÃªn má»›i (chá»‰ Admin)</summary>
+    /// <summary>Tạo nhân viên mới (chỉ Admin)</summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateEmployeeRequest request)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        // Kiá»ƒm tra DepartmentId há»£p lá»‡
+        // Kiểm tra DepartmentId hợp lệ
         if (request.DepartmentId.HasValue &&
             !await _context.Departments.AnyAsync(d => d.DepartmentId == request.DepartmentId))
-            return BadRequest(new { message = $"DepartmentId {request.DepartmentId} khÃ´ng tá»“n táº¡i" });
+            return BadRequest(new { message = $"DepartmentId {request.DepartmentId} không tồn tại" });
 
-        // Kiá»ƒm tra PositionId há»£p lá»‡
+        // Kiểm tra PositionId hợp lệ
         if (request.PositionId.HasValue &&
             !await _context.Positions.AnyAsync(p => p.PositionId == request.PositionId))
-            return BadRequest(new { message = $"PositionId {request.PositionId} khÃ´ng tá»“n táº¡i" });
+            return BadRequest(new { message = $"PositionId {request.PositionId} không tồn tại" });
 
         var employee = new Employee
         {
@@ -168,7 +168,7 @@ public class EmployeesController : ControllerBase
         _context.Employees.Add(employee);
         await _context.SaveChangesAsync();
 
-        // Auto-provision AppUser khi táº¡o nhÃ¢n viÃªn má»›i
+        // Auto-provision AppUser khi tạo nhân viên mới
         if (!await _context.AppUsers.AnyAsync(u => u.EmployeeId == employee.EmployeeId))
         {
             var appUser = new AppUser
@@ -190,7 +190,7 @@ public class EmployeesController : ControllerBase
         await _context.Entry(employee).Reference(e => e.Department).LoadAsync();
         await _context.Entry(employee).Reference(e => e.Position).LoadAsync();
 
-        // Broadcast real-time update tá»›i clients Ä‘ang theo dÃµi
+        // Broadcast real-time update tới clients đang theo dõi
         int total = await _context.Employees.CountAsync();
         int active = await _context.Employees.CountAsync(e => e.Status == true);
         await _hubContext.Clients.Group("stats").SendAsync("ReceiveStatsUpdate", new EmployeeCountChangedEvent
@@ -216,7 +216,7 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>Cáº­p nháº­t nhÃ¢n viÃªn (chá»‰ Admin)</summary>
+    /// <summary>Cập nhật nhân viên (chỉ Admin)</summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateEmployeeRequest request)
     {
@@ -229,7 +229,7 @@ public class EmployeesController : ControllerBase
             .FirstOrDefaultAsync(e => e.EmployeeId == id);
 
         if (employee == null)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
+            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
 
         if (request.FullName != null)
             employee.FullName = request.FullName;
@@ -237,14 +237,14 @@ public class EmployeesController : ControllerBase
         if (request.DepartmentId.HasValue)
         {
             if (!await _context.Departments.AnyAsync(d => d.DepartmentId == request.DepartmentId))
-                return BadRequest(new { message = $"DepartmentId {request.DepartmentId} khÃ´ng tá»“n táº¡i" });
+                return BadRequest(new { message = $"DepartmentId {request.DepartmentId} không tồn tại" });
             employee.DepartmentId = request.DepartmentId;
         }
 
         if (request.PositionId.HasValue)
         {
             if (!await _context.Positions.AnyAsync(p => p.PositionId == request.PositionId))
-                return BadRequest(new { message = $"PositionId {request.PositionId} khÃ´ng tá»“n táº¡i" });
+                return BadRequest(new { message = $"PositionId {request.PositionId} không tồn tại" });
             employee.PositionId = request.PositionId;
         }
 
@@ -274,18 +274,18 @@ public class EmployeesController : ControllerBase
         });
     }
 
-    /// <summary>XÃ³a nhÃ¢n viÃªn (chá»‰ Admin)</summary>
+    /// <summary>Xóa nhân viên (chỉ Admin)</summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
         var employee = await _context.Employees.FindAsync(id);
         if (employee == null)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
+            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
 
         _context.Employees.Remove(employee);
         await _context.SaveChangesAsync();
 
-        // Broadcast real-time update tá»›i clients Ä‘ang theo dÃµi
+        // Broadcast real-time update tới clients đang theo dõi
         int total = await _context.Employees.CountAsync();
         int active = await _context.Employees.CountAsync(e => e.Status == true);
         await _hubContext.Clients.Group("stats").SendAsync("ReceiveStatsUpdate", new EmployeeCountChangedEvent
@@ -299,32 +299,32 @@ public class EmployeesController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Upload áº£nh khuÃ´n máº·t nhÃ¢n viÃªn tá»« file mÃ¡y tÃ­nh (chá»‰ Admin)</summary>
+    /// <summary>Upload ảnh khuôn mặt nhân viên từ file máy tính (chỉ Admin)</summary>
     [HttpPost("{id}/face")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadFace(int id, IFormFile file)
     {
         var employee = await _context.Employees.FindAsync(id);
         if (employee == null)
-            return NotFound(new { message = $"KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn ID {id}" });
+            return NotFound(new { message = $"Không tìm thấy nhân viên ID {id}" });
 
         if (file == null || file.Length == 0)
-            return BadRequest(new { message = "Vui lÃ²ng chá»n file áº£nh" });
+            return BadRequest(new { message = "Vui lòng chọn file ảnh" });
 
-        // Kiá»ƒm tra Ä‘á»‹nh dáº¡ng file
+        // Kiểm tra định dạng file
         var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp", "image/jpg" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
-            return BadRequest(new { message = "Chá»‰ cháº¥p nháº­n file áº£nh (JPG, PNG, WebP)" });
+            return BadRequest(new { message = "Chỉ chấp nhận file ảnh (JPG, PNG, WebP)" });
 
-        // Giá»›i háº¡n dung lÆ°á»£ng 5MB
+        // Giới hạn dung lượng 5MB
         if (file.Length > 5 * 1024 * 1024)
-            return BadRequest(new { message = "KÃ­ch thÆ°á»›c áº£nh khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 5MB" });
+            return BadRequest(new { message = "Kích thước ảnh không được vượt quá 5MB" });
 
-        // Táº¡o thÆ° má»¥c lÆ°u áº£nh náº¿u chÆ°a cÃ³
+        // Tạo thư mục lưu ảnh nếu chưa có
         var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "faces");
         Directory.CreateDirectory(uploadFolder);
 
-        // XÃ³a áº£nh cÅ© náº¿u cÃ³
+        // Xóa ảnh cũ nếu có
         if (!string.IsNullOrEmpty(employee.FaceImageUrl))
         {
             var oldFileName = Path.GetFileName(employee.FaceImageUrl);
@@ -333,22 +333,22 @@ public class EmployeesController : ControllerBase
                 System.IO.File.Delete(oldFilePath);
         }
 
-        // Táº¡o tÃªn file duy nháº¥t
+        // Tạo tên file duy nhất
         var ext = Path.GetExtension(file.FileName).ToLower();
         var newFileName = $"emp_{id}_{Guid.NewGuid():N}{ext}";
         var newFilePath = Path.Combine(uploadFolder, newFileName);
 
-        // LÆ°u file
+        // Lưu file
         using (var stream = new FileStream(newFilePath, FileMode.Create))
             await file.CopyToAsync(stream);
 
-        // Cáº­p nháº­t URL vÃ o DB (dáº¡ng path tÆ°Æ¡ng Ä‘á»‘i Ä‘á»ƒ serve qua static files)
+        // Cập nhật URL vào DB (dạng path tương đối để serve qua static files)
         employee.FaceImageUrl = $"/uploads/faces/{newFileName}";
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
-            message = "Upload áº£nh thÃ nh cÃ´ng",
+            message = "Upload ảnh thành công",
             employeeId = id,
             faceImageUrl = employee.FaceImageUrl
         });

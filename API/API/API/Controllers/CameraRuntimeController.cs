@@ -1,4 +1,4 @@
-﻿using API.Middleware;
+using API.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
@@ -363,6 +363,12 @@ namespace API.Controllers
 
                     yaml.AppendLine($"  {streamName}:");
                     yaml.AppendLine($"    - {normalizedStreamUrl}#transport=tcp");
+                    if (normalizedStreamUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Compatibility producer for legacy <img> previews and recording probes.
+                        // The primary producer remains H.264 for efficient MSE/WebRTC playback.
+                        yaml.AppendLine($"    - ffmpeg:{normalizedStreamUrl}#video=mjpeg");
+                    }
                     if (!normalizedStreamUrl.Contains("#transport=", StringComparison.OrdinalIgnoreCase))
                     {
                         yaml.AppendLine($"    - {normalizedStreamUrl}");
@@ -1036,7 +1042,6 @@ ingress:
         }
     }
     }
-
 
 
 

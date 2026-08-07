@@ -24,7 +24,7 @@ async function request(path, options = {}, baseUrl = QR_API_BASE_URL) {
     response = await fetch(`${baseUrl}${path}`, options)
   } catch (error) {
     throw new Error(
-      `Khong ket noi duoc QR service tai ${baseUrl}. Hay kiem tra QR_Dong.py dang chay o dung cong.`
+      `Không kết nối được dịch vụ QR tại ${baseUrl}. Hãy kiểm tra QR_Dong.py đang chạy đúng cổng.`
     )
   }
 

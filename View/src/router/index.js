@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn, hasRole } from '../stores/auth'
 import { authState } from '../stores/auth'
 
@@ -24,6 +24,7 @@ const FaceIdSecurity = () => import('../components/FaceCamera.vue')
 const LicensePlateSecurity = () => import('../components/LicensePlateSecurity.vue')
 const FaceVideo = () => import('../components/FaceVideo.vue')
 const GatePassageMonitor = () => import('../components/GateTransitMonitor.vue')
+const FacePlateTransitMonitor = () => import('../components/ThongHanh.vue')
 const DynamicQrGenerator = () => import('../components/DynamicQrGenerator.vue')
 const Exceptions = () => import('../pages/Exceptions.vue')
 const RegistrationLinks = () => import('../pages/RegistrationLinks.vue')
@@ -205,6 +206,7 @@ const routes = [
             { path: 'locker-access-logs', name: 'LockerAccessLogs', redirect: { path: '/lost-found', query: { tab: 'locker' } }, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'lost-found' } },
             { path: 'license-plate-security', name: 'LicensePlateSecurity', component: LicensePlateSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking', keepAlive: true } },
             { path: 'gate-transit-monitor', name: 'GateTransitMonitor', component: GatePassageMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'gate-transit', keepAlive: true } },
+            { path: 'gate-face-transit-monitor', name: 'FacePlateTransitMonitor', component: FacePlateTransitMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'gate-transit', keepAlive: true } },
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin'], taskKey: 'qr-access', keepAlive: true } },
             { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access', keepAlive: true } },
             { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'restricted-zone', keepAlive: true } },
@@ -349,4 +351,3 @@ router.onError((error, to) => {
 })
 
 export default router
-

@@ -8,13 +8,13 @@
                 :key="site.siteId"
                 class="c3d-site-chip"
                 :class="{ active: selectedSiteId === site.siteId }"
-                :title="`${site.name} | ${site.buildingCount} toa nha | ${site.gateCount} cong | ${site.warningGateCount} canh bao`"
+                :title="`${site.name} | ${site.buildingCount} tòa nhà | ${site.gateCount} cổng | ${site.warningGateCount} cảnh báo`"
                 @click="focusSite(site.siteId, true)"
             >
                 <span class="site-chip-dot" :class="{ warning: site.warningGateCount > 0, critical: site.criticalCount > 0 }"></span>
                 <span class="site-code">{{ site.code }}</span>
-                <span>{{ site.buildingCount }} toa nha � {{ site.gateCount }} cong</span>
-                <span>{{ site.criticalCount }} diem critical � {{ site.warningGateCount }} canh bao</span>
+                <span>{{ site.buildingCount }} toa nha • {{ site.gateCount }} cong</span>
+                <span>{{ site.criticalCount }} điểm nghiêm trọng • {{ site.warningGateCount }} cảnh báo</span>
             </button>
         </div>
 
@@ -497,7 +497,7 @@ export default {
 
             this.addLabel(
                 siteGroup,
-                `${layout.site.code} � ${layout.site.name}`,
+                `${layout.site.code} • ${layout.site.name}`,
                 -layout.width / 2 + 18,
                 8,
                 -layout.depth / 2 + 10,
@@ -1037,14 +1037,14 @@ export default {
             const meta = []
 
             if (data.objectType === 'Site') {
-                meta.push(`${data.metrics?.buildings || 0} toa nha � ${data.metrics?.gates || 0} cong`)
+                meta.push(`${data.metrics?.buildings || 0} toa nha • ${data.metrics?.gates || 0} cong`)
             } else if (data.objectType === 'Building') {
-                meta.push(`${data.floors || 1} tang � ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
+                meta.push(`${data.floors || 1} tang • ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
                 if (properties.zone) meta.push(`Zone: ${properties.zone}`)
                 if (properties.level) meta.push(`Security level: ${properties.level}`)
             } else if (data.objectType === 'GateMarker') {
-                if (gate) meta.push(`${gate.cameraCount || 0} camera � ${gate.recentAccessCount || 0} sự kiện / 5 phút`)
-                if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera dang offline`)
+                if (gate) meta.push(`${gate.cameraCount || 0} camera • ${gate.recentAccessCount || 0} sự kiện / 5 phút`)
+                if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera đang ngoại tuyến`)
                 if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
             } else if (data.objectType === 'ParkingArea') {
                 meta.push(`${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
@@ -1057,10 +1057,10 @@ export default {
             return {
                 visible: true,
                 label: data.label || data.objectType,
-                siteName: `${data.siteCode} � ${data.siteName}`,
+                siteName: `${data.siteCode} • ${data.siteName}`,
                 detail: OBJECT_LABELS[data.objectType] || data.objectType,
                 meta,
-                status: gate ? `Tr?ng th�i c?ng: ${gate.status}` : '',
+                status: gate ? `Tr?ng thái c?ng: ${gate.status}` : '',
                 statusColor: this.statusColorHex(gate?.status || 'Normal'),
             }
         },
@@ -1101,7 +1101,7 @@ export default {
                         { label: 'OFF', value: gate.offlineCameraCount || 0 }
                     )
                 }
-                if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera dang offline`)
+                if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera đang ngoại tuyến`)
                 if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
                 glyphClass = 'glyph-gate'
                 tone = gate?.status === 'Offline' || gate?.status === 'Alarm'
@@ -1123,7 +1123,7 @@ export default {
                     { label: 'W', value: `${Math.round(dimensions.width || 0)}m` },
                     { label: 'L', value: `${Math.round(dimensions.length || 0)}m` }
                 )
-                meta.push('Surface support / luu luong phuong tien')
+                meta.push('Hỗ trợ bề mặt / lưu lượng phương tiện')
                 glyphClass = 'glyph-parking'
             } else if (data.objectType === 'Path') {
                 meta.push('Tuyen lien ket giua cac cum van hanh')

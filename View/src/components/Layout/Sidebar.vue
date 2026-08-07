@@ -383,6 +383,15 @@ const navGroups = ref([
                 taskKey: 'gate-transit',
             },
             {
+                path: '/gate-face-transit-monitor',
+                label: 'Thông hành FaceID',
+                hint: 'FaceID + biển số theo từng làn',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 19a6 6 0 0112 0"/><path d="M16 8h5M18.5 5.5v5"/><path d="M15 15h6v4h-6z"/></svg>',
+                badge: 'Face + Plate',
+                roles: ['Admin', 'BaoVe'],
+                taskKey: 'gate-transit',
+            },
+            {
                 path: '/campus-map',
                 label: 'Bản đồ khuôn viên',
                 hint: 'Realtime Gate + camera + AccessLog',

@@ -114,7 +114,7 @@
     </div>
 
     <div class="lock-banner" v-if="scanLocked">
-      Đã khóa kết quả hiện tại. Bấm “{{ sessionActionLabel }}” để quét biển số mới.
+      Đã khóa kết quả hiện tại. Bấm "{{ sessionActionLabel }}" để quét biển số mới.
     </div>
 
     <div class="evidence-panel">

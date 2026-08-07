@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.Middleware;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;

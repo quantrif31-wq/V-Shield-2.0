@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.Middleware;
 using API.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -612,6 +612,10 @@ public class DeviceManagementController : ControllerBase
                 var streamName = $"cam{cam.CameraId}";
                 yaml.AppendLine($"  {streamName}:");
                 yaml.AppendLine($"    - {normalizedStreamUrl}#transport=tcp");
+                if (normalizedStreamUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
+                {
+                    yaml.AppendLine($"    - ffmpeg:{normalizedStreamUrl}#video=mjpeg");
+                }
                 if (!normalizedStreamUrl.Contains("#transport=", StringComparison.OrdinalIgnoreCase))
                 {
                     yaml.AppendLine($"    - {normalizedStreamUrl}");
@@ -757,5 +761,4 @@ public class DeviceManagementController : ControllerBase
     }
 
 }
-
 

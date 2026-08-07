@@ -639,7 +639,7 @@ public class NaturalLanguageQueryService : INaturalLanguageQueryService
         // Remove extra whitespace
         normalized = Regex.Replace(normalized, @"\s+", " ");
         // Remove common punctuation
-        normalized = Regex.Replace(normalized, @"[?,;:!.\""''„“”«»]", "");
+        normalized = Regex.Replace(normalized, "[?,;:!.\\\"'„“”«»]", "");
         return normalized;
     }
 

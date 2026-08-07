@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.Middleware;
 using API.Models;
 using API.Models.DTOs;

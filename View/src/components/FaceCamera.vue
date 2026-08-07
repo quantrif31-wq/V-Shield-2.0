@@ -1,223 +1,292 @@
 <template>
-  <div class="security-container">
-    <h1 class="title">V-Shield FaceID Monitor</h1>
+  <div class="page-container animate-in">
+    <header class="page-header">
+      <div>
+        <span class="panel-kicker">Giám sát an ninh</span>
+        <h1 class="page-title">Giám sát FaceID</h1>
+        <p class="page-subtitle">Nhận diện khuôn mặt realtime, cấu hình luồng camera và theo dõi quyết định truy cập.</p>
+      </div>
+    </header>
 
-    <section class="saved-camera-panel">
-      <label>
-        Camera đã lưu
-        <select v-model="selectedRuntimeCameraId" @change="handleConfiguredCameraChange">
-          <option value="">Chế độ nhập thủ công</option>
-          <option
-            v-for="item in savedConfigurations"
-            :key="item.runtimeCameraId"
-            :value="item.runtimeCameraId"
-          >
-            {{ item.cameraName }} ({{ item.runtimeCameraId }})
-          </option>
-        </select>
-      </label>
-      <template v-if="selectedConfiguration">
-        <span><b>Runtime ID:</b> {{ selectedConfiguration.runtimeCameraId }}</span>
-        <span><b>Lane:</b> {{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</span>
-        <span><b>Desired:</b> {{ selectedConfiguration.desiredState }}</span>
-        <span><b>Runtime:</b> {{ selectedConfiguration.runtimeStatus }}</span>
-        <span><b>Sync:</b> {{ selectedConfiguration.lastSyncStatus }}</span>
-        <label class="auto-restore">
-          <input
-            type="checkbox"
-            :checked="selectedConfiguration.autoRestore"
-            :disabled="loading"
-            @change="handleAutoRestoreChange"
-          />
-          Auto restore
-        </label>
-        <button class="btn btn-models" :disabled="loading" @click="handleManualReconcile">
-          Đồng bộ ngay
-        </button>
-        <div v-if="selectedConfiguration.lastSyncError" class="sync-error">
-          {{ selectedConfiguration.lastSyncError }}
-        </div>
-      </template>
-    </section>
+    <div class="face-monitor-grid">
+      <!-- Left Column: Video Stream & Evidence -->
+      <div class="monitor-left-col">
+        <section class="card panel video-card">
+          <div class="panel-head">
+            <h2 class="panel-title">Xem trực tuyến (Live Preview)</h2>
+          </div>
 
-    <div class="control-panel">
-      <input
-        v-model="cameraIp"
-        type="text"
-        class="ip-input"
-        placeholder="Nhập URL camera / stream URL..."
-        :disabled="loading || !!selectedConfiguration"
-      />
+          <div class="video-wrapper" ref="videoWrapperRef" @dblclick="handleDoubleClick" @contextmenu="handleRightClick">
+            <iframe
+              v-if="previewRunning && directCameraUrl"
+              :key="directCameraKey"
+              :src="directCameraUrl"
+              class="video"
+              title="Camera Preview"
+              allow="autoplay; fullscreen"
+              frameborder="0"
+              @load="handleDirectPreviewLoaded"
+            ></iframe>
+            <div v-else class="video-off">
+              Camera Offline
+            </div>
+          </div>
+        </section>
 
-      <button class="btn btn-on" @click="handleTurnOnPreview" :disabled="loading">
-        {{ loading ? "Đang xử lý..." : "Bật preview" }}
-      </button>
+        <section class="card panel evidence-panel-card">
+          <div class="panel-head">
+            <h2 class="panel-title">Ảnh chụp bằng chứng</h2>
+          </div>
 
-      <button
-        class="btn btn-reset"
-        @click="handleInitOrResetSession"
-        :disabled="loading || (!selectedConfiguration && !cameraIp.trim())"
-      >
-        {{ loading ? "Đang xử lý..." : sessionActionLabel }}
-      </button>
+          <div class="evidence-grid">
+            <div class="evidence-item">
+              <span class="evidence-label">Ảnh chụp toàn khung</span>
+              <img
+                v-if="lockedSnapshot"
+                :src="lockedSnapshot"
+                class="evidence-image"
+                alt="Locked Snapshot"
+              />
+              <div v-else class="evidence-empty">Chưa có ảnh</div>
+            </div>
 
-      <button class="btn btn-off" @click="handleTurnOff" :disabled="loading">
-        {{ loading ? "Đang xử lý..." : "Tắt camera" }}
-      </button>
+            <div class="evidence-item">
+              <span class="evidence-label">Ảnh crop khuôn mặt</span>
+              <img
+                v-if="lockedFaceCrop"
+                :src="lockedFaceCrop"
+                class="evidence-image"
+                alt="Locked Face Crop"
+              />
+              <div v-else class="evidence-empty">Chưa có ảnh</div>
+            </div>
+          </div>
+        </section>
+      </div>
 
-      <button class="btn btn-models" @click="handleCheckModels" :disabled="loading">
-        {{ loading ? "Đang xử lý..." : "Kiểm tra model" }}
-      </button>
-    </div>
+      <!-- Right Column: Controls & Realtime Status -->
+      <div class="monitor-right-col">
+        <section class="card panel config-card">
+          <div class="panel-head">
+            <h2 class="panel-title">Cấu hình & Kết nối</h2>
+          </div>
 
-    <div v-if="faceServiceError" class="service-error" role="status">
-      {{ faceServiceError.message }}
-    </div>
+          <div class="config-row">
+            <label>
+              Camera đã lưu
+              <select v-model="selectedRuntimeCameraId" class="filter-select" @change="handleConfiguredCameraChange">
+                <option value="">Chế độ nhập thủ công</option>
+                <option
+                  v-for="item in savedConfigurations"
+                  :key="item.runtimeCameraId"
+                  :value="item.runtimeCameraId"
+                >
+                  {{ item.cameraName }} ({{ item.runtimeCameraId }})
+                </option>
+              </select>
+            </label>
+          </div>
 
-    <div v-if="modelInfo" class="model-status">
-      <span><b>Model version:</b> {{ modelInfo.version }}</span>
-      <span><b>Số model:</b> {{ modelInfo.modelCount }}</span>
-      <span><b>Số encoding:</b> {{ modelInfo.encodingCount }}</span>
-    </div>
+          <div v-if="selectedConfiguration" class="config-meta-box">
+            <div class="meta-item"><span>Runtime ID:</span> <strong>{{ selectedConfiguration.runtimeCameraId }}</strong></div>
+            <div class="meta-item"><span>Lane:</span> <strong>{{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</strong></div>
+            <div class="meta-item"><span>Desired State:</span> <strong class="badge info">{{ selectedConfiguration.desiredState }}</strong></div>
+            <div class="meta-item"><span>Runtime Status:</span> <strong class="badge info">{{ selectedConfiguration.runtimeStatus }}</strong></div>
+            <div class="meta-item"><span>Sync Status:</span> <strong class="badge info">{{ selectedConfiguration.lastSyncStatus }}</strong></div>
+            <div class="meta-item auto-restore-row">
+              <label class="auto-restore">
+                <input
+                  type="checkbox"
+                  :checked="selectedConfiguration.autoRestore"
+                  :disabled="loading"
+                  @change="handleAutoRestoreChange"
+                />
+                Tự động khôi phục (Auto restore)
+              </label>
+            </div>
+            <button class="btn btn-primary btn-sm btn-reconcile" :disabled="loading" @click="handleManualReconcile">
+              Đồng bộ ngay
+            </button>
+            <div v-if="selectedConfiguration.lastSyncError" class="sync-error-text">
+              {{ selectedConfiguration.lastSyncError }}
+            </div>
+          </div>
 
-    <div class="status-bar">
-      <span><b>Camera:</b> {{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
-      <span><b>Kết nối:</b> {{ cameraConnected ? "Đã kết nối" : "Chưa kết nối" }}</span>
-      <span><b>Preview:</b> {{ previewRunning ? (previewHealthy ? "Đang hiển thị" : "Đang kết nối") : "Đang tắt" }}</span>
-      <span><b>Input URL:</b> {{ safeInputUrl }}</span>
-      <span><b>FPS:</b> {{ fps }}</span>
-      <span><b>Tracking:</b> {{ trackingActive ? "Đang theo dõi" : "Idle" }}</span>
-      <span><b>Lock:</b> {{ scanLocked ? "Đã khóa" : "Đang quét" }}</span>
-      <span><b>Preview Health:</b> {{ previewHealthy ? "OK" : "Waiting..." }}</span>
-    </div>
+          <div class="control-panel-inputs">
+            <label class="field-label" v-if="!selectedConfiguration">Địa chỉ IP / Stream URL Camera</label>
+            <input
+              v-model="cameraIp"
+              type="text"
+              class="form-input ip-input"
+              placeholder="Nhập URL camera / stream URL..."
+              :disabled="loading || !!selectedConfiguration"
+            />
+          </div>
 
-    <div class="video-wrapper" ref="videoWrapperRef" @dblclick="handleDoubleClick" @contextmenu="handleRightClick">
-      <img
-        v-if="previewRunning && directCameraUrl"
-        :key="directCameraKey"
-        :src="directCameraUrl"
-        class="video"
-        alt="Camera Preview"
-        @load="handleDirectPreviewLoaded"
-        @error="handleDirectPreviewError"
-      />
+          <div class="control-actions-grid">
+            <button class="btn btn-primary" @click="handleTurnOnPreview" :disabled="loading">
+              {{ loading ? "Đang xử lý..." : "Bật preview" }}
+            </button>
 
-      <div v-else class="video-off">
-        Camera Offline
+            <button
+              class="btn btn-primary"
+              @click="handleInitOrResetSession"
+              :disabled="loading || (!selectedConfiguration && !cameraIp.trim())"
+            >
+              {{ loading ? "Đang xử lý..." : sessionActionLabel }}
+            </button>
+
+            <button class="btn btn-outline" @click="handleTurnOff" :disabled="loading">
+              {{ loading ? "Đang xử lý..." : "Tắt camera" }}
+            </button>
+
+            <button class="btn btn-secondary" @click="handleCheckModels" :disabled="loading">
+              {{ loading ? "Đang xử lý..." : "Kiểm tra model" }}
+            </button>
+          </div>
+
+          <div v-if="faceServiceError" class="service-error-box alert-danger-soft" role="status">
+            {{ faceServiceError.message }}
+          </div>
+
+          <div v-if="modelInfo" class="model-status-box alert-info-soft">
+            <div><span>Model version:</span> <strong>{{ modelInfo.version }}</strong></div>
+            <div><span>Số model:</span> <strong>{{ modelInfo.modelCount }}</strong></div>
+            <div><span>Số encoding:</span> <strong>{{ modelInfo.encodingCount }}</strong></div>
+          </div>
+        </section>
+
+        <section class="card panel live-state-card">
+          <div class="panel-head">
+            <h2 class="panel-title">Kết quả nhận diện Realtime</h2>
+          </div>
+
+          <div class="status-grid">
+            <div class="status-badge-item">
+              <span class="label">Camera:</span>
+              <span class="badge" :class="cameraRunning ? 'success' : 'neutral'">{{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
+            </div>
+            <div class="status-badge-item">
+              <span class="label">Kết nối:</span>
+              <span class="badge" :class="cameraConnected ? 'success' : 'danger'">{{ cameraConnected ? "Đã kết nối" : "Chưa kết nối" }}</span>
+            </div>
+            <div class="status-badge-item">
+              <span class="label">Preview:</span>
+              <span class="badge" :class="previewRunning && previewHealthy ? 'success' : 'warn'">{{ previewRunning ? (previewHealthy ? "Đang hiển thị" : "Đang kết nối") : "Đang tắt" }}</span>
+            </div>
+            <div class="status-badge-item">
+              <span class="label">FPS:</span>
+              <span class="badge info">{{ fps }}</span>
+            </div>
+          </div>
+
+          <div class="face-result-boxes">
+            <div class="face-result-box">
+              <div class="face-result-label">Employee ID (Mã nhân viên)</div>
+              <div class="face-result-value" :class="{ confirmed: employeeId }">
+                {{ employeeId || "-----" }}
+              </div>
+            </div>
+
+            <div class="face-result-box">
+              <div class="face-result-label">Recognition State (Trạng thái nhận dạng)</div>
+              <div class="face-result-value" :class="scanLocked ? 'locked' : trackingActive ? 'tracking' : 'idle'">
+                {{ detectionLabel }}
+              </div>
+            </div>
+          </div>
+
+          <div class="lock-banner-alert alert-warn-soft" v-if="scanLocked">
+            🔒 Đã có kết quả cuối và khóa phiên. Bấm "{{ sessionActionLabel }}" để quét người tiếp theo.
+          </div>
+
+          <div class="alert-banner-danger alert-danger-soft" v-if="alert">
+            🚨 CẢNH BÁO: Người lạ / không xác nhận được danh tính
+          </div>
+
+          <div class="detail-state-list">
+            <div class="detail-state-item">
+              <span>Face Match</span>
+              <strong>{{ faceMatch ? "Yes" : "No" }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Identity Confirmed</span>
+              <strong>{{ identityConfirmed ? "Yes" : "No" }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Confirm Count</span>
+              <strong>{{ confirmCount }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Distance</span>
+              <strong>{{ distanceText }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Lock Reason</span>
+              <strong>{{ lockReason || "-----" }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Bounding Box</span>
+              <strong class="font-mono">{{ bboxText }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Thông điệp</span>
+              <strong>{{ message || "-----" }}</strong>
+            </div>
+
+            <div class="detail-state-item">
+              <span>Cập nhật cuối</span>
+              <strong>{{ lastUpdate || "-----" }}</strong>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
 
-    <div class="face-panel">
-      <div class="face-box">
-        <div class="face-label">Employee ID</div>
-        <div class="face-number confirmed">
-          {{ employeeId || "-----" }}
+    <!-- History Sections -->
+    <section class="card panel history-section-card">
+      <div class="panel-head flex-head">
+        <div>
+          <span class="panel-kicker">Nhật ký hệ thống</span>
+          <h2 class="panel-title">Lịch sử nhận diện gần đây</h2>
+        </div>
+        <div class="history-badges-row">
+          <span v-if="eventHistoryError" class="badge danger">
+            Runtime/collector unavailable
+          </span>
+          <span v-if="collectorGap" class="badge warning">
+            Lịch sử có thể bị thiếu
+          </span>
         </div>
       </div>
 
-      <div class="face-box">
-        <div class="face-label">Recognition State</div>
-        <div class="face-number raw">
-          {{ detectionLabel }}
+      <div class="toolbar-shell select-filter-bar">
+        <div class="toolbar-filters">
+          <input v-model.trim="eventFilters.cameraId" class="form-input" placeholder="Mã Camera ID..." />
+          <input v-model.trim="eventFilters.employeeId" class="form-input" type="number" min="1" placeholder="Mã nhân viên (Employee ID)..." />
+          <input v-model="eventFilters.fromUtc" class="date-input" type="datetime-local" />
+          <button class="btn btn-secondary btn-sm" @click="loadRecognitionEvents">Lọc / làm mới</button>
         </div>
       </div>
-    </div>
 
-    <div class="lock-banner" v-if="scanLocked">
-      Đã có kết quả cuối và khóa phiên. Bấm “{{ sessionActionLabel }}” để quét người tiếp theo.
-    </div>
-
-    <div class="alert-banner" v-if="alert">
-      🚨 CẢNH BÁO: Người lạ / không xác nhận được danh tính
-    </div>
-
-    <div class="evidence-panel">
-      <div class="evidence-card">
-        <div class="evidence-title">Ảnh chụp toàn khung</div>
-        <img
-          v-if="lockedSnapshot"
-          :src="lockedSnapshot"
-          class="evidence-image"
-          alt="Locked Snapshot"
-        />
-        <div v-else class="evidence-empty">Chưa có ảnh</div>
-      </div>
-
-      <div class="evidence-card">
-        <div class="evidence-title">Ảnh crop khuôn mặt</div>
-        <img
-          v-if="lockedFaceCrop"
-          :src="lockedFaceCrop"
-          class="evidence-image"
-          alt="Locked Face Crop"
-        />
-        <div v-else class="evidence-empty">Chưa có ảnh</div>
-      </div>
-    </div>
-
-    <div class="live-panel">
-      <div class="live-title">Face Realtime State</div>
-
-      <div class="candidate-list">
-        <div class="candidate-item">
-          <span class="candidate-text">Face Match</span>
-          <span class="candidate-meta">{{ faceMatch ? "Yes" : "No" }}</span>
-        </div>
-
-        <div class="candidate-item">
-          <span class="candidate-text">Identity Confirmed</span>
-          <span class="candidate-meta">{{ identityConfirmed ? "Yes" : "No" }}</span>
-        </div>
-
-        <div class="candidate-item">
-          <span class="candidate-text">Confirm Count</span>
-          <span class="candidate-meta">{{ confirmCount }}</span>
-        </div>
-
-        <div class="candidate-item">
-          <span class="candidate-text">Distance</span>
-          <span class="candidate-meta">{{ distanceText }}</span>
-        </div>
-
-        <div class="candidate-item">
-          <span class="candidate-text">Lock Reason</span>
-          <span class="candidate-meta">{{ lockReason || "-----" }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="result-panel">
-      <div><b>Box:</b> {{ bboxText }}</div>
-      <div><b>Employee ID:</b> {{ employeeId || "-----" }}</div>
-      <div><b>Tracking Active:</b> {{ trackingActive ? "Yes" : "No" }}</div>
-      <div><b>Identity Confirmed:</b> {{ identityConfirmed ? "Yes" : "No" }}</div>
-      <div><b>Face Match:</b> {{ faceMatch ? "Yes" : "No" }}</div>
-      <div><b>Timeout:</b> {{ timeoutState ? "Yes" : "No" }}</div>
-      <div><b>Alert:</b> {{ alert ? "Yes" : "No" }}</div>
-      <div><b>Message:</b> {{ message || "-----" }}</div>
-      <div><b>Last Update:</b> {{ lastUpdate || "-----" }}</div>
-    </div>
-
-    <section class="event-history">
-      <div class="event-history__header">
-        <h2>Lịch sử nhận diện gần đây</h2>
-        <span v-if="eventHistoryError" class="history-badge history-badge--danger">
-          Runtime/collector unavailable
-        </span>
-        <span v-if="collectorGap" class="history-badge history-badge--warning">
-          Lịch sử có thể bị thiếu
-        </span>
-      </div>
-      <div class="event-filters">
-        <input v-model.trim="eventFilters.cameraId" placeholder="Camera ID" />
-        <input v-model.trim="eventFilters.employeeId" type="number" min="1" placeholder="Employee ID" />
-        <input v-model="eventFilters.fromUtc" type="datetime-local" />
-        <button class="btn btn-models" @click="loadRecognitionEvents">Lọc / làm mới</button>
-      </div>
-      <div class="event-table-wrap">
-        <table class="event-table">
-          <thead><tr><th>Thời gian</th><th>Camera / lane</th><th>Nhân viên</th>
-            <th>Distance</th><th>Model</th><th>Trạng thái</th></tr></thead>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Camera / Lane</th>
+              <th>Nhân viên</th>
+              <th>Distance</th>
+              <th>Model</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="item in recognitionEvents" :key="item.id">
               <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
@@ -226,34 +295,48 @@
               <td>{{ formatEventDistance(item.recognitionDistance) }}</td>
               <td>v{{ item.modelVersion ?? "-----" }}</td>
               <td>
-                <span :class="['history-badge', eventStatusClass(item.matchStatus)]">
+                <span class="badge" :class="eventStatusClass(item.matchStatus)">
                   {{ item.matchStatus }}
                 </span>
               </td>
             </tr>
-            <tr v-if="!recognitionEvents.length"><td colspan="6">Chưa có sự kiện nhận diện.</td></tr>
+            <tr v-if="!recognitionEvents.length">
+              <td colspan="6" class="text-center text-muted">Chưa có sự kiện nhận diện.</td>
+            </tr>
           </tbody>
         </table>
       </div>
     </section>
-    <section class="event-history">
-      <div class="event-history__header">
-        <h2>So sánh chính sách truy cập</h2>
+
+    <section class="card panel history-section-card">
+      <div class="panel-head">
+        <div>
+          <span class="panel-kicker">Đánh giá chính sách</span>
+          <h2 class="panel-title">So sánh chính sách truy cập</h2>
+        </div>
       </div>
-      <div class="comparison-warning">
-        Kết quả so sánh chỉ phục vụ đánh giá chính sách. Không phải quyết định mở cổng.
+      <div class="alert-banner-warning alert-warn-soft">
+        ⚠️ Kết quả so sánh chỉ phục vụ đánh giá chính sách. Không phải quyết định mở cổng.
       </div>
-      <div class="comparison-summary">
-        <span>Đồng thuận Allow: {{ comparisonSummary.agreeAllow || 0 }}</span>
-        <span>Đồng thuận Deny: {{ comparisonSummary.agreeDeny || 0 }}</span>
-        <span>Legacy Allow / Enterprise Deny: {{ comparisonSummary.legacyAllowEnterpriseDeny || 0 }}</span>
-        <span>Legacy Deny / Enterprise Allow: {{ comparisonSummary.legacyDenyEnterpriseAllow || 0 }}</span>
-        <span>Không đủ dữ liệu: {{ comparisonSummary.indeterminate || 0 }}</span>
+      <div class="comparison-summary-row">
+        <span class="soft-chip">Đồng thuận Allow: <strong>{{ comparisonSummary.agreeAllow || 0 }}</strong></span>
+        <span class="soft-chip">Đồng thuận Deny: <strong>{{ comparisonSummary.agreeDeny || 0 }}</strong></span>
+        <span class="soft-chip warn">Legacy Allow / Enterprise Deny: <strong>{{ comparisonSummary.legacyAllowEnterpriseDeny || 0 }}</strong></span>
+        <span class="soft-chip warn">Legacy Deny / Enterprise Allow: <strong>{{ comparisonSummary.legacyDenyEnterpriseAllow || 0 }}</strong></span>
+        <span class="soft-chip">Không đủ dữ liệu: <strong>{{ comparisonSummary.indeterminate || 0 }}</strong></span>
       </div>
-      <div class="event-table-wrap">
-        <table class="event-table">
-          <thead><tr><th>Thời gian</th><th>Camera / Gate / AP</th><th>Legacy</th>
-            <th>Enterprise</th><th>So sánh</th></tr></thead>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Camera / Gate / AP</th>
+              <th>Legacy</th>
+              <th>Enterprise</th>
+              <th>So sánh</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="item in policyComparisons" :key="item.id">
               <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
@@ -262,39 +345,57 @@
               <td>{{ item.enterpriseDecision }} — {{ item.enterpriseReasonCode }}</td>
               <td>{{ item.comparisonResult }}</td>
             </tr>
-            <tr v-if="!policyComparisons.length"><td colspan="5">Chưa có dữ liệu so sánh.</td></tr>
+            <tr v-if="!policyComparisons.length">
+              <td colspan="5" class="text-center text-muted">Chưa có dữ liệu so sánh.</td>
+            </tr>
           </tbody>
         </table>
       </div>
     </section>
-    <section class="event-history">
-      <div class="event-history__header">
-        <h2>Quyết định truy cập Face ID</h2>
+
+    <section class="card panel history-section-card">
+      <div class="panel-head">
+        <div>
+          <span class="panel-kicker">Audit</span>
+          <h2 class="panel-title">Quyết định truy cập Face ID</h2>
+        </div>
       </div>
-      <div class="comparison-warning">
-        Allowed chỉ là quyết định phần mềm phục vụ kiểm tra và audit. Không phải lệnh mở cổng.
+      <div class="alert-banner-warning alert-warn-soft">
+        ⚠️ Allowed chỉ là quyết định phần mềm phục vụ kiểm tra và audit. Không phải lệnh mở cổng.
       </div>
-      <div class="comparison-summary">
-        <span>Allowed: {{ decisionSummary.allowed || 0 }}</span>
-        <span>Denied: {{ decisionSummary.denied || 0 }}</span>
-        <span>Review required: {{ decisionSummary.reviewRequired || 0 }}</span>
-        <span>Indeterminate: {{ decisionSummary.indeterminate || 0 }}</span>
+      <div class="comparison-summary-row">
+        <span class="soft-chip success">Allowed: <strong>{{ decisionSummary.allowed || 0 }}</strong></span>
+        <span class="soft-chip danger">Denied: <strong>{{ decisionSummary.denied || 0 }}</strong></span>
+        <span class="soft-chip warn">Review required: <strong>{{ decisionSummary.reviewRequired || 0 }}</strong></span>
+        <span class="soft-chip">Indeterminate: <strong>{{ decisionSummary.indeterminate || 0 }}</strong></span>
       </div>
-      <div class="event-table-wrap">
-        <table class="event-table">
-          <thead><tr><th>Thời gian</th><th>Camera / Gate / AP</th><th>Quyết định</th>
-            <th>Lý do</th><th>Đầu vào</th></tr></thead>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Camera / Gate / AP</th>
+              <th>Quyết định</th>
+              <th>Lý do</th>
+              <th>Đầu vào</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="item in accessDecisions" :key="item.id">
               <td>{{ formatEventTime(item.occurredAtUtc) }}</td>
               <td>{{ item.cameraId }} / {{ item.gateId ?? "-" }} / {{ item.accessPointId ?? "-" }}</td>
-              <td><span :class="['history-badge', decisionStatusClass(item.decision)]">
-                {{ item.decision }}
-              </span></td>
+              <td>
+                <span class="badge" :class="decisionStatusClass(item.decision)">
+                  {{ item.decision }}
+                </span>
+              </td>
               <td>{{ item.reasonCode }}</td>
               <td>{{ item.legacyDecision }} AND {{ item.enterpriseDecision }}</td>
             </tr>
-            <tr v-if="!accessDecisions.length"><td colspan="5">Chưa có quyết định truy cập.</td></tr>
+            <tr v-if="!accessDecisions.length">
+              <td colspan="5" class="text-center text-muted">Chưa có quyết định truy cập.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -563,19 +664,19 @@ export default {
     },
 
     eventStatusClass(status) {
-      if (status === "Matched") return "history-badge--success"
+      if (status === "Matched") return "success"
       if (status === "ModelMismatch" || status === "EmployeeMissing") {
-        return "history-badge--danger"
+        return "danger"
       }
-      return "history-badge--warning"
+      return "warning"
     },
 
     decisionStatusClass(status) {
-      if (status === "Allowed") return "history-badge--success"
+      if (status === "Allowed") return "success"
       if (status === "Denied" || status === "Indeterminate") {
-        return "history-badge--danger"
+        return "danger"
       }
-      return "history-badge--warning"
+      return "warning"
     },
 
     async loadSavedConfigurations() {
@@ -658,10 +759,11 @@ export default {
       if (previewUrl) {
         try {
           const parsed = new URL(previewUrl, window.location.origin)
-          const streamName = parsed.searchParams.get("src")
-          if (streamName && parsed.pathname.endsWith("/stream.html")) {
-            const basePath = parsed.pathname.slice(0, -"/stream.html".length)
-            browserUrl = `${parsed.origin}${basePath}/api/stream.mjpeg?src=${encodeURIComponent(streamName)}`
+          if (parsed.pathname.endsWith("/stream.html")) {
+            // Camera RTSP trả H.264. go2rtc không thể chuyển thẳng H.264 thành
+            // MJPEG nếu không có transcoder, nên dùng player MSE/WebRTC tích hợp.
+            parsed.searchParams.set("mode", "mse,webrtc")
+            browserUrl = parsed.toString()
           }
         } catch {
           browserUrl = previewUrl
@@ -948,6 +1050,13 @@ export default {
             await this.loadSavedConfigurations()
           }
         } catch (e) {
+          if (e?.status === 404) {
+            this.clearFaceServiceError()
+            this.message = "Camera đã ở trạng thái tắt"
+            this.hardResetUiState()
+            this.resetDirectPreview()
+            return
+          }
           this.handleFaceServiceError(e)
         }
 
@@ -1110,140 +1219,38 @@ export default {
 </script>
 
 <style scoped>
-.security-container {
-  width: 1100px;
-  margin: auto;
-  text-align: center;
-  font-family: Arial, sans-serif;
-  padding: 20px;
-}
-
-.title {
-  margin-bottom: 20px;
-}
-
-.control-panel {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-}
-
-.ip-input {
-  width: 420px;
-  padding: 10px 12px;
-  font-size: 15px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-}
-
-.btn {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-  min-width: 170px;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-on {
-  background: #198754;
-}
-
-.btn-reset {
-  background: #0d6efd;
-}
-
-.btn-off {
-  background: #dc3545;
-}
-
-.saved-camera-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 0 auto 16px;
-  padding: 12px;
-  max-width: 1100px;
-  border: 1px solid #d7e1e8;
-  border-radius: 10px;
-  background: #fff;
-}
-
-.saved-camera-panel select {
-  margin-left: 8px;
-  padding: 8px;
-  min-width: 250px;
-}
-
-.auto-restore {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sync-error {
-  flex-basis: 100%;
-  color: #b42318;
-}
-
-.btn-models {
-  background: #6f42c1;
-}
-
-.status-bar {
-  display: flex;
+.face-monitor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
   gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  font-size: 14px;
+  margin-bottom: 24px;
 }
 
-.service-error {
-  width: 800px;
-  margin: 0 auto 15px;
-  padding: 10px 14px;
-  border: 1px solid #f5c2c7;
-  border-radius: 8px;
-  background: #f8d7da;
-  color: #842029;
-  font-weight: 700;
+@media (max-width: 1024px) {
+  .face-monitor-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.model-status {
+.monitor-left-col,
+.monitor-right-col {
   display: flex;
+  flex-direction: column;
   gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-  width: 800px;
-  margin: 0 auto 15px;
-  padding: 10px 14px;
-  border: 1px solid #cfe2ff;
-  border-radius: 8px;
-  background: #e7f1ff;
-  color: #084298;
+}
+
+.video-card {
+  padding: 16px;
 }
 
 .video-wrapper {
-  width: 800px;
-  height: 450px;
-  background: black;
-  margin: auto;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
   position: relative;
-  margin-top: 20px;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--border-radius, 12px);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
 }
 
 .video {
@@ -1254,189 +1261,370 @@ export default {
 }
 
 .video-off {
-  color: white;
+  color: var(--text-muted, #5d7a90);
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
-  font-size: 20px;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
-.face-panel {
-  margin-top: 20px;
+.evidence-panel-card {
+  padding: 20px;
+}
+
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .evidence-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.evidence-item {
   display: flex;
-  justify-content: center;
-  gap: 30px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.face-box {
-  min-width: 280px;
-}
-
-.face-label {
-  font-size: 16px;
-  margin-bottom: 8px;
-  color: #666;
-}
-
-.face-number {
-  font-size: 30px;
-  font-weight: bold;
-}
-
-.confirmed {
-  color: #00aa00;
-}
-
-.raw {
-  color: #ff8800;
-}
-
-.lock-banner {
-  width: 800px;
-  margin: 20px auto 0;
-  padding: 12px 16px;
-  background: #fff3cd;
-  border: 1px solid #ffe69c;
-  border-radius: 10px;
-  color: #7a5b00;
-  font-weight: bold;
-}
-
-.alert-banner {
-  width: 800px;
-  margin: 20px auto 0;
-  padding: 12px 16px;
-  background: #f8d7da;
-  border: 1px solid #f1aeb5;
-  border-radius: 10px;
-  color: #842029;
-  font-weight: bold;
-}
-
-.evidence-panel {
-  width: 1000px;
-  margin: 20px auto 0;
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.evidence-card {
-  width: 460px;
-  background: #f7f7f7;
-  border-radius: 12px;
-  padding: 16px;
-  text-align: left;
-}
-
-.evidence-title {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 12px;
+.evidence-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .evidence-image {
   width: 100%;
-  border-radius: 10px;
-  border: 1px solid #ddd;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--border-radius-sm, 8px);
+  border: 1px solid var(--border-color);
 }
 
 .evidence-empty {
-  height: 220px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #777;
-  background: white;
-  border-radius: 10px;
-  border: 1px dashed #ccc;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border-radius: var(--border-radius-sm, 8px);
+  border: 1px dashed var(--border-color);
 }
 
-.live-panel {
-  margin-top: 20px;
+.config-card,
+.live-state-card {
+  padding: 20px;
+}
+
+.config-row {
+  margin-bottom: 16px;
+}
+
+.config-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-primary);
   text-align: left;
-  width: 800px;
-  margin-left: auto;
-  margin-right: auto;
-  background: #f7f7f7;
-  border-radius: 12px;
-  padding: 16px;
 }
 
-.live-title {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 10px;
+.filter-select,
+.form-input,
+.date-input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  padding: 0 12px;
+  transition: border-color var(--transition-fast);
 }
 
-.candidate-list {
+.filter-select:focus,
+.form-input:focus,
+.date-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.config-meta-box {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  text-align: left;
 }
 
-.candidate-item {
+.meta-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 10px 12px;
+  font-size: 0.9rem;
 }
 
-.candidate-text {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0d6efd;
+.meta-item span {
+  color: var(--text-secondary);
 }
 
-.candidate-meta {
-  font-size: 13px;
-  color: #666;
+.auto-restore-row {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
 }
 
-.result-panel {
-  margin-top: 20px;
-  font-size: 15px;
-  line-height: 1.8;
-}
-
-.event-history {
-  margin: 24px auto 0;
-  width: 1000px;
-  text-align: left;
-  padding: 16px;
-  border: 1px solid #d7e1e8;
-  border-radius: 12px;
-  background: #fff;
-}
-
-.event-history__header,
-.event-filters {
+.auto-restore {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
 }
 
-.event-history__header h2 { margin-right: auto; }
-.event-filters { margin-bottom: 12px; }
-.event-filters input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
-.event-table-wrap { overflow-x: auto; }
-.event-table { width: 100%; border-collapse: collapse; }
-.event-table th, .event-table td { padding: 9px; border-bottom: 1px solid #e5e5e5; }
-.history-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
-.history-badge--success { background: #d1e7dd; color: #0f5132; }
-.history-badge--warning { background: #fff3cd; color: #664d03; }
-.history-badge--danger { background: #f8d7da; color: #842029; }
-.comparison-warning { padding: 10px; margin-bottom: 12px; background: #fff3cd; color: #664d03; }
-.comparison-summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.auto-restore input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-primary);
+}
 
-/* Fullscreen mode */
+.btn-reconcile {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+.sync-error-text {
+  color: var(--accent-danger);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.control-panel-inputs {
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.field-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+
+.control-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.control-actions-grid .btn {
+  min-width: 0;
+  width: 100%;
+}
+
+.service-error-box {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.model-status-box {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.model-status-box div {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Status colors classes alert */
+.alert-danger-soft {
+  background: rgba(195, 81, 70, 0.08);
+  border: 1px solid rgba(195, 81, 70, 0.2);
+  color: var(--accent-danger);
+}
+
+.alert-info-soft {
+  background: rgba(84, 196, 211, 0.08);
+  border: 1px solid rgba(84, 196, 211, 0.2);
+  color: var(--ink-800);
+}
+
+.alert-warn-soft {
+  background: rgba(216, 155, 55, 0.08);
+  border: 1px solid rgba(216, 155, 55, 0.2);
+  color: var(--warning-500);
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.status-badge-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.status-badge-item .label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.face-result-boxes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.face-result-box {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.face-result-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.face-result-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+}
+
+.face-result-value.confirmed {
+  color: var(--accent-success);
+}
+
+.face-result-value.locked {
+  color: var(--warning-500);
+}
+
+.face-result-value.tracking {
+  color: var(--accent-info);
+}
+
+.lock-banner-alert,
+.alert-banner-danger {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.detail-state-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+  text-align: left;
+}
+
+.detail-state-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.detail-state-item span {
+  color: var(--text-secondary);
+}
+
+.detail-state-item strong {
+  color: var(--text-primary);
+}
+
+.font-mono {
+  font-family: monospace;
+}
+
+.history-section-card {
+  padding: 22px;
+  margin-top: 24px;
+}
+
+.flex-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.history-badges-row {
+  display: flex;
+  gap: 8px;
+}
+
+.select-filter-bar {
+  margin-top: 14px;
+  margin-bottom: 16px;
+}
+
+.comparison-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.alert-banner-warning {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Fullscreen mode override */
 .video-wrapper:fullscreen {
   width: 100vw !important;
   height: 100vh !important;

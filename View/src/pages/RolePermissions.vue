@@ -21,7 +21,7 @@
 
         <div v-if="loading" class="bento-card empty-layout">
             <div class="spinner-lg"></div>
-            <p>Dang tai ma tran quyen...</p>
+            <p>Đang tải ma trận quyền...</p>
         </div>
 
         <div v-else-if="loadError" class="bento-card empty-layout">
@@ -33,7 +33,7 @@
             <div class="bento-card intro-card">
                 <p class="intro-copy">
                     Moi o trong bang la quyen mac dinh cua mot vai tro doi voi mot nhom trang/chuc nang. Tick de cap quyen, bo tick de thu hoi quyen.
-                    Sau khi luu, menu va route cua nhung tai khoan dang mang vai tro do se di theo ma tran moi.
+                    Sau khi lưu, menu và route của những tài khoản đang mang vai trò đó sẽ đi theo ma trận mới.
                 </p>
             </div>
 
@@ -73,7 +73,7 @@
                                             @change="clearFeedback"
                                         />
                                         <span class="matrix-pill" :class="draftPermissions[role][task.taskKey] ? 'allowed' : 'denied'">
-                                            {{ draftPermissions[role][task.taskKey] ? 'Co' : 'Khong' }}
+                                            {{ draftPermissions[role][task.taskKey] ? 'Có' : 'Không' }}
                                         </span>
                                     </label>
                                 </td>
@@ -107,7 +107,7 @@ const roleMeta = [
     { role: 'BaoVe', label: 'Bao ve' },
     { role: 'LeTan', label: 'Le tan' },
     { role: 'NhanSu', label: 'Nhan su' },
-    { role: 'NhanVien', label: 'Nhan vien' },
+    { role: 'NhanVien', label: 'Nhân viên' },
 ]
 
 function createDraftPermissions(sourceTasksByRole) {
@@ -156,7 +156,7 @@ async function fetchReference() {
         tasksByRole.value = res.data?.tasksByRole || {}
         draftPermissions.value = createDraftPermissions(tasksByRole.value)
     } catch (error) {
-        loadError.value = error.response?.data?.message || 'Khong the tai du lieu quyen theo vai tro'
+        loadError.value = error.response?.data?.message || 'Không thể tải dữ liệu quyền theo vai trò'
     } finally {
         loading.value = false
     }
@@ -181,14 +181,14 @@ async function savePermissions() {
         feedbackMessage.value = 'Da luu ma tran quyen theo vai tro.'
     } catch (error) {
         feedbackTone.value = 'error'
-        feedbackMessage.value = error.response?.data?.message || 'Khong the luu ma tran quyen'
+        feedbackMessage.value = error.response?.data?.message || 'Không thể lưu ma trận quyền'
     } finally {
         saving.value = false
     }
 }
 
 async function resetToDefaults() {
-    const confirmed = window.confirm('Khoi phuc toan bo ma tran quyen ve mac dinh he thong?')
+    const confirmed = window.confirm('Khôi phục toàn bộ ma trận quyền về mặc định hệ thống?')
     if (!confirmed) return
 
     saving.value = true
@@ -201,7 +201,7 @@ async function resetToDefaults() {
         feedbackMessage.value = 'Da khoi phuc ma tran quyen mac dinh.'
     } catch (error) {
         feedbackTone.value = 'error'
-        feedbackMessage.value = error.response?.data?.message || 'Khong the khoi phuc ma tran mac dinh'
+        feedbackMessage.value = error.response?.data?.message || 'Không thể khôi phục ma trận mặc định'
     } finally {
         saving.value = false
     }

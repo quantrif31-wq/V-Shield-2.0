@@ -80,11 +80,6 @@ public class AttendanceZoneService : IAttendanceZoneService
             };
         }
 
-        var firstEntry = transits.First(t => t.Direction == "IN").Timestamp;
-        var lastExit = transits.LastOrDefault(t => t.Direction == "OUT")?.Timestamp;
-
-        var zoneDwellTime = ComputeZoneDwellTime(transits);
-
         var schedule = await _context.WorkSchedules
             .Include(s => s.Shift)
             .Where(s => s.EmployeeId == employeeId
@@ -99,6 +94,25 @@ public class AttendanceZoneService : IAttendanceZoneService
             .FirstOrDefaultAsync(a => a.EmployeeId == employeeId
                                       && a.WorkDate == date.Date);
 
+        var firstEntry = transits.FirstOrDefault(t => t.Direction == "IN")?.Timestamp
+                         ?? existingAttendance?.CheckIn;
+        if (!firstEntry.HasValue)
+        {
+            return new DeriveAttendanceResult
+            {
+                AttendanceId = existingAttendance?.AttendanceId,
+                EmployeeId = employeeId,
+                EmployeeName = employee.FullName,
+                WorkDate = date.Date,
+                Message = "Chưa có lượt vào hợp lệ để ghi nhận chấm công."
+            };
+        }
+
+        var lastExit = transits
+            .Where(t => t.Direction == "OUT" && t.Timestamp >= firstEntry.Value)
+            .LastOrDefault()?.Timestamp;
+        var zoneDwellTime = ComputeZoneDwellTime(transits);
+
         if (existingAttendance == null)
         {
             existingAttendance = new Attendance
@@ -106,7 +120,7 @@ public class AttendanceZoneService : IAttendanceZoneService
                 EmployeeId = employeeId,
                 ScheduleId = schedule?.ScheduleId,
                 WorkDate = date.Date,
-                CheckIn = firstEntry,
+                CheckIn = firstEntry.Value,
                 CheckOut = lastExit,
                 ZoneDwellTime = zoneDwellTime,
                 ZoneTransitCount = transits.Count,
@@ -122,7 +136,7 @@ public class AttendanceZoneService : IAttendanceZoneService
         }
         else
         {
-            existingAttendance.CheckIn = firstEntry;
+            existingAttendance.CheckIn = firstEntry.Value;
             existingAttendance.CheckOut = lastExit ?? existingAttendance.CheckOut;
             existingAttendance.ZoneDwellTime = zoneDwellTime;
             existingAttendance.ZoneTransitCount = transits.Count;
@@ -138,7 +152,7 @@ public class AttendanceZoneService : IAttendanceZoneService
 
         var calc = _calculationService.Calculate(
             date.Date,
-            firstEntry,
+            firstEntry.Value,
             lastExit,
             schedule?.Shift);
 
@@ -163,7 +177,7 @@ public class AttendanceZoneService : IAttendanceZoneService
             EmployeeId = employeeId,
             EmployeeName = employee.FullName,
             WorkDate = date.Date,
-            FirstEntry = firstEntry,
+            FirstEntry = firstEntry.Value,
             LastExit = lastExit,
             ZoneDwellTime = zoneDwellTime,
             ZoneTransitCount = transits.Count,

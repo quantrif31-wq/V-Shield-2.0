@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="page-container animate-in">
         <!-- Minimalist Header -->
         <header class="page-header bento-header">

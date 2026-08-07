@@ -1,4 +1,4 @@
-﻿using API.DTOs;
+using API.DTOs;
 using API.Middleware;
 using API.Services;
 using Microsoft.AspNetCore.Authorization;

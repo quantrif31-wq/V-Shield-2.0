@@ -11,14 +11,14 @@
             <span class="metric-note">Tong building, gate, path, parking va landmark.</span>
         </article>
         <article class="metric-tile">
-            <span class="metric-label">Cong dang hoat dong</span>
+            <span class="metric-label">Cổng đang hoạt động</span>
             <strong class="metric-value">{{ summary.activeGateCount || 0 }}</strong>
             <span class="metric-note">Cổng có hoạt động mới trong 5 phút gần nhất.</span>
         </article>
         <article class="metric-tile">
-            <span class="metric-label">Cong canh bao</span>
+            <span class="metric-label">Cổng cảnh báo</span>
             <strong class="metric-value">{{ summary.warningGateCount || 0 }}</strong>
-            <span class="metric-note">Co camera van de hoac su kien canh bao.</span>
+            <span class="metric-note">Có camera gặp vấn đề hoặc sự kiện cảnh báo.</span>
         </article>
         <article class="metric-tile">
             <span class="metric-label">Camera offline</span>

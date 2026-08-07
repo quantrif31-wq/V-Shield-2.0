@@ -2,9 +2,10 @@
   <div class="page">
     <div class="topbar" :class="{ compact: topbarCompact }">
       <div class="topbar-main">
-        <h1>V-Shield Gate Monitor</h1>
+        <span class="topbar-eyebrow">GIÁM SÁT VẬN HÀNH</span>
+        <h1>Điều phối cổng ra vào</h1>
         <p v-show="!topbarCompact" class="topbar-desc">
-          2 làn - QR + Biển số - dùng employeeId từ QR để gọi API thông hành cũ
+          Theo dõi camera QR, biển số và xử lý quyết định thông hành theo từng làn.
         </p>
       </div>
       <div class="topbar-actions">
@@ -22,28 +23,28 @@
           :aria-expanded="!topbarCompact"
           @click="topbarCompact = !topbarCompact"
         >
-          {{ topbarCompact ? "Mở rộng menu" : "Thu gọn menu" }}
+          {{ topbarCompact ? "Hiện mô tả" : "Ẩn mô tả" }}
         </button>
       </div>
     </div>
 
     <div class="gate-layout">
-      <div class="cam-wall" aria-label="B?n lu?ng camera">
+      <div class="cam-wall" aria-label="Bốn luồng camera">
         <template v-for="lane in lanes" :key="lane.id + '-lane-cams'">
           <div class="cam-cell">
             <div class="cam-block cam-block--hero">
               <div class="cam-head">
                 <div class="cam-head-titles">
                   <span class="cam-lane-tag">{{ lane.name }}</span>
-                  <span class="cam-kind">QR Camera</span>
+                  <span class="cam-kind">Camera QR</span>
                 </div>
                 <span class="mini-status" :class="lane.qr.previewHealthy ? 'ok' : 'wait'">
                   {{
                     !lane.qr.previewRunning
-                      ? "Preview OFF"
+                      ? "Đang tắt"
                       : lane.qr.lockedSnapshot
                         ? "Ảnh đã chụp"
-                        : (lane.qr.previewHealthy ? "Preview OK" : "Preview...")
+                        : (lane.qr.previewHealthy ? "Đang trực tuyến" : "Đang kết nối")
                   }}
                 </span>
               </div>
@@ -56,7 +57,10 @@
                   class="preview-image"
                   style="border: none;"
                 ></iframe>
-                <div v-else class="cam-off">QR Offline</div>
+                <div v-else class="cam-off">
+                  <span class="cam-off-dot"></span>
+                  Camera QR đang tắt
+                </div>
                 <div class="cam-overlay">
                   <div
                     v-if="lane.qr.overlayBox"
@@ -164,7 +168,7 @@
               <div class="cam-head">
                 <div class="cam-head-titles">
                   <span class="cam-lane-tag">{{ lane.name }}</span>
-                  <span class="cam-kind">Plate Camera</span>
+                  <span class="cam-kind">Camera biển số</span>
                 </div>
                 <span class="mini-status" :class="platePreviewStatusClass(lane.plate)">
                   {{ platePreviewStatusText(lane.plate) }}
@@ -179,7 +183,10 @@
                   class="preview-image"
                   style="border: none;"
                 ></iframe>
-                <div v-else class="cam-off">Plate Offline</div>
+                <div v-else class="cam-off">
+                  <span class="cam-off-dot"></span>
+                  Camera biển số đang tắt
+                </div>
                 <div class="cam-overlay">
                   <div
                     v-if="lane.plate.overlayBox"
@@ -262,8 +269,6 @@
 
     <div class="ops-dock" role="toolbar" aria-label="Điều khiển nhanh">
       <div class="ops-dock-grid">
-        <div class="ops-dock-spacer" aria-hidden="true"></div>
-
         <div class="ops-dock-center">
           <div
             v-for="lane in lanes"
@@ -278,7 +283,7 @@
                 @click="readAllLane(lane)"
               >
                 {{
-                  lane.loading ? "..." : laneAnyRunning(lane) ? "Đọc lại cả 2" : "Đọc cả 2"
+                  lane.loading ? "Đang xử lý..." : laneAnyRunning(lane) ? "Quét lại cả hai" : "Quét cả hai"
                 }}
               </button>
 
@@ -307,11 +312,6 @@
           </div>
         </div>
 
-        <div class="ops-dock-side" @click.stop="openOpsDrawer">
-            <button type="button" class="btn-open-drawer" @click.stop.prevent="openOpsDrawer">
-            Cài đặt
-          </button>
-        </div>
       </div>
     </div>
 
@@ -765,9 +765,11 @@ export default {
       lanes: [
         {
   id: "lane1",
+  laneId: 1,
   name: "Làn 1",
   desc: "QR trên / Biển dưới",
-  gateId: null,
+  gateId: 1,
+  direction: "IN",
   cameraId: null,
   loading: false,
   plateApi: plateLane1Api,
@@ -776,9 +778,11 @@ export default {
 },
 {
   id: "lane2",
+  laneId: 2,
   name: "Làn 2",
   desc: "QR trên / Biển dưới",
-  gateId: null,
+  gateId: 1,
+  direction: "OUT",
   cameraId: null,
   loading: false,
   plateApi: plateLane2Api,
@@ -1402,17 +1406,17 @@ export default {
             qr.activeSessionVerifyState === "success"
 
           if (qr.backendPhase === "connecting") {
-            qr.message = "Dang ket noi camera QR..."
+            qr.message = "Đang kết nối camera QR..."
             return
           }
 
           if (qr.backendPhase === "scanning") {
-            qr.message = "Dang quet QR..."
+            qr.message = "Đang quét QR..."
             return
           }
 
           if (qr.backendPhase === "candidate_found") {
-            qr.message = "Da thay ma, dang on dinh khung hinh..."
+            qr.message = "Đã thấy mã, đang ổn định khung hình..."
             qr.overlayText = qr.backendLastCandidate || qr.overlayText
             return
           }
@@ -1426,7 +1430,7 @@ export default {
             qr.sessionLocked = true
             qr.activeSessionPayload = servicePayload
             qr.scanRequested = false
-            qr.message = "Da khoa QR, dang xac thuc..."
+            qr.message = "Đã khóa QR, đang xác thực..."
 
             const result = await this.doVerifyQr(lane, servicePayload)
             if (result?.success) {
@@ -1435,7 +1439,7 @@ export default {
               qr.activeSessionVerified = true
               qr.activeSessionVerifyState = "success"
               qr.activeSessionVerifyMessage =
-                result?.message || "Xac thuc QR thanh cong."
+                result?.message || "Xác thực QR thành công."
               qr.verifyMessage = ""
               qr.sessionLocked = true
               if (result?.data?.type === "STATIC") {
@@ -1457,15 +1461,15 @@ export default {
               if (identityOverlay) qr.overlayText = identityOverlay
               qr.alert = false
               qr.backendPhase = "verified"
-              qr.message = result?.message || "Xac thuc QR thanh cong."
+              qr.message = result?.message || "Xác thực QR thành công."
             } else {
               qr.alert = true
               qr.activeSessionVerified = false
               qr.sessionLocked = false
               qr.activeSessionPayload = ""
               qr.activeSessionVerifyState = "failed"
-              qr.activeSessionVerifyMessage = result?.message || "Xac thuc QR that bai."
-              qr.verifyMessage = result?.message || "Xac thuc QR that bai."
+              qr.activeSessionVerifyMessage = result?.message || "Xác thực QR thất bại."
+              qr.verifyMessage = result?.message || "Xác thực QR thất bại."
               qr.backendPhase = "scanning"
               if (qr.activeSessionVerifyState === "expired" || qr.activeSessionVerifyState === "invalid") {
                 await this.kickoffQrScan(lane).catch(() => {})
@@ -1678,6 +1682,16 @@ export default {
 
       const normalized = normalizeCameraUrl(raw)
       if (/^https?:\/\//i.test(normalized) || normalized.startsWith("/")) {
+        try {
+          const parsed = new URL(normalized, window.location.origin)
+          if (parsed.pathname.endsWith("/stream.html")) {
+            // Ưu tiên MSE khi chạy qua reverse proxy; WebRTC vẫn là fallback.
+            parsed.searchParams.set("mode", "mse,webrtc")
+            return parsed.toString()
+          }
+        } catch {
+          // Giữ nguyên URL nếu đây không phải URL chuẩn.
+        }
         return normalized
       }
 
@@ -1870,9 +1884,9 @@ export default {
     },
 
     platePreviewStatusText(plate) {
-      if (!plate.previewRunning) return "Preview OFF"
+      if (!plate.previewRunning) return "Đang tắt"
       if (plate.lockedSnapshot || plate.lockedPlateCrop) return "Ảnh đã chụp"
-      return plate.previewHealthy ? "Preview OK" : "Chờ ảnh"
+      return plate.previewHealthy ? "Đang trực tuyến" : "Chờ hình ảnh"
     },
 
     platePreviewStatusClass(plate) {
@@ -2109,10 +2123,10 @@ export default {
       }
     },
 
-    async restartQrSession(lane, message = "Dang quet lai QR...") {
+    async restartQrSession(lane, message = "Đang quét lại QR...") {
       const qr = lane?.qr
       if (!qr?.cameraIp?.trim()) {
-        throw new Error("Vui long nhap URL QR")
+        throw new Error("Vui lòng nhập URL QR")
       }
 
       const nextSessionId = (qr.controlSessionId || 0) + 1
@@ -2127,7 +2141,7 @@ export default {
       qr.verifying = false
       qr.decodeBusy = false
       this.clearQrState(qr)
-      qr.message = "Dang khoi dong lai bo quet QR..."
+      qr.message = "Đang khởi động lại bộ quét QR..."
 
       try {
         await this.stopLaneQrScanner(lane).catch(() => {})
@@ -2284,7 +2298,7 @@ export default {
         if (qr.stablePayloadCount < qr.stablePayloadRequiredCount) {
           qr.activeSessionVerifyState = "waiting"
           qr.activeSessionVerifyMessage = "Da thay QR, giu yen them mot nhip de xac thuc."
-          qr.message = "Da thay QR, dang cho khung hinh on dinh..."
+          qr.message = "Đã thấy QR, đang chờ khung hình ổn định..."
           qr.lastSeenAt = now
           return
         }
@@ -2300,8 +2314,8 @@ export default {
         ) {
           qr.lastSeenAt = now
           qr.activeSessionVerifyState = "waiting"
-          qr.activeSessionVerifyMessage = "QR vua duoc gui xac thuc, dang cho nhip ke tiep."
-          qr.message = "QR vua duoc gui xac thuc, dang cho phan hoi on dinh..."
+          qr.activeSessionVerifyMessage = "QR vừa được gửi xác thực, đang chờ nhịp kế tiếp."
+          qr.message = "QR vừa được gửi xác thực, đang chờ phản hồi ổn định..."
           return
         }
 
@@ -2433,7 +2447,7 @@ else {
           "Xác thực thất bại."
 
         if (Number(error?.response?.status || 0) === 429) {
-          message = "QR dang duoc gui xac thuc qua nhanh. He thong dang tu giam nhip, vui long giu yen ma them mot chut."
+          message = "QR đang được gửi xác thực quá nhanh. Hệ thống đang tự giảm nhịp, vui lòng giữ yên mã thêm một chút."
         }
 
         qr.verifyMessage = message
@@ -2668,26 +2682,26 @@ else {
 
     async readAllLane(lane) {
       if (!lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()) {
-        alert("Vui long nhap du URL QR va Plate")
+        alert("Vui lòng nhập đủ URL QR và biển số")
         return
       }
 
       try {
         lane.loading = true
-        await this.restartQrSession(lane, "Dang quet QR tu Python...")
+        await this.restartQrSession(lane, "Đang quét QR từ Python...")
 
         if (!lane.plate.cameraRunning) {
           this.releaseOtherPlateLanes(lane)
           this.stopPlateLoop(lane)
           const resPlate = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
           if (!resPlate?.success) {
-            alert(resPlate?.message || "Khong the khoi tao Plate")
+            alert(resPlate?.message || "Không thể khởi tạo trình nhận diện biển số")
             return
           }
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(resPlate.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = resPlate.message || "Khoi tao Plate thanh cong"
+          lane.plate.message = resPlate.message || "Khởi tạo trình nhận diện biển số thành công"
         } else {
           this.releaseOtherPlateLanes(lane)
           const resPlate = await lane.plateApi.resetCameraState()
@@ -2712,13 +2726,13 @@ else {
 
     async retryQr(lane) {
   if (!lane.qr.cameraIp.trim()) {
-    alert("Vui long nhap URL QR")
+    alert("Vui lòng nhập URL QR")
     return
   }
 
   try {
     lane.loading = true
-    await this.restartQrSession(lane, "Dang quet lai QR...")
+    await this.restartQrSession(lane, "Đang quét lại QR...")
   } catch (e) {
     console.error("retryQr error:", e)
     alert(e?.message || "Loi doc lai QR")
@@ -2845,7 +2859,13 @@ else {
     const payload = {
       LicensePlate: licensePlate,
       GateId: lane.gateId,
-      CameraId: lane.cameraId
+      LaneId: lane.laneId,
+      Direction: lane.direction,
+      CameraId: lane.cameraId,
+      CredentialType: "QR",
+      PlateSnapshotBase64: lane.plate.lockedSnapshot || null,
+      PlateCropBase64: lane.plate.lockedPlateCrop || null,
+      QrSnapshotBase64: lane.qr.lockedSnapshot || null
     }
 
     if (isGuest) {
@@ -3329,27 +3349,43 @@ selectCamera(cam, lane, type) {
 }
 
 .page {
-  height: 100vh;
-  background: #f3f6fb;
-  padding: 6px;
+  height: calc(100dvh - var(--header-height, 76px) - 18px);
+  min-height: 620px;
+  background: transparent;
+  padding: 10px 18px 12px;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: #0f172a;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .topbar {
-  margin-bottom: 8px;
+  margin-bottom: 14px;
   flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
 .topbar-main {
   min-width: 0;
+}
+
+.topbar-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  margin-bottom: 5px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(15, 130, 144, 0.1);
+  color: #0f8290;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
 .topbar-actions {
@@ -3364,8 +3400,8 @@ selectCamera(cam, lane, type) {
   height: 36px;
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid #0f172a;
-  background: #0f172a;
+  border: 1px solid #0f8290;
+  background: #0f8290;
   font-size: 13px;
   font-weight: 800;
   color: #f8fafc;
@@ -3374,7 +3410,7 @@ selectCamera(cam, lane, type) {
 }
 
 .topbar-settings-btn:hover {
-  background: #020617;
+  background: #0c6f7a;
 }
 
 .topbar-toggle {
@@ -3396,23 +3432,25 @@ selectCamera(cam, lane, type) {
 }
 
 .topbar.compact {
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 }
 
 .topbar.compact h1 {
-  font-size: 22px;
+  font-size: 28px;
 }
 
 .topbar-desc {
-  margin: 6px 0 0;
-  color: #64748b;
-  font-size: 12px;
+  margin: 5px 0 0;
+  color: #52677c;
+  font-size: 13px;
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 30px;
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -0.035em;
 }
 
 .gate-layout {
@@ -3421,7 +3459,7 @@ selectCamera(cam, lane, type) {
   gap: 0;
   min-height: 0;
   flex: 1;
-  padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
   position: relative;
   z-index: 3;
 }
@@ -3432,7 +3470,7 @@ selectCamera(cam, lane, type) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
   position: relative;
   z-index: 4;
 }
@@ -3456,38 +3494,28 @@ selectCamera(cam, lane, type) {
 }
 
 .ops-dock {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 0;
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 10px;
   z-index: 55;
-  padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
-  background: rgba(248, 250, 252, 1);
-  border-top: 1px solid #e2e8f0;
-  box-shadow: 0 -12px 32px rgba(15, 23, 42, 0.08);
-  backdrop-filter: none;
-  max-height: 86px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.13);
+  backdrop-filter: blur(14px);
+  max-height: 92px;
   overflow: hidden;
 }
 
-@media (min-width: 1024px) {
-  .ops-dock {
-    left: calc(var(--sidebar-width, 290px) + 12px);
-  }
-}
-
 .ops-dock-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 6px 10px;
+  justify-content: center;
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
-}
-
-.ops-dock-spacer {
-  min-width: 0;
 }
 
 .ops-dock-center {
@@ -3495,7 +3523,7 @@ selectCamera(cam, lane, type) {
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
-  gap: 12px 20px;
+  gap: 12px 32px;
   min-width: 0;
 }
 
@@ -3503,12 +3531,12 @@ selectCamera(cam, lane, type) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
 .lane-action-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3519,8 +3547,8 @@ selectCamera(cam, lane, type) {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px;
-  max-width: min(520px, 44vw);
+  gap: 8px;
+  max-width: min(560px, 44vw);
 }
 
 .ops-dock-side {
@@ -3552,10 +3580,10 @@ selectCamera(cam, lane, type) {
 }
 
 .btn-dock {
-  min-height: 34px;
+  min-height: 36px;
   height: auto;
-  padding: 0 10px;
-  font-size: 11px;
+  padding: 0 14px;
+  font-size: 12px;
   font-weight: 800;
   border-radius: 10px;
 }
@@ -3776,7 +3804,7 @@ selectCamera(cam, lane, type) {
 }
 
 .btn-main {
-  background: #2563eb;
+  background: #0f8290;
 }
 
 .btn-sub {
@@ -3792,11 +3820,11 @@ selectCamera(cam, lane, type) {
 }
 
 .btn-decision {
-  background: #7c3aed;
+  background: #b86d23;
 }
 
 .btn-decision:hover:not(:disabled) {
-  background: #6d28d9;
+  background: #98581b;
 }
 
 .ip-row {
@@ -3880,10 +3908,10 @@ selectCamera(cam, lane, type) {
 }
 
 .cam-block {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 6px;
-  background: #fcfdff;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 18px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.96);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -3894,7 +3922,7 @@ selectCamera(cam, lane, type) {
 }
 
 .cam-block--hero {
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 .cam-head {
@@ -3902,7 +3930,7 @@ selectCamera(cam, lane, type) {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   font-size: 12px;
   font-weight: 800;
   flex-shrink: 0;
@@ -3920,18 +3948,18 @@ selectCamera(cam, lane, type) {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.02em;
-  color: #475569;
+  color: #0f8290;
   text-transform: uppercase;
 }
 
 .cam-kind {
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 900;
   color: #0f172a;
 }
 
 .mini-status {
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
@@ -3952,11 +3980,11 @@ selectCamera(cam, lane, type) {
   flex: 1;
   min-height: 0;
   background: #0f172a;
-  border-radius: 10px;
+  border-radius: 13px;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 7px;
   position: relative;
-  border: 2px solid #94a3b8;
+  border: 1px solid #cbd5e1;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -3972,11 +4000,21 @@ selectCamera(cam, lane, type) {
   width: 100%;
   height: 100%;
   display: flex;
-  color: #cbd5e1;
+  color: #94a3b8;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cam-off-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #64748b;
+  box-shadow: 0 0 0 6px rgba(100, 116, 139, 0.14);
 }
 
 .quick-result {
@@ -3989,7 +4027,7 @@ selectCamera(cam, lane, type) {
 }
 
 .result-pill {
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
@@ -4289,8 +4327,24 @@ selectCamera(cam, lane, type) {
 }
 
 @media (max-width: 900px) {
+  .page {
+    height: auto;
+    min-height: calc(100dvh - var(--header-height, 76px));
+    padding: 10px 12px 16px;
+    overflow: visible;
+  }
+
   .gate-layout {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 16px;
+  }
+
+  .cam-wall {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
+  .cam-cell {
+    min-height: 300px;
   }
 
   .topbar {
@@ -4309,7 +4363,7 @@ selectCamera(cam, lane, type) {
   }
 
   .ops-dock-grid {
-    grid-template-columns: 1fr;
+    display: block;
     justify-items: stretch;
   }
 
@@ -4320,6 +4374,15 @@ selectCamera(cam, lane, type) {
   .ops-dock-center {
     order: 1;
     width: 100%;
+  }
+
+  .ops-dock {
+    position: sticky;
+    left: auto;
+    right: auto;
+    bottom: 8px;
+    max-height: none;
+    margin-top: 8px;
   }
 
   .ops-dock-side {

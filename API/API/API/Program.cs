@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -1011,6 +1011,10 @@ namespace API
 
                     yaml.AppendLine($"  cam{cam.CameraId}:");
                     yaml.AppendLine($"    - {streamUrl}#transport=tcp");
+                    if (streamUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        yaml.AppendLine($"    - ffmpeg:{streamUrl}#video=mjpeg");
+                    }
                     if (!streamUrl.Contains("#transport=", StringComparison.OrdinalIgnoreCase))
                     {
                         yaml.AppendLine($"    - {streamUrl}");
@@ -1212,7 +1216,6 @@ namespace API
         }
     }
 }
-
 
 
 

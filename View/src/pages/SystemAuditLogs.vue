@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page-container animate-in audit-page">
     <section class="panel topbar">
       <h1>Nhật ký hệ thống</h1>

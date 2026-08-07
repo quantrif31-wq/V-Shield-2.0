@@ -16,10 +16,14 @@ public interface IZoneTransitService
 public class ZoneTransitService : IZoneTransitService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IAttendanceZoneService _attendanceZoneService;
 
-    public ZoneTransitService(ApplicationDbContext context)
+    public ZoneTransitService(
+        ApplicationDbContext context,
+        IAttendanceZoneService attendanceZoneService)
     {
         _context = context;
+        _attendanceZoneService = attendanceZoneService;
     }
 
     public async Task ProcessAccessLogAsync(int accessLogId)
@@ -28,8 +32,16 @@ public class ZoneTransitService : IZoneTransitService
             .Include(al => al.Gate)
             .FirstOrDefaultAsync(al => al.LogId == accessLogId);
 
-        if (accessLog == null || accessLog.EmployeeId == null)
+        if (accessLog == null || accessLog.EmployeeId == null || !IsSuccessfulAccess(accessLog.ResultStatus))
             return;
+
+        if (await _context.Set<ZoneTransit>().AnyAsync(t => t.AccessLogId == accessLogId))
+        {
+            await _attendanceZoneService.DeriveAttendanceAsync(
+                accessLog.EmployeeId.Value,
+                (accessLog.Timestamp ?? DateTime.Now).Date);
+            return;
+        }
 
         await ProcessTransitCoreAsync(
             accessLog.EmployeeId.Value,
@@ -40,6 +52,9 @@ public class ZoneTransitService : IZoneTransitService
             accessLogId);
     }
 
+    private static bool IsSuccessfulAccess(string? resultStatus) =>
+        resultStatus?.Trim().ToUpperInvariant() is "SUCCESS" or "GRANTED" or "APPROVED" or "MATCHED" or "OK";
+
     public async Task ProcessTransitAsync(int employeeId, int? gateId, string direction, DateTime timestamp, string source)
     {
         await ProcessTransitCoreAsync(employeeId, gateId, direction, timestamp, source, null);
@@ -49,73 +64,52 @@ public class ZoneTransitService : IZoneTransitService
     {
         if (!gateId.HasValue) return;
 
+        var normalizedDirection = string.Equals(direction, "IN", StringComparison.OrdinalIgnoreCase)
+            ? "IN"
+            : string.Equals(direction, "OUT", StringComparison.OrdinalIgnoreCase)
+                ? "OUT"
+                : null;
+        if (normalizedDirection == null) return;
+
         var lanes = await _context.Lanes
             .Include(l => l.AccessPoint)
                 .ThenInclude(ap => ap!.SecurityZone)
             .Where(l => l.GateId == gateId.Value && l.IsActive)
+            .OrderBy(l => l.LaneId)
             .ToListAsync();
 
-        var hasMatch = false;
-
-        foreach (var lane in lanes)
+        var lane = lanes.FirstOrDefault(item =>
         {
-            if (lane.AccessPoint?.SecurityZone == null) continue;
+            var isBidirectional = string.Equals(item.Direction, "Bidirectional", StringComparison.OrdinalIgnoreCase);
+            var isEntry = string.Equals(item.Direction, "Entry", StringComparison.OrdinalIgnoreCase);
+            return isBidirectional || (isEntry && normalizedDirection == "IN") || (!isEntry && normalizedDirection == "OUT");
+        });
+        if (lane == null) return;
 
-            var laneIsEntry = string.Equals(lane.Direction, "Entry", StringComparison.OrdinalIgnoreCase);
-            var logIsIn = string.Equals(direction, "IN", StringComparison.OrdinalIgnoreCase);
+        var accessPoint = lane.AccessPoint?.SecurityZone != null
+            ? lane.AccessPoint
+            : await _context.AccessPoints
+                .Include(ap => ap.SecurityZone)
+                .Where(ap => ap.SiteId == lane.SiteId && ap.IsActive && ap.SecurityZone != null)
+                .OrderBy(ap => ap.AccessPointId)
+                .FirstOrDefaultAsync();
+        if (accessPoint?.SecurityZone == null) return;
 
-            if (laneIsEntry == logIsIn)
-            {
-                var transit = new ZoneTransit
-                {
-                    EmployeeId = employeeId,
-                    SecurityZoneId = lane.AccessPoint.SecurityZone.SecurityZoneId,
-                    AccessPointId = lane.AccessPointId,
-                    AccessLogId = accessLogId,
-                    Direction = direction,
-                    Timestamp = timestamp,
-                    Source = source,
-                    IsAutoDerived = true
-                };
-
-                _context.Set<ZoneTransit>().Add(transit);
-                hasMatch = true;
-            }
-        }
-
-        if (!hasMatch)
+        var transit = new ZoneTransit
         {
-            var gate = await _context.Gates.FirstOrDefaultAsync(g => g.GateId == gateId.Value);
-            if (gate != null)
-            {
-                var accessPoints = await _context.AccessPoints
-                    .Include(ap => ap.SecurityZone)
-                    .Where(ap => ap.SecurityZone != null && ap.IsActive)
-                    .ToListAsync();
+            EmployeeId = employeeId,
+            SecurityZoneId = accessPoint.SecurityZone.SecurityZoneId,
+            AccessPointId = accessPoint.AccessPointId,
+            AccessLogId = accessLogId,
+            Direction = normalizedDirection,
+            Timestamp = timestamp,
+            Source = source,
+            IsAutoDerived = true
+        };
 
-                foreach (var ap in accessPoints)
-                {
-                    if (ap.SecurityZone == null) continue;
-
-                    var transit = new ZoneTransit
-                    {
-                        EmployeeId = employeeId,
-                        SecurityZoneId = ap.SecurityZone.SecurityZoneId,
-                        AccessPointId = ap.AccessPointId,
-                        AccessLogId = accessLogId,
-                        Direction = direction,
-                        Timestamp = timestamp,
-                        Source = source,
-                        IsAutoDerived = true
-                    };
-
-                    _context.Set<ZoneTransit>().Add(transit);
-                    break;
-                }
-            }
-        }
-
+        _context.Set<ZoneTransit>().Add(transit);
         await _context.SaveChangesAsync();
+        await _attendanceZoneService.DeriveAttendanceAsync(employeeId, timestamp.Date);
     }
 
     public async Task<List<ZoneTransit>> GetTransitsAsync(int employeeId, DateTime date)

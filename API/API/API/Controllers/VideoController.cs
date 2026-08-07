@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using API.Data;
 using System.IdentityModel.Tokens.Jwt;
 using API.Middleware;

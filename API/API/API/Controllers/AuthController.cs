@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using API.Data;
 using API.DTOs;
 using API.Middleware;

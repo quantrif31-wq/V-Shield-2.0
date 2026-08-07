@@ -1,4 +1,4 @@
-﻿using API.Data;
+using API.Data;
 using API.DTOs;
 using API.Middleware;
 using API.Models;
@@ -190,10 +190,9 @@ namespace API.Controllers
 
                 await transaction.CommitAsync();
 
-                if (targetEmployeeId.HasValue)
+                if (targetEmployeeId.HasValue && hasAccess)
                 {
-                    _ = _zoneTransitService.ProcessTransitAsync(
-                        targetEmployeeId.Value, gateId, "IN", newLog.Timestamp ?? DateTime.Now, ZoneTransitSources.Qr);
+                    await _zoneTransitService.ProcessAccessLogAsync(newLog.LogId);
                 }
 
                 // 6. Trả kết quả
@@ -370,10 +369,9 @@ namespace API.Controllers
 
                 await transaction.CommitAsync();
 
-                if (request.EmployeeId.HasValue && hasAccess)
+                if (request.EmployeeId.HasValue && accessGranted)
                 {
-                    _ = _zoneTransitService.ProcessTransitAsync(
-                        request.EmployeeId.Value, request.GateId, "IN", newLog.Timestamp ?? DateTime.Now, ZoneTransitSources.Qr);
+                    await _zoneTransitService.ProcessAccessLogAsync(newLog.LogId);
                 }
 
                 if (accessGranted)
@@ -653,4 +651,3 @@ namespace API.Controllers
         }
     }
 }
-

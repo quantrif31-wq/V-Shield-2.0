@@ -24,7 +24,7 @@
             </div>
         </header>
 
-        <section class="card panel">
+        <section class="card panel attendance-panel">
             <div class="toolbar-shell">
                 <div class="toolbar-filters">
                     <input v-model="filters.fromDate" type="date" class="date-input" @change="loadAttendances" />
@@ -58,48 +58,54 @@
                     <thead>
                         <tr>
                             <th>Nhân viên</th>
-                            <th>Phòng ban</th>
-                            <th>Ngày</th>
-                            <th>Ca làm</th>
-                            <th>Check-in</th>
-                            <th>Check-out</th>
-                            <th>Đi trễ</th>
-                            <th>Về sớm</th>
-                            <th>Tăng ca</th>
-                            <th>Tổng giờ</th>
+                            <th>Ngày &amp; ca làm</th>
+                            <th>Giờ vào</th>
+                            <th>Giờ ra</th>
+                            <th>Tổng công</th>
                             <th>Trạng thái</th>
-                            <th>Nguồn</th>
-                            <th>Trong zone</th>
-                            <th class="text-right">Hành động</th>
+                            <th class="text-right">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in paginatedAttendances" :key="item.attendanceId">
-                            <td>{{ item.employeeName }}</td>
-                            <td>{{ item.departmentName || '--' }}</td>
-                            <td>{{ formatDate(item.workDate) }}</td>
-                            <td>{{ item.shiftName || 'Ngoài lịch' }}</td>
-                            <td>{{ formatDateTime(item.checkIn) }}</td>
-                            <td>{{ formatDateTime(item.checkOut) }}</td>
-                            <td>{{ item.lateMinutes }} phút</td>
-                            <td>{{ item.earlyLeaveMinutes }} phút</td>
-                            <td>{{ Number(item.overtimeHours || 0).toFixed(2) }}h</td>
-                            <td>{{ Number(item.totalWorkingHours || 0).toFixed(2) }}h</td>
-                            <td>
-                                <span class="badge info">{{ statusLabel(item.status) }}</span>
-                            </td>
-                            <td>{{ item.source }}</td>
-                            <td>
-                                <span v-if="item.isZoneDerived" class="badge success" title="Tổng hợp từ zone">
-                                    {{ Number(item.zoneDwellTime || 0).toFixed(1) }}h
-                                </span>
-                                <span v-else class="badge">--</span>
-                            </td>
-                            <td class="text-right">
-                                <button class="btn btn-secondary btn-sm" @click="openEditModal(item)">Sửa</button>
-                                <button class="btn btn-ghost btn-sm" @click="showTransitTimeline(item)">Lộ trình</button>
-                            </td>
-                        </tr>
+                        <template v-for="item in paginatedAttendances" :key="item.attendanceId">
+                            <tr>
+                                <td>
+                                    <strong class="cell-primary">{{ item.employeeName }}</strong>
+                                    <small class="cell-secondary">{{ item.departmentName || 'Chưa có phòng ban' }}</small>
+                                </td>
+                                <td>
+                                    <strong class="cell-primary">{{ formatDate(item.workDate) }}</strong>
+                                    <small class="cell-secondary">{{ item.shiftName || 'Ngoài lịch' }}</small>
+                                </td>
+                                <td><strong class="cell-primary">{{ formatTime(item.checkIn) }}</strong></td>
+                                <td><strong class="cell-primary" :class="{ muted: !item.checkOut }">{{ formatTime(item.checkOut) }}</strong></td>
+                                <td>
+                                    <strong class="cell-primary">{{ Number(item.totalWorkingHours || 0).toFixed(2) }} giờ</strong>
+                                    <small v-if="attendanceNote(item)" class="cell-secondary" :class="attendanceNote(item).tone">{{ attendanceNote(item).text }}</small>
+                                </td>
+                                <td><span class="attendance-status" :class="statusTone(item.status)">{{ statusLabel(item.status) }}</span></td>
+                                <td class="text-right">
+                                    <div class="row-actions compact-actions">
+                                        <button class="btn btn-secondary btn-sm" @click="openEditModal(item)">Sửa</button>
+                                        <button class="detail-toggle" @click="toggleDetails(item.attendanceId)">
+                                            Chi tiết <span :class="{ rotated: expandedAttendanceId === item.attendanceId }">⌄</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="expandedAttendanceId === item.attendanceId" class="detail-row">
+                                <td colspan="7">
+                                    <div class="attendance-details">
+                                        <div><span>Đi trễ</span><strong>{{ item.lateMinutes || 0 }} phút</strong></div>
+                                        <div><span>Về sớm</span><strong>{{ item.earlyLeaveMinutes || 0 }} phút</strong></div>
+                                        <div><span>Tăng ca</span><strong>{{ Number(item.overtimeHours || 0).toFixed(2) }} giờ</strong></div>
+                                        <div><span>Nguồn</span><strong>{{ item.source || '--' }}</strong></div>
+                                        <div><span>Trong zone</span><strong>{{ item.isZoneDerived ? `${Number(item.zoneDwellTime || 0).toFixed(1)} giờ` : '--' }}</strong></div>
+                                        <button class="btn btn-ghost btn-sm" @click="showTransitTimeline(item)">Xem lộ trình</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
                 <footer class="pagination-bar">
@@ -292,6 +298,7 @@ const employees = ref([])
 const departments = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
+const expandedAttendanceId = ref(null)
 const totalPages = computed(() => Math.max(1, Math.ceil(attendances.value.length / pageSize.value)))
 const paginatedAttendances = computed(() => {
     const start = (currentPage.value - 1) * pageSize.value
@@ -359,6 +366,12 @@ const editForm = reactive({
 })
 
 const statusLabel = (status) => attendanceStatusLabelMap[status] || status || '--'
+const statusTone = (status) => {
+    if (['Late', 'EarlyLeave', 'LateAndEarlyLeave', 'ForgotCheckout'].includes(status)) return 'warning'
+    if (['Completed', 'CheckedIn'].includes(status)) return 'success'
+    if (status === 'Absent') return 'danger'
+    return 'neutral'
+}
 
 const showToast = (message, type = 'success') => {
     if (toastTimer) clearTimeout(toastTimer)
@@ -369,6 +382,18 @@ const showToast = (message, type = 'success') => {
 }
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '--')
+const formatTime = (value) => value
+    ? new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : '--:--'
+const attendanceNote = (item) => {
+    if (Number(item.lateMinutes || 0) > 0) return { text: `Trễ ${item.lateMinutes} phút`, tone: 'warning-text' }
+    if (Number(item.earlyLeaveMinutes || 0) > 0) return { text: `Sớm ${item.earlyLeaveMinutes} phút`, tone: 'warning-text' }
+    if (Number(item.overtimeHours || 0) > 0) return { text: `Tăng ca ${Number(item.overtimeHours).toFixed(2)} giờ`, tone: 'success-text' }
+    return null
+}
+const toggleDetails = (attendanceId) => {
+    expandedAttendanceId.value = expandedAttendanceId.value === attendanceId ? null : attendanceId
+}
 const formatDateTime = (value) => {
     if (!value) return '--'
     return new Date(value).toLocaleString('vi-VN', {
@@ -644,6 +669,141 @@ onMounted(async () => {
 <style scoped>
 .panel {
     padding: 22px;
+}
+
+.attendance-panel {
+    overflow: hidden;
+}
+
+.attendance-panel .table-container {
+    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: #fff;
+}
+
+.attendance-panel .data-table {
+    min-width: 980px;
+    table-layout: fixed;
+}
+
+.attendance-panel .data-table th:first-child { width: 22%; }
+.attendance-panel .data-table th:nth-child(2) { width: 16%; }
+.attendance-panel .data-table th:nth-child(3),
+.attendance-panel .data-table th:nth-child(4) { width: 9%; }
+.attendance-panel .data-table th:nth-child(5) { width: 14%; }
+.attendance-panel .data-table th:nth-child(6) { width: 13%; }
+.attendance-panel .data-table th:nth-child(7) { width: 17%; }
+
+.attendance-panel .data-table th {
+    height: 50px;
+    padding-inline: 16px;
+    font-size: 0.7rem;
+    letter-spacing: 0.13em;
+}
+
+.attendance-panel .data-table td {
+    height: 74px;
+    padding: 13px 16px;
+}
+
+.cell-primary,
+.cell-secondary {
+    display: block;
+}
+
+.cell-primary {
+    color: var(--text-primary);
+    font-size: 0.94rem;
+    font-weight: 750;
+}
+
+.cell-primary.muted { color: var(--text-muted); }
+
+.cell-secondary {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.warning-text { color: var(--accent-warning); }
+.success-text { color: var(--accent-success); }
+
+.attendance-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.attendance-status.neutral { color: #667784; background: #edf1f3; }
+.attendance-status.warning { color: #a9691f; background: #fbf4e8; }
+.attendance-status.success { color: var(--accent-success); background: rgba(20, 134, 109, 0.1); }
+.attendance-status.danger { color: var(--accent-danger); background: rgba(195, 81, 70, 0.1); }
+
+.compact-actions {
+    flex-wrap: nowrap;
+    gap: 14px;
+}
+
+.compact-actions .btn {
+    min-width: 54px;
+    border-radius: 999px;
+    background: #fff;
+}
+
+.detail-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.detail-toggle span {
+    display: inline-block;
+    transition: transform 180ms ease;
+}
+
+.detail-toggle span.rotated { transform: rotate(180deg); }
+
+.detail-row td {
+    height: auto !important;
+    padding: 0 16px 14px !important;
+    background: #f7fafb;
+}
+
+.attendance-details {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(110px, 1fr)) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(24, 49, 77, 0.08);
+    border-radius: 14px;
+    background: #fff;
+}
+
+.attendance-details span,
+.attendance-details strong { display: block; }
+
+.attendance-details span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.attendance-details strong {
+    margin-top: 4px;
+    color: var(--text-primary);
+    font-size: 0.84rem;
 }
 
 .date-input {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="guest-register">
         <div class="bg-decoration">
             <div class="bg-circle c1"></div>

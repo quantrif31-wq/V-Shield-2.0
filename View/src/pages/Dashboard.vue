@@ -323,8 +323,12 @@ const trafficChart = computed(() => {
 
     return weeklyTraffic.value.map((day) => ({
         ...day,
-        inPercent: Math.max(12, Math.round((Number(day.checkIn || 0) / maxValue) * 100)),
-        outPercent: Math.max(12, Math.round((Number(day.checkOut || 0) / maxValue) * 100)),
+        inPercent: Number(day.checkIn || 0) > 0
+            ? Math.max(8, Math.round((Number(day.checkIn || 0) / maxValue) * 100))
+            : 0,
+        outPercent: Number(day.checkOut || 0) > 0
+            ? Math.max(8, Math.round((Number(day.checkOut || 0) / maxValue) * 100))
+            : 0,
     }))
 })
 
@@ -973,7 +977,77 @@ onMounted(async () => {
 }
 
 .traffic-chart {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(44px, 1fr));
+    align-items: end;
+    gap: 14px;
     min-height: 220px;
+    padding: 26px 14px 8px;
+    overflow: hidden;
+    border: 1px solid rgba(24, 49, 77, 0.06);
+    border-radius: 18px;
+    background:
+        repeating-linear-gradient(to top, rgba(24, 49, 77, 0.055) 0 1px, transparent 1px 25%),
+        linear-gradient(180deg, rgba(236, 244, 246, 0.48), rgba(255, 255, 255, 0));
+}
+
+.chart-day {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: 180px auto;
+    gap: 10px;
+    text-align: center;
+}
+
+.chart-day > strong {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.chart-stack {
+    height: 180px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 6px;
+}
+
+.chart-bar {
+    position: relative;
+    width: min(24px, 42%);
+    min-height: 0;
+    border-radius: 9px 9px 4px 4px;
+    transition: height 420ms ease, filter 180ms ease, transform 180ms ease;
+}
+
+.chart-bar:hover {
+    filter: brightness(0.96);
+    transform: translateY(-2px);
+}
+
+.chart-bar.in {
+    background: linear-gradient(180deg, #55c6cb, #0f7c82);
+    box-shadow: 0 8px 18px rgba(15, 124, 130, 0.18);
+}
+
+.chart-bar.out {
+    background: linear-gradient(180deg, #f4c46d, #c47d2d);
+    box-shadow: 0 8px 18px rgba(196, 125, 45, 0.16);
+}
+
+.chart-bar span {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 6px);
+    transform: translateX(-50%);
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.chart-bar[style*="height: 0%"] span {
+    bottom: 4px;
+    color: var(--text-muted);
 }
 
 @media (max-width: 1180px) {
@@ -1018,5 +1092,13 @@ onMounted(async () => {
     .dashboard-surface-line {
         flex-direction: column;
     }
+
+    .traffic-chart {
+        gap: 8px;
+        padding-inline: 5px;
+    }
+
+    .chart-stack { gap: 3px; }
+    .chart-bar span { font-size: 0.65rem; }
 }
 </style>

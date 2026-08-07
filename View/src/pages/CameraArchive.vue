@@ -13,7 +13,7 @@
         <label class="field">
           <span>Camera</span>
           <select v-model="filters.cameraId">
-            <option value="">Tat ca camera</option>
+            <option value="">Tất cả camera</option>
             <option v-for="cam in cameras" :key="cam.cameraId" :value="String(cam.cameraId)">
               {{ cam.cameraName }}
             </option>
@@ -23,7 +23,7 @@
         <label class="field">
           <span>Cong / Gate</span>
           <select v-model="filters.gateId">
-            <option value="">Tat ca gate</option>
+            <option value="">Tất cả cổng</option>
             <option v-for="gate in gateOptions" :key="gate.gateId" :value="String(gate.gateId)">
               {{ gate.label }}
             </option>
@@ -33,7 +33,7 @@
         <label class="field">
           <span>Loai camera</span>
           <select v-model="filters.cameraType">
-            <option value="">Tat ca loai</option>
+            <option value="">Tất cả loại</option>
             <option v-for="type in cameraTypes" :key="type" :value="type">
               {{ type }}
             </option>
@@ -72,14 +72,14 @@
         <strong>{{ cameras.length }}</strong>
       </article>
       <article class="summary-card">
-        <span class="summary-kicker">Dang loc</span>
+        <span class="summary-kicker">Đang lọc</span>
         <strong>{{ activeFilterLabel }}</strong>
       </article>
     </section>
 
-    <div v-if="loading" class="empty-state">Dang tai du lieu luu tru...</div>
+    <div v-if="loading" class="empty-state">Đang tải dữ liệu lưu trữ...</div>
     <div v-else-if="segments.length === 0" class="empty-state">
-      Chua co doan video nao khop bo loc hien tai.
+      Chưa có đoạn video nào khớp bộ lọc hiện tại.
     </div>
 
     <section v-else class="segment-list">
@@ -87,10 +87,10 @@
         <div class="segment-head">
           <div>
             <h2>{{ seg.cameraName || `Camera #${seg.cameraId}` }}</h2>
-            <p>{{ seg.gateName || "Chua gan gate" }}<span v-if="seg.gateLocation"> · {{ seg.gateLocation }}</span></p>
+            <p>{{ seg.gateName || "Chưa gán cổng" }}<span v-if="seg.gateLocation"> · {{ seg.gateLocation }}</span></p>
           </div>
           <div class="segment-badges">
-            <span class="badge">{{ seg.cameraType || "Khong ro loai" }}</span>
+            <span class="badge">{{ seg.cameraType || "Không rõ loại" }}</span>
             <span class="badge time">{{ formatDate(seg.startedAt) }}</span>
           </div>
         </div>
@@ -187,7 +187,7 @@ const activeFilterLabel = computed(() => {
     if (gate) parts.push(gate.label)
   }
   if (filters.cameraType) parts.push(filters.cameraType)
-  return parts.join(" / ") || "Tat ca"
+  return parts.join(" / ") || "Tất cả"
 })
 
 async function loadCameras() {
@@ -216,7 +216,7 @@ async function loadSegments(targetPage = 1) {
     segments.value = Array.isArray(res.items) ? res.items : []
     total.value = Number(res.total || 0)
   } catch (error) {
-    console.error("Khong tai duoc archive:", error)
+    console.error("Không tải được kho lưu trữ:", error)
     segments.value = []
     total.value = 0
   } finally {
@@ -239,7 +239,7 @@ function toggleVideo(segmentId) {
 }
 
 function formatDate(value) {
-  if (!value) return "Khong ro"
+  if (!value) return "Không rõ"
   return new Date(value).toLocaleString("vi-VN")
 }
 

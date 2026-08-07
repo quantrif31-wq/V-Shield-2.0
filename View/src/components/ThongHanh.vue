@@ -337,6 +337,9 @@ export default {
         {
           id: "lane1",
           laneId: "lane-1",
+          accessLaneId: 1,
+          gateId: 1,
+          direction: "IN",
           faceCameraId: "lane-1-face",
           name: "Làn 1",
           desc: "Face trên / Biển dưới",
@@ -349,6 +352,9 @@ export default {
         {
           id: "lane2",
           laneId: "lane-2",
+          accessLaneId: 2,
+          gateId: 1,
+          direction: "OUT",
           faceCameraId: "lane-2-face",
           name: "Làn 2",
           desc: "Face trên / Biển dưới",
@@ -1118,7 +1124,14 @@ export default {
 
     const payload = {
       employeeId: employeeId,
-      licensePlate: licensePlate
+      licensePlate: licensePlate,
+      gateId: lane.gateId,
+      laneId: lane.accessLaneId,
+      direction: lane.direction,
+      credentialType: "FACEID",
+      plateSnapshotBase64: lane.plate.lockedSnapshot || null,
+      plateCropBase64: lane.plate.lockedPlateCrop || null,
+      faceSnapshotBase64: lane.face.lockedFaceCrop || lane.face.lockedSnapshot || null
     }
 
     const res = await scanGate(payload)

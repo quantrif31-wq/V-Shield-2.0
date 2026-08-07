@@ -97,7 +97,7 @@ const normalizeError = (error, attemptedBaseUrls = []) => {
     message:
       error?.message ||
       (attemptedBaseUrlText
-        ? `Khong ket noi duoc bien so service (${attemptedBaseUrlText}).`
+        ? `Không kết nối được dịch vụ biển số (${attemptedBaseUrlText}).`
         : "Network error")
   }
 }

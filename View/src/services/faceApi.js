@@ -24,7 +24,7 @@ function encodeCameraId(cameraId) {
     throw normalizeFaceApiError({
       response: {
         status: 400,
-        data: { message: "cameraId khÃ´ng há»£p lá»‡." }
+        data: { message: "cameraId không hợp lệ." }
       }
     })
   }

@@ -180,7 +180,7 @@ function openChat() {
   chatOpen.value = true
   hasInteracted.value = true
   if (messages.value.length === 0) {
-    addMessage('ai', 'Xin chao! Toi la <strong>Tro ly V-Shield</strong>. Toi co the giup ban:<br>• 📖 Huong dan su dung toan bo he thong<br>• 🔐 Giai thich chuc nang theo vai tro<br>• ❌ Tra loi cau hoi thuong gap<br><br>Ban muon tim hieu dieu gi truoc?')
+    addMessage('ai', 'Xin chào! Tôi là <strong>Trợ lý V-Shield</strong>. Tôi có thể giúp bạn:<br>• 📖 Hướng dẫn sử dụng toàn bộ hệ thống<br>• 🔐 Giải thích chức năng theo vai trò<br>• ❌ Trả lời câu hỏi thường gặp<br><br>Bạn muốn tìm hiểu điều gì trước?')
   }
   scrollToBottom()
 }
@@ -261,46 +261,46 @@ function handleGuideResponse(userMessage) {
   const msg = userMessage.toLowerCase()
 
   if (msg.includes('huong dan') || msg.includes('cach dung') || msg.includes('su dung') || msg.includes('bat dau')) {
-    addMessage('ai', `📖 <strong>Huong dan su dung V-Shield</strong><br><br>V-Shield la nen tang kiem soat ra vao thong minh voi day du tinh nang:<br><br>👉 <a href="/guide" class="chat-link">Mo Huong dan su dung day du →</a><br><br>Trong huong dan co:<br>• ✅ Tong quan he thong<br>• ✅ Luong hoat dong cho tung vai tro<br>• ✅ Danh muc tat ca trang chuc nang<br>• ✅ Chi tiet nut bam, o nhap lieu tung man hinh<br>• ✅ Cau hoi thuong gap`)
+    addMessage('ai', `📖 <strong>Hướng dẫn sử dụng V-Shield</strong><br><br>V-Shield là nền tảng kiểm soát ra vào thông minh với đầy đủ tính năng:<br><br>👉 <a href="/guide" class="chat-link">Mở Hướng dẫn sử dụng day du →</a><br><br>Trong hướng dẫn có:<br>• ✅ Tổng quan hệ thống<br>• ✅ Luồng hoạt động cho từng vai trò<br>• ✅ Danh mục tất cả trang chức năng<br>• ✅ Chi tiết nút bấm, ô nhập liệu từng màn hình<br>• ✅ Câu hỏi thường gặp`)
     return
   }
 
   if (msg.includes('admin') || msg.includes('quan tri')) {
-    addMessage('ai', `🔐 <strong>Quyen han cua Admin</strong><br><br>Admin co <strong>toan quyen</strong> tren he thong V-Shield:<br><br>• 📊 Dashboard tong quan & AI Intelligence<br>• 📹 Giam sat camera, QR dong, bien so<br>• 👥 Quan ly nhan su, tai khoan, phan quyen<br>• 🚗 Quan ly phuong tien, cham cong<br>• 🏢 Quan ly khach, nha thau, watchlist<br>• ⚙️ Cau hinh camera, thiet bi, policy<br>• 🔒 SOC, Evidence, Compliance, Retention<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiet trong Huong dan →</a>`)
+    addMessage('ai', `🔐 <strong>Quyền hạn của Admin</strong><br><br>Admin có <strong>toàn quyền</strong> trên hệ thống V-Shield:<br><br>• 📊 Dashboard tổng quan & AI Intelligence<br>• 📹 Giám sát camera, QR động, biển số<br>• 👥 Quản lý nhân sự, tài khoản, phân quyền<br>• 🚗 Quản lý phương tiện, chấm công<br>• 🏢 Quản lý khách, nhà thầu, watchlist<br>• ⚙️ Cấu hình camera, thiết bị, policy<br>• 🔒 SOC, Evidence, Compliance, Retention<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
     return
   }
 
   if (msg.includes('bao ve') || msg.includes('baove') || msg.includes('truc cong')) {
-    addMessage('ai', `🛡️ <strong>Quyen han cua Bao ve</strong><br><br>Bao ve co the truy cap cac chuc nang:<br><br>• 📹 Giam sat camera truc tiep<br>• 🔍 Tra cuu lich su vao/ra<br>• 📱 Xac thuc QR dong + bien so<br>• 🚪 Dieu phoi thong hanh, cho qua thu cong co truy vet<br>• 🏪 Reception check-in khach<br>• ⚠️ Gui yeu cau xu ly ngoai le va duress<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luong cong viec chi tiet →</a>`)
+    addMessage('ai', `🛡️ <strong>Quyền hạn của Bao ve</strong><br><br>Bảo vệ có thể truy cập các chức năng:<br><br>• 📹 Giám sát camera trực tiếp<br>• 🔍 Tra cứu lịch sử vào/ra<br>• 📱 Xác thực QR động + biển số<br>• 🚪 Điều phối thông hành, cho qua thủ công có truy vết<br>• 🏪 Reception check-in khách<br>• ⚠️ Gửi yêu cầu xử lý ngoại lệ va duress<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luồng công việc chi tiết →</a>`)
     return
   }
 
   if (msg.includes('le tan') || msg.includes('reception')) {
-    addMessage('ai', `🛎️ <strong>Quyen han cua Le tan</strong><br><br>Le tan co the su dung:<br><br>• 🏪 Don tiep va check-in khach tai quay<br>• 🔎 Tra cuu khach con trong khuon vien hay da qua gio<br>• 🎒 Tim do that lac va theo doi viec trao tra<br>• 🚗 Kiem tra xe khach con trong bai khong<br>• 🛡️ Goi Bao ve ho tro khi co tinh huong phat sinh<br>• 📋 Xem cac man hinh can thiet de ho tro khach nhanh chong<br><br>👉 <a href="/guide" class="chat-link">Xem huong dan cho Le tan →</a>`)
+    addMessage('ai', `🛎️ <strong>Quyền hạn của Le tan</strong><br><br>Lễ tân có thể sử dụng:<br><br>• 🏪 Don tiep va check-in khách tai quay<br>• 🔎 Tra cứu khách còn trong khuôn viên hay đã quá giờ<br>• 🎒 Tìm đồ thất lạc và theo dõi việc trao trả<br>• 🚗 Kiểm tra xe khách còn trong bãi không<br>• 🛡️ Gọi Bảo vệ hỗ trợ khi có tình huống phát sinh<br>• 📋 Xem các màn hình cần thiết để hỗ trợ khách nhanh chóng<br><br>👉 <a href="/guide" class="chat-link">Xem hướng dẫn cho Lễ tân →</a>`)
     return
   }
 
   if (msg.includes('quan ly') || msg.includes('quanly') || msg.includes('manager')) {
-    addMessage('ai', `📊 <strong>Quyen han cua Quan ly</strong><br><br>Quan ly co the:<br><br>• 📊 Dashboard tong quan<br>• 📹 Giam sat camera & lich su<br>• 🚗 Quan ly phuong tien<br>• 📋 Bao cao cham cong<br>• 🏢 Danh muc he thong<br>• ⚠️ Xem & xu ly ngoai le<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiet trong Huong dan →</a>`)
+    addMessage('ai', `📊 <strong>Quyền hạn của Quan ly</strong><br><br>Quản lý có thể:<br><br>• 📊 Dashboard tổng quan<br>• 📹 Giám sát camera & lich su<br>• 🚗 Quản lý phương tiện<br>• 📋 Báo cáo chấm công<br>• 🏢 Danh mục hệ thống<br>• ⚠️ Xem và xử lý ngoại lệ<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
     return
   }
 
   if (msg.includes('thu cong') || msg.includes('camera loi') || msg.includes('qr loi') || msg.includes('khong doc')) {
-    addMessage('ai', `⌨️ <strong>Van hanh thu cong tai cong</strong><br><br>1. Mo <a href="/gate-transit-monitor" class="chat-link">Control Room</a><br>2. Chon lan va mo bang quyet dinh<br>3. Chon “Van hanh thu cong”<br>4. Nhap ho ten hoac bien so, ly do xac minh<br>5. Xac nhan cho qua<br><br>He thong se tao su kien MANUAL_PASS cung nguoi thao tac va ly do de hau kiem.`)
+    addMessage('ai', `⌨️ <strong>Vận hành thủ công tại cổng</strong><br><br>1. Mở <a href="/gate-transit-monitor" class="chat-link">Control Room</a><br>2. Chọn làn và mở bảng quyết định<br>3. Chọn "Vận hành thủ công"<br>4. Nhap ho ten hoac biển số, ly do xac minh<br>5. Xác nhận cho qua<br><br>Hệ thống sẽ tạo sự kiện MANUAL_PASS cùng người thao tác và lý do để hậu kiểm.`)
     return
   }
 
   if (msg.includes('qr') || msg.includes('ma')) {
-    addMessage('ai', `📱 <strong>QR Dong</strong><br><br>QR dong la ma QR thay doi theo chu ky (mac dinh 30s), tang cuong bao mat.<br><br><strong>Nguoi dung duoc cap quyen:</strong> Dang nhap → mo trang QR → giu man hinh de quet tai cong.<br><br><strong>Admin:</strong> Vao Tao QR dong, nhap Employee ID, bam "Phat QR realtime".<br><br>👉 Vao <a href="/dynamic-qr-generator" class="chat-link">Tao QR dong</a> ngay.`)
+    addMessage('ai', `📱 <strong>QR động</strong><br><br>QR động là mã QR thay đổi theo chu kỳ (mặc định 30s), tăng cường bảo mật.<br><br><strong>Người dùng được cấp quyền:</strong> Đăng nhập → mở trang QR → giữ màn hình để quét tại cổng.<br><br><strong>Admin:</strong> Vao Tao QR động, nhap Employee ID, bam "Phat QR realtime".<br><br>👉 Vao <a href="/dynamic-qr-generator" class="chat-link">Tao QR động</a> ngay.`)
     return
   }
 
   if (msg.includes('cam on') || msg.includes('thank')) {
-    addMessage('ai', 'Khong co gi! Neu can them thong tin, ban co the:<br><br>• 📖 Xem <a href="/guide" class="chat-link">Huong dan day du</a><br>• ❓ Dat cau hoi khac cho toi<br>• 📧 Lien he Admin he thong')
+    addMessage('ai', 'Không có gì! Nếu cần thêm thông tin, bạn có thể:<br><br>• 📖 Xem <a href="/guide" class="chat-link">Hướng dẫn đầy đủ</a><br>• ❓ Đặt câu hỏi khác cho tôi<br>• 📧 Liên hệ Admin hệ thống')
     return
   }
 
-  addMessage('ai', `Xin chao! Toi co the giup gi cho ban?<br><br>Hay thu cac goi y ben duoi hoac go cau hoi cua ban:<br>• "Huong dan su dung V-Shield"<br>• "Admin co the lam gi?"<br>• "Bao ve can lam gi?"<br>• "Cach tao QR dong"<br>• "Xu ly the nao khi QR loi?"`)
+  addMessage('ai', `Xin chao! Toi co the giup gi cho ban?<br><br>Hay thu cac goi y ben duoi hoac go cau hoi cua ban:<br>• "Hướng dẫn sử dụng V-Shield"<br>• "Admin có the lam gi?"<br>• "Bao ve can lam gi?"<br>• "Cach tao QR động"<br>• "Xu ly the nao khi QR loi?"`)
 }
 
 function sendSuggestion(suggestion) {
