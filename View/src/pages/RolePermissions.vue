@@ -60,7 +60,7 @@
                             <thead>
                                 <tr>
                                     <th>Trang / chức năng</th>
-                                    <th>Route</th>
+                                    <th>Đường dẫn</th>
                                     <th v-for="role in roleOrder" :key="role">{{ getRoleLabel(role) }}</th>
                                 </tr>
                             </thead>

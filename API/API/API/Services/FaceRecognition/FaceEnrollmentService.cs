@@ -171,7 +171,7 @@ public sealed class FaceEnrollmentService : IFaceEnrollmentService
         catch (FaceRuntimeUnavailableException)
         {
             job.FailureCode = "RuntimeUnavailable";
-            job.FailureMessage = "Face Runtime is unavailable.";
+            job.FailureMessage = "Face Runtime không khả dụng.";
             job.Status = job.AttemptCount < _options.MaxAttempts
                 ? FaceEnrollmentJobStatuses.Pending : FaceEnrollmentJobStatuses.Failed;
         }
@@ -221,7 +221,7 @@ public sealed class FaceEnrollmentService : IFaceEnrollmentService
             model.Status = FaceModelLifecycleStatuses.Failed;
             job.Status = FaceEnrollmentJobStatuses.Prepared;
             job.FailureCode = "ActivationFailed";
-            job.FailureMessage = "Face Runtime rejected candidate activation.";
+            job.FailureMessage = "Face Runtime từ chối kích hoạt mẫu ứng viên.";
             await _db.SaveChangesAsync(token);
             throw new InvalidOperationException(job.FailureMessage);
         }
@@ -267,7 +267,7 @@ public sealed class FaceEnrollmentService : IFaceEnrollmentService
     {
         job.Status = FaceEnrollmentJobStatuses.RecoveryRequired;
         job.FailureCode = "ActivationStateUnknown";
-        job.FailureMessage = "Runtime activation state requires administrator review.";
+        job.FailureMessage = "Trạng thái kích hoạt Runtime cần quản trị viên rà soát.";
         await _db.SaveChangesAsync(token);
     }
 
@@ -293,7 +293,7 @@ public sealed class FaceEnrollmentService : IFaceEnrollmentService
         try { error = JsonSerializer.Deserialize<RuntimeErrorDto>(response.Body,
             new JsonSerializerOptions(JsonSerializerDefaults.Web)); } catch (JsonException) { }
         job.FailureCode = Sanitize(error?.FailureCode, 80) ?? "RuntimeFailure";
-        job.FailureMessage = Sanitize(error?.Message, 500) ?? "Face Runtime rejected enrollment.";
+        job.FailureMessage = Sanitize(error?.Message, 500) ?? "Face Runtime từ chối đăng ký.";
         job.DuplicateSubjectId = Sanitize(error?.DuplicateSubjectId, 40);
         job.DuplicateDistance = error?.DuplicateDistance;
         var retryable = (int)response.StatusCode >= 500;

@@ -861,7 +861,7 @@
                             <input v-model.number="policyRuleForm.accessLevelId" type="number" min="1" required />
                         </label>
                         <label>
-                            ID site
+                            Mã khu vực
                             <input v-model.number="policyRuleForm.siteId" type="number" min="1" />
                         </label>
                         <label>
@@ -890,7 +890,7 @@
                                 <span class="rule-detail">{{ rule.subjectType }}:{{ rule.subjectId || '*' }} · {{ rule.credentialType }}</span>
                             </div>
                             <div class="rule-scope">
-                                <span v-if="rule.siteId">Site {{ rule.siteId }}</span>
+                                <span v-if="rule.siteId">Khu vực {{ rule.siteId }}</span>
                                 <span v-if="rule.securityZoneId">Khu vực {{ rule.securityZoneId }}</span>
                                 <span v-if="rule.accessPointId">Điểm truy cập {{ rule.accessPointId }}</span>
                             </div>

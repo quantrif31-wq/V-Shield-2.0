@@ -98,10 +98,10 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
-                    <span class="panel-kicker">Credential doanh nghiệp</span>
-                    <h2 class="panel-title">Credential chuẩn của nhân viên</h2>
+                    <span class="panel-kicker">Thông tin đăng nhập doanh nghiệp</span>
+                    <h2 class="panel-title">Thông tin đăng nhập chuẩn của nhân viên</h2>
                 </div>
-                <span class="soft-chip">{{ accessCredentials.length }} credential</span>
+                <span class="soft-chip">{{ accessCredentials.length }} thông tin đăng nhập</span>
             </div>
             <div v-if="accessCredentials.length" class="table-container">
                 <table class="data-table">
@@ -117,7 +117,7 @@
                     </tbody>
                 </table>
             </div>
-            <div v-else class="empty-card">Chưa có credential nhân viên canonical. QR hiện hữu vẫn hoạt động độc lập.</div>
+            <div v-else class="empty-card">Chưa có thông tin đăng nhập nhân viên chuẩn. QR hiện hữu vẫn hoạt động độc lập.</div>
         </section>
 
         <section class="ops-panel">
@@ -126,11 +126,11 @@
                     <span class="panel-kicker">Liên kết credential khuôn mặt</span>
                     <h2 class="panel-title">Liên kết danh tính khuôn mặt với credential doanh nghiệp</h2>
                 </div>
-                <span class="soft-chip">{{ faceCredentialBindings.length }} binding</span>
+                <span class="soft-chip">{{ faceCredentialBindings.length }} liên kết</span>
             </div>
             <div v-if="faceCredentialBindings.length" class="table-container">
                 <table class="data-table">
-                    <thead><tr><th>Nhân viên</th><th>Credential</th><th>Trạng thái</th><th>Mã định danh</th><th>Thời gian</th></tr></thead>
+                    <thead><tr><th>Nhân viên</th><th>Thông tin đăng nhập</th><th>Trạng thái</th><th>Mã định danh</th><th>Thời gian</th></tr></thead>
                     <tbody>
                         <tr v-for="binding in faceCredentialBindings" :key="binding.id">
                             <td>{{ binding.employeeName }}<div class="table-sub">ID {{ binding.employeeId }}</div></td>
@@ -143,7 +143,7 @@
                 </table>
             </div>
             <div v-else class="empty-card">
-                Chưa có binding được phê duyệt. Hệ thống không tự chọn credential và không tự bind nhân viên.
+                Chưa có liên kết được phê duyệt. Hệ thống không tự chọn thông tin đăng nhập và không tự liên kết nhân viên.
             </div>
         </section>
 
@@ -168,12 +168,12 @@
                     </option>
                 </select>
                 <button class="btn btn-primary" :disabled="!selectedVideoId || enrollmentBusy" @click="createEnrollment">
-                    Tạo enrollment job
+                    Tạo tác vụ đăng ký mẫu
                 </button>
             </div>
             <div v-if="selectedEmployeeId" class="chip-row">
                 <span class="soft-chip" :class="bindingReadiness === 'Ready' ? 'success' : 'warn'">
-                    Sẵn sàng enterprise: {{ bindingReadiness }}
+                    Sẵn sàng doanh nghiệp: {{ bindingReadiness }}
                 </span>
                 <span v-if="selectedEmployeeBinding" class="soft-chip">
                     Binding #{{ selectedEmployeeBinding.id }} · {{ selectedEmployeeBinding.credentialEffectiveStatus }}

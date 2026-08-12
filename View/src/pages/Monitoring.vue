@@ -39,7 +39,7 @@
         <div class="cam-head">
           <span>{{ cam.cameraName }}</span>
           <span class="status" :class="isHealthy(cam.cameraId) ? 'ok' : 'wait'">
-            {{ isHealthy(cam.cameraId) ? "LIVE" : "LOADING..." }}
+            {{ isHealthy(cam.cameraId) ? "TRỰC TIẾP" : "ĐANG TẢI..." }}
           </span>
         </div>
 

@@ -88,7 +88,7 @@
                         </div>
                         <div class="risk-meta">
                             <span>Lượt vào/ra: {{ profile.totalAccessCount }}</span>
-                            <span>Bypass: {{ profile.bypassRate }}%</span>
+                            <span>Bỏ qua: {{ profile.bypassRate }}%</span>
                             <span>Cuối tuần: {{ profile.weekendAccessRatio }}%</span>
                         </div>
                         <div class="risk-actions">
@@ -113,12 +113,12 @@
                     <thead>
                         <tr>
                             <th>Nhân viên</th>
-                            <th>Access</th>
+                            <th>Truy cập</th>
                             <th>Bắt đầu</th>
                             <th>Kết thúc</th>
                             <th>Cuối tuần</th>
                             <th>Bypass</th>
-                            <th>Risk</th>
+                            <th>Rủi ro</th>
                             <th>Lần cuối</th>
                             <th></th>
                         </tr>
@@ -135,7 +135,7 @@
                             <td>{{ profile.daysSinceLastAccess }} ngày</td>
                             <td class="table-actions">
                                 <button class="btn btn-ghost btn-sm" @click="explainRisk(profile.employeeId)">AI</button>
-                                <button class="btn btn-ghost btn-sm" @click="rebuild(profile.employeeId)">Rebuild</button>
+                                <button class="btn btn-ghost btn-sm" @click="rebuild(profile.employeeId)">Xây lại</button>
                             </td>
                         </tr>
                     </tbody>

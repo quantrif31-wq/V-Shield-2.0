@@ -15,7 +15,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Departments</span>
+                        <span class="panel-kicker">Phòng ban</span>
                         <h2 class="panel-title">Phòng ban</h2>
                     </div>
                     <router-link to="/departments-positions" class="btn btn-secondary btn-sm">Quản lý chi tiết</router-link>
@@ -34,7 +34,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Positions</span>
+                        <span class="panel-kicker">Chức vụ</span>
                         <h2 class="panel-title">Chức vụ</h2>
                     </div>
                     <router-link to="/departments-positions" class="btn btn-secondary btn-sm">Quản lý chi tiết</router-link>

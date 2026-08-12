@@ -109,7 +109,7 @@ public static class DemoDataSeeder
 
         var company = new Company
         {
-            Name = "V-Shield Manufacturing Group",
+            Name = "Tập đoàn Sản xuất V-Shield",
             Code = DemoCompanyCode,
             IsActive = true,
             CreatedAtUtc = now.AddMonths(-18)
@@ -119,9 +119,9 @@ public static class DemoDataSeeder
 
         var sites = new[]
         {
-            new Site { CompanyId = company.CompanyId, Name = "Head Office - Ha Noi", Code = "HN-HQ", Address = "Cau Giay, Ha Noi", Latitude = 21.028511m, Longitude = 105.804817m, CreatedAtUtc = now.AddMonths(-18) },
-            new Site { CompanyId = company.CompanyId, Name = "Factory Campus - Bac Ninh", Code = "BN-FAC", Address = "VSIP Bac Ninh", Latitude = 21.186111m, Longitude = 106.076389m, CreatedAtUtc = now.AddMonths(-16) },
-            new Site { CompanyId = company.CompanyId, Name = "Logistics Hub - Hai Phong", Code = "HP-LOG", Address = "Dinh Vu, Hai Phong", Latitude = 20.866667m, Longitude = 106.684722m, CreatedAtUtc = now.AddMonths(-12) }
+            new Site { CompanyId = company.CompanyId, Name = "Trụ sở chính - Hà Nội", Code = "HN-HQ", Address = "Cầu Giấy, Hà Nội", Latitude = 21.028511m, Longitude = 105.804817m, CreatedAtUtc = now.AddMonths(-18) },
+            new Site { CompanyId = company.CompanyId, Name = "Khu nhà máy - Bắc Ninh", Code = "BN-FAC", Address = "VSIP Bắc Ninh", Latitude = 21.186111m, Longitude = 106.076389m, CreatedAtUtc = now.AddMonths(-16) },
+            new Site { CompanyId = company.CompanyId, Name = "Trung tâm logistics - Hải Phòng", Code = "HP-LOG", Address = "Đình Vũ, Hải Phòng", Latitude = 20.866667m, Longitude = 106.684722m, CreatedAtUtc = now.AddMonths(-12) }
         };
         db.Sites.AddRange(sites);
         db.SaveChanges();
@@ -142,8 +142,8 @@ public static class DemoDataSeeder
             var opsCode = $"{site.Code}-OPS";
             var (admLat, admLng) = buildingCoords.GetValueOrDefault(admCode, (site.Latitude ?? 0, site.Longitude ?? 0));
             var (opsLat, opsLng) = buildingCoords.GetValueOrDefault(opsCode, (site.Latitude ?? 0, site.Longitude ?? 0));
-            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Administration", Code = admCode, Latitude = admLat, Longitude = admLng });
-            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Operations", Code = opsCode, Latitude = opsLat, Longitude = opsLng });
+            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Hành chính", Code = admCode, Latitude = admLat, Longitude = admLng });
+            buildings.Add(new Building { SiteId = site.SiteId, Name = $"{site.Code} Vận hành", Code = opsCode, Latitude = opsLat, Longitude = opsLng });
         }
         db.Buildings.AddRange(buildings);
         db.SaveChanges();
@@ -156,7 +156,7 @@ public static class DemoDataSeeder
                 floors.Add(new FacilityFloor
                 {
                     BuildingId = building.BuildingId,
-                    Name = $"Floor {floor}",
+                    Name = $"Tầng {floor}",
                     Code = $"{building.Code}-F{floor}",
                     SortOrder = floor
                 });
@@ -168,10 +168,10 @@ public static class DemoDataSeeder
         var zones = new List<SecurityZone>();
         foreach (var site in sites)
         {
-            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Public Lobby", Code = $"{site.Code}-PUB", SecurityLevel = "Public", IsRestricted = false });
-            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Office Zone", Code = $"{site.Code}-OFF", SecurityLevel = "Normal", IsRestricted = false });
-            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Production Zone", Code = $"{site.Code}-PRD", SecurityLevel = "Restricted", IsRestricted = true });
-            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "SOC and Server Room", Code = $"{site.Code}-SOC", SecurityLevel = "Critical", IsRestricted = true });
+            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Sảnh công cộng", Code = $"{site.Code}-PUB", SecurityLevel = "Public", IsRestricted = false });
+            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Khu văn phòng", Code = $"{site.Code}-OFF", SecurityLevel = "Normal", IsRestricted = false });
+            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Khu sản xuất", Code = $"{site.Code}-PRD", SecurityLevel = "Restricted", IsRestricted = true });
+            zones.Add(new SecurityZone { SiteId = site.SiteId, Name = "Phòng SOC và máy chủ", Code = $"{site.Code}-SOC", SecurityLevel = "Critical", IsRestricted = true });
         }
         db.SecurityZones.AddRange(zones);
         db.SaveChanges();
@@ -183,7 +183,7 @@ public static class DemoDataSeeder
             {
                 SiteId = zone.SiteId,
                 SecurityZoneId = zone.SecurityZoneId,
-                Name = $"{zone.Code} Main Door",
+                Name = $"{zone.Code} Cửa chính",
                 Type = zone.IsRestricted ? "Turnstile" : "Door",
                 DirectionMode = "Bidirectional"
             });
@@ -194,79 +194,79 @@ public static class DemoDataSeeder
         db.Doors.AddRange(accessPoints.Select(ap => new Door
         {
             AccessPointId = ap.AccessPointId,
-            Name = $"{ap.Name} Door",
+            Name = $"{ap.Name} Cửa",
             DoorMode = ap.Type == "Turnstile" ? "DynamicQrAndPlate" : "DynamicQr"
         }));
         db.MusterPoints.AddRange(sites.Select(site => new MusterPoint
         {
             SiteId = site.SiteId,
-            Name = $"{site.Code} Muster Area",
-            LocationNote = "Outdoor assembly point near main gate",
+            Name = $"{site.Code} Điểm tập trung",
+            LocationNote = "Điểm tập trung ngoài trời gần cổng chính",
             Capacity = 350
         }));
         db.SaveChanges();
 
         var gates = new[]
         {
-            new Gate { GateName = "HN Main Gate", Location = "Head office front gate", Latitude = 21.0284m, Longitude = 105.8045m },
-            new Gate { GateName = "HN Basement Parking", Location = "Head office B1 ramp", Latitude = 21.0283m, Longitude = 105.8049m },
-            new Gate { GateName = "BN Employee Gate", Location = "Factory employee entrance", Latitude = 21.1860m, Longitude = 106.0765m },
-            new Gate { GateName = "BN Truck Gate", Location = "Factory logistics lane", Latitude = 21.1858m, Longitude = 106.0761m },
-            new Gate { GateName = "HP Warehouse Gate", Location = "Logistics hub gate", Latitude = 20.8666m, Longitude = 106.6849m }
+            new Gate { GateName = "Cổng chính HN", Location = "Cổng trước trụ sở", Latitude = 21.0284m, Longitude = 105.8045m },
+            new Gate { GateName = "Bãi xe hầm HN", Location = "Dốc B1 trụ sở", Latitude = 21.0283m, Longitude = 105.8049m },
+            new Gate { GateName = "Cổng nhân viên BN", Location = "Lối vào nhân viên nhà máy", Latitude = 21.1860m, Longitude = 106.0765m },
+            new Gate { GateName = "Cổng xe tải BN", Location = "Làn logistics nhà máy", Latitude = 21.1858m, Longitude = 106.0761m },
+            new Gate { GateName = "Cổng kho HP", Location = "Cổng trung tâm logistics", Latitude = 20.8666m, Longitude = 106.6849m }
         };
         db.Gates.AddRange(gates);
         db.SaveChanges();
 
         db.Lanes.AddRange(new[]
         {
-            new Lane { SiteId = sites[0].SiteId, GateId = gates[0].GateId, Name = "HN Entry Lane", Direction = "Entry" },
-            new Lane { SiteId = sites[0].SiteId, GateId = gates[0].GateId, Name = "HN Exit Lane", Direction = "Exit" },
-            new Lane { SiteId = sites[1].SiteId, GateId = gates[2].GateId, Name = "BN Employee Entry", Direction = "Entry" },
-            new Lane { SiteId = sites[1].SiteId, GateId = gates[3].GateId, Name = "BN Truck Lane", Direction = "Bidirectional" },
-            new Lane { SiteId = sites[2].SiteId, GateId = gates[4].GateId, Name = "HP Warehouse Lane", Direction = "Bidirectional" }
+            new Lane { SiteId = sites[0].SiteId, GateId = gates[0].GateId, Name = "Làn vào HN", Direction = "Entry" },
+            new Lane { SiteId = sites[0].SiteId, GateId = gates[0].GateId, Name = "Làn ra HN", Direction = "Exit" },
+            new Lane { SiteId = sites[1].SiteId, GateId = gates[2].GateId, Name = "Lối vào nhân viên BN", Direction = "Entry" },
+            new Lane { SiteId = sites[1].SiteId, GateId = gates[3].GateId, Name = "Làn xe tải BN", Direction = "Bidirectional" },
+            new Lane { SiteId = sites[2].SiteId, GateId = gates[4].GateId, Name = "Làn kho HP", Direction = "Bidirectional" }
         });
 
         var cameras = new List<Camera>();
         foreach (var gate in gates)
         {
-            cameras.Add(new Camera { CameraName = $"{gate.GateName} QR Scanner", GateId = gate.GateId, CameraType = "QR", StreamUrl = "rtsp://demo.local/qr", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
-            cameras.Add(new Camera { CameraName = $"{gate.GateName} Plate Camera", GateId = gate.GateId, CameraType = "Plate", StreamUrl = "rtsp://demo.local/plate", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
+            cameras.Add(new Camera { CameraName = $"{gate.GateName} Máy quét QR", GateId = gate.GateId, CameraType = "QR", StreamUrl = "rtsp://demo.local/qr", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
+            cameras.Add(new Camera { CameraName = $"{gate.GateName} Camera biển số", GateId = gate.GateId, CameraType = "Plate", StreamUrl = "rtsp://demo.local/plate", UrlView = "http://127.0.0.1:1984/stream.html?src=demo" });
         }
         db.Cameras.AddRange(cameras);
         db.SaveChanges();
 
         var departmentNames = new[]
         {
-            "Security Operations", "Human Resources", "Production", "Quality Assurance", "Warehouse",
-            "Maintenance", "Information Technology", "Finance", "Sales", "Executive Office"
+            "Vận hành an ninh", "Nhân sự", "Sản xuất", "Đảm bảo chất lượng", "Kho",
+            "Bảo trì", "Công nghệ thông tin", "Tài chính", "Kinh doanh", "Văn phòng điều hành"
         };
         var departments = departmentNames.Select(name => new Department { Name = name }).ToList();
         db.Departments.AddRange(departments);
 
         var positionNames = new[]
         {
-            "Director", "Manager", "Supervisor", "Security Officer", "Engineer",
-            "Technician", "Operator", "HR Specialist", "Accountant", "Warehouse Coordinator"
+            "Giám đốc", "Quản lý", "Giám sát", "Nhân viên an ninh", "Kỹ sư",
+            "Kỹ thuật viên", "Vận hành viên", "Chuyên viên nhân sự", "Kế toán", "Điều phối kho"
         };
         var positions = positionNames.Select(name => new Position { Name = name }).ToList();
         db.Positions.AddRange(positions);
 
         var vehicleTypes = new[]
         {
-            new VehicleType { TypeName = "Car" },
-            new VehicleType { TypeName = "Motorbike" },
-            new VehicleType { TypeName = "Truck" },
-            new VehicleType { TypeName = "Van" }
+            new VehicleType { TypeName = "Ô tô" },
+            new VehicleType { TypeName = "Xe máy" },
+            new VehicleType { TypeName = "Xe tải" },
+            new VehicleType { TypeName = "Xe van" }
         };
         db.VehicleTypes.AddRange(vehicleTypes);
 
         db.ExceptionReasons.AddRange(new[]
         {
-            new ExceptionReason { ReasonCode = "QR_EXPIRED", Description = "Dynamic QR token expired or outside allowed time window" },
-            new ExceptionReason { ReasonCode = "QR_REPLAY", Description = "Dynamic QR token replay detected" },
-            new ExceptionReason { ReasonCode = "PLATE_REVIEW", Description = "License plate requires manual review" },
-            new ExceptionReason { ReasonCode = "TEMP_ACCESS", Description = "Temporary access approved by supervisor" },
-            new ExceptionReason { ReasonCode = "TAILGATING", Description = "Tailgating or anti-passback anomaly" }
+            new ExceptionReason { ReasonCode = "QR_EXPIRED", Description = "Mã QR động hết hạn hoặc nằm ngoài khung giờ cho phép" },
+            new ExceptionReason { ReasonCode = "QR_REPLAY", Description = "Phát hiện mã QR động bị tái sử dụng" },
+            new ExceptionReason { ReasonCode = "PLATE_REVIEW", Description = "Biển số cần rà soát thủ công" },
+            new ExceptionReason { ReasonCode = "TEMP_ACCESS", Description = "Quyền truy cập tạm thời do quản lý phê duyệt" },
+            new ExceptionReason { ReasonCode = "TAILGATING", Description = "Bất thường bám đuôi hoặc vi phạm chống passback" }
         });
         db.SaveChanges();
 
@@ -314,9 +314,9 @@ public static class DemoDataSeeder
         {
             shifts = new List<Shift>
             {
-                new() { ShiftName = "Office 08:00-17:00", StartTime = new TimeSpan(8, 0, 0), EndTime = new TimeSpan(17, 0, 0), BreakMinutes = 60, AllowedLateMinutes = 10, AllowedEarlyLeaveMinutes = 10 },
-                new() { ShiftName = "Factory Morning 06:00-14:00", StartTime = new TimeSpan(6, 0, 0), EndTime = new TimeSpan(14, 0, 0), BreakMinutes = 45, AllowedLateMinutes = 5, AllowedEarlyLeaveMinutes = 5 },
-                new() { ShiftName = "Factory Afternoon 14:00-22:00", StartTime = new TimeSpan(14, 0, 0), EndTime = new TimeSpan(22, 0, 0), BreakMinutes = 45, AllowedLateMinutes = 5, AllowedEarlyLeaveMinutes = 5 }
+                new() { ShiftName = "Văn phòng 08:00-17:00", StartTime = new TimeSpan(8, 0, 0), EndTime = new TimeSpan(17, 0, 0), BreakMinutes = 60, AllowedLateMinutes = 10, AllowedEarlyLeaveMinutes = 10 },
+                new() { ShiftName = "Nhà máy sáng 06:00-14:00", StartTime = new TimeSpan(6, 0, 0), EndTime = new TimeSpan(14, 0, 0), BreakMinutes = 45, AllowedLateMinutes = 5, AllowedEarlyLeaveMinutes = 5 },
+                new() { ShiftName = "Nhà máy chiều 14:00-22:00", StartTime = new TimeSpan(14, 0, 0), EndTime = new TimeSpan(22, 0, 0), BreakMinutes = 45, AllowedLateMinutes = 5, AllowedEarlyLeaveMinutes = 5 }
             };
             db.Shifts.AddRange(shifts);
             db.SaveChanges();
@@ -333,7 +333,7 @@ public static class DemoDataSeeder
                 VehicleTypeId = type.VehicleTypeId,
                 EmployeeId = employee.EmployeeId,
                 SiteId = employee.PrimarySiteId,
-                Description = $"{type.TypeName} assigned to {employee.FullName}",
+                Description = $"{type.TypeName} được gán cho {employee.FullName}",
                 ParkingStatus = i % 4 == 0 ? "IN" : "OUT"
             });
         }
@@ -403,7 +403,7 @@ public static class DemoDataSeeder
                     ShiftId = shift.ShiftId,
                     WorkDate = workDate,
                     Status = day < 0 ? WorkScheduleStatuses.Worked : WorkScheduleStatuses.Scheduled,
-                    Note = "Generated demo work schedule",
+                    Note = "Lịch làm việc mẫu được tạo tự động",
                     CreatedAt = now.AddDays(-45),
                     UpdatedAt = now.AddDays(-1)
                 };
@@ -444,7 +444,7 @@ public static class DemoDataSeeder
                     schedule.WorkDate == DateTime.Today ? AttendanceStatuses.CheckedIn :
                     AttendanceStatuses.Completed,
                 Source = AttendanceSources.AccessLog,
-                Note = "Generated from dynamic QR and gate access events",
+                Note = "Được tạo từ sự kiện ra vào cổng và QR động",
                 CreatedAt = now.AddDays(-20),
                 UpdatedAt = now.AddDays(-1)
             });
@@ -458,7 +458,7 @@ public static class DemoDataSeeder
             LeaveType = index % 3 == 0 ? LeaveTypes.SickLeave : LeaveTypes.AnnualLeave,
             StartDate = DateTime.Today.AddDays(index - 9),
             EndDate = DateTime.Today.AddDays(index - 8),
-            Reason = index % 3 == 0 ? "Medical leave" : "Family plan",
+            Reason = index % 3 == 0 ? "Nghỉ ốm" : "Việc gia đình",
             Status = index % 4 == 0 ? LeaveRequestStatuses.Pending : LeaveRequestStatuses.Approved,
             CreatedAt = now.AddDays(-20 + index),
             UpdatedAt = now.AddDays(-10 + index)
@@ -499,11 +499,11 @@ public static class DemoDataSeeder
                     ResultStatus = failed ? "Denied" : "Granted",
                     IsBypass = i % 89 == 0,
                     ExceptionReasonId = failed ? exceptionReasons[Math.Abs(i + day) % exceptionReasons.Count].ReasonId : null,
-                    Note = failed ? "Demo dynamic QR anomaly event for SOC review" : "Demo dynamic QR access event",
+                    Note = failed ? "Sự kiện bất thường QR động demo cho SOC rà soát" : "Sự kiện truy cập QR động demo",
                     SiteNameSnapshot = sites[(employee.PrimarySiteId ?? sites[0].SiteId) % sites.Length].Name,
                     SecurityZoneNameSnapshot = zones[Math.Abs(i + day) % zones.Count].Name,
                     AccessPointNameSnapshot = accessPoints[Math.Abs(i + day) % accessPoints.Count].Name,
-                    LaneNameSnapshot = $"Lane {(i % 4) + 1}",
+                    LaneNameSnapshot = $"Làn {(i % 4) + 1}",
                     GateNameSnapshot = gate.GateName,
                     CameraNameSnapshot = camera?.CameraName
                 });
@@ -732,13 +732,13 @@ public static class DemoDataSeeder
                     new BarrierCommandAudit
                     {
                         BarrierId = b.BarrierId, Command = i % 2 == 0 ? "Open" : "Close",
-                        Reason = "Demo seed — manual test", RequestedByUserId = null,
+                        Reason = "Dữ liệu mẫu — kiểm tra thủ công", RequestedByUserId = null,
                         RequestedAtUtc = now.AddDays(-i - 1), Result = "Success"
                     },
                     new BarrierCommandAudit
                     {
                         BarrierId = b.BarrierId, Command = i % 2 == 0 ? "Close" : "Open",
-                        Reason = "Demo seed — end of test", RequestedByUserId = null,
+                        Reason = "Dữ liệu mẫu — kết thúc kiểm tra", RequestedByUserId = null,
                         RequestedAtUtc = now.AddDays(-i), Result = "Success"
                     }
                 }).ToList();
@@ -839,11 +839,11 @@ public static class DemoDataSeeder
         {
             switch (gate.GateName)
             {
-                case "HN Main Gate": gate.Latitude = 21.0284m; gate.Longitude = 105.8045m; break;
-                case "HN Basement Parking": gate.Latitude = 21.0283m; gate.Longitude = 105.8049m; break;
-                case "BN Employee Gate": gate.Latitude = 21.1860m; gate.Longitude = 106.0765m; break;
-                case "BN Truck Gate": gate.Latitude = 21.1858m; gate.Longitude = 106.0761m; break;
-                case "HP Warehouse Gate": gate.Latitude = 20.8666m; gate.Longitude = 106.6849m; break;
+                case "Cổng chính HN": gate.Latitude = 21.0284m; gate.Longitude = 105.8045m; break;
+                case "Bãi xe hầm HN": gate.Latitude = 21.0283m; gate.Longitude = 105.8049m; break;
+                case "Cổng nhân viên BN": gate.Latitude = 21.1860m; gate.Longitude = 106.0765m; break;
+                case "Cổng xe tải BN": gate.Latitude = 21.1858m; gate.Longitude = 106.0761m; break;
+                case "Cổng kho HP": gate.Latitude = 20.8666m; gate.Longitude = 106.6849m; break;
             }
         }
 
@@ -938,7 +938,7 @@ public static class DemoDataSeeder
         {
             demoNotifications.Add(new Notification
             {
-                RecipientUserId = guardUser.UserId, Title = "Báo động khẩn cấp", Body = "Vượt cổng khẩn cấp tại cổng HN Main Gate — xe 29A-12345", Category = "Alarm", ReferenceType = "Alarm", Latitude = 21.0284m, Longitude = 105.8045m, LocationLabel = "Cổng chính HN - Cầu Giấy", CreatedAt = now.AddMinutes(-10), IsRead = false
+                RecipientUserId = guardUser.UserId, Title = "Báo động khẩn cấp", Body = "Vượt cổng khẩn cấp tại Cổng chính HN — xe 29A-12345", Category = "Alarm", ReferenceType = "Alarm", Latitude = 21.0284m, Longitude = 105.8045m, LocationLabel = "Cổng chính HN - Cầu Giấy", CreatedAt = now.AddMinutes(-10), IsRead = false
             });
             demoNotifications.Add(new Notification
             {
@@ -1025,18 +1025,18 @@ public static class DemoDataSeeder
             db.VisitorFormTemplates.AddRange(
                 new VisitorFormTemplate
                 {
-                    Name = "Visitor NDA Standard",
+                    Name = "NDA tiêu chuẩn khách tham quan",
                     FormType = "NDA",
                     Version = 3,
-                    Body = "Visitor agrees to keep confidential all operational, production and security information observed on site.",
+                    Body = "Khách tham quan cam kết giữ bí mật mọi thông tin vận hành, sản xuất và an ninh quan sát được tại cơ sở.",
                     IsActive = true
                 },
                 new VisitorFormTemplate
                 {
-                    Name = "Factory Safety Briefing",
+                    Name = "Hướng dẫn an toàn nhà máy",
                     FormType = "Safety",
                     Version = 2,
-                    Body = "Visitor confirms PPE rules, escort requirements and emergency assembly instructions before entering production zones.",
+                    Body = "Khách tham quan xác nhận đã nắm quy tắc PPE, yêu cầu đi kèm và hướng dẫn tập trung khẩn cấp trước khi vào khu sản xuất.",
                     IsActive = true
                 });
         }
@@ -1132,7 +1132,7 @@ public static class DemoDataSeeder
                     DisplayName = "Tran Van Kiem Tra",
                     Identifier = "ID-ALERT-001",
                     Severity = "High",
-                    Reason = "Repeated attempts to enter restricted areas using expired visitor credentials.",
+                    Reason = "Nhiều lần cố vào khu vực hạn chế bằng thông tin đăng nhập khách đã hết hạn.",
                     CreatedAtUtc = now.AddDays(-21)
                 },
                 new WatchlistEntry
@@ -1141,16 +1141,16 @@ public static class DemoDataSeeder
                     DisplayName = "Truck nghi van logistics",
                     Identifier = "99C-67890",
                     Severity = "Critical",
-                    Reason = "Flagged by logistics audit for mismatched manifest and gate events.",
+                    Reason = "Được kiểm toán logistics gắn cờ vì sự kiện ra vào và manifest không khớp.",
                     CreatedAtUtc = now.AddDays(-14)
                 },
                 new WatchlistEntry
                 {
                     EntityType = "Person",
-                    DisplayName = "Guest overstay recurrent",
+                    DisplayName = "Khách quá giờ lặp lại",
                     Identifier = "VIS-OVERSTAY-003",
                     Severity = "Medium",
-                    Reason = "Multiple overstay incidents in the previous 30 days.",
+                    Reason = "Nhiều lần quá giờ trong 30 ngày trước.",
                     CreatedAtUtc = now.AddDays(-9)
                 });
         }
@@ -1172,7 +1172,7 @@ public static class DemoDataSeeder
                         WatchlistEntryId = entries[0].WatchlistEntryId,
                         VisitId = visits[0].VisitId,
                         Status = "Escalated",
-                        ReviewNote = "Reception confirmed ID mismatch and escalated to security shift lead.",
+                        ReviewNote = "Lễ tân xác nhận sai lệch giấy tờ và chuyển cấp cho trưởng ca an ninh.",
                         MatchedAtUtc = now.AddHours(-8),
                         ReviewedAtUtc = now.AddHours(-7),
                         ReviewedByUserId = reviewers.FirstOrDefault()?.UserId
@@ -1186,7 +1186,7 @@ public static class DemoDataSeeder
                         WatchlistEntryId = entries[1].WatchlistEntryId,
                         VehicleId = vehicles[^1].VehicleId,
                         Status = "Pending",
-                        ReviewNote = "Vehicle queued for manual lane inspection on next arrival.",
+                        ReviewNote = "Xe đang chờ kiểm tra làn thủ công ở lần đến tiếp theo.",
                         MatchedAtUtc = now.AddHours(-3)
                     });
                 }
@@ -1198,7 +1198,7 @@ public static class DemoDataSeeder
                         WatchlistEntryId = entries[2].WatchlistEntryId,
                         VisitId = visits[1].VisitId,
                         Status = "Resolved",
-                        ReviewNote = "Host validated prolonged visit due to extended audit meeting.",
+                        ReviewNote = "Chủ nhà xác nhận chuyến thăm kéo dài do cuộc họp kiểm toán kéo dài.",
                         MatchedAtUtc = now.AddDays(-1),
                         ReviewedAtUtc = now.AddHours(-12),
                         ReviewedByUserId = reviewers.Skip(1).FirstOrDefault()?.UserId ?? reviewers.FirstOrDefault()?.UserId
@@ -1228,11 +1228,11 @@ public static class DemoDataSeeder
                         _ => ReceptionInteractionTypes.Wayfinding
                     },
                     Summary = index % 5 == 2
-                        ? $"Escort support requested for {visit.VisitorName}"
-                        : $"Front desk handled visitor workflow for {visit.VisitorName}",
+                        ? $"Đã yêu cầu hỗ trợ đi kèm cho {visit.VisitorName}"
+                        : $"Lễ tân đã xử lý quy trình thăm quan cho {visit.VisitorName}",
                     DetailNote = index % 5 == 2
-                        ? "Visitor requested access to restricted production zone and required escort dispatch."
-                        : "Reception verified booking, host status and parking guidance.",
+                        ? "Khách yêu cầu vào khu sản xuất hạn chế và cần điều động nhân viên đi kèm."
+                        : "Lễ tân đã xác minh đặt lịch, trạng thái chủ nhà và hướng dẫn đỗ xe.",
                     ContactPersonName = visit.VisitorName,
                     ContactPersonPhone = visit.VisitorPhone,
                     RelatedVehiclePlate = index % 3 == 0 ? $"51H-{61000 + index * 17}" : null,
@@ -1240,7 +1240,7 @@ public static class DemoDataSeeder
                         index % 4 == 0 ? ReceptionInteractionStatuses.Resolved :
                         ReceptionInteractionStatuses.InProgress,
                     SecurityRequested = index % 5 == 2,
-                    ResolutionNote = index % 4 == 0 ? "Issue closed after host confirmation and exit verification." : null,
+                    ResolutionNote = index % 4 == 0 ? "Đã đóng vụ việc sau khi chủ nhà xác nhận và kiểm tra ra về." : null,
                     CreatedAtUtc = now.AddHours(-(index + 2)),
                     UpdatedAtUtc = now.AddHours(-(index % 3)),
                     CreatedByUserId = users.Count == 0 ? (int?)null : users[index % users.Count].UserId,
@@ -1266,9 +1266,9 @@ public static class DemoDataSeeder
                 FullName = employee.FullName,
                 Company = (index % 3) switch
                 {
-                    0 => "An Binh Fire Safety Co.",
-                    1 => "North Star Facility Services",
-                    _ => "Delta Industrial Maintenance"
+                    0 => "Công ty PCCC An Bình",
+                    1 => "Dịch vụ Cơ sở hạ tầng North Star",
+                    _ => "Bảo trì công nghiệp Delta"
                 },
                 Phone = employee.Phone,
                 Email = employee.Email,
@@ -1276,7 +1276,7 @@ public static class DemoDataSeeder
                 ContractToUtc = now.AddDays(index % 4 == 0 ? 7 : 45 + index * 2),
                 Status = index % 5 == 0 ? ContractorStatuses.Expiring : ContractorStatuses.Active,
                 SiteId = employee.PrimarySiteId ?? siteIds.ElementAtOrDefault(index % Math.Max(siteIds.Count, 1)),
-                RequiredTraining = index % 2 == 0 ? "PPE, Lockout/Tagout, Visitor escort" : "Electrical safety, confined-space awareness",
+                RequiredTraining = index % 2 == 0 ? "PPE, Khóa/Gắn thẻ an toàn, Đi kèm khách" : "An toàn điện, nhận thức không gian hạn chế",
                 AccessReviewCompleted = index % 3 != 0,
                 AccessReviewDateUtc = index % 3 != 0 ? now.AddDays(-(index + 2)) : null,
                 CreatedAtUtc = now.AddDays(-(90 - index))
@@ -1305,10 +1305,10 @@ public static class DemoDataSeeder
                         FromEmployeeId = fromEmployeeId,
                         ToEmployeeId = toEmployee.EmployeeId,
                         Reason = index % 3 == 0
-                            ? "On-call support coverage for late shift"
+                            ? "Hỗ trợ trực ca cho ca muộn"
                             : index % 3 == 1
-                                ? "Inter-site document transfer and branch visit"
-                                : "Temporary replacement while assigned vehicle is in maintenance",
+                                ? "Vận chuyển tài liệu giữa các cơ sở và đi chi nhánh"
+                                : "Thay thế tạm thời trong khi xe được bảo dưỡng",
                         Status = (index % 5) switch
                         {
                             0 => DelegationStatuses.Pending,
@@ -1388,7 +1388,7 @@ public static class DemoDataSeeder
             db.EvidenceCollections.AddRange(
                 new EvidenceCollection
                 {
-                    Name = "Investigation bundle - Gate anomaly",
+                    Name = "Bộ hồ sơ điều tra - bất thường cổng",
                     Purpose = "Investigation",
                     Status = "Open",
                     CreatedByUserId = adminUser?.UserId,
@@ -1396,7 +1396,7 @@ public static class DemoDataSeeder
                 },
                 new EvidenceCollection
                 {
-                    Name = "Weekly compliance sample",
+                    Name = "Mẫu kiểm tra tuân thủ hàng tuần",
                     Purpose = "Compliance",
                     Status = "Locked",
                     CreatedByUserId = adminUser?.UserId,
@@ -1424,7 +1424,7 @@ public static class DemoDataSeeder
                 EvidenceItemId = item.EvidenceItemId,
                 UserId = index % 2 == 0 ? adminUser?.UserId : guardUser?.UserId,
                 AccessType = index % 3 == 0 ? "Download" : "Read",
-                Purpose = index % 3 == 0 ? "Incident review export preparation" : "Routine verification and audit spot-check",
+                Purpose = index % 3 == 0 ? "Chuẩn bị xuất hồ sơ xem xét sự cố" : "Xác minh định kỳ và kiểm tra tuân thủ ngẫu nhiên",
                 AccessedAtUtc = now.AddHours(-(index + 1))
             }));
         }
@@ -1434,7 +1434,7 @@ public static class DemoDataSeeder
             db.RetentionPolicies.AddRange(
                 new RetentionPolicy
                 {
-                    Name = "Incident evidence 2 years",
+                    Name = "Bằng chứng sự cố 2 năm",
                     EvidenceType = "Snapshot",
                     RetentionCategory = "Incident",
                     RetentionDays = 730,
@@ -1443,7 +1443,7 @@ public static class DemoDataSeeder
                 },
                 new RetentionPolicy
                 {
-                    Name = "Operational recordings 90 days",
+                    Name = "Bản ghi vận hành 90 ngày",
                     EvidenceType = "Recording",
                     RetentionCategory = "Operational",
                     RetentionDays = 90,
@@ -1461,9 +1461,9 @@ public static class DemoDataSeeder
                     EvidenceItemId = item.EvidenceItemId,
                     Action = "Registered",
                     ActorUserId = guardUser?.UserId,
-                    ToCustodian = "Security Operations Center",
+                    ToCustodian = "Trung tâm điều hành an ninh (SOC)",
                     HashAfter = item.HashSha256,
-                    Note = "Evidence captured from automated security workflow.",
+                    Note = "Bằng chứng được thu thập từ quy trình an ninh tự động.",
                     CreatedAtUtc = now.AddHours(-(18 - index))
                 },
                 new ChainOfCustodyEntry
@@ -1471,11 +1471,11 @@ public static class DemoDataSeeder
                     EvidenceItemId = item.EvidenceItemId,
                     Action = "Transferred",
                     ActorUserId = adminUser?.UserId,
-                    FromCustodian = "Security Operations Center",
-                    ToCustodian = "Compliance Office",
+                    FromCustodian = "Trung tâm điều hành an ninh (SOC)",
+                    ToCustodian = "Văn phòng tuân thủ",
                     HashBefore = item.HashSha256,
                     HashAfter = item.HashSha256,
-                    Note = "Transferred for monthly compliance spot-check.",
+                    Note = "Bàn giao để kiểm tra tuân thủ định kỳ hàng tháng.",
                     CreatedAtUtc = now.AddHours(-(12 - index))
                 }
             }));
@@ -1487,7 +1487,7 @@ public static class DemoDataSeeder
                 new EvidenceExportRequest
                 {
                     EvidenceItemId = evidenceItems[0].EvidenceItemId,
-                    Purpose = "Share with internal incident commander",
+                    Purpose = "Chia sẻ với chỉ huy sự cố nội bộ",
                     Recipient = "soc-commander@vshield-demo.vn",
                     Status = "Approved",
                     RequestedByUserId = guardUser?.UserId,
@@ -1495,13 +1495,13 @@ public static class DemoDataSeeder
                     RequestedAtUtc = now.AddHours(-10),
                     ApprovedAtUtc = now.AddHours(-9),
                     ExportHash = new string('d', 64),
-                    Watermark = "DEMO-CONFIDENTIAL",
+                    Watermark = "DEMO-MẬT",
                     SignatureReference = "sig://demo/export/001"
                 },
                 new EvidenceExportRequest
                 {
                     EvidenceCollectionId = collections.FirstOrDefault()?.EvidenceCollectionId,
-                    Purpose = "Weekly compliance packet review",
+                    Purpose = "Xem lại gói tuân thủ hàng tuần",
                     Recipient = "compliance@vshield-demo.vn",
                     Status = "PendingApproval",
                     RequestedByUserId = adminUser?.UserId,
@@ -1515,7 +1515,7 @@ public static class DemoDataSeeder
                 new RedactionRequest
                 {
                     EvidenceItemId = evidenceItems[1].EvidenceItemId,
-                    Reason = "Mask visitor personal data before training use.",
+                    Reason = "Che dữ liệu cá nhân khách trước khi dùng cho đào tạo.",
                     PrivacyLabel = "PersonalData",
                     Status = "Verified",
                     RequestedByUserId = adminUser?.UserId,
@@ -1535,7 +1535,7 @@ public static class DemoDataSeeder
             db.LegalHolds.Add(new LegalHold
             {
                 EvidenceCollectionId = collections[0].EvidenceCollectionId,
-                Reason = "Preserve bundle pending internal investigation closure.",
+                Reason = "Giữ nguyên bộ hồ sơ trong khi chờ kết thúc điều tra nội bộ.",
                 Status = "Active",
                 AppliedByUserId = adminUser?.UserId,
                 AppliedAtUtc = now.AddHours(-6)
@@ -1577,7 +1577,7 @@ public static class DemoDataSeeder
             db.AccessSchedules.AddRange(
                 new AccessSchedule
                 {
-                    Name = "Office Hours",
+                    Name = "Giờ văn phòng",
                     StartTime = new TimeSpan(7, 30, 0),
                     EndTime = new TimeSpan(19, 0, 0),
                     DaysOfWeek = "Mon,Tue,Wed,Thu,Fri",
@@ -1585,7 +1585,7 @@ public static class DemoDataSeeder
                 },
                 new AccessSchedule
                 {
-                    Name = "Factory Shift 24x6",
+                    Name = "Ca nhà máy 24x6",
                     StartTime = TimeSpan.Zero,
                     EndTime = new TimeSpan(23, 59, 0),
                     DaysOfWeek = "Mon,Tue,Wed,Thu,Fri,Sat",
@@ -1593,7 +1593,7 @@ public static class DemoDataSeeder
                 },
                 new AccessSchedule
                 {
-                    Name = "Weekend Emergency",
+                    Name = "Khẩn cấp cuối tuần",
                     StartTime = TimeSpan.Zero,
                     EndTime = new TimeSpan(23, 59, 0),
                     DaysOfWeek = "Sat,Sun",
@@ -1609,16 +1609,16 @@ public static class DemoDataSeeder
                 new HolidayCalendar
                 {
                     SiteId = site.SiteId,
-                    Name = $"{site.Code} National Day",
+                    Name = $"{site.Code} Ngày quốc khánh",
                     HolidayDate = new DateTime(now.Year, 9, 2),
-                    Note = "National holiday staffing mode"
+                    Note = "Chế độ nhân sự ngày lễ quốc gia"
                 },
                 new HolidayCalendar
                 {
                     SiteId = site.SiteId,
-                    Name = $"{site.Code} Fire Drill",
+                    Name = $"{site.Code} Diễn tập phòng cháy",
                     HolidayDate = now.Date.AddDays(10 + index),
-                    Note = "Site-wide exercise with temporary schedule override"
+                    Note = "Diễn tập toàn cơ sở với lịch tạm thời bị thay đổi"
                 }
             }));
         }
@@ -1626,17 +1626,17 @@ public static class DemoDataSeeder
         if (!db.AccessLevels.Any())
         {
             db.AccessLevels.AddRange(
-                new AccessLevel { Name = "General Staff", Code = "GENERAL", Description = "Office and common operational areas", RequiresApproval = false, IsActive = true },
-                new AccessLevel { Name = "Restricted Operations", Code = "RESTRICTED", Description = "Restricted production and logistics zones", RequiresApproval = true, IsActive = true },
-                new AccessLevel { Name = "SOC Critical", Code = "SOC_CRIT", Description = "SOC room and server zones", RequiresApproval = true, IsActive = true });
+                new AccessLevel { Name = "Nhân viên chung", Code = "GENERAL", Description = "Khu văn phòng và khu vận hành thông thường", RequiresApproval = false, IsActive = true },
+                new AccessLevel { Name = "Vận hành hạn chế", Code = "RESTRICTED", Description = "Khu sản xuất và logistics hạn chế", RequiresApproval = true, IsActive = true },
+                new AccessLevel { Name = "Khu vực SOC mức nghiêm trọng", Code = "SOC_CRIT", Description = "Phòng SOC và khu máy chủ", RequiresApproval = true, IsActive = true });
         }
 
         if (!db.AccessGroups.Any())
         {
             db.AccessGroups.AddRange(
-                new AccessGroup { Name = "HQ Office Staff", Code = "HQ_OFFICE", IsActive = true },
-                new AccessGroup { Name = "Factory Operations", Code = "FACTORY_OPS", IsActive = true },
-                new AccessGroup { Name = "Security Response", Code = "SECURITY_RESP", IsActive = true });
+                new AccessGroup { Name = "Nhân viên văn phòng HQ", Code = "HQ_OFFICE", IsActive = true },
+                new AccessGroup { Name = "Vận hành nhà máy", Code = "FACTORY_OPS", IsActive = true },
+                new AccessGroup { Name = "Ứng phó an ninh", Code = "SECURITY_RESP", IsActive = true });
         }
 
         db.SaveChanges();
@@ -1654,9 +1654,9 @@ public static class DemoDataSeeder
             db.AccessPolicyVersions.AddRange(
                 new AccessPolicyVersion
                 {
-                    Name = "2026-Q2 Baseline Policy",
+                    Name = "Chính sách cơ sở Quý 2/2026",
                     Status = "Active",
-                    ChangeSummary = "Normalized employee access, stricter SOC zone controls and dynamic QR fallback.",
+                    ChangeSummary = "Chuẩn hóa quyền truy cập nhân viên, kiểm soát chặt hơn khu SOC và dự phòng QR động.",
                     CreatedAtUtc = now.AddDays(-45),
                     SubmittedAtUtc = now.AddDays(-44),
                     ApprovedAtUtc = now.AddDays(-43),
@@ -1666,9 +1666,9 @@ public static class DemoDataSeeder
                 },
                 new AccessPolicyVersion
                 {
-                    Name = "2026-Q3 Visitor Tightening",
+                    Name = "Siết chặt khách tham quan Quý 3/2026",
                     Status = "Draft",
-                    ChangeSummary = "Adds escort-required visitor rules for production and logistics after-hours visits.",
+                    ChangeSummary = "Bổ sung quy tắc khách phải đi kèm cho khu sản xuất và logistics ngoài giờ.",
                     CreatedAtUtc = now.AddDays(-5),
                     CreatedByUserId = adminUser?.UserId
                 });
@@ -1754,7 +1754,7 @@ public static class DemoDataSeeder
                     AccessPointId = accessPoints[index % accessPoints.Count].AccessPointId,
                     ValidFromUtc = now.AddHours(-(index + 1)),
                     ValidToUtc = now.AddHours(8 + index),
-                    Reason = index % 2 == 0 ? "Temporary audit escort extension" : "Maintenance window access override",
+                    Reason = index % 2 == 0 ? "Gia hạn đi kèm kiểm toán tạm thời" : "Ghi đè truy cập trong cửa sổ bảo trì",
                     ApprovedByUserId = adminUser?.UserId,
                     IsRevoked = index == 5
                 }));
@@ -1773,9 +1773,9 @@ public static class DemoDataSeeder
                 AccessPointId = accessPoints[index % accessPoints.Count].AccessPointId,
                 CredentialType = index % 3 == 0 ? "DynamicQrAndPlate" : "DynamicQr",
                 Result = index % 7 == 0 ? AccessDecisionResults.Review : index % 5 == 0 ? AccessDecisionResults.Deny : AccessDecisionResults.Allow,
-                Reason = index % 7 == 0 ? "Policy shadow mismatch for after-hours access." :
-                    index % 5 == 0 ? "Denied due to schedule mismatch and zone restriction." :
-                    "Access granted under active policy baseline.",
+                Reason = index % 7 == 0 ? "Chính sách mô phỏng không khớp cho truy cập ngoài giờ." :
+                    index % 5 == 0 ? "Bị từ chối do lịch trình không khớp và hạn chế khu vực." :
+                    "Truy cập được cấp theo chính sách cơ sở đang hoạt động.",
                 DecisionMode = index % 7 == 0 ? "Shadow" : "Enforced",
                 LegacyResult = index % 5 == 0 ? "Denied" : "Granted",
                 ShadowMismatch = index % 7 == 0,
@@ -1794,7 +1794,7 @@ public static class DemoDataSeeder
                 State = index % 5 == 0 ? "Inside" : index % 4 == 0 ? "Violation" : "Outside",
                 UpdatedAtUtc = now.AddMinutes(-(index * 9)),
                 IsViolated = index % 4 == 0,
-                ResetReason = index % 4 == 0 ? "Manual reset after tailgating review." : null
+                ResetReason = index % 4 == 0 ? "Đặt lại thủ công sau khi rà soát bám đuôi." : null
             }));
         }
 
@@ -1822,8 +1822,8 @@ public static class DemoDataSeeder
                 SiteId = employee.PrimarySiteId,
                 CredentialType = "PanicQr",
                 Description = index == 0
-                    ? "Guard triggered duress during manual verification with aggressive driver."
-                    : "Silent duress drill scenario for SOC readiness validation.",
+                    ? "Bảo vệ kích hoạt cấp cứu khi xác minh thủ công với tài xế có hành vi hung hăng."
+                    : "Kịch bản diễn tập cấp cứu im lặng để kiểm tra sự sẵn sàng của SOC.",
                 Latitude = 21.0284m + index / 1000m,
                 Longitude = 105.8045m + index / 1000m,
                 IsAcknowledged = index > 0,
@@ -1842,7 +1842,7 @@ public static class DemoDataSeeder
                     SiteId = sites[0].SiteId,
                     SecurityZoneId = zones.FirstOrDefault(zone => zone.SiteId == sites[0].SiteId)?.SecurityZoneId,
                     AccessPointId = accessPoints.FirstOrDefault(point => point.SiteId == sites[0].SiteId)?.AccessPointId,
-                    Reason = "Routine operational baseline.",
+                    Reason = "Cơ sở hoạt động định kỳ bình thường.",
                     IsActive = true,
                     StartedAtUtc = now.AddDays(-3),
                     CreatedByUserId = adminUser?.UserId
@@ -1853,7 +1853,7 @@ public static class DemoDataSeeder
                     SiteId = sites.Last().SiteId,
                     SecurityZoneId = zones.Last().SecurityZoneId,
                     AccessPointId = accessPoints.Last().AccessPointId,
-                    Reason = "Warehouse evacuation tabletop exercise.",
+                    Reason = "Diễn tập bàn giấy sơ tán kho bãi.",
                     IsActive = false,
                     StartedAtUtc = now.AddDays(-2),
                     EndedAtUtc = now.AddDays(-2).AddHours(1),
@@ -1872,17 +1872,17 @@ public static class DemoDataSeeder
             db.LockerCabinets.AddRange(
                 new LockerCabinet
                 {
-                    Name = "Reception Locker A",
-                    Location = "HN reception back office",
-                    Description = "Primary lost & found storage near front desk",
+                    Name = "Tủ lễ tân A",
+                    Location = "Phòng sau lễ tân HN",
+                    Description = "Kho lưu trữ thất lạc chính gần quầy lễ tân",
                     IsActive = true,
                     CreatedAtUtc = now.AddDays(-30)
                 },
                 new LockerCabinet
                 {
-                    Name = "Factory Security Locker",
-                    Location = "BN guard post storage room",
-                    Description = "Restricted holding cabinet for production-site valuables",
+                    Name = "Tủ an ninh nhà máy",
+                    Location = "Phòng kho trạm bảo vệ BN",
+                    Description = "Tủ giữ đồ có giá trị khu sản xuất, hạn chế truy cập",
                     IsActive = true,
                     CreatedAtUtc = now.AddDays(-24)
                 });
@@ -1913,8 +1913,8 @@ public static class DemoDataSeeder
                     ReporterPhone = "0912345678",
                     ReporterEmail = "huong.visitor@example.com",
                     ReporterIdNumber = "079123456789",
-                    ItemDescription = "Black iPhone 14 with blue protective case and staff meeting notes.",
-                    LastSeenLocation = "HN reception seating area",
+                    ItemDescription = "iPhone 14 màu đen có ốp lưng xanh và ghi chú họp nhân viên.",
+                    LastSeenLocation = "Khu ghế chờ lễ tân HN",
                     LostAtUtc = now.AddHours(-14),
                     PhotoUrl = "/uploads/evidence/demo/lost-phone.jpg",
                     Status = "Matched",
@@ -1927,8 +1927,8 @@ public static class DemoDataSeeder
                     ReporterPhone = "0988112233",
                     ReporterEmail = "binh.contractor@example.com",
                     ReporterIdNumber = "051998877665",
-                    ItemDescription = "Company access card in red holder.",
-                    LastSeenLocation = "BN employee gate locker table",
+                    ItemDescription = "Thẻ ra vào công ty trong vỏ đỏ.",
+                    LastSeenLocation = "Bàn khu tủ tại cổng nhân viên BN",
                     LostAtUtc = now.AddHours(-9),
                     PhotoUrl = "/uploads/evidence/demo/lost-badge.jpg",
                     Status = "Open",
@@ -1947,11 +1947,11 @@ public static class DemoDataSeeder
                     FoundByName = "Le Thi Lan",
                     FoundByPhone = "0903123123",
                     FoundByIdNumber = "034455667788",
-                    FoundLocation = "HN reception sofa zone",
+                    FoundLocation = "Khu ghế sofa lễ tân HN",
                     FoundAtUtc = now.AddHours(-12),
-                    ItemDescription = "Black iPhone 14 with lock screen showing Nguyen Thi Huong.",
+                    ItemDescription = "iPhone 14 màu đen, màn hình khóa hiển thị tên Nguyen Thi Huong.",
                     PhotoUrl = "/uploads/evidence/demo/found-phone.jpg",
-                    StorageLocation = "Reception Locker A / A01",
+                    StorageLocation = "Tủ lễ tân A / A01",
                     LockerCompartmentId = compartments.FirstOrDefault()?.LockerCompartmentId,
                     ItemEvidenceId = evidenceItem?.EvidenceItemId,
                     Status = "Matched",
@@ -1963,11 +1963,11 @@ public static class DemoDataSeeder
                     FoundByName = "Pham Quoc Huy",
                     FoundByPhone = "0911223344",
                     FoundByIdNumber = "066677788899",
-                    FoundLocation = "BN employee gate tray",
+                    FoundLocation = "Khay tại cổng nhân viên BN",
                     FoundAtUtc = now.AddHours(-6),
-                    ItemDescription = "RFID badge with faded red lanyard.",
+                    ItemDescription = "Thẻ RFID với dây đeo đỏ đã phai màu.",
                     PhotoUrl = "/uploads/evidence/demo/found-badge.jpg",
-                    StorageLocation = "Factory Security Locker / F02",
+                    StorageLocation = "Tủ an ninh nhà máy / F02",
                     LockerCompartmentId = compartments.Skip(1).FirstOrDefault()?.LockerCompartmentId,
                     Status = "Unclaimed",
                     CreatedByUserId = adminUser?.UserId,
@@ -1990,7 +1990,7 @@ public static class DemoDataSeeder
                     MatchedByUserId = adminUser?.UserId,
                     MatchedAtUtc = now.AddHours(-10),
                     Status = "Confirmed",
-                    Note = "Color, device model and owner lock screen details all matched."
+                    Note = "Màu sắc, model thiết bị và chi tiết màn hình khóa của chủ sở hữu đều khớp."
                 });
             }
         }
@@ -2014,13 +2014,13 @@ public static class DemoDataSeeder
                         ItemPhotoUrl = "/uploads/evidence/demo/found-phone.jpg",
                         Status = "Approved",
                         ReviewedByUserId = adminUser?.UserId,
-                        ReviewNote = "IMEI and lock-screen identification confirmed.",
+                        ReviewNote = "Đã xác nhận qua IMEI và nhận diện màn hình khóa.",
                         RequestedAtUtc = now.AddHours(-9),
                         ReviewedAtUtc = now.AddHours(-8),
                         CompletedAtUtc = now.AddHours(-7),
                         CompletedByUserId = receptionUser?.UserId,
                         WitnessName = "Le Thi Lan",
-                        HandoverNote = "Returned at reception with witness and ID verification complete.",
+                        HandoverNote = "Đã trả lại tại lễ tân với nhân chứng và xác minh giấy tờ hoàn tất.",
                         ReturnPhotoUrl = "/uploads/evidence/demo/return-phone.jpg"
                     },
                     new ClaimRequest
@@ -2046,7 +2046,7 @@ public static class DemoDataSeeder
                     LockerCompartmentId = compartments[0].LockerCompartmentId,
                     UserId = receptionUser?.UserId,
                     Action = "StoreItem",
-                    Purpose = "Stored found iPhone pending owner verification.",
+                    Purpose = "Đã cất iPhone tìm thấy trong lúc chờ xác minh chủ sở hữu.",
                     Timestamp = now.AddHours(-11)
                 },
                 new LockerAccessLog
@@ -2054,7 +2054,7 @@ public static class DemoDataSeeder
                     LockerCompartmentId = compartments[0].LockerCompartmentId,
                     UserId = adminUser?.UserId,
                     Action = "ReviewAccess",
-                    Purpose = "Compliance witness review before approved handover.",
+                    Purpose = "Rà soát tuân thủ có nhân chứng trước khi bàn giao đã phê duyệt.",
                     Timestamp = now.AddHours(-8)
                 },
                 new LockerAccessLog
@@ -2062,7 +2062,7 @@ public static class DemoDataSeeder
                     LockerCompartmentId = compartments[0].LockerCompartmentId,
                     UserId = receptionUser?.UserId,
                     Action = "ReleaseItem",
-                    Purpose = "Released approved claim item to verified owner.",
+                    Purpose = "Đã bàn giao vật phẩm yêu cầu đã phê duyệt cho chủ sở hữu đã xác minh.",
                     Timestamp = now.AddHours(-7)
                 });
         }
@@ -2096,7 +2096,7 @@ public static class DemoDataSeeder
                     SubjectType = "Employee",
                     SubjectId = employees.FirstOrDefault()?.EmployeeId,
                     Confidence = 0.84m,
-                    Summary = "Two people entered through one turnstile cycle during peak entry window.",
+                    Summary = "Hai người cùng đi qua một vòng quay cổng soát vé trong khung giờ cao điểm ra vào.",
                     OccurredAtUtc = now.AddMinutes(-58),
                     SiteNameSnapshot = sites[0].Name,
                     SecurityZoneNameSnapshot = zones[0].Name,
@@ -2115,7 +2115,7 @@ public static class DemoDataSeeder
                     VehicleId = vehicles.LastOrDefault()?.VehicleId,
                     PlateText = vehicles.LastOrDefault()?.LicensePlate,
                     Confidence = 0.92m,
-                    Summary = "Truck entered logistics lane with plate tied to a suspended manifest.",
+                    Summary = "Xe tải vào làn logistics với biển số gắn với manifest đã bị đình chỉ.",
                     OccurredAtUtc = now.AddMinutes(-34),
                     SiteNameSnapshot = sites.Last().Name,
                     SecurityZoneNameSnapshot = zones.Last().Name,
@@ -2132,17 +2132,17 @@ public static class DemoDataSeeder
                 new EventCorrelation
                 {
                     CorrelationId = securityEvents[0].CorrelationId,
-                    RuleName = "Tailgating + anti-passback correlation",
+                    RuleName = "Tương quan bám đuôi + chống passback",
                     Severity = "High",
-                    Summary = "Correlated tailgating, anti-passback violation and manual review in the same 10-minute window.",
+                    Summary = "Đã tương quan bám đuôi, vi phạm chống passback và rà soát thủ công trong cùng cửa sổ 10 phút.",
                     CreatedAtUtc = now.AddMinutes(-50)
                 },
                 new EventCorrelation
                 {
                     CorrelationId = securityEvents.Last().CorrelationId,
-                    RuleName = "Vehicle anomaly bundle",
+                    RuleName = "Nhóm bất thường phương tiện",
                     Severity = "Critical",
-                    Summary = "Linked manifest mismatch with watchlist and lane override activity.",
+                    Summary = "Đã liên kết manifest không khớp với hoạt động watchlist và ghi đè làn.",
                     CreatedAtUtc = now.AddMinutes(-28)
                 });
         }
@@ -2156,7 +2156,7 @@ public static class DemoDataSeeder
                 ArtifactReference = $"demo://video-bookmarks/event-{securityEvent.SecurityEventId:000}.mp4",
                 StartUtc = securityEvent.OccurredAtUtc.AddMinutes(-2),
                 EndUtc = securityEvent.OccurredAtUtc.AddMinutes(3),
-                Note = "Pinned clip segment for investigation and dispatch briefing."
+                Note = "Đoạn clip ghim để điều tra và triển khai nhiệm vụ điều phối."
             }));
         }
 
@@ -2214,9 +2214,9 @@ public static class DemoDataSeeder
         if (!db.AlarmRules.Any())
         {
             db.AlarmRules.AddRange(
-                new AlarmRule { Name = "Tailgating escalation", EventType = "TailgatingSuspected", Severity = "High", IsActive = true },
-                new AlarmRule { Name = "Manifest mismatch critical", EventType = "ManifestMismatch", Severity = "Critical", IsActive = true },
-                new AlarmRule { Name = "Visitor overstay watchdog", EventType = "VisitorOverstay", Severity = "Medium", IsActive = true });
+                new AlarmRule { Name = "Chuyển cấp bám đuôi", EventType = "TailgatingSuspected", Severity = "High", IsActive = true },
+                new AlarmRule { Name = "Manifest không khớp mức nghiêm trọng", EventType = "ManifestMismatch", Severity = "Critical", IsActive = true },
+                new AlarmRule { Name = "Cảnh báo khách quá giờ", EventType = "VisitorOverstay", Severity = "Medium", IsActive = true });
         }
 
         if (!db.SopTemplates.Any())
@@ -2224,18 +2224,18 @@ public static class DemoDataSeeder
             db.SopTemplates.AddRange(
                 new SopTemplate
                 {
-                    Name = "Tailgating response SOP",
+                    Name = "SOP xử lý bám đuôi",
                     AlarmType = "Generic",
                     Version = 2,
-                    ChecklistJson = "[\"Confirm camera clip\",\"Contact nearest guard\",\"Check anti-passback state\",\"Log outcome\"]",
+                    ChecklistJson = "[\"Xác nhận clip camera\",\"Liên hệ bảo vệ gần nhất\",\"Kiểm tra trạng thái chống passback\",\"Ghi kết quả\"]",
                     IsActive = true
                 },
                 new SopTemplate
                 {
-                    Name = "Vehicle anomaly dispatch SOP",
+                    Name = "SOP điều phối bất thường phương tiện",
                     AlarmType = "DeviceOffline",
                     Version = 1,
-                    ChecklistJson = "[\"Stop vehicle safely\",\"Verify manifest\",\"Open incident if unresolved\",\"Collect export evidence\"]",
+                    ChecklistJson = "[\"Dừng xe an toàn\",\"Kiểm tra manifest\",\"Mở sự cố nếu chưa giải quyết\",\"Thu thập bằng chứng xuất kho\"]",
                     IsActive = true
                 });
             db.SaveChanges();
@@ -2247,22 +2247,22 @@ public static class DemoDataSeeder
             db.Incidents.AddRange(
                 new Incident
                 {
-                    Title = "Tailgating investigation at HQ",
+                    Title = "Điều tra bám đuôi tại trụ sở",
                     Severity = "High",
                     Status = "InProgress",
                     PrimaryAlarmId = primaryAlarm?.AlarmId,
                     OwnerUserId = adminUser?.UserId,
-                    Outcome = "Guard interview pending and badge replay review in progress.",
+                    Outcome = "Đang chờ phỏng vấn bảo vệ và rà soát phát lại thẻ.",
                     OpenedAtUtc = now.AddMinutes(-54)
                 },
                 new Incident
                 {
-                    Title = "Logistics manifest mismatch",
+                    Title = "Manifest logistics không khớp",
                     Severity = "Critical",
                     Status = "Open",
                     PrimaryAlarmId = primaryAlarm?.AlarmId,
                     OwnerUserId = managerUser?.UserId,
-                    Outcome = "Escalated to logistics and SOC for physical verification.",
+                    Outcome = "Đã chuyển tới bộ phận logistics và SOC để xác minh thực địa.",
                     OpenedAtUtc = now.AddMinutes(-30)
                 });
             db.SaveChanges();
@@ -2277,8 +2277,8 @@ public static class DemoDataSeeder
                 AlarmId = alarm.AlarmId,
                 UserId = index % 2 == 0 ? adminUser?.UserId : guardUser?.UserId,
                 Comment = index % 2 == 0
-                    ? "SOC confirmed supporting video and requested guard dispatch."
-                    : "Field guard acknowledged alarm and is approaching the location.",
+                    ? "SOC đã xác nhận video hỗ trợ và yêu cầu điều phối bảo vệ."
+                    : "Bảo vệ hiện trường đã xác nhận cảnh báo và đang tiếp cận vị trí.",
                 CreatedAtUtc = now.AddMinutes(-(26 - index * 4))
             }));
         }
@@ -2292,8 +2292,8 @@ public static class DemoDataSeeder
                 SopTemplateId = templates[index % templates.Count].SopTemplateId,
                 Status = index == 0 ? "InProgress" : "Completed",
                 CompletedStepsJson = index == 0
-                    ? "[\"Confirm camera clip\",\"Contact nearest guard\"]"
-                    : "[\"Stop vehicle safely\",\"Verify manifest\",\"Collect export evidence\"]",
+                    ? "[\"Xác nhận clip camera\",\"Liên hệ bảo vệ gần nhất\"]"
+                    : "[\"Dừng xe an toàn\",\"Kiểm tra manifest\",\"Thu thập bằng chứng xuất kho\"]",
                 ExecutedByUserId = guardUser?.UserId,
                 StartedAtUtc = incident.OpenedAtUtc.AddMinutes(2),
                 CompletedAtUtc = index == 0 ? null : incident.OpenedAtUtc.AddMinutes(18)
@@ -2308,7 +2308,7 @@ public static class DemoDataSeeder
                 {
                     IncidentId = incident.IncidentId,
                     ItemType = "Created",
-                    Text = $"Incident opened for {incident.Title}.",
+                    Text = $"Đã mở sự cố: {incident.Title}.",
                     UserId = adminUser?.UserId,
                     CreatedAtUtc = incident.OpenedAtUtc
                 },
@@ -2316,7 +2316,7 @@ public static class DemoDataSeeder
                 {
                     IncidentId = incident.IncidentId,
                     ItemType = "Dispatch",
-                    Text = index == 0 ? "Nearest guard dispatched to HQ turnstile." : "Logistics gate frozen for manifest verification.",
+                    Text = index == 0 ? "Bảo vệ gần nhất đã được điều tới cổng xoay trụ sở." : "Cổng logistics đã được đóng để xác minh manifest.",
                     UserId = guardUser?.UserId,
                     CreatedAtUtc = incident.OpenedAtUtc.AddMinutes(6)
                 },
@@ -2324,7 +2324,7 @@ public static class DemoDataSeeder
                 {
                     IncidentId = incident.IncidentId,
                     ItemType = "Evidence",
-                    Text = "Relevant clips and audit artifacts bookmarked for case review.",
+                    Text = "Các clip liên quan và tài liệu kiểm toán đã được ghim để xem xét hồ sơ vụ việc.",
                     UserId = adminUser?.UserId,
                     CreatedAtUtc = incident.OpenedAtUtc.AddMinutes(11)
                 }
@@ -2337,15 +2337,15 @@ public static class DemoDataSeeder
             {
                 IncidentId = incident.IncidentId,
                 SiteId = sites[index % sites.Count].SiteId,
-                LocationText = index == 0 ? "HQ turnstile bank A" : "HP logistics gate lane 2",
+                LocationText = index == 0 ? "Dãy cổng xoay A trụ sở" : "Làn 2 cổng kho logistics HP",
                 Latitude = 21.0284m + index / 100m,
                 Longitude = 105.8045m + index / 100m,
                 Priority = index == 0 ? "High" : "Critical",
                 Status = index == 0 ? "InProgress" : "Open",
                 AssignedGuardUserId = guardUser?.UserId,
                 Instructions = index == 0
-                    ? "Interview involved staff, preserve QR audit and inspect anti-passback state."
-                    : "Hold vehicle safely, verify manifest, escalate discrepancies immediately.",
+                    ? "Phỏng vấn nhân viên liên quan, lưu bản ghi QR và kiểm tra trạng thái chống passback."
+                    : "Giữ xe an toàn, xác minh manifest, chuyển cấp ngay các sai lệch phát hiện.",
                 CreatedAtUtc = now.AddMinutes(-(40 - index * 5)),
                 CompletedAtUtc = index == 0 ? null : now.AddMinutes(-12)
             }));
@@ -2359,7 +2359,7 @@ public static class DemoDataSeeder
                 SiteId = sites[0].SiteId,
                 FromUserId = guardUser?.UserId,
                 ToUserId = nextGuard?.UserId,
-                Summary = "Watchlist vehicle remains pending verification, one contractor badge issue unresolved, and HQ tailgating case remains under review.",
+                Summary = "Xe trong danh sách theo dõi vẫn đang chờ xác minh, một lỗi thẻ nhà thầu chưa giải quyết, và vụ bám đuôi tại trụ sở vẫn đang được rà soát.",
                 CreatedAtUtc = now.AddHours(-1)
             });
         }
@@ -2387,11 +2387,11 @@ public static class DemoDataSeeder
                 SecurityEventId = securityEvent.SecurityEventId,
                 StartUtc = securityEvent.OccurredAtUtc.AddMinutes(-2),
                 EndUtc = securityEvent.OccurredAtUtc.AddMinutes(4),
-                RequestedBy = index % 2 == 0 ? "SOC Analyst" : "Security Manager",
+                RequestedBy = index % 2 == 0 ? "Chuyên viên SOC" : "Quản lý an ninh",
                 Status = index % 2 == 0 ? "Exported" : "Approved",
                 RetentionCategory = "Incident",
                 ExportReference = index % 2 == 0 ? $"demo://clips/security-event-{securityEvent.SecurityEventId:000}.mp4" : null,
-                Note = "Clip requested for correlation review and briefing package.",
+                Note = "Clip được yêu cầu để xem xét tương quan và làm hồ sơ báo cáo.",
                 CreatedAtUtc = securityEvent.OccurredAtUtc.AddMinutes(3),
                 ApprovedAtUtc = securityEvent.OccurredAtUtc.AddMinutes(7),
                 ExportedAtUtc = index % 2 == 0 ? securityEvent.OccurredAtUtc.AddMinutes(12) : null
@@ -2403,7 +2403,7 @@ public static class DemoDataSeeder
             var conversation = new ChatConversation
             {
                 CreatedAt = now.AddHours(-6),
-                Title = "SOC Shift Coordination"
+                Title = "Điều phối ca trực SOC"
             };
             db.ChatConversations.Add(conversation);
             db.SaveChanges();
@@ -2422,7 +2422,7 @@ public static class DemoDataSeeder
                 {
                     ConversationId = conversation.ConversationId,
                     SenderId = participants[0].EmployeeId,
-                    Content = "Tailgating clip is uploaded. Need one guard to verify badge owner near turnstile A.",
+                    Content = "Clip bám đuôi đã được tải lên. Cần một bảo vệ xác minh chủ thẻ gần cổng xoay A.",
                     SentAt = now.AddHours(-5).AddMinutes(42),
                     IsRead = true,
                     ReadAt = now.AddHours(-5).AddMinutes(30),
@@ -2432,7 +2432,7 @@ public static class DemoDataSeeder
                 {
                     ConversationId = conversation.ConversationId,
                     SenderId = participants[1].EmployeeId,
-                    Content = "Dispatch acknowledged. Approaching location now and will report back in 5 minutes.",
+                    Content = "Điều phối đã xác nhận. Đang tiếp cận vị trí và sẽ báo cáo lại sau 5 phút.",
                     SentAt = now.AddHours(-5).AddMinutes(35),
                     IsRead = true,
                     ReadAt = now.AddHours(-5).AddMinutes(22),
@@ -2442,7 +2442,7 @@ public static class DemoDataSeeder
                 {
                     ConversationId = conversation.ConversationId,
                     SenderId = participants[2].EmployeeId,
-                    Content = "Manifest mismatch vehicle is still queued at HP gate. Export package requested.",
+                    Content = "Xe có manifest không khớp vẫn đang xếp hàng tại cổng HP. Đã yêu cầu xuất hồ sơ.",
                     SentAt = now.AddHours(-2).AddMinutes(18),
                     IsRead = false,
                     MessageType = "Text"
@@ -2495,7 +2495,7 @@ public static class DemoDataSeeder
             db.WebhookSubscriptions.AddRange(
                 new WebhookSubscription
                 {
-                    Name = "SOC event bridge",
+                    Name = "Cầu nối sự kiện SOC",
                     TargetUrl = "https://ops.example.internal/hooks/vshield/soc",
                     SecretReference = "secret://webhooks/soc-event-bridge",
                     EventTypes = "Alarm.Created,Incident.Updated,Visit.Overstay",
@@ -2504,7 +2504,7 @@ public static class DemoDataSeeder
                 },
                 new WebhookSubscription
                 {
-                    Name = "Compliance export notifier",
+                    Name = "Bộ thông báo xuất tuân thủ",
                     TargetUrl = "https://governance.example.internal/hooks/vshield/export",
                     SecretReference = "secret://webhooks/compliance-export",
                     EventTypes = "EvidenceExport.Approved,Retention.ReportReady",
@@ -2541,7 +2541,7 @@ public static class DemoDataSeeder
                         AttemptCount = 2,
                         LastAttemptAtUtc = now.AddMinutes(-5),
                         ResponseStatusCode = 503,
-                        ResponseBody = "temporary upstream unavailable",
+                        ResponseBody = "nguồn phía trên tạm thời không khả dụng",
                         Signature = "sig-demo-retry",
                         CreatedAtUtc = now.AddMinutes(-30)
                     });
@@ -2557,7 +2557,7 @@ public static class DemoDataSeeder
                     DependencyType = "Database",
                     Status = "Healthy",
                     LatencyMs = 18,
-                    Message = "Primary SQL latency within target.",
+                    Message = "Độ trễ SQL chính nằm trong mức mục tiêu.",
                     ObservedAtUtc = now.AddMinutes(-3)
                 },
                 new RuntimeDependencyHealth
@@ -2566,7 +2566,7 @@ public static class DemoDataSeeder
                     DependencyType = "Streaming",
                     Status = "Degraded",
                     LatencyMs = 240,
-                    Message = "Occasional restart delay observed during camera config reload.",
+                    Message = "Quan sát thấy chậm khởi động lại lẻ tẻ khi tải lại cấu hình camera.",
                     ObservedAtUtc = now.AddMinutes(-6)
                 },
                 new RuntimeDependencyHealth
@@ -2575,7 +2575,7 @@ public static class DemoDataSeeder
                     DependencyType = "Webhook",
                     Status = "Warning",
                     LatencyMs = 510,
-                    Message = "Upstream compliance bridge returned intermittent 503 responses.",
+                    Message = "Cầu nối tuân thủ phía trên trả về lỗi 503 lẻ tẻ.",
                     ObservedAtUtc = now.AddMinutes(-12)
                 });
         }
@@ -2594,7 +2594,7 @@ public static class DemoDataSeeder
                     TargetRpoMinutes = 30,
                     TargetRtoMinutes = 120,
                     Verified = true,
-                    Notes = "Nightly backup finished and checksum verified."
+                    Notes = "Sao lưu hàng đêm hoàn tất và checksum đã xác minh."
                 },
                 new BackupRun
                 {
@@ -2607,7 +2607,7 @@ public static class DemoDataSeeder
                     TargetRpoMinutes = 30,
                     TargetRtoMinutes = 120,
                     Verified = true,
-                    Notes = "Retention chain consistent with previous backup."
+                    Notes = "Chuỗi lưu trữ nhất quán với lần sao lưu trước."
                 });
             db.SaveChanges();
         }
@@ -2625,7 +2625,7 @@ public static class DemoDataSeeder
                 MeasuredRpoMinutes = 11,
                 MeasuredRtoMinutes = 68,
                 Passed = true,
-                Findings = "Restore drill passed; one post-restore webhook secret rebind step remains manual."
+                Findings = "Diễn tập khôi phục đạt; còn một bước liên kết lại bí mật webhook sau khôi phục là thao tác thủ công."
             });
         }
 
@@ -2635,7 +2635,7 @@ public static class DemoDataSeeder
                 new SecurityOperationsCheck
                 {
                     CheckType = "Runbook",
-                    Name = "SOC shift start checklist",
+                    Name = "Danh sách kiểm tra bắt đầu ca SOC",
                     Status = "Passed",
                     Evidence = "demo://runbooks/soc-shift-start-ack-2026-06-30.pdf",
                     CheckedAtUtc = now.AddHours(-7)
@@ -2643,9 +2643,9 @@ public static class DemoDataSeeder
                 new SecurityOperationsCheck
                 {
                     CheckType = "Resilience",
-                    Name = "Webhook retry queue review",
+                    Name = "Rà soát hàng đợi thử lại webhook",
                     Status = "NeedsAttention",
-                    Evidence = "Delivery queue contains 1 retrying subscription.",
+                    Evidence = "Hàng đợi gửi có 1 đăng ký đang thử lại.",
                     CheckedAtUtc = now.AddHours(-1)
                 });
         }
@@ -2663,7 +2663,7 @@ public static class DemoDataSeeder
                     EvidenceReference = "demo://qa/regression-2026-06-29.html",
                     StartedAtUtc = now.AddDays(-1).AddHours(-6),
                     CompletedAtUtc = now.AddDays(-1).AddHours(-4),
-                    Notes = "Core web flows, access control and evidence governance all passed."
+                    Notes = "Các luồng web cốt lõi, kiểm soát truy cập và quản trị bằng chứng đều đạt."
                 },
                 new QaTestRun
                 {
@@ -2675,7 +2675,7 @@ public static class DemoDataSeeder
                     EvidenceReference = "demo://qa/vps-smoke-2026-06-30.html",
                     StartedAtUtc = now.AddHours(-3),
                     CompletedAtUtc = now.AddHours(-2).AddMinutes(35),
-                    Notes = "VPS web-only compose sanity run completed."
+                    Notes = "Chạy kiểm tra sức khỏe compose web-only VPS hoàn tất."
                 });
             db.SaveChanges();
         }
@@ -2706,22 +2706,22 @@ public static class DemoDataSeeder
                     new ReleaseGateCheck
                     {
                         ReleaseCandidateId = candidate.ReleaseCandidateId,
-                        GateName = "Security configuration review",
+                        GateName = "Rà soát cấu hình an ninh",
                         Status = "Passed",
                         Required = true,
                         EvidenceReference = "demo://release/security-review-rc3.pdf",
-                        Notes = "JWT, MFA and evidence signing configuration reviewed.",
+                        Notes = "Đã rà soát cấu hình JWT, MFA và ký bằng chứng.",
                         VerifiedByUserId = candidate.ApprovedByUserId,
                         VerifiedAtUtc = now.AddDays(-1).AddHours(1)
                     },
                     new ReleaseGateCheck
                     {
                         ReleaseCandidateId = candidate.ReleaseCandidateId,
-                        GateName = "Web-only VPS smoke deployment",
+                        GateName = "Triển khai thử web-only VPS",
                         Status = "Passed",
                         Required = true,
                         EvidenceReference = "demo://release/vps-smoke-rc3.txt",
-                        Notes = "Frontend, API and SQL stack reached healthy state with same-origin proxy.",
+                        Notes = "Stack frontend, API và SQL đạt trạng thái khỏe mạnh với proxy cùng nguồn.",
                         VerifiedByUserId = candidate.ApprovedByUserId,
                         VerifiedAtUtc = now.AddHours(-2)
                     });
@@ -2733,7 +2733,7 @@ public static class DemoDataSeeder
             db.RunbookAcknowledgements.AddRange(
                 new RunbookAcknowledgement
                 {
-                    RunbookName = "SOC Incident Triage",
+                    RunbookName = "Phân loại sự cố SOC",
                     RoleName = "BaoVe",
                     AcknowledgedByUserId = db.AppUsers.FirstOrDefault(user => user.Role == "BaoVe")?.UserId,
                     EvidenceReference = "demo://runbooks/soc-triage-ack.pdf",
@@ -2741,7 +2741,7 @@ public static class DemoDataSeeder
                 },
                 new RunbookAcknowledgement
                 {
-                    RunbookName = "Evidence Export Approval",
+                    RunbookName = "Phê duyệt xuất bằng chứng",
                     RoleName = "Admin",
                     AcknowledgedByUserId = db.AppUsers.FirstOrDefault(user => user.Role == "Admin")?.UserId,
                     EvidenceReference = "demo://runbooks/evidence-export-ack.pdf",
@@ -2766,25 +2766,25 @@ public static class DemoDataSeeder
             objects.AddRange(new[]
             {
                 // Admin Building — 3 floors
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN Administration", PositionX = -30, PositionZ = 0, PositionY = 0, Width = 40, Length = 20, Height = 15, Floors = 3, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN Hành chính", PositionX = -30, PositionZ = 0, PositionY = 0, Width = 40, Length = 20, Height = 15, Floors = 3, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
                 // Ops Building — 2 floors
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN Operations", PositionX = 20, PositionZ = 5, PositionY = 0, Width = 30, Length = 18, Height = 10, Floors = 2, Rotation = 0, Color = "#7c3aed", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN Vận hành", PositionX = 20, PositionZ = 5, PositionY = 0, Width = 30, Length = 18, Height = 10, Floors = 2, Rotation = 0, Color = "#7c3aed", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
                 // SOC & Server Room
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN SOC & Server", PositionX = 25, PositionZ = -12, PositionY = 0, Width = 15, Length = 12, Height = 4, Floors = 1, Rotation = 0, Color = "#dc2626", PropertiesJson = "{\"zone\":\"SOC and Server Room\",\"level\":\"Critical\"}" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Building", Label = "HN SOC & Máy chủ", PositionX = 25, PositionZ = -12, PositionY = 0, Width = 15, Length = 12, Height = 4, Floors = 1, Rotation = 0, Color = "#dc2626", PropertiesJson = "{\"zone\":\"SOC and Server Room\",\"level\":\"Critical\"}" },
                 // Parking B1
                 new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "ParkingArea", Label = "HN Tầng hầm B1", PositionX = -25, PositionZ = -22, PositionY = -0.5m, Width = 35, Length = 15, Height = 0.5m, Rotation = 0, Color = "#64748b" },
                 // Outdoor parking
                 new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "ParkingArea", Label = "HN Bãi ngoài trời", PositionX = 15, PositionZ = -22, PositionY = -0.5m, Width = 30, Length = 20, Height = 0.5m, Rotation = 0, Color = "#94a3b8" },
                 // Main Gate marker
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "GateMarker", Label = "HN Main Gate", PositionX = -35, PositionZ = 16, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "GateMarker", Label = "Cổng chính HN", PositionX = -35, PositionZ = 16, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
                 // Basement gate marker
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "GateMarker", Label = "HN Basement Parking", PositionX = -15, PositionZ = -18, PositionY = -1, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "GateMarker", Label = "Bãi xe hầm HN", PositionX = -15, PositionZ = -18, PositionY = -1, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
                 // Walkway: Admin → Main Gate
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Walkway Admin-Gate", PositionX = -32, PositionZ = 8, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Lối đi Hành chính-Cổng", PositionX = -32, PositionZ = 8, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
                 // Walkway: Admin → Ops
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Walkway Admin-Ops", PositionX = -5, PositionZ = 2, PositionY = -0.3m, Width = 3, Length = 16, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Lối đi Hành chính-Vận hành", PositionX = -5, PositionZ = 2, PositionY = -0.3m, Width = 3, Length = 16, Height = 0.3m, Rotation = 0, Color = "#475569" },
                 // Walkway: Ops → SOC
-                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Walkway Ops-SOC", PositionX = 28, PositionZ = -3, PositionY = -0.3m, Width = 2, Length = 9, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Path", Label = "HN Lối đi Vận hành-SOC", PositionX = 28, PositionZ = -3, PositionY = -0.3m, Width = 2, Length = 9, Height = 0.3m, Rotation = 0, Color = "#475569" },
                 // Landscape trees
                 new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HN", PositionX = -10, PositionZ = 15, PositionY = 0, Width = 3, Length = 3, Height = 5, Rotation = 0, Color = "#22c55e" },
                 new Campus3DObject { SiteId = hnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HN", PositionX = 0, PositionZ = 18, PositionY = 0, Width = 3, Length = 3, Height = 5, Rotation = 0, Color = "#16a34a" },
@@ -2797,16 +2797,16 @@ public static class DemoDataSeeder
         {
             objects.AddRange(new[]
             {
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Administration", PositionX = 0, PositionZ = 0, PositionY = 0, Width = 35, Length = 18, Height = 10, Floors = 2, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Production", PositionX = 45, PositionZ = 5, PositionY = 0, Width = 50, Length = 25, Height = 8, Floors = 2, Rotation = 0, Color = "#f59e0b", PropertiesJson = "{\"zone\":\"Production Zone\",\"level\":\"Restricted\"}" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN QA Lab", PositionX = 50, PositionZ = -15, PositionY = 0, Width = 20, Length = 12, Height = 5, Floors = 1, Rotation = 0, Color = "#eab308", PropertiesJson = "{\"zone\":\"Production Zone\",\"level\":\"Restricted\"}" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Hành chính", PositionX = 0, PositionZ = 0, PositionY = 0, Width = 35, Length = 18, Height = 10, Floors = 2, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Sản xuất", PositionX = 45, PositionZ = 5, PositionY = 0, Width = 50, Length = 25, Height = 8, Floors = 2, Rotation = 0, Color = "#f59e0b", PropertiesJson = "{\"zone\":\"Production Zone\",\"level\":\"Restricted\"}" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Building", Label = "BN Phòng QA", PositionX = 50, PositionZ = -15, PositionY = 0, Width = 20, Length = 12, Height = 5, Floors = 1, Rotation = 0, Color = "#eab308", PropertiesJson = "{\"zone\":\"Production Zone\",\"level\":\"Restricted\"}" },
                 new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "ParkingArea", Label = "BN Nhà xe nhân viên", PositionX = 5, PositionZ = -22, PositionY = -0.5m, Width = 30, Length = 18, Height = 0.5m, Rotation = 0, Color = "#64748b" },
                 new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "ParkingArea", Label = "BN Bãi xe tải", PositionX = 55, PositionZ = -22, PositionY = -0.5m, Width = 25, Length = 15, Height = 0.5m, Rotation = 0, Color = "#94a3b8" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "GateMarker", Label = "BN Employee Gate", PositionX = 0, PositionZ = 16, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "GateMarker", Label = "BN Truck Gate", PositionX = 60, PositionZ = 14, PositionY = 0, Width = 8, Length = 2, Height = 4, Rotation = 0, Color = "#0f766e" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Walkway Admin-Employee Gate", PositionX = -2, PositionZ = 8, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Walkway Admin-Production", PositionX = 22, PositionZ = 3, PositionY = -0.3m, Width = 3, Length = 22, Height = 0.3m, Rotation = 0, Color = "#475569" },
-                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Walkway Production-QA", PositionX = 52, PositionZ = -5, PositionY = -0.3m, Width = 2, Length = 10, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "GateMarker", Label = "Cổng nhân viên BN", PositionX = 0, PositionZ = 16, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "GateMarker", Label = "Cổng xe tải BN", PositionX = 60, PositionZ = 14, PositionY = 0, Width = 8, Length = 2, Height = 4, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Lối đi Hành chính-Cổng NV", PositionX = -2, PositionZ = 8, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Lối đi Hành chính-Sản xuất", PositionX = 22, PositionZ = 3, PositionY = -0.3m, Width = 3, Length = 22, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Path", Label = "BN Lối đi Sản xuất-QA", PositionX = 52, PositionZ = -5, PositionY = -0.3m, Width = 2, Length = 10, Height = 0.3m, Rotation = 0, Color = "#475569" },
                 new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh BN", PositionX = -10, PositionZ = 12, PositionY = 0, Width = 4, Length = 4, Height = 6, Rotation = 0, Color = "#22c55e" },
                 new Campus3DObject { SiteId = bnSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh BN", PositionX = 30, PositionZ = 18, PositionY = 0, Width = 4, Length = 4, Height = 5, Rotation = 0, Color = "#16a34a" },
             });
@@ -2817,12 +2817,12 @@ public static class DemoDataSeeder
         {
             objects.AddRange(new[]
             {
-                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Building", Label = "HP Administration", PositionX = 0, PositionZ = 0, PositionY = 0, Width = 25, Length = 15, Height = 6, Floors = 2, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
-                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Building", Label = "HP Warehouse", PositionX = 30, PositionZ = 5, PositionY = 0, Width = 40, Length = 30, Height = 8, Floors = 1, Rotation = 0, Color = "#f59e0b", PropertiesJson = "{\"zone\":\"Logistics\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Building", Label = "HP Hành chính", PositionX = 0, PositionZ = 0, PositionY = 0, Width = 25, Length = 15, Height = 6, Floors = 2, Rotation = 0, Color = "#2563eb", PropertiesJson = "{\"zone\":\"Office Zone\",\"level\":\"Normal\"}" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Building", Label = "HP Kho bãi", PositionX = 30, PositionZ = 5, PositionY = 0, Width = 40, Length = 30, Height = 8, Floors = 1, Rotation = 0, Color = "#f59e0b", PropertiesJson = "{\"zone\":\"Logistics\",\"level\":\"Normal\"}" },
                 new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "ParkingArea", Label = "HP Kho bãi logistics", PositionX = 5, PositionZ = -20, PositionY = -0.5m, Width = 30, Length = 15, Height = 0.5m, Rotation = 0, Color = "#64748b" },
-                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "GateMarker", Label = "HP Warehouse Gate", PositionX = -5, PositionZ = 15, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
-                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Path", Label = "HP Walkway Admin-Gate", PositionX = -3, PositionZ = 7, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
-                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Path", Label = "HP Walkway Admin-Warehouse", PositionX = 15, PositionZ = 3, PositionY = -0.3m, Width = 3, Length = 12, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "GateMarker", Label = "Cổng kho HP", PositionX = -5, PositionZ = 15, PositionY = 0, Width = 6, Length = 2, Height = 3, Rotation = 0, Color = "#0f766e" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Path", Label = "HP Lối đi Hành chính-Cổng", PositionX = -3, PositionZ = 7, PositionY = -0.3m, Width = 3, Length = 8, Height = 0.3m, Rotation = 0, Color = "#475569" },
+                new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Path", Label = "HP Lối đi Hành chính-Kho bãi", PositionX = 15, PositionZ = 3, PositionY = -0.3m, Width = 3, Length = 12, Height = 0.3m, Rotation = 0, Color = "#475569" },
                 new Campus3DObject { SiteId = hpSite.SiteId, ObjectType = "Landmark", Label = "Cây xanh HP", PositionX = -8, PositionZ = 10, PositionY = 0, Width = 3, Length = 3, Height = 4, Rotation = 0, Color = "#22c55e" },
             });
         }
@@ -2919,9 +2919,9 @@ public static class DemoDataSeeder
                     IsBypass = isBypass,
                     Note = $"{scenarioPrefix}:{scenarioName}",
                     SiteNameSnapshot = employee.PrimarySiteId.HasValue ? siteById.GetValueOrDefault(employee.PrimarySiteId.Value) : null,
-                    SecurityZoneNameSnapshot = "Restricted UEBA Scenario",
-                    AccessPointNameSnapshot = $"{gate.GateName} Access Point",
-                    LaneNameSnapshot = $"{gate.GateName} Demo Lane",
+                    SecurityZoneNameSnapshot = "Kịch bản UEBA hạn chế",
+                    AccessPointNameSnapshot = $"{gate.GateName} Điểm truy cập",
+                    LaneNameSnapshot = $"{gate.GateName} Làn demo",
                     GateNameSnapshot = gate.GateName,
                     CameraNameSnapshot = camera?.CameraName
                 };
@@ -3040,7 +3040,7 @@ public static class DemoDataSeeder
                 {
                     RequestedByUserId = guard.UserId,
                     LaneId = "1",
-                    LaneName = "Cong A - Lane 1",
+                    LaneName = "Cổng A - Làn 1",
                     InterventionType = "temporary_grant",
                     SubjectName = sampleEmployee?.FullName ?? "Nguyen Van Minh",
                     SubjectId = (sampleEmployee?.EmployeeId ?? 1).ToString(),
@@ -3057,7 +3057,7 @@ public static class DemoDataSeeder
                     RequestedByUserId = guard.UserId,
                     AcceptedByUserId = admin?.UserId,
                     LaneId = "2",
-                    LaneName = "Bai xe - Lane 2",
+                    LaneName = "Bãi xe - Làn 2",
                     InterventionType = "policy_override",
                     SubjectName = "Tran Thi Binh",
                     SubjectId = (employees.Skip(1).FirstOrDefault()?.EmployeeId ?? 2).ToString(),
@@ -3074,7 +3074,7 @@ public static class DemoDataSeeder
                 {
                     RequestedByUserId = guard.UserId,
                     LaneId = "1",
-                    LaneName = "Cong A - Lane 1",
+                    LaneName = "Cổng A - Làn 1",
                     InterventionType = "temporary_grant",
                     SubjectName = "Khach demo het han",
                     SubjectType = "Guest",
@@ -3089,16 +3089,16 @@ public static class DemoDataSeeder
         if (!db.SecurityDevices.Any())
         {
             db.SecurityDevices.AddRange(
-                new SecurityDevice { Name = "Gate A QR Controller", DeviceType = "QRController", Vendor = "V-Shield", Model = "VS-Q1", SerialNumber = "DEMO-QR-001", Status = "Online", LastSeenAtUtc = now.AddSeconds(-15) },
-                new SecurityDevice { Name = "Parking Barrier", DeviceType = "Barrier", Vendor = "V-Shield", Model = "VS-B2", SerialNumber = "DEMO-BAR-002", Status = "Degraded", LastSeenAtUtc = now.AddMinutes(-8) },
-                new SecurityDevice { Name = "Restricted Zone Reader", DeviceType = "QRReader", Vendor = "V-Shield", Model = "VS-R1", SerialNumber = "DEMO-QR-003", Status = "Offline", LastSeenAtUtc = now.AddHours(-2) });
+                new SecurityDevice { Name = "Bộ điều khiển QR cổng A", DeviceType = "QRController", Vendor = "V-Shield", Model = "VS-Q1", SerialNumber = "DEMO-QR-001", Status = "Online", LastSeenAtUtc = now.AddSeconds(-15) },
+                new SecurityDevice { Name = "Rào chắn bãi xe", DeviceType = "Barrier", Vendor = "V-Shield", Model = "VS-B2", SerialNumber = "DEMO-BAR-002", Status = "Degraded", LastSeenAtUtc = now.AddMinutes(-8) },
+                new SecurityDevice { Name = "Đầu đọc khu vực hạn chế", DeviceType = "QRReader", Vendor = "V-Shield", Model = "VS-R1", SerialNumber = "DEMO-QR-003", Status = "Offline", LastSeenAtUtc = now.AddHours(-2) });
         }
 
         if (!db.Alarms.Any())
         {
             db.Alarms.AddRange(
-                new Alarm { AlarmType = "DeviceHealth", Severity = "Low", State = "Acknowledged", Summary = "Gate A controller maintenance window", CreatedAtUtc = now.AddHours(-3), AcknowledgedAtUtc = now.AddHours(-2) },
-                new Alarm { AlarmType = "DeviceOffline", Severity = "Critical", State = "New", Summary = "Restricted Zone Reader has been offline for two hours", CreatedAtUtc = now.AddMinutes(-20) });
+                new Alarm { AlarmType = "DeviceHealth", Severity = "Low", State = "Acknowledged", Summary = "Cửa sổ bảo trì bộ điều khiển cổng A", CreatedAtUtc = now.AddHours(-3), AcknowledgedAtUtc = now.AddHours(-2) },
+                new Alarm { AlarmType = "DeviceOffline", Severity = "Critical", State = "New", Summary = "Đầu đọc khu vực hạn chế đã offline hai giờ", CreatedAtUtc = now.AddMinutes(-20) });
         }
 
         if (!db.EvidenceItems.Any())
@@ -3374,9 +3374,9 @@ public static class DemoDataSeeder
                     QrPayload = $"EMP:{employeeId}|T:{(log.Timestamp ?? now):yyyyMMddHHmm}|NONCE:{index:000000}",
                     IsValid = log.ResultStatus == "Granted",
                     Message = log.ResultStatus == "Granted"
-                        ? "Dynamic QR accepted"
-                        : "Dynamic QR rejected for policy or replay review",
-                    ScannerDevice = log.CameraNameSnapshot ?? log.GateNameSnapshot ?? "Demo QR Scanner",
+                        ? "QR động được chấp nhận"
+                        : "QR động bị từ chối do chính sách hoặc rà soát tái sử dụng",
+                    ScannerDevice = log.CameraNameSnapshot ?? log.GateNameSnapshot ?? "Máy quét QR demo",
                     ScannedAt = log.Timestamp ?? now
                 };
             })

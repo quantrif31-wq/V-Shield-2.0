@@ -146,7 +146,7 @@ public class EnterpriseOperationsWorker : BackgroundService
                 db.AlarmComments.Add(new AlarmComment
                 {
                     AlarmId = alarm.AlarmId,
-                    Comment = $"[AI Escalation] Risk score {riskScore}/100. Auto-escalated based on predictive analysis."
+                    Comment = $"[Chuyển cấp AI] Điểm rủi ro {riskScore}/100. Tự động chuyển cấp dựa trên phân tích dự đoán."
                 });
             }
             else if (alarm.CreatedAtUtc <= now.AddMinutes(-60) && riskScore >= 40)
@@ -155,7 +155,7 @@ public class EnterpriseOperationsWorker : BackgroundService
                 db.AlarmComments.Add(new AlarmComment
                 {
                     AlarmId = alarm.AlarmId,
-                    Comment = $"[AI Escalation] Risk score {riskScore}/100. Exceeded 1h threshold + moderate risk."
+                    Comment = $"[Chuyển cấp AI] Điểm rủi ro {riskScore}/100. Quá ngưỡng 1 giờ + rủi ro trung bình."
                 });
             }
         }
@@ -187,7 +187,7 @@ public class EnterpriseOperationsWorker : BackgroundService
                     AlarmType = "VisitorOverstay",
                     Severity = "Medium",
                     State = "New",
-                    Summary = $"Visit {visit.VisitId} visitor {visit.VisitorName} exceeded approved visit window.",
+                    Summary = $"Chuyến thăm {visit.VisitId} của khách {visit.VisitorName} đã vượt khung giờ được duyệt.",
                     SiteId = visit.SiteId
                 });
             }
@@ -223,7 +223,7 @@ public class EnterpriseOperationsWorker : BackgroundService
                 AlarmType = "DeviceOffline",
                 Severity = "High",
                 State = "New",
-                Summary = $"Security device {device.Name} is offline.",
+                Summary = $"Thiết bị an ninh {device.Name} đã offline.",
                 SiteId = device.SiteId
             });
         }

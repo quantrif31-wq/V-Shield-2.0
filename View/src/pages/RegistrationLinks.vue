@@ -28,12 +28,12 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Host</th>
+                            <th>Chủ nhà</th>
                             <th>Token</th>
                             <th>Trạng thái</th>
                             <th>Tạo lúc</th>
                             <th>Hết hạn</th>
-                            <th>Link</th>
+                            <th>Liên kết</th>
                         </tr>
                     </thead>
                     <tbody>

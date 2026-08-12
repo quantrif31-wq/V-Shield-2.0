@@ -400,7 +400,7 @@
                                                 </select>
                                             </label>
                                             <label class="scope-field">
-                                                <span>Site</span>
+                                                <span>Khu vực</span>
                                                 <select v-model="scope.siteId" class="sleek-select">
                                                     <option value="">Tất cả</option>
                                                     <option v-for="site in scopeReference.sites" :key="site.siteId" :value="String(site.siteId)">{{ site.name }}</option>

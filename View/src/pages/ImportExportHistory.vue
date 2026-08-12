@@ -49,7 +49,7 @@
                     <thead>
                         <tr>
                             <th>Thao tác</th>
-                            <th>Entity</th>
+                            <th>Đối tượng</th>
                             <th>File</th>
                             <th>Trạng thái</th>
                             <th class="text-right">Dòng</th>
@@ -62,7 +62,7 @@
                         <tr v-for="item in paginatedHistory" :key="item.id">
                             <td>
                                 <span class="badge" :class="item.operationType === 'Import' ? 'badge-import' : 'badge-export'">
-                                    {{ item.operationType === 'Import' ? '📥 Import' : '📤 Export' }}
+                                    {{ item.operationType === 'Import' ? '📥 Nhập' : '📤 Xuất' }}
                                 </span>
                             </td>
                             <td>{{ entityDisplayName(item.entityType) }}</td>

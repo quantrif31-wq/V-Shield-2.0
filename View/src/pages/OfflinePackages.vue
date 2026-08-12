@@ -52,7 +52,7 @@
                     <input v-model="form.packageVersion" class="form-input" placeholder="VD: 1.0.0" />
                 </div>
                 <div class="form-group">
-                    <label>Payload JSON</label>
+                    <label>Nội dung JSON</label>
                     <textarea v-model="form.payloadJson" class="form-input" rows="4" placeholder='{"allowAll":true}'></textarea>
                 </div>
                 <div class="form-group">

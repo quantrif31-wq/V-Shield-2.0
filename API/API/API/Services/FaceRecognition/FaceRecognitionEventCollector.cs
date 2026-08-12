@@ -191,7 +191,7 @@ public sealed class FaceRecognitionEventCollector : BackgroundService, IFaceReco
         checkpoint.LastErrorCode = error is FaceRuntimeUnavailableException unavailable
             ? unavailable.FailureKind.ToString()
             : error.GetType().Name;
-        checkpoint.LastErrorMessage = "Recognition runtime collection failed.";
+        checkpoint.LastErrorMessage = "Thu thập sự kiện nhận dạng Runtime thất bại.";
         await db.SaveChangesAsync(token);
     }
 

@@ -192,7 +192,7 @@
                 <tr>
                   <th>Thời gian</th>
                   <th>Hướng</th>
-                  <th>Gate</th>
+                  <th>Cổng</th>
                   <th>Camera</th>
                   <th>Kết quả</th>
                 </tr>

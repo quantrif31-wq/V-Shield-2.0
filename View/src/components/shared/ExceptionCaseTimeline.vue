@@ -1,7 +1,7 @@
 <template>
   <div class="ect-root">
     <div v-if="sortedItems.length === 0" class="ect-empty">
-      <p>Chưa có sự kiện nào cho case này.</p>
+      <p>Chưa có sự kiện nào cho vụ việc này.</p>
     </div>
 
     <div v-else class="ect-timeline">

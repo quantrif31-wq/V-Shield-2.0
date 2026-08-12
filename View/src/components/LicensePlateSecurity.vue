@@ -71,10 +71,10 @@
 
     <div class="status-bar">
       <span><b>Trạng thái:</b> {{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
-      <span><b>Preview:</b> {{ previewRunning ? "Đang mở" : "Đang tắt" }}</span>
+      <span><b>Xem trước:</b> {{ previewRunning ? "Đang mở" : "Đang tắt" }}</span>
       <span><b>Nguồn backend:</b> {{ currentIp || cameraIp || "-----" }}</span>
       <span><b>URL xem trước:</b> {{ effectivePreviewUrl || "-----" }}</span>
-      <span><b>Session:</b> {{ sessionId || 0 }}</span>
+      <span><b>Phiên:</b> {{ sessionId || 0 }}</span>
       <span><b>FPS:</b> {{ fps }}</span>
       <span><b>OCR:</b> {{ ocrRunning ? "Đang xử lý" : "Sẵn sàng" }}</span>
       <span><b>Khóa phiên:</b> {{ scanLocked ? "Đã khóa" : "Đang quét" }}</span>
@@ -86,7 +86,7 @@
         v-if="previewRunning && effectivePreviewUrl"
         :url="effectivePreviewUrl"
         class="video-stream"
-        label="Plate camera preview"
+        label="Xem trước camera biển số"
         :show-controls="false"
         @ready="handlePreviewReady"
         @error="handlePreviewError"
@@ -124,7 +124,7 @@
           v-if="lockedSnapshot"
           :src="lockedSnapshot"
           class="evidence-image"
-          alt="Locked Snapshot"
+          alt="Ảnh chụp khóa"
         />
         <div v-else class="evidence-empty">Chưa có ảnh</div>
       </div>
@@ -135,7 +135,7 @@
           v-if="lockedPlateCrop"
           :src="lockedPlateCrop"
           class="evidence-image"
-          alt="Locked Plate Crop"
+          alt="Ảnh crop biển số khóa"
         />
         <div v-else class="evidence-empty">Chưa có ảnh</div>
       </div>
@@ -152,7 +152,7 @@
         >
           <span class="candidate-text">{{ item.text }}</span>
           <span class="candidate-meta">
-            conf={{ formatConf(item.conf) }} | {{ item.valid ? "valid" : "raw" }}
+            conf={{ formatConf(item.conf) }} | {{ item.valid ? "hợp lệ" : "thô" }}
           </span>
         </div>
       </div>
@@ -163,7 +163,7 @@
     </div>
 
     <div class="result-panel">
-      <div><b>Box:</b> {{ bboxText }}</div>
+      <div><b>Khung:</b> {{ bboxText }}</div>
       <div><b>Số lần ổn định:</b> {{ stableCount }}</div>
       <div><b>Di chuyển nhanh:</b> {{ movingFast ? "Có" : "Không" }}</div>
       <div><b>Thông điệp:</b> {{ message || "-----" }}</div>

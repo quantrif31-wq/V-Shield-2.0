@@ -16,7 +16,7 @@
 
         <section class="signal-strip">
             <article class="signal-card">
-                <span class="signal-label">Lane trực tuyến</span>
+                <span class="signal-label">Làn trực tuyến</span>
                 <strong>{{ laneOptions.length }}</strong>
             </article>
             <article class="signal-card">
@@ -25,7 +25,7 @@
             </article>
             <article class="signal-card">
                 <span class="signal-label">Chế độ thủ công</span>
-                <strong>2 lane</strong>
+                <strong>2 làn</strong>
             </article>
         </section>
 
@@ -36,7 +36,7 @@
 
                 <div class="lane-head">
                     <div>
-                        <span class="lane-kicker">Lane {{ lane.order }}</span>
+                        <span class="lane-kicker">Làn {{ lane.order }}</span>
                         <h2>{{ lane.title }}</h2>
                     </div>
                     <span class="lane-status-chip" :class="lane.resultTone || 'tone-idle'">
@@ -50,7 +50,7 @@
                         <select v-model="lane.selectedLaneId" class="form-control">
                             <option :value="null">-- Chọn lane --</option>
                             <option v-for="opt in laneOptions" :key="opt.laneId" :value="opt.laneId">
-                                {{ opt.name }} ({{ opt.direction || 'IN' }})
+                                {{ opt.name }} ({{ opt.direction || 'VÀO' }})
                             </option>
                         </select>
                     </label>
@@ -164,7 +164,7 @@
                     <button class="btn btn-primary" :disabled="lane.busy || !canSubmit(lane)" @click="verifyLane(lane)">
                         {{ lane.busy ? 'Đang xử lý...' : 'Xác minh và cho qua' }}
                     </button>
-                    <button class="btn btn-secondary" :disabled="lane.busy" @click="resetLane(lane)">Đặt lại lane</button>
+                    <button class="btn btn-secondary" :disabled="lane.busy" @click="resetLane(lane)">Đặt lại làn</button>
                 </div>
 
                 <div v-if="lane.error" class="alert alert-danger lane-alert">{{ lane.error }}</div>
@@ -194,7 +194,7 @@ const createLaneState = (order) =>
     reactive({
         key: `lane-${order}`,
         order,
-        title: order === 1 ? 'Parking Lane A' : 'Parking Lane B',
+        title: order === 1 ? 'Làn A bãi xe' : 'Làn B bãi xe',
         selectedLaneId: null,
         subjectType: 'employee',
         query: '',
@@ -461,7 +461,7 @@ const verifyLane = async (lane) => {
             lane.resultLabel = 'Từ chối'
             lane.waveLevel = 5
             lane.auditTitle = 'QR không khớp'
-            lane.auditMessage = 'QR động không khớp đối tượng đã chọn. Lane event đã được ghi nhận.'
+            lane.auditMessage = 'QR động không khớp đối tượng đã chọn. Sự kiện làn đã được ghi nhận.'
             return
         }
 
@@ -490,7 +490,7 @@ const verifyLane = async (lane) => {
         lane.resultLabel = 'Từ chối'
         lane.waveLevel = 5
         lane.auditTitle = 'Gửi xe thủ công bị chặn'
-        lane.auditMessage = 'Xác minh thất bại. Lane event từ chối đã được ghi nhận nếu backend sẵn sàng.'
+        lane.auditMessage = 'Xác minh thất bại. Sự kiện làn từ chối đã được ghi nhận nếu backend sẵn sàng.'
         try {
             await logLaneEvent(lane, 'MANUAL_PARKING_DENY', `[parking-fallback] error=${message}`)
         } catch (logError) {

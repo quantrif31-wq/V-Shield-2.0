@@ -79,7 +79,7 @@ async function loadExports() {
 }
 
 async function approve(r) {
-    const watermark = prompt('Văn bản watermark (ví dụ: Case #123):')
+    const watermark = prompt('Văn bản watermark (ví dụ: Vụ việc #123):')
     if (!watermark) return
     try {
         await enterpriseApi.approveExportRequest(r.evidenceExportRequestId, { watermark })

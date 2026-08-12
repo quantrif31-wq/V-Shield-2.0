@@ -62,7 +62,7 @@
                 v-if="lockedSnapshot"
                 :src="lockedSnapshot"
                 class="evidence-image"
-                alt="Locked Snapshot"
+                alt="Ảnh chụp khóa"
               />
               <div v-else class="evidence-empty">Chưa có ảnh</div>
             </div>
@@ -73,7 +73,7 @@
                 v-if="lockedFaceCrop"
                 :src="lockedFaceCrop"
                 class="evidence-image"
-                alt="Locked Face Crop"
+                alt="Ảnh crop khuôn mặt khóa"
               />
               <div v-else class="evidence-empty">Chưa có ảnh</div>
             </div>
@@ -105,7 +105,7 @@
           </div>
 
           <div v-if="selectedConfiguration" class="config-meta-box">
-            <div class="meta-item"><span>Runtime ID:</span> <strong>{{ selectedConfiguration.runtimeCameraId }}</strong></div>
+            <div class="meta-item"><span>Mã Runtime:</span> <strong>{{ selectedConfiguration.runtimeCameraId }}</strong></div>
             <div class="meta-item"><span>Làn:</span> <strong>{{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</strong></div>
             <div class="meta-item"><span>Trạng thái mong muốn:</span> <strong class="badge info">{{ selectedConfiguration.desiredState }}</strong></div>
             <div class="meta-item"><span>Trạng thái thời gian thực:</span> <strong class="badge info">{{ selectedConfiguration.runtimeStatus }}</strong></div>
@@ -188,7 +188,7 @@
               <span class="badge" :class="cameraConnected ? 'success' : 'danger'">{{ cameraConnected ? "Đã kết nối" : "Chưa kết nối" }}</span>
             </div>
             <div class="status-badge-item">
-              <span class="label">Preview:</span>
+              <span class="label">Xem trước:</span>
               <span class="badge" :class="previewRunning && previewHealthy ? 'success' : 'warn'">{{ previewRunning ? (previewHealthy ? "Đang hiển thị" : "Đang kết nối") : "Đang tắt" }}</span>
             </div>
             <div class="status-badge-item">
@@ -199,14 +199,14 @@
 
           <div class="face-result-boxes">
             <div class="face-result-box">
-              <div class="face-result-label">Employee ID (Mã nhân viên)</div>
+              <div class="face-result-label">Mã nhân viên</div>
               <div class="face-result-value" :class="{ confirmed: employeeId }">
                 {{ employeeId || "-----" }}
               </div>
             </div>
 
             <div class="face-result-box">
-              <div class="face-result-label">Recognition State (Trạng thái nhận dạng)</div>
+              <div class="face-result-label">Trạng thái nhận dạng</div>
               <div class="face-result-value" :class="scanLocked ? 'locked' : trackingActive ? 'tracking' : 'idle'">
                 {{ detectionLabel }}
               </div>
@@ -408,7 +408,7 @@
                 </span>
               </td>
               <td>{{ item.reasonCode }}</td>
-              <td>{{ item.legacyDecision }} AND {{ item.enterpriseDecision }}</td>
+              <td>{{ item.legacyDecision }} VÀ {{ item.enterpriseDecision }}</td>
             </tr>
             <tr v-if="!accessDecisions.length">
               <td colspan="5" class="text-center text-muted">Chưa có quyết định truy cập.</td>
@@ -421,7 +421,7 @@
     <section class="card panel enroll-card" v-show="activeTab === 'enroll'">
       <div class="panel-head flex-head">
         <div>
-          <span class="panel-kicker">Enrollment</span>
+          <span class="panel-kicker">Đăng ký mẫu</span>
           <h2 class="panel-title">Quét khuôn mặt để thu thập mẫu nhận diện</h2>
           <p class="panel-subtitle">
             Bật webcam, quét khuôn mặt từ nhiều góc, sau đó lưu mẫu vào Face Runtime
@@ -525,7 +525,7 @@
           <div v-if="enrollResult" class="enroll-result alert-success-soft">
             <div><span>Mã nhân viên:</span> <strong>{{ enrollResult.subjectId }}</strong></div>
             <div><span>Số mẫu dùng được:</span> <strong>{{ enrollResult.encodingCount }}</strong></div>
-            <div><span>Model file:</span> <strong class="font-mono">{{ enrollResult.modelFileName }}</strong></div>
+            <div><span>File model:</span> <strong class="font-mono">{{ enrollResult.modelFileName }}</strong></div>
             <div><span>Phiên bản registry:</span> <strong>v{{ enrollResult.registryVersion }}</strong></div>
             <div class="enroll-result-hint">
               Đã kích hoạt model. Chuyển sang tab "Giám sát FaceID", bật camera rồi quét để kiểm tra nhận diện thật.
@@ -538,7 +538,7 @@
               :key="index"
               :src="frame"
               class="enroll-thumb"
-              alt="Face sample"
+              alt="Mẫu khuôn mặt"
             />
           </div>
         </div>

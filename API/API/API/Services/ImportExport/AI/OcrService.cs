@@ -55,7 +55,7 @@ public class OcrService : IOcrService
         {
             Success = true,
             RawText = $"[FILE:{fileName}]\n[FORMAT:{ext}]\n[SIZE:{fileBytes.Length}]\n[BASE64:{base64[..Math.Min(base64.Length, 500)]}...]",
-            ErrorMessage = "OCR engine not available. File content sent as base64 for AI processing."
+                ErrorMessage = "Máy OCR không khả dụng. Nội dung file được gửi dạng base64 để AI xử lý."
         };
     }
 

@@ -1554,7 +1554,7 @@ export default {
     cameraVisualText(type, lane) {
       if (type === "qr") {
         const phase = this.qrBackendPhase(lane.qr)
-        if (this.cameraVisualState(type, lane) === "invalid") return "INVALID / TIMEOUT"
+        if (this.cameraVisualState(type, lane) === "invalid") return "LỖI / QUÁ THỜI GIAN"
         if (phase === "verified") return "VALID"
         if (phase === "locked") return "VERIFYING"
         if (phase === "candidate_found") return "SEEN"
@@ -1565,7 +1565,7 @@ export default {
 
       const state = this.cameraVisualState(type, lane)
       if (state === "valid") return "VALID"
-      if (state === "invalid") return "INVALID / TIMEOUT"
+      if (state === "invalid") return "LỖI / QUÁ THỜI GIAN"
       if (state === "scanning") return "SCANNING"
       return "IDLE"
     },

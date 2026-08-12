@@ -55,7 +55,7 @@
                     </div>
                     <div class="provider-badges">
                         <span class="badge" :class="p.isEnabled ? 'badge-green' : 'badge-gray'">{{ p.isEnabled ? 'Đã bật' : 'Đã tắt' }}</span>
-                        <span v-if="p.clientId" class="badge badge-outline">Client: {{ p.clientId }}</span>
+                        <span v-if="p.clientId" class="badge badge-outline">Mã client: {{ p.clientId }}</span>
                     </div>
                 </div>
             </div>

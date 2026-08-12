@@ -61,7 +61,7 @@
                 <div class="modal-panel">
                     <h3>Ngăn {{ selectedComp.code }}</h3>
                     <p>Trạng thái: <strong>{{ selectedComp.status === 'Empty' ? 'Trống' : 'Có đồ' }}</strong></p>
-                    <p v-if="selectedComp.evidenceItem">Evidence ID: #{{ selectedComp.evidenceItem.evidenceItemId }}</p>
+                    <p v-if="selectedComp.evidenceItem">ID bằng chứng: #{{ selectedComp.evidenceItem.evidenceItemId }}</p>
                     <div class="form-actions">
                         <button v-if="selectedComp.status === 'Occupied'" class="btn btn-danger" @click="releaseCompartment(selectedComp)">Lấy đồ ra</button>
                         <button class="btn btn-secondary" @click="selectedComp = null">Đóng</button>

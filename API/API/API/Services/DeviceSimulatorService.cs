@@ -65,7 +65,7 @@ public class DeviceSimulatorService : IDeviceSimulator
         {
             SecurityDeviceId = device.SecurityDeviceId,
             Status = "Ok",
-            Message = "Virtual controller created via DeviceSimulatorService."
+                Message = "Bộ điều khiển ảo được tạo qua DeviceSimulatorService."
         });
         await _context.SaveChangesAsync(ct);
         return device;
@@ -132,14 +132,14 @@ public class DeviceSimulatorService : IDeviceSimulator
         {
             SecurityDeviceId = deviceId,
             Status = faultType.Trim(),
-            Message = message?.Trim() ?? "Simulator fault injected."
+            Message = message?.Trim() ?? "Đã chèn lỗi mô phỏng."
         });
         _context.Alarms.Add(new Alarm
         {
             AlarmType = faultType.Trim(),
             Severity = severity.Trim(),
             State = "New",
-            Summary = $"Simulator fault for device {device.Name}: {faultType}.",
+            Summary = $"Lỗi mô phỏng thiết bị {device.Name}: {faultType}.",
             SiteId = device.SiteId
         });
         await _context.SaveChangesAsync(ct);
@@ -158,7 +158,7 @@ public class DeviceSimulatorService : IDeviceSimulator
         {
             SecurityDeviceId = deviceId,
             Status = "Ok",
-            Message = "Device restored to normal via simulator."
+            Message = "Thiết bị đã khôi phục bình thường qua mô phỏng."
         });
         await _context.SaveChangesAsync(ct);
         return true;

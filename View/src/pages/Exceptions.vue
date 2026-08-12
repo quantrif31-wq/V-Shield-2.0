@@ -4,10 +4,10 @@
             <div>
                 <span class="panel-kicker">Quản lý ngoại lệ</span>
                 <h1 class="page-title">Trung tâm ngoại lệ</h1>
-                <p class="page-subtitle">Hàng đợi case cần đối soát, xin can thiệp và khóa sổ thao tác.</p>
+                <p class="page-subtitle">Hàng đợi vụ việc cần đối soát, xin can thiệp và khóa sổ thao tác.</p>
             </div>
             <div class="header-actions">
-                <span class="soft-chip warn">{{ openCaseCount }} case mở</span>
+                <span class="soft-chip warn">{{ openCaseCount }} vụ việc mở</span>
                 <span class="soft-chip danger">{{ pendingInterventionCount }} yêu cầu chờ xử lý</span>
                 <button class="btn btn-secondary btn-sm" :disabled="loading" @click="loadAll">Làm mới</button>
             </div>
@@ -15,7 +15,7 @@
 
         <section class="summary-strip">
             <article class="summary-card">
-                <span class="summary-label">Case đang mở</span>
+                <span class="summary-label">Vụ việc đang mở</span>
                 <strong class="summary-value">{{ openCaseCount }}</strong>
                 <small>{{ categoryCount('pending_approval') }} chờ phê duyệt</small>
             </article>
@@ -38,7 +38,7 @@
 
         <div class="tab-bar">
             <button :class="{ active: activeTab === 'cases' }" @click="activeTab = 'cases'">
-                Case ngoại lệ
+                Vụ việc ngoại lệ
                 <span v-if="exceptionCases.length" class="tab-count">{{ exceptionCases.length }}</span>
             </button>
             <button :class="{ active: activeTab === 'interventions' }" @click="activeTab = 'interventions'">
@@ -52,7 +52,7 @@
                 <div class="pane-header">
                     <div>
                         <h2 class="panel-title">Danh sách case</h2>
-                        <p class="pane-subtitle">Tập trung vào case mới nhất và có nguy cơ thao tác.</p>
+                        <p class="pane-subtitle">Tập trung vào vụ việc mới nhất và có nguy cơ thao tác.</p>
                     </div>
                     <div class="search-shell">
                         <input v-model.trim="searchQuery" type="text" placeholder="Tìm theo tên, biển số, log..." class="filter-input" />
@@ -73,7 +73,7 @@
                 </div>
 
                 <div v-if="loading" class="empty-card">Đang tải danh sách case...</div>
-                <div v-else-if="filteredCases.length === 0" class="empty-card">Không có case phù hợp bộ lọc hiện tại.</div>
+                <div v-else-if="filteredCases.length === 0" class="empty-card">Không có vụ việc phù hợp bộ lọc hiện tại.</div>
                 <div v-else class="queue-list">
                     <button
                         v-for="item in filteredCases"
@@ -102,11 +102,11 @@
             </section>
 
             <section class="workspace-pane detail-pane">
-                <div v-if="!selectedCase" class="empty-card">Chọn một case để xem chi tiết và thao tác.</div>
+                <div v-if="!selectedCase" class="empty-card">Chọn một vụ việc để xem chi tiết và thao tác.</div>
                 <template v-else>
                     <div class="detail-header">
                         <div>
-                            <span class="panel-kicker">Case #{{ selectedCase.id }}</span>
+                            <span class="panel-kicker">Vụ việc #{{ selectedCase.id }}</span>
                             <h2 class="detail-title">{{ selectedCase.subjectName || 'Đối tượng chưa rõ' }}</h2>
                             <p class="detail-subtitle">{{ selectedCase.reason || 'Chưa mô tả lý do' }}</p>
                         </div>
@@ -173,7 +173,7 @@
                         <button :class="{ active: detailTab === 'timeline' }" @click="detailTab = 'timeline'">Dòng thời gian</button>
                         <button :class="{ active: detailTab === 'events' }" @click="detailTab = 'events'; loadLaneEvents(selectedCase)">Sự kiện làn</button>
                         <button :class="{ active: detailTab === 'evidence' }" @click="detailTab = 'evidence'; loadEvidence(selectedCase)">Chứng cứ</button>
-                        <button :class="{ active: detailTab === 'barriers' }" @click="detailTab = 'barriers'; loadBarrierCommands(selectedCase)">Barrier</button>
+                        <button :class="{ active: detailTab === 'barriers' }" @click="detailTab = 'barriers'; loadBarrierCommands(selectedCase)">Rào chắn</button>
                         <button :class="{ active: detailTab === 'correlations' }" @click="detailTab = 'correlations'; loadCorrelations(selectedCase)">Tương quan</button>
                     </div>
 
@@ -207,7 +207,7 @@
                     </div>
 
                     <div v-else-if="detailTab === 'barriers'" class="detail-body">
-                        <div v-if="loadingBarriers" class="empty-card compact">Đang tải lệnh barrier...</div>
+                        <div v-if="loadingBarriers" class="empty-card compact">Đang tải lệnh rào chắn...</div>
                         <div v-else-if="barrierMessage" class="empty-card compact">{{ barrierMessage }}</div>
                         <div v-else-if="barrierCommands.length === 0" class="empty-card compact">Chưa có lệnh barrier liên quan.</div>
                         <div v-else class="compact-list">
@@ -346,7 +346,7 @@
                             <span>{{ selectedIntervention.plateNumber || '---' }}</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">Lane</span>
+                            <span class="meta-label">Làn</span>
                             <span>{{ selectedIntervention.laneName || selectedIntervention.laneId || '---' }}</span>
                         </div>
                         <div class="meta-item">
@@ -808,7 +808,7 @@ function buildInterventionPayload(item) {
 
     return {
         interventionType,
-        reason: item.reason || item.note || 'Case ngoại lệ cần can thiệp',
+        reason: item.reason || item.note || 'Vụ việc ngoại lệ cần can thiệp',
         laneId: item.resolvedLaneId ? String(item.resolvedLaneId) : undefined,
         laneName: item.resolvedLaneName || item.gateName || undefined,
         subjectName: item.subjectName || undefined,
@@ -845,7 +845,7 @@ async function runPrimaryCaseAction(item) {
         })
 
         if ((isAdmin.value || isQuanLy.value) && requestId) {
-            await enterpriseApi.acceptInterventionRequest(requestId, { note: `Duyệt từ case #${item.sourceLogId}` })
+            await enterpriseApi.acceptInterventionRequest(requestId, { note: `Duyệt từ vụ việc #${item.sourceLogId}` })
             item.workflowStatus = 'Accepted'
             item.timeline.push({
                 id: `accepted-${requestId}`,
@@ -859,7 +859,7 @@ async function runPrimaryCaseAction(item) {
         }
 
         if (shouldExecuteImmediately(item) && requestId) {
-            await enterpriseApi.executeInterventionRequest(requestId, { note: `Thực thi nhanh từ case #${item.sourceLogId}` })
+            await enterpriseApi.executeInterventionRequest(requestId, { note: `Thực thi nhanh từ vụ việc #${item.sourceLogId}` })
             item.workflowStatus = 'Executed'
             item.timeline.push({
                 id: `executed-${requestId}`,
@@ -880,7 +880,7 @@ async function runPrimaryCaseAction(item) {
                 : `Đã tạo và duyệt yêu cầu #${requestId}.`
     } catch (error) {
         caseActionError.value = true
-        caseActionMessage.value = error?.response?.data?.message || 'Không thể tạo workflow can thiệp cho case này.'
+        caseActionMessage.value = error?.response?.data?.message || 'Không thể tạo workflow can thiệp cho vụ việc này.'
     } finally {
         saving.value = false
     }
@@ -896,19 +896,19 @@ async function closeCase(item) {
             laneId: item.resolvedLaneId || null,
             plateText: item.plateText || undefined,
             eventType: 'CASE_CLOSED',
-            note: `Case #${item.sourceLogId} được khóa sổ bởi ${currentRole.value}`,
+            note: `Vụ việc #${item.sourceLogId} được khóa sổ bởi ${currentRole.value}`,
         })
         item.workflowStatus = 'Closed'
         item.timeline.push({
             id: `closed-${Date.now()}`,
             type: 'close',
-            title: 'Case đã được khóa sổ',
+            title: 'Vụ việc đã được khóa sổ',
             description: 'Không còn yêu cầu xử lý tiếp trên hàng đợi.',
             timestamp: new Date().toISOString(),
             actor: currentRole.value,
             reason: 'Khóa sổ từ bàn ngoại lệ',
         })
-        caseActionMessage.value = `Case #${item.sourceLogId} đã được khóa sổ.`
+        caseActionMessage.value = `Vụ việc #${item.sourceLogId} đã được khóa sổ.`
     } catch (error) {
         caseActionError.value = true
         caseActionMessage.value = error?.response?.data?.message || 'Không thể khóa sổ case.'
@@ -966,7 +966,7 @@ async function loadBarrierCommands(item = selectedCase.value) {
         }
 
         if (!laneId) {
-            barrierMessage.value = 'Case này chưa truy ra được lane cụ thể, không thể đối chiếu barrier command một cách đáng tin cậy.'
+            barrierMessage.value = 'Vụ việc này chưa truy ra được làn cụ thể, không thể đối chiếu lệnh rào chắn một cách đáng tin cậy.'
             return
         }
 

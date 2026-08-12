@@ -135,7 +135,7 @@
                 :key="lane.face.directCameraKey"
                 :src="lane.face.directCameraUrl"
                 class="preview-image"
-                alt="Face Preview"
+                alt="Xem trước khuôn mặt"
                 @load="onPreviewLoaded(lane.face)"
                 @error="onPreviewError(lane.face)"
               />
@@ -160,7 +160,7 @@
                   v-if="lane.face.lockedFaceCrop"
                   :src="lane.face.lockedFaceCrop"
                   class="evidence-image"
-                  alt="Face Crop"
+                  alt="Ảnh crop khuôn mặt"
                 />
                 <div v-else class="evidence-empty">Ảnh crop mặt</div>
               </div>
@@ -170,7 +170,7 @@
                   v-if="lane.face.lockedSnapshot"
                   :src="lane.face.lockedSnapshot"
                   class="evidence-image"
-                  alt="Face Snapshot"
+                  alt="Ảnh chụp khuôn mặt"
                 />
                 <div v-else class="evidence-empty">Ảnh chụp mặt</div>
               </div>
@@ -192,7 +192,7 @@
                 :key="platePreviewKey(lane.plate)"
                 :src="platePreviewDisplayUrl(lane.plate)"
                 class="preview-image"
-                alt="Plate Preview"
+                alt="Xem trước biển số"
                 @load="onPreviewLoaded(lane.plate)"
                 @error="onPreviewError(lane.plate)"
               />
@@ -218,7 +218,7 @@
                   v-if="lane.plate.lockedPlateCrop"
                   :src="lane.plate.lockedPlateCrop"
                   class="evidence-image"
-                  alt="Plate Crop"
+                  alt="Ảnh crop biển số"
                 />
                 <div v-else class="evidence-empty">Ảnh crop biển</div>
               </div>
@@ -228,7 +228,7 @@
                   v-if="lane.plate.lockedSnapshot"
                   :src="lane.plate.lockedSnapshot"
                   class="evidence-image"
-                  alt="Plate Snapshot"
+                  alt="Ảnh chụp biển số"
                 />
                 <div v-else class="evidence-empty">Ảnh chụp biển</div>
               </div>
@@ -237,7 +237,7 @@
         </div>
 
         <div class="bottom-note">
-          <span><b>Face Msg:</b> {{ lane.face.message || "-----" }}</span>
+          <span><b>Tin nhắn Face:</b> {{ lane.face.message || "-----" }}</span>
           <span><b>Biển Msg:</b> {{ lane.plate.message || "-----" }}</span>
         </div>
       </section>
