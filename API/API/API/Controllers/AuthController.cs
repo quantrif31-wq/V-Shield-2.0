@@ -178,7 +178,7 @@ public class AuthController : ControllerBase
 
         var session = await _stepUpService.VerifyAsync(userId.Value, request.SessionId, request.Password, request.MfaCode);
         return session == null
-            ? Unauthorized(new { message = "Step-up verification failed." })
+            ? Unauthorized(new { message = "Xác thực tăng cường thất bại." })
             : Ok(session);
     }
 
@@ -209,7 +209,7 @@ public class AuthController : ControllerBase
             return Unauthorized();
 
         var response = await _authService.GenerateRecoveryCodesAsync(userId.Value, request.Count, userId.Value);
-        return response == null ? NotFound(new { message = "User not found." }) : Ok(response);
+        return response == null ? NotFound(new { message = "Không tìm thấy người dùng." }) : Ok(response);
     }
 
     private int? GetCurrentUserId()

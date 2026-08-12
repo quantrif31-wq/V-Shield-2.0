@@ -23,7 +23,7 @@ public sealed class FaceAccessPolicyComparisonsController(
         int page = 1, int pageSize = 50, CancellationToken token = default)
     {
         if (page < 1 || pageSize is < 1 or > 200 || !Utc(fromUtc) || !Utc(toUtc) || fromUtc > toUtc)
-            return BadRequest(new { message = "Invalid UTC range or pagination." });
+            return BadRequest(new { message = "Khoảng thời gian UTC hoặc phân trang không hợp lệ." });
         var query = Filter(db.FaceAccessPolicyComparisons.AsNoTracking(), fromUtc, toUtc,
             employeeId, cameraId, gateId, accessPointId, legacyDecision,
             enterpriseDecision, comparisonResult);
@@ -46,7 +46,7 @@ public sealed class FaceAccessPolicyComparisonsController(
         DateTime? fromUtc, DateTime? toUtc, CancellationToken token)
     {
         if (!Utc(fromUtc) || !Utc(toUtc) || fromUtc > toUtc)
-            return BadRequest(new { message = "Invalid UTC range." });
+            return BadRequest(new { message = "Khoảng thời gian UTC không hợp lệ." });
         var query = Filter(db.FaceAccessPolicyComparisons.AsNoTracking(),
             fromUtc, toUtc, null, null, null, null, null, null, null);
         var groups = await query.GroupBy(x => x.ComparisonResult)

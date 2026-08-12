@@ -84,7 +84,7 @@ public sealed class FaceModelMetadataTests
         var result = await service.BootstrapAsync(true, true, default);
 
         result.Success.Should().BeFalse();
-        result.Issues.Should().Contain(issue => issue.Contains("Subject mismatch"));
+        result.Issues.Should().Contain(issue => issue.Contains("Không khớp chủ thể"));
         (await db.EmployeeFaceModels.AnyAsync(model => model.Version != null))
             .Should().BeFalse();
     }

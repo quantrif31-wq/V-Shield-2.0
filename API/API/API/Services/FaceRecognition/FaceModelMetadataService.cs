@@ -289,9 +289,9 @@ public sealed class FaceModelMetadataService : IFaceModelMetadataService
             var model = matches[0];
             if (model.SubjectId != row.EmployeeId.ToString(
                     System.Globalization.CultureInfo.InvariantCulture))
-                issues.Add($"Subject mismatch for {row.ModelFileName}.");
+                issues.Add($"Không khớp chủ thể cho {row.ModelFileName}.");
             if (!Sha256Pattern.IsMatch(model.Checksum))
-                issues.Add($"Invalid checksum for {row.ModelFileName}.");
+                issues.Add($"Mã băm không hợp lệ cho {row.ModelFileName}.");
             if (model.EncodingCount <= 0)
                 issues.Add($"Invalid encoding count for {row.ModelFileName}.");
         }

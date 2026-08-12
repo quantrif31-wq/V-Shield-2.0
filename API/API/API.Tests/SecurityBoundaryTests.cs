@@ -682,7 +682,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         Assert.Equal(HttpStatusCode.OK, allowResponse.StatusCode);
         var allowBody = await allowResponse.Content.ReadAsStringAsync();
         Assert.Contains("Allow", allowBody);
-        Assert.Contains("allowed access", allowBody);
+        Assert.Contains("cho phép truy cập", allowBody);
 
         await GrantStepUpAsync(authenticated);
         var emergencyResponse = await authenticated.PostAsJsonAsync("/api/enterprise/access-policy/emergency-states", new
@@ -709,7 +709,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         Assert.Equal(HttpStatusCode.OK, denyResponse.StatusCode);
         var denyBody = await denyResponse.Content.ReadAsStringAsync();
         Assert.Contains("Deny", denyBody);
-        Assert.Contains("Emergency state active", denyBody);
+        Assert.Contains("khẩn cấp đang hoạt động", denyBody);
     }
 
     [Fact]
@@ -783,7 +783,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var simulateBody = await simulateResponse.Content.ReadAsStringAsync();
         Assert.Contains("Simulation", simulateBody);
         Assert.Contains("Deny", simulateBody);
-        Assert.Contains("Explicit deny rule", simulateBody);
+        Assert.Contains("Quy tắc từ chối rõ ràng", simulateBody);
 
         using (var scope = _factory.Services.CreateScope())
         {

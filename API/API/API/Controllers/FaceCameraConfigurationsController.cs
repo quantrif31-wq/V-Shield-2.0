@@ -61,11 +61,11 @@ public sealed class FaceCameraConfigurationsController : ControllerBase
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Conflict(new { message = "The Face camera configuration was modified by another request." });
+            return Conflict(new { message = "Cấu hình Face camera đã bị thay đổi bởi một yêu cầu khác." });
         }
         catch (DbUpdateException)
         {
-            return Conflict(new { message = "The Face camera configuration conflicts with an existing record." });
+            return Conflict(new { message = "Cấu hình Face camera xung đột với bản ghi hiện có." });
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

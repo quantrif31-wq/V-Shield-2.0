@@ -208,16 +208,16 @@ public class EnterpriseVisitorVehicleController : ControllerBase
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Summary))
-            return BadRequest(new { message = "Summary is required." });
+            return BadRequest(new { message = "Vui lòng nhập tóm tắt." });
 
         if (request.VisitId.HasValue && !await _context.Visits.AnyAsync(v => v.VisitId == request.VisitId.Value))
-            return BadRequest(new { message = "Visit not found." });
+            return BadRequest(new { message = "Không tìm thấy lượt thăm." });
 
         if (request.LostItemReportId.HasValue && !await _context.LostItemReports.AnyAsync(item => item.LostItemReportId == request.LostItemReportId.Value))
-            return BadRequest(new { message = "Lost item report not found." });
+            return BadRequest(new { message = "Không tìm thấy báo cáo tài sản thất lạc." });
 
         if (request.FoundItemReportId.HasValue && !await _context.FoundItemReports.AnyAsync(item => item.FoundItemReportId == request.FoundItemReportId.Value))
-            return BadRequest(new { message = "Found item report not found." });
+            return BadRequest(new { message = "Không tìm thấy báo cáo tài sản nhặt được." });
 
         var interaction = new ReceptionInteraction
         {
@@ -289,7 +289,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
             .Include(v => v.Site)
             .FirstOrDefaultAsync(v => v.VisitId == visitId);
         if (visit == null)
-            return NotFound(new { message = "Visit not found." });
+            return NotFound(new { message = "Không tìm thấy lượt thăm." });
 
         var credentials = await _context.VisitorCredentials
             .Where(c => c.VisitId == visitId).ToListAsync();
@@ -430,7 +430,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
             .Include(c => c.Site)
             .FirstOrDefaultAsync(c => c.ContractorId == contractorId);
         if (contractor == null)
-            return NotFound(new { message = "Contractor not found." });
+            return NotFound(new { message = "Không tìm thấy nhà thầu." });
         return Ok(contractor);
     }
 
@@ -439,9 +439,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateContractor([FromBody] ContractorRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.Company))
-            return BadRequest(new { message = "FullName and Company are required." });
+            return BadRequest(new { message = "Vui lòng nhập họ tên và công ty." });
         if (request.ContractToUtc <= request.ContractFromUtc)
-            return BadRequest(new { message = "ContractToUtc must be after ContractFromUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc hợp đồng phải sau thời điểm bắt đầu hợp đồng." });
 
         var contractor = new Contractor
         {
@@ -467,7 +467,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var contractor = await _context.Contractors.FindAsync(contractorId);
         if (contractor == null)
-            return NotFound(new { message = "Contractor not found." });
+            return NotFound(new { message = "Không tìm thấy nhà thầu." });
 
         contractor.Status = ContractorStatuses.Revoked;
         contractor.RevokedAtUtc = DateTime.UtcNow;
@@ -493,9 +493,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateVisit([FromBody] VisitRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.VisitorName))
-            return BadRequest(new { message = "VisitorName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên khách." });
         if (request.ExpectedOutUtc <= request.ExpectedInUtc)
-            return BadRequest(new { message = "ExpectedOutUtc must be after ExpectedInUtc." });
+            return BadRequest(new { message = "Thời điểm dự kiến ra phải sau thời điểm dự kiến vào." });
 
         var visit = new Visit
         {
@@ -527,9 +527,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var visit = await _context.Visits.FindAsync(visitId);
         if (visit == null)
-            return NotFound(new { message = "Visit not found." });
+            return NotFound(new { message = "Không tìm thấy lượt thăm." });
         if (request.ValidToUtc <= request.ValidFromUtc)
-            return BadRequest(new { message = "ValidToUtc must be after ValidFromUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc phải sau thời điểm bắt đầu." });
 
         var credential = new VisitorCredential
         {
@@ -552,7 +552,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var visit = await _context.Visits.FindAsync(visitId);
         if (visit == null)
-            return NotFound(new { message = "Visit not found." });
+            return NotFound(new { message = "Không tìm thấy lượt thăm." });
 
         if (visit.NdaRequired)
         {
@@ -560,7 +560,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
                 .Include(acceptance => acceptance.Template)
                 .AnyAsync(acceptance => acceptance.VisitId == visitId && acceptance.Template!.FormType == "NDA");
             if (!hasNda)
-                return BadRequest(new { message = "NDA acceptance is required before check-in." });
+                return BadRequest(new { message = "Vui lòng xác nhận NDA trước khi check-in." });
         }
 
         visit.Status = VisitStatuses.CheckedIn;
@@ -585,7 +585,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var visit = await _context.Visits.FindAsync(visitId);
         if (visit == null)
-            return NotFound(new { message = "Visit not found." });
+            return NotFound(new { message = "Không tìm thấy lượt thăm." });
 
         visit.Status = VisitStatuses.CheckedOut;
         var checkIn = await _context.VisitorCheckIns
@@ -607,7 +607,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateFormTemplate([FromBody] VisitorFormTemplateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Body))
-            return BadRequest(new { message = "Name and body are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên và nội dung." });
 
         var template = new VisitorFormTemplate
         {
@@ -626,9 +626,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> AcceptForm(int visitId, [FromBody] VisitorFormAcceptanceRequest request)
     {
         if (!await _context.Visits.AnyAsync(v => v.VisitId == visitId))
-            return NotFound(new { message = "Visit not found." });
+            return NotFound(new { message = "Không tìm thấy lượt thăm." });
         if (!await _context.VisitorFormTemplates.AnyAsync(t => t.VisitorFormTemplateId == request.TemplateId))
-            return BadRequest(new { message = "Template not found." });
+            return BadRequest(new { message = "Không tìm thấy mẫu." });
 
         var acceptance = new VisitorFormAcceptance
         {
@@ -647,7 +647,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateWatchlistEntry([FromBody] WatchlistEntryRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.DisplayName))
-            return BadRequest(new { message = "DisplayName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên hiển thị." });
 
         var entry = new WatchlistEntry
         {
@@ -669,7 +669,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var match = await _context.WatchlistMatches.FindAsync(matchId);
         if (match == null)
-            return NotFound(new { message = "Match not found." });
+            return NotFound(new { message = "Không tìm thấy kết quả khớp." });
 
         match.Status = string.IsNullOrWhiteSpace(request.Status) ? "Closed" : request.Status.Trim();
         match.ReviewNote = request.ReviewNote?.Trim();
@@ -684,7 +684,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateParkingArea([FromBody] ParkingAreaRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var area = new ParkingArea
         {
@@ -703,9 +703,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateParkingPermit([FromBody] ParkingPermitRequest request)
     {
         if (!await _context.ParkingAreas.AnyAsync(area => area.ParkingAreaId == request.ParkingAreaId))
-            return BadRequest(new { message = "Parking area not found." });
+            return BadRequest(new { message = "Không tìm thấy khu vực đỗ xe." });
         if (request.ValidToUtc <= request.ValidFromUtc)
-            return BadRequest(new { message = "ValidToUtc must be after ValidFromUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc phải sau thời điểm bắt đầu." });
 
         var permit = new ParkingPermit
         {
@@ -727,7 +727,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> CreateBarrier([FromBody] BarrierRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var barrier = new SecurityBarrier
         {
@@ -748,9 +748,9 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var barrier = await _context.Barriers.FindAsync(barrierId);
         if (barrier == null)
-            return NotFound(new { message = "Barrier not found." });
+            return NotFound(new { message = "Không tìm thấy rào chắn." });
         if (string.IsNullOrWhiteSpace(request.Reason))
-            return BadRequest(new { message = "Reason is required for barrier commands." });
+            return BadRequest(new { message = "Vui lòng nhập lý do cho lệnh điều khiển rào chắn." });
 
         var command = string.IsNullOrWhiteSpace(request.Command) ? "Open" : request.Command.Trim();
         barrier.State = command.Equals("Open", StringComparison.OrdinalIgnoreCase) ? "Open" :
@@ -848,7 +848,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> GetBarrierCommands(int barrierId, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
     {
         if (!await _context.Barriers.AnyAsync(b => b.BarrierId == barrierId))
-            return NotFound(new { message = "Barrier not found." });
+            return NotFound(new { message = "Không tìm thấy rào chắn." });
         var query = _context.BarrierCommandAudits.Where(a => a.BarrierId == barrierId);
         var total = await query.CountAsync();
         var items = await query.OrderByDescending(a => a.RequestedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
@@ -911,7 +911,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     {
         var barrier = await _context.Barriers.FindAsync(barrierId);
         if (barrier == null)
-            return NotFound(new { message = "Barrier not found." });
+            return NotFound(new { message = "Không tìm thấy rào chắn." });
 
         var command = string.IsNullOrWhiteSpace(request.Command) ? "Open" : request.Command.Trim();
         var previousState = barrier.State;
@@ -957,7 +957,7 @@ public class EnterpriseVisitorVehicleController : ControllerBase
     public async Task<IActionResult> ReviewAdjudication(int adjudicationId, [FromBody] AdjudicationReviewRequest request)
     {
         var item = await _context.AiAdjudicationItems.FindAsync(adjudicationId);
-        if (item == null) return NotFound(new { message = "Adjudication item not found." });
+        if (item == null) return NotFound(new { message = "Không tìm thấy mục phán quyết." });
         item.Status = string.IsNullOrWhiteSpace(request.Status) ? "Reviewed" : request.Status.Trim();
         item.Outcome = request.Outcome?.Trim();
         item.ReviewNote = request.ReviewNote?.Trim();

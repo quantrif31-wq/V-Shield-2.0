@@ -40,7 +40,7 @@ public class EnterpriseReleaseReadinessController : ControllerBase
     public async Task<IActionResult> StartQaTestRun([FromBody] QaTestRunRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.TestType))
-            return BadRequest(new { message = "TestType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại kiểm thử." });
 
         var run = new QaTestRun
         {
@@ -62,7 +62,7 @@ public class EnterpriseReleaseReadinessController : ControllerBase
     {
         var run = await _context.QaTestRuns.FindAsync(qaTestRunId);
         if (run == null)
-            return NotFound(new { message = "QA test run not found." });
+            return NotFound(new { message = "Không tìm thấy lần chạy kiểm thử QA." });
 
         run.PassedCount = request.PassedCount;
         run.FailedCount = request.FailedCount;
@@ -79,7 +79,7 @@ public class EnterpriseReleaseReadinessController : ControllerBase
     public async Task<IActionResult> CreateReleaseCandidate([FromBody] ReleaseCandidateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Version))
-            return BadRequest(new { message = "Version is required." });
+            return BadRequest(new { message = "Vui lòng nhập phiên bản." });
 
         var candidate = new ReleaseCandidate
         {
@@ -100,9 +100,9 @@ public class EnterpriseReleaseReadinessController : ControllerBase
     public async Task<IActionResult> RecordReleaseGate(long releaseCandidateId, [FromBody] ReleaseGateCheckRequest request)
     {
         if (!await _context.ReleaseCandidates.AnyAsync(candidate => candidate.ReleaseCandidateId == releaseCandidateId))
-            return NotFound(new { message = "Release candidate not found." });
+            return NotFound(new { message = "Không tìm thấy ứng viên phát hành." });
         if (string.IsNullOrWhiteSpace(request.GateName))
-            return BadRequest(new { message = "GateName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên cổng." });
 
         var gate = new ReleaseGateCheck
         {
@@ -127,12 +127,12 @@ public class EnterpriseReleaseReadinessController : ControllerBase
     {
         var candidate = await _context.ReleaseCandidates.FindAsync(releaseCandidateId);
         if (candidate == null)
-            return NotFound(new { message = "Release candidate not found." });
+            return NotFound(new { message = "Không tìm thấy ứng viên phát hành." });
 
         var requiredGateCount = await _context.ReleaseGateChecks
             .CountAsync(gate => gate.ReleaseCandidateId == releaseCandidateId && gate.Required);
         if (requiredGateCount == 0)
-            return BadRequest(new { message = "At least one required release gate must be recorded before approval." });
+            return BadRequest(new { message = "Cần ghi nhận ít nhất một cổng phát hành bắt buộc trước khi phê duyệt." });
 
         var blockingGates = await _context.ReleaseGateChecks
             .Where(gate => gate.ReleaseCandidateId == releaseCandidateId &&
@@ -147,7 +147,7 @@ public class EnterpriseReleaseReadinessController : ControllerBase
             .ToListAsync();
 
         if (blockingGates.Count > 0)
-            return BadRequest(new { message = "Required release gates are not fully passed with evidence.", blockingGates });
+            return BadRequest(new { message = "Các cổng phát hành bắt buộc chưa được vượt qua đầy đủ kèm bằng chứng.", blockingGates });
 
         candidate.Status = "Approved";
         candidate.ApprovedAtUtc = DateTime.UtcNow;
@@ -161,7 +161,7 @@ public class EnterpriseReleaseReadinessController : ControllerBase
     public async Task<IActionResult> AcknowledgeRunbook([FromBody] RunbookAcknowledgementRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RunbookName) || string.IsNullOrWhiteSpace(request.RoleName))
-            return BadRequest(new { message = "RunbookName and RoleName are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên runbook và tên vai trò." });
 
         var acknowledgement = new RunbookAcknowledgement
         {

@@ -22,7 +22,7 @@ public sealed class FaceAccessDecisionsController(
         int page = 1, int pageSize = 50, CancellationToken token = default)
     {
         if (page < 1 || pageSize is < 1 or > 200 || !Utc(fromUtc) || !Utc(toUtc) || fromUtc > toUtc)
-            return BadRequest(new { message = "Invalid UTC range or pagination." });
+            return BadRequest(new { message = "Khoảng thời gian UTC hoặc phân trang không hợp lệ." });
         var query = Filter(db.FaceAccessDecisions.AsNoTracking(), fromUtc, toUtc,
             employeeId, cameraId, gateId, accessPointId, decision);
         var total = await query.CountAsync(token);
@@ -43,7 +43,7 @@ public sealed class FaceAccessDecisionsController(
         CancellationToken token)
     {
         if (!Utc(fromUtc) || !Utc(toUtc) || fromUtc > toUtc)
-            return BadRequest(new { message = "Invalid UTC range." });
+            return BadRequest(new { message = "Khoảng thời gian UTC không hợp lệ." });
         var query = Filter(db.FaceAccessDecisions.AsNoTracking(), fromUtc, toUtc,
             null, null, null, null, null);
         var groups = await query.GroupBy(x => x.Decision)

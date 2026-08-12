@@ -52,13 +52,13 @@ public class EnterpriseInterventionController : ControllerBase
     public async Task<IActionResult> CreateRequest([FromBody] CreateInterventionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.InterventionType))
-            return BadRequest(new { message = "InterventionType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại can thiệp." });
         if (string.IsNullOrWhiteSpace(request.Reason))
-            return BadRequest(new { message = "Reason is required." });
+            return BadRequest(new { message = "Vui lòng nhập lý do." });
 
         var userId = GetCurrentUserId();
         if (userId == null)
-            return Unauthorized(new { message = "Cannot identify user." });
+            return Unauthorized(new { message = "Không xác định được người dùng." });
 
         var now = DateTime.UtcNow;
 
@@ -172,7 +172,7 @@ public class EnterpriseInterventionController : ControllerBase
             .FirstOrDefaultAsync(r => r.OperationalInterventionRequestId == requestId);
 
         if (item == null)
-            return NotFound(new { message = "Intervention request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu can thiệp." });
 
         return Ok(item);
     }
@@ -186,13 +186,13 @@ public class EnterpriseInterventionController : ControllerBase
     {
         var item = await _context.OperationalInterventionRequests.FindAsync(requestId);
         if (item == null)
-            return NotFound(new { message = "Intervention request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu can thiệp." });
         if (item.Status != "Pending")
-            return BadRequest(new { message = $"Request is in '{item.Status}' state, cannot accept." });
+            return BadRequest(new { message = $"Yêu cầu đang ở trạng thái '{item.Status}', không thể chấp nhận." });
 
         var userId = GetCurrentUserId();
         if (userId == null)
-            return Unauthorized(new { message = "Cannot identify user." });
+            return Unauthorized(new { message = "Không xác định được người dùng." });
 
         item.Status = "Accepted";
         item.AcceptedAtUtc = DateTime.UtcNow;
@@ -220,16 +220,16 @@ public class EnterpriseInterventionController : ControllerBase
     {
         var item = await _context.OperationalInterventionRequests.FindAsync(requestId);
         if (item == null)
-            return NotFound(new { message = "Intervention request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu can thiệp." });
         if (item.Status != "Pending")
-            return BadRequest(new { message = $"Request is in '{item.Status}' state, cannot reject." });
+            return BadRequest(new { message = $"Yêu cầu đang ở trạng thái '{item.Status}', không thể từ chối." });
 
         if (string.IsNullOrWhiteSpace(request.Note))
-            return BadRequest(new { message = "Rejection reason is required." });
+            return BadRequest(new { message = "Vui lòng nhập lý do từ chối." });
 
         var userId = GetCurrentUserId();
         if (userId == null)
-            return Unauthorized(new { message = "Cannot identify user." });
+            return Unauthorized(new { message = "Không xác định được người dùng." });
 
         item.Status = "Rejected";
         item.RejectedAtUtc = DateTime.UtcNow;
@@ -256,13 +256,13 @@ public class EnterpriseInterventionController : ControllerBase
     {
         var item = await _context.OperationalInterventionRequests.FindAsync(requestId);
         if (item == null)
-            return NotFound(new { message = "Intervention request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu can thiệp." });
         if (item.Status != "Accepted")
-            return BadRequest(new { message = $"Request is in '{item.Status}' state, must be 'Accepted' before execution." });
+            return BadRequest(new { message = $"Yêu cầu đang ở trạng thái '{item.Status}', phải ở trạng thái 'Accepted' trước khi thực thi." });
 
         var userId = GetCurrentUserId();
         if (userId == null)
-            return Unauthorized(new { message = "Cannot identify user." });
+            return Unauthorized(new { message = "Không xác định được người dùng." });
 
         item.Status = "Executed";
         item.ExecutedAtUtc = DateTime.UtcNow;
@@ -275,7 +275,7 @@ public class EnterpriseInterventionController : ControllerBase
         if (interventionType is "temporary_grant" or "policy_override")
         {
             if (!int.TryParse(item.SubjectId, out var subjectId) || subjectId <= 0)
-                return BadRequest(new { message = "A numeric SubjectId is required to execute this access grant." });
+                return BadRequest(new { message = "Cần SubjectId dạng số để thực thi cấp quyền truy cập này." });
 
             var grant = new TemporaryAccessGrant
             {

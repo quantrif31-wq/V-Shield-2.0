@@ -126,7 +126,7 @@ public class EnterpriseOperationsController : ControllerBase
     public async Task<IActionResult> RecordDependencyHealth([FromBody] RuntimeDependencyHealthRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.DependencyName))
-            return BadRequest(new { message = "DependencyName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên phụ thuộc." });
 
         var health = new RuntimeDependencyHealth
         {
@@ -147,7 +147,7 @@ public class EnterpriseOperationsController : ControllerBase
     public async Task<IActionResult> CreateOutboxEvent([FromBody] OutboxEventRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.EventType) || string.IsNullOrWhiteSpace(request.AggregateType))
-            return BadRequest(new { message = "EventType and AggregateType are required." });
+            return BadRequest(new { message = "Vui lòng nhập EventType và AggregateType." });
 
         var item = new OutboxEvent
         {
@@ -172,7 +172,7 @@ public class EnterpriseOperationsController : ControllerBase
     {
         var item = await _context.OutboxEvents.FindAsync(outboxEventId);
         if (item == null)
-            return NotFound(new { message = "Outbox event not found." });
+            return NotFound(new { message = "Không tìm thấy sự kiện outbox." });
 
         item.Status = string.IsNullOrWhiteSpace(request.Status) ? "Dispatched" : request.Status.Trim();
         item.RetryCount = request.RetryCount;
@@ -187,7 +187,7 @@ public class EnterpriseOperationsController : ControllerBase
     public async Task<IActionResult> CreateWebhookSubscription([FromBody] WebhookSubscriptionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.TargetUrl))
-            return BadRequest(new { message = "Name and TargetUrl are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên và TargetUrl." });
 
         var subscription = new WebhookSubscription
         {
@@ -209,7 +209,7 @@ public class EnterpriseOperationsController : ControllerBase
     {
         var subscription = await _context.WebhookSubscriptions.FindAsync(request.WebhookSubscriptionId);
         if (subscription == null || !subscription.IsActive)
-            return BadRequest(new { message = "Active webhook subscription not found." });
+            return BadRequest(new { message = "Không tìm thấy đăng ký webhook đang hoạt động." });
 
         var outbox = request.OutboxEventId.HasValue
             ? await _context.OutboxEvents.FindAsync(request.OutboxEventId.Value)
@@ -234,7 +234,7 @@ public class EnterpriseOperationsController : ControllerBase
     {
         var delivery = await _context.WebhookDeliveries.FindAsync(webhookDeliveryId);
         if (delivery == null)
-            return NotFound(new { message = "Webhook delivery not found." });
+            return NotFound(new { message = "Không tìm thấy lượt gửi webhook." });
 
         delivery.Status = string.IsNullOrWhiteSpace(request.Status) ? "Delivered" : request.Status.Trim();
         delivery.AttemptCount = request.AttemptCount <= 0 ? delivery.AttemptCount + 1 : request.AttemptCount;
@@ -290,7 +290,7 @@ public class EnterpriseOperationsController : ControllerBase
     {
         var backup = await _context.BackupRuns.FindAsync(backupRunId);
         if (backup == null)
-            return NotFound(new { message = "Backup run not found." });
+            return NotFound(new { message = "Không tìm thấy lần sao lưu." });
 
         backup.Status = string.IsNullOrWhiteSpace(request.Status) ? "Completed" : request.Status.Trim();
         backup.CompletedAtUtc = DateTime.UtcNow;
@@ -324,7 +324,7 @@ public class EnterpriseOperationsController : ControllerBase
     {
         var drill = await _context.RestoreDrills.FindAsync(restoreDrillId);
         if (drill == null)
-            return NotFound(new { message = "Restore drill not found." });
+            return NotFound(new { message = "Không tìm thấy cuộc diễn tập khôi phục." });
 
         drill.Status = request.Passed ? "Passed" : "Failed";
         drill.CompletedAtUtc = DateTime.UtcNow;
@@ -341,7 +341,7 @@ public class EnterpriseOperationsController : ControllerBase
     public async Task<IActionResult> RecordSecurityOperationsCheck([FromBody] SecurityOperationsCheckRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.CheckType) || string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "CheckType and Name are required." });
+            return BadRequest(new { message = "Vui lòng nhập CheckType và tên." });
 
         var check = new SecurityOperationsCheck
         {

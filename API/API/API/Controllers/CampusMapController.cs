@@ -147,7 +147,7 @@ public class CampusMapController : ControllerBase
             .ToList();
 
         if (normalizedItems.Select(i => i.GateId).Distinct().Count() != normalizedItems.Count)
-            return BadRequest(new { message = "Payload contains duplicate gateId." });
+            return BadRequest(new { message = "Payload chứa gateId trùng lặp." });
 
         var validationError = ValidateUpsertItems(normalizedItems);
         if (validationError != null)
@@ -225,9 +225,9 @@ public class CampusMapController : ControllerBase
             return NotFound(new { message = $"Khong tim thay gateId {gateId}." });
 
         if (request.W.HasValue && request.W.Value <= 0)
-            return BadRequest(new { message = "W must be greater than 0." });
+            return BadRequest(new { message = "W phải lớn hơn 0." });
         if (request.H.HasValue && request.H.Value <= 0)
-            return BadRequest(new { message = "H must be greater than 0." });
+            return BadRequest(new { message = "H phải lớn hơn 0." });
 
         var layout = await _context.CampusMapLayouts
             .FirstOrDefaultAsync(l => l.GateId == gateId, cancellationToken);
@@ -382,13 +382,13 @@ public class CampusMapController : ControllerBase
 
         var entity = await _context.Campus3DObjects.FirstOrDefaultAsync(o => o.Id == objectId, cancellationToken);
         if (entity == null)
-            return NotFound(new { message = "3D object not found." });
+            return NotFound(new { message = "Không tìm thấy đối tượng 3D." });
 
         if (request.SiteId.HasValue)
         {
             var siteExists = await _context.Sites.AsNoTracking().AnyAsync(s => s.SiteId == request.SiteId.Value, cancellationToken);
             if (!siteExists)
-                return BadRequest(new { message = "Site does not exist." });
+                return BadRequest(new { message = "Khu vực không tồn tại." });
             entity.SiteId = request.SiteId.Value;
         }
 
@@ -424,7 +424,7 @@ public class CampusMapController : ControllerBase
 
         var entity = await _context.Campus3DObjects.FirstOrDefaultAsync(o => o.Id == objectId, cancellationToken);
         if (entity == null)
-            return NotFound(new { message = "3D object not found." });
+            return NotFound(new { message = "Không tìm thấy đối tượng 3D." });
 
         _context.Campus3DObjects.Remove(entity);
         await _context.SaveChangesAsync(cancellationToken);
@@ -476,13 +476,13 @@ public class CampusMapController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.ObjectType))
-            return BadRequest(new { message = "ObjectType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại đối tượng." });
         if (string.IsNullOrWhiteSpace(request.Label))
-            return BadRequest(new { message = "Label is required." });
+            return BadRequest(new { message = "Vui lòng nhập nhãn." });
 
         var siteExists = await _context.Sites.AsNoTracking().AnyAsync(s => s.SiteId == request.SiteId, cancellationToken);
         if (!siteExists)
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         var numericError = ValidateSceneObjectNumbers(request.Width, request.Length, request.Height);
         if (numericError != null)

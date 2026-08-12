@@ -225,7 +225,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId);
         if (company == null)
-            return NotFound(new { message = "Company not found." });
+            return NotFound(new { message = "Không tìm thấy công ty." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -243,7 +243,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId);
         if (company == null)
-            return NotFound(new { message = "Company not found." });
+            return NotFound(new { message = "Không tìm thấy công ty." });
 
         company.IsActive = false;
         await _context.SaveChangesAsync();
@@ -255,7 +255,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var company = await _context.Companies.FirstOrDefaultAsync(c => c.CompanyId == companyId);
         if (company == null)
-            return NotFound(new { message = "Company not found." });
+            return NotFound(new { message = "Không tìm thấy công ty." });
 
         company.IsActive = true;
         await _context.SaveChangesAsync();
@@ -266,7 +266,7 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateSite([FromBody] SiteRequest request)
     {
         if (!await _context.Companies.AnyAsync(c => c.CompanyId == request.CompanyId))
-            return BadRequest(new { message = "Company does not exist." });
+            return BadRequest(new { message = "Công ty không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -290,10 +290,10 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var site = await _context.Sites.FirstOrDefaultAsync(s => s.SiteId == siteId);
         if (site == null)
-            return NotFound(new { message = "Site not found." });
+            return NotFound(new { message = "Không tìm thấy khu vực." });
 
         if (request.CompanyId.HasValue && !await _context.Companies.AnyAsync(c => c.CompanyId == request.CompanyId.Value))
-            return BadRequest(new { message = "Company does not exist." });
+            return BadRequest(new { message = "Công ty không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -314,7 +314,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var site = await _context.Sites.FirstOrDefaultAsync(s => s.SiteId == siteId);
         if (site == null)
-            return NotFound(new { message = "Site not found." });
+            return NotFound(new { message = "Không tìm thấy khu vực." });
 
         site.IsActive = false;
         await _context.SaveChangesAsync();
@@ -326,7 +326,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var site = await _context.Sites.FirstOrDefaultAsync(s => s.SiteId == siteId);
         if (site == null)
-            return NotFound(new { message = "Site not found." });
+            return NotFound(new { message = "Không tìm thấy khu vực." });
 
         site.IsActive = true;
         await _context.SaveChangesAsync();
@@ -337,7 +337,7 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateBuilding([FromBody] BuildingRequest request)
     {
         if (!await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -359,10 +359,10 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
         if (building == null)
-            return NotFound(new { message = "Building not found." });
+            return NotFound(new { message = "Không tìm thấy tòa nhà." });
 
         if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -381,7 +381,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
         if (building == null)
-            return NotFound(new { message = "Building not found." });
+            return NotFound(new { message = "Không tìm thấy tòa nhà." });
 
         building.IsActive = false;
         await _context.SaveChangesAsync();
@@ -393,7 +393,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var building = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingId == buildingId);
         if (building == null)
-            return NotFound(new { message = "Building not found." });
+            return NotFound(new { message = "Không tìm thấy tòa nhà." });
 
         building.IsActive = true;
         await _context.SaveChangesAsync();
@@ -404,7 +404,7 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateFloor([FromBody] FloorRequest request)
     {
         if (!await _context.Buildings.AnyAsync(b => b.BuildingId == request.BuildingId))
-            return BadRequest(new { message = "Building does not exist." });
+            return BadRequest(new { message = "Tòa nhà không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -427,10 +427,10 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var floor = await _context.FacilityFloors.FirstOrDefaultAsync(f => f.FacilityFloorId == floorId);
         if (floor == null)
-            return NotFound(new { message = "Floor not found." });
+            return NotFound(new { message = "Không tìm thấy tầng." });
 
         if (request.BuildingId.HasValue && !await _context.Buildings.AnyAsync(b => b.BuildingId == request.BuildingId.Value))
-            return BadRequest(new { message = "Building does not exist." });
+            return BadRequest(new { message = "Tòa nhà không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -450,7 +450,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var floor = await _context.FacilityFloors.FirstOrDefaultAsync(f => f.FacilityFloorId == floorId);
         if (floor == null)
-            return NotFound(new { message = "Floor not found." });
+            return NotFound(new { message = "Không tìm thấy tầng." });
 
         floor.IsActive = false;
         await _context.SaveChangesAsync();
@@ -462,7 +462,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var floor = await _context.FacilityFloors.FirstOrDefaultAsync(f => f.FacilityFloorId == floorId);
         if (floor == null)
-            return NotFound(new { message = "Floor not found." });
+            return NotFound(new { message = "Không tìm thấy tầng." });
 
         floor.IsActive = true;
         await _context.SaveChangesAsync();
@@ -473,7 +473,7 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateZone([FromBody] ZoneRequest request)
     {
         if (!await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -499,14 +499,14 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var zone = await _context.SecurityZones.FirstOrDefaultAsync(z => z.SecurityZoneId == zoneId);
         if (zone == null)
-            return NotFound(new { message = "Zone not found." });
+            return NotFound(new { message = "Không tìm thấy vùng." });
 
         if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
         if (request.BuildingId.HasValue && !await _context.Buildings.AnyAsync(b => b.BuildingId == request.BuildingId.Value))
-            return BadRequest(new { message = "Building does not exist." });
+            return BadRequest(new { message = "Tòa nhà không tồn tại." });
         if (request.FacilityFloorId.HasValue && !await _context.FacilityFloors.AnyAsync(f => f.FacilityFloorId == request.FacilityFloorId.Value))
-            return BadRequest(new { message = "Floor does not exist." });
+            return BadRequest(new { message = "Tầng không tồn tại." });
 
         var validation = ValidateNameCode(request.Name, request.Code);
         if (validation != null) return validation;
@@ -529,7 +529,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var zone = await _context.SecurityZones.FirstOrDefaultAsync(z => z.SecurityZoneId == zoneId);
         if (zone == null)
-            return NotFound(new { message = "Zone not found." });
+            return NotFound(new { message = "Không tìm thấy vùng." });
 
         zone.IsActive = false;
         await _context.SaveChangesAsync();
@@ -541,7 +541,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var zone = await _context.SecurityZones.FirstOrDefaultAsync(z => z.SecurityZoneId == zoneId);
         if (zone == null)
-            return NotFound(new { message = "Zone not found." });
+            return NotFound(new { message = "Không tìm thấy vùng." });
 
         zone.IsActive = true;
         await _context.SaveChangesAsync();
@@ -552,10 +552,10 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateAccessPoint([FromBody] AccessPointRequest request)
     {
         if (!await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var accessPoint = new AccessPoint
         {
@@ -576,14 +576,14 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var accessPoint = await _context.AccessPoints.FirstOrDefaultAsync(a => a.AccessPointId == accessPointId);
         if (accessPoint == null)
-            return NotFound(new { message = "Access point not found." });
+            return NotFound(new { message = "Không tìm thấy điểm truy cập." });
 
         if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
         if (request.SecurityZoneId.HasValue && !await _context.SecurityZones.AnyAsync(z => z.SecurityZoneId == request.SecurityZoneId.Value))
-            return BadRequest(new { message = "Security zone does not exist." });
+            return BadRequest(new { message = "Vùng an ninh không tồn tại." });
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         accessPoint.SiteId = request.SiteId ?? accessPoint.SiteId;
         accessPoint.SecurityZoneId = request.SecurityZoneId;
@@ -601,7 +601,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var accessPoint = await _context.AccessPoints.FirstOrDefaultAsync(a => a.AccessPointId == accessPointId);
         if (accessPoint == null)
-            return NotFound(new { message = "Access point not found." });
+            return NotFound(new { message = "Không tìm thấy điểm truy cập." });
 
         accessPoint.IsActive = false;
         await _context.SaveChangesAsync();
@@ -613,7 +613,7 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var accessPoint = await _context.AccessPoints.FirstOrDefaultAsync(a => a.AccessPointId == accessPointId);
         if (accessPoint == null)
-            return NotFound(new { message = "Access point not found." });
+            return NotFound(new { message = "Không tìm thấy điểm truy cập." });
 
         accessPoint.IsActive = true;
         await _context.SaveChangesAsync();
@@ -624,10 +624,10 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateDoor([FromBody] DoorRequest request)
     {
         if (!await _context.AccessPoints.AnyAsync(a => a.AccessPointId == request.AccessPointId))
-            return BadRequest(new { message = "Access point does not exist." });
+            return BadRequest(new { message = "Điểm truy cập không tồn tại." });
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var door = new Door
         {
@@ -645,10 +645,10 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateLane([FromBody] LaneRequest request)
     {
         if (!await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var lane = new Lane
         {
@@ -668,10 +668,10 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateMusterPoint([FromBody] MusterPointRequest request)
     {
         if (!await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var point = new MusterPoint
         {
@@ -690,7 +690,7 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateIdentityProvider([FromBody] IdentityProviderRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Authority))
-            return BadRequest(new { message = "Name and authority are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên và cơ quan xác thực." });
 
         var provider = new ExternalIdentityProvider
         {
@@ -710,10 +710,10 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateIdentityMapping([FromBody] IdentityMappingRequest request)
     {
         if (!await _context.ExternalIdentityProviders.AnyAsync(p => p.ExternalIdentityProviderId == request.ProviderId))
-            return BadRequest(new { message = "Identity provider does not exist." });
+            return BadRequest(new { message = "Nhà cung cấp danh tính không tồn tại." });
 
         if (string.IsNullOrWhiteSpace(request.ExternalSubject))
-            return BadRequest(new { message = "ExternalSubject is required." });
+            return BadRequest(new { message = "Vui lòng nhập chủ thể ngoài (ExternalSubject)." });
 
         var mapping = new ExternalIdentityMapping
         {
@@ -736,10 +736,10 @@ public class EnterpriseFoundationController : ControllerBase
     {
         var employee = await _context.Employees.FindAsync(employeeId);
         if (employee == null)
-            return NotFound(new { message = "Employee not found." });
+            return NotFound(new { message = "Không tìm thấy nhân viên." });
 
         if (string.IsNullOrWhiteSpace(request.NewState))
-            return BadRequest(new { message = "NewState is required." });
+            return BadRequest(new { message = "Vui lòng nhập trạng thái mới (NewState)." });
 
         var previousState = employee.LifecycleStatus;
         var newState = request.NewState.Trim();
@@ -783,7 +783,7 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> CreateRecertificationCampaign([FromBody] RecertificationCampaignRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var campaign = new AccessRecertificationCampaign
         {
@@ -803,10 +803,10 @@ public class EnterpriseFoundationController : ControllerBase
     public async Task<IActionResult> RecordRecertificationDecision(int campaignId, [FromBody] RecertificationDecisionRequest request)
     {
         if (!await _context.AccessRecertificationCampaigns.AnyAsync(c => c.AccessRecertificationCampaignId == campaignId))
-            return NotFound(new { message = "Campaign not found." });
+            return NotFound(new { message = "Không tìm thấy chiến dịch." });
 
         if (!await _context.Employees.AnyAsync(e => e.EmployeeId == request.EmployeeId))
-            return BadRequest(new { message = "Employee not found." });
+            return BadRequest(new { message = "Không tìm thấy nhân viên." });
 
         var decision = new AccessRecertificationDecision
         {
@@ -832,9 +832,9 @@ public class EnterpriseFoundationController : ControllerBase
     private BadRequestObjectResult? ValidateNameCode(string? name, string? code)
     {
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
         if (string.IsNullOrWhiteSpace(code))
-            return BadRequest(new { message = "Code is required." });
+            return BadRequest(new { message = "Vui lòng nhập mã." });
         return null;
     }
 

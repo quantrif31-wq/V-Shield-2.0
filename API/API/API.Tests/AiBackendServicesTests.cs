@@ -756,7 +756,7 @@ public class AiBackendServicesTests : IClassFixture<SecurityWebApplicationFactor
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await ReadJsonAsync(response);
-        Assert.Contains("invalid", body.RootElement.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("không hợp lệ", body.RootElement.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -33,7 +33,7 @@ public sealed class FaceRecognitionEventsController : ControllerBase
     {
         if (page < 1 || pageSize is < 1 or > 200 ||
             !IsUtc(fromUtc) || !IsUtc(toUtc) || fromUtc > toUtc)
-            return BadRequest(new { message = "Invalid UTC range or pagination." });
+            return BadRequest(new { message = "Khoảng thời gian UTC hoặc phân trang không hợp lệ." });
 
         var query = _db.FaceRecognitionEvents.AsNoTracking()
             .Include(item => item.Employee).AsQueryable();

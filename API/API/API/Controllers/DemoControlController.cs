@@ -25,9 +25,9 @@ public class DemoControlController : ControllerBase
     public IActionResult Reset()
     {
         if (!_environment.IsDevelopment() || !_configuration.GetValue("DemoData:Enabled", false))
-            return NotFound(new { message = "Demo control is disabled outside the development demo environment." });
+            return NotFound(new { message = "Tính năng điều khiển demo bị vô hiệu hóa ngoài môi trường demo phát triển." });
 
         var summary = DemoDataSeeder.ResetOperationalScenarios(_context);
-        return Ok(new { message = "Demo scenarios reset successfully.", summary, resetAtUtc = DateTime.UtcNow });
+        return Ok(new { message = "Đã đặt lại kịch bản demo thành công.", summary, resetAtUtc = DateTime.UtcNow });
     }
 }

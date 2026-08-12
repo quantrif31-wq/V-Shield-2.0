@@ -43,7 +43,7 @@ public class SyncController : ControllerBase
             var node = await AuthorizeNodeAsync(cancellationToken);
             if (!string.Equals(node.AreaNodeId, request.AreaNodeId, StringComparison.Ordinal))
             {
-                return Unauthorized(new { message = "Area node mismatch." });
+                return Unauthorized(new { message = "Không khớp mã nút khu vực." });
             }
 
             var response = await _centralSyncService.IngestUpstreamBatchAsync(node, request, cancellationToken);

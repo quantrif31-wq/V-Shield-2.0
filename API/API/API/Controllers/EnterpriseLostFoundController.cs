@@ -63,17 +63,17 @@ public class EnterpriseLostFoundController : ControllerBase
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.ReporterName))
-            return BadRequest(new { message = "ReporterName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên người báo tin." });
         if (string.IsNullOrWhiteSpace(request.ReporterPhone))
-            return BadRequest(new { message = "ReporterPhone is required." });
+            return BadRequest(new { message = "Vui lòng nhập số điện thoại người báo tin." });
         if (string.IsNullOrWhiteSpace(request.ReporterIdNumber))
-            return BadRequest(new { message = "ReporterIdNumber is required." });
+            return BadRequest(new { message = "Vui lòng nhập số CCCD/CMND người báo tin." });
         if (string.IsNullOrWhiteSpace(request.ItemDescription))
-            return BadRequest(new { message = "ItemDescription is required." });
+            return BadRequest(new { message = "Vui lòng mô tả vật phẩm." });
         if (string.IsNullOrWhiteSpace(request.ReporterPhotoUrl) && string.IsNullOrWhiteSpace(request.ReporterPhotoBase64))
-            return BadRequest(new { message = "Reporter photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh người báo tin." });
         if (string.IsNullOrWhiteSpace(request.PhotoUrl) && string.IsNullOrWhiteSpace(request.ItemPhotoBase64))
-            return BadRequest(new { message = "Item photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh vật phẩm." });
 
         var itemPhotoUrl = request.PhotoUrl;
         if (!string.IsNullOrWhiteSpace(request.ItemPhotoBase64))
@@ -139,7 +139,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
-            return NotFound(new { message = "Lost item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu báo mất đồ." });
         return Ok(item);
     }
 
@@ -151,7 +151,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
-            return NotFound(new { message = "Lost item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu báo mất đồ." });
 
         item.ReporterName = request.ReporterName.Trim();
         item.ReporterPhone = request.ReporterPhone.Trim();
@@ -178,7 +178,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
-            return NotFound(new { message = "Lost item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu báo mất đồ." });
         _context.LostItemReports.Remove(item);
         await _context.SaveChangesAsync();
         return NoContent();
@@ -192,7 +192,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var item = await _context.LostItemReports.FindAsync(id);
         if (item == null)
-            return NotFound(new { message = "Lost item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu báo mất đồ." });
 
         item.Status = "Closed";
         item.ClosedAtUtc = DateTime.UtcNow;
@@ -207,19 +207,19 @@ public class EnterpriseLostFoundController : ControllerBase
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.FoundByName))
-            return BadRequest(new { message = "FoundByName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên người nhặt được." });
         if (string.IsNullOrWhiteSpace(request.FoundByPhone))
-            return BadRequest(new { message = "FoundByPhone is required." });
+            return BadRequest(new { message = "Vui lòng nhập số điện thoại người nhặt được." });
         if (string.IsNullOrWhiteSpace(request.FoundByIdNumber))
-            return BadRequest(new { message = "FoundByIdNumber is required." });
+            return BadRequest(new { message = "Vui lòng nhập số CCCD/CMND người nhặt được." });
         if (string.IsNullOrWhiteSpace(request.FoundLocation))
-            return BadRequest(new { message = "FoundLocation is required." });
+            return BadRequest(new { message = "Vui lòng nhập nơi nhặt được." });
         if (string.IsNullOrWhiteSpace(request.ItemDescription))
-            return BadRequest(new { message = "ItemDescription is required." });
+            return BadRequest(new { message = "Vui lòng mô tả vật phẩm." });
         if (string.IsNullOrWhiteSpace(request.FinderPhotoUrl) && string.IsNullOrWhiteSpace(request.FinderPhotoBase64))
-            return BadRequest(new { message = "Finder photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh người nhặt được." });
         if (string.IsNullOrWhiteSpace(request.PhotoUrl) && string.IsNullOrWhiteSpace(request.PhotoBase64))
-            return BadRequest(new { message = "Item photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh vật phẩm." });
 
         var photoCapture = await _evidenceCapture.CaptureBase64WithRecordAsync(
             request.PhotoBase64, "LostFoundFoundItem", $"found-item-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
@@ -308,7 +308,7 @@ public class EnterpriseLostFoundController : ControllerBase
             .FirstOrDefaultAsync(f => f.FoundItemReportId == id);
 
         if (item == null)
-            return NotFound(new { message = "Found item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu nhặt được đồ." });
         return Ok(item);
     }
 
@@ -320,7 +320,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var item = await _context.FoundItemReports.FindAsync(id);
         if (item == null)
-            return NotFound(new { message = "Found item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu nhặt được đồ." });
 
         item.FoundByName = request.FoundByName.Trim();
         item.FoundByPhone = request.FoundByPhone?.Trim();
@@ -378,7 +378,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var item = await _context.FoundItemReports.FindAsync(id);
         if (item == null)
-            return NotFound(new { message = "Found item report not found." });
+            return NotFound(new { message = "Không tìm thấy phiếu nhặt được đồ." });
         _context.FoundItemReports.Remove(item);
         await _context.SaveChangesAsync();
         return NoContent();
@@ -401,15 +401,15 @@ public class EnterpriseLostFoundController : ControllerBase
             return Forbid();
 
         if (!await _context.LostItemReports.AnyAsync(l => l.LostItemReportId == request.LostItemReportId))
-            return BadRequest(new { message = "Lost item report not found." });
+            return BadRequest(new { message = "Không tìm thấy phiếu báo mất đồ." });
         if (!await _context.FoundItemReports.AnyAsync(f => f.FoundItemReportId == request.FoundItemReportId))
-            return BadRequest(new { message = "Found item report not found." });
+            return BadRequest(new { message = "Không tìm thấy phiếu nhặt được đồ." });
 
         var existing = await _context.ItemMatches.AnyAsync(m =>
             m.LostItemReportId == request.LostItemReportId &&
             m.FoundItemReportId == request.FoundItemReportId);
         if (existing)
-            return BadRequest(new { message = "Match already exists." });
+            return BadRequest(new { message = "Trùng khớp đã tồn tại." });
 
         var match = new ItemMatch
         {
@@ -434,8 +434,8 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var success = await _matchingService.ConfirmMatchAsync(id, GetCurrentUserId() ?? 0);
         if (!success)
-            return BadRequest(new { message = "Match not found or already processed." });
-        return Ok(new { message = "Match confirmed." });
+            return BadRequest(new { message = "Không tìm thấy trùng khớp hoặc đã xử lý." });
+        return Ok(new { message = "Đã xác nhận trùng khớp." });
     }
 
     [HttpPost("match/{id:long}/reject")]
@@ -446,8 +446,8 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var success = await _matchingService.RejectMatchAsync(id, GetCurrentUserId() ?? 0);
         if (!success)
-            return BadRequest(new { message = "Match not found or already processed." });
-        return Ok(new { message = "Match rejected." });
+            return BadRequest(new { message = "Không tìm thấy trùng khớp hoặc đã xử lý." });
+        return Ok(new { message = "Đã từ chối trùng khớp." });
     }
 
     [HttpGet("matches")]
@@ -479,20 +479,20 @@ public class EnterpriseLostFoundController : ControllerBase
             return Forbid();
 
         if (!await _context.FoundItemReports.AnyAsync(f => f.FoundItemReportId == request.FoundItemReportId))
-            return BadRequest(new { message = "Found item report not found." });
+            return BadRequest(new { message = "Không tìm thấy phiếu nhặt được đồ." });
         if (string.IsNullOrWhiteSpace(request.ClaimantName))
-            return BadRequest(new { message = "ClaimantName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên người nhận." });
         if (string.IsNullOrWhiteSpace(request.ClaimantIdNumber))
-            return BadRequest(new { message = "ClaimantIdNumber is required." });
+            return BadRequest(new { message = "Vui lòng nhập số CCCD/CMND người nhận." });
         if (string.IsNullOrWhiteSpace(request.ClaimantPhotoUrl) && string.IsNullOrWhiteSpace(request.ClaimantPhotoBase64))
-            return BadRequest(new { message = "Claimant photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh người nhận." });
         if (string.IsNullOrWhiteSpace(request.ItemPhotoUrl) && string.IsNullOrWhiteSpace(request.ItemPhotoBase64))
-            return BadRequest(new { message = "Claimant item photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh vật phẩm." });
         var hasActiveClaim = await _context.ClaimRequests.AnyAsync(c =>
             c.FoundItemReportId == request.FoundItemReportId &&
             (c.Status == "Pending" || c.Status == "Approved"));
         if (hasActiveClaim)
-            return BadRequest(new { message = "Found item already has an active claim request." });
+            return BadRequest(new { message = "Vật phẩm này đã có yêu cầu nhận đang hoạt động." });
 
         var claimantPhotoUrl = await ResolvePhotoUrlAsync(
             request.ClaimantPhotoBase64, request.ClaimantPhotoUrl, null, "LostFoundClaimant", $"claimant-{DateTime.UtcNow:yyyyMMddHHmmssfff}",
@@ -561,26 +561,26 @@ public class EnterpriseLostFoundController : ControllerBase
             .FirstOrDefaultAsync(c => c.ClaimRequestId == id);
 
         if (claim == null)
-            return NotFound(new { message = "Claim request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu nhận đồ." });
         if (claim.Status is "Approved" or "Completed")
-            return BadRequest(new { message = "Approved or completed claim request cannot be edited." });
+            return BadRequest(new { message = "Yêu cầu nhận đồ đã được phê duyệt hoặc hoàn tất, không thể chỉnh sửa." });
         if (!await _context.FoundItemReports.AnyAsync(f => f.FoundItemReportId == request.FoundItemReportId))
-            return BadRequest(new { message = "Found item report not found." });
+            return BadRequest(new { message = "Không tìm thấy phiếu nhặt được đồ." });
         if (string.IsNullOrWhiteSpace(request.ClaimantName))
-            return BadRequest(new { message = "ClaimantName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên người nhận." });
         if (string.IsNullOrWhiteSpace(request.ClaimantIdNumber))
-            return BadRequest(new { message = "ClaimantIdNumber is required." });
+            return BadRequest(new { message = "Vui lòng nhập số CCCD/CMND người nhận." });
         if (string.IsNullOrWhiteSpace(request.ClaimantPhotoUrl) && string.IsNullOrWhiteSpace(request.ClaimantPhotoBase64) && string.IsNullOrWhiteSpace(claim.ClaimantPhotoUrl))
-            return BadRequest(new { message = "Claimant photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh người nhận." });
         if (string.IsNullOrWhiteSpace(request.ItemPhotoUrl) && string.IsNullOrWhiteSpace(request.ItemPhotoBase64) && string.IsNullOrWhiteSpace(claim.ItemPhotoUrl))
-            return BadRequest(new { message = "Claimant item photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh vật phẩm." });
 
         var hasActiveClaim = await _context.ClaimRequests.AnyAsync(c =>
             c.ClaimRequestId != id &&
             c.FoundItemReportId == request.FoundItemReportId &&
             (c.Status == "Pending" || c.Status == "Approved"));
         if (hasActiveClaim)
-            return BadRequest(new { message = "Found item already has an active claim request." });
+            return BadRequest(new { message = "Vật phẩm này đã có yêu cầu nhận đang hoạt động." });
 
         var previousFoundItemId = claim.FoundItemReportId;
         claim.FoundItemReportId = request.FoundItemReportId;
@@ -636,15 +636,15 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var claim = await _context.ClaimRequests.FindAsync(id);
         if (claim == null)
-            return NotFound(new { message = "Claim request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu nhận đồ." });
         if (claim.Status == "Completed")
-            return BadRequest(new { message = "Completed claim request cannot be cancelled." });
+            return BadRequest(new { message = "Yêu cầu nhận đồ đã hoàn tất, không thể hủy." });
 
         claim.Status = "Cancelled";
         claim.ReviewedByUserId ??= GetCurrentUserId();
         claim.ReviewedAtUtc ??= DateTime.UtcNow;
         claim.RejectionReason = string.IsNullOrWhiteSpace(claim.RejectionReason)
-            ? "Claim request cancelled."
+            ? "Yêu cầu nhận đồ đã hủy."
             : claim.RejectionReason;
 
         var found = await _context.FoundItemReports.FindAsync(claim.FoundItemReportId);
@@ -678,9 +678,9 @@ public class EnterpriseLostFoundController : ControllerBase
             .FirstOrDefaultAsync(c => c.ClaimRequestId == id);
 
         if (claim == null)
-            return NotFound(new { message = "Claim request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu nhận đồ." });
         if (claim.Status != "Pending")
-            return BadRequest(new { message = "Claim request is not pending." });
+            return BadRequest(new { message = "Yêu cầu nhận đồ chưa ở trạng thái chờ xử lý." });
 
         claim.Status = "Approved";
         claim.ReviewedByUserId = GetCurrentUserId();
@@ -704,9 +704,9 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var claim = await _context.ClaimRequests.FindAsync(id);
         if (claim == null)
-            return NotFound(new { message = "Claim request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu nhận đồ." });
         if (claim.Status != "Pending")
-            return BadRequest(new { message = "Claim request is not pending." });
+            return BadRequest(new { message = "Yêu cầu nhận đồ chưa ở trạng thái chờ xử lý." });
 
         claim.Status = "Rejected";
         claim.ReviewedByUserId = GetCurrentUserId();
@@ -738,13 +738,13 @@ public class EnterpriseLostFoundController : ControllerBase
             .FirstOrDefaultAsync(c => c.ClaimRequestId == id);
 
         if (claim == null)
-            return NotFound(new { message = "Claim request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu nhận đồ." });
         if (claim.Status != "Approved")
-            return BadRequest(new { message = "Claim request is not approved." });
+            return BadRequest(new { message = "Yêu cầu nhận đồ chưa được phê duyệt." });
         if (string.IsNullOrWhiteSpace(request.HandoverNote))
-            return BadRequest(new { message = "HandoverNote is required." });
+            return BadRequest(new { message = "Vui lòng nhập ghi chú bàn giao." });
         if (string.IsNullOrWhiteSpace(request.ReturnPhotoUrl) && string.IsNullOrWhiteSpace(request.ReturnPhotoBase64))
-            return BadRequest(new { message = "Return photo is required." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh trả đồ." });
 
         claim.ClaimantPhotoUrl = await ResolvePhotoUrlAsync(
             request.ClaimantPhotoBase64, request.ClaimantPhotoUrl, claim.ClaimantPhotoUrl, "LostFoundClaimant", $"claimant-complete-{id}",
@@ -753,7 +753,7 @@ public class EnterpriseLostFoundController : ControllerBase
             request.ReturnPhotoBase64, request.ReturnPhotoUrl, claim.ReturnPhotoUrl, "LostFoundReturn", $"return-{id}",
             GetCurrentUserId());
         if (string.IsNullOrWhiteSpace(claim.ClaimantPhotoUrl))
-            return BadRequest(new { message = "Claimant photo is required before completing handover." });
+            return BadRequest(new { message = "Vui lòng đính kèm ảnh người nhận trước khi hoàn tất bàn giao." });
 
         claim.Status = "Completed";
         claim.CompletedAtUtc = DateTime.UtcNow;
@@ -816,7 +816,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var cabinet = await _context.LockerCabinets.FindAsync(id);
         if (cabinet == null)
-            return NotFound(new { message = "Cabinet not found." });
+            return NotFound(new { message = "Không tìm thấy tủ khóa." });
 
         cabinet.Name = request.Name.Trim();
         cabinet.Location = request.Location?.Trim();
@@ -834,10 +834,10 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var cabinet = await _context.LockerCabinets.FindAsync(id);
         if (cabinet == null)
-            return NotFound(new { message = "Cabinet not found." });
+            return NotFound(new { message = "Không tìm thấy tủ khóa." });
         var compartments = await _context.LockerCompartments.Where(c => c.LockerCabinetId == id).ToListAsync();
         if (compartments.Any(c => c.Status != "Empty"))
-            return BadRequest(new { message = "Cannot delete cabinet with occupied compartments." });
+            return BadRequest(new { message = "Không thể xóa tủ khóa khi còn ngăn đang chứa đồ." });
         _context.LockerCompartments.RemoveRange(compartments);
         _context.LockerCabinets.Remove(cabinet);
         await _context.SaveChangesAsync();
@@ -852,7 +852,7 @@ public class EnterpriseLostFoundController : ControllerBase
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên tủ khóa." });
 
         var cabinet = new LockerCabinet
         {
@@ -889,7 +889,7 @@ public class EnterpriseLostFoundController : ControllerBase
 
         var cabinet = await _context.LockerCabinets.FindAsync(id);
         if (cabinet == null)
-            return NotFound(new { message = "Cabinet not found." });
+            return NotFound(new { message = "Không tìm thấy tủ khóa." });
 
         var compartments = await _context.LockerCompartments
             .Where(c => c.LockerCabinetId == id)
@@ -908,9 +908,9 @@ public class EnterpriseLostFoundController : ControllerBase
             return Forbid();
 
         if (!await _context.LockerCabinets.AnyAsync(c => c.LockerCabinetId == id))
-            return NotFound(new { message = "Cabinet not found." });
+            return NotFound(new { message = "Không tìm thấy tủ khóa." });
         if (request.Codes == null || request.Codes.Count == 0)
-            return BadRequest(new { message = "At least one code is required." });
+            return BadRequest(new { message = "Vui lòng nhập ít nhất một mã ngăn." });
 
         var created = new List<LockerCompartment>();
         foreach (var code in request.Codes)

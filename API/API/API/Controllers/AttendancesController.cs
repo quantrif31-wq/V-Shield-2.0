@@ -729,7 +729,7 @@ public class AttendancesController : ControllerBase
             return Unauthorized();
 
         await _anomalyService.ResolveAnomalyAsync(id, request.Resolution, currentUserId.Value);
-        return Ok(new { message = "Anomaly resolved." });
+        return Ok(new { message = "Đã xử lý bất thường." });
     }
 
     [HttpPost("anomalies/{id:int}/false-positive")]
@@ -741,7 +741,7 @@ public class AttendancesController : ControllerBase
             return Unauthorized();
 
         await _anomalyService.MarkFalsePositiveAsync(id, currentUserId.Value);
-        return Ok(new { message = "Anomaly marked as false positive." });
+        return Ok(new { message = "Bất thường được đánh dấu là dương tính giả." });
     }
 
     [HttpGet("anomalies/predict-absences/{employeeId:int}")]

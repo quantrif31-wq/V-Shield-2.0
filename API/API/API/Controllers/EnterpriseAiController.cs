@@ -42,11 +42,11 @@ public class EnterpriseAiController : ControllerBase
     public async Task<IActionResult> Analyze([FromBody] AiAnalysisRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Domain))
-            return BadRequest(new { message = "Domain is required." });
+            return BadRequest(new { message = "Vui lòng nhập Domain." });
         if (string.IsNullOrWhiteSpace(request.EntityType))
-            return BadRequest(new { message = "EntityType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại đối tượng." });
         if (string.IsNullOrWhiteSpace(request.EntityId))
-            return BadRequest(new { message = "EntityId is required." });
+            return BadRequest(new { message = "Vui lòng nhập EntityId." });
 
         var result = await _recommendationService.AnalyzeAsync(
             request.Domain,
@@ -71,11 +71,11 @@ public class EnterpriseAiController : ControllerBase
         [FromQuery] int? limit = 10)
     {
         if (string.IsNullOrWhiteSpace(domain))
-            return BadRequest(new { message = "Domain is required." });
+            return BadRequest(new { message = "Vui lòng nhập Domain." });
         if (string.IsNullOrWhiteSpace(entityType))
-            return BadRequest(new { message = "EntityType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại đối tượng." });
         if (string.IsNullOrWhiteSpace(entityId))
-            return BadRequest(new { message = "EntityId is required." });
+            return BadRequest(new { message = "Vui lòng nhập EntityId." });
 
         var recommendations = await _recommendationService.GetRecommendationsAsync(
             domain, entityType, entityId, limit);
@@ -90,7 +90,7 @@ public class EnterpriseAiController : ControllerBase
     public async Task<IActionResult> ReviewRecommendation(long id, [FromBody] ReviewRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Status))
-            return BadRequest(new { message = "Status is required (Approved/Rejected/Executed)." });
+            return BadRequest(new { message = "Vui lòng nhập trạng thái (Approved/Rejected/Executed)." });
 
         try
         {
@@ -104,11 +104,11 @@ public class EnterpriseAiController : ControllerBase
                     request.Comment);
             }
 
-            return Ok(new { message = $"Recommendation {request.Status} successfully." });
+            return Ok(new { message = $"Đề xuất đã được cập nhật trạng thái {request.Status} thành công." });
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Recommendation not found." });
+            return NotFound(new { message = "Không tìm thấy đề xuất." });
         }
     }
 
@@ -125,7 +125,7 @@ public class EnterpriseAiController : ControllerBase
         await _recommendationService.RecordFeedbackAsync(
             id, userId.Value, request.FeedbackType, request.Comment);
 
-        return Ok(new { message = "Feedback recorded." });
+        return Ok(new { message = "Đã ghi nhận phản hồi." });
     }
 
     /// <summary>
@@ -141,7 +141,7 @@ public class EnterpriseAiController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Policy version not found." });
+            return NotFound(new { message = "Không tìm thấy phiên bản chính sách." });
         }
     }
 
@@ -158,7 +158,7 @@ public class EnterpriseAiController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Policy version not found." });
+            return NotFound(new { message = "Không tìm thấy phiên bản chính sách." });
         }
     }
 
@@ -169,7 +169,7 @@ public class EnterpriseAiController : ControllerBase
     public async Task<IActionResult> QueryNaturalLanguage([FromBody] NlQueryRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Query))
-            return BadRequest(new { message = "Query is required." });
+            return BadRequest(new { message = "Vui lòng nhập truy vấn." });
 
         var userId = GetCurrentUserId();
         var result = await _nlQuery.QueryAsync(request.Query.Trim(), userId);
@@ -177,7 +177,7 @@ public class EnterpriseAiController : ControllerBase
         if (result.Intent == "blocked_injection")
         {
             _logger.LogWarning("NL query blocked as injection from user {UserId}: {Query}", userId, request.Query);
-            return BadRequest(new { message = "Query contains invalid content." });
+            return BadRequest(new { message = "Truy vấn chứa nội dung không hợp lệ." });
         }
 
         return Ok(result);

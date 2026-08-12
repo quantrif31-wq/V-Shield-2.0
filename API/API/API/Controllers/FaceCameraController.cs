@@ -131,7 +131,7 @@ public class FaceCameraController : ControllerBase
         if ((Request.ContentLength ?? 0) > 0 || Request.Headers.TransferEncoding.Count > 0)
         {
             return Task.FromResult<IActionResult>(
-                BadRequest(new { message = "Request body is not allowed." }));
+                BadRequest(new { message = "Không được phép gửi nội dung yêu cầu." }));
         }
 
         return ProxyAsync(_faceRecognitionClient.ReloadModelsAsync, cancellationToken);
@@ -148,7 +148,7 @@ public class FaceCameraController : ControllerBase
             request.Images.Count > 200)
         {
             return Task.FromResult<IActionResult>(
-                BadRequest(new { message = "SubjectId and 1..200 images are required." }));
+                BadRequest(new { message = "Vui lòng nhập SubjectId và từ 1 đến 200 ảnh." }));
         }
 
         return ProxyAsync(
@@ -192,7 +192,7 @@ public class FaceCameraController : ControllerBase
         if (!FaceCameraIdValidator.TryValidate(cameraId, out var validCameraId))
         {
             return Task.FromResult<IActionResult>(
-                BadRequest(new { message = "cameraId is invalid." }));
+                BadRequest(new { message = "cameraId không hợp lệ." }));
         }
 
         return ProxyAsync(

@@ -53,7 +53,7 @@ public sealed class FaceEnrollmentsController : ControllerBase
         try { return Ok(await operation()); }
         catch (KeyNotFoundException e) { return NotFound(new { message = e.Message }); }
         catch (InvalidOperationException e) { return Conflict(new { message = e.Message }); }
-        catch (FaceRuntimeUnavailableException) { return StatusCode(503, new { message = "Face Runtime is unavailable." }); }
+        catch (FaceRuntimeUnavailableException) { return StatusCode(503, new { message = "Face Runtime hiện không khả dụng." }); }
     }
     private bool TryUserId(out int id) => int.TryParse(
         User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??

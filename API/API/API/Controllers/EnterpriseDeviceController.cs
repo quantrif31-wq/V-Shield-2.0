@@ -53,7 +53,7 @@ public class EnterpriseDeviceController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         }
     }
 
@@ -87,7 +87,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> CreateDevice([FromBody] DeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var device = new SecurityDevice
         {
@@ -114,7 +114,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> RegisterController(int deviceId, [FromBody] ControllerDeviceRequest request)
     {
         if (!await _context.SecurityDevices.AnyAsync(device => device.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         var controller = new AccessControllerDevice
         {
@@ -134,7 +134,7 @@ public class EnterpriseDeviceController : ControllerBase
     {
         var device = await _context.SecurityDevices.FindAsync(deviceId);
         if (device == null)
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         device.Status = string.IsNullOrWhiteSpace(request.Status) ? "Unknown" : request.Status.Trim();
         device.LastSeenAtUtc = DateTime.UtcNow;
@@ -157,7 +157,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> AddConfigurationVersion(int deviceId, [FromBody] DeviceConfigurationRequest request)
     {
         if (!await _context.SecurityDevices.AnyAsync(device => device.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         var version = new DeviceConfigurationVersion
         {
@@ -177,7 +177,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> CreateProvisioningRequest([FromBody] ProvisioningRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RequestedName))
-            return BadRequest(new { message = "RequestedName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên yêu cầu." });
 
         var provisioning = new DeviceProvisioningRequest
         {
@@ -199,7 +199,7 @@ public class EnterpriseDeviceController : ControllerBase
     {
         var provisioning = await _context.DeviceProvisioningRequests.FindAsync(requestId);
         if (provisioning == null)
-            return NotFound(new { message = "Provisioning request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu cấp phát." });
 
         provisioning.Status = "Approved";
         provisioning.ApprovalNote = request.ApprovalNote?.Trim();
@@ -258,7 +258,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> CreateVirtualController([FromBody] VirtualControllerRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var device = new SecurityDevice
         {
@@ -309,7 +309,7 @@ public class EnterpriseDeviceController : ControllerBase
         {
             SecurityDeviceId = device.SecurityDeviceId,
             Status = "Ok",
-            Message = "Virtual controller created."
+            Message = "Đã tạo bộ điều khiển ảo."
         });
 
         await _context.SaveChangesAsync();
@@ -321,7 +321,7 @@ public class EnterpriseDeviceController : ControllerBase
     {
         var device = await _context.SecurityDevices.FindAsync(request.SecurityDeviceId);
         if (device == null)
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         var package = await _context.OfflinePolicyPackages
             .Where(item => item.SecurityDeviceId == request.SecurityDeviceId && item.Status == "Published")
@@ -373,7 +373,7 @@ public class EnterpriseDeviceController : ControllerBase
     {
         var device = await _context.SecurityDevices.FindAsync(request.SecurityDeviceId);
         if (device == null)
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
 
         var status = string.IsNullOrWhiteSpace(request.Status) ? "Tamper" : request.Status.Trim();
         device.Status = status;
@@ -475,7 +475,7 @@ public class EnterpriseDeviceController : ControllerBase
     {
         var device = await _context.SecurityDevices.FindAsync(deviceId);
         if (device == null)
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         return Ok(device);
     }
 
@@ -483,7 +483,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> GetDeviceReaders(int deviceId)
     {
         if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         var readers = await _context.ReaderDevices
             .Where(r => r.SecurityDeviceId == deviceId)
             .ToListAsync();
@@ -494,7 +494,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> GetDeviceRelays(int deviceId)
     {
         if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         var relays = await _context.DeviceRelays
             .Where(r => r.SecurityDeviceId == deviceId)
             .ToListAsync();
@@ -505,7 +505,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> GetDeviceSensors(int deviceId)
     {
         if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         var sensors = await _context.DeviceSensors
             .Where(s => s.SecurityDeviceId == deviceId)
             .ToListAsync();
@@ -516,7 +516,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> GetDeviceHealthHistory(int deviceId, [FromQuery] int limit = 50)
     {
         if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         var snapshots = await _context.DeviceHealthSnapshots
             .Where(h => h.SecurityDeviceId == deviceId)
             .OrderByDescending(h => h.DeviceHealthSnapshotId)
@@ -529,7 +529,7 @@ public class EnterpriseDeviceController : ControllerBase
     public async Task<IActionResult> GetDeviceConfigurations(int deviceId)
     {
         if (!await _context.SecurityDevices.AnyAsync(d => d.SecurityDeviceId == deviceId))
-            return NotFound(new { message = "Device not found." });
+            return NotFound(new { message = "Không tìm thấy thiết bị." });
         var versions = await _context.DeviceConfigurationVersions
             .Where(v => v.SecurityDeviceId == deviceId)
             .OrderByDescending(v => v.DeviceConfigurationVersionId)

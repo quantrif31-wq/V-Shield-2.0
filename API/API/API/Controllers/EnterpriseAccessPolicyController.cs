@@ -51,7 +51,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreateSchedule([FromBody] ScheduleRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var schedule = new AccessSchedule
         {
@@ -71,7 +71,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> AddHoliday([FromBody] HolidayRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var holiday = new HolidayCalendar
         {
@@ -90,7 +90,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreateAccessLevel([FromBody] AccessLevelRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Code))
-            return BadRequest(new { message = "Name and code are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên và mã." });
 
         var level = new AccessLevel
         {
@@ -109,7 +109,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreateAccessGroup([FromBody] AccessGroupRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Code))
-            return BadRequest(new { message = "Name and code are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên và mã." });
 
         var group = new AccessGroup
         {
@@ -136,7 +136,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreateRule([FromBody] AccessRuleRequest request)
     {
         if (!await _context.AccessLevels.AnyAsync(level => level.AccessLevelId == request.AccessLevelId))
-            return BadRequest(new { message = "Access level does not exist." });
+            return BadRequest(new { message = "Cấp quyền truy cập không tồn tại." });
 
         var rule = new AccessRule
         {
@@ -188,7 +188,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreatePolicyVersion([FromBody] PolicyVersionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var version = new AccessPolicyVersion
         {
@@ -208,9 +208,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
     {
         var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
         if (version == null)
-            return NotFound(new { message = "Policy version not found." });
+            return NotFound(new { message = "Không tìm thấy phiên bản chính sách." });
         if (version.Status != "Draft")
-            return BadRequest(new { message = "Only Draft policy versions can be submitted." });
+            return BadRequest(new { message = "Chỉ phiên bản chính sách ở trạng thái Nháp mới có thể được gửi duyệt." });
 
         version.Status = "PendingApproval";
         version.SubmittedAtUtc = DateTime.UtcNow;
@@ -224,9 +224,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
     {
         var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
         if (version == null)
-            return NotFound(new { message = "Policy version not found." });
+            return NotFound(new { message = "Không tìm thấy phiên bản chính sách." });
         if (version.Status != "PendingApproval")
-            return BadRequest(new { message = "Only PendingApproval policy versions can be approved." });
+            return BadRequest(new { message = "Chỉ phiên bản chính sách đang chờ duyệt mới có thể được phê duyệt." });
 
         version.Status = "Approved";
         version.ApprovedAtUtc = DateTime.UtcNow;
@@ -246,9 +246,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
     {
         var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
         if (version == null)
-            return NotFound(new { message = "Policy version not found." });
+            return NotFound(new { message = "Không tìm thấy phiên bản chính sách." });
         if (version.Status != "Approved")
-            return BadRequest(new { message = "Only Approved policy versions can be activated." });
+            return BadRequest(new { message = "Chỉ phiên bản chính sách đã được phê duyệt mới có thể được kích hoạt." });
 
         var activeVersions = await _context.AccessPolicyVersions
             .Where(item => item.Status == "Active")
@@ -271,7 +271,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
     {
         var version = await _context.AccessPolicyVersions.FindAsync(policyVersionId);
         if (version == null)
-            return NotFound(new { message = "Policy version not found." });
+            return NotFound(new { message = "Không tìm thấy phiên bản chính sách." });
 
         version.Status = "Retired";
         version.RetiredAtUtc = DateTime.UtcNow;
@@ -283,9 +283,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreateTemporaryGrant([FromBody] TemporaryGrantRequest request)
     {
         if (request.SubjectId <= 0)
-            return BadRequest(new { message = "SubjectId is required." });
+            return BadRequest(new { message = "Vui lòng nhập SubjectId." });
         if (request.ValidToUtc <= request.ValidFromUtc)
-            return BadRequest(new { message = "ValidToUtc must be after ValidFromUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc phải sau thời điểm bắt đầu." });
 
         var grant = new TemporaryAccessGrant
         {
@@ -323,13 +323,13 @@ public class EnterpriseAccessPolicyController : ControllerBase
     public async Task<IActionResult> CreateEmergencyPass([FromBody] EmergencyPassRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 10)
-            return BadRequest(new { message = "Reason with at least 10 characters is required." });
+            return BadRequest(new { message = "Vui lòng nhập lý do có ít nhất 10 ký tự." });
         if (string.IsNullOrWhiteSpace(request.SubjectName) && string.IsNullOrWhiteSpace(request.PlateNumber))
-            return BadRequest(new { message = "SubjectName or PlateNumber is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên đối tượng hoặc biển số xe." });
 
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
-            return Unauthorized(new { message = "Cannot identify responsible user." });
+            return Unauthorized(new { message = "Không xác định được người dùng chịu trách nhiệm." });
 
         var now = DateTime.UtcNow;
         var durationMinutes = Math.Clamp(request.DurationMinutes <= 0 ? 30 : request.DurationMinutes, 5, 480);
@@ -645,7 +645,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
             emergency.State is "FullLockdown" or "PartialLockdown" or "Evacuation" or "ShelterInPlace" &&
             !string.Equals(request.CredentialType, "EmergencyOverride", StringComparison.OrdinalIgnoreCase))
         {
-            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, $"Emergency state active: {emergency.State}", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, $"Trạng thái khẩn cấp đang hoạt động: {emergency.State}", nowUtc);
         }
 
         var holiday = await _context.HolidayCalendars.AnyAsync(holiday =>
@@ -653,7 +653,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
             (holiday.SiteId == null || holiday.SiteId == request.SiteId));
         if (holiday && !request.AllowHolidayAccess)
         {
-            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "Holiday access is not allowed by request context.", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "Truy cập ngày lễ không được phép theo ngữ cảnh yêu cầu.", nowUtc);
         }
 
         var rulesQuery = _context.AccessRules
@@ -691,7 +691,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
                 request,
                 activePolicyVersionId,
                 AccessDecisionResults.Deny,
-                $"Explicit deny rule {denyRule.AccessRuleId} denied access.",
+                $"Quy tắc từ chối rõ ràng {denyRule.AccessRuleId} đã chặn truy cập.",
                 nowUtc);
         }
 
@@ -707,13 +707,13 @@ public class EnterpriseAccessPolicyController : ControllerBase
 
         if (temporaryGrant)
         {
-            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Allow, "Temporary access grant matched.", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Allow, "Khớp quyền truy cập tạm thời.", nowUtc);
         }
 
         var allowRule = scheduledRules.FirstOrDefault(rule => rule.AllowAccess);
         if (allowRule == null)
         {
-            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "No active access rule matched.", nowUtc);
+            return BuildDecision(request, activePolicyVersionId, AccessDecisionResults.Deny, "Không có quy tắc truy cập nào khớp.", nowUtc);
         }
 
         // Zone SecurityLevel enforcement: Restricted/Critical require escalation
@@ -727,7 +727,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
                 {
                     return BuildDecision(
                         request, activePolicyVersionId, AccessDecisionResults.Review,
-                        $"Zone '{zone.Name}' is {level} — manual approval required.", nowUtc);
+                        $"Vùng '{zone.Name}' ở mức {level} — cần phê duyệt thủ công.", nowUtc);
                 }
             }
         }
@@ -736,7 +736,7 @@ public class EnterpriseAccessPolicyController : ControllerBase
             request,
             activePolicyVersionId,
             AccessDecisionResults.Allow,
-            $"Access rule {allowRule.AccessRuleId} allowed access.",
+            $"Quy tắc truy cập {allowRule.AccessRuleId} cho phép truy cập.",
             nowUtc);
     }
 
@@ -805,9 +805,9 @@ public class EnterpriseAccessPolicyController : ControllerBase
             return Unauthorized();
 
         if (!await _context.SecurityZones.AnyAsync(z => z.SecurityZoneId == request.SecurityZoneId))
-            return BadRequest(new { message = "SecurityZone not found." });
+            return BadRequest(new { message = "Không tìm thấy khu vực an ninh." });
         if (!await _context.AppUsers.AnyAsync(u => u.UserId == request.TargetUserId))
-            return BadRequest(new { message = "Target user not found." });
+            return BadRequest(new { message = "Không tìm thấy người dùng đích." });
 
         var now = DateTime.UtcNow;
         var authority = new GuardZoneAuthority

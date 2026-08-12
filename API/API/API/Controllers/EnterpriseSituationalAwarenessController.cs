@@ -40,7 +40,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> CreateSecurityEvent([FromBody] SecurityEventRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.EventType))
-            return BadRequest(new { message = "EventType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại sự kiện." });
 
         var securityEvent = new SecurityEvent
         {
@@ -118,7 +118,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> CreateVideoBookmark([FromBody] VideoBookmarkRequest request)
     {
         if (request.EndUtc <= request.StartUtc)
-            return BadRequest(new { message = "EndUtc must be after StartUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc phải sau thời điểm bắt đầu." });
 
         var bookmark = new VideoBookmark
         {
@@ -140,10 +140,10 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> CreateSiteMap([FromBody] SiteMapRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         var assetReference = string.IsNullOrWhiteSpace(request.AssetReference)
             ? $"site-map:{request.SiteId?.ToString() ?? "global"}:{request.Name.Trim().ToLowerInvariant().Replace(' ', '-')}"
@@ -168,10 +168,10 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     {
         var map = await _context.SiteMaps.FirstOrDefaultAsync(m => m.SiteMapId == mapId);
         if (map == null)
-            return NotFound(new { message = "Map not found." });
+            return NotFound(new { message = "Không tìm thấy bản đồ." });
 
         if (request.SiteId.HasValue && !await _context.Sites.AnyAsync(s => s.SiteId == request.SiteId.Value))
-            return BadRequest(new { message = "Site does not exist." });
+            return BadRequest(new { message = "Khu vực không tồn tại." });
 
         if (!string.IsNullOrWhiteSpace(request.Name))
             map.Name = request.Name.Trim();
@@ -194,7 +194,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     {
         var map = await _context.SiteMaps.FirstOrDefaultAsync(m => m.SiteMapId == mapId);
         if (map == null)
-            return NotFound(new { message = "Map not found." });
+            return NotFound(new { message = "Không tìm thấy bản đồ." });
 
         _context.SiteMaps.Remove(map);
         await _context.SaveChangesAsync();
@@ -206,7 +206,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> AddMapPlacement(int mapId, [FromBody] MapPlacementRequest request)
     {
         if (!await _context.SiteMaps.AnyAsync(map => map.SiteMapId == mapId))
-            return NotFound(new { message = "Map not found." });
+            return NotFound(new { message = "Không tìm thấy bản đồ." });
 
         var placement = new MapDevicePlacement
         {
@@ -229,7 +229,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     {
         var placement = await _context.MapDevicePlacements.FirstOrDefaultAsync(p => p.SiteMapId == mapId && p.MapDevicePlacementId == placementId);
         if (placement == null)
-            return NotFound(new { message = "Placement not found." });
+            return NotFound(new { message = "Không tìm thấy vị trí." });
 
         placement.SecurityDeviceId = request.SecurityDeviceId ?? placement.SecurityDeviceId;
         placement.CameraId = request.CameraId ?? placement.CameraId;
@@ -248,7 +248,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     {
         var placement = await _context.MapDevicePlacements.FirstOrDefaultAsync(p => p.SiteMapId == mapId && p.MapDevicePlacementId == placementId);
         if (placement == null)
-            return NotFound(new { message = "Placement not found." });
+            return NotFound(new { message = "Không tìm thấy vị trí." });
 
         _context.MapDevicePlacements.Remove(placement);
         await _context.SaveChangesAsync();
@@ -277,7 +277,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     {
         var item = await _context.AiAdjudicationItems.FindAsync(itemId);
         if (item == null)
-            return NotFound(new { message = "AI adjudication item not found." });
+            return NotFound(new { message = "Không tìm thấy mục phán quyết AI." });
 
         item.Status = "Reviewed";
         item.Outcome = string.IsNullOrWhiteSpace(request.Outcome) ? "Confirmed" : request.Outcome.Trim();
@@ -292,7 +292,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> RecordAiMetric([FromBody] AiMetricRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.MetricName))
-            return BadRequest(new { message = "MetricName is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên chỉ số." });
 
         var metric = new AiPerformanceMetric
         {
@@ -339,7 +339,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> GetEvent(long eventId)
     {
         var ev = await _context.SecurityEvents.FindAsync(eventId);
-        if (ev == null) return NotFound(new { message = "Event not found." });
+        if (ev == null) return NotFound(new { message = "Không tìm thấy sự kiện." });
         return Ok(ev);
     }
 
@@ -347,7 +347,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> DeleteEvent(long eventId)
     {
         var ev = await _context.SecurityEvents.FindAsync(eventId);
-        if (ev == null) return NotFound(new { message = "Event not found." });
+        if (ev == null) return NotFound(new { message = "Không tìm thấy sự kiện." });
         _context.SecurityEvents.Remove(ev);
         await _context.SaveChangesAsync();
         return NoContent();
@@ -367,7 +367,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> DeleteVideoBookmark(int bookmarkId)
     {
         var bm = await _context.VideoBookmarks.FindAsync(bookmarkId);
-        if (bm == null) return NotFound(new { message = "Bookmark not found." });
+        if (bm == null) return NotFound(new { message = "Không tìm thấy đánh dấu." });
         _context.VideoBookmarks.Remove(bm);
         await _context.SaveChangesAsync();
         return NoContent();
@@ -377,7 +377,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> CreateClipRequest([FromBody] ClipRequestRequest request)
     {
         if (request.EndUtc <= request.StartUtc)
-            return BadRequest(new { message = "EndUtc must be after StartUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc phải sau thời điểm bắt đầu." });
 
         var clip = new ClipRequest
         {
@@ -409,7 +409,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> ApproveClipRequest(int clipId, [FromBody] ClipApproveRequest request)
     {
         var clip = await _context.ClipRequests.FindAsync(clipId);
-        if (clip == null) return NotFound(new { message = "Clip request not found." });
+        if (clip == null) return NotFound(new { message = "Không tìm thấy yêu cầu trích xuất." });
         clip.Status = "Approved";
         clip.RetentionCategory = request.RetentionCategory?.Trim();
         clip.ApprovedAtUtc = DateTime.UtcNow;
@@ -421,7 +421,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> ExportClipRequest(int clipId, [FromBody] ClipExportRequest request)
     {
         var clip = await _context.ClipRequests.FindAsync(clipId);
-        if (clip == null) return NotFound(new { message = "Clip request not found." });
+        if (clip == null) return NotFound(new { message = "Không tìm thấy yêu cầu trích xuất." });
         clip.Status = "Exported";
         clip.ExportReference = request.ExportReference?.Trim();
         clip.ExportedAtUtc = DateTime.UtcNow;
@@ -511,7 +511,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> GetCorrelationDetail(long correlationId)
     {
         var correlation = await _context.EventCorrelations.FindAsync(correlationId);
-        if (correlation == null) return NotFound(new { message = "Correlation not found." });
+        if (correlation == null) return NotFound(new { message = "Không tìm thấy liên kết tương quan." });
         var events = await _context.SecurityEvents
             .Where(e => e.CorrelationId == correlation.CorrelationId)
             .OrderByDescending(e => e.OccurredAtUtc)
@@ -534,7 +534,7 @@ public class EnterpriseSituationalAwarenessController : ControllerBase
     public async Task<IActionResult> GetMapPlacements(int mapId)
     {
         if (!await _context.SiteMaps.AnyAsync(m => m.SiteMapId == mapId))
-            return NotFound(new { message = "Map not found." });
+            return NotFound(new { message = "Không tìm thấy bản đồ." });
         var placements = await _context.MapDevicePlacements
             .Include(p => p.SecurityDevice)
             .Include(p => p.Camera)

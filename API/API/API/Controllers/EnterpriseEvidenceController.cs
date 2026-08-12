@@ -55,9 +55,9 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> CreateRetentionPolicy([FromBody] RetentionPolicyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
         if (request.RetentionDays <= 0)
-            return BadRequest(new { message = "RetentionDays must be positive." });
+            return BadRequest(new { message = "Số ngày lưu giữ phải là số dương." });
 
         var policy = new RetentionPolicy
         {
@@ -78,7 +78,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> CreateEvidenceItem([FromBody] EvidenceItemRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.StorageReference))
-            return BadRequest(new { message = "StorageReference is required." });
+            return BadRequest(new { message = "Vui lòng nhập tham chiếu lưu trữ (StorageReference)." });
 
         var hash = string.IsNullOrWhiteSpace(request.HashSha256)
             ? ComputeHash($"{request.StorageReference}|{request.SourceReference}|{DateTime.UtcNow:O}")
@@ -123,7 +123,7 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var item = await _context.EvidenceItems.FindAsync(itemId);
         if (item == null)
-            return NotFound(new { message = "Evidence item not found." });
+            return NotFound(new { message = "Không tìm thấy vật phẩm bằng chứng." });
 
         _context.EvidenceAccessLogs.Add(new EvidenceAccessLog
         {
@@ -142,9 +142,9 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var item = await _context.EvidenceItems.FindAsync(itemId);
         if (item == null)
-            return NotFound(new { message = "Evidence item not found." });
+            return NotFound(new { message = "Không tìm thấy vật phẩm bằng chứng." });
         if (string.IsNullOrWhiteSpace(request.ObservedHashSha256))
-            return BadRequest(new { message = "ObservedHashSha256 is required." });
+            return BadRequest(new { message = "Vui lòng nhập mã băm quan sát (ObservedHashSha256)." });
 
         var observed = request.ObservedHashSha256.Trim().ToLowerInvariant();
         var expected = item.HashSha256.Trim().ToLowerInvariant();
@@ -187,7 +187,7 @@ public class EnterpriseEvidenceController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Evidence item not found." });
+            return NotFound(new { message = "Không tìm thấy vật phẩm bằng chứng." });
         }
     }
 
@@ -204,7 +204,7 @@ public class EnterpriseEvidenceController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Export request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu xuất." });
         }
     }
 
@@ -258,9 +258,9 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> PurgeEvidence([FromBody] EvidencePurgeRequest request)
     {
         if (request.EvidenceItemIds.Count == 0)
-            return BadRequest(new { message = "EvidenceItemIds are required." });
+            return BadRequest(new { message = "Vui lòng chọn ít nhất một vật phẩm bằng chứng." });
         if (string.IsNullOrWhiteSpace(request.Reason))
-            return BadRequest(new { message = "Reason is required." });
+            return BadRequest(new { message = "Vui lòng nhập lý do." });
 
         var items = await _context.EvidenceItems
             .Where(item => request.EvidenceItemIds.Contains(item.EvidenceItemId))
@@ -298,7 +298,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> CreateCollection([FromBody] EvidenceCollectionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var collection = new EvidenceCollection
         {
@@ -319,10 +319,10 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var collection = await _context.EvidenceCollections.FindAsync(collectionId);
         if (collection == null)
-            return NotFound(new { message = "Collection not found." });
+            return NotFound(new { message = "Không tìm thấy bộ sưu tập." });
         var item = await _context.EvidenceItems.FindAsync(request.EvidenceItemId);
         if (item == null)
-            return BadRequest(new { message = "Evidence item not found." });
+            return BadRequest(new { message = "Không tìm thấy vật phẩm bằng chứng." });
 
         var exists = await _context.EvidenceCollectionItems
             .AnyAsync(link => link.EvidenceCollectionId == collectionId && link.EvidenceItemId == request.EvidenceItemId);
@@ -345,7 +345,7 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var item = await _context.EvidenceItems.FindAsync(itemId);
         if (item == null)
-            return NotFound(new { message = "Evidence item not found." });
+            return NotFound(new { message = "Không tìm thấy vật phẩm bằng chứng." });
 
         var entry = new ChainOfCustodyEntry
         {
@@ -369,7 +369,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> ApplyLegalHold([FromBody] LegalHoldRequest request)
     {
         if (request.EvidenceItemId == null && request.EvidenceCollectionId == null)
-            return BadRequest(new { message = "EvidenceItemId or EvidenceCollectionId is required." });
+            return BadRequest(new { message = "Vui lòng nhập vật phẩm bằng chứng hoặc bộ sưu tập." });
 
         var hold = new LegalHold
         {
@@ -393,7 +393,7 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var hold = await _context.LegalHolds.FindAsync(legalHoldId);
         if (hold == null)
-            return NotFound(new { message = "Legal hold not found." });
+            return NotFound(new { message = "Không tìm thấy lệnh khóa pháp lý." });
 
         hold.Status = "Released";
         hold.ReleasedAtUtc = DateTime.UtcNow;
@@ -407,9 +407,9 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> RequestExport([FromBody] EvidenceExportRequestRequest request)
     {
         if (request.EvidenceItemId == null && request.EvidenceCollectionId == null)
-            return BadRequest(new { message = "EvidenceItemId or EvidenceCollectionId is required." });
+            return BadRequest(new { message = "Vui lòng nhập vật phẩm bằng chứng hoặc bộ sưu tập." });
         if (string.IsNullOrWhiteSpace(request.Purpose) || string.IsNullOrWhiteSpace(request.Recipient))
-            return BadRequest(new { message = "Purpose and Recipient are required." });
+            return BadRequest(new { message = "Vui lòng nhập mục đích và người nhận." });
 
         var export = new EvidenceExportRequest
         {
@@ -438,17 +438,17 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var export = await _context.EvidenceExportRequests.FindAsync(exportRequestId);
         if (export == null)
-            return NotFound(new { message = "Export request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu xuất." });
 
         if (export.EvidenceItemId.HasValue)
         {
             var item = await _context.EvidenceItems.FindAsync(export.EvidenceItemId.Value);
             if (item == null)
-                return BadRequest(new { message = "Evidence item not found." });
+                return BadRequest(new { message = "Không tìm thấy vật phẩm bằng chứng." });
             if (item.PurgedAtUtc.HasValue)
-                return BadRequest(new { message = "Purged evidence cannot be exported." });
+                return BadRequest(new { message = "Bằng chứng đã bị loại bỏ, không thể xuất." });
             if (item.LastHashVerificationStatus == "Mismatch")
-                return BadRequest(new { message = "Evidence hash mismatch blocks export approval." });
+                return BadRequest(new { message = "Mã băm bằng chứng không khớp, không thể phê duyệt xuất." });
         }
 
         export.Status = "Approved";
@@ -484,9 +484,9 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> RequestRedaction([FromBody] RedactionRequestRequest request)
     {
         if (!await _context.EvidenceItems.AnyAsync(item => item.EvidenceItemId == request.EvidenceItemId))
-            return BadRequest(new { message = "Evidence item not found." });
+            return BadRequest(new { message = "Không tìm thấy vật phẩm bằng chứng." });
         if (string.IsNullOrWhiteSpace(request.Reason))
-            return BadRequest(new { message = "Reason is required." });
+            return BadRequest(new { message = "Vui lòng nhập lý do." });
 
         var redaction = new RedactionRequest
         {
@@ -514,7 +514,7 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var redaction = await _context.RedactionRequests.FindAsync(redactionRequestId);
         if (redaction == null)
-            return NotFound(new { message = "Redaction request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu che dữ liệu." });
 
         redaction.Status = "Approved";
         redaction.ApprovedAtUtc = DateTime.UtcNow;
@@ -534,9 +534,9 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var redaction = await _context.RedactionRequests.FindAsync(redactionRequestId);
         if (redaction == null)
-            return NotFound(new { message = "Redaction request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu che dữ liệu." });
         if (string.IsNullOrWhiteSpace(request.RedactedStorageReference))
-            return BadRequest(new { message = "RedactedStorageReference is required." });
+            return BadRequest(new { message = "Vui lòng nhập tham chiếu lưu trữ đã che dữ liệu." });
 
         redaction.Status = "Performed";
         redaction.PerformedAtUtc = DateTime.UtcNow;
@@ -557,7 +557,7 @@ public class EnterpriseEvidenceController : ControllerBase
     {
         var redaction = await _context.RedactionRequests.FindAsync(redactionRequestId);
         if (redaction == null)
-            return NotFound(new { message = "Redaction request not found." });
+            return NotFound(new { message = "Không tìm thấy yêu cầu che dữ liệu." });
 
         redaction.Status = "Verified";
         redaction.VerifiedAtUtc = DateTime.UtcNow;
@@ -576,9 +576,9 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> RunComplianceReport([FromBody] ComplianceReportRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ReportType))
-            return BadRequest(new { message = "ReportType is required." });
+            return BadRequest(new { message = "Vui lòng nhập loại báo cáo." });
         if (request.PeriodEndUtc <= request.PeriodStartUtc)
-            return BadRequest(new { message = "PeriodEndUtc must be after PeriodStartUtc." });
+            return BadRequest(new { message = "Thời điểm kết thúc phải sau thời điểm bắt đầu." });
 
         var outputReference = string.IsNullOrWhiteSpace(request.OutputReference)
             ? $"/reports/compliance/{request.ReportType.Trim()}-{DateTime.UtcNow:yyyyMMddHHmmss}.json"
@@ -640,7 +640,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> GetEvidenceCollectionDetail(long collectionId)
     {
         var collection = await _context.EvidenceCollections.FindAsync(collectionId);
-        if (collection == null) return NotFound(new { message = "Collection not found." });
+        if (collection == null) return NotFound(new { message = "Không tìm thấy bộ sưu tập." });
         var itemLinks = await _context.EvidenceCollectionItems
             .Where(link => link.EvidenceCollectionId == collectionId)
             .Join(_context.EvidenceItems, link => link.EvidenceItemId, item => item.EvidenceItemId, (link, item) => item)
@@ -652,7 +652,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> CloseEvidenceCollection(long collectionId, [FromBody] CloseRequest request)
     {
         var collection = await _context.EvidenceCollections.FindAsync(collectionId);
-        if (collection == null) return NotFound(new { message = "Collection not found." });
+        if (collection == null) return NotFound(new { message = "Không tìm thấy bộ sưu tập." });
         collection.Status = "Closed";
         await _context.SaveChangesAsync();
         return Ok(collection);
@@ -700,7 +700,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> GetRetentionPolicy(int policyId)
     {
         var policy = await _context.RetentionPolicies.FindAsync(policyId);
-        if (policy == null) return NotFound(new { message = "Retention policy not found." });
+        if (policy == null) return NotFound(new { message = "Không tìm thấy chính sách lưu giữ." });
         return Ok(policy);
     }
 
@@ -709,7 +709,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> UpdateRetentionPolicy(int policyId, [FromBody] RetentionPolicyUpdateRequest request)
     {
         var policy = await _context.RetentionPolicies.FindAsync(policyId);
-        if (policy == null) return NotFound(new { message = "Retention policy not found." });
+        if (policy == null) return NotFound(new { message = "Không tìm thấy chính sách lưu giữ." });
         if (request.RetentionDays.HasValue) policy.RetentionDays = request.RetentionDays.Value;
         if (request.IsActive.HasValue) policy.IsActive = request.IsActive.Value;
         if (!string.IsNullOrWhiteSpace(request.PurgeMode)) policy.PurgeMode = request.PurgeMode.Trim();
@@ -730,7 +730,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> GetChainOfCustody(long itemId)
     {
         if (!await _context.EvidenceItems.AnyAsync(e => e.EvidenceItemId == itemId))
-            return NotFound(new { message = "Evidence item not found." });
+            return NotFound(new { message = "Không tìm thấy vật phẩm bằng chứng." });
         var entries = await _context.ChainOfCustodyEntries
             .Where(c => c.EvidenceItemId == itemId)
             .OrderByDescending(c => c.CreatedAtUtc)
@@ -742,7 +742,7 @@ public class EnterpriseEvidenceController : ControllerBase
     public async Task<IActionResult> GetEvidenceAccessLogs(long itemId)
     {
         if (!await _context.EvidenceItems.AnyAsync(e => e.EvidenceItemId == itemId))
-            return NotFound(new { message = "Evidence item not found." });
+            return NotFound(new { message = "Không tìm thấy vật phẩm bằng chứng." });
         var logs = await _context.EvidenceAccessLogs
             .Where(l => l.EvidenceItemId == itemId)
             .OrderByDescending(l => l.AccessedAtUtc)

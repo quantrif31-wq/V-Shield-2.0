@@ -58,7 +58,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> CreateAlarmRule([FromBody] AlarmRuleRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.EventType))
-            return BadRequest(new { message = "Name and EventType are required." });
+            return BadRequest(new { message = "Vui lòng nhập tên và loại sự kiện." });
 
         var rule = new AlarmRule
         {
@@ -77,7 +77,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> CreateAlarm([FromBody] AlarmRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Summary))
-            return BadRequest(new { message = "Summary is required." });
+            return BadRequest(new { message = "Vui lòng nhập tóm tắt." });
 
         var alarm = new Alarm
         {
@@ -135,7 +135,7 @@ public class EnterpriseSocController : ControllerBase
     {
         var alarm = await _context.Alarms.FindAsync(alarmId);
         if (alarm == null)
-            return NotFound(new { message = "Alarm not found." });
+            return NotFound(new { message = "Không tìm thấy báo động." });
 
         alarm.State = "Acknowledged";
         alarm.AcknowledgedAtUtc = DateTime.UtcNow;
@@ -149,7 +149,7 @@ public class EnterpriseSocController : ControllerBase
     {
         var alarm = await _context.Alarms.FindAsync(alarmId);
         if (alarm == null)
-            return NotFound(new { message = "Alarm not found." });
+            return NotFound(new { message = "Không tìm thấy báo động." });
 
         alarm.State = "Assigned";
         alarm.AssignedToUserId = request.AssignedToUserId;
@@ -171,9 +171,9 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> AddAlarmComment(long alarmId, [FromBody] AlarmCommentRequest request)
     {
         if (!await _context.Alarms.AnyAsync(alarm => alarm.AlarmId == alarmId))
-            return NotFound(new { message = "Alarm not found." });
+            return NotFound(new { message = "Không tìm thấy báo động." });
         if (string.IsNullOrWhiteSpace(request.Comment))
-            return BadRequest(new { message = "Comment is required." });
+            return BadRequest(new { message = "Vui lòng nhập bình luận." });
 
         var comment = new AlarmComment
         {
@@ -192,7 +192,7 @@ public class EnterpriseSocController : ControllerBase
     {
         var alarm = await _context.Alarms.FindAsync(alarmId);
         if (alarm == null)
-            return NotFound(new { message = "Alarm not found." });
+            return NotFound(new { message = "Không tìm thấy báo động." });
 
         alarm.State = "Closed";
         alarm.ClosedAtUtc = DateTime.UtcNow;
@@ -215,7 +215,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> CreateSopTemplate([FromBody] SopTemplateRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
 
         var template = new SopTemplate
         {
@@ -235,7 +235,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> StartSopExecution([FromBody] SopExecutionRequest request)
     {
         if (!await _context.SopTemplates.AnyAsync(template => template.SopTemplateId == request.SopTemplateId && template.IsActive))
-            return BadRequest(new { message = "Active SOP template not found." });
+            return BadRequest(new { message = "Không tìm thấy mẫu SOP đang hoạt động." });
 
         var execution = new SopExecution
         {
@@ -256,11 +256,11 @@ public class EnterpriseSocController : ControllerBase
     {
         var execution = await _context.SopExecutions.FindAsync(executionId);
         if (execution == null)
-            return NotFound(new { message = "SOP execution not found." });
+            return NotFound(new { message = "Không tìm thấy lần thực thi SOP." });
 
         var template = await _context.SopTemplates.FindAsync(execution.SopTemplateId);
         if (template == null)
-            return BadRequest(new { message = "SOP template not found." });
+            return BadRequest(new { message = "Không tìm thấy mẫu SOP." });
 
         var requiredSteps = ExtractChecklistSteps(template.ChecklistJson, requiredOnly: true);
         var completedSteps = ExtractChecklistSteps(request.CompletedStepsJson, requiredOnly: false);
@@ -268,7 +268,7 @@ public class EnterpriseSocController : ControllerBase
             .Where(step => !completedSteps.Contains(step))
             .ToArray();
         if (missingSteps.Length > 0)
-            return BadRequest(new { message = "Required SOP steps are missing.", missingSteps });
+            return BadRequest(new { message = "Thiếu các bước SOP bắt buộc.", missingSteps });
 
         execution.Status = "Completed";
         execution.CompletedStepsJson = string.IsNullOrWhiteSpace(request.CompletedStepsJson) ? "[]" : request.CompletedStepsJson.Trim();
@@ -281,7 +281,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> CreateIncident([FromBody] IncidentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
-            return BadRequest(new { message = "Title is required." });
+            return BadRequest(new { message = "Vui lòng nhập tiêu đề." });
 
         var incident = new Incident
         {
@@ -301,9 +301,9 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> AddIncidentTimelineItem(long incidentId, [FromBody] IncidentTimelineRequest request)
     {
         if (!await _context.Incidents.AnyAsync(incident => incident.IncidentId == incidentId))
-            return NotFound(new { message = "Incident not found." });
+            return NotFound(new { message = "Không tìm thấy sự cố." });
         if (string.IsNullOrWhiteSpace(request.Text))
-            return BadRequest(new { message = "Text is required." });
+            return BadRequest(new { message = "Vui lòng nhập nội dung." });
 
         var item = new IncidentTimelineItem
         {
@@ -323,9 +323,9 @@ public class EnterpriseSocController : ControllerBase
     {
         var incident = await _context.Incidents.FindAsync(incidentId);
         if (incident == null)
-            return NotFound(new { message = "Incident not found." });
+            return NotFound(new { message = "Không tìm thấy sự cố." });
         if (string.IsNullOrWhiteSpace(request.Note))
-            return BadRequest(new { message = "Outcome note is required before incident closure." });
+            return BadRequest(new { message = "Vui lòng nhập ghi chú kết quả trước khi đóng sự cố." });
 
         incident.Status = "Closed";
         incident.Outcome = request.Note.Trim();
@@ -359,7 +359,7 @@ public class EnterpriseSocController : ControllerBase
     {
         var task = await _context.DispatchTasks.FindAsync(taskId);
         if (task == null)
-            return NotFound(new { message = "Dispatch task not found." });
+            return NotFound(new { message = "Không tìm thấy nhiệm vụ điều phối." });
 
         task.Status = "Completed";
         task.CompletedAtUtc = DateTime.UtcNow;
@@ -374,7 +374,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> CreateShiftHandover([FromBody] ShiftHandoverRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Summary))
-            return BadRequest(new { message = "Summary is required." });
+            return BadRequest(new { message = "Vui lòng nhập tóm tắt." });
 
         var handover = new ShiftHandover
         {
@@ -437,7 +437,7 @@ public class EnterpriseSocController : ControllerBase
         var alarm = await _context.Alarms.AsNoTracking()
             .FirstOrDefaultAsync(a => a.AlarmId == alarmId);
         if (alarm == null)
-            return NotFound(new { message = "Alarm not found." });
+            return NotFound(new { message = "Không tìm thấy báo động." });
         return Ok(alarm);
     }
 
@@ -445,7 +445,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> GetAlarmComments(long alarmId)
     {
         if (!await _context.Alarms.AnyAsync(a => a.AlarmId == alarmId))
-            return NotFound(new { message = "Alarm not found." });
+            return NotFound(new { message = "Không tìm thấy báo động." });
 
         var comments = await _context.AlarmComments.AsNoTracking()
             .Where(c => c.AlarmId == alarmId)
@@ -482,7 +482,7 @@ public class EnterpriseSocController : ControllerBase
         var incident = await _context.Incidents.AsNoTracking()
             .FirstOrDefaultAsync(i => i.IncidentId == incidentId);
         if (incident == null)
-            return NotFound(new { message = "Incident not found." });
+            return NotFound(new { message = "Không tìm thấy sự cố." });
         return Ok(incident);
     }
 
@@ -490,7 +490,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> GetIncidentTimelineItems(long incidentId)
     {
         if (!await _context.Incidents.AnyAsync(i => i.IncidentId == incidentId))
-            return NotFound(new { message = "Incident not found." });
+            return NotFound(new { message = "Không tìm thấy sự cố." });
 
         var items = await _context.IncidentTimelineItems.AsNoTracking()
             .Where(t => t.IncidentId == incidentId)
@@ -556,7 +556,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> ClassifyAlarm(long alarmId)
     {
         var result = await _socIntel.ClassifyAlarmAsync(alarmId);
-        if (result == null) return NotFound(new { message = "Alarm not found." });
+        if (result == null) return NotFound(new { message = "Không tìm thấy báo động." });
         return Ok(result);
     }
 
@@ -571,7 +571,7 @@ public class EnterpriseSocController : ControllerBase
     public async Task<IActionResult> PredictEscalationRisk(long alarmId)
     {
         var result = await _socIntel.PredictEscalationRiskAsync(alarmId);
-        if (result == null) return NotFound(new { message = "Alarm not found." });
+        if (result == null) return NotFound(new { message = "Không tìm thấy báo động." });
         return Ok(result);
     }
 
@@ -588,7 +588,7 @@ public class EnterpriseSocController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Incident not found." });
+            return NotFound(new { message = "Không tìm thấy sự cố." });
         }
     }
 

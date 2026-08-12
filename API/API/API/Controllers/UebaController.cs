@@ -64,7 +64,7 @@ public class UebaController : ControllerBase
             return Unauthorized();
 
         await _ueba.ResolveAnomalyAsync(id, request.Resolution, currentUserId.Value);
-        return Ok(new { message = "UEBA anomaly resolved." });
+        return Ok(new { message = "Đã xử lý bất thường UEBA." });
     }
 
     [HttpPost("anomalies/{id:int}/false-positive")]
@@ -75,7 +75,7 @@ public class UebaController : ControllerBase
             return Unauthorized();
 
         await _ueba.MarkFalsePositiveAsync(id, currentUserId.Value);
-        return Ok(new { message = "UEBA anomaly marked as false positive." });
+        return Ok(new { message = "Bất thường UEBA được đánh dấu là dương tính giả." });
     }
 
     /// <summary>
@@ -91,7 +91,7 @@ public class UebaController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound(new { message = "Employee not found." });
+            return NotFound(new { message = "Không tìm thấy nhân viên." });
         }
     }
 

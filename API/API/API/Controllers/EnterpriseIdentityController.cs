@@ -61,9 +61,9 @@ public class EnterpriseIdentityController : ControllerBase
     public async Task<IActionResult> UpsertProvider([FromBody] IdentityProviderUpsertRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Vui lòng nhập tên." });
         if (string.IsNullOrWhiteSpace(request.Authority))
-            return BadRequest(new { message = "Authority is required." });
+            return BadRequest(new { message = "Vui lòng nhập Authority." });
 
         var name = request.Name.Trim();
         var provider = await _context.ExternalIdentityProviders
@@ -92,11 +92,11 @@ public class EnterpriseIdentityController : ControllerBase
     {
         var provider = await _context.ExternalIdentityProviders.FindAsync(providerId);
         if (provider == null || !provider.IsEnabled)
-            return NotFound(new { message = "Enabled identity provider not found." });
+            return NotFound(new { message = "Không tìm thấy nhà cung cấp định danh đang hoạt động." });
         if (!string.Equals(provider.Protocol, "OIDC", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { message = "Provider is not configured for OIDC." });
+            return BadRequest(new { message = "Nhà cung cấp chưa được cấu hình cho OIDC." });
         if (string.IsNullOrWhiteSpace(provider.ClientId) || string.IsNullOrWhiteSpace(redirectUri))
-            return BadRequest(new { message = "ClientId and redirectUri are required." });
+            return BadRequest(new { message = "Vui lòng nhập ClientId và redirectUri." });
 
         var challengeUrl = $"{provider.Authority.TrimEnd('/')}/authorize" +
                            $"?client_id={Uri.EscapeDataString(provider.ClientId)}" +
@@ -120,7 +120,7 @@ public class EnterpriseIdentityController : ControllerBase
     {
         var provider = await _context.ExternalIdentityProviders.FindAsync(providerId);
         if (provider == null || !provider.IsEnabled || string.IsNullOrWhiteSpace(provider.ClientSecret))
-            return NotFound(new { message = "Enabled OIDC provider with ClientSecret not found." });
+            return NotFound(new { message = "Không tìm thấy nhà cung cấp OIDC đang hoạt động có ClientSecret." });
 
         var redirectUrl = request.RedirectUri ?? provider.RedirectUrl ?? "https://localhost:5173/login";
         var scopes = provider.Scopes ?? "openid profile email";
@@ -145,7 +145,7 @@ public class EnterpriseIdentityController : ControllerBase
         }
         catch (Exception ex)
         {
-            return Unauthorized(new { message = "Token exchange failed.", detail = ex.Message });
+            return Unauthorized(new { message = "Trao đổi token thất bại.", detail = ex.Message });
         }
 
         var tokenJson = await tokenResponse.Content.ReadAsStringAsync();
@@ -154,7 +154,7 @@ public class EnterpriseIdentityController : ControllerBase
         var accessToken = tokenDoc.RootElement.TryGetProperty("access_token", out var atProp) ? atProp.GetString() : null;
 
         if (string.IsNullOrWhiteSpace(idToken))
-            return Unauthorized(new { message = "No id_token received from provider." });
+            return Unauthorized(new { message = "Không nhận được id_token từ nhà cung cấp." });
 
         JwtSecurityToken? jwt;
         try
@@ -164,7 +164,7 @@ public class EnterpriseIdentityController : ControllerBase
         }
         catch
         {
-            return Unauthorized(new { message = "Failed to parse id_token." });
+            return Unauthorized(new { message = "Không thể phân tích id_token." });
         }
 
         var sub = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
@@ -172,7 +172,7 @@ public class EnterpriseIdentityController : ControllerBase
         var name = jwt.Claims.FirstOrDefault(c => c.Type == "name" || c.Type == "given_name")?.Value ?? email ?? sub;
 
         if (string.IsNullOrWhiteSpace(sub))
-            return Unauthorized(new { message = "id_token missing 'sub' claim." });
+            return Unauthorized(new { message = "id_token thiếu claim 'sub'." });
 
         var mapping = await _context.ExternalIdentityMappings
             .Include(m => m.User)
@@ -269,16 +269,16 @@ public class EnterpriseIdentityController : ControllerBase
     public async Task<IActionResult> ImportUsers([FromBody] IdentityUserImportRequest request)
     {
         if (!await _context.ExternalIdentityProviders.AnyAsync(item => item.ExternalIdentityProviderId == request.ProviderId && item.IsEnabled))
-            return BadRequest(new { message = "Enabled identity provider not found." });
+            return BadRequest(new { message = "Không tìm thấy nhà cung cấp định danh đang hoạt động." });
         if (request.Users.Count == 0)
-            return BadRequest(new { message = "At least one user import row is required." });
+            return BadRequest(new { message = "Cần ít nhất một dòng nhập người dùng." });
 
         var results = new List<object>();
         foreach (var row in request.Users)
         {
             if (string.IsNullOrWhiteSpace(row.ExternalSubject) || string.IsNullOrWhiteSpace(row.Username))
             {
-                results.Add(new { row.ExternalSubject, row.Username, status = "Skipped", reason = "ExternalSubject and Username are required." });
+                results.Add(new { row.ExternalSubject, row.Username, status = "Skipped", reason = "Thiếu ExternalSubject và tên đăng nhập." });
                 continue;
             }
 
@@ -298,14 +298,14 @@ public class EnterpriseIdentityController : ControllerBase
     public async Task<IActionResult> ImportGroups([FromBody] IdentityGroupImportRequest request)
     {
         if (request.Groups.Count == 0)
-            return BadRequest(new { message = "At least one group import row is required." });
+            return BadRequest(new { message = "Cần ít nhất một dòng nhập nhóm." });
 
         var results = new List<object>();
         foreach (var row in request.Groups)
         {
             if (string.IsNullOrWhiteSpace(row.Code) || string.IsNullOrWhiteSpace(row.Name))
             {
-                results.Add(new { row.Code, status = "Skipped", reason = "Code and Name are required." });
+                results.Add(new { row.Code, status = "Skipped", reason = "Thiếu mã và tên." });
                 continue;
             }
 
@@ -331,7 +331,7 @@ public class EnterpriseIdentityController : ControllerBase
     {
         var employee = await _context.Employees.FindAsync(employeeId);
         if (employee == null)
-            return NotFound(new { message = "Employee not found." });
+            return NotFound(new { message = "Không tìm thấy nhân viên." });
 
         await ApplyLifecycleAsync(employee, EmployeeLifecycleStates.Terminated, request.Reason ?? "Offboarding requested");
         await _context.SaveChangesAsync();
@@ -342,7 +342,7 @@ public class EnterpriseIdentityController : ControllerBase
     public async Task<IActionResult> GetRevocationProof(int employeeId)
     {
         if (!await _context.Employees.AnyAsync(item => item.EmployeeId == employeeId))
-            return NotFound(new { message = "Employee not found." });
+            return NotFound(new { message = "Không tìm thấy nhân viên." });
 
         return Ok(await BuildRevocationProofAsync(employeeId));
     }
