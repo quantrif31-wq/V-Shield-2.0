@@ -2,66 +2,66 @@
     <div class="page-container soc-console animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Security Operations Center</span>
-                <h1 class="page-title">SOC Alarm Console</h1>
+                <span class="panel-kicker">Trung tâm điều hành an ninh</span>
+                <h1 class="page-title">Bảng điều hành báo động SOC</h1>
             </div>
             <div class="header-actions">
                 <span class="status-pill" :class="riskClass">{{ riskLabel }}</span>
-                <button type="button" class="btn btn-secondary" :disabled="loading" @click="loadAll">Refresh</button>
+                <button type="button" class="btn btn-secondary" :disabled="loading" @click="loadAll">Làm mới</button>
             </div>
         </div>
 
         <section class="metric-grid">
             <article class="metric-tile">
-                <span class="metric-label">Open Alarms</span>
+                <span class="metric-label">Báo động đang mở</span>
                 <strong class="metric-value">{{ overview.openAlarms }}</strong>
-                <span class="metric-note">{{ overview.criticalOpenAlarms }} critical</span>
+                <span class="metric-note">{{ overview.criticalOpenAlarms }} nghiêm trọng</span>
             </article>
             <article class="metric-tile">
-                <span class="metric-label">Active SOPs</span>
+                <span class="metric-label">SOP đang chạy</span>
                 <strong class="metric-value">{{ overview.activeSops }}</strong>
-                <span class="metric-note">In progress</span>
+                <span class="metric-note">Đang xử lý</span>
             </article>
             <article class="metric-tile">
-                <span class="metric-label">Open Incidents</span>
+                <span class="metric-label">Sự cố đang mở</span>
                 <strong class="metric-value">{{ overview.openIncidents }}</strong>
-                <span class="metric-note">{{ overview.openDispatchTasks }} dispatch tasks</span>
+                <span class="metric-note">{{ overview.openDispatchTasks }} nhiệm vụ điều phối</span>
             </article>
             <article class="metric-tile">
-                <span class="metric-label">Oldest Alarm</span>
+                <span class="metric-label">Báo động lâu nhất</span>
                 <strong class="metric-value">{{ overview.oldestOpenAlarmAgeMinutes }}</strong>
-                <span class="metric-note">minutes ago</span>
+                <span class="metric-note">phút trước</span>
             </article>
         </section>
 
-        <section class="workspace-tabs" aria-label="SOC workspaces">
-            <button type="button" :class="{ active: tab === 'alarms' }" @click="tab = 'alarms'">Alarms ({{ alarms.total }})</button>
-            <button type="button" :class="{ active: tab === 'incidents' }" @click="tab = 'incidents'">Incidents ({{ incidents.total }})</button>
-            <button type="button" :class="{ active: tab === 'sops' }" @click="tab = 'sops'">SOPs ({{ sopTotal }})</button>
-            <button type="button" :class="{ active: tab === 'dispatch' }" @click="tab = 'dispatch'">Dispatch ({{ dispatchTotal }})</button>
-            <button type="button" :class="{ active: tab === 'timeline' }" @click="tab = 'timeline'">Timeline</button>
-            <button type="button" :class="{ active: tab === 'intel' }" @click="tab = 'intel'">AI Intel</button>
+        <section class="workspace-tabs" aria-label="Các khu vực làm việc SOC">
+            <button type="button" :class="{ active: tab === 'alarms' }" @click="tab = 'alarms'">Báo động ({{ alarms.total }})</button>
+            <button type="button" :class="{ active: tab === 'incidents' }" @click="tab = 'incidents'">Sự cố ({{ incidents.total }})</button>
+            <button type="button" :class="{ active: tab === 'sops' }" @click="tab = 'sops'">SOP ({{ sopTotal }})</button>
+            <button type="button" :class="{ active: tab === 'dispatch' }" @click="tab = 'dispatch'">Điều phối ({{ dispatchTotal }})</button>
+            <button type="button" :class="{ active: tab === 'timeline' }" @click="tab = 'timeline'">Dòng thời gian</button>
+            <button type="button" :class="{ active: tab === 'intel' }" @click="tab = 'intel'">Trí tuệ AI</button>
         </section>
 
         <!-- ALARMS TAB -->
         <section v-if="tab === 'alarms'" class="soc-section">
             <div class="filter-bar">
                 <select v-model="alarmFilter.state">
-                    <option value="">All states</option>
-                    <option>New</option>
-                    <option>Acknowledged</option>
-                    <option>Assigned</option>
-                    <option>Escalated</option>
-                    <option>Closed</option>
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="New">Mới</option>
+                    <option value="Acknowledged">Đã xác nhận</option>
+                    <option value="Assigned">Đã gán</option>
+                    <option value="Escalated">Đã chuyển cấp</option>
+                    <option value="Closed">Đã đóng</option>
                 </select>
                 <select v-model="alarmFilter.severity">
-                    <option value="">All severities</option>
-                    <option>Critical</option>
-                    <option>High</option>
-                    <option>Medium</option>
-                    <option>Low</option>
+                    <option value="">Tất cả mức độ</option>
+                    <option value="Critical">Nghiêm trọng</option>
+                    <option value="High">Cao</option>
+                    <option value="Medium">Trung bình</option>
+                    <option value="Low">Thấp</option>
                 </select>
-                <button type="button" class="btn btn-primary btn-sm" @click="loadAlarms">Filter</button>
+                <button type="button" class="btn btn-primary btn-sm" @click="loadAlarms">Lọc</button>
             </div>
             <div v-if="alarms.items.length" class="alarm-list">
                 <div v-for="alarm in alarms.items" :key="alarm.alarmId"
@@ -85,18 +85,18 @@
                     </div>
                 </div>
             </div>
-            <div v-else class="empty-card">No alarms found.</div>
+            <div v-else class="empty-card">Không có báo động nào.</div>
             <div v-if="alarms.total > alarms.pageSize" class="pagination">
-                <button :disabled="alarms.page <= 1" @click="alarmPage--; loadAlarms()">Previous</button>
-                <span>Page {{ alarms.page }} of {{ Math.ceil(alarms.total / alarms.pageSize) }}</span>
-                <button :disabled="alarms.page * alarms.pageSize >= alarms.total" @click="alarmPage++; loadAlarms()">Next</button>
+                <button :disabled="alarms.page <= 1" @click="alarmPage--; loadAlarms()">Trang trước</button>
+                <span>Trang {{ alarms.page }} / {{ Math.ceil(alarms.total / alarms.pageSize) }}</span>
+                <button :disabled="alarms.page * alarms.pageSize >= alarms.total" @click="alarmPage++; loadAlarms()">Trang sau</button>
             </div>
         </section>
 
         <!-- INCIDENTS TAB -->
         <section v-if="tab === 'incidents'" class="soc-section">
             <div class="filter-bar">
-                <button type="button" class="btn btn-primary btn-sm" @click="showIncidentForm = true">New Incident</button>
+                <button type="button" class="btn btn-primary btn-sm" @click="showIncidentForm = true">Sự cố mới</button>
             </div>
             <div v-if="incidents.items.length" class="incident-list">
                 <div v-for="inc in incidents.items" :key="inc.incidentId"
@@ -109,12 +109,12 @@
                     </div>
                     <div class="alarm-body">
                         <strong>{{ inc.title }}</strong>
-                        <p v-if="inc.outcome">Outcome: {{ inc.outcome }}</p>
+                        <p v-if="inc.outcome">Kết quả: {{ inc.outcome }}</p>
                     </div>
                     <div class="alarm-time">{{ formatTime(inc.openedAtUtc) }}</div>
                 </div>
             </div>
-            <div v-else class="empty-card">No incidents found.</div>
+            <div v-else class="empty-card">Không có sự cố nào.</div>
         </section>
 
         <!-- SOPs TAB -->
@@ -126,12 +126,12 @@
                         <span class="alarm-state">{{ sop.status }}</span>
                     </div>
                     <div class="alarm-body">
-                        <strong>SOP Template #{{ sop.sopTemplateId }}</strong>
-                        <p>Started: {{ formatTime(sop.startedAtUtc) }}</p>
+                        <strong>Mẫu SOP #{{ sop.sopTemplateId }}</strong>
+                        <p>Bắt đầu: {{ formatTime(sop.startedAtUtc) }}</p>
                     </div>
                 </div>
             </div>
-            <div v-else class="empty-card">No SOP executions found.</div>
+            <div v-else class="empty-card">Không có SOP nào đang chạy.</div>
         </section>
 
         <!-- DISPATCH TAB -->
@@ -150,7 +150,7 @@
                     <div class="alarm-time">{{ formatTime(task.createdAtUtc) }}</div>
                 </div>
             </div>
-            <div v-else class="empty-card">No dispatch tasks found.</div>
+            <div v-else class="empty-card">Không có nhiệm vụ điều phối nào.</div>
         </section>
 
         <section v-if="tab === 'timeline'" class="soc-section">
@@ -163,10 +163,10 @@
                 <article class="ops-panel">
                     <div class="panel-head compact">
                         <div>
-                            <span class="panel-kicker">AI Intelligence</span>
-                            <h2 class="panel-title">SOC Analytics</h2>
+                            <span class="panel-kicker">Trí tuệ nhân tạo</span>
+                            <h2 class="panel-title">Phân tích SOC</h2>
                         </div>
-                        <button type="button" class="btn btn-sm btn-secondary" @click="loadIntel">Refresh</button>
+                        <button type="button" class="btn btn-sm btn-secondary" @click="loadIntel">Làm mới</button>
                     </div>
                     <div v-if="intel.summary" class="intel-summary">
                         <p>{{ intel.summary }}</p>
@@ -174,26 +174,26 @@
                     <div class="soc-stats-grid">
                         <div class="soc-stat">
                             <strong>{{ intel.statistics?.totalToday || 0 }}</strong>
-                            <span>Alarm hom nay</span>
+                            <span>Báo động hôm nay</span>
                             <span class="soc-change" :class="{ up: (intel.statistics?.changePercent || 0) > 0, down: (intel.statistics?.changePercent || 0) < 0 }">
                                 {{ intel.statistics?.changePercent || 0 }}%
                             </span>
                         </div>
                         <div class="soc-stat">
                             <strong class="text-danger">{{ intel.statistics?.criticalOpenAlarms || 0 }}</strong>
-                            <span>Critical mo</span>
+                            <span>Nghiêm trọng đang mở</span>
                         </div>
                         <div class="soc-stat">
                             <strong>{{ intel.statistics?.avgResolutionHours || 0 }}</strong>
-                            <span>Gio xu ly TB</span>
+                            <span>Giờ xử lý trung bình</span>
                         </div>
                     </div>
                 </article>
                 <article class="ops-panel">
                     <div class="panel-head compact">
                         <div>
-                            <span class="panel-kicker">AI Phat hien</span>
-                            <h2 class="panel-title">Bat thuong</h2>
+                            <span class="panel-kicker">AI phát hiện</span>
+                            <h2 class="panel-title">Bất thường</h2>
                         </div>
                     </div>
                     <div v-if="intel.anomalies && intel.anomalies.length" class="anomaly-list">
@@ -216,46 +216,46 @@
         <div v-if="selectedAlarm" class="modal-overlay" @click.self="selectedAlarm = null">
             <div class="modal-content modal-lg">
                 <div class="modal-header">
-                    <h2>Alarm #{{ selectedAlarm.alarmId }}</h2>
+                    <h2>Báo động #{{ selectedAlarm.alarmId }}</h2>
                     <button type="button" class="btn-close" @click="selectedAlarm = null">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="detail-grid">
                         <div class="detail-field">
-                            <span class="detail-label">Type</span>
+                            <span class="detail-label">Loại</span>
                             <strong>{{ selectedAlarm.alarmType }}</strong>
                         </div>
                         <div class="detail-field">
-                            <span class="detail-label">Severity</span>
+                            <span class="detail-label">Mức độ</span>
                             <strong :style="{ color: severityColor(selectedAlarm.severity) }">{{ selectedAlarm.severity }}</strong>
                         </div>
                         <div class="detail-field">
-                            <span class="detail-label">State</span>
+                            <span class="detail-label">Trạng thái</span>
                             <span class="alarm-state" :class="stateClass(selectedAlarm.state)">{{ selectedAlarm.state }}</span>
                         </div>
                         <div class="detail-field">
-                            <span class="detail-label">Created</span>
+                            <span class="detail-label">Thời gian tạo</span>
                             <strong>{{ formatTime(selectedAlarm.createdAtUtc) }}</strong>
                         </div>
                     </div>
                     <div class="detail-summary">
-                        <span class="detail-label">Summary</span>
+                        <span class="detail-label">Tóm tắt</span>
                         <p>{{ selectedAlarm.summary }}</p>
                     </div>
 
                     <div v-if="classification" class="ai-insight">
-                        <h4>AI Classification</h4>
+                        <h4>Phân loại AI</h4>
                         <div class="detail-grid">
                             <div class="detail-field">
-                                <span class="detail-label">Predicted Severity</span>
+                                <span class="detail-label">Mức độ dự đoán</span>
                                 <strong>{{ classification.predictedSeverity }}</strong>
                             </div>
                             <div class="detail-field">
-                                <span class="detail-label">Predicted Type</span>
+                                <span class="detail-label">Loại dự đoán</span>
                                 <strong>{{ classification.predictedAlarmType }}</strong>
                             </div>
                             <div class="detail-field">
-                                <span class="detail-label">Confidence</span>
+                                <span class="detail-label">Độ tin cậy</span>
                                 <strong>{{ classification.confidence }}</strong>
                             </div>
                         </div>
@@ -265,7 +265,7 @@
                     </div>
 
                     <div v-if="escalation" class="ai-insight">
-                        <h4>Escalation Risk</h4>
+                        <h4>Rủi ro chuyển cấp</h4>
                         <div class="risk-score-bar">
                             <div class="risk-score-fill" :style="{ width: escalation.riskScore + '%', background: escalation.riskScore >= 60 ? '#d44747' : escalation.riskScore >= 40 ? '#d49b47' : '#74b47a' }"></div>
                         </div>
@@ -276,36 +276,36 @@
                     </div>
 
                     <div v-if="sopRecommendations?.length" class="ai-insight">
-                        <h4>Recommended SOPs</h4>
+                        <h4>SOP đề xuất</h4>
                         <div v-for="sop in sopRecommendations" :key="sop.sopTemplateId" class="sop-rec-row">
                             <strong>{{ sop.name }}</strong>
-                            <span class="rec-score">Score: {{ sop.relevanceScore }}</span>
-                            <span>{{ sop.stepCount }} steps</span>
+                            <span class="rec-score">Điểm: {{ sop.relevanceScore }}</span>
+                            <span>{{ sop.stepCount }} bước</span>
                             <p>{{ sop.reason }}</p>
-                            <button class="btn btn-sm btn-primary" @click="startSop(sop.sopTemplateId)">Run SOP</button>
+                            <button class="btn btn-sm btn-primary" @click="startSop(sop.sopTemplateId)">Chạy SOP</button>
                         </div>
                     </div>
 
                     <div class="comments-section">
-                        <h4>Comments ({{ comments.length }})</h4>
+                        <h4>Bình luận ({{ comments.length }})</h4>
                         <div v-if="comments.length" class="comment-list">
                             <div v-for="c in comments" :key="c.alarmCommentId" class="comment-item">
-                                <strong>User #{{ c.userId || 'system' }}</strong>
+                                <strong>Người dùng #{{ c.userId || 'hệ thống' }}</strong>
                                 <p>{{ c.comment }}</p>
                                 <span class="comment-time">{{ formatTime(c.createdAtUtc) }}</span>
                             </div>
                         </div>
-                        <div v-else class="empty-card">No comments.</div>
+                        <div v-else class="empty-card">Không có bình luận.</div>
                         <div class="comment-form">
-                            <input v-model="newComment" placeholder="Add a comment..." @keyup.enter="addComment" />
-                            <button class="btn btn-sm btn-secondary" :disabled="!newComment.trim()" @click="addComment">Send</button>
+                            <input v-model="newComment" placeholder="Thêm bình luận..." @keyup.enter="addComment" />
+                            <button class="btn btn-sm btn-secondary" :disabled="!newComment.trim()" @click="addComment">Gửi</button>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button v-if="selectedAlarm.state === 'New'" class="btn btn-primary" @click="acknowledgeAlarm">Acknowledge</button>
-                    <button v-if="selectedAlarm.state !== 'Closed'" class="btn btn-secondary" @click="showAssign = true">Assign</button>
-                    <button v-if="selectedAlarm.state !== 'Closed'" class="btn btn-secondary" @click="showCloseAlarm = true">Close</button>
+                    <button v-if="selectedAlarm.state === 'New'" class="btn btn-primary" @click="acknowledgeAlarm">Xác nhận</button>
+                    <button v-if="selectedAlarm.state !== 'Closed'" class="btn btn-secondary" @click="showAssign = true">Gán</button>
+                    <button v-if="selectedAlarm.state !== 'Closed'" class="btn btn-secondary" @click="showCloseAlarm = true">Đóng</button>
                 </div>
             </div>
         </div>
@@ -314,35 +314,35 @@
         <div v-if="selectedIncident" class="modal-overlay" @click.self="selectedIncident = null">
             <div class="modal-content modal-lg">
                 <div class="modal-header">
-                    <h2>Incident #{{ selectedIncident.incidentId }}</h2>
+                    <h2>Sự cố #{{ selectedIncident.incidentId }}</h2>
                     <button type="button" class="btn-close" @click="selectedIncident = null">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="detail-grid">
                         <div class="detail-field">
-                            <span class="detail-label">Title</span>
+                            <span class="detail-label">Tiêu đề</span>
                             <strong>{{ selectedIncident.title }}</strong>
                         </div>
                         <div class="detail-field">
-                            <span class="detail-label">Severity</span>
+                            <span class="detail-label">Mức độ</span>
                             <strong>{{ selectedIncident.severity }}</strong>
                         </div>
                         <div class="detail-field">
-                            <span class="detail-label">Status</span>
+                            <span class="detail-label">Trạng thái</span>
                             <span class="alarm-state">{{ selectedIncident.status }}</span>
                         </div>
                         <div class="detail-field">
-                            <span class="detail-label">Opened</span>
+                            <span class="detail-label">Thời gian mở</span>
                             <strong>{{ formatTime(selectedIncident.openedAtUtc) }}</strong>
                         </div>
                     </div>
                     <div v-if="selectedIncident.outcome" class="detail-summary">
-                        <span class="detail-label">Outcome</span>
+                        <span class="detail-label">Kết quả</span>
                         <p>{{ selectedIncident.outcome }}</p>
                     </div>
 
                     <div class="comments-section">
-                        <h4>Timeline ({{ timelineItems.length }})</h4>
+                        <h4>Dòng thời gian ({{ timelineItems.length }})</h4>
                         <div v-if="timelineItems.length" class="comment-list">
                             <div v-for="item in timelineItems" :key="item.incidentTimelineItemId" class="comment-item">
                                 <strong>{{ item.itemType }}</strong>
@@ -350,15 +350,15 @@
                                 <span class="comment-time">{{ formatTime(item.createdAtUtc) }}</span>
                             </div>
                         </div>
-                        <div v-else class="empty-card">No timeline items.</div>
+                        <div v-else class="empty-card">Không có sự kiện nào.</div>
                         <div class="comment-form">
-                            <input v-model="newTimelineText" placeholder="Add timeline note..." @keyup.enter="addTimelineItem" />
-                            <button class="btn btn-sm btn-secondary" :disabled="!newTimelineText.trim()" @click="addTimelineItem">Add</button>
+                            <input v-model="newTimelineText" placeholder="Thêm ghi chú dòng thời gian..." @keyup.enter="addTimelineItem" />
+                            <button class="btn btn-sm btn-secondary" :disabled="!newTimelineText.trim()" @click="addTimelineItem">Thêm</button>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button v-if="selectedIncident.status !== 'Closed'" class="btn btn-primary" @click="showCloseIncident = true">Close Incident</button>
+                    <button v-if="selectedIncident.status !== 'Closed'" class="btn btn-primary" @click="showCloseIncident = true">Đóng sự cố</button>
                 </div>
             </div>
         </div>
@@ -367,24 +367,24 @@
         <div v-if="showAssign && selectedAlarm" class="modal-overlay" @click.self="showAssign = false">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Assign Alarm #{{ selectedAlarm.alarmId }}</h2>
+                    <h2>Gán báo động #{{ selectedAlarm.alarmId }}</h2>
                     <button type="button" class="btn-close" @click="showAssign = false">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-grid single">
                         <label>
-                            User ID
+                            Mã người dùng
                             <input v-model.number="assignForm.userId" type="number" min="1" required />
                         </label>
                         <label>
-                            Note
+                            Ghi chú
                             <textarea v-model="assignForm.note" rows="3"></textarea>
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" @click="assignAlarm">Assign</button>
-                    <button class="btn btn-secondary" @click="showAssign = false">Cancel</button>
+                    <button class="btn btn-primary" @click="assignAlarm">Gán</button>
+                    <button class="btn btn-secondary" @click="showAssign = false">Hủy</button>
                 </div>
             </div>
         </div>
@@ -393,20 +393,20 @@
         <div v-if="showCloseAlarm && selectedAlarm" class="modal-overlay" @click.self="showCloseAlarm = false">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Close Alarm #{{ selectedAlarm.alarmId }}</h2>
+                    <h2>Đóng báo động #{{ selectedAlarm.alarmId }}</h2>
                     <button type="button" class="btn-close" @click="showCloseAlarm = false">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-grid single">
                         <label>
-                            Resolution Note
+                            Ghi chú xử lý
                             <textarea v-model="closeForm.note" rows="3" required></textarea>
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" @click="closeAlarmAction">Close</button>
-                    <button class="btn btn-secondary" @click="showCloseAlarm = false">Cancel</button>
+                    <button class="btn btn-primary" @click="closeAlarmAction">Đóng</button>
+                    <button class="btn btn-secondary" @click="showCloseAlarm = false">Hủy</button>
                 </div>
             </div>
         </div>
@@ -415,20 +415,20 @@
         <div v-if="showCloseIncident && selectedIncident" class="modal-overlay" @click.self="showCloseIncident = false">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Close Incident #{{ selectedIncident.incidentId }}</h2>
+                    <h2>Đóng sự cố #{{ selectedIncident.incidentId }}</h2>
                     <button type="button" class="btn-close" @click="showCloseIncident = false">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-grid single">
                         <label>
-                            Outcome Note (required)
+                            Ghi chú kết quả (bắt buộc)
                             <textarea v-model="closeIncidentForm.note" rows="3" required></textarea>
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" :disabled="!closeIncidentForm.note.trim()" @click="closeIncidentAction">Close Incident</button>
-                    <button class="btn btn-secondary" @click="showCloseIncident = false">Cancel</button>
+                    <button class="btn btn-primary" :disabled="!closeIncidentForm.note.trim()" @click="closeIncidentAction">Đóng sự cố</button>
+                    <button class="btn btn-secondary" @click="showCloseIncident = false">Hủy</button>
                 </div>
             </div>
         </div>
@@ -437,28 +437,28 @@
         <div v-if="showIncidentForm" class="modal-overlay" @click.self="showIncidentForm = false">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>New Incident</h2>
+                    <h2>Sự cố mới</h2>
                     <button type="button" class="btn-close" @click="showIncidentForm = false">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-grid single">
                         <label>
-                            Title
+                            Tiêu đề
                             <input v-model="incidentForm.title" required />
                         </label>
                         <label>
-                            Severity
+                            Mức độ
                             <select v-model="incidentForm.severity">
-                                <option>Medium</option>
-                                <option>High</option>
-                                <option>Critical</option>
+                                <option value="Medium">Trung bình</option>
+                                <option value="High">Cao</option>
+                                <option value="Critical">Nghiêm trọng</option>
                             </select>
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" :disabled="!incidentForm.title.trim()" @click="createIncidentAction">Create</button>
-                    <button class="btn btn-secondary" @click="showIncidentForm = false">Cancel</button>
+                    <button class="btn btn-primary" :disabled="!incidentForm.title.trim()" @click="createIncidentAction">Tạo</button>
+                    <button class="btn btn-secondary" @click="showIncidentForm = false">Hủy</button>
                 </div>
             </div>
         </div>
@@ -512,9 +512,9 @@ const sopTotal = computed(() => sopExecutions.value.length)
 const dispatchTotal = computed(() => dispatchTasks.value.length)
 
 const riskLabel = computed(() => {
-    if (overview.criticalOpenAlarms > 0) return 'Critical alarms open'
-    if (overview.openAlarms > 10) return 'Multiple open alarms'
-    return 'Stable'
+    if (overview.criticalOpenAlarms > 0) return 'Có báo động nghiêm trọng đang mở'
+    if (overview.openAlarms > 10) return 'Nhiều báo động đang mở'
+    return 'Ổn định'
 })
 
 const riskClass = computed(() => {
@@ -668,7 +668,7 @@ async function startSop(templateId) {
     try {
         await socApi.startSopExecution({ alarmId: selectedAlarm.value.alarmId, sopTemplateId: templateId })
         await loadSops()
-        alert('SOP execution started.')
+        alert('Đã khởi chạy SOP.')
     } catch {}
 }
 
@@ -749,9 +749,9 @@ onMounted(async () => {
     font-size: 0.85rem;
 }
 
-.status-pill.success { background: rgba(77, 180, 128, 0.16); color: #aaffd0; }
-.status-pill.warn { background: rgba(212, 155, 71, 0.16); color: #ffd89a; }
-.status-pill.danger { background: rgba(212, 71, 71, 0.16); color: #ffb0b0; }
+.status-pill.success { background: var(--status-success-bg); color: var(--status-success-text); }
+.status-pill.warn { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.status-pill.danger { background: var(--status-danger-bg); color: var(--status-danger-text); }
 
 .workspace-tabs {
     display: flex;
@@ -768,12 +768,21 @@ onMounted(async () => {
     color: var(--text-secondary);
     font-weight: 700;
     cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.workspace-tabs button:hover:not(.active) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border-color-hover);
+    background: var(--surface-muted);
+    color: var(--text-primary);
 }
 
 .workspace-tabs button.active {
-    color: #05313b;
-    background: #8ceaf4;
-    border-color: #8ceaf4;
+    color: var(--ink-950);
+    background: var(--accent-info);
+    border-color: var(--accent-info);
 }
 
 .soc-section {
@@ -812,17 +821,19 @@ onMounted(async () => {
     border: 1px solid var(--border-soft);
     background: var(--surface);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     border-left: 3px solid transparent;
 }
 
 .alarm-row:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
     background: var(--surface-muted);
 }
 
-.alarm-row.sev-critical { border-left-color: #d44747; }
-.alarm-row.sev-high { border-left-color: #d49b47; }
-.alarm-row.sev-medium { border-left-color: #47a3d4; }
+.alarm-row.sev-critical { border-left-color: var(--accent-danger); }
+.alarm-row.sev-high { border-left-color: var(--accent-warning); }
+.alarm-row.sev-medium { border-left-color: var(--accent-info); }
 
 .alarm-meta {
     display: flex;
@@ -844,11 +855,11 @@ onMounted(async () => {
     font-weight: 700;
 }
 
-.state-new { background: rgba(71, 163, 212, 0.16); color: #8cd4ff; }
-.state-ack { background: rgba(212, 155, 71, 0.16); color: #ffd89a; }
-.state-assigned { background: rgba(77, 180, 128, 0.16); color: #aaffd0; }
-.state-escalated { background: rgba(212, 71, 71, 0.16); color: #ffb0b0; }
-.state-closed { background: rgba(128, 128, 128, 0.16); color: #ccc; }
+.state-new { background: var(--status-info-bg); color: var(--status-info-text); }
+.state-ack { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.state-assigned { background: var(--status-success-bg); color: var(--status-success-text); }
+.state-escalated { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.state-closed { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
 
 .alarm-severity {
     font-size: 0.75rem;
@@ -902,9 +913,9 @@ onMounted(async () => {
 }
 
 .btn-map-icon:hover {
-    background: rgba(71, 163, 212, 0.12);
-    color: #8cd4ff;
-    border-color: #8cd4ff;
+    background: var(--status-info-bg);
+    color: var(--accent-info);
+    border-color: var(--accent-info);
 }
 
 .pagination {
@@ -915,10 +926,34 @@ onMounted(async () => {
     margin-top: 12px;
 }
 
+.pagination button {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.pagination button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: var(--surface-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -929,12 +964,13 @@ onMounted(async () => {
     background: var(--surface);
     border-radius: 18px;
     border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-popup);
+    box-shadow: var(--shadow-overlay);
     width: 90%;
     max-width: 720px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
+    animation: slideUp 0.28s ease;
 }
 
 .modal-lg {
@@ -1011,7 +1047,7 @@ onMounted(async () => {
 .ai-insight {
     padding: 14px;
     border-radius: 12px;
-    background: rgba(18, 75, 91, 0.06);
+    background: var(--surface-subtle);
     border: 1px solid var(--border-soft);
 }
 
@@ -1062,8 +1098,8 @@ onMounted(async () => {
     padding: 2px 10px;
     border-radius: 999px;
     font-size: 0.75rem;
-    background: rgba(71, 163, 212, 0.12);
-    color: #8cd4ff;
+    background: var(--status-info-bg);
+    color: var(--accent-info);
 }
 
 .sop-rec-row {
@@ -1164,10 +1200,10 @@ onMounted(async () => {
 .soc-stat span { font-size: 0.78rem; color: var(--text-secondary); }
 
 .soc-change { font-size: 0.8rem; font-weight: 700; }
-.soc-change.up { color: #d44747; }
-.soc-change.down { color: #4db480; }
+.soc-change.up { color: var(--accent-danger); }
+.soc-change.down { color: var(--accent-success); }
 
-.text-danger { color: #d44747; }
+.text-danger { color: var(--accent-danger); }
 
 .anomaly-list { display: grid; gap: 8px; }
 
@@ -1178,8 +1214,8 @@ onMounted(async () => {
     background: var(--surface-muted);
 }
 
-.anomaly-item.sev-critical { border-left: 3px solid #d44747; }
-.anomaly-item.sev-high { border-left: 3px solid #d49b47; }
+.anomaly-item.sev-critical { border-left: 3px solid var(--accent-danger); }
+.anomaly-item.sev-high { border-left: 3px solid var(--accent-warning); }
 
 .anomaly-item strong { display: block; font-size: 0.85rem; color: var(--text-primary); text-transform: capitalize; margin-bottom: 4px; }
 .anomaly-item p { margin: 0 0 6px; font-size: 0.82rem; color: var(--text-secondary); }

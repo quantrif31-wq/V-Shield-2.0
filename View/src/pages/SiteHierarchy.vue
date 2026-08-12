@@ -2,29 +2,38 @@
   <div class="page-container site-hierarchy-page animate-in">
     <section class="hero-panel">
       <div class="hero-copy">
-        <span class="panel-kicker">Enterprise Foundation</span>
-        <h1 class="page-title">Site Hierarchy &amp; Asset Mapping</h1>
+        <span class="panel-kicker">Nền tảng doanh nghiệp</span>
+        <h1 class="page-title">Phân cấp khu vực &amp; Ánh xạ tài sản</h1>
         <p class="hero-text">
-          Organize physical locations, security zones, and access points in one workspace, then verify how
-          gates, cameras, and vehicles are mapped across the hierarchy.
+          Sắp xếp vị trí vật lý, vùng an ninh và điểm truy cập trong một không gian làm việc, sau đó kiểm tra cách
+          cổng, camera và phương tiện được ánh xạ trên toàn bộ phân cấp.
         </p>
         <div class="hero-actions">
-          <button type="button" class="btn btn-primary" :disabled="loading" @click="loadAll">Refresh workspace</button>
-          <button type="button" class="btn btn-secondary" @click="focusStructureTab">Open structure view</button>
+          <select v-model="ieEntity" class="filter-select" aria-label="Đối tượng nhập/xuất dữ liệu">
+            <option value="Company">Công ty</option>
+            <option value="Site">Khu vực</option>
+            <option value="Building">Tòa nhà</option>
+            <option value="FacilityFloor">Tầng</option>
+            <option value="SecurityZone">Vùng an ninh</option>
+          </select>
+          <button type="button" class="btn btn-secondary" @click="showImportModal = true">Nhập dữ liệu</button>
+          <button type="button" class="btn btn-secondary" @click="showExportModal = true">Xuất dữ liệu</button>
+          <button type="button" class="btn btn-primary" :disabled="loading" @click="loadAll">Làm mới dữ liệu</button>
+          <button type="button" class="btn btn-secondary" @click="focusStructureTab">Mở giao diện cấu trúc</button>
         </div>
       </div>
       <div class="hero-side">
         <div class="hero-stat">
           <strong>{{ overview.sites }}</strong>
-          <span>active sites in scope</span>
+          <span>khu vực đang hoạt động trong phạm vi</span>
         </div>
         <div class="hero-stat">
           <strong>{{ overview.accessPoints }}</strong>
-          <span>access points mapped</span>
+          <span>điểm truy cập đã ánh xạ</span>
         </div>
         <div class="hero-stat highlight">
           <strong>{{ mappedAssetSummary }}</strong>
-          <span>asset coverage snapshot</span>
+          <span>tổng quan mức phủ tài sản</span>
         </div>
       </div>
     </section>
@@ -38,42 +47,42 @@
     </section>
 
     <section class="workspace-tabs">
-      <button type="button" :class="{ active: tab === 'tree' }" @click="tab = 'tree'">Structure Workspace</button>
-      <button type="button" :class="{ active: tab === 'assets' }" @click="openAssetTab">Asset Coverage</button>
-      <button type="button" :class="{ active: tab === 'spatial' }" @click="openSpatialTab">Spatial Ops</button>
+      <button type="button" :class="{ active: tab === 'tree' }" @click="tab = 'tree'">Cấu trúc phân cấp</button>
+      <button type="button" :class="{ active: tab === 'assets' }" @click="openAssetTab">Độ phủ tài sản</button>
+      <button type="button" :class="{ active: tab === 'spatial' }" @click="openSpatialTab">Bản đồ không gian</button>
     </section>
 
     <section v-if="tab === 'tree'" class="workspace-shell">
       <aside class="navigator-panel">
         <div class="panel-section-header">
           <div>
-            <span class="section-kicker">Navigator</span>
-            <h2>Hierarchy explorer</h2>
+            <span class="section-kicker">Điều hướng</span>
+            <h2>Trình khám phá phân cấp</h2>
           </div>
           <div class="toolbar-actions">
-            <span class="soft-chip">{{ hierarchy.length }} companies</span>
-            <button type="button" class="btn btn-xs btn-primary" @click="openCreateCompany">+ Company</button>
+            <span class="soft-chip">{{ hierarchy.length }} công ty</span>
+            <button type="button" class="btn btn-xs btn-primary" @click="openCreateCompany">+ Công ty</button>
           </div>
         </div>
 
         <div class="navigator-toolbar">
           <label class="attention-toggle">
             <input v-model="showNeedsAttentionOnly" type="checkbox" />
-            <span>Show only nodes needing setup</span>
+            <span>Chỉ hiện nút cần cấu hình</span>
           </label>
           <div class="toolbar-actions">
-            <button type="button" class="btn btn-xs btn-secondary" @click="expandAll">Expand all</button>
-            <button type="button" class="btn btn-xs btn-secondary" @click="collapseAll">Collapse all</button>
+            <button type="button" class="btn btn-xs btn-secondary" @click="expandAll">Mở rộng tất cả</button>
+            <button type="button" class="btn btn-xs btn-secondary" @click="collapseAll">Thu gọn tất cả</button>
           </div>
         </div>
 
         <label class="search-box">
-          <span>Search node</span>
-          <input v-model="searchQuery" placeholder="Search by name or code..." @input="searchNodes" />
+          <span>Tìm nút</span>
+          <input v-model="searchQuery" placeholder="Tìm theo tên hoặc mã..." @input="searchNodes" />
         </label>
 
         <div v-if="searchQuery && !searchResults.length" class="empty-inline">
-          No quick matches yet. Try at least 2 characters or switch to the tree below.
+          Chưa có kết quả phù hợp. Hãy nhập ít nhất 2 ký tự hoặc chuyển sang cây bên dưới.
         </div>
 
         <div v-if="searchResults.length" class="search-results">
@@ -112,8 +121,8 @@
                   <strong>{{ company.name }}</strong>
                   <small>{{ company.code }}</small>
                 </span>
-                <span v-if="needsAttention(company, 'company')" class="node-badge">Needs setup</span>
-                <span class="node-count">{{ company.sites?.length || 0 }} sites</span>
+                <span v-if="needsAttention(company, 'company')" class="node-badge">Cần cấu hình</span>
+                <span class="node-count">{{ company.sites?.length || 0 }} khu vực</span>
               </button>
             </div>
 
@@ -139,8 +148,8 @@
                     <strong>{{ site.name }}</strong>
                     <small>{{ site.code }}</small>
                   </span>
-                  <span v-if="needsAttention(site, 'site')" class="node-badge">Needs setup</span>
-                  <span class="node-count">{{ (site.buildings?.length || 0) + (site.zones?.length || 0) }} units</span>
+                  <span v-if="needsAttention(site, 'site')" class="node-badge">Cần cấu hình</span>
+                  <span class="node-count">{{ (site.buildings?.length || 0) + (site.zones?.length || 0) }} đơn vị</span>
                 </button>
                 </div>
 
@@ -166,8 +175,8 @@
                         <strong>{{ building.name }}</strong>
                         <small>{{ building.code }}</small>
                       </span>
-                      <span v-if="needsAttention(building, 'building')" class="node-badge">Needs setup</span>
-                      <span class="node-count">{{ building.floors?.length || 0 }} floors</span>
+                      <span v-if="needsAttention(building, 'building')" class="node-badge">Cần cấu hình</span>
+                      <span class="node-count">{{ building.floors?.length || 0 }} tầng</span>
                     </button>
                     </div>
 
@@ -183,9 +192,9 @@
                         <span class="node-icon">□</span>
                         <span class="node-main">
                           <strong>{{ floor.name }}</strong>
-                          <small>Sort {{ floor.sortOrder ?? 0 }}</small>
+                          <small>Thứ tự {{ floor.sortOrder ?? 0 }}</small>
                         </span>
-                        <span v-if="needsAttention(floor, 'floor')" class="node-badge">Review</span>
+                        <span v-if="needsAttention(floor, 'floor')" class="node-badge">Rà soát</span>
                       </button>
                     </div>
                   </div>
@@ -211,8 +220,8 @@
                         <strong>{{ zone.name }}</strong>
                         <small>{{ zone.code }}</small>
                       </span>
-                      <span v-if="needsAttention(zone, 'zone')" class="node-badge">Needs setup</span>
-                      <span class="node-count">{{ zone.accessPoints?.length || 0 }} points</span>
+                      <span v-if="needsAttention(zone, 'zone')" class="node-badge">Cần cấu hình</span>
+                      <span class="node-count">{{ zone.accessPoints?.length || 0 }} điểm truy cập</span>
                     </button>
                     </div>
 
@@ -230,7 +239,7 @@
                           <strong>{{ accessPoint.name }}</strong>
                           <small>{{ accessPoint.type }}</small>
                         </span>
-                        <span v-if="needsAttention(accessPoint, 'accesspoint')" class="node-badge">Review</span>
+                        <span v-if="needsAttention(accessPoint, 'accesspoint')" class="node-badge">Rà soát</span>
                       </button>
                     </div>
                   </div>
@@ -241,7 +250,7 @@
         </div>
 
         <div v-if="!hierarchy.length && !searchQuery" class="empty-card">
-          No hierarchy data yet. Use the advanced tools to backfill a default site foundation first.
+          Chưa có dữ liệu phân cấp. Hãy dùng công cụ nâng cao để dựng nền tảng khu vực mặc định trước.
         </div>
       </aside>
 
@@ -253,7 +262,7 @@
                 <span class="soft-chip success">{{ selectedNodeLabel }}</span>
                 <span v-if="selectedData.code" class="soft-chip">{{ selectedData.code }}</span>
                 <span v-if="selectedData.isActive !== undefined" class="soft-chip" :class="selectedData.isActive ? 'success' : 'muted'">
-                  {{ selectedData.isActive ? 'Active' : 'Inactive' }}
+                  {{ selectedData.isActive ? 'Hoạt động' : 'Không hoạt động' }}
                 </span>
               </div>
               <h2>{{ selectedData.name }}</h2>
@@ -267,7 +276,7 @@
                 class="btn btn-primary btn-sm"
                 @click="openEditNode"
               >
-                Edit
+                Sửa
               </button>
               <button
                 type="button"
@@ -300,8 +309,8 @@
             <article class="detail-card primary">
               <div class="panel-section-header compact">
                 <div>
-                  <span class="section-kicker">Overview</span>
-                  <h3>Node details</h3>
+                  <span class="section-kicker">Tổng quan</span>
+                  <h3>Chi tiết nút</h3>
                 </div>
               </div>
               <div class="detail-grid">
@@ -315,18 +324,18 @@
             <article class="detail-card">
               <div class="panel-section-header compact">
                 <div>
-                  <span class="section-kicker">Activity</span>
-                  <h3>Recent changes</h3>
+                  <span class="section-kicker">Hoạt động</span>
+                  <h3>Thay đổi gần đây</h3>
                 </div>
               </div>
               <div v-if="historyLoading" class="history-empty">
-                Loading change history...
+                Đang tải lịch sử thay đổi...
               </div>
               <div v-else-if="historyCards.length" class="history-list">
                 <div v-for="item in historyCards" :key="item.id" class="history-item">
                   <div class="history-item-top">
                     <strong>{{ item.action }}</strong>
-                    <span class="soft-chip" :class="item.status === 'Success' ? 'success' : 'muted'">{{ item.status }}</span>
+                    <span class="soft-chip" :class="item.status === 'Success' ? 'success' : 'muted'">{{ item.status === 'Success' ? 'Thành công' : 'Thất bại' }}</span>
                   </div>
                   <p>{{ item.actor }} • {{ item.timestamp }}</p>
                   <small v-if="item.path">{{ item.path }}</small>
@@ -334,20 +343,20 @@
                 </div>
               </div>
               <div v-else class="history-empty">
-                No recorded changes yet for this node.
+                Chưa có thay đổi nào được ghi nhận cho nút này.
               </div>
             </article>
           </section>
         </div>
 
         <div v-else class="empty-state-card">
-          <span class="section-kicker">Ready</span>
-          <h2>Select a node to start</h2>
+          <span class="section-kicker">Sẵn sàng</span>
+          <h2>Chọn một nút để bắt đầu</h2>
           <p>
-            Choose a company, site, building, zone, or access point from the navigator to inspect details and continue structuring the environment.
+            Chọn công ty, khu vực, tòa nhà, tầng, vùng hoặc điểm truy cập từ thanh điều hướng để xem chi tiết và tiếp tục cấu trúc hóa môi trường.
           </p>
           <button v-if="hierarchy.length" type="button" class="btn btn-primary" @click="selectNode('company', hierarchy[0].companyId, hierarchy[0])">
-            Open first company
+            Mở công ty đầu tiên
           </button>
         </div>
       </main>
@@ -356,14 +365,14 @@
     <section v-else-if="tab === 'assets'" class="asset-workspace">
       <div class="asset-overview-card">
         <div>
-          <span class="section-kicker">Coverage</span>
-          <h2>Asset mapping status</h2>
+          <span class="section-kicker">Độ phủ</span>
+          <h2>Trạng thái ánh xạ tài sản</h2>
           <p>
-            Review how completely operational assets are attached to the enterprise structure before running automation or governance checks.
+            Rà soát mức độ hoàn chỉnh khi gắn tài sản vận hành vào cấu trúc doanh nghiệp trước khi chạy kiểm tra tự động hóa hoặc quản trị.
           </p>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" @click="toggleAdvancedTools">
-          {{ showAdvancedTools ? 'Hide advanced tools' : 'Show advanced tools' }}
+          {{ showAdvancedTools ? 'Ẩn công cụ nâng cao' : 'Hiện công cụ nâng cao' }}
         </button>
       </div>
 
@@ -377,8 +386,8 @@
             <div class="asset-bar-fill mapped" :style="{ width: `${card.percent}%` }"></div>
           </div>
           <div class="asset-numbers">
-            <span class="mapped">{{ card.mapped }} mapped</span>
-            <span class="unmapped">{{ card.unmapped }} unmapped</span>
+            <span class="mapped">{{ card.mapped }} đã ánh xạ</span>
+            <span class="unmapped">{{ card.unmapped }} chưa ánh xạ</span>
           </div>
           <p class="asset-note">{{ card.note }}</p>
         </article>
@@ -387,23 +396,23 @@
       <div class="asset-insight-strip">
         <div class="insight-card">
           <strong>{{ mappedAssetSummary }}</strong>
-          <span>overall mapped assets</span>
+          <span>tổng tài sản đã ánh xạ</span>
         </div>
         <div class="insight-card">
           <strong>{{ overallCoveragePercent }}%</strong>
-          <span>overall coverage</span>
+          <span>tổng độ phủ</span>
         </div>
         <div class="insight-card">
           <strong>{{ riskiestAssetLabel }}</strong>
-          <span>needs the most attention</span>
+          <span>cần chú ý nhất</span>
         </div>
       </div>
 
       <section class="unmapped-section">
         <div class="panel-section-header">
           <div>
-            <span class="section-kicker">Action queue</span>
-            <h2>Unmapped assets</h2>
+            <span class="section-kicker">Hàng đợi hành động</span>
+            <h2>Tài sản chưa ánh xạ</h2>
           </div>
           <div class="toolbar-actions">
             <button
@@ -419,8 +428,8 @@
           </div>
         </div>
 
-        <div v-if="!assetMapLoaded" class="empty-card">Loading unmapped asset details...</div>
-        <div v-else-if="!filteredUnmappedAssets.length" class="empty-card">All assets in this filter are already mapped.</div>
+        <div v-if="!assetMapLoaded" class="empty-card">Đang tải chi tiết tài sản chưa ánh xạ...</div>
+        <div v-else-if="!filteredUnmappedAssets.length" class="empty-card">Toàn bộ tài sản trong bộ lọc này đã được ánh xạ.</div>
         <div v-else class="unmapped-grid">
           <article v-for="asset in filteredUnmappedAssets" :key="asset.key" class="unmapped-card">
             <div class="unmapped-top">
@@ -444,36 +453,36 @@
       <section v-if="showAdvancedTools" class="advanced-tools-panel">
         <div class="panel-section-header">
           <div>
-            <span class="section-kicker">Advanced</span>
-            <h2>Legacy asset backfill</h2>
+            <span class="section-kicker">Nâng cao</span>
+            <h2>Bổ sung tài sản kế thừa</h2>
           </div>
-          <span class="soft-chip warning">Privileged action</span>
+          <span class="soft-chip warning">Hành động đặc quyền</span>
         </div>
         <p class="advanced-copy">
-          Use this only when bootstrapping or repairing older deployments. It creates a safe default company/site structure and remaps legacy assets into that structure.
+          Chỉ dùng khi khởi tạo hoặc sửa chữa các triển khai cũ. Công cụ này tạo cấu trúc công ty/khu vực mặc định an toàn và gắn lại tài sản kế thừa vào cấu trúc đó.
         </p>
 
         <div class="backfill-grid">
-          <label>Company code <input v-model="backfillForm.companyCode" placeholder="VSHIELD" /></label>
-          <label>Site code <input v-model="backfillForm.siteCode" placeholder="HQ" /></label>
-          <label>Company name <input v-model="backfillForm.companyName" placeholder="V-Shield Company" /></label>
-          <label>Site name <input v-model="backfillForm.siteName" placeholder="Headquarters" /></label>
+          <label>Mã công ty <input v-model="backfillForm.companyCode" placeholder="VSHIELD" /></label>
+          <label>Mã khu vực <input v-model="backfillForm.siteCode" placeholder="HQ" /></label>
+          <label>Tên công ty <input v-model="backfillForm.companyName" placeholder="V-Shield Company" /></label>
+          <label>Tên khu vực <input v-model="backfillForm.siteName" placeholder="Headquarters" /></label>
         </div>
 
         <div class="advanced-actions">
           <button type="button" class="btn btn-primary btn-sm" :disabled="busy.backfill" @click="runBackfill">
-            {{ busy.backfill ? 'Running backfill...' : 'Run safe backfill' }}
+            {{ busy.backfill ? 'Đang bổ sung dữ liệu...' : 'Chạy bổ sung an toàn' }}
           </button>
         </div>
 
         <div v-if="backfillReport" class="backfill-result">
-          <strong>Backfill complete</strong>
+          <strong>Bổ sung hoàn tất</strong>
           <div class="backfill-stats">
-            <span>{{ backfillReport.gatesMapped }} gates</span>
-            <span>{{ backfillReport.cameraDevicesCreated }} cameras</span>
-            <span>{{ backfillReport.employeesMapped }} employees</span>
-            <span>{{ backfillReport.vehiclesMapped }} vehicles</span>
-            <span>{{ backfillReport.accessLogSnapshotsUpdated }} log snapshots</span>
+            <span>{{ backfillReport.gatesMapped }} cổng</span>
+            <span>{{ backfillReport.cameraDevicesCreated }} camera</span>
+            <span>{{ backfillReport.employeesMapped }} nhân sự</span>
+            <span>{{ backfillReport.vehiclesMapped }} phương tiện</span>
+            <span>{{ backfillReport.accessLogSnapshotsUpdated }} bản ghi nhật ký</span>
           </div>
         </div>
       </section>
@@ -483,46 +492,46 @@
       <div class="modal-content modern-modal">
         <div class="modal-header">
           <div>
-            <span class="section-kicker">Create child node</span>
-            <h2>Add {{ childLabel }}</h2>
+            <span class="section-kicker">Tạo nút con</span>
+            <h2>Thêm {{ childLabel }}</h2>
           </div>
           <button type="button" class="btn-close" @click="showAddModal = false">&times;</button>
         </div>
         <div class="modal-body">
           <p class="modal-copy">
             <template v-if="childType === 'company'">
-              Create a new top-level company workspace to start a fresh hierarchy.
+              Tạo một không gian công ty cấp cao nhất để bắt đầu một phân cấp mới.
             </template>
             <template v-else>
-              This new {{ childLabel.toLowerCase() }} will be attached under <strong>{{ selectedData?.name }}</strong>.
+              {{ childLabel }} mới sẽ được đính vào dưới <strong>{{ selectedData?.name }}</strong>.
             </template>
           </p>
           <div class="form-grid single">
-            <label>Name <input v-model="addForm.name" required /></label>
-            <label v-if="childType !== 'accesspoint'">Code <input v-model="addForm.code" placeholder="Optional short code" /></label>
-            <label v-if="childType === 'floor'">Sort Order <input v-model.number="addForm.sortOrder" type="number" min="0" /></label>
-            <label v-if="childType === 'zone'">Security Level
+            <label>Tên <input v-model="addForm.name" required /></label>
+            <label v-if="childType !== 'accesspoint'">Mã <input v-model="addForm.code" placeholder="Mã ngắn (không bắt buộc)" /></label>
+            <label v-if="childType === 'floor'">Thứ tự sắp xếp <input v-model.number="addForm.sortOrder" type="number" min="0" /></label>
+            <label v-if="childType === 'zone'">Cấp an ninh
               <select v-model="addForm.securityLevel">
-                <option value="Normal">Normal</option>
-                <option value="Restricted">Restricted</option>
-                <option value="HighSecurity">High Security</option>
+                <option value="Normal">Bình thường</option>
+                <option value="Restricted">Hạn chế</option>
+                <option value="HighSecurity">An ninh cao</option>
               </select>
             </label>
             <label v-if="childType === 'zone'" class="checkbox-label">
-              <input v-model="addForm.isRestricted" type="checkbox" /> Restricted Zone
+              <input v-model="addForm.isRestricted" type="checkbox" /> Vùng hạn chế
             </label>
-            <label v-if="childType === 'accesspoint'">Type
+            <label v-if="childType === 'accesspoint'">Loại
               <select v-model="addForm.type">
-                <option value="Door">Door</option>
-                <option value="Gate">Gate</option>
-                <option value="Turnstile">Turnstile</option>
+                <option value="Door">Cửa</option>
+                <option value="Gate">Cổng</option>
+                <option value="Turnstile">Cổng xoay</option>
               </select>
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" :disabled="!addForm.name" @click="saveChild">Create</button>
-          <button type="button" class="btn btn-secondary" @click="showAddModal = false">Cancel</button>
+          <button type="button" class="btn btn-primary" :disabled="!addForm.name" @click="saveChild">Tạo</button>
+          <button type="button" class="btn btn-secondary" @click="showAddModal = false">Hủy</button>
         </div>
       </div>
     </div>
@@ -531,53 +540,56 @@
       <div class="modal-content modern-modal">
         <div class="modal-header">
           <div>
-            <span class="section-kicker">Edit node</span>
+            <span class="section-kicker">Sửa nút</span>
             <h2>{{ editTitle }}</h2>
           </div>
           <button type="button" class="btn-close" @click="showEditModal = false">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-grid single">
-            <label>Name <input v-model="editForm.name" required /></label>
-            <label v-if="editNodeType !== 'accesspoint'">Code <input v-model="editForm.code" /></label>
-            <label v-if="editNodeType === 'site'">Address <input v-model="editForm.address" /></label>
-            <label v-if="editNodeType === 'site'">Time Zone <input v-model="editForm.timeZoneId" /></label>
-            <label v-if="editNodeType === 'floor'">Sort Order <input v-model.number="editForm.sortOrder" type="number" min="0" /></label>
-            <label v-if="editNodeType === 'zone'">Security Level
+            <label>Tên <input v-model="editForm.name" required /></label>
+            <label v-if="editNodeType !== 'accesspoint'">Mã <input v-model="editForm.code" /></label>
+            <label v-if="editNodeType === 'site'">Địa chỉ <input v-model="editForm.address" /></label>
+            <label v-if="editNodeType === 'site'">Múi giờ <input v-model="editForm.timeZoneId" /></label>
+            <label v-if="editNodeType === 'floor'">Thứ tự sắp xếp <input v-model.number="editForm.sortOrder" type="number" min="0" /></label>
+            <label v-if="editNodeType === 'zone'">Cấp an ninh
               <select v-model="editForm.securityLevel">
-                <option value="Normal">Normal</option>
-                <option value="Restricted">Restricted</option>
-                <option value="HighSecurity">High Security</option>
+                <option value="Normal">Bình thường</option>
+                <option value="Restricted">Hạn chế</option>
+                <option value="HighSecurity">An ninh cao</option>
               </select>
             </label>
             <label v-if="editNodeType === 'zone'" class="checkbox-label">
-              <input v-model="editForm.isRestricted" type="checkbox" /> Restricted Zone
+              <input v-model="editForm.isRestricted" type="checkbox" /> Vùng hạn chế
             </label>
-            <label v-if="editNodeType === 'accesspoint'">Type
+            <label v-if="editNodeType === 'accesspoint'">Loại
               <select v-model="editForm.type">
-                <option value="Door">Door</option>
-                <option value="Gate">Gate</option>
-                <option value="Turnstile">Turnstile</option>
+                <option value="Door">Cửa</option>
+                <option value="Gate">Cổng</option>
+                <option value="Turnstile">Cổng xoay</option>
               </select>
             </label>
-            <label v-if="editNodeType === 'accesspoint'">Direction
+            <label v-if="editNodeType === 'accesspoint'">Chiều
               <select v-model="editForm.directionMode">
-                <option value="Bidirectional">Bidirectional</option>
-                <option value="EntryOnly">Entry Only</option>
-                <option value="ExitOnly">Exit Only</option>
+                <option value="Bidirectional">Hai chiều</option>
+                <option value="EntryOnly">Chỉ vào</option>
+                <option value="ExitOnly">Chỉ ra</option>
               </select>
             </label>
             <label class="checkbox-label">
-              <input v-model="editForm.isActive" type="checkbox" /> Active
+              <input v-model="editForm.isActive" type="checkbox" /> Hoạt động
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" :disabled="!editForm.name" @click="saveEditNode">Save</button>
-          <button type="button" class="btn btn-secondary" @click="showEditModal = false">Cancel</button>
+          <button type="button" class="btn btn-primary" :disabled="!editForm.name" @click="saveEditNode">Lưu</button>
+          <button type="button" class="btn btn-secondary" @click="showEditModal = false">Hủy</button>
         </div>
       </div>
     </div>
+
+    <ImportModal v-if="showImportModal" :entity-type="ieEntity" :entity-display-name="ieDisplayName" @close="showImportModal = false" @import-complete="onImportComplete" />
+    <ExportModal v-if="showExportModal" :entity-type="ieEntity" :entity-display-name="ieDisplayName" :available-columns="ieColumns" @close="showExportModal = false" />
   </div>
 </template>
 
@@ -586,9 +598,24 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import SpatialInfrastructureWorkspace from '../components/site-hierarchy/SpatialInfrastructureWorkspace.vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
 import { getSystemAuditLogs } from '../services/accessLogApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 
 const loading = ref(false)
 const tab = ref('tree')
+const showImportModal = ref(false)
+const showExportModal = ref(false)
+const ieEntity = ref('Company')
+const ieDisplayName = computed(() => ({ Company: 'Công ty', Site: 'Khu vực', Building: 'Tòa nhà', FacilityFloor: 'Tầng', SecurityZone: 'Vùng an ninh' }[ieEntity.value] || ieEntity.value))
+const ieColumns = computed(() => {
+  switch (ieEntity.value) {
+    case 'Site': return ['SiteId', 'Name', 'Code', 'CompanyCode', 'Address', 'TimeZoneId', 'IsActive']
+    case 'Building': return ['BuildingId', 'Name', 'Code', 'SiteCode', 'TotalFloors', 'IsActive']
+    case 'FacilityFloor': return ['FacilityFloorId', 'Name', 'Code', 'BuildingCode', 'SortOrder', 'IsActive']
+    case 'SecurityZone': return ['SecurityZoneId', 'Name', 'Code', 'SiteCode', 'SecurityLevel', 'IsRestricted', 'IsActive']
+    default: return ['CompanyId', 'Name', 'Code', 'IsActive']
+  }
+})
 const hierarchy = ref([])
 const overview = reactive({ companies: 0, sites: 0, buildings: 0, floors: 0, zones: 0, accessPoints: 0, doors: 0, lanes: 0 })
 const selectedNode = ref(null)
@@ -616,11 +643,11 @@ const backfillReport = ref(null)
 
 const showAddModal = ref(false)
 const childType = ref('site')
-const childLabel = ref('Site')
+const childLabel = ref('Khu vực')
 const addForm = reactive({ name: '', code: '', sortOrder: 0, securityLevel: 'Normal', isRestricted: false, type: 'Door' })
 const showEditModal = ref(false)
 const editNodeType = ref('company')
-const editTitle = ref('Edit node')
+const editTitle = ref('Sửa nút')
 const editForm = reactive({
   name: '',
   code: '',
@@ -635,51 +662,51 @@ const editForm = reactive({
 })
 
 const topMetrics = computed(() => ([
-  { label: 'Companies', value: overview.companies, note: 'top-level org units' },
-  { label: 'Sites', value: overview.sites, note: 'physical campuses' },
-  { label: 'Buildings', value: overview.buildings, note: 'mapped structures' },
-  { label: 'Zones', value: overview.zones, note: 'security perimeters' },
-  { label: 'Access Points', value: overview.accessPoints, note: 'doors, gates, turnstiles' },
-  { label: 'Doors / Lanes', value: `${overview.doors} / ${overview.lanes}`, note: 'operational endpoints' },
+  { label: 'Công ty', value: overview.companies, note: 'đơn vị cấp cao nhất' },
+  { label: 'Khu vực', value: overview.sites, note: 'cơ sở vật lý' },
+  { label: 'Tòa nhà', value: overview.buildings, note: 'cấu trúc đã ánh xạ' },
+  { label: 'Vùng', value: overview.zones, note: 'vành đai an ninh' },
+  { label: 'Điểm truy cập', value: overview.accessPoints, note: 'cửa, cổng, cổng xoay' },
+  { label: 'Cửa / Làn', value: `${overview.doors} / ${overview.lanes}`, note: 'điểm vận hành cuối' },
 ]))
 
 const selectedNodeLabel = computed(() => {
   const map = {
-    company: 'Company',
-    site: 'Site',
-    building: 'Building',
-    floor: 'Floor',
-    zone: 'Security Zone',
-    accesspoint: 'Access Point',
+    company: 'Công ty',
+    site: 'Khu vực',
+    building: 'Tòa nhà',
+    floor: 'Tầng',
+    zone: 'Vùng an ninh',
+    accesspoint: 'Điểm truy cập',
   }
-  return selectedNode.value ? map[selectedNode.value.type] || 'Node' : 'Node'
+  return selectedNode.value ? map[selectedNode.value.type] || 'Nút' : 'Nút'
 })
 
 const selectedNodeDescription = computed(() => {
   if (!selectedNode.value) return ''
   const map = {
-    company: 'Company-level container for all downstream sites and operational assets.',
-    site: 'Site-level workspace that groups buildings, zones, and local operational assets.',
-    building: 'Building record used to organize floors and physical layout context.',
-    floor: 'Floor-level node for ordering and orienting site facilities.',
-    zone: 'Security zone used to group risk, access control, and entry points.',
-    accesspoint: 'Operational endpoint where access decisions and device mapping converge.',
+    company: 'Vùng chứa cấp công ty cho toàn bộ khu vực và tài sản vận hành bên dưới.',
+    site: 'Không gian cấp khu vực nhóm các tòa nhà, vùng và tài sản vận hành tại chỗ.',
+    building: 'Bản ghi tòa nhà dùng để sắp xếp tầng và bối cảnh bố trí vật lý.',
+    floor: 'Nút cấp tầng để sắp thứ tự và định hướng cơ sở vật chất trong khu vực.',
+    zone: 'Vùng an ninh dùng để nhóm rủi ro, kiểm soát truy cập và điểm ra vào.',
+    accesspoint: 'Điểm vận hành cuối nơi quyết định truy cập và ánh xạ thiết bị hội tụ.',
   }
-  return map[selectedNode.value.type] || 'Hierarchy node details.'
+  return map[selectedNode.value.type] || 'Chi tiết nút phân cấp.'
 })
 
 const childOptions = computed(() => {
   if (!selectedNode.value) return []
   const map = {
-    company: [{ type: 'site', label: 'Site' }],
-    site: [{ type: 'building', label: 'Building' }, { type: 'zone', label: 'Security Zone' }],
-    building: [{ type: 'floor', label: 'Floor' }],
-    zone: [{ type: 'accesspoint', label: 'Access Point' }],
+    company: [{ type: 'site', label: 'Khu vực' }],
+    site: [{ type: 'building', label: 'Tòa nhà' }, { type: 'zone', label: 'Vùng an ninh' }],
+    building: [{ type: 'floor', label: 'Tầng' }],
+    zone: [{ type: 'accesspoint', label: 'Điểm truy cập' }],
   }
   return map[selectedNode.value.type] || []
 })
 
-const selectedNodeLifecycleAction = computed(() => (selectedData.value?.isActive === false ? 'Restore' : 'Deactivate'))
+const selectedNodeLifecycleAction = computed(() => (selectedData.value?.isActive === false ? 'Khôi phục' : 'Vô hiệu hóa'))
 
 const selectedNodeStats = computed(() => {
   if (!selectedData.value || !selectedNode.value) return []
@@ -688,43 +715,43 @@ const selectedNodeStats = computed(() => {
 
   if (type === 'company') {
     return [
-      { label: 'Sites', value: data.sites?.length || 0 },
-      { label: 'Buildings', value: (data.sites || []).reduce((sum, site) => sum + (site.buildings?.length || 0), 0) },
-      { label: 'Zones', value: (data.sites || []).reduce((sum, site) => sum + (site.zones?.length || 0), 0) },
+      { label: 'Khu vực', value: data.sites?.length || 0 },
+      { label: 'Tòa nhà', value: (data.sites || []).reduce((sum, site) => sum + (site.buildings?.length || 0), 0) },
+      { label: 'Vùng', value: (data.sites || []).reduce((sum, site) => sum + (site.zones?.length || 0), 0) },
     ]
   }
   if (type === 'site') {
     return [
-      { label: 'Buildings', value: data.buildings?.length || 0 },
-      { label: 'Zones', value: data.zones?.length || 0 },
-      { label: 'Addressed', value: data.address ? 'Yes' : 'No' },
+      { label: 'Tòa nhà', value: data.buildings?.length || 0 },
+      { label: 'Vùng', value: data.zones?.length || 0 },
+      { label: 'Có địa chỉ', value: data.address ? 'Có' : 'Không' },
     ]
   }
   if (type === 'building') {
     return [
-      { label: 'Floors', value: data.floors?.length || 0 },
-      { label: 'Active', value: data.isActive ? 'Yes' : 'No' },
-      { label: 'Code', value: data.code || '---' },
+      { label: 'Tầng', value: data.floors?.length || 0 },
+      { label: 'Hoạt động', value: data.isActive ? 'Có' : 'Không' },
+      { label: 'Mã', value: data.code || '---' },
     ]
   }
   if (type === 'zone') {
     return [
-      { label: 'Access Points', value: data.accessPoints?.length || 0 },
-      { label: 'Security Level', value: data.securityLevel || 'Normal' },
-      { label: 'Restricted', value: data.isRestricted ? 'Yes' : 'No' },
+      { label: 'Điểm truy cập', value: data.accessPoints?.length || 0 },
+      { label: 'Cấp an ninh', value: data.securityLevel || 'Normal' },
+      { label: 'Giới hạn', value: data.isRestricted ? 'Có' : 'Không' },
     ]
   }
   if (type === 'accesspoint') {
     return [
-      { label: 'Type', value: data.type || '---' },
-      { label: 'Direction', value: data.directionMode || '---' },
-      { label: 'Active', value: data.isActive ? 'Yes' : 'No' },
+      { label: 'Loại', value: data.type || '---' },
+      { label: 'Chiều', value: data.directionMode || '---' },
+      { label: 'Hoạt động', value: data.isActive ? 'Có' : 'Không' },
     ]
   }
   return [
-    { label: 'Code', value: data.code || '---' },
-    { label: 'Sort Order', value: data.sortOrder ?? '---' },
-    { label: 'Active', value: data.isActive ? 'Yes' : 'No' },
+    { label: 'Mã', value: data.code || '---' },
+    { label: 'Thứ tự sắp xếp', value: data.sortOrder ?? '---' },
+    { label: 'Hoạt động', value: data.isActive ? 'Có' : 'Không' },
   ]
 })
 
@@ -732,7 +759,7 @@ const historyCards = computed(() =>
   (selectedHistory.value || []).map((item) => ({
     id: item.id,
     action: item.actionType || 'UPDATE',
-    actor: item.username || 'System',
+    actor: item.username || 'Hệ thống',
     status: item.isSuccess ? 'Success' : 'Failed',
     reason: item.failureReason || null,
     path: item.path || null,
@@ -744,16 +771,16 @@ const detailFields = computed(() => {
   if (!selectedData.value) return {}
   const data = selectedData.value
   const fields = {}
-  fields.Name = data.name
-  if (data.code) fields.Code = data.code
-  if (data.address) fields.Address = data.address
-  if (data.timeZoneId) fields['Time Zone'] = data.timeZoneId
-  if (data.isActive !== undefined) fields.Active = data.isActive ? 'Yes' : 'No'
-  if (data.type) fields.Type = data.type
-  if (data.securityLevel) fields['Security Level'] = data.securityLevel
-  if (data.isRestricted !== undefined) fields.Restricted = data.isRestricted ? 'Yes' : 'No'
-  if (data.directionMode) fields.Direction = data.directionMode
-  if (data.sortOrder !== undefined) fields['Sort Order'] = data.sortOrder
+  fields['Tên'] = data.name
+  if (data.code) fields['Mã'] = data.code
+  if (data.address) fields['Địa chỉ'] = data.address
+  if (data.timeZoneId) fields['Múi giờ'] = data.timeZoneId
+  if (data.isActive !== undefined) fields['Trạng thái'] = data.isActive ? 'Hoạt động' : 'Không hoạt động'
+  if (data.type) fields['Loại'] = data.type
+  if (data.securityLevel) fields['Cấp an ninh'] = data.securityLevel
+  if (data.isRestricted !== undefined) fields['Giới hạn'] = data.isRestricted ? 'Có' : 'Không'
+  if (data.directionMode) fields['Chiều'] = data.directionMode
+  if (data.sortOrder !== undefined) fields['Thứ tự sắp xếp'] = data.sortOrder
   return fields
 })
 
@@ -762,47 +789,47 @@ const assetCards = computed(() => {
   if (!status) return []
   return [
     {
-      label: 'Gates',
+      label: 'Cổng',
       mapped: status.gatesMapped || 0,
       unmapped: status.gatesUnmapped || 0,
       total: status.totalGates || 0,
       percent: percent(status.gatesMapped, status.totalGates),
-      coverageLabel: `${percent(status.gatesMapped, status.totalGates)}% coverage`,
-      note: 'Gate assets should be linked before barrier and lane automation.',
+      coverageLabel: `${percent(status.gatesMapped, status.totalGates)}% độ phủ`,
+      note: 'Tài sản cổng cần được liên kết trước khi tự động hóa barrier và làn đường.',
     },
     {
-      label: 'Cameras',
+      label: 'Camera',
       mapped: status.camerasMapped || 0,
       unmapped: status.camerasUnmapped || 0,
       total: status.totalCameras || 0,
       percent: percent(status.camerasMapped, status.totalCameras),
-      coverageLabel: `${percent(status.camerasMapped, status.totalCameras)}% coverage`,
-      note: 'Camera mapping improves incident correlation and site-level review.',
+      coverageLabel: `${percent(status.camerasMapped, status.totalCameras)}% độ phủ`,
+      note: 'Ánh xạ camera cải thiện việc đối chiếu sự cố và rà soát cấp khu vực.',
     },
     {
-      label: 'Vehicles',
+      label: 'Phương tiện',
       mapped: status.vehiclesMapped || 0,
       unmapped: status.vehiclesUnmapped || 0,
       total: status.totalVehicles || 0,
       percent: percent(status.vehiclesMapped, status.totalVehicles),
-      coverageLabel: `${percent(status.vehiclesMapped, status.totalVehicles)}% coverage`,
-      note: 'Vehicle mapping keeps parking and access enforcement tied to the right site.',
+      coverageLabel: `${percent(status.vehiclesMapped, status.totalVehicles)}% độ phủ`,
+      note: 'Ánh xạ phương tiện giữ việc đỗ xe và kiểm soát truy cập gắn đúng khu vực.',
     },
   ]
 })
 
 const mappedAssetSummary = computed(() => {
-  if (!assetStatus.value) return 'Not loaded'
+  if (!assetStatus.value) return 'Chưa tải'
   const mapped = (assetStatus.value.gatesMapped || 0) + (assetStatus.value.camerasMapped || 0) + (assetStatus.value.vehiclesMapped || 0)
   const total = (assetStatus.value.totalGates || 0) + (assetStatus.value.totalCameras || 0) + (assetStatus.value.totalVehicles || 0)
   return `${mapped}/${total || 0}`
 })
 
 const assetTypeOptions = [
-  { label: 'All', value: 'all' },
-  { label: 'Gates', value: 'gate' },
-  { label: 'Cameras', value: 'camera' },
-  { label: 'Vehicles', value: 'vehicle' },
+  { label: 'Tất cả', value: 'all' },
+  { label: 'Cổng', value: 'gate' },
+  { label: 'Camera', value: 'camera' },
+  { label: 'Phương tiện', value: 'vehicle' },
 ]
 
 const overallCoveragePercent = computed(() => {
@@ -813,9 +840,9 @@ const overallCoveragePercent = computed(() => {
 })
 
 const riskiestAssetLabel = computed(() => {
-  if (!assetCards.value.length) return 'Awaiting data'
+  if (!assetCards.value.length) return 'Chờ dữ liệu'
   const sorted = [...assetCards.value].sort((a, b) => b.unmapped - a.unmapped)
-  return sorted[0]?.label || 'Awaiting data'
+  return sorted[0]?.label || 'Chờ dữ liệu'
 })
 
 const unmappedAssets = computed(() => {
@@ -825,10 +852,10 @@ const unmappedAssets = computed(() => {
     .map((item) => ({
       key: `gate-${item.gateId}`,
       type: 'gate',
-      typeLabel: 'Gate',
+      typeLabel: 'Cổng',
       title: item.gateName,
-      subtitle: item.location || 'No mapped site or lane yet.',
-      tags: [`Gate #${item.gateId}`],
+      subtitle: item.location || 'Chưa có khu vực hoặc làn được ánh xạ.',
+      tags: [`Cổng #${item.gateId}`],
     }))
   const cameras = (assetMap.value.cameras || [])
     .filter((item) => !item.siteId)
@@ -837,18 +864,18 @@ const unmappedAssets = computed(() => {
       type: 'camera',
       typeLabel: 'Camera',
       title: item.cameraName,
-      subtitle: item.cameraType || 'No mapped site or device link yet.',
-      tags: [`Camera #${item.cameraId}`, item.gateId ? `Gate ${item.gateId}` : 'No gate link'],
+      subtitle: item.cameraType || 'Chưa có khu vực hoặc liên kết thiết bị.',
+      tags: [`Camera #${item.cameraId}`, item.gateId ? `Cổng ${item.gateId}` : 'Chưa liên kết cổng'],
     }))
   const vehicles = (assetMap.value.vehicles || [])
     .filter((item) => !item.siteId)
     .map((item) => ({
       key: `vehicle-${item.vehicleId}`,
       type: 'vehicle',
-      typeLabel: 'Vehicle',
+      typeLabel: 'Phương tiện',
       title: item.licensePlate,
-      subtitle: item.employeeName || 'No employee owner attached.',
-      tags: [`Vehicle #${item.vehicleId}`, item.parkingStatus || 'Unknown parking state'],
+      subtitle: item.employeeName || 'Chưa gán chủ sở hữu là nhân sự.',
+      tags: [`Phương tiện #${item.vehicleId}`, item.parkingStatus || 'Không rõ trạng thái đỗ'],
     }))
   return [...gates, ...cameras, ...vehicles]
 })
@@ -882,6 +909,11 @@ async function loadAll() {
   loading.value = true
   await Promise.all([loadOverview(), loadHierarchy(), loadAssetStatus(), loadAssetMap()])
   loading.value = false
+}
+
+function onImportComplete(result) {
+  showImportModal.value = false
+  loadAll()
 }
 
 async function loadOverview() {
@@ -1017,7 +1049,7 @@ function openCreateCompany() {
   selectedNode.value = null
   selectedData.value = null
   childType.value = 'company'
-  childLabel.value = 'Company'
+  childLabel.value = 'Công ty'
   addForm.name = ''
   addForm.code = ''
   addForm.sortOrder = 0
@@ -1030,7 +1062,7 @@ function openCreateCompany() {
 function openEditNode() {
   if (!selectedNode.value || !selectedData.value) return
   editNodeType.value = selectedNode.value.type
-  editTitle.value = `Edit ${selectedNodeLabel.value}`
+  editTitle.value = `Sửa ${selectedNodeLabel.value}`
   editForm.name = selectedData.value.name || ''
   editForm.code = selectedData.value.code || ''
   editForm.address = selectedData.value.address || ''
@@ -1104,7 +1136,7 @@ async function saveChild() {
     showAddModal.value = false
     await loadHierarchy()
   } catch (err) {
-    alert(err.response?.data?.message || 'Failed to create')
+    alert(err.response?.data?.message || 'Không thể tạo mới.')
   }
 }
 
@@ -1171,14 +1203,14 @@ async function saveEditNode() {
     await loadHierarchy()
     await loadSelectedNodeHistory()
   } catch (err) {
-    alert(err.response?.data?.message || 'Failed to save changes')
+    alert(err.response?.data?.message || 'Không thể lưu thay đổi.')
   }
 }
 
 async function deleteSelectedNode() {
   if (!selectedNode.value || !selectedData.value) return
   const actionLabel = selectedData.value.isActive === false ? 'restore' : 'deactivate'
-  const ok = confirm(`${actionLabel[0].toUpperCase()}${actionLabel.slice(1)} ${selectedNodeLabel.value.toLowerCase()} "${selectedData.value.name}"?`)
+  const ok = confirm(`${actionLabel === 'restore' ? 'Khôi phục' : 'Vô hiệu hóa'} ${selectedNodeLabel.value.toLowerCase()} "${selectedData.value.name}"?`)
   if (!ok) return
 
   try {
@@ -1232,7 +1264,7 @@ async function deleteSelectedNode() {
     await loadHierarchy()
     await loadSelectedNodeHistory()
   } catch (err) {
-    alert(err.response?.data?.message || `Failed to ${actionLabel} node`)
+    alert(err.response?.data?.message || `Không thể ${actionLabel === 'restore' ? 'khôi phục' : 'vô hiệu hóa'} nút`)
   }
 }
 
@@ -1243,7 +1275,7 @@ async function runBackfill() {
     backfillReport.value = res.data
     await loadAll()
   } catch (err) {
-    alert(err.response?.data?.message || 'Backfill failed')
+    alert(err.response?.data?.message || 'Bổ sung dữ liệu thất bại.')
   } finally {
     busy.backfill = false
   }
@@ -1367,9 +1399,9 @@ async function loadSelectedNodeHistory() {
 }
 
 function formatAuditTimestamp(value) {
-  if (!value) return 'Unknown time'
+  if (!value) return 'Không rõ thời gian'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Unknown time'
+  if (Number.isNaN(date.getTime())) return 'Không rõ thời gian'
   return date.toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -1442,7 +1474,7 @@ onMounted(loadAll)
   background:
     radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 30%),
     linear-gradient(135deg, #f8fbfd 0%, #eef7f6 52%, #f6f8fb 100%);
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--border-default);
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
 }
 
@@ -1455,7 +1487,7 @@ onMounted(loadAll)
 .hero-text {
   max-width: 760px;
   margin: 0;
-  color: #526277;
+  color: var(--text-secondary);
   line-height: 1.65;
 }
 
@@ -1475,19 +1507,19 @@ onMounted(loadAll)
   padding: 16px 18px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--border-default);
 }
 
 .hero-stat strong {
   display: block;
   font-size: 1.5rem;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .hero-stat span {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.88rem;
 }
 
@@ -1497,7 +1529,7 @@ onMounted(loadAll)
 
 .hero-stat.highlight strong,
 .hero-stat.highlight span {
-  color: #f8fafc;
+  color: var(--text-inverse);
 }
 
 .metric-strip {
@@ -1509,14 +1541,14 @@ onMounted(loadAll)
 .metric-card {
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
 }
 
 .metric-label {
   display: block;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1526,13 +1558,13 @@ onMounted(loadAll)
   display: block;
   margin-top: 8px;
   font-size: 1.35rem;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .metric-note {
   display: block;
   margin-top: 6px;
-  color: #94a3b8;
+  color: var(--text-disabled);
   font-size: 0.8rem;
 }
 
@@ -1548,8 +1580,8 @@ onMounted(loadAll)
 .asset-overview-card,
 .advanced-tools-panel {
   border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.05);
 }
 
@@ -1574,7 +1606,7 @@ onMounted(loadAll)
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 0.84rem;
 }
 
@@ -1594,7 +1626,7 @@ onMounted(loadAll)
 .panel-section-header h3 {
   margin: 2px 0 0;
   font-size: 1.05rem;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .panel-section-header.compact {
@@ -1602,7 +1634,7 @@ onMounted(loadAll)
 }
 
 .section-kicker {
-  color: #0f766e;
+  color: var(--accent-primary);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1612,7 +1644,7 @@ onMounted(loadAll)
 .search-box {
   display: grid;
   gap: 8px;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 0.88rem;
 }
 
@@ -1624,9 +1656,9 @@ onMounted(loadAll)
   min-height: 42px;
   padding: 0 14px;
   border-radius: 14px;
-  border: 1px solid #d8e1ea;
-  background: #f8fafc;
-  color: #0f172a;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
 }
 
 .search-results {
@@ -1640,20 +1672,27 @@ onMounted(loadAll)
   gap: 4px;
   padding: 12px 14px;
   text-align: left;
-  border: 1px solid #dbe6ef;
+  border: 1px solid var(--border-subtle);
   border-radius: 14px;
   background: linear-gradient(180deg, #fcfefe 0%, #f5fbfb 100%);
   cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.search-hit:hover {
+  border-color: var(--border-color-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .search-hit strong {
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .hit-meta,
 .hit-parent,
 .empty-inline {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 
@@ -1679,13 +1718,20 @@ onMounted(loadAll)
 
 .expand-btn {
   width: 32px;
-  border: 1px solid #dbe6ef;
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: #fff;
-  color: #0f766e;
+  background: var(--surface-default);
+  color: var(--accent-primary);
   font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.expand-btn:hover {
+  border-color: var(--border-color-hover);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
 }
 
 .tree-children {
@@ -1693,7 +1739,7 @@ onMounted(loadAll)
   flex-direction: column;
   gap: 8px;
   padding-left: 18px;
-  border-left: 1px dashed #d7e3ec;
+  border-left: 1px dashed var(--border-subtle);
   margin-left: 10px;
 }
 
@@ -1704,15 +1750,15 @@ onMounted(loadAll)
   padding: 11px 12px;
   border-radius: 16px;
   border: 1px solid transparent;
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.18s ease;
 }
 
 .node-row:hover {
   border-color: rgba(15, 118, 110, 0.16);
-  background: #f3fbfa;
+  background: var(--surface-hover);
   transform: translateX(2px);
 }
 
@@ -1733,8 +1779,8 @@ onMounted(loadAll)
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #ffffff;
-  color: #0f766e;
+  background: var(--surface-default);
+  color: var(--accent-primary);
   flex-shrink: 0;
 }
 
@@ -1751,7 +1797,7 @@ onMounted(loadAll)
 
 .node-main small,
 .node-count {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.78rem;
 }
 
@@ -1763,8 +1809,8 @@ onMounted(loadAll)
 .node-badge {
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: var(--status-warning-bg);
+  color: var(--accent-warning);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -1793,7 +1839,7 @@ onMounted(loadAll)
   padding: 20px;
   border-radius: 22px;
   background: linear-gradient(135deg, #f8fbff 0%, #f5faf9 100%);
-  border: 1px solid #e3ebf2;
+  border: 1px solid var(--border-subtle);
 }
 
 .detail-type-row,
@@ -1806,7 +1852,7 @@ onMounted(loadAll)
 .detail-hero h2 {
   margin: 10px 0 6px;
   font-size: 1.55rem;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .detail-description,
@@ -1816,7 +1862,7 @@ onMounted(loadAll)
 .asset-overview-card p,
 .asset-note {
   margin: 0;
-  color: #5a6b80;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -1830,14 +1876,14 @@ onMounted(loadAll)
 .insight-card {
   padding: 16px 18px;
   border-radius: 18px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-default);
 }
 
 .detail-stat-card span,
 .insight-card span {
   display: block;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 
@@ -1845,7 +1891,7 @@ onMounted(loadAll)
 .insight-card strong {
   display: block;
   margin-top: 8px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 1.2rem;
 }
 
@@ -1858,8 +1904,8 @@ onMounted(loadAll)
 .detail-card {
   padding: 20px;
   border-radius: 22px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-default);
 }
 
 .detail-card.primary {
@@ -1875,13 +1921,13 @@ onMounted(loadAll)
 .detail-field {
   padding: 14px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #ebf0f5;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
 }
 
 .detail-label {
   display: block;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.8rem;
   margin-bottom: 6px;
 }
@@ -1897,16 +1943,16 @@ onMounted(loadAll)
   gap: 6px;
   padding: 14px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e6edf3;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
 }
 
 .action-tip strong {
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .action-tip span {
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.55;
 }
 
@@ -1921,8 +1967,8 @@ onMounted(loadAll)
   gap: 6px;
   padding: 14px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e6edf3;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
 }
 
 .history-item-top {
@@ -1936,12 +1982,12 @@ onMounted(loadAll)
 .history-item small,
 .history-empty {
   margin: 0;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.55;
 }
 
 .history-reason {
-  color: #b45309;
+  color: var(--accent-warning);
 }
 
 .empty-state-card {
@@ -1954,7 +2000,7 @@ onMounted(loadAll)
 
 .empty-state-card h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .asset-workspace {
@@ -1977,7 +2023,7 @@ onMounted(loadAll)
 
 .asset-overview-card h2 {
   margin: 4px 0 8px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .asset-status-grid {
@@ -1989,8 +2035,8 @@ onMounted(loadAll)
 .asset-card {
   padding: 20px;
   border-radius: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
 }
 
@@ -2004,7 +2050,7 @@ onMounted(loadAll)
 
 .asset-card h3 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .asset-bar {
@@ -2029,12 +2075,12 @@ onMounted(loadAll)
   justify-content: space-between;
   gap: 10px;
   margin-top: 10px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.84rem;
 }
 
 .asset-numbers .mapped {
-  color: #0f766e;
+  color: var(--accent-primary);
 }
 
 .asset-insight-strip {
@@ -2046,8 +2092,8 @@ onMounted(loadAll)
 .unmapped-section {
   padding: 22px;
   border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.05);
 }
 
@@ -2061,7 +2107,7 @@ onMounted(loadAll)
 .unmapped-card {
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-subtle);
   background: linear-gradient(180deg, #fffdf8 0%, #ffffff 100%);
 }
 
@@ -2091,7 +2137,7 @@ onMounted(loadAll)
 .form-grid label {
   display: grid;
   gap: 8px;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 0.88rem;
 }
 
@@ -2103,8 +2149,8 @@ onMounted(loadAll)
   margin-top: 16px;
   padding: 16px;
   border-radius: 18px;
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success-border);
 }
 
 .backfill-stats {
@@ -2112,7 +2158,7 @@ onMounted(loadAll)
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
-  color: #4b5563;
+  color: var(--text-secondary);
   font-size: 0.84rem;
 }
 
@@ -2122,8 +2168,8 @@ onMounted(loadAll)
 }
 
 .soft-chip.warning {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: var(--status-warning-bg);
+  color: var(--accent-warning);
 }
 
 .checkbox-label {

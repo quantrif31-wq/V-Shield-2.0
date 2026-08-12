@@ -186,3 +186,11 @@ export function reloadModels() {
     url: `${FACE_CAMERA_BASE_PATH}/models/reload`
   })
 }
+
+export function liveEnroll(subjectId, images) {
+  return faceRequest({
+    method: "post",
+    url: `${FACE_CAMERA_BASE_PATH}/enroll-live`,
+    data: { subjectId, images }
+  })
+}

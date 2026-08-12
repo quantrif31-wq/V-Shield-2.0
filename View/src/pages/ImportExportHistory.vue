@@ -21,8 +21,8 @@
                 <div class="filter-box" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                     <select v-model="filterOperation" class="minimal-select">
                         <option value="">Tất cả thao tác</option>
-                        <option value="Import">Import</option>
-                        <option value="Export">Export</option>
+                        <option value="Import">Nhập khẩu</option>
+                        <option value="Export">Xuất khẩu</option>
                     </select>
                     <select v-model="filterEntity" class="minimal-select">
                         <option value="">Tất cả entity</option>

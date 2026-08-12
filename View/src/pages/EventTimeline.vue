@@ -2,53 +2,53 @@
     <div class="page-container ops-page animate-in" :class="{ 'timeline-embedded': embedded }">
         <div v-if="!embedded" class="page-header-bar">
             <div>
-                <span class="panel-kicker">Situational awareness</span>
-                <h1 class="page-title">Event Timeline</h1>
+                <span class="panel-kicker">Nhận thức tình huống</span>
+                <h1 class="page-title">Dòng thời gian sự kiện</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" @click="showSiteMaps = true">Site Maps</button>
-                <button class="btn btn-secondary" @click="showCreateEvent = true">+ Event</button>
-                <button class="btn btn-primary" @click="loadEvents">Refresh</button>
+                <button class="btn btn-secondary" @click="showSiteMaps = true">Bản đồ khu vực</button>
+                <button class="btn btn-secondary" @click="showCreateEvent = true">+ Sự kiện</button>
+                <button class="btn btn-primary" @click="loadEvents">Làm mới</button>
             </div>
         </div>
         <section class="ops-grid one">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Filters</span><h2 class="panel-title">Search Events</h2></div>
+                    <div><span class="panel-kicker">Bộ lọc</span><h2 class="panel-title">Tìm kiếm sự kiện</h2></div>
                 </div>
                 <div class="filter-row">
-                    <input v-model="filters.eventType" class="form-input" placeholder="Event type" @input="debounceLoad" />
-                    <input v-model="filters.plate" class="form-input" placeholder="Plate" @input="debounceLoad" />
+                    <input v-model="filters.eventType" class="form-input" placeholder="Loại sự kiện" @input="debounceLoad" />
+                    <input v-model="filters.plate" class="form-input" placeholder="Biển số" @input="debounceLoad" />
                     <select v-model="filters.severity" class="form-select" @change="loadEvents">
-                        <option value="">All Severity</option>
-                        <option value="Info">Info</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Critical">Critical</option>
+                        <option value="">Tất cả mức độ</option>
+                        <option value="Info">Thông tin</option>
+                        <option value="Medium">Trung bình</option>
+                        <option value="High">Cao</option>
+                        <option value="Critical">Nghiêm trọng</option>
                     </select>
                     <select v-model="filters.subjectType" class="form-select" @change="loadEvents">
-                        <option value="">All Subjects</option>
-                        <option value="Employee">Employee</option>
-                        <option value="Visitor">Visitor</option>
-                        <option value="Contractor">Contractor</option>
-                        <option value="Vehicle">Vehicle</option>
+                        <option value="">Tất cả đối tượng</option>
+                        <option value="Employee">Nhân viên</option>
+                        <option value="Visitor">Khách</option>
+                        <option value="Contractor">Nhà thầu</option>
+                        <option value="Vehicle">Phương tiện</option>
                     </select>
                 </div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Events</span><h2 class="panel-title">Security Events</h2></div>
+                    <div><span class="panel-kicker">Sự kiện</span><h2 class="panel-title">Sự kiện an ninh</h2></div>
                     <div class="page-buttons">
                         <button class="page-btn" :disabled="page <= 1" @click="page--; loadEvents()">‹</button>
                         <button class="page-btn" disabled>{{ page }} / {{ totalPages }}</button>
                         <button class="page-btn" :disabled="page >= totalPages" @click="page++; loadEvents()">›</button>
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="events.length === 0" class="empty-card">No events found.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="events.length === 0" class="empty-card">Không có sự kiện nào.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Subject</th><th>Plate</th><th>Confidence</th><th>Summary</th><th></th></tr></thead>
+                        <thead><tr><th>Thời gian</th><th>Loại</th><th>Mức độ</th><th>Đối tượng</th><th>Biển số</th><th>Độ tin cậy</th><th>Tóm tắt</th><th></th></tr></thead>
                         <tbody>
                             <tr v-for="e in events" :key="e.securityEventId" @click="selectEvent(e)" class="clickable-row">
                                 <td class="table-sub">{{ new Date(e.occurredAtUtc).toLocaleString() }}</td>
@@ -59,7 +59,7 @@
                                 <td>{{ e.confidence != null ? (e.confidence * 100).toFixed(0) + '%' : '—' }}</td>
                                 <td class="table-sub">{{ e.summary || '—' }}</td>
                                 <td>
-                                    <button class="btn btn-danger btn-sm" @click.stop="deleteEvent(e)" title="Delete event">&times;</button>
+                                    <button class="btn btn-danger btn-sm" @click.stop="deleteEvent(e)" title="Xóa sự kiện">&times;</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -71,20 +71,20 @@
         <!-- Event Detail Modal -->
         <div v-if="selectedEvent" class="modal-overlay" @click.self="selectedEvent = null">
             <div class="modal-box wide-modal">
-                <h3>Event Detail</h3>
+                <h3>Chi tiết sự kiện</h3>
                 <div class="detail-grid">
-                    <div><strong>Type:</strong> {{ selectedEvent.eventType }}</div>
-                    <div><strong>Severity:</strong> {{ selectedEvent.severity }}</div>
-                    <div><strong>Source:</strong> {{ selectedEvent.sourceType }}:{{ selectedEvent.sourceId }}</div>
-                    <div><strong>Subject:</strong> {{ selectedEvent.subjectType }} {{ selectedEvent.subjectId }}</div>
-                    <div><strong>Plate:</strong> {{ selectedEvent.plateText || '—' }}</div>
-                    <div><strong>Confidence:</strong> {{ selectedEvent.confidence }}</div>
-                    <div><strong>Correlation ID:</strong> {{ selectedEvent.correlationId }}</div>
-                    <div><strong>Summary:</strong> {{ selectedEvent.summary }}</div>
+                    <div><strong>Loại:</strong> {{ selectedEvent.eventType }}</div>
+                    <div><strong>Mức độ:</strong> {{ selectedEvent.severity }}</div>
+                    <div><strong>Nguồn:</strong> {{ selectedEvent.sourceType }}:{{ selectedEvent.sourceId }}</div>
+                    <div><strong>Đối tượng:</strong> {{ selectedEvent.subjectType }} {{ selectedEvent.subjectId }}</div>
+                    <div><strong>Biển số:</strong> {{ selectedEvent.plateText || '—' }}</div>
+                    <div><strong>Độ tin cậy:</strong> {{ selectedEvent.confidence }}</div>
+                    <div><strong>ID liên kết:</strong> {{ selectedEvent.correlationId }}</div>
+                    <div><strong>Tóm tắt:</strong> {{ selectedEvent.summary }}</div>
                 </div>
                 <div class="modal-actions">
-                    <button class="btn btn-danger" @click="deleteEvent(selectedEvent)">Delete</button>
-                    <button class="btn btn-secondary" @click="selectedEvent = null">Close</button>
+                    <button class="btn btn-danger" @click="deleteEvent(selectedEvent)">Xóa</button>
+                    <button class="btn btn-secondary" @click="selectedEvent = null">Đóng</button>
                 </div>
             </div>
         </div>
@@ -92,69 +92,69 @@
         <!-- Site Maps Modal -->
         <div v-if="showSiteMaps" class="modal-overlay" @click.self="showSiteMaps = false">
             <div class="modal-box wide-modal">
-                <h3>Site Maps</h3>
+                <h3>Bản đồ khu vực</h3>
                 <div class="filter-row" style="margin-bottom:12px;">
-                    <button class="btn btn-secondary btn-sm" @click="showNewMapForm = !showNewMapForm">+ New Map</button>
-                    <button class="btn btn-primary btn-sm" @click="loadSiteMaps">Refresh</button>
+                    <button class="btn btn-secondary btn-sm" @click="showNewMapForm = !showNewMapForm">+ Bản đồ mới</button>
+                    <button class="btn btn-primary btn-sm" @click="loadSiteMaps">Làm mới</button>
                 </div>
 
                 <!-- New Map Form -->
                 <div v-if="showNewMapForm" class="form-grid" style="margin-bottom:12px;">
                     <div class="form-group">
-                        <label>Map Name</label>
-                        <input v-model="newMapForm.name" class="form-input" placeholder="e.g. Floor 1" />
+                        <label>Tên bản đồ</label>
+                        <input v-model="newMapForm.name" class="form-input" placeholder="vd. Tầng 1" />
                     </div>
                     <div class="form-group">
-                        <label>Site ID</label>
-                        <input v-model.number="newMapForm.siteId" type="number" class="form-input" placeholder="Site" />
+                        <label>Mã khu vực</label>
+                        <input v-model.number="newMapForm.siteId" type="number" class="form-input" placeholder="Khu vực" />
                     </div>
                     <div class="form-group">
-                        <label>Dimensions</label>
+                        <label>Kích thước</label>
                         <div class="chip-row">
-                            <input v-model.number="newMapForm.width" type="number" class="form-input" placeholder="W" style="width:80px;" />
+                            <input v-model.number="newMapForm.width" type="number" class="form-input" placeholder="R" style="width:80px;" />
                             <span>x</span>
-                            <input v-model.number="newMapForm.height" type="number" class="form-input" placeholder="H" style="width:80px;" />
+                            <input v-model.number="newMapForm.height" type="number" class="form-input" placeholder="C" style="width:80px;" />
                         </div>
                     </div>
                     <div class="chip-row">
-                        <button class="btn btn-primary btn-sm" :disabled="mapBusy || !newMapForm.name" @click="createSiteMap">{{ mapBusy ? 'Creating...' : 'Create' }}</button>
-                        <button class="btn btn-secondary btn-sm" @click="showNewMapForm = false">Cancel</button>
+                        <button class="btn btn-primary btn-sm" :disabled="mapBusy || !newMapForm.name" @click="createSiteMap">{{ mapBusy ? 'Đang tạo...' : 'Tạo' }}</button>
+                        <button class="btn btn-secondary btn-sm" @click="showNewMapForm = false">Hủy</button>
                     </div>
                 </div>
 
-                <div v-if="mapLoading" class="empty-card">Loading maps...</div>
-                <div v-else-if="siteMaps.length === 0" class="empty-card">No site maps.</div>
+                <div v-if="mapLoading" class="empty-card">Đang tải bản đồ...</div>
+                <div v-else-if="siteMaps.length === 0" class="empty-card">Chưa có bản đồ khu vực.</div>
                 <div v-else class="map-list">
                     <div v-for="map in siteMaps" :key="map.siteMapId || map.id" class="map-card" @click="loadMapPlacements(map)">
                         <div class="map-card-header">
                             <strong>{{ map.name || map.mapName }}</strong>
-                            <span class="text-muted">Site {{ map.siteId }}</span>
+                            <span class="text-muted">Khu vực {{ map.siteId }}</span>
                         </div>
                         <div class="map-card-meta">
                             <span class="text-muted">{{ map.width || 0 }} x {{ map.height || 0 }}</span>
-                            <button class="btn btn-sm btn-ghost" @click.stop="showPlacementsForMap(map)">Placements</button>
+                            <button class="btn btn-sm btn-ghost" @click.stop="showPlacementsForMap(map)">Vị trí</button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Map Placements Section -->
                 <div v-if="selectedMap" style="margin-top:16px;">
-                    <div class="detail-section-title">Placements — {{ selectedMap.name || selectedMap.mapName }}</div>
+                    <div class="detail-section-title">Vị trí — {{ selectedMap.name || selectedMap.mapName }}</div>
                     <div class="form-row" style="margin-bottom:8px;">
                         <div class="form-group" style="display:flex; gap:8px; align-items:end;">
-                            <input v-model.number="placementForm.deviceId" type="number" class="form-input" placeholder="Device ID" style="width:100px;" />
+                            <input v-model.number="placementForm.deviceId" type="number" class="form-input" placeholder="Mã thiết bị" style="width:100px;" />
                             <input v-model.number="placementForm.x" type="number" class="form-input" placeholder="X" style="width:70px;" />
                             <input v-model.number="placementForm.y" type="number" class="form-input" placeholder="Y" style="width:70px;" />
                             <button class="btn btn-primary btn-sm" :disabled="placementBusy || !placementForm.deviceId" @click="addPlacement">
-                                {{ placementBusy ? 'Adding...' : 'Add' }}
+                                {{ placementBusy ? 'Đang thêm...' : 'Thêm' }}
                             </button>
                         </div>
                     </div>
-                    <div v-if="placementLoading" class="empty-card">Loading placements...</div>
-                    <div v-else-if="placements.length === 0" class="text-muted">No placements for this map.</div>
+                    <div v-if="placementLoading" class="empty-card">Đang tải vị trí...</div>
+                    <div v-else-if="placements.length === 0" class="text-muted">Chưa có vị trí cho bản đồ này.</div>
                     <div v-else class="table-container">
                         <table class="data-table">
-                            <thead><tr><th>Device ID</th><th>Position</th></tr></thead>
+                            <thead><tr><th>Mã thiết bị</th><th>Vị trí</th></tr></thead>
                             <tbody>
                                 <tr v-for="p in placements" :key="p.mapPlacementId || p.id">
                                     <td>{{ p.securityDeviceId || p.deviceId }}</td>
@@ -170,42 +170,42 @@
         <!-- Create Event Modal -->
         <div v-if="showCreateEvent" class="modal-overlay" @click.self="showCreateEvent = false">
             <div class="modal-box">
-                <h3>Create Security Event</h3>
+                <h3>Tạo sự kiện an ninh</h3>
                 <div class="form-grid single">
                     <div class="form-group">
-                        <label>Event Type</label>
-                        <input v-model="createEventForm.eventType" class="form-input" placeholder="e.g. AccessGranted, TamperDetected" />
+                        <label>Loại sự kiện</label>
+                        <input v-model="createEventForm.eventType" class="form-input" placeholder="vd. AccessGranted, TamperDetected" />
                     </div>
                     <div class="form-group">
-                        <label>Severity</label>
+                        <label>Mức độ</label>
                         <select v-model="createEventForm.severity" class="form-select">
-                            <option value="Info">Info</option>
-                            <option value="Medium">Medium</option>
-                            <option value="High">High</option>
-                            <option value="Critical">Critical</option>
+                            <option value="Info">Thông tin</option>
+                            <option value="Medium">Trung bình</option>
+                            <option value="High">Cao</option>
+                            <option value="Critical">Nghiêm trọng</option>
                         </select>
                     </div>
                     <div class="form-row two">
                         <div class="form-group">
-                            <label>Subject Type</label>
+                            <label>Loại đối tượng</label>
                             <input v-model="createEventForm.subjectType" class="form-input" placeholder="Employee, Vehicle" />
                         </div>
                         <div class="form-group">
-                            <label>Subject ID</label>
-                            <input v-model="createEventForm.subjectId" class="form-input" placeholder="Optional" />
+                            <label>Mã đối tượng</label>
+                            <input v-model="createEventForm.subjectId" class="form-input" placeholder="Không bắt buộc" />
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Summary</label>
-                        <textarea v-model="createEventForm.summary" class="form-input" rows="2" placeholder="Event description"></textarea>
+                        <label>Tóm tắt</label>
+                        <textarea v-model="createEventForm.summary" class="form-input" rows="2" placeholder="Mô tả sự kiện"></textarea>
                     </div>
                 </div>
                 <div v-if="createEventResult" class="alert alert-success">{{ createEventResult }}</div>
                 <div v-else-if="createEventError" class="alert alert-danger">{{ createEventError }}</div>
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="showCreateEvent = false">Cancel</button>
+                    <button class="btn btn-secondary" @click="showCreateEvent = false">Hủy</button>
                     <button class="btn btn-primary" :disabled="createEventBusy || !createEventForm.eventType" @click="submitCreateEvent">
-                        {{ createEventBusy ? 'Creating...' : 'Create' }}
+                        {{ createEventBusy ? 'Đang tạo...' : 'Tạo' }}
                     </button>
                 </div>
             </div>
@@ -279,12 +279,12 @@ async function loadEvents() {
 function selectEvent(e) { selectedEvent.value = e }
 
 async function deleteEvent(e) {
-    if (!confirm(`Delete event #${e.securityEventId}?`)) return
+    if (!confirm(`Xóa sự kiện #${e.securityEventId}?`)) return
     try {
         await enterpriseApi.deleteEvent(e.securityEventId)
         if (selectedEvent.value?.securityEventId === e.securityEventId) selectedEvent.value = null
         await loadEvents()
-    } catch { alert('Delete failed') }
+    } catch { alert('Xóa thất bại') }
 }
 
 function sevClass(s) {
@@ -327,7 +327,7 @@ async function createSiteMap() {
         newMapForm.value = { name: '', siteId: null, width: 100, height: 100 }
         showNewMapForm.value = false
         await loadSiteMaps()
-    } catch { alert('Failed to create map') }
+    } catch { alert('Không thể tạo bản đồ') }
     finally { mapBusy.value = false }
 }
 
@@ -342,7 +342,7 @@ async function addPlacement() {
         })
         placementForm.value = { deviceId: null, x: 50, y: 50 }
         await showPlacementsForMap(selectedMap.value)
-    } catch { alert('Failed to add placement') }
+    } catch { alert('Không thể thêm vị trí') }
     finally { placementBusy.value = false }
 }
 
@@ -360,7 +360,7 @@ async function submitCreateEvent() {
             subjectId: createEventForm.value.subjectId || null,
             summary: createEventForm.value.summary || null,
         })
-        createEventResult.value = 'Event created!'
+        createEventResult.value = 'Đã tạo sự kiện!'
         createEventForm.value = { eventType: 'Info', severity: 'Info', subjectType: '', subjectId: '', summary: '' }
         showCreateEvent.value = false
         await loadEvents()

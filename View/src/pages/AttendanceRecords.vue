@@ -100,7 +100,7 @@
                                         <div><span>Về sớm</span><strong>{{ item.earlyLeaveMinutes || 0 }} phút</strong></div>
                                         <div><span>Tăng ca</span><strong>{{ Number(item.overtimeHours || 0).toFixed(2) }} giờ</strong></div>
                                         <div><span>Nguồn</span><strong>{{ item.source || '--' }}</strong></div>
-                                        <div><span>Trong zone</span><strong>{{ item.isZoneDerived ? `${Number(item.zoneDwellTime || 0).toFixed(1)} giờ` : '--' }}</strong></div>
+                                        <div><span>Trong khu vực</span><strong>{{ item.isZoneDerived ? `${Number(item.zoneDwellTime || 0).toFixed(1)} giờ` : '--' }}</strong></div>
                                         <button class="btn btn-ghost btn-sm" @click="showTransitTimeline(item)">Xem lộ trình</button>
                                     </div>
                                 </td>
@@ -676,8 +676,8 @@ onMounted(async () => {
 }
 
 .attendance-panel .table-container {
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: #fff;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
 }
 
 .attendance-panel .data-table {
@@ -738,10 +738,10 @@ onMounted(async () => {
     white-space: nowrap;
 }
 
-.attendance-status.neutral { color: #667784; background: #edf1f3; }
-.attendance-status.warning { color: #a9691f; background: #fbf4e8; }
-.attendance-status.success { color: var(--accent-success); background: rgba(20, 134, 109, 0.1); }
-.attendance-status.danger { color: var(--accent-danger); background: rgba(195, 81, 70, 0.1); }
+.attendance-status.neutral { color: var(--text-muted); background: var(--status-neutral-bg); }
+.attendance-status.warning { color: var(--accent-warning); background: var(--status-warning-bg); }
+.attendance-status.success { color: var(--accent-success); background: var(--status-success-bg); }
+.attendance-status.danger { color: var(--accent-danger); background: var(--status-danger-bg); }
 
 .compact-actions {
     flex-wrap: nowrap;
@@ -751,7 +751,7 @@ onMounted(async () => {
 .compact-actions .btn {
     min-width: 54px;
     border-radius: 999px;
-    background: #fff;
+    background: var(--surface-default);
 }
 
 .detail-toggle {
@@ -764,6 +764,11 @@ onMounted(async () => {
     font-size: 0.84rem;
     font-weight: 750;
     cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.detail-toggle:hover {
+    color: var(--accent-primary);
 }
 
 .detail-toggle span {
@@ -776,7 +781,7 @@ onMounted(async () => {
 .detail-row td {
     height: auto !important;
     padding: 0 16px 14px !important;
-    background: #f7fafb;
+    background: var(--surface-subtle);
 }
 
 .attendance-details {
@@ -785,9 +790,9 @@ onMounted(async () => {
     align-items: center;
     gap: 14px;
     padding: 14px 16px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
-    background: #fff;
+    background: var(--surface-default);
 }
 
 .attendance-details span,
@@ -830,7 +835,7 @@ onMounted(async () => {
     padding: 12px 18px;
     border-radius: 12px;
     background: var(--accent-success);
-    color: #fff;
+    color: var(--text-on-interactive);
     box-shadow: var(--shadow-lg);
 }
 
@@ -929,7 +934,7 @@ onMounted(async () => {
     font-size: 0.75rem;
     padding: 2px 8px;
     border-radius: 8px;
-    background: var(--bg-muted);
+    background: var(--surface-subtle);
 }
 
 .anomaly-list {
@@ -941,18 +946,18 @@ onMounted(async () => {
 .anomaly-card {
     padding: 14px;
     border-radius: 16px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.5);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
 }
 
 .anomaly-card.cao {
-    border-color: rgba(200, 50, 50, 0.3);
-    background: rgba(200, 50, 50, 0.04);
+    border-color: var(--status-danger-border);
+    background: var(--status-danger-bg);
 }
 
 .anomaly-card.trung-binh {
-    border-color: rgba(216, 155, 55, 0.25);
-    background: rgba(216, 155, 55, 0.04);
+    border-color: var(--status-warning-border);
+    background: var(--status-warning-bg);
 }
 
 .anomaly-head {
@@ -967,18 +972,18 @@ onMounted(async () => {
     font-weight: 700;
     padding: 2px 10px;
     border-radius: 20px;
-    background: rgba(84, 196, 211, 0.1);
+    background: var(--status-info-bg);
     color: var(--accent-primary);
 }
 
 .anomaly-type-badge.cao {
-    background: rgba(200, 50, 50, 0.1);
-    color: #c83232;
+    background: var(--status-danger-bg);
+    color: var(--status-danger-text);
 }
 
 .anomaly-type-badge.trung-binh {
-    background: rgba(216, 155, 55, 0.1);
-    color: #b86f21;
+    background: var(--status-warning-bg);
+    color: var(--accent-warning);
 }
 
 .anomaly-severity {
@@ -989,9 +994,9 @@ onMounted(async () => {
     border-radius: 12px;
 }
 
-.anomaly-severity.cao { background: rgba(200, 50, 50, 0.12); color: #c83232; }
-.anomaly-severity.trung-binh { background: rgba(216, 155, 55, 0.12); color: #b86f21; }
-.anomaly-severity.thap { background: rgba(24, 49, 77, 0.06); color: var(--text-muted); }
+.anomaly-severity.cao { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.anomaly-severity.trung-binh { background: var(--status-warning-bg); color: var(--accent-warning); }
+.anomaly-severity.thap { background: var(--status-neutral-bg); color: var(--text-muted); }
 
 .anomaly-status {
     font-size: 0.68rem;
@@ -1000,9 +1005,9 @@ onMounted(async () => {
     border-radius: 12px;
 }
 
-.anomaly-status.Open { background: rgba(84, 196, 211, 0.1); color: var(--accent-primary); }
-.anomaly-status.Resolved { background: rgba(20, 134, 109, 0.1); color: var(--accent-success); }
-.anomaly-status.FalsePositive { background: rgba(24, 49, 77, 0.06); color: var(--text-muted); }
+.anomaly-status.Open { background: var(--status-info-bg); color: var(--accent-primary); }
+.anomaly-status.Resolved { background: var(--status-success-bg); color: var(--accent-success); }
+.anomaly-status.FalsePositive { background: var(--status-neutral-bg); color: var(--text-muted); }
 
 .anomaly-desc {
     font-size: 0.88rem;
@@ -1021,7 +1026,7 @@ onMounted(async () => {
 
 .anomaly-data {
     font-family: monospace;
-    background: rgba(24, 49, 77, 0.04);
+    background: var(--surface-subtle);
     padding: 1px 6px;
     border-radius: 4px;
 }

@@ -5,7 +5,7 @@
       class="chat-fab"
       :class="{ pulse: !hasInteracted, dragging: dragState.active }"
       :style="fabStyle"
-      aria-label="Mo tro ly AI"
+      aria-label="Mở trợ lý AI"
       @pointerdown="startDrag"
       @click="handleFabClick"
     >
@@ -27,14 +27,14 @@
               </svg>
             </div>
             <div>
-              <span class="chat-header-title">Tro ly V-Shield</span>
+              <span class="chat-header-title">Trợ lý V-Shield</span>
               <div class="chat-header-status">
                 <span class="status-dot"></span>
-                <span>San sang ho tro</span>
+                <span>Sẵn sàng hỗ trợ</span>
               </div>
             </div>
           </div>
-          <button class="chat-close" aria-label="Dong chat" @click="closeChat">
+          <button class="chat-close" aria-label="Đóng chat" @click="closeChat">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -90,7 +90,7 @@
           <input
             v-model="inputText"
             type="text"
-            placeholder="Nhap cau hoi..."
+            placeholder="Nhập câu hỏi..."
             :disabled="isTyping"
             @keydown.enter.prevent="sendMessage"
           />
@@ -138,12 +138,12 @@ const fabStyle = computed(() => ({
 }))
 
 const suggestions = [
-  { id: 'guide', icon: '📖', label: 'Huong dan su dung phan mem', text: 'Huong dan toi su dung phan mem V-Shield' },
-  { id: 'admin', icon: '🔐', label: 'Admin co the lam gi?', text: 'Toi la Admin, toi co the lam gi tren V-Shield?' },
-  { id: 'baove', icon: '🛡️', label: 'Bao ve can lam gi?', text: 'Toi la Bao ve, can lam nhung gi khi truc cong?' },
-  { id: 'reception', icon: '🛎️', label: 'Le tan can biet', text: 'Toi la Le tan, can dung V-Shield nhu the nao?' },
-  { id: 'quanly', icon: '📊', label: 'Quan ly van hanh', text: 'Toi la Quan ly, cac chuc nang danh cho toi?' },
-  { id: 'manual', icon: '⌨️', label: 'Xu ly khi QR loi', text: 'Lam the nao de xu ly thu cong khi QR hoac camera loi?' },
+  { id: 'guide', icon: '📖', label: 'Hướng dẫn sử dụng phần mềm', text: 'Hướng dẫn tôi sử dụng phần mềm V-Shield' },
+  { id: 'admin', icon: '🔐', label: 'Admin có thể làm gì?', text: 'Tôi là Admin, tôi có thể làm gì trên V-Shield?' },
+  { id: 'baove', icon: '🛡️', label: 'Bảo vệ cần làm gì?', text: 'Tôi là Bảo vệ, cần làm những gì khi trực cổng?' },
+  { id: 'reception', icon: '🛎️', label: 'Lễ tân cần biết', text: 'Tôi là Lễ tân, cần dùng V-Shield như thế nào?' },
+  { id: 'quanly', icon: '📊', label: 'Quản lý vận hành', text: 'Tôi là Quản lý, các chức năng dành cho tôi?' },
+  { id: 'manual', icon: '⌨️', label: 'Xử lý khi QR lỗi', text: 'Làm thế nào để xử lý thủ công khi QR hoặc camera lỗi?' },
 ]
 
 function addMessage(role, text) {
@@ -261,7 +261,7 @@ function handleGuideResponse(userMessage) {
   const msg = userMessage.toLowerCase()
 
   if (msg.includes('huong dan') || msg.includes('cach dung') || msg.includes('su dung') || msg.includes('bat dau')) {
-    addMessage('ai', `📖 <strong>Hướng dẫn sử dụng V-Shield</strong><br><br>V-Shield là nền tảng kiểm soát ra vào thông minh với đầy đủ tính năng:<br><br>👉 <a href="/guide" class="chat-link">Mở Hướng dẫn sử dụng day du →</a><br><br>Trong hướng dẫn có:<br>• ✅ Tổng quan hệ thống<br>• ✅ Luồng hoạt động cho từng vai trò<br>• ✅ Danh mục tất cả trang chức năng<br>• ✅ Chi tiết nút bấm, ô nhập liệu từng màn hình<br>• ✅ Câu hỏi thường gặp`)
+    addMessage('ai', `📖 <strong>Hướng dẫn sử dụng V-Shield</strong><br><br>V-Shield là nền tảng kiểm soát ra vào thông minh với đầy đủ tính năng:<br><br>👉 <a href="/guide" class="chat-link">Mở Hướng dẫn sử dụng đầy đủ →</a><br><br>Trong hướng dẫn có:<br>• ✅ Tổng quan hệ thống<br>• ✅ Luồng hoạt động cho từng vai trò<br>• ✅ Danh mục tất cả trang chức năng<br>• ✅ Chi tiết nút bấm, ô nhập liệu từng màn hình<br>• ✅ Câu hỏi thường gặp`)
     return
   }
 
@@ -271,27 +271,27 @@ function handleGuideResponse(userMessage) {
   }
 
   if (msg.includes('bao ve') || msg.includes('baove') || msg.includes('truc cong')) {
-    addMessage('ai', `🛡️ <strong>Quyền hạn của Bao ve</strong><br><br>Bảo vệ có thể truy cập các chức năng:<br><br>• 📹 Giám sát camera trực tiếp<br>• 🔍 Tra cứu lịch sử vào/ra<br>• 📱 Xác thực QR động + biển số<br>• 🚪 Điều phối thông hành, cho qua thủ công có truy vết<br>• 🏪 Reception check-in khách<br>• ⚠️ Gửi yêu cầu xử lý ngoại lệ va duress<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luồng công việc chi tiết →</a>`)
+    addMessage('ai', `🛡️ <strong>Quyền hạn của Bảo vệ</strong><br><br>Bảo vệ có thể truy cập các chức năng:<br><br>• 📹 Giám sát camera trực tiếp<br>• 🔍 Tra cứu lịch sử vào/ra<br>• 📱 Xác thực QR động + biển số<br>• 🚪 Điều phối thông hành, cho qua thủ công có truy vết<br>• 🏪 Reception check-in khách<br>• ⚠️ Gửi yêu cầu xử lý ngoại lệ và duress<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luồng công việc chi tiết →</a>`)
     return
   }
 
   if (msg.includes('le tan') || msg.includes('reception')) {
-    addMessage('ai', `🛎️ <strong>Quyền hạn của Le tan</strong><br><br>Lễ tân có thể sử dụng:<br><br>• 🏪 Don tiep va check-in khách tai quay<br>• 🔎 Tra cứu khách còn trong khuôn viên hay đã quá giờ<br>• 🎒 Tìm đồ thất lạc và theo dõi việc trao trả<br>• 🚗 Kiểm tra xe khách còn trong bãi không<br>• 🛡️ Gọi Bảo vệ hỗ trợ khi có tình huống phát sinh<br>• 📋 Xem các màn hình cần thiết để hỗ trợ khách nhanh chóng<br><br>👉 <a href="/guide" class="chat-link">Xem hướng dẫn cho Lễ tân →</a>`)
+    addMessage('ai', `🛎️ <strong>Quyền hạn của Lễ tân</strong><br><br>Lễ tân có thể sử dụng:<br><br>• 🏪 Đón tiếp và check-in khách tại quầy<br>• 🔎 Tra cứu khách còn trong khuôn viên hay đã quá giờ<br>• 🎒 Tìm đồ thất lạc và theo dõi việc trao trả<br>• 🚗 Kiểm tra xe khách còn trong bãi không<br>• 🛡️ Gọi Bảo vệ hỗ trợ khi có tình huống phát sinh<br>• 📋 Xem các màn hình cần thiết để hỗ trợ khách nhanh chóng<br><br>👉 <a href="/guide" class="chat-link">Xem hướng dẫn cho Lễ tân →</a>`)
     return
   }
 
   if (msg.includes('quan ly') || msg.includes('quanly') || msg.includes('manager')) {
-    addMessage('ai', `📊 <strong>Quyền hạn của Quan ly</strong><br><br>Quản lý có thể:<br><br>• 📊 Dashboard tổng quan<br>• 📹 Giám sát camera & lich su<br>• 🚗 Quản lý phương tiện<br>• 📋 Báo cáo chấm công<br>• 🏢 Danh mục hệ thống<br>• ⚠️ Xem và xử lý ngoại lệ<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
+    addMessage('ai', `📊 <strong>Quyền hạn của Quản lý</strong><br><br>Quản lý có thể:<br><br>• 📊 Dashboard tổng quan<br>• 📹 Giám sát camera & lịch sử<br>• 🚗 Quản lý phương tiện<br>• 📋 Báo cáo chấm công<br>• 🏢 Danh mục hệ thống<br>• ⚠️ Xem và xử lý ngoại lệ<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
     return
   }
 
   if (msg.includes('thu cong') || msg.includes('camera loi') || msg.includes('qr loi') || msg.includes('khong doc')) {
-    addMessage('ai', `⌨️ <strong>Vận hành thủ công tại cổng</strong><br><br>1. Mở <a href="/gate-transit-monitor" class="chat-link">Control Room</a><br>2. Chọn làn và mở bảng quyết định<br>3. Chọn "Vận hành thủ công"<br>4. Nhap ho ten hoac biển số, ly do xac minh<br>5. Xác nhận cho qua<br><br>Hệ thống sẽ tạo sự kiện MANUAL_PASS cùng người thao tác và lý do để hậu kiểm.`)
+    addMessage('ai', `⌨️ <strong>Vận hành thủ công tại cổng</strong><br><br>1. Mở <a href="/gate-transit-monitor" class="chat-link">Trung tâm điều hành (Control Room)</a><br>2. Chọn làn và mở bảng quyết định<br>3. Chọn "Vận hành thủ công"<br>4. Nhập họ tên hoặc biển số, lý do xác minh<br>5. Xác nhận cho qua<br><br>Hệ thống sẽ tạo sự kiện MANUAL_PASS cùng người thao tác và lý do để hậu kiểm.`)
     return
   }
 
   if (msg.includes('qr') || msg.includes('ma')) {
-    addMessage('ai', `📱 <strong>QR động</strong><br><br>QR động là mã QR thay đổi theo chu kỳ (mặc định 30s), tăng cường bảo mật.<br><br><strong>Người dùng được cấp quyền:</strong> Đăng nhập → mở trang QR → giữ màn hình để quét tại cổng.<br><br><strong>Admin:</strong> Vao Tao QR động, nhap Employee ID, bam "Phat QR realtime".<br><br>👉 Vao <a href="/dynamic-qr-generator" class="chat-link">Tao QR động</a> ngay.`)
+    addMessage('ai', `📱 <strong>QR động</strong><br><br>QR động là mã QR thay đổi theo chu kỳ (mặc định 30s), tăng cường bảo mật.<br><br><strong>Người dùng được cấp quyền:</strong> Đăng nhập → mở trang QR → giữ màn hình để quét tại cổng.<br><br><strong>Admin:</strong> Vào Tạo QR động, nhập Employee ID, bấm "Phát QR realtime".<br><br>👉 Vào <a href="/dynamic-qr-generator" class="chat-link">Tạo QR động</a> ngay.`)
     return
   }
 
@@ -300,7 +300,7 @@ function handleGuideResponse(userMessage) {
     return
   }
 
-  addMessage('ai', `Xin chao! Toi co the giup gi cho ban?<br><br>Hay thu cac goi y ben duoi hoac go cau hoi cua ban:<br>• "Hướng dẫn sử dụng V-Shield"<br>• "Admin có the lam gi?"<br>• "Bao ve can lam gi?"<br>• "Cach tao QR động"<br>• "Xu ly the nao khi QR loi?"`)
+  addMessage('ai', `Xin chào! Tôi có thể giúp gì cho bạn?<br><br>Hãy thử các gợi ý bên dưới hoặc gõ câu hỏi của bạn:<br>• "Hướng dẫn sử dụng V-Shield"<br>• "Admin có thể làm gì?"<br>• "Bảo vệ cần làm gì?"<br>• "Cách tạo QR động"<br>• "Xử lý thế nào khi QR lỗi?"`)
 }
 
 function sendSuggestion(suggestion) {

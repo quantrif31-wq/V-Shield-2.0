@@ -1,11 +1,11 @@
 <template>
-  <div class="archive-page">
+  <div class="archive-page animate-in">
     <div class="archive-topbar">
       <div>
-        <h1>Luu tru video an ninh</h1>
-        <p>Loc nhanh theo camera, cong/khu vuc va moc thoi gian.</p>
+        <h1>Lưu trữ video an ninh</h1>
+        <p>Lọc nhanh theo camera, cổng/khu vực và mốc thời gian.</p>
       </div>
-      <button class="ghost-btn" @click="$router.back()">Quay lai</button>
+      <button class="ghost-btn" @click="$router.back()">Quay lại</button>
     </div>
 
     <section class="filter-panel">
@@ -21,7 +21,7 @@
         </label>
 
         <label class="field">
-          <span>Cong / Gate</span>
+          <span>Cổng / Gate</span>
           <select v-model="filters.gateId">
             <option value="">Tất cả cổng</option>
             <option v-for="gate in gateOptions" :key="gate.gateId" :value="String(gate.gateId)">
@@ -31,7 +31,7 @@
         </label>
 
         <label class="field">
-          <span>Loai camera</span>
+          <span>Loại camera</span>
           <select v-model="filters.cameraType">
             <option value="">Tất cả loại</option>
             <option v-for="type in cameraTypes" :key="type" :value="type">
@@ -41,34 +41,34 @@
         </label>
 
         <label class="field">
-          <span>Tu khoa</span>
-          <input v-model.trim="filters.search" type="text" placeholder="Ten camera, gate, khu vuc..." />
+          <span>Từ khóa</span>
+          <input v-model.trim="filters.search" type="text" placeholder="Tên camera, cổng, khu vực..." />
         </label>
 
         <label class="field">
-          <span>Tu ngay</span>
+          <span>Từ ngày</span>
           <input v-model="filters.from" type="date" />
         </label>
 
         <label class="field">
-          <span>Den ngay</span>
+          <span>Đến ngày</span>
           <input v-model="filters.to" type="date" />
         </label>
       </div>
 
       <div class="filter-actions">
-        <button class="primary-btn" @click="loadSegments(1)">Tim video</button>
-        <button class="ghost-btn" @click="resetFilters">Dat lai</button>
+        <button class="primary-btn" @click="loadSegments(1)">Tìm video</button>
+        <button class="ghost-btn" @click="resetFilters">Đặt lại</button>
       </div>
     </section>
 
     <section class="summary-strip">
       <article class="summary-card">
-        <span class="summary-kicker">Doan video</span>
+        <span class="summary-kicker">Đoạn video</span>
         <strong>{{ total }}</strong>
       </article>
       <article class="summary-card">
-        <span class="summary-kicker">Camera hien co</span>
+        <span class="summary-kicker">Camera hiện có</span>
         <strong>{{ cameras.length }}</strong>
       </article>
       <article class="summary-card">
@@ -96,9 +96,9 @@
         </div>
 
         <div class="segment-meta">
-          <span>Ket thuc: {{ formatDate(seg.endedAt) }}</span>
-          <span>Thoi luong: {{ formatDuration(seg.durationSeconds) }}</span>
-          <span>Dung luong: {{ formatBytes(seg.fileSizeBytes) }}</span>
+          <span>Kết thúc: {{ formatDate(seg.endedAt) }}</span>
+          <span>Thời lượng: {{ formatDuration(seg.durationSeconds) }}</span>
+          <span>Dung lượng: {{ formatBytes(seg.fileSizeBytes) }}</span>
         </div>
 
         <video
@@ -111,15 +111,15 @@
 
         <div class="segment-actions">
           <button class="primary-btn small" @click="toggleVideo(seg.segmentId)">
-            {{ showVideoId === seg.segmentId ? "An video" : "Xem video" }}
+            {{ showVideoId === seg.segmentId ? "Ẩn video" : "Xem video" }}
           </button>
-          <a class="ghost-btn small" :href="seg.storageUrl" target="_blank" rel="noreferrer">Mo file</a>
+          <a class="ghost-btn small" :href="seg.storageUrl" target="_blank" rel="noreferrer">Mở file</a>
         </div>
       </article>
     </section>
 
     <div v-if="totalPages > 1" class="pagination">
-      <button class="ghost-btn small" :disabled="page <= 1" @click="loadSegments(page - 1)">Trang truoc</button>
+      <button class="ghost-btn small" :disabled="page <= 1" @click="loadSegments(page - 1)">Trang trước</button>
       <span>Trang {{ page }} / {{ totalPages }}</span>
       <button class="ghost-btn small" :disabled="page >= totalPages" @click="loadSegments(page + 1)">Trang sau</button>
     </div>
@@ -280,7 +280,7 @@ onMounted(async () => {
   padding: 24px;
   background:
     radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28%),
-    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-default) 62%, var(--surface-app)) 0%, var(--surface-app) 100%);
 }
 
 .archive-topbar,
@@ -307,9 +307,9 @@ onMounted(async () => {
 .filter-panel,
 .summary-card,
 .segment-card {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  background: color-mix(in srgb, var(--surface-default) 92%, transparent);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-md);
   border-radius: 20px;
 }
 
@@ -332,7 +332,7 @@ onMounted(async () => {
 .archive-topbar p,
 .segment-head p {
   margin: 6px 0 0;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .filter-panel {
@@ -349,18 +349,18 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .field input,
 .field select {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   padding: 10px 12px;
   font: inherit;
-  color: #0f172a;
-  background: white;
+  color: var(--text-primary);
+  background: var(--surface-default);
 }
 
 .filter-actions,
@@ -388,7 +388,7 @@ onMounted(async () => {
 .summary-kicker {
   display: block;
   margin-bottom: 8px;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -396,7 +396,7 @@ onMounted(async () => {
 
 .summary-card strong {
   font-size: 24px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .segment-list {
@@ -419,20 +419,20 @@ onMounted(async () => {
 .badge {
   border-radius: 999px;
   padding: 8px 12px;
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--status-neutral-bg);
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 700;
 }
 
 .badge.time {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
 }
 
 .segment-meta {
   flex-wrap: wrap;
-  color: #475569;
+  color: var(--text-secondary);
   margin: 14px 0;
 }
 
@@ -451,17 +451,41 @@ onMounted(async () => {
   cursor: pointer;
   font-weight: 700;
   text-decoration: none;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, #0f766e 0%, #0891b2 100%);
-  color: white;
+  background: var(--accent-gradient);
+  color: var(--text-on-interactive);
 }
 
 .ghost-btn {
-  background: white;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
+  background: var(--surface-default);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.primary-btn:hover {
+  background: var(--accent-gradient-hover);
+  box-shadow: 0 10px 24px rgba(15, 124, 130, 0.22);
+  transform: translateY(-1px);
+}
+
+.ghost-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-color-hover);
+}
+
+.primary-btn:disabled,
+.ghost-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .small {
@@ -472,10 +496,10 @@ onMounted(async () => {
 .empty-state {
   padding: 48px 24px;
   text-align: center;
-  color: #64748b;
-  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-default) 90%, transparent);
   border-radius: 20px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--border-default);
 }
 
 @media (max-width: 768px) {

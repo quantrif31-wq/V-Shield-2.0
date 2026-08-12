@@ -2,41 +2,41 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Compliance</span>
-                <h1 class="page-title">Compliance Reports</h1>
+                <span class="panel-kicker">Tuân thủ</span>
+                <h1 class="page-title">Báo cáo tuân thủ</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" @click="runReport">Run Report</button>
-                <button class="btn btn-secondary" @click="loadReports">Refresh</button>
+                <button class="btn btn-primary" @click="runReport">Chạy báo cáo</button>
+                <button class="btn btn-secondary" @click="loadReports">Làm mới</button>
             </div>
         </div>
         <section class="ops-grid one">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Reports</span><h2 class="panel-title">Generated Reports</h2></div>
+                    <div><span class="panel-kicker">Báo cáo</span><h2 class="panel-title">Báo cáo đã tạo</h2></div>
                     <div class="panel-actions">
                         <select v-model="reportTypeFilter" @change="loadReports" class="form-select">
-                            <option value="">All Types</option>
-                            <option value="AccessReview">Access Review</option>
-                            <option value="TerminatedUserRevocation">Terminated User Revocation</option>
-                            <option value="VisitorLog">Visitor Log</option>
-                            <option value="EvidenceAccess">Evidence Access</option>
-                            <option value="PrivilegedAction">Privileged Action</option>
-                            <option value="AlarmSLA">Alarm SLA</option>
-                            <option value="DeviceHealth">Device Health</option>
+                            <option value="">Tất cả loại</option>
+                            <option value="AccessReview">Rà soát truy cập</option>
+                            <option value="TerminatedUserRevocation">Thu hồi quyền người nghỉ việc</option>
+                            <option value="VisitorLog">Nhật ký khách</option>
+                            <option value="EvidenceAccess">Truy cập bằng chứng</option>
+                            <option value="PrivilegedAction">Thao tác đặc quyền</option>
+                            <option value="AlarmSLA">SLA cảnh báo</option>
+                            <option value="DeviceHealth">Sức khỏe thiết bị</option>
                         </select>
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="reports.length === 0" class="empty-card">No compliance reports. Click "Run Report" to generate one.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="reports.length === 0" class="empty-card">Chưa có báo cáo tuân thủ. Nhấn "Chạy báo cáo" để tạo báo cáo mới.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Type</th><th>Period</th><th>Status</th><th>Output</th><th>Generated</th></tr></thead>
+                        <thead><tr><th>Loại</th><th>Kỳ</th><th>Trạng thái</th><th>Đầu ra</th><th>Đã tạo</th></tr></thead>
                         <tbody>
                             <tr v-for="r in reports" :key="r.complianceReportRunId">
-                                <td><span class="badge badge-info">{{ r.reportType }}</span></td>
+                                <td><span class="badge badge-info">{{ reportTypeLabel(r.reportType) }}</span></td>
                                 <td class="table-sub">{{ new Date(r.periodStartUtc).toLocaleDateString() }} — {{ new Date(r.periodEndUtc).toLocaleDateString() }}</td>
-                                <td><span class="badge badge-success">{{ r.status }}</span></td>
+                                <td><span class="badge badge-success">{{ statusLabel(r.status) }}</span></td>
                                 <td class="table-sub">{{ r.outputReference || '—' }}</td>
                                 <td class="table-sub">{{ new Date(r.createdAtUtc).toLocaleString() }}</td>
                             </tr>
@@ -56,6 +56,12 @@ const reports = ref([])
 const loading = ref(true)
 const reportTypeFilter = ref('')
 
+const reportTypeLabelMap = { AccessReview: 'Rà soát truy cập', TerminatedUserRevocation: 'Thu hồi quyền người nghỉ việc', VisitorLog: 'Nhật ký khách', EvidenceAccess: 'Truy cập bằng chứng', PrivilegedAction: 'Thao tác đặc quyền', AlarmSLA: 'SLA cảnh báo', DeviceHealth: 'Sức khỏe thiết bị' }
+function reportTypeLabel(value) { return reportTypeLabelMap[value] || value }
+
+const statusLabelMap = { Completed: 'Hoàn tất', Running: 'Đang chạy', Pending: 'Đang chờ', Failed: 'Lỗi', Generated: 'Đã tạo', Started: 'Đã khởi chạy' }
+function statusLabel(value) { return statusLabelMap[value] || value }
+
 async function loadReports() {
     loading.value = true
     try {
@@ -66,9 +72,9 @@ async function loadReports() {
 }
 
 async function runReport() {
-    const type = prompt('Report type (AccessReview, TerminatedUserRevocation, VisitorLog, EvidenceAccess, PrivilegedAction, AlarmSLA, DeviceHealth):', 'AccessReview')
+    const type = prompt('Loại báo cáo (AccessReview, TerminatedUserRevocation, VisitorLog, EvidenceAccess, PrivilegedAction, AlarmSLA, DeviceHealth):', 'AccessReview')
     if (!type) return
-    const days = prompt('Days to look back:', '30')
+    const days = prompt('Số ngày xem lại:', '30')
     if (!days) return
     const end = new Date()
     const start = new Date(end.getTime() - parseInt(days) * 86400000)
@@ -79,7 +85,7 @@ async function runReport() {
             periodEndUtc: end.toISOString()
         })
         await loadReports()
-    } catch { alert('Run report failed') }
+    } catch { alert('Không thể chạy báo cáo') }
 }
 
 onMounted(loadReports)

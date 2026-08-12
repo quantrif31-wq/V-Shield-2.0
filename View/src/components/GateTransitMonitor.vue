@@ -354,7 +354,7 @@
             <div class="settings-toggle-row">
               <div class="settings-toggle-text">
                 <span class="settings-toggle-name">Python đọc QR</span>
-                <span class="settings-toggle-desc">start/stop endpoint /qr (camera + worker)</span>
+                <span class="settings-toggle-desc">Bật/tắt endpoint /qr (camera + worker)</span>
               </div>
               <button
                 type="button"
@@ -373,14 +373,14 @@
                 :disabled="runtimeIsBusy('python_qr') || !runtimeEnabled('python_qr')"
                 @click="toggleRuntimeAutoStart('python_qr')"
               >
-                AutoStart: {{ runtimeAutoStart('python_qr') ? 'ON' : 'OFF' }}
+                Tự khởi động: {{ runtimeAutoStart('python_qr') ? 'BẬT' : 'TẮT' }}
               </button>
             </div>
 
             <div class="settings-toggle-row">
               <div class="settings-toggle-text">
                 <span class="settings-toggle-name">Python biển số</span>
-                <span class="settings-toggle-desc">API plate (camera on/off)</span>
+                <span class="settings-toggle-desc">API biển số (bật/tắt camera)</span>
               </div>
               <button
                 type="button"
@@ -399,13 +399,13 @@
                 :disabled="runtimeIsBusy('python_plate') || !runtimeEnabled('python_plate')"
                 @click="toggleRuntimeAutoStart('python_plate')"
               >
-                AutoStart: {{ runtimeAutoStart('python_plate') ? 'ON' : 'OFF' }}
+                Tự khởi động: {{ runtimeAutoStart('python_plate') ? 'BẬT' : 'TẮT' }}
               </button>
             </div>
 <div class="settings-toggle-row">
               <div class="settings-toggle-text">
-                <span class="settings-toggle-name">go2rtc stream gateway</span>
-                <span class="settings-toggle-desc">Dich vu stream WebRTC cho camera</span>
+                <span class="settings-toggle-name">Cổng gateway stream go2rtc</span>
+                <span class="settings-toggle-desc">Dịch vụ stream WebRTC cho camera</span>
               </div>
               <button
                 type="button"
@@ -424,14 +424,14 @@
                 :disabled="runtimeIsBusy('go2rtc') || !runtimeEnabled('go2rtc')"
                 @click="toggleRuntimeAutoStart('go2rtc')"
               >
-                AutoStart: {{ runtimeAutoStart('go2rtc') ? 'ON' : 'OFF' }}
+                Tự khởi động: {{ runtimeAutoStart('go2rtc') ? 'BẬT' : 'TẮT' }}
               </button>
             </div>
 
             <div class="settings-toggle-row">
               <div class="settings-toggle-text">
-                <span class="settings-toggle-name">cloudflared tunnel</span>
-                <span class="settings-toggle-desc">Public tunnel de publish stream</span>
+                <span class="settings-toggle-name">Tunnel cloudflared</span>
+                <span class="settings-toggle-desc">Tunnel công khai để publish stream</span>
               </div>
               <button
                 type="button"
@@ -450,7 +450,7 @@
                 :disabled="runtimeIsBusy('cloudflared') || !runtimeEnabled('cloudflared')"
                 @click="toggleRuntimeAutoStart('cloudflared')"
               >
-                AutoStart: {{ runtimeAutoStart('cloudflared') ? 'ON' : 'OFF' }}
+                Tự khởi động: {{ runtimeAutoStart('cloudflared') ? 'BẬT' : 'TẮT' }}
               </button>
             </div>
           </div>
@@ -472,7 +472,7 @@
 
             <div class="ip-row">
               <div class="ip-box">
-                <label>QR Camera URL</label>
+                <label>URL Camera QR</label>
                 <div class="search-box">
                   <input
                     v-model="cameraSearch[activeOpsLane.id + '-qr']"
@@ -494,11 +494,11 @@
               </div>
 
               <div class="ip-box">
-                <label>Plate Camera URL</label>
+                <label>URL Camera Biển số</label>
                 <div class="search-box">
                   <input
                     v-model="cameraSearch[activeOpsLane.id + '-plate']"
-                    placeholder="Tìm camera Plate..."
+                    placeholder="Tìm camera biển số..."
                     :disabled="activeOpsLane.loading"
                   />
 
@@ -765,10 +765,10 @@ export default {
       lanes: [
         {
   id: "lane1",
-  laneId: 1,
+  laneId: 131,
   name: "Làn 1",
   desc: "QR trên / Biển dưới",
-  gateId: 1,
+  gateId: 1177,
   direction: "IN",
   cameraId: null,
   loading: false,
@@ -778,10 +778,10 @@ export default {
 },
 {
   id: "lane2",
-  laneId: 2,
+  laneId: 132,
   name: "Làn 2",
   desc: "QR trên / Biển dưới",
-  gateId: 1,
+  gateId: 1177,
   direction: "OUT",
   cameraId: null,
   loading: false,

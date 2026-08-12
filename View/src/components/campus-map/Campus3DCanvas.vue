@@ -1037,21 +1037,21 @@ export default {
             const meta = []
 
             if (data.objectType === 'Site') {
-                meta.push(`${data.metrics?.buildings || 0} toa nha • ${data.metrics?.gates || 0} cong`)
+                meta.push(`${data.metrics?.buildings || 0} tòa nhà • ${data.metrics?.gates || 0} cổng`)
             } else if (data.objectType === 'Building') {
-                meta.push(`${data.floors || 1} tang • ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
-                if (properties.zone) meta.push(`Zone: ${properties.zone}`)
-                if (properties.level) meta.push(`Security level: ${properties.level}`)
+                meta.push(`${data.floors || 1} tầng • ${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
+                if (properties.zone) meta.push(`Khu vực: ${properties.zone}`)
+                if (properties.level) meta.push(`Mức an ninh: ${properties.level}`)
             } else if (data.objectType === 'GateMarker') {
                 if (gate) meta.push(`${gate.cameraCount || 0} camera • ${gate.recentAccessCount || 0} sự kiện / 5 phút`)
                 if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera đang ngoại tuyến`)
-                if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
+                if (gate?.lastAccessAt) meta.push(`Truy cập cuối: ${this.formatDateTime(gate.lastAccessAt)}`)
             } else if (data.objectType === 'ParkingArea') {
                 meta.push(`${Math.round(dimensions.width || 0)}m x ${Math.round(dimensions.length || 0)}m`)
             } else if (data.objectType === 'Path') {
-                meta.push(`Tuyen lien ket giua cac cum van hanh`)
+                meta.push(`Tuyến liên kết giữa các cụm vận hành`)
             } else if (data.objectType === 'Landmark') {
-                meta.push(`Moc canh quan / diem nhan nhan dien`)
+                meta.push(`Mốc cảnh quan / điểm nhận diện`)
             }
 
             return {
@@ -1060,7 +1060,7 @@ export default {
                 siteName: `${data.siteCode} • ${data.siteName}`,
                 detail: OBJECT_LABELS[data.objectType] || data.objectType,
                 meta,
-                status: gate ? `Tr?ng thái c?ng: ${gate.status}` : '',
+                status: gate ? `Trạng thái cổng: ${gate.status}` : '',
                 statusColor: this.statusColorHex(gate?.status || 'Normal'),
             }
         },
@@ -1079,7 +1079,7 @@ export default {
                     { label: 'BLD', value: data.metrics?.buildings || 0 },
                     { label: 'GATE', value: data.metrics?.gates || 0 }
                 )
-                meta.push('Cum van hanh / zone tong hop')
+                meta.push('Cụm vận hành / zone tổng hợp')
                 glyphClass = 'glyph-site'
                 waveLevel = Math.min(5, Math.max(2, data.metrics?.gates || 0))
             } else if (data.objectType === 'Building') {
@@ -1088,8 +1088,8 @@ export default {
                     { label: 'W', value: `${Math.round(dimensions.width || 0)}m` },
                     { label: 'L', value: `${Math.round(dimensions.length || 0)}m` }
                 )
-                if (properties.zone) meta.push(`Zone: ${properties.zone}`)
-                if (properties.level) meta.push(`Security level: ${properties.level}`)
+                if (properties.zone) meta.push(`Khu vực: ${properties.zone}`)
+                if (properties.level) meta.push(`Mức an ninh: ${properties.level}`)
                 glyphClass = 'glyph-building'
                 tone = properties.level === 'Critical' ? 'tone-danger' : properties.level === 'Restricted' ? 'tone-warn' : 'tone-calm'
                 waveLevel = properties.level === 'Critical' ? 5 : properties.level === 'Restricted' ? 4 : 3
@@ -1102,7 +1102,7 @@ export default {
                     )
                 }
                 if (gate?.offlineCameraCount) meta.push(`${gate.offlineCameraCount} camera đang ngoại tuyến`)
-                if (gate?.lastAccessAt) meta.push(`Truy cap cuoi: ${this.formatDateTime(gate.lastAccessAt)}`)
+                if (gate?.lastAccessAt) meta.push(`Truy cập cuối: ${this.formatDateTime(gate.lastAccessAt)}`)
                 glyphClass = 'glyph-gate'
                 tone = gate?.status === 'Offline' || gate?.status === 'Alarm'
                     ? 'tone-danger'

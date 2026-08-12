@@ -6,6 +6,8 @@
         <h1 class="page-title">Quản lý khách</h1>
       </div>
       <div class="header-actions">
+        <button class="btn btn-secondary" @click="showImportModal = true">Nhập dữ liệu</button>
+        <button class="btn btn-secondary" @click="showExportModal = true">Xuất dữ liệu</button>
         <button class="btn btn-secondary" @click="showFormTemplatesModal = true">Mẫu biểu</button>
       </div>
     </div>
@@ -129,13 +131,15 @@
           </div>
 
           <div class="form-row">
-            <div class="form-group">
-              <label>Tên khách</label>
-              <input v-model="form.fullName" type="text" />
+            <div class="form-group" :class="{ 'has-error': fieldErrors.fullName }">
+              <label>Tên khách <span class="req">*</span></label>
+              <input v-model="form.fullName" type="text" @input="fieldErrors.fullName = ''" />
+              <p v-if="fieldErrors.fullName" class="field-error" role="alert">{{ fieldErrors.fullName }}</p>
             </div>
-            <div class="form-group">
+            <div class="form-group" :class="{ 'has-error': fieldErrors.idCardNumber }">
               <label>CCCD</label>
-              <input v-model="form.idCardNumber" type="text" />
+              <input v-model="form.idCardNumber" type="text" @input="fieldErrors.idCardNumber = ''" />
+              <p v-if="fieldErrors.idCardNumber" class="field-error" role="alert">{{ fieldErrors.idCardNumber }}</p>
             </div>
           </div>
 
@@ -266,6 +270,9 @@
         </div>
       </div>
     </transition>
+
+    <ImportModal v-if="showImportModal" entity-type="GuestProfile" entity-display-name="Khách" @close="showImportModal = false" @import-complete="onImportComplete" />
+    <ExportModal v-if="showExportModal" entity-type="GuestProfile" entity-display-name="Khách" :available-columns="['GuestProfileId','FullName','Phone','DefaultLicensePlate','FaceImageUrl']" @close="showExportModal = false" />
   </div>
 </template>
 
@@ -273,6 +280,8 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { getAll as getEmployees } from '../services/employeeApi'
 import { deleteVisitorDirectoryItem, getVisitorAccessLogs, getVisitorDirectory, updateVisitorDirectoryItem } from '../services/guestProfileApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
 
 const isLoading = ref(true)
@@ -298,12 +307,18 @@ const parkingPermits = ref([])
 // Form Templates
 const showFormTemplatesModal = ref(false)
 const formTemplates = ref([])
+const showImportModal = ref(false)
+const showExportModal = ref(false)
 
 const form = reactive({
   fullName: '',
   idCardNumber: '',
   hostEmployeeId: null,
   ndaStatus: '',
+})
+const fieldErrors = reactive({
+  fullName: '',
+  idCardNumber: '',
 })
 const filters = reactive({
   hostEmployeeId: null,
@@ -362,6 +377,13 @@ const fetchRows = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+const onImportComplete = (result) => {
+  showImportModal.value = false
+  fetchRows()
+  const message = `${result.successCount} bản ghi thành công${result.errorCount ? `, ${result.errorCount} lỗi` : ''}`
+  formError.value = result.errorCount ? `Import hoàn tất có lỗi: ${message}` : `Import hoàn tất: ${message}`
 }
 
 const fetchEmployees = async () => {
@@ -432,6 +454,8 @@ const openModal = (item) => {
   form.hostEmployeeId = item.hostEmployeeId || null
   form.ndaStatus = item.ndaStatus || ''
   formError.value = ''
+  fieldErrors.fullName = ''
+  fieldErrors.idCardNumber = ''
   showModal.value = true
 }
 
@@ -443,15 +467,19 @@ const closeModal = () => {
   form.hostEmployeeId = null
   form.ndaStatus = ''
   formError.value = ''
+  fieldErrors.fullName = ''
+  fieldErrors.idCardNumber = ''
 }
 
 const handleSave = async () => {
   formError.value = ''
-  if (!editingId.value) return
-  if (!form.fullName.trim()) {
-    formError.value = 'Tên khách là bắt buộc.'
-    return
+  fieldErrors.fullName = form.fullName.trim() ? '' : 'Tên khách là bắt buộc.'
+  fieldErrors.idCardNumber = ''
+  if (form.idCardNumber.trim() && !/^\d{9,12}$/.test(form.idCardNumber.trim())) {
+    fieldErrors.idCardNumber = 'Số CCCD phải gồm 9–12 chữ số.'
   }
+  if (Object.values(fieldErrors).some((msg) => msg)) return
+  if (!editingId.value) return
 
   isSaving.value = true
   try {
@@ -572,14 +600,14 @@ onUnmounted(() => {
 <style scoped>
 .filters { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr auto; gap: 12px; align-items: end; margin-bottom: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: 12px; color: #51657b; font-weight: 600; }
-.field select, .combo-box input { width: 100%; min-height: 38px; border: 1px solid #cfe0ea; border-radius: 10px; padding: 8px 10px; background: #f8fcff; }
+.field label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.field select, .combo-box input { width: 100%; min-height: 38px; border: 1px solid var(--border-default); border-radius: 10px; padding: 8px 10px; background: var(--surface-subtle); transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast); }
 .combo-box { position: relative; }
-.combo-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; background: #ffffff; border: 1px solid #cfe0ea; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); max-height: 220px; overflow-y: auto; }
-.combo-item { padding: 10px 12px; cursor: pointer; font-size: 13px; color: #17304b; }
-.combo-item:hover { background: #eef7ff; }
+.combo-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface-default); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-sm); max-height: 220px; overflow-y: auto; }
+.combo-item { padding: 10px 12px; cursor: pointer; font-size: 13px; color: var(--text-primary); transition: background var(--transition-fast), color var(--transition-fast); }
+.combo-item:hover { background: var(--surface-hover); }
 .actions { display: flex; justify-content: flex-end; }
-.btn-subtle { border: 1px solid #cfe0ea; background: #fff; color: #1f3650; border-radius: 10px; padding: 8px 12px; }
-.template-item { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 6px; }
+.btn-subtle { border: 1px solid var(--border-default); background: var(--surface-default); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; }
+.template-item { padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; margin-bottom: 6px; }
 @media (max-width: 1100px) { .filters { grid-template-columns: 1fr; } .actions { justify-content: flex-start; } }
 </style>

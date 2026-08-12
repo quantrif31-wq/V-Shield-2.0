@@ -11,38 +11,69 @@
     <section v-for="term in terminals" :key="term.id" class="qrm-card">
       <div class="qrm-card-head">
         <div>
-          <div class="qrm-kicker">Station</div>
+          <div class="qrm-kicker">Trạm</div>
           <h2>{{ term.name }}</h2>
           <p>{{ term.desc }}</p>
         </div>
         <div class="qrm-status-pill" :class="statusPillClass(term)">{{ statusPillText(term) }}</div>
       </div>
 
+      <div class="qrm-gate-row">
+        <div class="qrm-field">
+          <label>Cổng / khu vực triển khai</label>
+          <select
+            v-model="term.gateId"
+            class="qrm-select"
+            :disabled="term.loading || gateLoading"
+            @change="onSelectGate(term)"
+          >
+            <option :value="null" disabled>{{ gateLoading ? 'Đang tải cổng...' : '-- Chọn cổng triển khai --' }}</option>
+            <option v-for="g in gates" :key="g.gateId" :value="g.gateId">
+              {{ g.gateName }} (ID: {{ g.gateId }}){{ g.location ? ' · ' + g.location : '' }}
+            </option>
+          </select>
+        </div>
+        <div class="qrm-gate-badge" :class="term.appliedGateId ? 'ok' : 'warn'">
+          <span class="qrm-gate-badge-label">Đang quản lý</span>
+          <strong>{{ term.appliedGateId ? (term.gateName || gateNameById(term.appliedGateId)) + ' (ID: ' + term.appliedGateId + ')' : 'Chưa chọn cổng' }}</strong>
+        </div>
+      </div>
+
       <div class="qrm-actions">
-        <button class="qrm-btn qrm-btn-main" :disabled="term.loading || !term.cameraIp" @click="startScanner(term)">
-          {{ term.loading ? "Đang xử lý..." : "Quét 1 lần" }}
+        <button
+          class="qrm-btn qrm-btn-main"
+          :disabled="term.loading || !term.appliedGateId || !term.cameraIp"
+          @click="term.continuousActive ? stopScanner(term) : startScanner(term)"
+        >
+          {{ term.loading ? "Đang xử lý..." : (term.continuousActive ? "Dừng quét" : "Bắt đầu quét") }}
         </button>
-        <button class="qrm-btn qrm-btn-off" :disabled="term.loading || !term.previewRunning" @click="stopScanner(term)">Tắt camera</button>
       </div>
 
       <div class="qrm-form-grid">
         <div class="qrm-field">
-          <label>Camera QR (ID: {{ term.cameraId || 'Trống' }})</label>
+          <label>Camera QR của cổng {{ term.appliedGateId ? gateNameById(term.appliedGateId) : '' }} (ID: {{ term.cameraId || 'Trống' }})</label>
           <div class="search-box">
-            <input v-model="cameraSearch[term.id]" placeholder="Tìm camera..." :disabled="term.loading" />
-            <div class="dropdown" v-if="cameraSearch[term.id]">
+            <input
+              v-model="cameraSearch[term.id]"
+              placeholder="Tìm camera..."
+              :disabled="term.loading || !term.appliedGateId"
+              @focus="cameraOpen[term.id] = true"
+              @blur="cameraOpen[term.id] = false"
+            />
+            <div class="dropdown" v-if="isDropVisible(term)">
               <div
-                v-for="cam in filterCameras(cameraSearch[term.id]).slice(0, 5)"
+                v-for="cam in dropdownMatches(term)"
                 :key="cam.cameraId"
-                @click="onChooseCamera(cam, term)"
                 class="dropdown-item"
+                @mousedown.prevent
+                @click="onChooseCamera(cam, term)"
               >
-                {{ cam.cameraName }} (ID: {{ cam.cameraId }})
+                {{ cam.cameraName }} (ID: {{ cam.cameraId }}){{ cam.gateName ? ' · ' + cam.gateName : '' }}
               </div>
             </div>
           </div>
           <div class="camera-verified" :class="term.cameraVerified ? 'ok' : 'warn'">
-            {{ term.cameraVerified ? 'Camera đã xác thực' : 'Chưa xác thực camera' }}
+            {{ !term.appliedGateId ? 'Hãy chọn cổng triển khai trước' : (term.cameraVerified ? 'Camera đã xác thực' : 'Chưa xác thực camera') }}
           </div>
         </div>
       </div>
@@ -70,6 +101,12 @@
 
           <div class="scan-overlay" v-if="term.previewRunning && term.permissionState === 'scanning'">
             Đang quét QR...
+          </div>
+          <div class="scan-overlay" v-else-if="term.previewRunning && term.sessionActive">
+            Đã quét — chờ mã mới
+          </div>
+          <div class="scan-overlay" v-else-if="term.previewRunning && term.continuousActive && !term.identityLabel && !term.scanSessionActive">
+            Sẵn sàng quét...
           </div>
         </div>
       </div>
@@ -111,7 +148,7 @@
             :disabled="runtimeIsBusy('python_qr') || !runtimeEnabled('python_qr')"
             @click="toggleRuntimeAutoStart('python_qr')"
           >
-            AutoStart: {{ runtimeAutoStart('python_qr') ? 'ON' : 'OFF' }}
+            Tự khởi động: {{ runtimeAutoStart('python_qr') ? 'BẬT' : 'TẮT' }}
           </button>
         </div>
 
@@ -135,14 +172,55 @@
         </div>
       </div>
     </div>
+
+    <div v-if="gateLockModal.open" class="gate-lock-mask" @click.self="cancelGateLock">
+      <div class="gate-lock-dialog" @click.stop>
+        <h3>Xác thực đổi cổng triển khai</h3>
+        <p class="gate-lock-hint">
+          Chuyển sang <strong>{{ gateLockModal.targetGateName }}</strong> (ID: {{ gateLockModal.targetGateId }}).
+          Nhập lại thông tin bảo mật của tài khoản hiện tại để xác nhận.
+        </p>
+        <div class="gate-lock-field">
+          <label>Mật khẩu</label>
+          <input
+            v-model="gateLockModal.password"
+            type="password"
+            placeholder="Nhập lại mật khẩu"
+            :disabled="gateLockModal.loading"
+            @keyup.enter="confirmGateLock"
+          />
+        </div>
+        <div class="gate-lock-field" v-if="gateLockModal.mfaRequired">
+          <label>Mã xác thực hai bước (6 số)</label>
+          <input
+            v-model="gateLockModal.mfaCode"
+            type="text"
+            placeholder="Mã từ ứng dụng xác thực"
+            :disabled="gateLockModal.loading"
+            @keyup.enter="confirmGateLock"
+          />
+        </div>
+        <div class="gate-lock-error" v-if="gateLockModal.error">{{ gateLockModal.error }}</div>
+        <div class="gate-lock-actions">
+          <button type="button" class="qrm-btn qrm-btn-off" :disabled="gateLockModal.loading" @click="cancelGateLock">Hủy</button>
+          <button type="button" class="qrm-btn qrm-btn-main" :disabled="gateLockModal.loading" @click="confirmGateLock">
+            {{ gateLockModal.loading ? 'Đang xác thực...' : 'Xác nhận' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import http from "../services/http";
 import { getCameras } from "../services/cameraRuntimeApi";
+import { getManualGates } from "../services/gateTransitApi";
 import { getRuntimeServices, startRuntimeService, stopRuntimeService, updateRuntimeService } from "../services/runtimeServiceApi";
 import { startQrScanner, resetQrSession, stopQrScanner, getQrScanResult, scanQrOnce } from "../services/dynamicQrScannerApi";
+import { loadViewPrefs, saveViewPrefs } from "../services/viewPrefs";
+
+const VIEW_PREFS_KEY = "QrAccessMonitor";
 
 const SCAN_TIMEOUT_MS = 6500;
 const IDLE_DOWNGRADE_MS = 25000;
@@ -154,7 +232,10 @@ export default {
   data() {
     return {
       cameras: [],
+      gates: [],
+      gateLoading: false,
       cameraSearch: {},
+      cameraOpen: {},
       showSettings: false,
       runtimeServices: [],
       runtimeBusy: {},
@@ -169,16 +250,32 @@ export default {
         loading: false,
         error: ""
       },
+      gateLockModal: {
+        open: false,
+        term: null,
+        targetGateId: null,
+        targetGateName: "",
+        prevGateId: null,
+        password: "",
+        mfaCode: "",
+        mfaRequired: false,
+        loading: false,
+        error: ""
+      },
       terminals: [
         {
           id: "term1",
           name: "Chốt đi bộ 1",
           desc: "Quét QR kiểm tra quyền truy cập",
           loading: false,
-        cameraIp: "",
-        viewUrl: "",
-        cameraId: null,
-        cameraVerified: false,
+          gateId: null,
+          gateName: "",
+          appliedGateId: null,
+          cameraIp: "",
+          viewUrl: "",
+          cameraId: null,
+          cameraName: "",
+          cameraVerified: false,
           previewRunning: false,
           previewKey: 0,
           resultTimer: null,
@@ -205,7 +302,10 @@ export default {
           holdLocked: false,
           emptyPollStreak: 0,
           holdPayload: "",
-          holdStartedAt: 0
+          holdStartedAt: 0,
+          continuousActive: false,
+          sessionActive: false,
+          lastLockedAt: 0
         }
       ]
     };
@@ -213,7 +313,9 @@ export default {
 
   async mounted() {
     await this.loadCameraList();
+    await this.loadGates();
     await this.fetchRuntimeServices();
+    this.restoreTermSetup(this.terminals[0]);
   },
 
   beforeUnmount() {
@@ -290,13 +392,200 @@ export default {
       }
     },
 
-    filterCameras(keyword) {
-      if (!keyword) return this.cameras;
+    async loadGates() {
+      this.gateLoading = true;
+      try {
+        const res = await getManualGates();
+        this.gates = res.data?.data && Array.isArray(res.data.data) ? res.data.data : [];
+      } catch (e) {
+        console.error("loadGates error", e);
+        this.gates = [];
+      } finally {
+        this.gateLoading = false;
+      }
+    },
+
+    gateNameById(gateId) {
+      if (!gateId) return "";
+      const gate = this.gates.find((g) => Number(g.gateId) === Number(gateId));
+      return gate ? gate.gateName : "";
+    },
+
+    // ===== Bộ nhớ setup theo user + view =====
+
+    persistTermSetup(term) {
+      saveViewPrefs(VIEW_PREFS_KEY, {
+        appliedGateId: term.appliedGateId || null,
+        gateName: term.gateName || this.gateNameById(term.appliedGateId) || "",
+        cameraId: term.cameraId || null,
+        cameraName: term.cameraName || "",
+        cameraIp: term.cameraIp || "",
+        viewUrl: term.viewUrl || "",
+        cameraVerified: !!term.cameraVerified
+      });
+    },
+
+    restoreTermSetup(term) {
+      const prefs = loadViewPrefs(VIEW_PREFS_KEY);
+      if (!prefs) return;
+
+      const gateId = Number(prefs.appliedGateId || 0);
+      const gate = gateId ? this.gates.find((g) => Number(g.gateId) === gateId) : null;
+      if (!gate) return;
+
+      term.appliedGateId = gateId;
+      term.gateId = gateId;
+      term.gateName = gate.gateName || "";
+
+      const cameraId = Number(prefs.cameraId || 0);
+      const cam = cameraId ? this.cameras.find((c) => Number(c.cameraId) === cameraId) : null;
+      if (cam && Number(cam.gateId || 0) === gateId) {
+        term.cameraId = cam.cameraId;
+        term.cameraName = cam.cameraName || "";
+        term.cameraIp = cam.streamUrl || prefs.cameraIp || "";
+        term.viewUrl = cam.urlView || prefs.viewUrl || "";
+        term.cameraVerified = true;
+        this.cameraSearch[term.id] = cam.cameraName || "";
+      } else if (prefs.cameraVerified) {
+        term.cameraId = null;
+        term.cameraName = "";
+        term.cameraIp = "";
+        term.viewUrl = "";
+        term.cameraVerified = false;
+        this.cameraSearch[term.id] = "";
+      }
+    },
+
+    onSelectGate(term) {
+      const target = Number(term.gateId || 0);
+      const applied = Number(term.appliedGateId || 0);
+      if (!target) {
+        term.gateId = applied || null;
+        return;
+      }
+      if (target === applied) return;
+
+      const gate = this.gates.find((g) => Number(g.gateId) === target);
+      this.gateLockModal = {
+        open: true,
+        term,
+        targetGateId: target,
+        targetGateName: gate ? gate.gateName : "",
+        prevGateId: applied || null,
+        password: "",
+        mfaCode: "",
+        mfaRequired: false,
+        loading: false,
+        error: ""
+      };
+      this.fetchGateLockMfaRequired();
+    },
+
+    async fetchGateLockMfaRequired() {
+      try {
+        const res = await http.get("/Auth/me");
+        this.gateLockModal.mfaRequired = !!res?.data?.mfaRequired;
+      } catch (e) {
+        this.gateLockModal.error = "Không lấy được trạng thái bảo mật của tài khoản.";
+      }
+    },
+
+    async confirmGateLock() {
+      const modal = this.gateLockModal;
+      if (modal.loading) return;
+      if (!String(modal.password || "").trim()) {
+        modal.error = "Vui lòng nhập lại mật khẩu.";
+        return;
+      }
+      if (modal.mfaRequired && !String(modal.mfaCode || "").trim()) {
+        modal.error = "Vui lòng nhập mã xác thực hai bước.";
+        return;
+      }
+      modal.loading = true;
+      modal.error = "";
+      try {
+        const startRes = await http.post("/Auth/step-up/start", {
+          action: "GateSelection",
+          reason: `Đổi cổng triển khai sang ${modal.targetGateName}`
+        });
+        const sessionId = startRes?.data?.sessionId;
+        if (!sessionId) throw new Error("Không tạo được phiên xác thực.");
+        await http.post("/Auth/step-up/verify", {
+          sessionId,
+          password: modal.password,
+          mfaCode: modal.mfaCode || null
+        });
+        this.applyGateChange(modal.term, modal.targetGateId, modal.targetGateName);
+        modal.open = false;
+      } catch (e) {
+        const status = Number(e?.response?.status || 0);
+        modal.error = status === 401 || status === 400
+          ? "Mật khẩu hoặc mã xác thực hai bước không đúng."
+          : (e?.response?.data?.message || e?.message || "Xác thực thất bại.");
+        modal.password = "";
+        modal.mfaCode = "";
+      } finally {
+        modal.loading = false;
+      }
+    },
+
+    applyGateChange(term, gateId, gateName) {
+      term.appliedGateId = gateId;
+      term.gateId = gateId;
+      term.gateName = gateName || this.gateNameById(gateId) || "";
+      if (term.previewRunning) {
+        this.stopScanner(term);
+      }
+      term.cameraId = null;
+      term.cameraVerified = false;
+      term.cameraIp = "";
+      term.viewUrl = "";
+      this.cameraSearch[term.id] = "";
+      this.clearScanState(term);
+      this.persistTermSetup(term);
+    },
+
+    cancelGateLock() {
+      const modal = this.gateLockModal;
+      if (modal.loading) return;
+      const term = modal.term;
+      if (term) term.gateId = modal.prevGateId;
+      modal.open = false;
+      modal.error = "";
+    },
+
+    filterCameras(keyword, term) {
+      const gateId = Number(term?.appliedGateId || 0);
+      const list = this.cameras.filter((c) => {
+        const cGate = Number(c.gateId || 0);
+        if (!gateId) return cGate === 0;
+        return cGate === gateId;
+      });
+      if (!keyword) return list;
       const key = String(keyword || "").toLowerCase();
-      return this.cameras.filter((c) =>
+      return list.filter((c) =>
         String(c.cameraName || "").toLowerCase().includes(key) ||
         String(c.cameraId || "").includes(key)
       );
+    },
+
+    dropdownMatches(term) {
+      return this.filterCameras(this.cameraSearch[term.id], term).slice(0, 5);
+    },
+
+    isDropVisible(term) {
+      if (!this.cameraOpen[term.id]) return false;
+      const list = this.dropdownMatches(term);
+      if (!list.length) return false;
+      if (
+        term.cameraVerified &&
+        term.cameraId &&
+        list.length === 1 &&
+        Number(list[0].cameraId) === Number(term.cameraId)
+      ) {
+        return false;
+      }
+      return true;
     },
 
     onChooseCamera(cam, term) {
@@ -311,6 +600,7 @@ export default {
         cameraName: cam.cameraName || "Camera",
         cameraIp: cam.streamUrl,
         viewUrl: cam.urlView,
+        gateId: term.appliedGateId || null,
         loading: false,
         error: ""
       };
@@ -332,7 +622,8 @@ export default {
       this.authModal.error = "";
       try {
         await http.post("/QrAccess/verify-camera-auth", {
-          CameraId: this.authModal.cameraId
+          CameraId: this.authModal.cameraId,
+          GateId: this.authModal.gateId || null
         });
 
         if (term.previewRunning) {
@@ -342,12 +633,14 @@ export default {
         term.cameraIp = this.authModal.cameraIp;
         term.viewUrl = this.authModal.viewUrl;
         term.cameraId = this.authModal.cameraId;
+        term.cameraName = this.authModal.cameraName || "";
         term.cameraVerified = true;
         term.permissionState = "idle";
         term.identityLabel = "";
         this.cameraSearch[term.id] = this.authModal.cameraName;
         this.authModal.open = false;
         this.authModal.error = "";
+        this.persistTermSetup(term);
       } catch (e) {
         this.authModal.error = e?.response?.data?.message || e?.message || "Xác thực thất bại.";
       } finally {
@@ -356,6 +649,10 @@ export default {
     },
 
     async startScanner(term) {
+      if (!term.appliedGateId) {
+        alert("Vui lòng chọn cổng / khu vực triển khai trước khi mở.");
+        return;
+      }
       if (!term.cameraId || !term.cameraVerified) {
         alert("Vui lòng chọn camera và xác thực mật khẩu trước khi mở.");
         return;
@@ -379,6 +676,7 @@ export default {
         }
 
         this.clearScanState(term);
+        term.continuousActive = true;
         this.ensureNormalPerf(term);
         term.lastDetectedAt = Date.now();
         this.startResultPolling(term);
@@ -392,6 +690,7 @@ export default {
 
     async stopScanner(term) {
       term.previewRunning = false;
+      term.continuousActive = false;
       this.stopResultPolling(term);
       this.stopSessionTimer(term);
       this.stopResultResetTimer(term);
@@ -424,6 +723,8 @@ export default {
       term.emptyPollStreak = 0;
       term.holdPayload = "";
       term.holdStartedAt = 0;
+      term.sessionActive = false;
+      term.lastLockedAt = 0;
     },
 
     ensureNormalPerf(term) {
@@ -509,7 +810,24 @@ export default {
         const res = await getQrScanResult();
         if (!res) return;
 
-        if (res.locked && res.qr && term.scanSessionActive) {
+        const inSession = !!res.session_active;
+        if (!inSession && term.sessionActive) {
+          this.resetResultDisplay(term);
+        }
+        term.sessionActive = inSession;
+
+        if (res.cooldown_payload) {
+          this.stopSessionTimer(term);
+          term.scanSessionActive = false;
+          return;
+        }
+
+        if (res.locked && res.qr) {
+          const lockedAt = Number(res.locked_at || 0);
+          const isNewLock = lockedAt !== Number(term.lastLockedAt || 0);
+          term.lastLockedAt = lockedAt;
+          if (!isNewLock) return;
+
           this.stopSessionTimer(term);
           term.scanSessionActive = false;
           term.sessionLocked = true;
@@ -525,12 +843,30 @@ export default {
       }
     },
 
+    resetResultDisplay(term) {
+      this.stopSessionTimer(term);
+      this.stopResultResetTimer(term);
+      term.scanSessionActive = false;
+      term.sessionLocked = false;
+      term.qrPayload = "";
+      term.verifiedId = "";
+      term.verifiedName = "";
+      term.verifiedType = "";
+      term.verifyMessage = "";
+      term.permissionState = "idle";
+      term.identityLabel = "";
+      term.lastResolvedPermissionState = "idle";
+      term.lastResolvedIdentityLabel = "";
+      term.lastResolvedVerifyMessage = "";
+    },
+
     async callApiScanAccess(term, payload) {
       term.loading = true;
       try {
         const reqData = {
           QrPayload: payload,
-          CameraId: term.cameraId
+          CameraId: term.cameraId,
+          GateId: term.appliedGateId || null
         };
 
         const res = await http.post("/QrAccess/scan-access", reqData);
@@ -587,6 +923,7 @@ export default {
       if (term.permissionState === "allow") return "CHO PHEP";
       if (term.permissionState === "deny") return "TỪ CHỐI";
       if (term.permissionState === "scanning") return "ĐANG QUÉT";
+      if (term.continuousActive) return "ĐANG CHẠY";
       return "SẴN SÀNG";
     },
 
@@ -626,6 +963,12 @@ export default {
 .qrm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .qrm-form-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+.qrm-gate-row { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 12px; margin-bottom: 12px; }
+.qrm-select { width: 100%; height: 44px; border: 1px solid #c5d4e6; border-radius: 12px; padding: 0 12px; font-size: 15px; outline: none; background: #f8fbff; }
+.qrm-gate-badge { display: grid; gap: 2px; justify-items: start; padding: 8px 14px; border-radius: 12px; font-size: 14px; }
+.qrm-gate-badge .qrm-gate-badge-label { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+.qrm-gate-badge.ok { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.qrm-gate-badge.warn { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
 .qrm-field label { display: block; font-size: 12px; font-weight: 800; margin-bottom: 6px; color: #2e4159; text-transform: uppercase; letter-spacing: .03em; }
 .qrm-field input { width: 100%; height: 44px; border: 1px solid #c5d4e6; border-radius: 12px; padding: 0 12px; font-size: 15px; outline: none; background: #f8fbff; }
 .camera-verified { margin-top: 8px; font-size: 12px; font-weight: 800; }
@@ -674,7 +1017,7 @@ export default {
 }
 
 .search-box { position: relative; }
-.dropdown { position: absolute; background: #fff; border: 1px solid #c6d5e8; border-radius: 10px; width: 100%; max-height: 220px; overflow-y: auto; z-index: 9999; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12); }
+.dropdown { background: #fff; border: 1px solid #c6d5e8; border-radius: 10px; width: 100%; max-height: 220px; overflow-y: auto; margin-top: 4px; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12); }
 .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; }
 .dropdown-item:hover { background: #edf4ff; }
 
@@ -706,8 +1049,20 @@ export default {
 .auth-error { margin-top: 8px; color: #b91c1c; font-size: 13px; font-weight: 700; }
 .auth-actions { margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px; }
 
+.gate-lock-mask { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.45); z-index: 270; display: grid; place-items: center; }
+.gate-lock-dialog { width: min(440px, 92vw); background: #fff; border: 1px solid #dbe5f1; border-radius: 14px; padding: 18px; box-shadow: 0 18px 42px rgba(2, 6, 23, 0.24); }
+.gate-lock-dialog h3 { margin: 0 0 8px; font-size: 21px; color: #0f172a; }
+.gate-lock-hint { margin: 0 0 14px; color: #475569; font-size: 13px; line-height: 1.5; }
+.gate-lock-field { margin-bottom: 12px; }
+.gate-lock-field label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 700; color: #334155; }
+.gate-lock-field input { width: 100%; height: 44px; border: 1px solid #c5d4e6; border-radius: 10px; padding: 0 12px; font-size: 15px; box-sizing: border-box; }
+.gate-lock-error { margin-top: 4px; color: #b91c1c; font-size: 13px; font-weight: 700; }
+.gate-lock-actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px; }
+
 @media (max-width: 900px) {
   .qrm-topbar { flex-direction: column; align-items: stretch; }
   .qrm-status-pill { min-width: 120px; }
+  .qrm-gate-row { grid-template-columns: 1fr; align-items: stretch; }
+  .qrm-gate-badge { justify-items: stretch; }
 }
 </style>

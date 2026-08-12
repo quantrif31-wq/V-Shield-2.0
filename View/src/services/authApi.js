@@ -15,3 +15,7 @@ export const refreshSession = (refreshToken) => {
 export const logoutApi = (refreshToken = null) => {
     return http.post('/Auth/logout', { refreshToken })
 }
+
+export const changePassword = (currentPassword, newPassword) => {
+    return http.post('/Auth/change-password', { currentPassword, newPassword })
+}

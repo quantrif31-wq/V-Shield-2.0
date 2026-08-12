@@ -142,6 +142,11 @@ object RetrofitClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
-    val apiService: ApiService = retrofit.create(ApiService::class.java)
+    val apiService: ApiService =
+        if (BuildConfig.DEMO_MODE) {
+            DemoApiService
+        } else {
+            retrofit.create(ApiService::class.java)
+        }
     private val refreshApiService: ApiService = refreshRetrofit.create(ApiService::class.java)
 }

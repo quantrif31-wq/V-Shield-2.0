@@ -2,37 +2,37 @@
   <section class="spatial-workspace">
     <div class="spatial-overview">
       <div>
-        <span class="section-kicker">Spatial Ops</span>
-        <h2>3D infrastructure control</h2>
+        <span class="section-kicker">Hạ tầng không gian</span>
+        <h2>Điều khiển hạ tầng 3D</h2>
         <p>
-          Manage real 3D objects, site maps, and device placements from one workspace so the campus model becomes
-          an operational asset instead of a static demo.
+          Quản lý đối tượng 3D thực tế, bản đồ khu vực và vị trí thiết bị từ một không gian làm việc duy nhất,
+          biến mô hình khuôn viên thành tài nguyên vận hành thay vì mô hình tĩnh trình diễn.
         </p>
       </div>
       <div class="spatial-actions">
         <select v-model.number="selectedSiteId" class="form-select">
-          <option :value="0">All sites</option>
+          <option :value="0">Tất cả khu vực</option>
           <option v-for="site in siteOptions" :key="site.siteId" :value="site.siteId">{{ site.name }}</option>
         </select>
-        <button type="button" class="btn btn-secondary" :disabled="loadingScene" @click="loadWorkspace">Refresh spatial data</button>
+        <button type="button" class="btn btn-secondary" :disabled="loadingScene" @click="loadWorkspace">Làm mới dữ liệu không gian</button>
       </div>
     </div>
 
     <div class="spatial-stat-grid">
       <article class="spatial-stat-card">
-        <span>Visible sites</span>
+        <span>Khu vực hiển thị</span>
         <strong>{{ filteredSceneSites.length }}</strong>
       </article>
       <article class="spatial-stat-card">
-        <span>3D objects</span>
+        <span>Đối tượng 3D</span>
         <strong>{{ filteredObjects.length }}</strong>
       </article>
       <article class="spatial-stat-card">
-        <span>Site maps</span>
+        <span>Bản đồ khu vực</span>
         <strong>{{ siteMaps.length }}</strong>
       </article>
       <article class="spatial-stat-card highlight">
-        <span>Placements</span>
+        <span>Vị trí</span>
         <strong>{{ placements.length }}</strong>
       </article>
     </div>
@@ -43,21 +43,21 @@
       <aside class="spatial-sidebar card-shell">
         <div class="panel-section-header compact">
           <div>
-            <span class="section-kicker">Objects</span>
-            <h3>3D scene inventory</h3>
+            <span class="section-kicker">Đối tượng</span>
+            <h3>Danh mục hiện trường 3D</h3>
           </div>
-          <button type="button" class="btn btn-xs btn-primary" @click="startNewObject()">+ New object</button>
+          <button type="button" class="btn btn-xs btn-primary" @click="startNewObject()">+ Đối tượng mới</button>
         </div>
 
         <div class="sidebar-toolbar">
           <select v-model="objectTypeFilter" class="form-select">
-            <option value="all">All object types</option>
+            <option value="all">Tất cả loại đối tượng</option>
             <option v-for="option in objectTypeOptions" :key="option" :value="option">{{ option }}</option>
           </select>
-          <input v-model="objectSearch" class="form-input" placeholder="Search object label..." />
+          <input v-model="objectSearch" class="form-input" placeholder="Tìm nhãn đối tượng..." />
         </div>
 
-        <div v-if="!filteredObjects.length" class="empty-card compact">No 3D objects in this filter yet.</div>
+        <div v-if="!filteredObjects.length" class="empty-card compact">Chưa có đối tượng 3D nào trong bộ lọc này.</div>
         <div v-else class="object-list">
           <button
             v-for="item in filteredObjects"
@@ -69,9 +69,9 @@
           >
             <div>
               <strong>{{ item.label }}</strong>
-              <span>{{ item.type }} • Site {{ resolveSiteName(item.siteId) }}</span>
+              <span>{{ item.type }} • Khu vực {{ resolveSiteName(item.siteId) }}</span>
             </div>
-            <span class="soft-chip" :class="item.isActive ? 'success' : 'muted'">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+            <span class="soft-chip" :class="item.isActive ? 'success' : 'muted'">{{ item.isActive ? 'Đang hoạt động' : 'Ngừng' }}</span>
           </button>
         </div>
       </aside>
@@ -80,12 +80,12 @@
         <div class="canvas-shell card-shell">
           <div class="panel-section-header compact">
             <div>
-              <span class="section-kicker">Preview</span>
-              <h3>Operational 3D model</h3>
+              <span class="section-kicker">Xem trước</span>
+              <h3>Mô hình 3D vận hành</h3>
             </div>
             <div class="toolbar-actions">
-              <button type="button" class="btn btn-xs btn-secondary" @click="focusSelectedSite">Focus site</button>
-              <button type="button" class="btn btn-xs btn-secondary" @click="fitScene">Fit scene</button>
+              <button type="button" class="btn btn-xs btn-secondary" @click="focusSelectedSite">Tập trung khu vực</button>
+              <button type="button" class="btn btn-xs btn-secondary" @click="fitScene">Vừa khung</button>
             </div>
           </div>
 
@@ -103,47 +103,47 @@
           <section class="card-shell form-card">
             <div class="panel-section-header compact">
               <div>
-                <span class="section-kicker">Editor</span>
-                <h3>{{ objectForm.id ? 'Update 3D object' : 'Create 3D object' }}</h3>
+                <span class="section-kicker">Trình biên soạn</span>
+                <h3>{{ objectForm.id ? 'Cập nhật đối tượng 3D' : 'Tạo đối tượng 3D' }}</h3>
               </div>
-              <span class="soft-chip">{{ objectForm.objectType || 'Object' }}</span>
+              <span class="soft-chip">{{ objectForm.objectType || 'Đối tượng' }}</span>
             </div>
 
             <div class="form-grid two">
               <label>
-                Site
+                Khu vực
                 <select v-model.number="objectForm.siteId" class="form-select">
                   <option v-for="site in siteOptions" :key="site.siteId" :value="site.siteId">{{ site.name }}</option>
                 </select>
               </label>
               <label>
-                Type
+                Loại
                 <select v-model="objectForm.objectType" class="form-select">
                   <option v-for="option in objectTypeOptions" :key="option" :value="option">{{ option }}</option>
                 </select>
               </label>
               <label>
-                Label
-                <input v-model="objectForm.label" class="form-input" placeholder="Main building, truck gate..." />
+                Nhãn
+                <input v-model="objectForm.label" class="form-input" placeholder="Tòa nhà chính, cổng xe tải..." />
               </label>
               <label>
-                Color
+                Màu
                 <input v-model="objectForm.color" class="form-input" placeholder="#0f766e" />
               </label>
               <label>
-                Width
+                Chiều rộng
                 <input v-model.number="objectForm.width" type="number" step="0.1" class="form-input" />
               </label>
               <label>
-                Length
+                Chiều dài
                 <input v-model.number="objectForm.length" type="number" step="0.1" class="form-input" />
               </label>
               <label>
-                Height
+                Chiều cao
                 <input v-model.number="objectForm.height" type="number" step="0.1" class="form-input" />
               </label>
               <label>
-                Floors
+                Số tầng
                 <input v-model.number="objectForm.floors" type="number" min="0" class="form-input" />
               </label>
             </div>
@@ -162,7 +162,7 @@
                 <input v-model.number="objectForm.positionY" type="number" step="0.1" class="form-input" />
               </label>
               <label>
-                Rotation
+                Xoay
                 <input v-model.number="objectForm.rotation" type="number" step="1" class="form-input" />
               </label>
             </div>
@@ -172,56 +172,56 @@
               <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('positionX', 2)">X +2</button>
               <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('positionZ', -2)">Z -2</button>
               <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('positionZ', 2)">Z +2</button>
-              <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('width', 1)">Width +1</button>
-              <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('length', 1)">Length +1</button>
+              <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('width', 1)">Rộng +1</button>
+              <button type="button" class="btn btn-xs btn-secondary" @click="nudgeObject('length', 1)">Dài +1</button>
             </div>
 
             <div class="form-grid two">
               <label>
-                Building ID
-                <input v-model="objectMeta.buildingId" class="form-input" placeholder="Optional" />
+                Mã tòa nhà
+                <input v-model="objectMeta.buildingId" class="form-input" placeholder="Không bắt buộc" />
               </label>
               <label>
-                Zone ID
-                <input v-model="objectMeta.zoneId" class="form-input" placeholder="Optional" />
+                Mã khu
+                <input v-model="objectMeta.zoneId" class="form-input" placeholder="Không bắt buộc" />
               </label>
               <label>
-                Access Point ID
-                <input v-model="objectMeta.accessPointId" class="form-input" placeholder="Optional" />
+                Mã điểm truy cập
+                <input v-model="objectMeta.accessPointId" class="form-input" placeholder="Không bắt buộc" />
               </label>
               <label>
-                Security Level
+                Mức bảo mật
                 <select v-model="objectMeta.level" class="form-select">
-                  <option value="">None</option>
-                  <option value="Normal">Normal</option>
-                  <option value="Restricted">Restricted</option>
-                  <option value="Critical">Critical</option>
+                  <option value="">Không</option>
+                  <option value="Normal">Bình thường</option>
+                  <option value="Restricted">Hạn chế</option>
+                  <option value="Critical">Nghiêm trọng</option>
                 </select>
               </label>
               <label class="wide-field">
-                Zone Label
-                <input v-model="objectMeta.zone" class="form-input" placeholder="Office zone, logistics, SOC..." />
+                Nhãn khu
+                <input v-model="objectMeta.zone" class="form-input" placeholder="Khu văn phòng, logistics, SOC..." />
               </label>
               <label class="wide-field">
-                Notes
-                <textarea v-model="objectMeta.note" class="form-input form-textarea" rows="3" placeholder="Operational notes for this object"></textarea>
+                Ghi chú
+                <textarea v-model="objectMeta.note" class="form-input form-textarea" rows="3" placeholder="Ghi chú vận hành cho đối tượng này"></textarea>
               </label>
             </div>
 
             <label class="toggle-row">
               <input v-model="objectForm.isActive" type="checkbox" />
-              <span>Object is active in the live scene</span>
+              <span>Đối tượng đang hoạt động trong hiện trường trực tiếp</span>
             </label>
 
             <div v-if="objectMessage" class="inline-message" :class="objectMessageType">{{ objectMessage }}</div>
 
             <div class="editor-actions">
               <button type="button" class="btn btn-primary" :disabled="savingObject" @click="saveObject">
-                {{ savingObject ? 'Saving...' : (objectForm.id ? 'Save object' : 'Create object') }}
+                {{ savingObject ? 'Đang lưu...' : (objectForm.id ? 'Lưu đối tượng' : 'Tạo đối tượng') }}
               </button>
-              <button type="button" class="btn btn-secondary" @click="startNewObject(objectForm.objectType)">Reset form</button>
+              <button type="button" class="btn btn-secondary" @click="startNewObject(objectForm.objectType)">Đặt lại biểu mẫu</button>
               <button v-if="objectForm.id" type="button" class="btn btn-danger" :disabled="deletingObject" @click="removeObject">
-                {{ deletingObject ? 'Deleting...' : 'Delete object' }}
+                {{ deletingObject ? 'Đang xóa...' : 'Xóa đối tượng' }}
               </button>
             </div>
           </section>
@@ -229,10 +229,10 @@
           <section class="card-shell form-card">
             <div class="panel-section-header compact">
               <div>
-                <span class="section-kicker">Maps</span>
-                <h3>Site maps & placements</h3>
+                <span class="section-kicker">Bản đồ</span>
+                <h3>Bản đồ khu vực & vị trí</h3>
               </div>
-              <button type="button" class="btn btn-xs btn-primary" @click="startNewMap">+ New map</button>
+              <button type="button" class="btn btn-xs btn-primary" @click="startNewMap">+ Bản đồ mới</button>
             </div>
 
             <div class="map-list">
@@ -248,67 +248,67 @@
                   <strong>{{ map.name }}</strong>
                   <span>{{ map.coordinateSystem }} • {{ map.assetReference }}</span>
                 </div>
-                <span class="soft-chip" :class="map.isActive ? 'success' : 'muted'">{{ map.isActive ? 'Active' : 'Inactive' }}</span>
+                <span class="soft-chip" :class="map.isActive ? 'success' : 'muted'">{{ map.isActive ? 'Đang hoạt động' : 'Ngừng' }}</span>
               </button>
             </div>
 
             <div class="form-grid two compact-top">
               <label>
-                Map name
-                <input v-model="mapForm.name" class="form-input" placeholder="Ground floor, campus lane map..." />
+                Tên bản đồ
+                <input v-model="mapForm.name" class="form-input" placeholder="Tầng trệt, bản đồ lối đi trong khuôn viên..." />
               </label>
               <label>
-                Coordinate system
+                Hệ tọa độ
                 <select v-model="mapForm.coordinateSystem" class="form-select">
-                  <option value="Normalized">Normalized</option>
-                  <option value="Absolute">Absolute</option>
+                  <option value="Normalized">Chuẩn hóa</option>
+                  <option value="Absolute">Tuyệt đối</option>
                 </select>
               </label>
               <label class="wide-field">
-                Asset reference
-                <input v-model="mapForm.assetReference" class="form-input" placeholder="Optional storage or drawing reference" />
+                Tham chiếu tài sản
+                <input v-model="mapForm.assetReference" class="form-input" placeholder="Tham chiếu kho lưu trữ hoặc bản vẽ (không bắt buộc)" />
               </label>
             </div>
 
             <label class="toggle-row">
               <input v-model="mapForm.isActive" type="checkbox" />
-              <span>Map is active for operational use</span>
+              <span>Bản đồ đang hoạt động cho công tác vận hành</span>
             </label>
 
             <div class="editor-actions compact-top">
               <button type="button" class="btn btn-primary" :disabled="savingMap" @click="saveMap">
-                {{ savingMap ? 'Saving...' : (mapForm.id ? 'Save map' : 'Create map') }}
+                {{ savingMap ? 'Đang lưu...' : (mapForm.id ? 'Lưu bản đồ' : 'Tạo bản đồ') }}
               </button>
-              <button type="button" class="btn btn-secondary" @click="startNewMap">Reset map</button>
+              <button type="button" class="btn btn-secondary" @click="startNewMap">Đặt lại bản đồ</button>
               <button v-if="mapForm.id" type="button" class="btn btn-danger" :disabled="deletingMap" @click="removeMap">
-                {{ deletingMap ? 'Deleting...' : 'Delete map' }}
+                {{ deletingMap ? 'Đang xóa...' : 'Xóa bản đồ' }}
               </button>
             </div>
 
             <div class="panel-section-header compact compact-top">
               <div>
-                <span class="section-kicker">Placements</span>
-                <h3>{{ selectedMapId ? 'Attach devices to selected map' : 'Choose a map first' }}</h3>
+                <span class="section-kicker">Vị trí</span>
+                <h3>{{ selectedMapId ? 'Gắn thiết bị vào bản đồ đã chọn' : 'Hãy chọn bản đồ trước' }}</h3>
               </div>
             </div>
 
             <div v-if="selectedMapId" class="form-grid two">
               <label>
-                Device
+                Thiết bị
                 <select v-model.number="placementForm.securityDeviceId" class="form-select">
-                  <option :value="null">Choose device</option>
+                  <option :value="null">Chọn thiết bị</option>
                   <option v-for="device in siteDevices" :key="device.securityDeviceId" :value="device.securityDeviceId">
                     {{ device.name }} • {{ device.deviceType }}
                   </option>
                 </select>
               </label>
               <label>
-                Icon type
+                Loại biểu tượng
                 <select v-model="placementForm.iconType" class="form-select">
-                  <option value="Device">Device</option>
+                  <option value="Device">Thiết bị</option>
                   <option value="Camera">Camera</option>
-                  <option value="Gate">Gate</option>
-                  <option value="Reader">Reader</option>
+                  <option value="Gate">Cổng</option>
+                  <option value="Reader">Đầu đọc</option>
                 </select>
               </label>
               <label>
@@ -323,11 +323,11 @@
 
             <div v-if="selectedMapId" class="editor-actions compact-top">
               <button type="button" class="btn btn-primary" :disabled="savingPlacement" @click="savePlacement">
-                {{ savingPlacement ? 'Saving...' : (placementForm.id ? 'Save placement' : 'Add placement') }}
+                {{ savingPlacement ? 'Đang lưu...' : (placementForm.id ? 'Lưu vị trí' : 'Thêm vị trí') }}
               </button>
-              <button type="button" class="btn btn-secondary" @click="resetPlacement">Reset placement</button>
+              <button type="button" class="btn btn-secondary" @click="resetPlacement">Đặt lại vị trí</button>
               <button v-if="placementForm.id" type="button" class="btn btn-danger" :disabled="deletingPlacement" @click="removePlacement">
-                {{ deletingPlacement ? 'Deleting...' : 'Delete placement' }}
+                {{ deletingPlacement ? 'Đang xóa...' : 'Xóa vị trí' }}
               </button>
             </div>
 
@@ -341,12 +341,12 @@
                 @click="selectPlacement(placement)"
               >
                 <div>
-                  <strong>{{ placement.securityDeviceName || placement.cameraName || `Placement #${placement.mapDevicePlacementId}` }}</strong>
+                  <strong>{{ placement.securityDeviceName || placement.cameraName || `Vị trí #${placement.mapDevicePlacementId}` }}</strong>
                   <span>{{ placement.iconType }} • ({{ placement.x }}, {{ placement.y }})</span>
                 </div>
               </button>
             </div>
-            <div v-else-if="selectedMapId" class="empty-card compact">No placements on this map yet.</div>
+            <div v-else-if="selectedMapId" class="empty-card compact">Chưa có vị trí nào trên bản đồ này.</div>
           </section>
         </div>
       </main>
@@ -476,7 +476,7 @@ async function loadWorkspace() {
     recentEvents.value = Array.isArray(realtimeRes.data?.recentEvents) ? realtimeRes.data.recentEvents : []
     await Promise.all([loadSiteMaps(), loadDevices()])
   } catch (error) {
-    workspaceError.value = error.response?.data?.message || 'Could not load spatial infrastructure data.'
+    workspaceError.value = error.response?.data?.message || 'Không thể tải dữ liệu hạ tầng không gian.'
   } finally {
     loadingScene.value = false
   }
@@ -525,7 +525,7 @@ async function loadPlacements() {
 }
 
 function resolveSiteName(siteId) {
-  return props.siteOptions.find((site) => site.siteId === siteId)?.name || siteId || 'Unknown'
+  return props.siteOptions.find((site) => site.siteId === siteId)?.name || siteId || 'Không xác định'
 }
 
 function focusSelectedSite() {
@@ -624,7 +624,7 @@ function nudgeObject(field, delta) {
 
 async function saveObject() {
   if (!objectForm.siteId || !objectForm.label.trim()) {
-    objectMessage.value = 'Site and object label are required.'
+    objectMessage.value = 'Khu vực và nhãn đối tượng là bắt buộc.'
     objectMessageType.value = 'error'
     return
   }
@@ -661,10 +661,10 @@ async function saveObject() {
       const saved = filteredObjects.value.find((item) => item.id === savedId)
       if (saved) selectObject(saved)
     }
-    objectMessage.value = objectForm.id ? '3D object updated.' : '3D object created.'
+    objectMessage.value = objectForm.id ? 'Đã cập nhật đối tượng 3D.' : 'Đã tạo đối tượng 3D.'
     objectMessageType.value = 'success'
   } catch (error) {
-    objectMessage.value = error.response?.data?.message || 'Could not save 3D object.'
+    objectMessage.value = error.response?.data?.message || 'Không thể lưu đối tượng 3D.'
     objectMessageType.value = 'error'
   } finally {
     savingObject.value = false
@@ -678,10 +678,10 @@ async function removeObject() {
     await deleteCampusSceneObject(objectForm.id)
     startNewObject(objectForm.objectType)
     await loadWorkspace()
-    objectMessage.value = '3D object deleted.'
+    objectMessage.value = 'Đã xóa đối tượng 3D.'
     objectMessageType.value = 'success'
   } catch (error) {
-    objectMessage.value = error.response?.data?.message || 'Could not delete 3D object.'
+    objectMessage.value = error.response?.data?.message || 'Không thể xóa đối tượng 3D.'
     objectMessageType.value = 'error'
   } finally {
     deletingObject.value = false
@@ -814,9 +814,9 @@ onMounted(async () => {
 .spatial-overview,
 .card-shell {
   border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: #fff;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-md);
 }
 
 .spatial-overview {
@@ -828,12 +828,12 @@ onMounted(async () => {
 
 .spatial-overview h2 {
   margin: 4px 0 8px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .spatial-overview p {
   margin: 0;
-  color: #5a6b80;
+  color: var(--text-secondary);
   line-height: 1.6;
   max-width: 760px;
 }
@@ -854,20 +854,20 @@ onMounted(async () => {
 .spatial-stat-card {
   padding: 16px 18px;
   border-radius: 20px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
 .spatial-stat-card span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 
 .spatial-stat-card strong {
   display: block;
   margin-top: 8px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 1.35rem;
 }
 
@@ -923,10 +923,18 @@ onMounted(async () => {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
   cursor: pointer;
   text-align: left;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.object-item:hover,
+.map-item:hover,
+.placement-item:hover {
+  border-color: var(--border-default);
+  background: var(--surface-hover);
 }
 
 .object-item.active,
@@ -940,13 +948,13 @@ onMounted(async () => {
 .map-item strong,
 .placement-item strong {
   display: block;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .object-item span,
 .map-item span,
 .placement-item span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 
@@ -980,7 +988,7 @@ onMounted(async () => {
 label {
   display: grid;
   gap: 8px;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 0.88rem;
 }
 
@@ -995,9 +1003,9 @@ label {
   min-height: 42px;
   padding: 0 14px;
   border-radius: 14px;
-  border: 1px solid #d8e1ea;
-  background: #f8fafc;
-  color: #0f172a;
+  border: 1px solid var(--border-default);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
 }
 
 .form-textarea {
@@ -1024,11 +1032,11 @@ label {
 }
 
 .inline-message.success {
-  color: #047857;
+  color: var(--status-success-text);
 }
 
 .inline-message.error {
-  color: #b91c1c;
+  color: var(--status-danger-text);
 }
 
 .empty-card.compact {

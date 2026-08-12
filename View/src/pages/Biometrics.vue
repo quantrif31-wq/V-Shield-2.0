@@ -2,7 +2,7 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Biometrics</span>
+                <span class="panel-kicker">Sinh trắc học</span>
                 <h1 class="page-title">Dữ liệu sinh trắc học</h1>
             </div>
             <div class="header-actions">
@@ -18,12 +18,12 @@
                 <span class="metric-note">Số nhân sự nội bộ hiện đang có trong hệ thống.</span>
             </article>
             <article class="metric-tile">
-                <span class="metric-label">File model</span>
+                <span class="metric-label">Tệp model</span>
                 <strong class="metric-value">{{ summary.totalModelFiles }}</strong>
                 <span class="metric-note">Tất cả model khuôn mặt đang lưu.</span>
             </article>
             <article class="metric-tile">
-                <span class="metric-label">File video</span>
+                <span class="metric-label">Tệp video</span>
                 <strong class="metric-value">{{ summary.totalVideoFiles }}</strong>
                 <span class="metric-note">Video huấn luyện đang có trong kho dữ liệu.</span>
             </article>
@@ -45,7 +45,7 @@
                 </div>
             </div>
 
-            <div v-if="isLoading" class="empty-card">Đang tải dữ liệu biometrics...</div>
+            <div v-if="isLoading" class="empty-card">Đang tải dữ liệu sinh trắc học...</div>
             <div v-else-if="employees.length === 0" class="empty-card">Không có nhân sự nào khớp với bộ lọc hiện tại.</div>
             <div v-else class="table-container">
                 <table class="data-table">
@@ -98,14 +98,14 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
-                    <span class="panel-kicker">Enterprise credentials</span>
-                    <h2 class="panel-title">Credential nhân viên canonical</h2>
+                    <span class="panel-kicker">Credential doanh nghiệp</span>
+                    <h2 class="panel-title">Credential chuẩn của nhân viên</h2>
                 </div>
                 <span class="soft-chip">{{ accessCredentials.length }} credential</span>
             </div>
             <div v-if="accessCredentials.length" class="table-container">
                 <table class="data-table">
-                    <thead><tr><th>Nhân viên</th><th>Loại</th><th>Stored / effective</th><th>Identifier</th><th>Hiệu lực</th></tr></thead>
+                    <thead><tr><th>Nhân viên</th><th>Loại</th><th>Lưu trữ / hiệu lực</th><th>Mã định danh</th><th>Hiệu lực</th></tr></thead>
                     <tbody>
                         <tr v-for="credential in accessCredentials" :key="credential.id">
                             <td>{{ credential.employeeName }}<div class="table-sub">ID {{ credential.employeeId }}</div></td>
@@ -123,14 +123,14 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
-                    <span class="panel-kicker">Face credential binding</span>
-                    <h2 class="panel-title">Liên kết danh tính khuôn mặt với enterprise credential</h2>
+                    <span class="panel-kicker">Liên kết credential khuôn mặt</span>
+                    <h2 class="panel-title">Liên kết danh tính khuôn mặt với credential doanh nghiệp</h2>
                 </div>
                 <span class="soft-chip">{{ faceCredentialBindings.length }} binding</span>
             </div>
             <div v-if="faceCredentialBindings.length" class="table-container">
                 <table class="data-table">
-                    <thead><tr><th>Nhân viên</th><th>Credential</th><th>Trạng thái</th><th>Identifier</th><th>Thời gian</th></tr></thead>
+                    <thead><tr><th>Nhân viên</th><th>Credential</th><th>Trạng thái</th><th>Mã định danh</th><th>Thời gian</th></tr></thead>
                     <tbody>
                         <tr v-for="binding in faceCredentialBindings" :key="binding.id">
                             <td>{{ binding.employeeName }}<div class="table-sub">ID {{ binding.employeeId }}</div></td>
@@ -150,7 +150,7 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
-                    <span class="panel-kicker">Controlled enrollment</span>
+                    <span class="panel-kicker">Enrollment có kiểm soát</span>
                     <h2 class="panel-title">Tạo model từ video đã quản lý</h2>
                 </div>
             </div>
@@ -173,7 +173,7 @@
             </div>
             <div v-if="selectedEmployeeId" class="chip-row">
                 <span class="soft-chip" :class="bindingReadiness === 'Ready' ? 'success' : 'warn'">
-                    Enterprise readiness: {{ bindingReadiness }}
+                    Sẵn sàng enterprise: {{ bindingReadiness }}
                 </span>
                 <span v-if="selectedEmployeeBinding" class="soft-chip">
                     Binding #{{ selectedEmployeeBinding.id }} · {{ selectedEmployeeBinding.credentialEffectiveStatus }}
@@ -188,16 +188,16 @@
                     <tbody>
                         <tr v-for="job in enrollmentJobs" :key="job.jobId">
                             <td>{{ job.employeeName }}<div class="table-sub">{{ formatDateTime(job.createdAtUtc) }}</div></td>
-                            <td><span class="soft-chip">{{ job.status }}</span><div class="table-sub">Attempt {{ job.attemptCount }}</div></td>
-                            <td>{{ job.usableFrameCount ?? '--' }} frame · {{ job.encodingCount ?? '--' }} encoding<div class="table-sub">Quality {{ job.qualityScore ?? '--' }} (metric nội bộ)</div></td>
+                            <td><span class="soft-chip">{{ job.status }}</span><div class="table-sub">Lần thử {{ job.attemptCount }}</div></td>
+                            <td>{{ job.usableFrameCount ?? '--' }} frame · {{ job.encodingCount ?? '--' }} encoding<div class="table-sub">Chất lượng {{ job.qualityScore ?? '--' }} (metric nội bộ)</div></td>
                             <td>
-                                <span v-if="job.duplicateSubjectId" class="soft-chip danger">Trùng subject {{ job.duplicateSubjectId }}</span>
+                                <span v-if="job.duplicateSubjectId" class="soft-chip danger">Trùng chủ thể {{ job.duplicateSubjectId }}</span>
                                 <div v-if="job.failureMessage" class="table-sub">{{ job.failureCode }}: {{ job.failureMessage }}</div>
                             </td>
                             <td class="chip-row">
-                                <button v-if="job.canActivate" class="btn btn-primary" @click="runJobAction(job, 'activate')">Activate</button>
-                                <button v-if="job.canCancel" class="btn btn-secondary" @click="runJobAction(job, 'cancel')">Cancel</button>
-                                <button v-if="job.canRetry" class="btn btn-secondary" @click="runJobAction(job, 'retry')">Retry</button>
+                                <button v-if="job.canActivate" class="btn btn-primary" @click="runJobAction(job, 'activate')">Kích hoạt</button>
+                                <button v-if="job.canCancel" class="btn btn-secondary" @click="runJobAction(job, 'cancel')">Hủy</button>
+                                <button v-if="job.canRetry" class="btn btn-secondary" @click="runJobAction(job, 'retry')">Thử lại</button>
                             </td>
                         </tr>
                     </tbody>
@@ -209,11 +209,11 @@
         <section class="ops-panel">
             <div class="panel-head">
                 <div>
-                    <span class="panel-kicker">Model lifecycle</span>
+                    <span class="panel-kicker">Vòng đời model</span>
                     <h2 class="panel-title">Trạng thái model khuôn mặt</h2>
                 </div>
                 <span class="soft-chip" :class="modelRuntimeUnavailable ? 'danger' : 'success'">
-                    {{ modelRuntimeUnavailable ? 'Runtime unavailable' : `Registry v${registryVersion || '--'}` }}
+                    {{ modelRuntimeUnavailable ? 'Runtime không khả dụng' : `Registry v${registryVersion || '--'}` }}
                 </span>
             </div>
             <div v-if="faceModels.length" class="table-container">
@@ -224,14 +224,14 @@
                             <th>Version / trạng thái</th>
                             <th>Encoding</th>
                             <th>Checksum</th>
-                            <th>Activated</th>
+                            <th>Đã kích hoạt</th>
                             <th>Registry</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="model in faceModels" :key="model.id">
                             <td>{{ model.employeeName }}<div class="table-sub">{{ model.modelFileName }}</div></td>
-                            <td>v{{ model.version || '--' }} · {{ model.status || 'Metadata missing' }}</td>
+                            <td>v{{ model.version || '--' }} · {{ model.status || 'Thiếu metadata' }}</td>
                             <td>{{ model.encodingCount || '--' }}</td>
                             <td><code>{{ model.checksumPrefix || '--' }}</code></td>
                             <td>{{ formatDateTime(model.activatedAtUtc) }}</td>
@@ -247,7 +247,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Recent models</span>
+                        <span class="panel-kicker">Model gần đây</span>
                         <h2 class="panel-title">Model mới nhất</h2>
                     </div>
                 </div>
@@ -258,7 +258,7 @@
                         <div class="surface-item-sub">{{ model.modelFileName }}</div>
                         <div class="chip-row">
                             <span class="soft-chip">{{ formatDateTime(model.createdAt) }}</span>
-                            <span class="soft-chip success">Protected artifact</span>
+                            <span class="soft-chip success">Tạo phẩm được bảo vệ</span>
                         </div>
                     </article>
                 </div>
@@ -268,7 +268,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Recent videos</span>
+                        <span class="panel-kicker">Video gần đây</span>
                         <h2 class="panel-title">Video mới nhất</h2>
                     </div>
                 </div>
@@ -279,7 +279,7 @@
                         <div class="surface-item-sub">{{ video.fileName }} - {{ formatFileSize(video.fileSize) }}</div>
                         <div class="chip-row">
                             <span class="soft-chip">{{ formatDateTime(video.createdAt) }}</span>
-                            <span class="soft-chip success">Protected artifact</span>
+                            <span class="soft-chip success">Tạo phẩm được bảo vệ</span>
                         </div>
                     </article>
                 </div>
@@ -481,6 +481,20 @@ onUnmounted(() => clearInterval(enrollmentTimer))
     grid-template-columns: 1fr 1fr auto;
     gap: 12px;
     margin-bottom: 18px;
+}
+
+.enrollment-controls select {
+    min-height: var(--control-height-md);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--surface-default);
+    color: var(--text-primary);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.enrollment-controls select:hover {
+    border-color: var(--border-strong);
 }
 
 @media (max-width: 1180px) {

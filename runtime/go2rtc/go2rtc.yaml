@@ -1,18 +1,12 @@
 streams:
-  cam12:
-    - rtsp://admin:L2E8D067@192.168.137.157:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
-    - ffmpeg:rtsp://admin:L2E8D067@192.168.137.157:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
-    - rtsp://admin:L2E8D067@192.168.137.157:554/cam/realmonitor?channel=1&subtype=1
-  cam13:
-    - rtsp://admin:L2E8D067@192.168.137.123:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
-    - ffmpeg:rtsp://admin:L2E8D067@192.168.137.123:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
-    - rtsp://admin:L2E8D067@192.168.137.123:554/cam/realmonitor?channel=1&subtype=1
+  cam1315:
+    - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
+    - ffmpeg:rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
+    - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1
 api:
   origin: "*"
 webrtc:
   listen: ":8555"
-  candidates:
-    - localhost:8555
   ice_servers:
     - urls:
         - stun:stun.l.google.com:19302

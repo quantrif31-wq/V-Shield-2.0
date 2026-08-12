@@ -12,4 +12,6 @@ public interface IAuthenticationService
     Task<MfaRecoveryCodeResponse?> GenerateRecoveryCodesAsync(int userId, int requestedCount, int? createdByUserId);
     bool IsLoginTemporarilyLocked(string? username);
     bool RequiresMfa(AppUser user);
+    bool RequiresPasswordChange(AppUser user);
+    Task<ChangePasswordResult> ChangePasswordAsync(int userId, string? currentPassword, string? newPassword);
 }

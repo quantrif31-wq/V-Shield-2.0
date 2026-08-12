@@ -1,5 +1,5 @@
 <template>
-  <div class="visitor-pass-page">
+  <div class="visitor-pass-page animate-in">
     <div class="card">
       <h1>Thẻ QR khách mời</h1>
       <p v-if="visitorName" class="sub">{{ visitorName }} <span v-if="visitorId">- ID {{ visitorId }}</span></p>
@@ -62,13 +62,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.visitor-pass-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #eef4f7; }
-.card { width: min(92vw, 520px); background: #fff; border: 1px solid #dbe7ef; border-radius: 18px; padding: 24px; text-align: center; box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08); }
-h1 { margin: 0 0 8px; font-size: 28px; color: #0f2747; }
-.sub { margin: 0 0 16px; color: #4a647b; }
+.visitor-pass-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--surface-app); }
+.card { width: min(92vw, 520px); background: var(--surface-default); border: 1px solid var(--border-subtle); border-radius: 18px; padding: 24px; text-align: center; box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08); }
+h1 { margin: 0 0 8px; font-size: 28px; color: var(--text-primary); }
+.sub { margin: 0 0 16px; color: var(--text-secondary); }
 .qr-wrap { display: grid; justify-items: center; gap: 12px; }
-canvas { border-radius: 12px; background: #fff; border: 1px solid #d6e2ec; }
-.hint { margin: 0; color: #5d748a; font-size: 14px; }
-.state { padding: 12px; color: #27445f; }
-.state.error { color: #b42318; background: #fff1f0; border: 1px solid #f4c7c3; border-radius: 10px; }
+canvas { border-radius: 12px; background: var(--surface-default); border: 1px solid var(--border-subtle); }
+.hint { margin: 0; color: var(--text-muted); font-size: 14px; }
+.state { padding: 12px; color: var(--text-secondary); }
+.state.error { color: var(--status-danger-text); background: var(--status-danger-bg); border: 1px solid var(--status-danger-border); border-radius: 10px; }
 </style>

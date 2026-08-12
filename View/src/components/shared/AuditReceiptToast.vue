@@ -7,13 +7,13 @@
           <div class="art-title">{{ title }}</div>
           <div class="art-message">{{ message }}</div>
           <div v-if="receiptId" class="art-receipt">
-            <span class="art-receipt-label">Receipt:</span>
+            <span class="art-receipt-label">Biên nhận:</span>
             <code class="art-receipt-id">{{ receiptId }}</code>
             <button
               v-if="showCopy"
               type="button"
               class="art-copy-btn"
-              title="Sao chép receipt ID"
+              title="Sao chép mã biên nhận"
               @click="copyReceipt"
             >
               {{ copied ? 'Đã sao chép' : 'Sao chép' }}

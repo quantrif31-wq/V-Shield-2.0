@@ -57,8 +57,11 @@ public interface IFaceRecognitionClient
         throw new NotSupportedException();
     Task<FaceRuntimeResponse> RevokeSubjectModelAsync(string subjectId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+    Task<FaceRuntimeResponse> LiveEnrollAsync(string subjectId, IReadOnlyList<string> images, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }
 
 public sealed record FacePrepareEnrollmentRequest(string SubjectId, string SourceReference);
 public sealed record FaceActivateEnrollmentRequest(
     string SubjectId, int Version, string ExpectedChecksum, string ExpectedModelFileName);
+public sealed record FaceLiveEnrollRequest(string SubjectId, IReadOnlyList<string> Images);

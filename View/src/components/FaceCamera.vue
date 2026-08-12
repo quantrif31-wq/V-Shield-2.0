@@ -8,7 +8,24 @@
       </div>
     </header>
 
-    <div class="face-monitor-grid">
+    <div class="page-tabs">
+      <button
+        class="page-tab"
+        :class="{ active: activeTab === 'monitor' }"
+        @click="switchTab('monitor')"
+      >
+        Giám sát FaceID
+      </button>
+      <button
+        class="page-tab"
+        :class="{ active: activeTab === 'enroll' }"
+        @click="switchTab('enroll')"
+      >
+        Thu thập mẫu nhận diện
+      </button>
+    </div>
+
+    <div class="face-monitor-grid" v-show="activeTab === 'monitor'">
       <!-- Left Column: Video Stream & Evidence -->
       <div class="monitor-left-col">
         <section class="card panel video-card">
@@ -22,13 +39,13 @@
               :key="directCameraKey"
               :src="directCameraUrl"
               class="video"
-              title="Camera Preview"
+              title="Xem trước camera"
               allow="autoplay; fullscreen"
               frameborder="0"
               @load="handleDirectPreviewLoaded"
             ></iframe>
             <div v-else class="video-off">
-              Camera Offline
+              Cam ngoại tuyến
             </div>
           </div>
         </section>
@@ -89,10 +106,10 @@
 
           <div v-if="selectedConfiguration" class="config-meta-box">
             <div class="meta-item"><span>Runtime ID:</span> <strong>{{ selectedConfiguration.runtimeCameraId }}</strong></div>
-            <div class="meta-item"><span>Lane:</span> <strong>{{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</strong></div>
-            <div class="meta-item"><span>Desired State:</span> <strong class="badge info">{{ selectedConfiguration.desiredState }}</strong></div>
-            <div class="meta-item"><span>Runtime Status:</span> <strong class="badge info">{{ selectedConfiguration.runtimeStatus }}</strong></div>
-            <div class="meta-item"><span>Sync Status:</span> <strong class="badge info">{{ selectedConfiguration.lastSyncStatus }}</strong></div>
+            <div class="meta-item"><span>Làn:</span> <strong>{{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</strong></div>
+            <div class="meta-item"><span>Trạng thái mong muốn:</span> <strong class="badge info">{{ selectedConfiguration.desiredState }}</strong></div>
+            <div class="meta-item"><span>Trạng thái thời gian thực:</span> <strong class="badge info">{{ selectedConfiguration.runtimeStatus }}</strong></div>
+            <div class="meta-item"><span>Trạng thái đồng bộ:</span> <strong class="badge info">{{ selectedConfiguration.lastSyncStatus }}</strong></div>
             <div class="meta-item auto-restore-row">
               <label class="auto-restore">
                 <input
@@ -150,7 +167,7 @@
           </div>
 
           <div v-if="modelInfo" class="model-status-box alert-info-soft">
-            <div><span>Model version:</span> <strong>{{ modelInfo.version }}</strong></div>
+            <div><span>Phiên bản model:</span> <strong>{{ modelInfo.version }}</strong></div>
             <div><span>Số model:</span> <strong>{{ modelInfo.modelCount }}</strong></div>
             <div><span>Số encoding:</span> <strong>{{ modelInfo.encodingCount }}</strong></div>
           </div>
@@ -206,32 +223,32 @@
 
           <div class="detail-state-list">
             <div class="detail-state-item">
-              <span>Face Match</span>
-              <strong>{{ faceMatch ? "Yes" : "No" }}</strong>
+              <span>Khớp khuôn mặt</span>
+              <strong>{{ faceMatch ? "Có" : "Không" }}</strong>
             </div>
 
             <div class="detail-state-item">
-              <span>Identity Confirmed</span>
-              <strong>{{ identityConfirmed ? "Yes" : "No" }}</strong>
+              <span>Đã xác nhận danh tính</span>
+              <strong>{{ identityConfirmed ? "Có" : "Không" }}</strong>
             </div>
 
             <div class="detail-state-item">
-              <span>Confirm Count</span>
+              <span>Số lần xác nhận</span>
               <strong>{{ confirmCount }}</strong>
             </div>
 
             <div class="detail-state-item">
-              <span>Distance</span>
+              <span>Khoảng cách</span>
               <strong>{{ distanceText }}</strong>
             </div>
 
             <div class="detail-state-item">
-              <span>Lock Reason</span>
+              <span>Lý do khóa</span>
               <strong>{{ lockReason || "-----" }}</strong>
             </div>
 
             <div class="detail-state-item">
-              <span>Bounding Box</span>
+              <span>Khung giới hạn</span>
               <strong class="font-mono">{{ bboxText }}</strong>
             </div>
 
@@ -250,7 +267,7 @@
     </div>
 
     <!-- History Sections -->
-    <section class="card panel history-section-card">
+    <section class="card panel history-section-card" v-show="activeTab === 'monitor'">
       <div class="panel-head flex-head">
         <div>
           <span class="panel-kicker">Nhật ký hệ thống</span>
@@ -258,7 +275,7 @@
         </div>
         <div class="history-badges-row">
           <span v-if="eventHistoryError" class="badge danger">
-            Runtime/collector unavailable
+            Trình thu thập/collector không khả dụng
           </span>
           <span v-if="collectorGap" class="badge warning">
             Lịch sử có thể bị thiếu
@@ -280,9 +297,9 @@
           <thead>
             <tr>
               <th>Thời gian</th>
-              <th>Camera / Lane</th>
+              <th>Camera / Làn</th>
               <th>Nhân viên</th>
-              <th>Distance</th>
+              <th>Khoảng cách</th>
               <th>Model</th>
               <th>Trạng thái</th>
             </tr>
@@ -308,7 +325,7 @@
       </div>
     </section>
 
-    <section class="card panel history-section-card">
+    <section class="card panel history-section-card" v-show="activeTab === 'monitor'">
       <div class="panel-head">
         <div>
           <span class="panel-kicker">Đánh giá chính sách</span>
@@ -319,10 +336,10 @@
         ⚠️ Kết quả so sánh chỉ phục vụ đánh giá chính sách. Không phải quyết định mở cổng.
       </div>
       <div class="comparison-summary-row">
-        <span class="soft-chip">Đồng thuận Allow: <strong>{{ comparisonSummary.agreeAllow || 0 }}</strong></span>
-        <span class="soft-chip">Đồng thuận Deny: <strong>{{ comparisonSummary.agreeDeny || 0 }}</strong></span>
-        <span class="soft-chip warn">Legacy Allow / Enterprise Deny: <strong>{{ comparisonSummary.legacyAllowEnterpriseDeny || 0 }}</strong></span>
-        <span class="soft-chip warn">Legacy Deny / Enterprise Allow: <strong>{{ comparisonSummary.legacyDenyEnterpriseAllow || 0 }}</strong></span>
+        <span class="soft-chip">Đồng thuận cho phép: <strong>{{ comparisonSummary.agreeAllow || 0 }}</strong></span>
+        <span class="soft-chip">Đồng thuận từ chối: <strong>{{ comparisonSummary.agreeDeny || 0 }}</strong></span>
+        <span class="soft-chip warn">Legacy cho phép / Enterprise từ chối: <strong>{{ comparisonSummary.legacyAllowEnterpriseDeny || 0 }}</strong></span>
+        <span class="soft-chip warn">Legacy từ chối / Enterprise cho phép: <strong>{{ comparisonSummary.legacyDenyEnterpriseAllow || 0 }}</strong></span>
         <span class="soft-chip">Không đủ dữ liệu: <strong>{{ comparisonSummary.indeterminate || 0 }}</strong></span>
       </div>
 
@@ -331,7 +348,7 @@
           <thead>
             <tr>
               <th>Thời gian</th>
-              <th>Camera / Gate / AP</th>
+              <th>Camera / Cổng / AP</th>
               <th>Legacy</th>
               <th>Enterprise</th>
               <th>So sánh</th>
@@ -353,10 +370,10 @@
       </div>
     </section>
 
-    <section class="card panel history-section-card">
+    <section class="card panel history-section-card" v-show="activeTab === 'monitor'">
       <div class="panel-head">
         <div>
-          <span class="panel-kicker">Audit</span>
+          <span class="panel-kicker">Nhật ký audit</span>
           <h2 class="panel-title">Quyết định truy cập Face ID</h2>
         </div>
       </div>
@@ -364,10 +381,10 @@
         ⚠️ Allowed chỉ là quyết định phần mềm phục vụ kiểm tra và audit. Không phải lệnh mở cổng.
       </div>
       <div class="comparison-summary-row">
-        <span class="soft-chip success">Allowed: <strong>{{ decisionSummary.allowed || 0 }}</strong></span>
-        <span class="soft-chip danger">Denied: <strong>{{ decisionSummary.denied || 0 }}</strong></span>
-        <span class="soft-chip warn">Review required: <strong>{{ decisionSummary.reviewRequired || 0 }}</strong></span>
-        <span class="soft-chip">Indeterminate: <strong>{{ decisionSummary.indeterminate || 0 }}</strong></span>
+        <span class="soft-chip success">Được phép: <strong>{{ decisionSummary.allowed || 0 }}</strong></span>
+        <span class="soft-chip danger">Bị từ chối: <strong>{{ decisionSummary.denied || 0 }}</strong></span>
+        <span class="soft-chip warn">Cần rà soát: <strong>{{ decisionSummary.reviewRequired || 0 }}</strong></span>
+        <span class="soft-chip">Không xác định: <strong>{{ decisionSummary.indeterminate || 0 }}</strong></span>
       </div>
 
       <div class="table-container">
@@ -375,7 +392,7 @@
           <thead>
             <tr>
               <th>Thời gian</th>
-              <th>Camera / Gate / AP</th>
+              <th>Camera / Cổng / AP</th>
               <th>Quyết định</th>
               <th>Lý do</th>
               <th>Đầu vào</th>
@@ -400,6 +417,133 @@
         </table>
       </div>
     </section>
+
+    <section class="card panel enroll-card" v-show="activeTab === 'enroll'">
+      <div class="panel-head flex-head">
+        <div>
+          <span class="panel-kicker">Enrollment</span>
+          <h2 class="panel-title">Quét khuôn mặt để thu thập mẫu nhận diện</h2>
+          <p class="panel-subtitle">
+            Bật webcam, quét khuôn mặt từ nhiều góc, sau đó lưu mẫu vào Face Runtime
+            để nhận diện thật trên camera.
+          </p>
+        </div>
+        <span class="badge info">Cần tối thiểu 10 khung có khuôn mặt rõ</span>
+      </div>
+
+      <div class="enroll-grid">
+        <div class="enroll-preview-col">
+          <div class="enroll-video-wrapper">
+            <video
+              v-if="enrollStream"
+              ref="enrollVideoRef"
+              class="enroll-video"
+              autoplay
+              playsinline
+              muted
+            ></video>
+            <div v-else class="enroll-video-off">
+              Bấm "Mở camera" để bật webcam
+            </div>
+          </div>
+
+          <div class="enroll-controls">
+            <label class="field-label">Thiết bị camera</label>
+            <select v-model="enrollDeviceId" class="filter-select" @change="handleEnrollDeviceChange" :disabled="enrollCapturing">
+              <option value="">Camera mặc định</option>
+              <option v-for="device in enrollDevices" :key="device.deviceId" :value="device.deviceId">
+                {{ device.label || device.deviceId }}
+              </option>
+            </select>
+
+            <div class="enroll-button-row">
+              <button class="btn btn-secondary" @click="initEnrollCamera" :disabled="enrollCapturing || !!enrollStream">
+                {{ enrollStream ? "Camera đang bật" : "Mở camera" }}
+              </button>
+              <button class="btn btn-primary" @click="handleStartEnroll" :disabled="!enrollStream || enrollCapturing || enrollSending">
+                Bắt đầu thu thập
+              </button>
+              <button class="btn btn-outline" @click="handleStopEnroll" :disabled="!enrollCapturing">
+                Dừng
+              </button>
+            </div>
+
+            <div v-if="enrollCapturing" class="enroll-progress">
+              <div class="enroll-progress-track">
+                <div class="enroll-progress-bar" :style="{ width: enrollProgressPercent + '%' }"></div>
+              </div>
+              <span>Đã thu: {{ enrollFrames.length }} / {{ enrollTarget }} khung</span>
+            </div>
+
+            <div v-if="enrollStreamError" class="service-error-box alert-danger-soft">
+              {{ enrollStreamError }}
+            </div>
+          </div>
+        </div>
+
+        <div class="enroll-form-col">
+          <label class="field-label">Mã nhân viên (Employee ID)</label>
+          <input
+            v-model.trim="enrollSubjectId"
+            type="number"
+            min="1"
+            class="form-input"
+            placeholder="VD: 1001"
+            :disabled="enrollSending"
+          />
+
+          <label class="field-label">Tên hiển thị (tùy chọn)</label>
+          <input
+            v-model.trim="enrollDisplayName"
+            type="text"
+            class="form-input"
+            placeholder="VD: Nguyễn Văn A"
+            :disabled="enrollSending"
+          />
+
+          <div class="enroll-submit-row">
+            <button
+              class="btn btn-primary"
+              :disabled="!enrollFrames.length || enrollSending || enrollCapturing"
+              @click="handleSubmitEnroll"
+            >
+              {{ enrollSending ? "Đang tạo model..." : "Hoàn tất & Lưu mẫu nhận diện" }}
+            </button>
+            <button
+              class="btn btn-outline"
+              :disabled="!enrollFrames.length || enrollSending || enrollCapturing"
+              @click="resetEnroll"
+            >
+              Xóa khung đã thu
+            </button>
+          </div>
+
+          <div v-if="enrollError" class="service-error-box alert-danger-soft">
+            {{ enrollError }}
+          </div>
+
+          <div v-if="enrollResult" class="enroll-result alert-success-soft">
+            <div><span>Mã nhân viên:</span> <strong>{{ enrollResult.subjectId }}</strong></div>
+            <div><span>Số mẫu dùng được:</span> <strong>{{ enrollResult.encodingCount }}</strong></div>
+            <div><span>Model file:</span> <strong class="font-mono">{{ enrollResult.modelFileName }}</strong></div>
+            <div><span>Phiên bản registry:</span> <strong>v{{ enrollResult.registryVersion }}</strong></div>
+            <div class="enroll-result-hint">
+              Đã kích hoạt model. Chuyển sang tab "Giám sát FaceID", bật camera rồi quét để kiểm tra nhận diện thật.
+            </div>
+          </div>
+
+          <div v-if="enrollFrames.length" class="enroll-thumbs">
+            <img
+              v-for="(frame, index) in enrollFrames"
+              :key="index"
+              :src="frame"
+              class="enroll-thumb"
+              alt="Face sample"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -412,6 +556,7 @@ import {
   getCameraResult,
   getLockedImages,
   getModels,
+  liveEnroll,
   normalizeFaceApiError,
   shouldStopFacePolling
 } from "../services/faceApi"
@@ -503,6 +648,21 @@ export default {
       accessDecisions: [],
       decisionSummary: {},
 
+      activeTab: "monitor",
+      enrollStream: null,
+      enrollDevices: [],
+      enrollDeviceId: "",
+      enrollStreamError: "",
+      enrollSubjectId: "",
+      enrollDisplayName: "",
+      enrollCapturing: false,
+      enrollSending: false,
+      enrollFrames: [],
+      enrollTarget: 30,
+      enrollTimer: null,
+      enrollResult: null,
+      enrollError: "",
+
       destroyed: false
     }
   },
@@ -563,6 +723,11 @@ export default {
       const num = Number(this.distance)
       if (Number.isNaN(num)) return "-----"
       return num.toFixed(4)
+    },
+
+    enrollProgressPercent() {
+      if (!this.enrollTarget) return 0
+      return Math.min(100, Math.round((this.enrollFrames.length / this.enrollTarget) * 100))
     }
   },
 
@@ -591,6 +756,7 @@ export default {
     this.stopResultLoop()
     this.stopEventHistoryLoop()
     this.resetDirectPreview()
+    this.releaseEnrollCamera()
   },
 
   activated() {
@@ -609,6 +775,8 @@ export default {
     // Pausing for keep-alive: stop timers but keep state
     this.stopResultLoop()
     this.stopEventHistoryLoop()
+    this.handleStopEnroll()
+    this.releaseEnrollCamera()
   },
 
   methods: {
@@ -1213,6 +1381,165 @@ export default {
           console.error('Lỗi khi thoát toàn màn hình:', error)
         }
       }
+    },
+
+    switchTab(tab) {
+      this.activeTab = tab
+      if (tab === "monitor") {
+        this.handleStopEnroll()
+        this.releaseEnrollCamera()
+      }
+    },
+
+    async loadEnrollDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        this.enrollDevices = devices.filter(device => device.kind === "videoinput")
+      } catch (error) {
+        console.warn("Không thể liệt kê camera:", error)
+      }
+    },
+
+    async initEnrollCamera() {
+      this.enrollStreamError = ""
+      if (!navigator.mediaDevices?.getUserMedia) {
+        this.enrollStreamError = "Trình duyệt không hỗ trợ webcam."
+        return
+      }
+      try {
+        await this.loadEnrollDevices()
+        const constraints = {
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            ...(this.enrollDeviceId ? { deviceId: { exact: this.enrollDeviceId } } : {})
+          },
+          audio: false
+        }
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        this.releaseEnrollCamera()
+        this.enrollStream = stream
+        this.$nextTick(() => {
+          const video = this.$refs.enrollVideoRef
+          if (video) {
+            video.srcObject = stream
+            video.play().catch(() => {})
+          }
+        })
+      } catch (error) {
+        this.enrollStreamError = "Không thể mở webcam: " + (error?.message || "lỗi không xác định")
+      }
+    },
+
+    async handleEnrollDeviceChange() {
+      if (!this.enrollStream) return
+      await this.initEnrollCamera()
+    },
+
+    releaseEnrollCamera() {
+      if (this.enrollStream) {
+        this.enrollStream.getTracks().forEach(track => track.stop())
+        this.enrollStream = null
+      }
+    },
+
+    captureEnrollFrame() {
+      const video = this.$refs.enrollVideoRef
+      if (!video || !video.videoWidth) return false
+
+      const width = Math.min(640, video.videoWidth || 640)
+      const height = Math.max(1, Math.round(width * (video.videoHeight / video.videoWidth)))
+
+      if (!this._enrollCanvas) {
+        this._enrollCanvas = document.createElement("canvas")
+      }
+      this._enrollCanvas.width = width
+      this._enrollCanvas.height = height
+      const context = this._enrollCanvas.getContext("2d")
+      context.drawImage(video, 0, 0, width, height)
+
+      const imageData = context.getImageData(0, 0, width, height).data
+      if (this._enrollPrevData) {
+        let diff = 0
+        for (let index = 0; index < imageData.length; index += 4000) {
+          diff += Math.abs(imageData[index] - this._enrollPrevData[index])
+        }
+        if (diff < 30) return false
+      }
+      this._enrollPrevData = imageData
+      this.enrollFrames.push(this._enrollCanvas.toDataURL("image/jpeg", 0.85))
+      return true
+    },
+
+    handleStartEnroll() {
+      if (!this.enrollStream) return
+      this.enrollFrames = []
+      this.enrollResult = null
+      this.enrollError = ""
+      this.enrollStreamError = ""
+      this._enrollPrevData = null
+      this.enrollCapturing = true
+      this.captureEnrollFrame()
+      this.enrollTimer = setInterval(() => {
+        if (this.destroyed) return
+        this.captureEnrollFrame()
+        if (this.enrollFrames.length >= this.enrollTarget) {
+          this.handleStopEnroll()
+        }
+      }, 250)
+    },
+
+    handleStopEnroll() {
+      if (this.enrollTimer) {
+        clearInterval(this.enrollTimer)
+        this.enrollTimer = null
+      }
+      this.enrollCapturing = false
+    },
+
+    resetEnroll() {
+      this.enrollFrames = []
+      this.enrollResult = null
+      this.enrollError = ""
+      this._enrollPrevData = null
+    },
+
+    async handleSubmitEnroll() {
+      if (!this.enrollSubjectId) {
+        this.enrollError = "Vui lòng nhập mã nhân viên (Employee ID)."
+        return
+      }
+      if (!this.enrollFrames.length) {
+        this.enrollError = "Chưa có khung hình nào được thu thập."
+        return
+      }
+
+      this.enrollSending = true
+      this.enrollError = ""
+      try {
+        const res = await liveEnroll(this.enrollSubjectId, this.enrollFrames)
+        this.enrollResult = {
+          subjectId: this.enrollSubjectId,
+          encodingCount: res?.encodingCount ?? "-----",
+          modelFileName: res?.modelFileName ?? "-----",
+          registryVersion: res?.registryVersion ?? "-----",
+          message: res?.message || ""
+        }
+        this.enrollFrames = []
+        this._enrollPrevData = null
+        this.enrollSubjectId = ""
+        this.enrollDisplayName = ""
+      } catch (error) {
+        const normalized = normalizeFaceApiError(error)
+        let message = normalized.message
+        const details = normalized.details
+        if (details && (details.noFaceCount !== undefined || details.encodingCount !== undefined)) {
+          message += ` (khung dùng được: ${details.encodingCount ?? 0}, không có mặt: ${details.noFaceCount ?? 0}, nhiều mặt: ${details.multipleFaceCount ?? 0}, lỗi: ${details.invalidFrameCount ?? 0})`
+        }
+        this.enrollError = message
+      } finally {
+        this.enrollSending = false
+      }
     }
   }
 }
@@ -1645,5 +1972,179 @@ export default {
 
 .video-wrapper:fullscreen .video-off {
   font-size: 3vw;
+}
+
+.page-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+}
+
+.page-tab {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.page-tab:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.page-tab.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+.enroll-card {
+  padding: 22px;
+}
+
+.panel-subtitle {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.enroll-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1024px) {
+  .enroll-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.enroll-preview-col,
+.enroll-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.enroll-video-wrapper {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: var(--border-radius, 12px);
+  overflow: hidden;
+  position: relative;
+}
+
+.enroll-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.enroll-video-off {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.enroll-button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.enroll-progress {
+  margin-top: 12px;
+}
+
+.enroll-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.enroll-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-primary);
+  transition: width 200ms ease;
+}
+
+.enroll-progress span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.enroll-submit-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.enroll-result {
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.enroll-result div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.enroll-result span {
+  color: var(--text-secondary);
+}
+
+.enroll-result-hint {
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+  font-weight: 600;
+}
+
+.alert-success-soft {
+  background: rgba(80, 190, 130, 0.1);
+  border: 1px solid rgba(80, 190, 130, 0.25);
+  color: var(--accent-success);
+}
+
+.enroll-thumbs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.enroll-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
 }
 </style>

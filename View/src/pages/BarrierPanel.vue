@@ -2,11 +2,11 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Infrastructure Control</span>
-                <h1 class="page-title">Barrier & Parking Control</h1>
+                <span class="panel-kicker">Kiểm soát hạ tầng</span>
+                <h1 class="page-title">Kiểm soát rào chắn & bãi đỗ</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" :disabled="loading" @click="loadAll">Refresh</button>
+                <button class="btn btn-secondary" :disabled="loading" @click="loadAll">Làm mới</button>
             </div>
         </div>
 
@@ -18,30 +18,30 @@
 
         <section v-if="activeTab === 'barriers'" class="ops-panel">
             <div class="panel-head">
-                <h2 class="panel-title">Barriers</h2>
-                <button class="btn btn-primary" @click="showAddBarrier = true">Add Barrier</button>
+                <h2 class="panel-title">Rào chắn</h2>
+                <button class="btn btn-primary" @click="showAddBarrier = true">Thêm rào chắn</button>
             </div>
-            <div v-if="loading" class="empty-card">Loading barriers...</div>
-            <div v-else-if="barriers.length === 0" class="empty-card">No barriers configured.</div>
+            <div v-if="loading" class="empty-card">Đang tải rào chắn...</div>
+            <div v-else-if="barriers.length === 0" class="empty-card">Chưa có rào chắn nào được cấu hình.</div>
             <div v-else class="table-container">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Name</th><th>Lane</th><th>State</th><th>Active</th><th>Actions</th></tr>
+                        <tr><th>Tên</th><th>Làn</th><th>Trạng thái</th><th>Hoạt động</th><th>Thao tác</th></tr>
                     </thead>
                     <tbody>
                         <tr v-for="b in barriers" :key="b.barrierId">
                             <td><strong>{{ b.name }}</strong></td>
                             <td>{{ b.lane?.name || '&mdash;' }}</td>
-                            <td><span class="soft-chip" :class="stateClass(b.state)">{{ b.state }}</span></td>
-                            <td>{{ b.isActive ? 'Yes' : 'No' }}</td>
+                            <td><span class="soft-chip" :class="stateClass(b.state)">{{ stateLabel(b.state) }}</span></td>
+                            <td>{{ b.isActive ? 'Có' : 'Không' }}</td>
                             <td>
                                 <div class="chip-row">
-                                    <button class="btn btn-sm btn-success" @click="sendCommand(b, 'Open')">Open</button>
-                                    <button class="btn btn-sm btn-secondary" @click="sendCommand(b, 'Close')">Close</button>
-                                    <button class="btn btn-sm btn-ghost" @click="sendCommand(b, 'HoldOpen')">Hold</button>
-                                    <button class="btn btn-sm btn-danger" @click="sendCommand(b, 'LockClosed')">Lock</button>
-                                    <button class="btn btn-sm btn-ghost" @click="simulateCommand(b)">Simulate</button>
-                                    <button class="btn btn-sm btn-ghost" @click="showHistory(b)">History</button>
+                                    <button class="btn btn-sm btn-success" @click="sendCommand(b, 'Open')">Mở</button>
+                                    <button class="btn btn-sm btn-secondary" @click="sendCommand(b, 'Close')">Đóng</button>
+                                    <button class="btn btn-sm btn-ghost" @click="sendCommand(b, 'HoldOpen')">Giữ</button>
+                                    <button class="btn btn-sm btn-danger" @click="sendCommand(b, 'LockClosed')">Khóa</button>
+                                    <button class="btn btn-sm btn-ghost" @click="simulateCommand(b)">Mô phỏng</button>
+                                    <button class="btn btn-sm btn-ghost" @click="showHistory(b)">Lịch sử</button>
                                 </div>
                             </td>
                         </tr>
@@ -52,26 +52,26 @@
 
         <section v-if="activeTab === 'parking'" class="ops-panel">
             <div class="panel-head">
-                <h2 class="panel-title">Parking Permits</h2>
-                <button class="btn btn-primary" @click="showAddPermit = true">Issue Permit</button>
+                <h2 class="panel-title">Giấy phép đỗ xe</h2>
+                <button class="btn btn-primary" @click="showAddPermit = true">Cấp phép</button>
             </div>
             <div class="toolbar-shell">
                 <div class="search-bar">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                     </svg>
-                    <input v-model="permitSearch" type="text" placeholder="Search by permit..." />
+                    <input v-model="permitSearch" type="text" placeholder="Tìm theo giấy phép..." />
                 </div>
                 <label class="checkbox-label">
-                    <input v-model="activeOnly" type="checkbox" @change="loadParking" /> Active only
+                    <input v-model="activeOnly" type="checkbox" @change="loadParking" /> Chỉ còn hiệu lực
                 </label>
             </div>
-            <div v-if="loadingParking" class="empty-card">Loading permits...</div>
-            <div v-else-if="permits.length === 0" class="empty-card">No parking permits.</div>
+            <div v-if="loadingParking" class="empty-card">Đang tải giấy phép...</div>
+            <div v-else-if="permits.length === 0" class="empty-card">Không có giấy phép đỗ xe.</div>
             <div v-else class="table-container">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Area</th><th>Vehicle</th><th>Type</th><th>Valid</th><th>Status</th></tr>
+                        <tr><th>Khu vực</th><th>Phương tiện</th><th>Loại</th><th>Hiệu lực</th><th>Trạng thái</th></tr>
                     </thead>
                     <tbody>
                         <tr v-for="p in permits" :key="p.parkingPermitId">
@@ -79,7 +79,7 @@
                             <td>{{ p.vehicle?.licensePlate || '&mdash;' }}</td>
                             <td>{{ p.permitType }}</td>
                             <td>{{ formatDate(p.validFromUtc) }} &rarr; {{ formatDate(p.validToUtc) }}</td>
-                            <td><span class="soft-chip" :class="p.isRevoked ? 'danger' : 'success'">{{ p.isRevoked ? 'Revoked' : 'Active' }}</span></td>
+                            <td><span class="soft-chip" :class="p.isRevoked ? 'danger' : 'success'">{{ p.isRevoked ? 'Đã thu hồi' : 'Đang hoạt động' }}</span></td>
                         </tr>
                     </tbody>
                 </table>
@@ -90,24 +90,24 @@
             <div v-if="commandTarget" class="modal-overlay" @click.self="cancelCommand">
                 <div class="modal-panel" style="max-width: 460px;">
                     <div class="modal-header">
-                        <h2>Barrier Command: {{ commandTarget.name }}</h2>
+                        <h2>Lệnh rào chắn: {{ commandTarget.name }}</h2>
                         <button class="btn-close" @click="cancelCommand">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <p>Send <strong>{{ pendingCommand }}</strong> to barrier <strong>{{ commandTarget.name }}</strong></p>
+                        <p>Gửi <strong>{{ commandLabel(pendingCommand) }}</strong> tới rào chắn <strong>{{ commandTarget.name }}</strong></p>
                         <div v-if="isHighRiskCommand" class="alert alert-warning" style="margin-bottom: 12px;">
-                            <strong>&#9888; High-risk command:</strong> {{ pendingCommand }} requires step-up authentication.
+                            <strong>&#9888; Lệnh rủi ro cao:</strong> {{ commandLabel(pendingCommand) }} yêu cầu xác thực nâng cấp.
                         </div>
                         <div class="form-group">
-                            <label>Reason *</label>
-                            <textarea v-model="commandReason" class="form-control" rows="2" placeholder="Required reason for this command"></textarea>
+                            <label>Lý do *</label>
+                            <textarea v-model="commandReason" class="form-control" rows="2" placeholder="Nhập lý do bắt buộc cho lệnh này"></textarea>
                         </div>
                         <div v-if="commandError" class="alert alert-danger">{{ commandError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="cancelCommand">Cancel</button>
+                        <button class="btn btn-secondary" @click="cancelCommand">Hủy bỏ</button>
                         <button class="btn btn-primary" :disabled="saving || !commandReason" @click="confirmCommand">
-                            {{ saving ? 'Sending...' : `Send ${pendingCommand}` }}
+                            {{ saving ? 'Đang gửi...' : `Gửi ${commandLabel(pendingCommand)}` }}
                         </button>
                     </div>
                 </div>
@@ -116,18 +116,18 @@
             <div v-if="historyBarrier" class="modal-overlay" @click.self="historyBarrier = null">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Command History: {{ historyBarrier.name }}</h2>
+                        <h2>Lịch sử lệnh: {{ historyBarrier.name }}</h2>
                         <button class="btn-close" @click="historyBarrier = null">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <div v-if="historyItems.length === 0" class="text-muted">No commands recorded.</div>
+                        <div v-if="historyItems.length === 0" class="text-muted">Chưa có lệnh nào được ghi nhận.</div>
                         <div v-else class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>Time</th><th>Command</th><th>Reason</th><th>Result</th></tr></thead>
+                                <thead><tr><th>Thời gian</th><th>Lệnh</th><th>Lý do</th><th>Kết quả</th></tr></thead>
                                 <tbody>
                                     <tr v-for="h in historyItems" :key="h.barrierCommandAuditId">
                                         <td>{{ formatDate(h.requestedAtUtc) }}</td>
-                                        <td><span class="soft-chip">{{ h.command }}</span></td>
+                                        <td><span class="soft-chip">{{ commandLabel(h.command) }}</span></td>
                                         <td>{{ h.reason }}</td>
                                         <td>{{ h.result }}</td>
                                     </tr>
@@ -136,27 +136,27 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="historyBarrier = null">Close</button>
+                        <button class="btn btn-secondary" @click="historyBarrier = null">Đóng</button>
                     </div>
                 </div>
             </div>
 
             <div v-if="showAddBarrier" class="modal-overlay" @click.self="showAddBarrier = false">
                 <div class="modal-panel" style="max-width: 440px;">
-                    <div class="modal-header"><h2>Add Barrier</h2><button class="btn-close" @click="showAddBarrier = false">&times;</button></div>
+                    <div class="modal-header"><h2>Thêm rào chắn</h2><button class="btn-close" @click="showAddBarrier = false">&times;</button></div>
                     <div class="modal-body">
-                        <div class="form-group"><label>Name *</label><input v-model="newBarrier.name" class="form-control" /></div>
-                        <div class="form-group"><label>Lane</label>
+                        <div class="form-group"><label>Tên *</label><input v-model="newBarrier.name" class="form-control" /></div>
+                        <div class="form-group"><label>Làn</label>
                             <select v-model="newBarrier.laneId" class="form-control">
-                                <option :value="null">&mdash; Select &mdash;</option>
+                                <option :value="null">&mdash; Chọn &mdash;</option>
                                 <option v-for="l in laneOptions" :key="l.laneId" :value="l.laneId">{{ l.name }}</option>
                             </select>
                         </div>
                         <div v-if="addBarrierError" class="alert alert-danger">{{ addBarrierError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showAddBarrier = false">Cancel</button>
-                        <button class="btn btn-primary" :disabled="saving" @click="submitBarrier">{{ saving ? 'Adding...' : 'Add' }}</button>
+                        <button class="btn btn-secondary" @click="showAddBarrier = false">Hủy bỏ</button>
+                        <button class="btn btn-primary" :disabled="saving" @click="submitBarrier">{{ saving ? 'Đang thêm...' : 'Thêm' }}</button>
                     </div>
                 </div>
             </div>
@@ -164,8 +164,8 @@
             <!-- Step-Up Modal -->
             <StepUpModal
                 :visible="stepUpVisible"
-                action-label="High-risk Barrier Command"
-                :action-description="'Confirm high-risk command: ' + pendingCommand + ' on barrier ' + (commandTarget?.name || '')"
+                action-label="Lệnh rào chắn rủi ro cao"
+                :action-description="'Xác nhận lệnh rủi ro cao: ' + commandLabel(pendingCommand) + ' trên rào chắn ' + (commandTarget?.name || '')"
                 severity="high"
                 :require-mfa="true"
                 @cancel="onStepUpCancelled"
@@ -228,9 +228,35 @@ const auditToast = ref({
 })
 
 const tabs = [
-    { id: 'barriers', label: 'Barriers' },
-    { id: 'parking', label: 'Parking' },
+    { id: 'barriers', label: 'Rào chắn' },
+    { id: 'parking', label: 'Bãi đỗ' },
 ]
+
+const commandLabels = {
+    Open: 'Mở',
+    Close: 'Đóng',
+    HoldOpen: 'Giữ mở',
+    LockClosed: 'Khóa đóng',
+    EmergencyRelease: 'Giải phóng khẩn cấp',
+    ForceOpen: 'Mở cưỡng bức',
+}
+
+const stateLabels = {
+    Open: 'Mở',
+    Closed: 'Đóng',
+    HeldOpen: 'Đang giữ mở',
+    LockedClosed: 'Khóa đóng',
+    Fault: 'Lỗi',
+    Unknown: 'Không xác định',
+}
+
+function commandLabel(c) {
+    return commandLabels[c] || c
+}
+
+function stateLabel(s) {
+    return stateLabels[s] || s
+}
 
 const isHighRiskCommand = computed(() => {
     return ['LockClosed', 'EmergencyRelease', 'ForceOpen'].includes(pendingCommand.value)
@@ -334,11 +360,11 @@ async function executeCommand() {
             commandTarget.value.state
 
         const receiptId = `BR-${Date.now()}`
-        showAuditToast('success', 'Command sent', `${pendingCommand.value} sent to ${commandTarget.value.name}`, receiptId)
+        showAuditToast('success', 'Đã gửi lệnh', `${commandLabel(pendingCommand.value)} đã được gửi tới ${commandTarget.value.name}`, receiptId)
         commandTarget.value = null
     } catch (e) {
         commandError.value = e.response?.data?.message || e.message
-        showAuditToast('danger', 'Command failed', commandError.value, '')
+        showAuditToast('danger', 'Gửi lệnh thất bại', commandError.value, '')
     } finally {
         saving.value = false
     }
@@ -366,9 +392,9 @@ async function simulateCommand(barrier) {
             command: 'Open',
             reason: 'Frontend simulation test',
         })
-        showAuditToast('info', 'Simulation', `${res.data?.simulatedCommand} -> ${res.data?.result}`, `SIM-${Date.now()}`)
+        showAuditToast('info', 'Mô phỏng', `${res.data?.simulatedCommand} -> ${res.data?.result}`, `SIM-${Date.now()}`)
     } catch (e) {
-        showAuditToast('danger', 'Simulation failed', e.response?.data?.message || e.message, '')
+        showAuditToast('danger', 'Mô phỏng thất bại', e.response?.data?.message || e.message, '')
     } finally {
         saving.value = false
     }
@@ -385,7 +411,7 @@ async function showHistory(barrier) {
 }
 
 async function submitBarrier() {
-    if (!newBarrier.value.name) { addBarrierError.value = 'Name is required.'; return }
+    if (!newBarrier.value.name) { addBarrierError.value = 'Tên là bắt buộc.'; return }
     addBarrierError.value = ''
     saving.value = true
     try {
@@ -406,3 +432,21 @@ async function submitBarrier() {
 
 onMounted(loadAll)
 </script>
+
+<style scoped>
+.tab-bar button {
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.tab-bar button:hover {
+    transform: translateY(-1px);
+}
+
+.btn-close {
+    transition: color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-close:hover {
+    transform: scale(1.12);
+}
+</style>

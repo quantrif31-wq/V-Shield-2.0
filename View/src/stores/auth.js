@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { login as loginApi, getMe, logoutApi as logoutApiRequest } from '../services/authApi'
+import { login as loginApi, getMe, logoutApi as logoutApiRequest, changePassword as changePasswordApi } from '../services/authApi'
 import { captureEvent } from '../services/observability'
 
 const AUTH_TOKEN_KEY = 'v_shield_token'
@@ -73,6 +73,7 @@ export async function login(username, password, mfaCode = null) {
         employeeId: data.employeeId,
         mfaEnabled: data.mfaEnabled,
         mfaRequired: data.mfaRequired,
+        requiresPasswordChange: !!data.requiresPasswordChange,
         hasOperationalScopeAssignments: !!data.hasOperationalScopeAssignments,
         operationalTaskKeys: data.operationalTaskKeys || [],
     }
@@ -80,7 +81,7 @@ export async function login(username, password, mfaCode = null) {
     writeAuthState(data.token, state.user, data.refreshToken)
     captureEvent('authentication_success', { role: data.role, mfaEnabled: !!data.mfaEnabled })
 
-    return { success: true }
+    return { success: true, requiresPasswordChange: !!data.requiresPasswordChange }
 }
 
 /** Đăng xuất */
@@ -109,6 +110,22 @@ export function hasRole(role) {
     return state.user?.role === role
 }
 
+/**
+ * Đổi mật khẩu tài khoản đang đăng nhập.
+ * Sau khi đổi thành công, gỡ cờ requiresPasswordChange để tiếp tục truy cập hệ thống.
+ */
+export async function changePassword(currentPassword, newPassword) {
+    await changePasswordApi(currentPassword, newPassword)
+
+    if (state.user) {
+        state.user.requiresPasswordChange = false
+        writeAuthState(state.token, state.user, state.refreshToken)
+    }
+
+    captureEvent('password_changed')
+    return true
+}
+
 /** Lấy thông tin user từ API (verify token) */
 export async function fetchUser() {
     try {
@@ -121,6 +138,7 @@ export async function fetchUser() {
             employeeId: res.data.employeeId,
             mfaEnabled: res.data.mfaEnabled,
             mfaRequired: res.data.mfaRequired,
+            requiresPasswordChange: !!res.data.requiresPasswordChange,
             hasOperationalScopeAssignments: !!res.data.hasOperationalScopeAssignments,
             operationalTaskKeys: res.data.operationalTaskKeys || [],
         }

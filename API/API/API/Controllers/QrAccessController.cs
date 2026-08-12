@@ -61,6 +61,12 @@ namespace API.Controllers
             var camera = verify.Camera;
             var gateId = camera.GateId!.Value;
 
+            // Cổng triển khai khai báo trên giao diện phải khớp với cổng gắn với camera đã chọn
+            if (request.GateId.HasValue && request.GateId.Value != gateId)
+            {
+                return BadRequest(GateTransitApiResponse.CreateError("Cổng triển khai đã chọn không khớp với cổng gắn với camera. Vui lòng chọn lại cổng hoặc camera."));
+            }
+
             // 3. Xác định danh tính (bám sát logic client gửi ID hoặc tự query bằng payload)
             int? targetEmployeeId = request.EmployeeId;
             int? targetVisitorId = request.VisitorDetailId;
@@ -130,10 +136,16 @@ namespace API.Controllers
                         return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {targetEmployeeId.Value}."));
                     subjectName = employee.FullName ?? "";
 
-                    var permission = await _context.EmployeeAccessPermissions
-                        .FirstOrDefaultAsync(p => p.EmployeeId == targetEmployeeId.Value && p.GateId == gateId);
+                    // Quyền ưu tiên: Admin/tài khoản/vai trò → quyền gạt tay nhân viên → kế thừa chức vụ
+                    bool? employeeAllowed = await ResolveEmployeeGateAccessAsync(employee, gateId);
+                    if (employeeAllowed == null && employee.PositionId.HasValue)
+                    {
+                        var positionPermission = await _context.PositionAccessPermissions
+                            .FirstOrDefaultAsync(p => p.PositionId == employee.PositionId.Value && p.GateId == gateId);
+                        employeeAllowed = positionPermission?.IsAllowed;
+                    }
 
-                    hasAccess = permission != null && permission.IsAllowed;
+                    hasAccess = employeeAllowed ?? false;
                 }
                 else if (targetVisitorId.HasValue)
                 {
@@ -242,6 +254,11 @@ namespace API.Controllers
                     return Unauthorized(GateTransitApiResponse.CreateError(verify.Message ?? "Khong the xac thuc camera."));
                 }
 
+                if (request.GateId.HasValue && request.GateId.Value != verify.Camera.GateId)
+                {
+                    return BadRequest(GateTransitApiResponse.CreateError("Cổng triển khai đã chọn không khớp với cổng gắn với camera. Vui lòng chọn lại cổng hoặc camera."));
+                }
+
                 return Ok(GateTransitApiResponse.CreateSuccess("Xac thuc camera thanh cong.", new
                 {
                     cameraId = verify.Camera.CameraId,
@@ -300,9 +317,16 @@ namespace API.Controllers
 
                     if (!deniedByGuard)
                     {
-                        var permission = await _context.EmployeeAccessPermissions
-                            .FirstOrDefaultAsync(p => p.EmployeeId == request.EmployeeId.Value && p.GateId == request.GateId);
-                        hasAccess = permission != null && permission.IsAllowed;
+                        // Quyền ưu tiên: Admin/tài khoản/vai trò → quyền gạt tay nhân viên → kế thừa chức vụ
+                        bool? employeeAllowed = await ResolveEmployeeGateAccessAsync(employee, request.GateId);
+                        if (employeeAllowed == null && employee.PositionId.HasValue)
+                        {
+                            var positionPermission = await _context.PositionAccessPermissions
+                                .FirstOrDefaultAsync(p => p.PositionId == employee.PositionId.Value && p.GateId == request.GateId);
+                            employeeAllowed = positionPermission?.IsAllowed;
+                        }
+
+                        hasAccess = employeeAllowed ?? false;
                     }
                 }
                 else if (request.VisitorDetailId.HasValue)
@@ -648,6 +672,47 @@ namespace API.Controllers
 
             return leftBytes.Length == rightBytes.Length &&
                    CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
+        }
+
+        /// <summary>
+        /// Giải quyết quyền qua cổng cho một nhân viên theo thứ tự ưu tiên:
+        /// Admin (luôn được vào) → quyền tường minh theo nhân viên → quyền riêng theo tài khoản
+        /// → quyền mặc định theo vai trò tài khoản. Trả null nếu chưa có quyết định
+        /// (gọi tiếp tục cho phép kế thừa theo chức vụ ở điểm gọi).
+        /// </summary>
+        private async Task<bool?> ResolveEmployeeGateAccessAsync(Employee employee, int gateId)
+        {
+            var appUser = employee.AppUser != null
+                ? employee.AppUser
+                : await _context.AppUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.EmployeeId == employee.EmployeeId);
+
+            if (appUser != null && string.Equals(appUser.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var explicitPermission = await _context.EmployeeAccessPermissions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.EmployeeId == employee.EmployeeId && p.GateId == gateId);
+            if (explicitPermission != null)
+                return explicitPermission.IsAllowed;
+
+            if (appUser != null)
+            {
+                var userGate = await _context.UserGateAccessPermissions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.UserId == appUser.UserId && p.GateId == gateId);
+                if (userGate != null)
+                    return userGate.IsAllowed;
+
+                var roleGate = await _context.RoleGateAccessPermissions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Role == appUser.Role && p.GateId == gateId);
+                if (roleGate != null)
+                    return roleGate.IsAllowed;
+            }
+
+            return null;
         }
     }
 }

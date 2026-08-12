@@ -2,7 +2,7 @@
     <div class="modal-overlay" @click.self="$emit('close')">
         <div class="modal-container import-modal">
             <header class="modal-header">
-                <h2>📥 Import {{ entityDisplayName }}</h2>
+                <h2>📥 Nhập {{ entityDisplayName }}</h2>
                 <button class="btn-icon" @click="$emit('close')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -63,7 +63,7 @@
                         </div>
                     </div>
                     <div v-if="previewResult.errors?.length" class="error-list">
-                        <div v-for="(err, i) in previewResult.errors.slice(0, 10)" :key="i" class="error-item">
+                        <div v-for="(err, i) in previewResult.errors" :key="i" class="error-item">
                             <span class="error-row">Dòng {{ err.row }}:</span>
                             <span>{{ err.message }}</span>
                         </div>
@@ -84,16 +84,17 @@
                         </div>
                     </div>
                     <div v-if="importResult.errors?.length" class="error-detail-section">
-                        <h4>Chi tiết lỗi</h4>
+                        <h4>Chi tiết lỗi theo dòng ({{ importResult.errors.length }})</h4>
                         <div class="error-table-wrap">
                             <table class="error-table">
                                 <thead>
-                                    <tr><th>Dòng</th><th>Cột</th><th>Lỗi</th></tr>
+                                    <tr><th>Dòng</th><th>Cột</th><th>Giá trị</th><th>Lỗi</th></tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(err, i) in importResult.errors.slice(0, 50)" :key="i">
+                                    <tr v-for="(err, i) in importResult.errors" :key="i">
                                         <td>{{ err.row }}</td>
                                         <td>{{ err.column || '—' }}</td>
+                                        <td>{{ err.value || '—' }}</td>
                                         <td>{{ err.message }}</td>
                                     </tr>
                                 </tbody>
@@ -128,7 +129,7 @@
                         :disabled="loading || importLoading"
                         @click="doImport"
                     >
-                        {{ importLoading ? 'Đang Import...' : '📥 Import' }}
+                        {{ importLoading ? 'Đang nhập...' : '📥 Nhập' }}
                     </button>
                     <button
                         v-if="aiPreviewVisible"
@@ -136,7 +137,7 @@
                         :disabled="importLoading"
                         @click="doAiImport"
                     >
-                        {{ importLoading ? 'Đang Import...' : '✅ Xác nhận & Import' }}
+                        {{ importLoading ? 'Đang nhập...' : '✅ Xác nhận & Nhập' }}
                     </button>
                 </div>
             </footer>
@@ -207,9 +208,9 @@ const resultIcon = computed(() => {
 
 const resultTitle = computed(() => {
     if (!importResult.value) return ''
-    if (importResult.value.errorCount === 0) return 'Import thành công!'
-    if (importResult.value.successCount > 0) return 'Import hoàn tất (có lỗi)'
-    return 'Import thất bại'
+    if (importResult.value.errorCount === 0) return 'Nhập thành công!'
+    if (importResult.value.successCount > 0) return 'Nhập hoàn tất (có lỗi)'
+    return 'Nhập thất bại'
 })
 
 function onFileSelected(file) {
@@ -263,7 +264,7 @@ async function startAiFlow() {
             // Step 2: OCR
             await runOcrFlow(analysis)
         } else if (analysis.suggestedAction === 'normalize' || analysis.suggestedAction === 'import') {
-            aiMessage.value = `File ${analysis.detectedFormat.toUpperCase()} đã được đọc thành công (${analysis.totalRows} rows)`
+            aiMessage.value = `File ${analysis.detectedFormat.toUpperCase()} đã được đọc thành công (${analysis.totalRows} dòng)`
             aiMessageType.value = 'success'
 
             // Step 3: Normalize
@@ -293,11 +294,11 @@ async function runOcrFlow(analysis) {
     ocrStatus.value = 'processing'
 
     // Step animation
-    ocrSteps.value = ['✓ Phân tích', 'Đang trích xuất...', 'Queued', 'Queued']
+    ocrSteps.value = ['✓ Phân tích', 'Đang trích xuất...', 'Đang chờ xử lý', 'Đang chờ xử lý']
     ocrCurrentStep.value = 1
     await sleep(500)
 
-    ocrSteps.value = ['✓ Phân tích', 'Đang trích xuất...', 'Đang phân tích ngữ nghĩa...', 'Queued']
+    ocrSteps.value = ['✓ Phân tích', 'Đang trích xuất...', 'Đang phân tích ngữ nghĩa...', 'Đang chờ xử lý']
     ocrCurrentStep.value = 2
     await sleep(300)
 
@@ -311,7 +312,7 @@ async function runOcrFlow(analysis) {
 
         if (ocrData.status === 'failed') {
             ocrStatus.value = 'error'
-            ocrError.value = ocrData.errorMessage || 'OCR processing failed'
+            ocrError.value = ocrData.errorMessage || 'Xử lý OCR thất bại'
             return
         }
 
@@ -320,9 +321,9 @@ async function runOcrFlow(analysis) {
         aiTotalRows.value = ocrData.totalRows || 0
 
         ocrSteps.value = [
-            `✓ File ${analysis.detectedFormat?.toUpperCase() || 'unknown'}`,
-            `✓ ${ocrData.totalRows || 0} rows extracted`,
-            `✓ ${ocrData.changes?.length || 0} synonyms detected`,
+            `✓ File ${analysis.detectedFormat?.toUpperCase() || 'không xác định'}`,
+            `✓ Đã trích xuất ${ocrData.totalRows || 0} dòng`,
+            `✓ Phát hiện ${ocrData.changes?.length || 0} từ đồng nghĩa`,
             'Đang gửi normalization...',
         ]
         ocrCurrentStep.value = 3
@@ -333,7 +334,7 @@ async function runOcrFlow(analysis) {
         await runNormalizeFlow()
     } catch (err) {
         ocrStatus.value = 'error'
-        ocrError.value = err.response?.data?.message || err.message || 'OCR processing failed'
+        ocrError.value = err.response?.data?.message || err.message || 'Xử lý OCR thất bại'
     }
 }
 
@@ -355,10 +356,10 @@ async function runNormalizeFlow() {
 
         const errorCount = normData.validation?.errorCount || 0
         if (normData.readyForImport) {
-            aiMessage.value = `Dữ liệu đã sẵn sàng để import (${aiTotalRows.value} rows, ${aiChangeCount.value} changes)`
+            aiMessage.value = `Dữ liệu đã sẵn sàng để nhập (${aiTotalRows.value} dòng, ${aiChangeCount.value} thay đổi)`
             aiMessageType.value = 'success'
         } else {
-            aiMessage.value = `Dữ liệu có ${errorCount} lỗi cần xem xét trước khi import`
+            aiMessage.value = `Dữ liệu có ${errorCount} lỗi cần xem xét trước khi nhập`
             aiMessageType.value = 'warning'
         }
     } catch (err) {

@@ -3,6 +3,7 @@ import { isLoggedIn, hasRole } from '../stores/auth'
 import { authState } from '../stores/auth'
 
 const Login = () => import('../pages/Login.vue')
+const ForcePasswordChange = () => import('../pages/ForcePasswordChange.vue')
 const MainLayout = () => import('../components/Layout/MainLayout.vue')
 const Dashboard = () => import('../pages/Dashboard.vue')
 const AboutProject = () => import('../pages/AboutProject.vue')
@@ -33,7 +34,6 @@ const DeviceManagement = () => import('../pages/DeviceManagement.vue')
 const Biometrics = () => import('../pages/Biometrics.vue')
 const SystemCatalog = () => import('../pages/SystemCatalog.vue')
 const QrAccessMonitor = () => import('../components/QrAccessMonitor.vue')
-const AccessPermissionManager = () => import('../components/AccessPermissionManager.vue')
 const SystemAuditLogs = () => import('../pages/SystemAuditLogs.vue')
 const AttendanceShifts = () => import('../pages/AttendanceShifts.vue')
 const AttendanceWorkSchedules = () => import('../pages/AttendanceWorkSchedules.vue')
@@ -50,7 +50,7 @@ const IdentityManagement = () => import('../pages/IdentityManagement.vue')
 const SiteHierarchy = () => import('../pages/SiteHierarchy.vue')
 const ReceptionDashboard = () => import('../pages/ReceptionDashboard.vue')
 const ManualAccessFallback = () => import('../pages/ManualAccessFallback.vue')
-const ManualParkingFallback = () => import('../pages/ManualParkingFallback.vue')
+const ManualParkingConsole = () => import('../pages/ManualParkingConsole.vue')
 const KioskCheckIn = () => import('../pages/KioskCheckIn.vue')
 const HostVisitorPage = () => import('../pages/HostVisitorPage.vue')
 const WatchlistQueue = () => import('../pages/WatchlistQueue.vue')
@@ -102,7 +102,6 @@ function landingRouteForRole(role) {
         if (userCanAccessTask(user, 'gate-transit')) return { name: 'GateTransitMonitor' }
         if (userCanAccessTask(user, 'qr-access')) return { name: 'QrAccessMonitor' }
         if (userCanAccessTask(user, 'parking')) return { name: 'Vehicles' }
-        if (userCanAccessTask(user, 'restricted-zone')) return { name: 'AccessPermissionManager' }
         if (userCanAccessTask(user, 'lost-found')) return { name: 'LostFoundDashboard' }
     }
 
@@ -136,6 +135,12 @@ const routes = [
         name: 'Login',
         component: Login,
         meta: { guest: true },
+    },
+    {
+        path: '/force-password-change',
+        name: 'ForcePasswordChange',
+        component: ForcePasswordChange,
+        meta: { requiresAuth: true },
     },
     {
         path: '/register/:token',
@@ -176,7 +181,7 @@ const routes = [
             { path: 'reception', name: 'ReceptionDashboard', component: ReceptionDashboard, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
             { path: 'kiosk', name: 'ManualAccessFallback', component: ManualAccessFallback, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access' } },
             { path: 'kiosk-checkin', name: 'KioskCheckIn', component: KioskCheckIn, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'reception' } },
-            { path: 'parking-kiosk', name: 'ManualParkingFallback', component: ManualParkingFallback, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
+            { path: 'parking-kiosk', name: 'ManualParkingConsole', component: ManualParkingConsole, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
             { path: 'host-visitor', name: 'HostVisitorPage', component: HostVisitorPage, meta: { allowedRoles: ['Admin', 'LeTan'], taskKey: 'guest-support' } },
             { path: 'watchlist', name: 'WatchlistQueue', component: WatchlistQueue, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
             { path: 'contractors', name: 'ContractorManagement', component: ContractorManagement, meta: { allowedRoles: ['Admin'], taskKey: 'contractor-mgmt' } },
@@ -209,7 +214,6 @@ const routes = [
             { path: 'gate-face-transit-monitor', name: 'FacePlateTransitMonitor', component: FacePlateTransitMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'gate-transit', keepAlive: true } },
             { path: 'dynamic-qr-generator', name: ROUTE_NAME_DYNAMIC_QR_GENERATOR, component: DynamicQrGenerator, meta: { allowedRoles: ['Admin'], taskKey: 'qr-access', keepAlive: true } },
             { path: 'qr-access-monitor', name: 'QrAccessMonitor', component: QrAccessMonitor, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'qr-access', keepAlive: true } },
-            { path: 'access-permission-manager', name: 'AccessPermissionManager', component: AccessPermissionManager, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'restricted-zone', keepAlive: true } },
             { path: 'employees', name: 'Employees', component: Employees, meta: { allowedRoles: ['Admin', 'NhanSu'], taskKey: 'employee-directory' } },
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
             { path: 'my-vehicles', name: 'MyVehicles', component: MyVehicles, meta: { allowedRoles: ['NhanVien'] } },
@@ -286,6 +290,15 @@ router.beforeEach((to, from, next) => {
         if (!isLoggedIn()) {
             return next({ name: 'Login', query: { redirect: to.fullPath } })
         }
+    }
+
+    // Khi tài khoản đang ở trạng thái bắt buộc đổi mật khẩu (vừa kích hoạt MFA lần đầu)
+    // thì mọi điều hướng đều phải đi qua trang đổi mật khẩu trước khi vào hệ thống.
+    if (isLoggedIn() && authState.user?.requiresPasswordChange && to.name !== 'ForcePasswordChange') {
+        if (to.name === 'Login') {
+            return next({ name: 'ForcePasswordChange' })
+        }
+        return next({ name: 'ForcePasswordChange', query: { redirect: to.fullPath } })
     }
 
     // Nếu route yêu cầu Admin

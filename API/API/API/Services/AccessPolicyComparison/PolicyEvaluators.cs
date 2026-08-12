@@ -41,7 +41,26 @@ public sealed class LegacyGateAccessEvaluator(ApplicationDbContext db) : ILegacy
             .Where(x => x.EmployeeId == input.EmployeeId && x.GateId == input.GateId)
             .OrderBy(x => x.Id).ToListAsync(token);
         if (rows.Count == 0)
+        {
+            // Kế thừa quyền mặc định theo chức vụ nếu chưa có quyền tường minh
+            var positionId = await db.Employees.AsNoTracking()
+                .Where(x => x.EmployeeId == input.EmployeeId)
+                .Select(x => x.PositionId)
+                .FirstOrDefaultAsync(token);
+            if (positionId.HasValue)
+            {
+                var positionPermission = await db.PositionAccessPermissions.AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.PositionId == positionId.Value && x.GateId == input.GateId, token);
+                if (positionPermission != null)
+                {
+                    return Result(
+                        positionPermission.IsAllowed ? PolicyEvaluationDecisions.Allow : PolicyEvaluationDecisions.Deny,
+                        positionPermission.IsAllowed ? "LegacyPositionDefaultAllowed" : "LegacyPositionDefaultDenied",
+                        input, null);
+                }
+            }
             return Result(PolicyEvaluationDecisions.NotConfigured, "LegacyPermissionMissing", input, null);
+        }
         if (rows.Count != 1)
             return Result(PolicyEvaluationDecisions.Indeterminate, "LegacyDuplicatePermissions", input, null);
         var row = rows[0];

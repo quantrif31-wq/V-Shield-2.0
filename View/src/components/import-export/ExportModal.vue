@@ -2,7 +2,7 @@
     <div class="modal-overlay" @click.self="$emit('close')">
         <div class="modal-container export-modal">
             <header class="modal-header">
-                <h2>📤 Export {{ entityDisplayName }}</h2>
+                <h2>📤 Xuất {{ entityDisplayName }}</h2>
                 <button class="btn-icon" @click="$emit('close')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -43,7 +43,7 @@
                     <div class="result-card success">
                         <div class="result-icon">✅</div>
                         <div class="result-details">
-                            <p class="result-title">Export thành công!</p>
+                            <p class="result-title">Xuất thành công!</p>
                             <p class="result-stats">{{ exportResult.totalRows }} dòng · {{ exportResult.fileFormat.toUpperCase() }} · {{ formatSize(exportResult.fileSize) }}</p>
                         </div>
                     </div>
@@ -57,7 +57,7 @@
                         📄 Tải template
                     </button>
                     <button class="btn btn-accent" :disabled="exportLoading" @click="doExport">
-                        {{ exportLoading ? 'Đang Export...' : '📤 Export' }}
+                        {{ exportLoading ? 'Đang xuất...' : '📤 Xuất' }}
                     </button>
                 </div>
             </footer>

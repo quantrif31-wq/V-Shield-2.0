@@ -151,3 +151,6 @@ AI_Project/cam/go2rtc_win64/
 # macOS archive metadata
 __MACOSX/
 *.DS_Store
+
+# ----- Local setup recording artifacts (large, machine-specific) -----
+video_setup_metadata/

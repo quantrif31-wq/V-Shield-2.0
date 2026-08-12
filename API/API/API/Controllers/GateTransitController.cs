@@ -20,14 +20,16 @@ namespace API.Controllers
         private readonly IUebaService _uebaService;
         private readonly EvidenceCaptureService _evidenceCapture;
         private readonly UserOperationalScopeService _scopeService;
+        private readonly StaticVisitorQrService _visitorQrService;
 
-        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService, EvidenceCaptureService evidenceCapture, UserOperationalScopeService scopeService)
+        public GateTransitController(ApplicationDbContext context, IZoneTransitService zoneTransitService, IUebaService uebaService, EvidenceCaptureService evidenceCapture, UserOperationalScopeService scopeService, StaticVisitorQrService visitorQrService)
         {
             _context = context;
             _zoneTransitService = zoneTransitService;
             _uebaService = uebaService;
             _evidenceCapture = evidenceCapture;
             _scopeService = scopeService;
+            _visitorQrService = visitorQrService;
         }
 
         /// <summary>
@@ -351,6 +353,7 @@ namespace API.Controllers
                 {
                     LicensePlate = normalizedPlate,
                     EmployeeId = null,
+                    VisitorDetailId = visitor.VisitorDetailId,
                     VehicleTypeId = request.VehicleTypeId,
                     Description = request.Description,
                     ParkingStatus = "IN"
@@ -399,6 +402,10 @@ namespace API.Controllers
                 var oldStatus = vehicle.ParkingStatus;
                 var newStatus = oldStatus == "IN" ? "OUT" : "IN";
                 vehicle.ParkingStatus = newStatus;
+                if (vehicle.VisitorDetailId == null)
+                {
+                    vehicle.VisitorDetailId = visitor.VisitorDetailId;
+                }
 
                 var uebaLog = new AccessLog
                 {
@@ -457,6 +464,175 @@ namespace API.Controllers
                 .ToListAsync();
 
             return Ok(GateTransitApiResponse.CreateSuccess("Lấy danh sách xe thành công.", vehicles));
+        }
+
+        /// <summary>
+        /// Danh sách cổng cho màn hình thủ công (Bảo vệ). Dùng task parking.
+        /// </summary>
+        [HttpGet("gates")]
+        public async Task<IActionResult> GetManualGates()
+        {
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskParking, requireManage: false))
+                return Forbid();
+
+            var gates = await _context.Gates
+                .AsNoTracking()
+                .OrderBy(g => g.GateName)
+                .Select(g => new
+                {
+                    g.GateId,
+                    g.GateName,
+                    g.Location
+                })
+                .ToListAsync();
+
+            return Ok(GateTransitApiResponse.CreateSuccess("Lấy danh sách cổng thành công.", gates));
+        }
+
+        /// <summary>
+        /// Nhận dạng đối tượng thủ công từ mã (QR payload EMP/VIS hoặc mã số).
+        /// Trả về loại đối tượng, thông tin cá nhân và danh sách xe đang gửi.
+        /// </summary>
+        [HttpGet("manual-subject/{code}")]
+        public async Task<IActionResult> GetManualSubject(string code)
+        {
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskParking, requireManage: false))
+                return Forbid();
+
+            if (string.IsNullOrWhiteSpace(code))
+                return BadRequest(GateTransitApiResponse.CreateError("Mã nhận dạng không được để trống."));
+
+            var raw = code.Trim();
+
+            // 1. QR payload của nhân viên: EMP:<employeeId>|TS:<counter>|OTP:<otp>
+            if (raw.StartsWith("EMP:", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = raw.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0 || !parts[0].StartsWith("EMP:", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(GateTransitApiResponse.CreateError("Mã nhân viên không hợp lệ."));
+
+                var idText = parts[0].Split(':')[^1].Trim();
+                if (!int.TryParse(idText, out var employeeId))
+                    return BadRequest(GateTransitApiResponse.CreateError("Mã nhân viên không hợp lệ."));
+
+                return await ResolveManualSubjectEmployeeAsync(employeeId);
+            }
+
+            // 2. QR payload của khách: VIS:<visitorId>|REG:<registrationId>|TS:<counter>|OTP:<otp>
+            if (raw.StartsWith("VIS:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_visitorQrService.TryParsePayload(raw, out var parsed, out var parseMessage) || parsed == null)
+                    return BadRequest(GateTransitApiResponse.CreateError(parseMessage ?? "Mã khách không hợp lệ."));
+
+                return await ResolveManualSubjectVisitorAsync(parsed.VisitorId);
+            }
+
+            // 3. Mã số thuần: thử nhân viên trước, sau đó thử khách theo VisitorDetailId hoặc IdCardNumber
+            if (int.TryParse(raw, out var numericId))
+            {
+                var employeeExists = await _context.Employees.AsNoTracking()
+                    .AnyAsync(e => e.EmployeeId == numericId);
+                if (employeeExists)
+                    return await ResolveManualSubjectEmployeeAsync(numericId);
+
+                var visitorById = await _context.VisitorDetails.AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.VisitorDetailId == numericId);
+                if (visitorById != null)
+                    return await ResolveManualSubjectVisitorAsync(numericId);
+            }
+
+            // 4. Văn bản: khớp theo số căn cước của khách
+            var normalizedIdCard = raw.ToUpperInvariant()
+                .Replace(" ", "").Replace("-", "").Replace("_", "");
+            if (normalizedIdCard.Length >= 4)
+            {
+                var visitorByCard = await _context.VisitorDetails.AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.IdCardNumber != null &&
+                        v.IdCardNumber.ToUpper().Replace(" ", "").Replace("-", "").Replace("_", "") == normalizedIdCard);
+                if (visitorByCard != null)
+                    return await ResolveManualSubjectVisitorAsync(visitorByCard.VisitorDetailId);
+            }
+
+            return NotFound(GateTransitApiResponse.CreateError("Không tìm thấy đối tượng tương ứng với mã đã nhập."));
+        }
+
+        private async Task<IActionResult> ResolveManualSubjectEmployeeAsync(int employeeId)
+        {
+            var employee = await _context.Employees
+                .AsNoTracking()
+                .Include(e => e.Department)
+                .Include(e => e.Position)
+                .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
+
+            if (employee == null)
+                return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy nhân viên có id = {employeeId}."));
+
+            var vehicles = await _context.Vehicles
+                .AsNoTracking()
+                .Where(v => v.EmployeeId == employeeId && v.ParkingStatus == "IN")
+                .Select(v => new
+                {
+                    v.VehicleId,
+                    v.LicensePlate,
+                    v.VehicleTypeId,
+                    v.Description,
+                    v.ParkingStatus
+                })
+                .ToListAsync();
+
+            return Ok(GateTransitApiResponse.CreateSuccess("Tìm thấy nhân viên.", new
+            {
+                SubjectType = "employee",
+                SubjectId = employee.EmployeeId,
+                FullName = employee.FullName,
+                Phone = employee.Phone,
+                Email = employee.Email,
+                DepartmentName = employee.Department != null ? employee.Department.Name : null,
+                PositionName = employee.Position != null ? employee.Position.Name : null,
+                FaceImageUrl = employee.FaceImageUrl,
+                ParkedVehicles = vehicles
+            }));
+        }
+
+        private async Task<IActionResult> ResolveManualSubjectVisitorAsync(int visitorDetailId)
+        {
+            var visitor = await _context.VisitorDetails
+                .AsNoTracking()
+                .Include(v => v.Registration)
+                    .ThenInclude(r => r != null ? r.Guest : null)
+                .Include(v => v.Registration)
+                    .ThenInclude(r => r != null ? r.HostEmployee : null)
+                .FirstOrDefaultAsync(v => v.VisitorDetailId == visitorDetailId);
+
+            if (visitor == null)
+                return NotFound(GateTransitApiResponse.CreateError($"Không tìm thấy khách có mã = {visitorDetailId}."));
+
+            var vehicles = await _context.Vehicles
+                .AsNoTracking()
+                .Where(v => v.VisitorDetailId == visitorDetailId && v.ParkingStatus == "IN")
+                .Select(v => new
+                {
+                    v.VehicleId,
+                    v.LicensePlate,
+                    v.VehicleTypeId,
+                    v.Description,
+                    v.ParkingStatus
+                })
+                .ToListAsync();
+
+            return Ok(GateTransitApiResponse.CreateSuccess("Tìm thấy khách.", new
+            {
+                SubjectType = "visitor",
+                SubjectId = visitor.VisitorDetailId,
+                FullName = visitor.FullName,
+                IdCardNumber = visitor.IdCardNumber,
+                GuestId = visitor.Registration != null ? visitor.Registration.GuestId : (int?)null,
+                GuestPhone = visitor.Registration != null && visitor.Registration.Guest != null ? visitor.Registration.Guest.Phone : null,
+                HostEmployeeName = visitor.Registration != null && visitor.Registration.HostEmployee != null ? visitor.Registration.HostEmployee.FullName : null,
+                RegistrationStatus = visitor.Registration != null ? visitor.Registration.Status : null,
+                FaceImageUrl = visitor.ExpectedFaceImage,
+                ParkedVehicles = vehicles
+            }));
         }
 
         [HttpGet("vehicle-by-plate/{licensePlate}")]

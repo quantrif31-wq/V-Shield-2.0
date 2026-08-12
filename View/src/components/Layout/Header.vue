@@ -15,7 +15,7 @@
             </button>
 
             <div class="header-intro">
-                <span class="header-eyebrow">Security operations center</span>
+                <span class="header-eyebrow">Trung tâm điều hành an ninh</span>
                 <div class="header-copy">
                     <h2>{{ pageTitle }}</h2>
                     <p>{{ pageDescription }}</p>
@@ -400,7 +400,7 @@ const routeMeta = {
     },
 }
 
-const pageTitle = computed(() => routeMeta[route.name]?.title || 'V-Shield Control Room')
+const pageTitle = computed(() => routeMeta[route.name]?.title || 'V-Shield Trung tâm điều hành')
 const pageDescription = computed(() => routeMeta[route.name]?.description || 'Điều phối và kiểm soát ra vào tập trung.')
 
 const userInitial = computed(() => {

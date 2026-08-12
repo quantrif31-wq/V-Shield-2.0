@@ -10,3 +10,7 @@ export const getOperationalScopeReference = () => http.get('/Users/scope-referen
 export const replaceRolePermissions = (data) => http.put('/Users/role-permissions', data)
 export const getOperationalScopes = (id) => http.get(`/Users/${id}/operational-scopes`)
 export const replaceOperationalScopes = (id, data) => http.put(`/Users/${id}/operational-scopes`, data)
+export const getGateAccessReference = () => http.get('/Users/gate-access-reference')
+export const replaceRoleGatePermissions = (data) => http.put('/Users/gate-access/roles', data)
+export const getUserGateAccess = (id) => http.get(`/Users/${id}/gate-access`)
+export const replaceUserGateAccess = (id, data) => http.put(`/Users/${id}/gate-access`, data)

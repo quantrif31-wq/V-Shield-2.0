@@ -7,6 +7,8 @@
                 <p class="page-subtitle">Thêm, sửa, xóa và phân quyền tài khoản người dùng hệ thống</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" @click="showImportModal = true">Nhập dữ liệu</button>
+                <button class="btn btn-secondary" @click="showExportModal = true">Xuất dữ liệu</button>
                 <button class="btn btn-primary" @click="openCreateModal">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
                         <line x1="12" y1="5" x2="12" y2="19" />
@@ -161,17 +163,19 @@
 
                     <div class="modal-body">
                         <form @submit.prevent="handleSubmit" class="modal-form-grid">
-                            <div class="input-pane" v-if="!isEditing">
+                            <div class="input-pane" v-if="!isEditing" :class="{ 'has-error': fieldErrors.username }">
                                 <label>Tên đăng nhập <span class="req">*</span></label>
-                                <input v-model="modalForm.username" type="text" class="sleek-input" placeholder="Nhập tên đăng nhập" required maxlength="50" />
+                                <input v-model="modalForm.username" type="text" class="sleek-input" :class="{ 'input-error': fieldErrors.username }" placeholder="Nhập tên đăng nhập" required maxlength="50" @input="fieldErrors.username = ''" />
+                                <p v-if="fieldErrors.username" class="field-error" role="alert">{{ fieldErrors.username }}</p>
                             </div>
 
-                            <div class="input-pane">
+                            <div class="input-pane" :class="{ 'has-error': fieldErrors.password }">
                                 <label>{{ isEditing ? 'Mật khẩu mới' : 'Mật khẩu' }} <span v-if="!isEditing" class="req">*</span></label>
-                                <input v-model="modalForm.password" type="password" class="sleek-input" :placeholder="isEditing ? 'Để trống nếu không đổi' : 'Tối thiểu 6 ký tự'" :required="!isEditing" minlength="6" />
+                                <input v-model="modalForm.password" type="password" class="sleek-input" :class="{ 'input-error': fieldErrors.password }" :placeholder="isEditing ? 'Để trống nếu không đổi' : 'Tối thiểu 6 ký tự'" :required="!isEditing" minlength="6" @input="fieldErrors.password = ''" />
+                                <p v-if="fieldErrors.password" class="field-error" role="alert">{{ fieldErrors.password }}</p>
                             </div>
 
-                            <div class="input-pane employee-search-pane">
+                            <div class="input-pane employee-search-pane" :class="{ 'has-error': fieldErrors.fullName }">
                                 <label>Họ và tên</label>
                                 <div class="combo-box-wrapper" ref="comboBoxRef">
                                     <div class="combo-input-row">
@@ -180,6 +184,7 @@
                                             v-model="employeeSearchText"
                                             type="text"
                                             class="sleek-input combo-input"
+                                            :class="{ 'input-error': fieldErrors.fullName }"
                                             placeholder="Tìm và chọn nhân viên..."
                                             @focus="showEmployeeDropdown = true"
                                             @input="onEmployeeSearchInput"
@@ -189,6 +194,7 @@
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                         </button>
                                     </div>
+                                    <p v-if="fieldErrors.fullName" class="field-error" role="alert">{{ fieldErrors.fullName }}</p>
                                     <transition name="dropdown">
                                         <div v-if="showEmployeeDropdown" class="combo-dropdown">
                                             <div v-if="loadingEmployees" class="combo-loading">
@@ -306,16 +312,23 @@
                                     <span class="badge-role" :class="getRoleBadgeClass(scopeTarget?.role)">{{ getRoleLabel(scopeTarget?.role) }}</span>
                                     <span class="text-muted">{{ permissionOverrides.length }} chức năng</span>
                                     <span class="text-muted">{{ scopeItems.length }} dòng giới hạn</span>
+                                    <span class="text-muted">{{ gateAccessItems.length }} cổng</span>
                                 </div>
                             </div>
 
-                            <div class="scope-block scope-card-block">
-                                <div class="scope-block-head">
-                                    <div>
-                                        <h4 class="scope-block-title">Quyền theo từng chức năng</h4>
-                                        <p class="scope-block-subtitle">Mỗi thẻ là một nhóm trang. Chọn cách áp dụng cho riêng tài khoản này.</p>
+                            <div class="bento-tabs scope-tabs" style="display: flex; gap: 4px; background: var(--bg-surface); padding: 4px; border-radius: 14px; margin-bottom: 18px; max-width: 480px;">
+                                <button type="button" class="tab-btn" :class="{ active: scopeActiveTab === 'tasks' }" @click="scopeActiveTab = 'tasks'">Chức năng</button>
+                                <button type="button" class="tab-btn" :class="{ active: scopeActiveTab === 'gates' }" @click="scopeActiveTab = 'gates'">Cổng</button>
+                            </div>
+
+                            <div v-if="scopeActiveTab === 'tasks'">
+                                <div class="scope-block scope-card-block">
+                                    <div class="scope-block-head">
+                                        <div>
+                                            <h4 class="scope-block-title">Quyền theo từng chức năng</h4>
+                                            <p class="scope-block-subtitle">Mỗi thẻ là một nhóm trang. Chọn cách áp dụng cho riêng tài khoản này.</p>
+                                        </div>
                                     </div>
-                                </div>
                                 <div class="permission-card-grid">
                                     <article v-for="item in permissionOverrides" :key="item.taskKey" class="permission-card">
                                         <div class="permission-card-top">
@@ -432,6 +445,47 @@
                                     </article>
                                 </div>
                             </div>
+                            </div>
+
+                            <div v-else>
+                                <div class="scope-block scope-card-block">
+                                    <div class="scope-block-head">
+                                        <div>
+                                            <h4 class="scope-block-title">Quyền qua cổng riêng</h4>
+                                            <p class="scope-block-subtitle">Chọn quyền qua từng cổng truy cập cho riêng tài khoản này. Mặc định tài khoản sẽ kế thừa quyền theo vai trò của mình.</p>
+                                        </div>
+                                    </div>
+                                    <div v-if="gateAccessError" class="error-box"><span>{{ gateAccessError }}</span></div>
+                                    <div v-else-if="gateAccessItems.length === 0" class="scope-empty">
+                                        Chưa có cổng nào trong hệ thống.
+                                    </div>
+                                    <div v-else class="permission-card-grid">
+                                        <article v-for="gate in gateAccessItems" :key="gate.gateId" class="permission-card">
+                                            <div class="permission-card-top">
+                                                <div>
+                                                    <h5 class="permission-card-title">{{ gate.gateName }}</h5>
+                                                    <p class="permission-card-routes">{{ gate.location || 'Chưa ghi vị trí' }}</p>
+                                                </div>
+                                                <span class="status-pill minimal" :class="gate.effectiveAllowed ? 'active' : 'inactive'">
+                                                    <span class="pill-dot"></span>
+                                                    {{ gate.effectiveAllowed ? 'Được qua' : 'Không qua' }}
+                                                </span>
+                                            </div>
+                                            <div v-if="isAdminUser" class="zone-lock-note">
+                                                Tài khoản Admin luôn được qua mọi cổng.
+                                            </div>
+                                            <template v-else>
+                                                <div class="mode-switch">
+                                                    <button type="button" class="mode-option" :class="{ active: gate.accessMode === 'inherit' }" @click="setGateMode(gate, 'inherit')">Theo vai trò</button>
+                                                    <button type="button" class="mode-option allow" :class="{ active: gate.accessMode === 'allow' }" @click="setGateMode(gate, 'allow')">Cho phép thêm</button>
+                                                    <button type="button" class="mode-option deny" :class="{ active: gate.accessMode === 'deny' }" @click="setGateMode(gate, 'deny')">Chặn riêng</button>
+                                                </div>
+                                                <p class="permission-card-caption">{{ describeGateMode(gate) }}</p>
+                                            </template>
+                                        </article>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div class="modal-actions mt-4">
                                 <button class="btn btn-secondary" @click="closeScopeModal">Đóng</button>
@@ -445,16 +499,35 @@
                 </div>
             </div>
         </transition>
+
+        <ImportModal v-if="showImportModal" entity-type="AppUser" entity-display-name="Tài khoản người dùng" @close="showImportModal = false" @import-complete="onImportComplete" />
+        <ExportModal v-if="showExportModal" entity-type="AppUser" entity-display-name="Tài khoản người dùng" :available-columns="['UserId','Username','FullName','Role','IsActive','EmployeeEmail']" @close="showExportModal = false" />
+
+        <StepUpModal
+            :visible="stepUpVisible"
+            action-label="Thiết lập quyền riêng cho tài khoản"
+            action="UserAdministration"
+            :action-description="'Lưu thiết lập quyền cho tài khoản ' + (scopeTarget?.username || '')"
+            severity="high"
+            @cancel="onStepUpCancelled"
+            @confirmed="onStepUpConfirmed"
+        />
     </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { getAll, create, update, deleteUser, resetMfa, getOperationalScopeReference, getOperationalScopes, replaceOperationalScopes } from '../services/userApi'
+import { getAll, create, update, deleteUser, resetMfa, getOperationalScopeReference, getOperationalScopes, replaceOperationalScopes, getUserGateAccess, replaceUserGateAccess } from '../services/userApi'
 import { getAll as getAllEmployees } from '../services/employeeApi'
+import { enterpriseApi } from '../services/enterpriseSecurityApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
+import StepUpModal from '../components/shared/StepUpModal.vue'
 
 const users = ref([])
 const loading = ref(true)
+const showImportModal = ref(false)
+const showExportModal = ref(false)
 const loadError = ref('')
 const searchQuery = ref('')
 const filterRole = ref('')
@@ -474,6 +547,12 @@ const modalForm = reactive({
     role: 'LeTan',
     isActive: true,
     employeeId: null
+})
+
+const fieldErrors = reactive({
+    username: '',
+    password: '',
+    fullName: '',
 })
 
 // Employee combo box state
@@ -533,6 +612,7 @@ function selectEmployee(emp) {
     modalForm.employeeId = emp.employeeId
     employeeSearchText.value = emp.fullName
     showEmployeeDropdown.value = false
+    fieldErrors.fullName = ''
 }
 
 function clearEmployeeSelection() {
@@ -540,6 +620,7 @@ function clearEmployeeSelection() {
     modalForm.employeeId = null
     employeeSearchText.value = ''
     showEmployeeDropdown.value = false
+    fieldErrors.fullName = ''
 }
 
 // Close dropdown on outside click
@@ -555,6 +636,7 @@ const deleteTarget = ref(null)
 const showScopeModal = ref(false)
 const scopeLoading = ref(false)
 const scopeSaving = ref(false)
+const stepUpVisible = ref(false)
 const scopeError = ref('')
 const scopeTarget = ref(null)
 const scopeItems = ref([])
@@ -569,6 +651,10 @@ const scopeReference = reactive({
 })
 let scopeRowSeed = 1
 const permissionOverrides = ref([])
+const scopeActiveTab = ref('tasks')
+const gateAccessItems = ref([])
+const gateAccessError = ref('')
+const gateAccessLoaded = ref(false)
 
 // Computed
 const activeCount = computed(() => users.value.filter(u => u.isActive).length)
@@ -591,6 +677,8 @@ const scopeTaskOptions = computed(() =>
     (scopeReference.taskCatalog || []).map(task => ({ value: task.taskKey, label: task.label }))
 )
 
+const isAdminUser = computed(() => scopeTarget.value?.role === 'Admin')
+
 // Fetch users
 async function fetchUsers() {
     loading.value = true
@@ -609,11 +697,17 @@ async function fetchUsers() {
     }
 }
 
+function onImportComplete() {
+    showImportModal.value = false
+    fetchUsers()
+}
+
 // Modal handlers
 function openCreateModal() {
     isEditing.value = false
     editingId.value = null
     modalError.value = ''
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
     Object.assign(modalForm, { username: '', password: '', fullName: '', role: 'LeTan', isActive: true, employeeId: null })
     employeeSearchText.value = ''
     showEmployeeDropdown.value = false
@@ -625,6 +719,7 @@ function openEditModal(user) {
     isEditing.value = true
     editingId.value = user.userId
     modalError.value = ''
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
     Object.assign(modalForm, { username: user.username, password: '', fullName: user.fullName || '', role: user.role, isActive: user.isActive, employeeId: user.employeeId || null })
     employeeSearchText.value = user.fullName || ''
     showEmployeeDropdown.value = false
@@ -638,6 +733,30 @@ function closeModal() {
 }
 
 async function handleSubmit() {
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
+
+    if (!isEditing.value) {
+        if (!modalForm.username.trim()) {
+            fieldErrors.username = 'Vui lòng nhập tên đăng nhập.'
+        } else if (!/^[a-zA-Z0-9_]+$/.test(modalForm.username.trim())) {
+            fieldErrors.username = 'Tên đăng nhập chỉ gồm chữ cái, số và dấu gạch dưới.'
+        } else if (modalForm.username.trim().length < 3) {
+            fieldErrors.username = 'Tên đăng nhập tối thiểu 3 ký tự.'
+        }
+    }
+
+    if (!isEditing.value && !modalForm.password) {
+        fieldErrors.password = 'Vui lòng nhập mật khẩu.'
+    } else if (modalForm.password && modalForm.password.length < 6) {
+        fieldErrors.password = 'Mật khẩu tối thiểu 6 ký tự.'
+    }
+
+    if (!modalForm.employeeId) {
+        fieldErrors.fullName = 'Vui lòng chọn nhân viên cho tài khoản.'
+    }
+
+    if (Object.values(fieldErrors).some((msg) => msg)) return
+
     saving.value = true
     modalError.value = ''
     try {
@@ -769,6 +888,9 @@ function removeScopeRow(index) {
 async function openScopeModal(user) {
     scopeTarget.value = user
     scopeError.value = ''
+    gateAccessError.value = ''
+    scopeActiveTab.value = 'tasks'
+    gateAccessLoaded.value = false
     scopeLoading.value = true
     showScopeModal.value = true
     try {
@@ -796,9 +918,42 @@ async function openScopeModal(user) {
         scopeError.value = err.response?.data?.message || 'Không thể tải thiết lập quyền'
         permissionOverrides.value = []
         scopeItems.value = []
+    }
+    try {
+        await loadGateAccess(user.userId)
+    } catch (err) {
+        gateAccessError.value = err.response?.data?.message || 'Không thể tải quyền qua cổng'
+        gateAccessItems.value = []
     } finally {
         scopeLoading.value = false
     }
+}
+
+async function loadGateAccess(userId) {
+    const res = await getUserGateAccess(userId)
+    const data = res.data || {}
+    gateAccessItems.value = (data.gates || []).map(gate => ({
+        gateId: gate.gateId,
+        gateName: gate.gateName,
+        location: gate.location,
+        defaultAllowed: gate.defaultAllowed,
+        accessMode: gate.accessMode,
+        effectiveAllowed: gate.effectiveAllowed
+    }))
+    gateAccessLoaded.value = true
+}
+
+function setGateMode(gate, mode) {
+    gate.accessMode = mode
+    gate.effectiveAllowed = mode === 'allow' ? true : mode === 'deny' ? false : gate.defaultAllowed
+}
+
+function describeGateMode(gate) {
+    if (gate.accessMode === 'allow') return 'Tài khoản này được mở thêm quyền qua cổng này.'
+    if (gate.accessMode === 'deny') return 'Tài khoản này bị chặn riêng cổng này.'
+    return gate.defaultAllowed
+        ? 'Đang dùng mặc định của vai trò: ĐƯỢC qua cổng.'
+        : 'Đang dùng mặc định của vai trò: KHÔNG được qua cổng.'
 }
 
 function closeScopeModal() {
@@ -807,9 +962,35 @@ function closeScopeModal() {
     permissionOverrides.value = []
     scopeItems.value = []
     scopeError.value = ''
+    gateAccessItems.value = []
+    gateAccessError.value = ''
+    gateAccessLoaded.value = false
+}
+
+function buildGatePayload() {
+    return gateAccessItems.value
+        .filter(item => item.accessMode !== 'inherit')
+        .map(item => ({ gateId: item.gateId, accessMode: item.accessMode }))
 }
 
 async function saveScopes() {
+    if (!scopeTarget.value) return
+    stepUpVisible.value = true
+}
+
+function onStepUpCancelled() {
+    stepUpVisible.value = false
+}
+
+async function onStepUpConfirmed(result) {
+    stepUpVisible.value = false
+    if (result?.sessionId) {
+        enterpriseApi.setStepUpSession(result.sessionId)
+    }
+    await performSaveScopes()
+}
+
+async function performSaveScopes() {
     if (!scopeTarget.value) return
     scopeSaving.value = true
     scopeError.value = ''
@@ -843,12 +1024,16 @@ async function saveScopes() {
         const payload = [...overridePayload, ...scopePayload]
 
         await replaceOperationalScopes(scopeTarget.value.userId, payload)
+        if (gateAccessLoaded.value) {
+            await replaceUserGateAccess(scopeTarget.value.userId, buildGatePayload())
+        }
         await fetchUsers()
         closeScopeModal()
     } catch (err) {
         scopeError.value = err.response?.data?.message || 'Không thể lưu thiết lập quyền'
     } finally {
         scopeSaving.value = false
+        enterpriseApi.setStepUpSession(null)
     }
 }
 
@@ -903,7 +1088,8 @@ onUnmounted(() => {
 .search-icon { position: absolute; left: 14px; color: var(--text-muted); width: 18px; }
 .search-box input { width: 100%; padding: 10px 14px 10px 42px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); outline: none; transition: border 0.2s; }
 .search-box input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(16, 121, 196, 0.2); }
-.minimal-select { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; outline: none; }
+.minimal-select { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); cursor: pointer; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.minimal-select:hover { border-color: var(--border-strong); }
 
 /* Table Elements */
 .sleek-table-container { flex: 1; overflow-x: auto; }
@@ -914,7 +1100,7 @@ onUnmounted(() => {
 .table-row:hover { background: var(--bg-card-hover); cursor: default; }
 
 .user-cell { display: flex; align-items: center; gap: 14px; }
-.avatar, .avatar-img { width: 38px; height: 38px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; color: white; font-size: 0.8rem; object-fit: cover; }
+.avatar, .avatar-img { width: 38px; height: 38px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--text-on-interactive); font-size: 0.8rem; object-fit: cover; }
 .user-info { display: flex; flex-direction: column; }
 .user-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
 .text-primary { color: var(--text-primary); }
@@ -941,7 +1127,7 @@ onUnmounted(() => {
 /* Spinners & Empties */
 .empty-layout { padding: 60px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .spinner-lg { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-.spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; margin-right: 6px; }
+.spinner-sm { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--text-on-interactive); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Modern Modals */
@@ -1003,6 +1189,18 @@ onUnmounted(() => {
 .scope-permission-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
 .scope-check { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.9rem; }
 .scope-check input { width: 16px; height: 16px; accent-color: var(--accent-primary); }
+.scope-tabs .tab-btn {
+    flex: 1; padding: 10px 16px; border-radius: 12px; border: none; background: transparent;
+    color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+}
+.scope-tabs .tab-btn.active {
+    background: var(--bg-surface-raised); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.scope-tabs .tab-btn:hover { color: var(--text-primary); }
+.zone-lock-note {
+    border: 1px solid rgba(168, 85, 247, 0.2); background: rgba(168, 85, 247, 0.08);
+    color: #a855f7; border-radius: 12px; padding: 10px 12px; font-size: 0.84rem; line-height: 1.5;
+}
 
 .text-right { text-align: right; }
 .text-center { text-align: center; }
@@ -1034,7 +1232,7 @@ onUnmounted(() => {
 .combo-option:first-child { border-radius: 10px 10px 0 0; }
 .combo-option:last-child { border-radius: 0 0 10px 10px; }
 
-.combo-opt-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+.combo-opt-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: var(--text-on-interactive); flex-shrink: 0; }
 .combo-opt-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .combo-opt-name { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .combo-opt-detail { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

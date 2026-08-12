@@ -2,16 +2,16 @@
     <div class="page-container animate-in" style="max-width: 640px; margin: 0 auto; padding-top: 2rem;">
         <div class="card" style="padding: 2rem; text-align: center;">
             <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
-            <h1 class="page-title" style="font-size: 1.8rem;">Visitor Self Check-in</h1>
-            <p class="text-muted" style="margin-bottom: 2rem;">Enter your details to check in</p>
+            <h1 class="page-title" style="font-size: 1.8rem;">Tự check-in khách</h1>
+            <p class="text-muted" style="margin-bottom: 2rem;">Nhập thông tin của bạn để check in</p>
 
             <div v-if="step === 'lookup'" class="form-group" style="max-width: 400px; margin: 0 auto;">
-                <label>Search your name or phone</label>
+                <label>Tìm theo tên hoặc số điện thoại</label>
                 <div class="search-bar">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                     </svg>
-                    <input v-model="searchTerm" type="text" class="form-control" placeholder="Type your name or phone..." @input="searchVisits" />
+                    <input v-model="searchTerm" type="text" class="form-control" placeholder="Nhập tên hoặc số điện thoại..." @input="searchVisits" />
                 </div>
                 <div v-if="searchResults.length > 0" class="card" style="margin-top: 1rem; text-align: left;">
                     <div v-for="v in searchResults" :key="v.visitId" class="kiosk-result" @click="selectVisit(v)">
@@ -20,47 +20,47 @@
                     </div>
                 </div>
                 <div v-else-if="searchTerm && !searching" class="text-muted" style="margin-top: 1rem;">
-                    No upcoming visits found.
+                    Không tìm thấy lượt thăm dự kiến.
                 </div>
             </div>
 
             <div v-if="step === 'confirm'" class="card" style="margin-top: 1rem; text-align: left; padding: 1.5rem;">
-                <h3>Confirm Check-in</h3>
+                <h3>Xác nhận check-in</h3>
                 <div class="detail-grid">
-                    <div class="detail-row"><span class="detail-label">Name</span><span>{{ selectedVisit.visitorName }}</span></div>
-                    <div class="detail-row"><span class="detail-label">Host</span><span>{{ selectedVisit.hostEmployee?.fullName || '—' }}</span></div>
-                    <div class="detail-row"><span class="detail-label">Time</span><span>{{ formatTime(selectedVisit.expectedInUtc) }} — {{ formatTime(selectedVisit.expectedOutUtc) }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Tên</span><span>{{ selectedVisit.visitorName }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Chủ nhà</span><span>{{ selectedVisit.hostEmployee?.fullName || '—' }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Thời gian</span><span>{{ formatTime(selectedVisit.expectedInUtc) }} — {{ formatTime(selectedVisit.expectedOutUtc) }}</span></div>
                 </div>
 
                 <div v-if="selectedVisit.ndaRequired && !ndaAccepted" class="alert alert-info" style="margin-top: 1rem;">
                     <label class="checkbox-label">
-                        <input v-model="ndaAccepted" type="checkbox" /> I accept the NDA
+                        <input v-model="ndaAccepted" type="checkbox" /> Tôi chấp nhận NDA
                     </label>
                 </div>
 
                 <div class="form-group" style="margin-top: 1rem;">
-                    <label>ID Document (optional)</label>
+                    <label>Giấy tờ tùy thân (không bắt buộc)</label>
                     <div class="form-row two">
-                        <input v-model="idDocType" type="text" class="form-control" placeholder="Type" />
-                        <input v-model="idDocRef" type="text" class="form-control" placeholder="Number" />
+                        <input v-model="idDocType" type="text" class="form-control" placeholder="Loại" />
+                        <input v-model="idDocRef" type="text" class="form-control" placeholder="Số" />
                     </div>
                 </div>
 
                 <div v-if="kioskError" class="alert alert-danger">{{ kioskError }}</div>
 
                 <div class="chip-row" style="margin-top: 1rem; justify-content: center;">
-                    <button class="btn btn-secondary" @click="step = 'lookup'; searchTerm = ''; searchResults = []">Back</button>
+                    <button class="btn btn-secondary" @click="step = 'lookup'; searchTerm = ''; searchResults = []">Quay lại</button>
                     <button class="btn btn-primary" :disabled="saving || (selectedVisit.ndaRequired && !ndaAccepted)" @click="submitKioskCheckin">
-                        {{ saving ? 'Checking in...' : 'Check in' }}
+                        {{ saving ? 'Đang check in...' : 'Check in' }}
                     </button>
                 </div>
             </div>
 
             <div v-if="step === 'done'" style="padding: 2rem;">
-                <div style="font-size: 4rem; color: #22c55e;">✓</div>
-                <h2>Check-in Successful!</h2>
-                <p>Welcome, {{ checkedInName }}. Please proceed to your host.</p>
-                <button class="btn btn-primary" style="margin-top: 1rem;" @click="reset">Check in another visitor</button>
+                <div style="font-size: 4rem; color: var(--status-success-text);">✓</div>
+                <h2>Check-in thành công!</h2>
+                <p>Chào mừng, {{ checkedInName }}. Vui lòng đến gặp chủ nhà của bạn.</p>
+                <button class="btn btn-primary" style="margin-top: 1rem;" @click="reset">Check in cho khách khác</button>
             </div>
         </div>
     </div>

@@ -2,8 +2,12 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">System catalog</span>
+                <span class="panel-kicker">Danh mục hệ thống</span>
                 <h1 class="page-title">Danh mục hệ thống</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" @click="showImportModal = true">Nhập lý do ngoại lệ</button>
+                <button class="btn btn-secondary btn-sm" @click="showExportModal = true">Xuất lý do ngoại lệ</button>
             </div>
         </div>
 
@@ -49,7 +53,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Exception reasons</span>
+                        <span class="panel-kicker">Lý do ngoại lệ</span>
                         <h2 class="panel-title">Lý do ngoại lệ</h2>
                     </div>
                     <button class="btn btn-secondary btn-sm" @click="openReasonModal()">Thêm lý do</button>
@@ -80,13 +84,15 @@
                     </div>
 
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Mã lý do</label>
-                            <input v-model="reasonForm.reasonCode" type="text" placeholder="BYPASS_MANUAL" />
+                        <div class="form-group" :class="{ 'has-error': reasonErrors.reasonCode }">
+                            <label>Mã lý do <span class="req">*</span></label>
+                            <input v-model="reasonForm.reasonCode" type="text" placeholder="BYPASS_MANUAL" @input="reasonErrors.reasonCode = ''" />
+                            <p v-if="reasonErrors.reasonCode" class="field-error" role="alert">{{ reasonErrors.reasonCode }}</p>
                         </div>
-                        <div class="form-group">
-                            <label>Mô tả</label>
-                            <input v-model="reasonForm.description" type="text" placeholder="Mở cổng thủ công..." />
+                        <div class="form-group" :class="{ 'has-error': reasonErrors.description }">
+                            <label>Mô tả <span class="req">*</span></label>
+                            <input v-model="reasonForm.description" type="text" placeholder="Mở cổng thủ công..." @input="reasonErrors.description = ''" />
+                            <p v-if="reasonErrors.description" class="field-error" role="alert">{{ reasonErrors.description }}</p>
                         </div>
                     </div>
 
@@ -101,6 +107,9 @@
                 </div>
             </div>
         </transition>
+
+        <ImportModal v-if="showImportModal" entity-type="ExceptionReason" entity-display-name="Lý do ngoại lệ" @close="showImportModal = false" @import-complete="onImportComplete" />
+        <ExportModal v-if="showExportModal" entity-type="ExceptionReason" entity-display-name="Lý do ngoại lệ" :available-columns="['ExceptionReasonId','ReasonCode','Description']" @close="showExportModal = false" />
     </div>
 </template>
 
@@ -113,18 +122,27 @@ import {
     getExceptionReasons,
     updateExceptionReason,
 } from '../services/exceptionReasonApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 
 const isLoading = ref(true)
 const isSaving = ref(false)
 const departments = ref([])
 const positions = ref([])
 const reasons = ref([])
+const showImportModal = ref(false)
+const showExportModal = ref(false)
 
 const showReasonModal = ref(false)
 const editingReasonId = ref(null)
 const formError = ref('')
 
 const reasonForm = reactive({
+    reasonCode: '',
+    description: '',
+})
+
+const reasonErrors = reactive({
     reasonCode: '',
     description: '',
 })
@@ -152,10 +170,17 @@ const fetchData = async () => {
     }
 }
 
+const onImportComplete = (result) => {
+    showImportModal.value = false
+    fetchData()
+}
+
 const openReasonModal = (reason = null) => {
     editingReasonId.value = reason?.reasonId || null
     reasonForm.reasonCode = reason?.reasonCode || ''
     reasonForm.description = reason?.description || ''
+    reasonErrors.reasonCode = ''
+    reasonErrors.description = ''
     formError.value = ''
     showReasonModal.value = true
 }
@@ -169,10 +194,9 @@ const closeReasonModal = () => {
 }
 
 const handleSaveReason = async () => {
-    if (!reasonForm.reasonCode.trim() || !reasonForm.description.trim()) {
-        formError.value = 'Bạn cần nhập cả mã lý do và mô tả.'
-        return
-    }
+    reasonErrors.reasonCode = reasonForm.reasonCode.trim() ? '' : 'Vui lòng nhập mã lý do.'
+    reasonErrors.description = reasonForm.description.trim() ? '' : 'Vui lòng nhập mô tả.'
+    if (Object.values(reasonErrors).some((msg) => msg)) return
 
     isSaving.value = true
     formError.value = ''

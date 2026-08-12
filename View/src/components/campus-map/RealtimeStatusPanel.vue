@@ -2,7 +2,7 @@
     <section class="card realtime-panel" :class="{ compact }">
         <div class="panel-head compact-head">
             <div>
-                <span class="panel-kicker">Realtime</span>
+                <span class="panel-kicker">Thời gian thực</span>
                 <h3 class="panel-title">Dòng sự kiện</h3>
             </div>
             <span class="updated-at">{{ updatedLabel }}</span>

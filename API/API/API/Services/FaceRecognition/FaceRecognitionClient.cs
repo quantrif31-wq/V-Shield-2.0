@@ -134,6 +134,11 @@ public sealed class FaceRecognitionClient : IFaceRecognitionClient
     public Task<FaceRuntimeResponse> RevokeSubjectModelAsync(string subjectId, CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Post, $"models/subjects/{Uri.EscapeDataString(subjectId)}/revoke", null, cancellationToken);
 
+    public Task<FaceRuntimeResponse> LiveEnrollAsync(string subjectId, IReadOnlyList<string> images, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, "enrollments/live",
+            JsonContent.Create(new FaceLiveEnrollRequest(subjectId, images), options: RequestJsonOptions),
+            cancellationToken);
+
     private static string CameraPath(string cameraId, string operation)
     {
         var validCameraId = FaceCameraIdValidator.Validate(cameraId);

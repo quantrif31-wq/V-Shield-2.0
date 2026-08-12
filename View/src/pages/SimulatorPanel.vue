@@ -2,12 +2,12 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Device simulator</span>
-                <h1 class="page-title">Simulator Panel</h1>
+                <span class="panel-kicker">Mô phỏng thiết bị</span>
+                <h1 class="page-title">Bảng điều khiển mô phỏng</h1>
             </div>
             <div class="header-actions">
                 <button class="btn btn-danger" :disabled="resetBusy" @click="resetDemo">{{ resetBusy ? 'Đang đặt lại...' : 'Đặt lại dữ liệu demo' }}</button>
-                <button class="btn btn-secondary" :disabled="loading" @click="loadConnectorStatus">Connector Status</button>
+                <button class="btn btn-secondary" :disabled="loading" @click="loadConnectorStatus">Trạng thái kết nối</button>
             </div>
         </div>
         <div v-if="resetResult" class="success-card demo-reset-result">{{ resetResult }}</div>
@@ -15,36 +15,36 @@
         <section class="ops-grid three">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Virtual</span><h2 class="panel-title">Create Virtual Controller</h2></div>
+                    <div><span class="panel-kicker">Ảo</span><h2 class="panel-title">Tạo bộ điều khiển ảo</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Name</label>
-                    <input v-model="vcForm.name" class="form-input" placeholder="e.g. Sim-Controller-1" />
+                    <label>Tên</label>
+                    <input v-model="vcForm.name" class="form-input" placeholder="vd: Sim-Controller-1" />
                 </div>
                 <div class="form-group">
-                    <label>Protocol</label>
+                    <label>Giao thức</label>
                     <select v-model="vcForm.protocol" class="form-select">
                         <option value="OSDP-Sim">OSDP-Sim</option>
                         <option value="OSDP">OSDP</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Max Credentials</label>
+                    <label>Số thông tin tối đa</label>
                     <input v-model.number="vcForm.maxCredentials" type="number" class="form-input" />
                 </div>
-                <button class="btn btn-primary" :disabled="vcBusy" @click="createVirtual">{{ vcBusy ? 'Creating...' : 'Create' }}</button>
+                <button class="btn btn-primary" :disabled="vcBusy" @click="createVirtual">{{ vcBusy ? 'Đang tạo...' : 'Tạo' }}</button>
                 <div v-if="vcResult" class="success-card">{{ vcResult }}</div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Fault</span><h2 class="panel-title">Inject Fault</h2></div>
+                    <div><span class="panel-kicker">Sự cố</span><h2 class="panel-title">Chèn sự cố</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
+                    <label>Mã thiết bị</label>
                     <input v-model.number="faultForm.deviceId" type="number" class="form-input" />
                 </div>
                 <div class="form-group">
-                    <label>Fault Type</label>
+                    <label>Loại sự cố</label>
                     <select v-model="faultForm.faultType" class="form-select">
                         <option value="Tamper">Tamper</option>
                         <option value="Offline">Offline</option>
@@ -53,7 +53,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Severity</label>
+                    <label>Mức độ nghiêm trọng</label>
                     <select v-model="faultForm.severity" class="form-select">
                         <option value="High">High</option>
                         <option value="Medium">Medium</option>
@@ -61,22 +61,22 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Message</label>
-                    <input v-model="faultForm.message" class="form-input" placeholder="Optional" />
+                    <label>Nội dung</label>
+                    <input v-model="faultForm.message" class="form-input" placeholder="Tùy chọn" />
                 </div>
-                <button class="btn btn-danger" :disabled="faultBusy" @click="injectFault">{{ faultBusy ? 'Injecting...' : 'Inject Fault' }}</button>
+                <button class="btn btn-danger" :disabled="faultBusy" @click="injectFault">{{ faultBusy ? 'Đang chèn...' : 'Chèn sự cố' }}</button>
                 <div v-if="faultResult" class="success-card">{{ faultResult }}</div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Offline</span><h2 class="panel-title">Simulate Offline Decision</h2></div>
+                    <div><span class="panel-kicker">Ngoại tuyến</span><h2 class="panel-title">Mô phỏng quyết định ngoại tuyến</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
+                    <label>Mã thiết bị</label>
                     <input v-model.number="offlineForm.deviceId" type="number" class="form-input" />
                 </div>
                 <div class="form-group">
-                    <label>Subject Type</label>
+                    <label>Loại đối tượng</label>
                     <select v-model="offlineForm.subjectType" class="form-select">
                         <option value="Employee">Employee</option>
                         <option value="Visitor">Visitor</option>
@@ -84,11 +84,11 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Subject ID</label>
-                    <input v-model.number="offlineForm.subjectId" type="number" class="form-input" placeholder="Optional" />
+                    <label>Mã đối tượng</label>
+                    <input v-model.number="offlineForm.subjectId" type="number" class="form-input" placeholder="Tùy chọn" />
                 </div>
                 <div class="form-group">
-                    <label>Credential Type</label>
+                    <label>Loại thông tin xác thực</label>
                     <select v-model="offlineForm.credentialType" class="form-select">
                         <option value="QR">QR</option>
                         <option value="Card">Card</option>
@@ -96,7 +96,7 @@
                         <option value="Any">Any</option>
                     </select>
                 </div>
-                <button class="btn btn-primary" :disabled="offlineBusy" @click="simulateOffline">{{ offlineBusy ? 'Simulating...' : 'Simulate' }}</button>
+                <button class="btn btn-primary" :disabled="offlineBusy" @click="simulateOffline">{{ offlineBusy ? 'Đang mô phỏng...' : 'Mô phỏng' }}</button>
                 <div v-if="offlineResult" class="result-card" :class="offlineResult.result === 'Allow' ? 'result-allow' : 'result-deny'">
                     {{ offlineResult.result }}: {{ offlineResult.reason }}
                 </div>
@@ -106,14 +106,14 @@
         <section class="ops-grid three" style="margin-top:1rem;">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Health</span><h2 class="panel-title">Record Device Health</h2></div>
+                    <div><span class="panel-kicker">Sức khỏe</span><h2 class="panel-title">Ghi nhận sức khỏe thiết bị</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
+                    <label>Mã thiết bị</label>
                     <input v-model.number="healthForm.deviceId" type="number" class="form-input" />
                 </div>
                 <div class="form-group">
-                    <label>Status</label>
+                    <label>Trạng thái</label>
                     <select v-model="healthForm.status" class="form-select">
                         <option value="Ok">Ok</option>
                         <option value="Degraded">Degraded</option>
@@ -122,22 +122,22 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Message</label>
-                    <input v-model="healthForm.message" class="form-input" placeholder="Optional note" />
+                    <label>Nội dung</label>
+                    <input v-model="healthForm.message" class="form-input" placeholder="Ghi chú tùy chọn" />
                 </div>
-                <button class="btn btn-primary" :disabled="healthBusy || !healthForm.deviceId" @click="recordHealth">{{ healthBusy ? 'Recording...' : 'Record' }}</button>
+                <button class="btn btn-primary" :disabled="healthBusy || !healthForm.deviceId" @click="recordHealth">{{ healthBusy ? 'Đang ghi nhận...' : 'Ghi nhận' }}</button>
                 <div v-if="healthResult" class="success-card">{{ healthResult }}</div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Register</span><h2 class="panel-title">Register Controller</h2></div>
+                    <div><span class="panel-kicker">Đăng ký</span><h2 class="panel-title">Đăng ký bộ điều khiển</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
+                    <label>Mã thiết bị</label>
                     <input v-model.number="regForm.deviceId" type="number" class="form-input" />
                 </div>
                 <div class="form-group">
-                    <label>Protocol</label>
+                    <label>Giao thức</label>
                     <select v-model="regForm.protocol" class="form-select">
                         <option value="OSDP">OSDP</option>
                         <option value="Wiegand">Wiegand</option>
@@ -145,22 +145,22 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Max Credentials</label>
+                    <label>Số thông tin tối đa</label>
                     <input v-model.number="regForm.maxCredentials" type="number" class="form-input" />
                 </div>
-                <button class="btn btn-primary" :disabled="regBusy || !regForm.deviceId" @click="registerController">{{ regBusy ? 'Registering...' : 'Register' }}</button>
+                <button class="btn btn-primary" :disabled="regBusy || !regForm.deviceId" @click="registerController">{{ regBusy ? 'Đang đăng ký...' : 'Đăng ký' }}</button>
                 <div v-if="regResult" class="success-card">{{ regResult }}</div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Create</span><h2 class="panel-title">Create Device</h2></div>
+                    <div><span class="panel-kicker">Tạo</span><h2 class="panel-title">Tạo thiết bị</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device Name</label>
-                    <input v-model="createForm.name" class="form-input" placeholder="e.g. Sim-Device-01" />
+                    <label>Tên thiết bị</label>
+                    <input v-model="createForm.name" class="form-input" placeholder="vd: Sim-Device-01" />
                 </div>
                 <div class="form-group">
-                    <label>Type</label>
+                    <label>Loại</label>
                     <select v-model="createForm.deviceType" class="form-select">
                         <option value="Controller">Controller</option>
                         <option value="Reader">Reader</option>
@@ -168,7 +168,7 @@
                         <option value="Barrier">Barrier</option>
                     </select>
                 </div>
-                <button class="btn btn-primary" :disabled="createBusy || !createForm.name.trim()" @click="createDevice">{{ createBusy ? 'Creating...' : 'Create' }}</button>
+                <button class="btn btn-primary" :disabled="createBusy || !createForm.name.trim()" @click="createDevice">{{ createBusy ? 'Đang tạo...' : 'Tạo' }}</button>
                 <div v-if="createResult" class="success-card">{{ createResult }}</div>
             </article>
         </section>
@@ -178,15 +178,15 @@
             <div v-if="showConnectorStatus" class="modal-overlay" @click.self="showConnectorStatus = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Connector Status</h2>
+                        <h2>Trạng thái kết nối</h2>
                         <button class="btn-close" @click="showConnectorStatus = false">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <div v-if="connectorLoading" class="empty-card">Loading...</div>
-                        <div v-else-if="connectorStatus.length === 0" class="empty-card">No connectors.</div>
+                        <div v-if="connectorLoading" class="empty-card">Đang tải...</div>
+                        <div v-else-if="connectorStatus.length === 0" class="empty-card">Không có kết nối nào.</div>
                         <div v-else class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>Connector</th><th>Status</th><th>Last Seen</th></tr></thead>
+                                <thead><tr><th>Kết nối</th><th>Trạng thái</th><th>Lần cuối</th></tr></thead>
                                 <tbody>
                                     <tr v-for="cs in connectorStatus" :key="cs.connectorId || cs.name">
                                         <td>{{ cs.name || cs.connectorId }}</td>
@@ -198,7 +198,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showConnectorStatus = false">Close</button>
+                        <button class="btn btn-secondary" @click="showConnectorStatus = false">Đóng</button>
                     </div>
                 </div>
             </div>
@@ -264,9 +264,9 @@ async function createVirtual() {
     vcBusy.value = true
     try {
         const res = await enterpriseApi.createVirtualController(vcForm.value)
-        vcResult.value = `Created: ${res.data.name} (ID: ${res.data.securityDeviceId})`
+        vcResult.value = `Đã tạo: ${res.data.name} (Mã: ${res.data.securityDeviceId})`
     } catch {
-        vcResult.value = 'Failed to create'
+        vcResult.value = 'Không thể tạo'
     } finally {
         vcBusy.value = false
     }
@@ -282,9 +282,9 @@ async function injectFault() {
             severity: faultForm.value.severity,
             message: faultForm.value.message
         })
-        faultResult.value = `Fault injected: ${res.data.status}`
+        faultResult.value = `Đã chèn sự cố: ${res.data.status}`
     } catch {
-        faultResult.value = 'Failed to inject fault'
+        faultResult.value = 'Không thể chèn sự cố'
     } finally {
         faultBusy.value = false
     }
@@ -302,7 +302,7 @@ async function simulateOffline() {
         })
         offlineResult.value = res.data
     } catch {
-        offlineResult.value = { result: 'Error', reason: 'Simulation failed' }
+        offlineResult.value = { result: 'Error', reason: 'Mô phỏng thất bại' }
     } finally {
         offlineBusy.value = false
     }
@@ -318,10 +318,10 @@ async function recordHealth() {
             status: healthForm.value.status,
             message: healthForm.value.message || null,
         })
-        healthResult.value = 'Health recorded successfully!'
+        healthResult.value = 'Đã ghi nhận sức khỏe thành công!'
         healthForm.value = { deviceId: null, status: 'Ok', message: '' }
     } catch (e) {
-        healthResult.value = 'Failed: ' + (e.response?.data?.message || e.message)
+        healthResult.value = 'Thất bại: ' + (e.response?.data?.message || e.message)
     } finally {
         healthBusy.value = false
     }
@@ -337,10 +337,10 @@ async function registerController() {
             protocol: regForm.value.protocol,
             maxCredentials: regForm.value.maxCredentials,
         })
-        regResult.value = 'Controller registered!'
+        regResult.value = 'Đã đăng ký bộ điều khiển!'
         regForm.value = { deviceId: null, protocol: 'OSDP', maxCredentials: 50000 }
     } catch (e) {
-        regResult.value = 'Failed: ' + (e.response?.data?.message || e.message)
+        regResult.value = 'Thất bại: ' + (e.response?.data?.message || e.message)
     } finally {
         regBusy.value = false
     }
@@ -356,10 +356,10 @@ async function createDevice() {
             name: createForm.value.name,
             deviceType: createForm.value.deviceType,
         })
-        createResult.value = `Created! ID: ${res.data?.securityDeviceId || res.data?.id}`
+        createResult.value = `Đã tạo! Mã: ${res.data?.securityDeviceId || res.data?.id}`
         createForm.value = { name: '', deviceType: 'Controller' }
     } catch (e) {
-        createResult.value = 'Failed: ' + (e.response?.data?.message || e.message)
+        createResult.value = 'Thất bại: ' + (e.response?.data?.message || e.message)
     } finally {
         createBusy.value = false
     }
@@ -384,3 +384,22 @@ function formatTime(utc) {
     return new Date(utc).toLocaleString('vi-VN')
 }
 </script>
+
+<style scoped>
+.btn-close {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-control);
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    background: transparent;
+    transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-close:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+    transform: rotate(90deg);
+}
+</style>

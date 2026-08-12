@@ -844,6 +844,50 @@ a.card:hover {
   resize: vertical;
 }
 
+/* ==== Field-level validation (shared) ==== */
+.form-group.has-error input,
+.form-group.has-error select,
+.form-group.has-error textarea,
+.input-pane.has-error .sleek-input,
+.input-pane.has-error .sleek-select,
+.input-pane.has-error input,
+.input-pane.has-error select,
+.sleek-input.input-error,
+.sleek-select.input-error,
+.modal-form-grid .input-error,
+.combo-input-row .input-error,
+textarea.input-error {
+  border-color: var(--border-danger) !important;
+  box-shadow: 0 0 0 4px rgba(239, 129, 121, 0.14) !important;
+}
+
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--status-danger-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.field-error::before {
+  content: '!';
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.form-group label .req {
+  color: var(--border-danger);
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -2,14 +2,14 @@
     <div class="ai-preview">
         <div v-if="aiResult" class="ai-result-section">
             <div class="preview-header">
-                <h3>AI Preview Result</h3>
+                <h3>Kết quả xem trước AI</h3>
                 <div class="preview-stats">
-                    <span class="stat stat-rows">{{ totalRows }} rows</span>
+                    <span class="stat stat-rows">{{ totalRows }} hàng</span>
                     <span class="stat" :class="changeCount > 0 ? 'stat-changes' : 'stat-ok'">
-                        {{ changeCount }} changes
+                        {{ changeCount }} thay đổi
                     </span>
                     <span v-if="validation" class="stat" :class="validation.isValid ? 'stat-ok' : 'stat-errors'">
-                        {{ validation.isValid ? 'Valid' : `${validation.errorCount} errors` }}
+                        {{ validation.isValid ? 'Hợp lệ' : `${validation.errorCount} lỗi` }}
                     </span>
                 </div>
             </div>

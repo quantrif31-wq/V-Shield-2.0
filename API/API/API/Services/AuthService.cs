@@ -173,6 +173,53 @@ public class AuthenticationService : IAuthenticationService
         return roles.Any(role => string.Equals(role, user.Role, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Bắt buộc đổi mật khẩu sau khi tài khoản kích hoạt MFA lần đầu:
+    /// đúng khi mật khẩu chưa từng được đổi sau thời điểm MFA được định cấu hình.
+    /// Sau khi người dùng đổi mật khẩu (LastPasswordChangedAtUtc mới hơn), cờ tự được gỡ — chỉ áp dụng lần đầu.
+    /// </summary>
+    public bool RequiresPasswordChange(AppUser user)
+    {
+        if (!user.MfaEnabled || !user.MfaConfiguredAtUtc.HasValue)
+            return false;
+
+        return !user.LastPasswordChangedAtUtc.HasValue || user.LastPasswordChangedAtUtc < user.MfaConfiguredAtUtc;
+    }
+
+    public async Task<ChangePasswordResult?> ChangePasswordAsync(int userId, string? currentPassword, string? newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+        {
+            return new ChangePasswordResult { Success = false, Message = "Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới." };
+        }
+
+        var user = await _context.AppUsers.FindAsync(userId);
+        if (user == null || !user.IsActive)
+            return null;
+
+        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        {
+            return new ChangePasswordResult { Success = false, Message = "Mật khẩu hiện tại không chính xác." };
+        }
+
+        if (newPassword.Length < 6)
+        {
+            return new ChangePasswordResult { Success = false, Message = "Mật khẩu mới phải có ít nhất 6 ký tự." };
+        }
+
+        if (BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash))
+        {
+            return new ChangePasswordResult { Success = false, Message = "Mật khẩu mới phải khác mật khẩu hiện tại." };
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.LastPasswordChangedAtUtc = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return new ChangePasswordResult { Success = true };
+    }
+
     private async Task<LoginResponse?> HandleMfaAsync(AppUser user, string? submittedCode)
     {
         if (string.IsNullOrWhiteSpace(user.MfaSecretProtected))
@@ -365,6 +412,7 @@ public class AuthenticationService : IAuthenticationService
             EmployeeId = user.EmployeeId,
             ExpiresAt = expiresAt,
             RefreshTokenExpiresAt = refreshExpiresAt,
+            RequiresPasswordChange = RequiresPasswordChange(user),
             HasOperationalScopeAssignments = hasOperationalScopeAssignments,
             OperationalTaskKeys = operationalTaskKeys
         };

@@ -6,7 +6,7 @@
                 :class="mode === 'view' ? 'btn-primary' : 'btn-secondary'"
                 @click="$emit('change-mode', 'view')"
             >
-                View mode
+                Chế độ xem
             </button>
             <button
                 class="btn"
@@ -14,18 +14,18 @@
                 :disabled="!canEdit"
                 @click="$emit('change-mode', 'edit')"
             >
-                Edit mode
+                Chế độ chỉnh sửa
             </button>
         </div>
 
         <div class="toolbar-right">
             <button class="btn btn-secondary" :disabled="!canEdit || mode !== 'edit'" @click="$emit('auto-arrange')">
-                Auto arrange
+                Tự dàn đều
             </button>
             <button class="btn btn-secondary" :disabled="!canEdit || mode !== 'edit'" @click="$emit('reset-layout')">
-                Reset layout
+                Đặt lại bố cục
             </button>
-            <button class="btn btn-secondary" @click="$emit('fit-screen')">Fit to screen</button>
+            <button class="btn btn-secondary" @click="$emit('fit-screen')">Vừa màn hình</button>
             <button class="btn btn-secondary" :disabled="refreshing" @click="$emit('refresh')">
                 {{ refreshing ? 'Đang tải...' : 'Làm mới' }}
             </button>

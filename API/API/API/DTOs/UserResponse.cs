@@ -11,6 +11,7 @@ public class UserResponse
     public int? EmployeeId { get; set; }
     public bool MfaEnabled { get; set; }
     public bool MfaRequired { get; set; }
+    public bool RequiresPasswordChange { get; set; }
     public DateTime? LastLoginAtUtc { get; set; }
     public bool HasOperationalScopeAssignments { get; set; }
     public List<string> OperationalTaskKeys { get; set; } = new();

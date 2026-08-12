@@ -115,10 +115,33 @@ public class AuthController : ControllerBase
             EmployeeId = user.EmployeeId,
             MfaEnabled = user.MfaEnabled,
             MfaRequired = _authService.RequiresMfa(user),
+            RequiresPasswordChange = _authService.RequiresPasswordChange(user),
             LastLoginAtUtc = user.LastLoginAtUtc,
             HasOperationalScopeAssignments = hasOperationalScopeAssignments,
             OperationalTaskKeys = operationalTaskKeys
         });
+    }
+
+    /// <summary>Đổi mật khẩu của người dùng đang đăng nhập (bắt buộc sau khi kích hoạt MFA lần đầu)</summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _authService.ChangePasswordAsync(userId.Value, request.CurrentPassword, request.NewPassword);
+        if (result == null)
+            return NotFound(new { message = "Người dùng không tồn tại hoặc đã bị vô hiệu hóa." });
+
+        if (!result.Success)
+            return BadRequest(new { message = result.Message ?? "Không thể đổi mật khẩu." });
+
+        return Ok(new { message = "Đổi mật khẩu thành công." });
     }
 
     [HttpPost("step-up/start")]

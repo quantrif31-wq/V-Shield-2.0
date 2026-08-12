@@ -86,7 +86,7 @@
                             <span class="case-badge" :class="`badge-${item.category}`">{{ categoryLabel(item.category) }}</span>
                             <span class="time-label">{{ formatRelativeTime(item.lastEventAt) }}</span>
                         </div>
-                        <strong class="queue-title">{{ item.subjectName || item.plateText || `Log #${item.sourceLogId}` }}</strong>
+                        <strong class="queue-title">{{ item.subjectName || item.plateText || `Nhật ký #${item.sourceLogId}` }}</strong>
                         <div class="queue-meta">
                             <span v-if="item.plateText" class="plate-badge">{{ item.plateText }}</span>
                             <span>{{ item.gateName || 'Chưa gắn cổng' }}</span>
@@ -165,7 +165,7 @@
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">Mã lý do</span>
-                            <span>{{ selectedCase.reasonCode || 'UNCLASSIFIED' }}</span>
+                            <span>{{ selectedCase.reasonCode || 'CHƯA PHÂN LOẠI' }}</span>
                         </div>
                     </div>
 
@@ -271,7 +271,7 @@
                             <span class="case-badge" :class="`badge-intv-${item.interventionType}`">{{ interventionTypeLabel(item.interventionType) }}</span>
                             <span class="time-label">{{ formatRelativeTime(item.createdAtUtc) }}</span>
                         </div>
-                        <strong class="queue-title">{{ item.subjectName || item.plateNumber || `Request #${item.operationalInterventionRequestId}` }}</strong>
+                        <strong class="queue-title">{{ item.subjectName || item.plateNumber || `Yêu cầu #${item.operationalInterventionRequestId}` }}</strong>
                         <div class="queue-meta">
                             <span>{{ priorityLabel(item.priority) }}</span>
                             <span>{{ item.laneName || item.laneId || 'Không gắn lane' }}</span>
@@ -906,7 +906,7 @@ async function closeCase(item) {
             description: 'Không còn yêu cầu xử lý tiếp trên hàng đợi.',
             timestamp: new Date().toISOString(),
             actor: currentRole.value,
-            reason: 'Closed from exception desk',
+            reason: 'Khóa sổ từ bàn ngoại lệ',
         })
         caseActionMessage.value = `Case #${item.sourceLogId} đã được khóa sổ.`
     } catch (error) {
@@ -1102,7 +1102,7 @@ function buildInterventionTimeline(item) {
             title: 'Yêu cầu được tạo',
             description: item.reason,
             timestamp: item.createdAtUtc,
-            actor: item.requestedByUserId ? `User #${item.requestedByUserId}` : '',
+            actor: item.requestedByUserId ? `Người dùng #${item.requestedByUserId}` : '',
             reason: item.interventionType,
         },
     ]
@@ -1114,8 +1114,8 @@ function buildInterventionTimeline(item) {
             title: 'Yêu cầu được chấp nhận',
             description: item.note || '',
             timestamp: item.acceptedAtUtc,
-            actor: item.acceptedByUserId ? `User #${item.acceptedByUserId}` : '',
-            reason: 'Accepted',
+            actor: item.acceptedByUserId ? `Người dùng #${item.acceptedByUserId}` : '',
+            reason: 'Đã chấp nhận',
         })
     }
 
@@ -1126,8 +1126,8 @@ function buildInterventionTimeline(item) {
             title: 'Yêu cầu bị từ chối',
             description: item.rejectionReason || '',
             timestamp: item.rejectedAtUtc,
-            actor: item.rejectedByUserId ? `User #${item.rejectedByUserId}` : '',
-            reason: 'Rejected',
+            actor: item.rejectedByUserId ? `Người dùng #${item.rejectedByUserId}` : '',
+            reason: 'Đã từ chối',
         })
     }
 
@@ -1138,8 +1138,8 @@ function buildInterventionTimeline(item) {
             title: 'Yêu cầu được thực thi',
             description: item.note || '',
             timestamp: item.executedAtUtc,
-            actor: item.executedByUserId ? `User #${item.executedByUserId}` : '',
-            reason: 'Executed',
+            actor: item.executedByUserId ? `Người dùng #${item.executedByUserId}` : '',
+            reason: 'Đã thực thi',
         })
     }
 
@@ -1229,10 +1229,10 @@ onMounted(loadAll)
     gap: 10px;
     margin: 0 0 16px;
     padding: 8px;
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid #dbe3ea;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: 16px;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    box-shadow: var(--shadow-sm);
     backdrop-filter: blur(8px);
 }
 
@@ -1246,7 +1246,7 @@ onMounted(loadAll)
     border: 0;
     border-radius: 12px;
     background: transparent;
-    color: #425466;
+    color: var(--text-secondary);
     font-weight: 700;
     font-size: 0.96rem;
     line-height: 1;
@@ -1254,22 +1254,22 @@ onMounted(loadAll)
 }
 
 .tab-bar button:hover {
-    background: #f4f8fb;
-    color: #17324d;
+    background: var(--surface-subtle);
+    color: var(--text-primary);
 }
 
 .tab-bar button.active {
     background: linear-gradient(135deg, #0f7f8e, #2563eb);
-    color: #ffffff;
+    color: var(--text-on-interactive);
     box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
 }
 
 .summary-card,
 .workspace-pane {
-    background: #fff;
-    border: 1px solid #dbe3ea;
+    background: var(--surface-default);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .summary-card {
@@ -1280,18 +1280,18 @@ onMounted(loadAll)
 }
 
 .summary-label {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.82rem;
 }
 
 .summary-value {
-    color: #10233e;
+    color: var(--text-primary);
     font-size: 1.6rem;
     line-height: 1;
 }
 
 .summary-card small {
-    color: #76879a;
+    color: var(--text-muted);
 }
 
 .workspace-grid {
@@ -1321,13 +1321,13 @@ onMounted(loadAll)
 .pane-subtitle,
 .detail-subtitle {
     margin: 4px 0 0;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .detail-title {
     margin: 4px 0 0;
     font-size: 1.35rem;
-    color: #10233e;
+    color: var(--text-primary);
 }
 
 .search-shell {
@@ -1337,11 +1337,11 @@ onMounted(loadAll)
 .filter-input,
 .form-control {
     width: 100%;
-    border: 1px solid #d7e2ec;
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 10px 12px;
-    background: #fff;
-    color: #142033;
+    background: var(--surface-default);
+    color: var(--text-primary);
 }
 
 .filter-pills,
@@ -1353,12 +1353,31 @@ onMounted(loadAll)
 }
 
 .pill-btn {
-    border: 1px solid #d7e2ec;
-    background: #f8fafc;
-    color: #34475d;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
+    color: var(--text-secondary);
     border-radius: 999px;
     padding: 8px 12px;
     font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.pill-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.detail-tabs button {
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.detail-tabs button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
 }
 
 .pill-btn.active,
@@ -1376,15 +1395,15 @@ onMounted(loadAll)
     height: 22px;
     padding: 0 7px;
     border-radius: 999px;
-    background: #e7eef6;
-    color: #31465f;
+    background: var(--status-neutral-bg);
+    color: var(--text-secondary);
     font-size: 0.76rem;
     font-weight: 800;
 }
 
 .tab-bar button.active .tab-count {
     background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
+    color: var(--text-on-interactive);
 }
 
 .tab-count.danger {
@@ -1403,8 +1422,8 @@ onMounted(loadAll)
 }
 
 .queue-item {
-    border: 1px solid #dde6ef;
-    background: #fff;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
     border-radius: 12px;
     padding: 12px;
     text-align: left;
@@ -1412,8 +1431,8 @@ onMounted(loadAll)
 }
 
 .queue-item:hover {
-    border-color: #9db7d2;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
 }
 
 .queue-item.selected {
@@ -1434,13 +1453,13 @@ onMounted(loadAll)
 .queue-title {
     display: block;
     margin: 8px 0 6px;
-    color: #10233e;
+    color: var(--text-primary);
 }
 
 .queue-meta,
 .queue-footer,
 .time-label {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.82rem;
 }
 
@@ -1537,17 +1556,17 @@ onMounted(loadAll)
 }
 
 .meta-item {
-    border: 1px solid #e5edf5;
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 12px;
-    background: #fbfdff;
+    background: var(--surface-raised);
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
 .meta-label {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.78rem;
     font-weight: 700;
 }
@@ -1559,7 +1578,7 @@ onMounted(loadAll)
 
 .detail-section-title {
     margin: 0 0 10px;
-    color: #10233e;
+    color: var(--text-primary);
 }
 
 .compact-list {
@@ -1569,9 +1588,9 @@ onMounted(loadAll)
 }
 
 .compact-row {
-    border: 1px solid #e6edf4;
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
-    background: #fff;
+    background: var(--surface-default);
     padding: 10px 12px;
     display: grid;
     grid-template-columns: 180px auto auto 1fr;
@@ -1580,12 +1599,12 @@ onMounted(loadAll)
 }
 
 .compact-time {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.8rem;
 }
 
 .text-muted {
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .alert {
@@ -1596,31 +1615,31 @@ onMounted(loadAll)
 }
 
 .alert-success {
-    background: #edf8f3;
-    border-color: #bfe3cb;
-    color: #166534;
+    background: var(--status-success-bg);
+    border-color: var(--status-success-border);
+    color: var(--status-success-text);
 }
 
 .alert-danger {
-    background: #fff0f0;
-    border-color: #f1c5c5;
-    color: #b42318;
+    background: var(--status-danger-bg);
+    border-color: var(--status-danger-border);
+    color: var(--status-danger-text);
 }
 
 .empty-card.compact,
 .empty-card {
     border-radius: 12px;
-    background: #f8fafc;
-    color: #64748b;
+    background: var(--surface-subtle);
+    color: var(--text-muted);
     padding: 24px;
     text-align: center;
-    border: 1px dashed #d5e1eb;
+    border: 1px dashed var(--border-subtle);
 }
 
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.4);
+    background: var(--surface-overlay);
     display: grid;
     place-items: center;
     z-index: 90;
@@ -1628,9 +1647,9 @@ onMounted(loadAll)
 
 .modal-card {
     width: min(720px, calc(100vw - 32px));
-    background: #fff;
+    background: var(--surface-default);
     border-radius: 18px;
-    box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
 }
 
@@ -1644,7 +1663,7 @@ onMounted(loadAll)
 }
 
 .modal-header {
-    border-bottom: 1px solid #e6edf4;
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-body {
@@ -1652,7 +1671,7 @@ onMounted(loadAll)
 }
 
 .modal-footer {
-    border-top: 1px solid #e6edf4;
+    border-top: 1px solid var(--border-subtle);
 }
 
 .form-grid {

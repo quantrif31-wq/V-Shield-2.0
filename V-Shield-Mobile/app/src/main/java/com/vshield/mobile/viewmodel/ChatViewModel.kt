@@ -47,10 +47,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val empId = TokenManager(getApplication()).getEmployeeId()
         _uiState.value = _uiState.value.copy(myEmployeeId = empId)
 
-        val baseUrl = BuildConfig.API_BASE_URL
-        signalRClient = ChatSignalRClient(baseUrl, token, viewModelScope)
-        setupSignalRCallbacks()
-        signalRClient?.connect()
+        if (!BuildConfig.DEMO_MODE) {
+            val baseUrl = BuildConfig.API_BASE_URL
+            signalRClient = ChatSignalRClient(baseUrl, token, viewModelScope)
+            setupSignalRCallbacks()
+            signalRClient?.connect()
+        } else {
+            _uiState.value = _uiState.value.copy(isConnected = true)
+        }
         loadConversations()
         loadContacts()
     }

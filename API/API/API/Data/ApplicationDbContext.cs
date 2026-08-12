@@ -77,6 +77,9 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<DynamicQrScanLog> DynamicQrScanLogs { get; set; }
     public DbSet<EmployeeAccessPermission> EmployeeAccessPermissions { get; set; }
     public DbSet<VisitorAccessPermission> VisitorAccessPermissions { get; set; }
+    public DbSet<PositionAccessPermission> PositionAccessPermissions { get; set; }
+    public DbSet<RoleGateAccessPermission> RoleGateAccessPermissions { get; set; }
+    public DbSet<UserGateAccessPermission> UserGateAccessPermissions { get; set; }
     public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
     public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }
     public DbSet<RateLimitCounter> RateLimitCounters { get; set; }

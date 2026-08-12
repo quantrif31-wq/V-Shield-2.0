@@ -19,13 +19,13 @@
                 <div class="surface-item">
                     <div class="inline-stat">
                         <strong>{{ statusLabel(item.status) }}</strong>
-                        <span>Trạng thái realtime</span>
+                        <span>Trạng thái thời gian thực</span>
                     </div>
                 </div>
                 <div class="surface-item">
                     <div class="inline-stat">
                         <strong>{{ item.stats?.cameraCount || 0 }} / {{ item.stats?.offlineCameraCount || 0 }}</strong>
-                        <span>Camera / offline</span>
+                        <span>Camera / ngoại tuyến</span>
                     </div>
                 </div>
                 <div class="surface-item">

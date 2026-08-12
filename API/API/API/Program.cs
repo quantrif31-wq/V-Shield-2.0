@@ -195,6 +195,20 @@ namespace API
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.DepartmentImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.PositionImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.UserImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.GateImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.CameraImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.VehicleTypeImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.ExceptionReasonImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.ShiftImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.WorkScheduleImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.GuestProfileImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.PreRegistrationImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.AccessLogImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.CompanyImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.SiteImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.BuildingImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.FacilityFloorImportHandler>();
+            builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.SecurityZoneImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IImportExportService, API.Services.ImportExport.ImportExportService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             if (!builder.Environment.IsEnvironment("Testing"))
@@ -318,6 +332,7 @@ namespace API
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                    options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
                 });
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
@@ -1213,6 +1228,30 @@ namespace API
 
                 await next();
             });
+        }
+    }
+
+    internal sealed class UtcDateTimeJsonConverter : System.Text.Json.Serialization.JsonConverter<DateTime>
+    {
+        public override DateTime Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+        {
+            var value = reader.GetDateTime();
+            if (value.Kind == DateTimeKind.Unspecified)
+            {
+                return DateTime.SpecifyKind(value, DateTimeKind.Utc);
+            }
+
+            return value;
+        }
+
+        public override void Write(System.Text.Json.Utf8JsonWriter writer, DateTime value, System.Text.Json.JsonSerializerOptions options)
+        {
+            if (value.Kind == DateTimeKind.Unspecified)
+            {
+                value = DateTime.SpecifyKind(value, DateTimeKind.Utc);
+            }
+
+            writer.WriteStringValue(value);
         }
     }
 }

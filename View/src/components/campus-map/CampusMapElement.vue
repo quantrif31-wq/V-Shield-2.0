@@ -23,7 +23,7 @@
             v-if="editable && !item.layout.isLocked"
             type="button"
             class="resize-handle"
-            aria-label="Resize"
+            aria-label="Kéo giãn"
             @pointerdown.stop="onResizeStart"
         />
     </article>

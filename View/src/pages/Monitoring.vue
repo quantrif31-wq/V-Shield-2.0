@@ -51,7 +51,7 @@
             @load="onLoad(cam.cameraId)"
             @error="onError(cam.cameraId)"
           ></iframe>
-          <div v-else class="cam-off">Camera OFF</div>
+          <div v-else class="cam-off">Camera tắt</div>
         </div>
       </div>
 
@@ -164,7 +164,7 @@ onMounted(() => {
 <style scoped>
 .page {
   padding: 20px;
-  background: #f4f6fb;
+  background: var(--surface-subtle);
   min-height: 100vh;
 }
 
@@ -177,20 +177,27 @@ onMounted(() => {
 
 .gear-btn {
   font-size: 22px;
-  background: white;
+  background: var(--surface-default);
   border: none;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.gear-btn:hover {
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .settings-panel {
-  background: white;
+  background: var(--surface-default);
   padding: 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   margin-bottom: 16px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .cam-list {
@@ -203,6 +210,14 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 8px 10px;
+  margin: -8px -10px;
+  border-radius: var(--radius-control);
+  transition: background var(--transition-fast);
+}
+
+.cam-item:hover {
+  background: var(--surface-hover);
 }
 
 .cam-item-info {
@@ -219,6 +234,11 @@ onMounted(() => {
   font-size: 18px;
   text-decoration: none;
   cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.archive-link:hover {
+  opacity: 0.7;
 }
 
 .switch {
@@ -233,7 +253,7 @@ onMounted(() => {
 
 .slider {
   position: absolute;
-  background: #ccc;
+  background: var(--interactive-disabled);
   border-radius: 24px;
   top: 0;
   left: 0;
@@ -249,7 +269,7 @@ onMounted(() => {
   height: 18px;
   left: 3px;
   top: 3px;
-  background: white;
+  background: var(--surface-default);
   border-radius: 50%;
   transition: 0.3s;
 }
@@ -269,10 +289,10 @@ onMounted(() => {
 }
 
 .cam-card {
-  background: white;
+  background: var(--surface-default);
   border-radius: 16px;
   padding: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .cam-head {
@@ -283,11 +303,11 @@ onMounted(() => {
 }
 
 .status.ok {
-  color: #16a34a;
+  color: var(--status-success-text);
 }
 
 .status.wait {
-  color: #f97316;
+  color: var(--accent-warning);
 }
 
 .cam-preview {
@@ -308,7 +328,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--text-on-interactive);
   height: 100%;
 }
 
@@ -316,7 +336,7 @@ onMounted(() => {
   grid-column: span 2;
   text-align: center;
   padding: 40px;
-  color: gray;
+  color: var(--text-muted);
 }
 
 .fade-enter-active,

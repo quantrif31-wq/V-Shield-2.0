@@ -85,9 +85,11 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         }
 
         initialized = true
-        signalRClient = NotificationSignalRClient(BuildConfig.API_BASE_URL, token, viewModelScope)
-        setupSignalRCallbacks()
-        signalRClient?.connect()
+        if (!BuildConfig.DEMO_MODE) {
+            signalRClient = NotificationSignalRClient(BuildConfig.API_BASE_URL, token, viewModelScope)
+            setupSignalRCallbacks()
+            signalRClient?.connect()
+        }
 
         loadNotifications()
         loadUnreadCount()

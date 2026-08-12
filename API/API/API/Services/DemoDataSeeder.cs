@@ -480,6 +480,12 @@ public static class DemoDataSeeder
                 var direction = i % 2 == 0 ? "IN" : "OUT";
                 var failed = i % 53 == 0;
                 var timestamp = date.AddHours(6 + i % 15).AddMinutes((i * 7) % 60);
+                if (timestamp > now)
+                {
+                    var start = date.AddHours(6);
+                    var maxElapsed = Math.Max(1, (now - start).TotalMinutes - 2);
+                    timestamp = start.AddMinutes(maxElapsed * i / sampleCount);
+                }
 
                 accessLogs.Add(new AccessLog
                 {

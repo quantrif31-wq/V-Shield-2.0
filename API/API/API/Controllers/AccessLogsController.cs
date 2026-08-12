@@ -41,9 +41,13 @@ public class AccessLogsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(query))
         {
             var normalized = query.Trim();
+            var plateNormalized = NormalizePlateToken(normalized);
             logsQuery = logsQuery.Where(log =>
                 (log.ActorName != null && log.ActorName.Contains(normalized)) ||
                 (log.CapturedLicensePlate != null && log.CapturedLicensePlate.Contains(normalized)) ||
+                (!string.IsNullOrEmpty(plateNormalized) &&
+                 log.CapturedLicensePlate != null &&
+                 log.CapturedLicensePlate.Replace("-", "").Replace(" ", "").Replace("_", "").Contains(plateNormalized)) ||
                 (log.GateName != null && log.GateName.Contains(normalized)) ||
                 (log.Note != null && log.Note.Contains(normalized)));
         }
@@ -455,6 +459,18 @@ public class AccessLogsController : ControllerBase
         public string? ExceptionReasonDescription { get; set; }
         public string? Note { get; set; }
         public int? EntryLogId { get; set; }
+    }
+
+    private static string NormalizePlateToken(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        return new string(input.ToUpperInvariant()
+            .Where(character => !char.IsWhiteSpace(character) && character != '-' && character != '_')
+            .ToArray());
     }
 }
 

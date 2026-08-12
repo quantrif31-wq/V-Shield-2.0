@@ -2,33 +2,33 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Device provisioning</span>
-                <h1 class="page-title">Provisioning Wizard</h1>
+                <span class="panel-kicker">Cấp phát thiết bị</span>
+                <h1 class="page-title">Trình cấp phát thiết bị</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" @click="showRequestForm = true">New Request</button>
-                <button class="btn btn-secondary" @click="showCreateDevice = true">Create Device</button>
-                <button class="btn btn-secondary" @click="showRegisterController = true">Register Controller</button>
+                <button class="btn btn-primary" @click="showRequestForm = true">Yêu cầu mới</button>
+                <button class="btn btn-secondary" @click="showCreateDevice = true">Tạo thiết bị</button>
+                <button class="btn btn-secondary" @click="showRegisterController = true">Đăng ký bộ điều khiển</button>
             </div>
         </div>
 
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Requests</span><h2 class="panel-title">Provisioning Requests</h2></div>
+                    <div><span class="panel-kicker">Yêu cầu</span><h2 class="panel-title">Yêu cầu cấp phát</h2></div>
                     <div class="panel-actions">
                         <select v-model="statusFilter" @change="loadRequests" class="form-select">
-                            <option value="">All</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Approved">Approved</option>
+                            <option value="">Tất cả</option>
+                            <option value="Pending">Chờ duyệt</option>
+                            <option value="Approved">Đã duyệt</option>
                         </select>
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="requests.length === 0" class="empty-card">No provisioning requests.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="requests.length === 0" class="empty-card">Chưa có yêu cầu cấp phát.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Device</th><th>Type</th><th>Status</th><th>Approval Note</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Thiết bị</th><th>Loại</th><th>Trạng thái</th><th>Ghi chú duyệt</th><th>Thao tác</th></tr></thead>
                         <tbody>
                             <tr v-for="r in requests" :key="r.deviceProvisioningRequestId">
                                 <td>{{ r.requestedName }}</td>
@@ -36,8 +36,8 @@
                                 <td><span class="badge" :class="r.status === 'Approved' ? 'badge-success' : 'badge-warn'">{{ r.status }}</span></td>
                                 <td class="table-sub">{{ r.approvalNote || '—' }}</td>
                                 <td>
-                                    <button v-if="r.status === 'Pending'" class="btn btn-success btn-sm" @click="approve(r)">Approve</button>
-                                    <button v-if="r.status === 'Approved'" class="btn btn-primary btn-sm" @click="finalizeProvisioning(r)">Finalize</button>
+                                    <button v-if="r.status === 'Pending'" class="btn btn-success btn-sm" @click="approve(r)">Duyệt</button>
+                                    <button v-if="r.status === 'Approved'" class="btn btn-primary btn-sm" @click="finalizeProvisioning(r)">Hoàn tất</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -46,21 +46,21 @@
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Devices</span><h2 class="panel-title">Registered Devices</h2></div>
+                    <div><span class="panel-kicker">Thiết bị</span><h2 class="panel-title">Thiết bị đã đăng ký</h2></div>
                 </div>
                 <div class="toolbar-shell">
                     <div class="search-bar">
                         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                         </svg>
-                        <input v-model="deviceSearch" type="text" placeholder="Search devices..." />
+                        <input v-model="deviceSearch" type="text" placeholder="Tìm thiết bị..." />
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="filteredDevices.length === 0" class="empty-card">No devices registered.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="filteredDevices.length === 0" class="empty-card">Chưa có thiết bị nào được đăng ký.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Name</th><th>Type</th><th>Vendor</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Tên</th><th>Loại</th><th>Hãng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
                         <tbody>
                             <tr v-for="d in filteredDevices" :key="d.securityDeviceId" class="device-row" @click="selectedDevice = d">
                                 <td>{{ d.name }}</td>
@@ -68,7 +68,7 @@
                                 <td>{{ d.vendor || '—' }}</td>
                                 <td><span class="status-dot" :class="statusClass(d.status)"></span>{{ d.status }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-ghost" @click.stop="selectedDevice = d">Detail</button>
+                                    <button class="btn btn-sm btn-ghost" @click.stop="selectedDevice = d">Chi tiết</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -80,28 +80,28 @@
         <!-- New Request Modal -->
         <div v-if="showRequestForm" class="modal-overlay" @click.self="showRequestForm = false">
             <div class="modal-box">
-                <h3>New Provisioning Request</h3>
+                <h3>Yêu cầu cấp phát mới</h3>
                 <div class="form-group">
-                    <label>Device Name</label>
-                    <input v-model="requestForm.requestedName" class="form-input" placeholder="e.g. Contour-C2" />
+                    <label>Tên thiết bị</label>
+                    <input v-model="requestForm.requestedName" class="form-input" placeholder="vd. Contour-C2" />
                 </div>
                 <div class="form-group">
-                    <label>Device Type</label>
+                    <label>Loại thiết bị</label>
                     <select v-model="requestForm.deviceType" class="form-select">
-                        <option value="Controller">Controller</option>
-                        <option value="Reader">Reader</option>
+                        <option value="Controller">Bộ điều khiển</option>
+                        <option value="Reader">Đầu đọc</option>
                         <option value="Camera">Camera</option>
-                        <option value="Barrier">Barrier</option>
+                        <option value="Barrier">Barie</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Site ID</label>
-                    <input v-model.number="requestForm.siteId" type="number" class="form-input" placeholder="Optional" />
+                    <label>Mã khu vực</label>
+                    <input v-model.number="requestForm.siteId" type="number" class="form-input" placeholder="Không bắt buộc" />
                 </div>
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="showRequestForm = false">Cancel</button>
+                    <button class="btn btn-secondary" @click="showRequestForm = false">Hủy</button>
                     <button class="btn btn-primary" :disabled="busy || !requestForm.requestedName.trim()" @click="submitRequest">
-                        {{ busy ? 'Submitting...' : 'Submit' }}
+                        {{ busy ? 'Đang gửi...' : 'Gửi' }}
                     </button>
                 </div>
             </div>
@@ -110,45 +110,45 @@
         <!-- Create Device Modal -->
         <div v-if="showCreateDevice" class="modal-overlay" @click.self="showCreateDevice = false">
             <div class="modal-box">
-                <h3>Create Device</h3>
+                <h3>Tạo thiết bị</h3>
                 <div class="form-group">
-                    <label>Device Name *</label>
-                    <input v-model="createForm.name" class="form-input" placeholder="e.g. Door-Reader-03" />
+                    <label>Tên thiết bị *</label>
+                    <input v-model="createForm.name" class="form-input" placeholder="vd. Door-Reader-03" />
                 </div>
                 <div class="form-group">
-                    <label>Device Type *</label>
+                    <label>Loại thiết bị *</label>
                     <select v-model="createForm.deviceType" class="form-select">
-                        <option value="Controller">Controller</option>
-                        <option value="Reader">Reader</option>
+                        <option value="Controller">Bộ điều khiển</option>
+                        <option value="Reader">Đầu đọc</option>
                         <option value="Camera">Camera</option>
-                        <option value="Barrier">Barrier</option>
-                        <option value="Sensor">Sensor</option>
+                        <option value="Barrier">Barie</option>
+                        <option value="Sensor">Cảm biến</option>
                     </select>
                 </div>
                 <div class="form-row two">
                     <div class="form-group">
-                        <label>Vendor</label>
-                        <input v-model="createForm.vendor" class="form-input" placeholder="e.g. HID" />
+                        <label>Hãng</label>
+                        <input v-model="createForm.vendor" class="form-input" placeholder="vd. HID" />
                     </div>
                     <div class="form-group">
                         <label>Model</label>
-                        <input v-model="createForm.model" class="form-input" placeholder="e.g. Signo-20" />
+                        <input v-model="createForm.model" class="form-input" placeholder="vd. Signo-20" />
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>IP Address</label>
-                    <input v-model="createForm.ipAddress" class="form-input" placeholder="e.g. 192.168.1.100" />
+                    <label>Địa chỉ IP</label>
+                    <input v-model="createForm.ipAddress" class="form-input" placeholder="vd. 192.168.1.100" />
                 </div>
                 <div class="form-group">
-                    <label>Site ID</label>
-                    <input v-model.number="createForm.siteId" type="number" class="form-input" placeholder="Optional" />
+                    <label>Mã khu vực</label>
+                    <input v-model.number="createForm.siteId" type="number" class="form-input" placeholder="Không bắt buộc" />
                 </div>
                 <div v-if="createResult" class="success-card">{{ createResult }}</div>
                 <div v-else-if="createError" class="alert alert-danger">{{ createError }}</div>
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="showCreateDevice = false">Cancel</button>
+                    <button class="btn btn-secondary" @click="showCreateDevice = false">Hủy</button>
                     <button class="btn btn-primary" :disabled="createBusy || !createForm.name.trim()" @click="submitCreateDevice">
-                        {{ createBusy ? 'Creating...' : 'Create' }}
+                        {{ createBusy ? 'Đang tạo...' : 'Tạo' }}
                     </button>
                 </div>
             </div>
@@ -157,13 +157,13 @@
         <!-- Register Controller Modal -->
         <div v-if="showRegisterController" class="modal-overlay" @click.self="showRegisterController = false">
             <div class="modal-box">
-                <h3>Register Controller</h3>
+                <h3>Đăng ký bộ điều khiển</h3>
                 <div class="form-group">
-                    <label>Parent Device ID *</label>
-                    <input v-model.number="regForm.deviceId" type="number" class="form-input" placeholder="Device ID to register controller for" />
+                    <label>Mã thiết bị cha *</label>
+                    <input v-model.number="regForm.deviceId" type="number" class="form-input" placeholder="Mã thiết bị để đăng ký bộ điều khiển" />
                 </div>
                 <div class="form-group">
-                    <label>Protocol</label>
+                    <label>Giao thức</label>
                     <select v-model="regForm.protocol" class="form-select">
                         <option value="OSDP">OSDP</option>
                         <option value="Wiegand">Wiegand</option>
@@ -171,15 +171,15 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Max Credentials</label>
+                    <label>Số thẻ tối đa</label>
                     <input v-model.number="regForm.maxCredentials" type="number" class="form-input" value="50000" />
                 </div>
                 <div v-if="regResult" class="success-card">{{ regResult }}</div>
                 <div v-else-if="regError" class="alert alert-danger">{{ regError }}</div>
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="showRegisterController = false">Cancel</button>
+                    <button class="btn btn-secondary" @click="showRegisterController = false">Hủy</button>
                     <button class="btn btn-primary" :disabled="regBusy || !regForm.deviceId" @click="submitRegisterController">
-                        {{ regBusy ? 'Registering...' : 'Register' }}
+                        {{ regBusy ? 'Đang đăng ký...' : 'Đăng ký' }}
                     </button>
                 </div>
             </div>
@@ -188,17 +188,17 @@
         <!-- Device Detail Modal -->
         <div v-if="selectedDevice" class="modal-overlay" @click.self="selectedDevice = null">
             <div class="modal-box">
-                <h3>Device Detail — {{ selectedDevice.name }}</h3>
+                <h3>Chi tiết thiết bị — {{ selectedDevice.name }}</h3>
                 <div class="detail-grid" style="margin:12px 0;">
                     <div class="detail-row"><span class="detail-label">ID</span><span>{{ selectedDevice.securityDeviceId }}</span></div>
-                    <div class="detail-row"><span class="detail-label">Type</span><span>{{ selectedDevice.deviceType }}</span></div>
-                    <div class="detail-row"><span class="detail-label">Status</span><span class="status-dot" :class="statusClass(selectedDevice.status)"></span>{{ selectedDevice.status }}</div>
-                    <div class="detail-row"><span class="detail-label">Vendor</span><span>{{ selectedDevice.vendor || '—' }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Loại</span><span>{{ selectedDevice.deviceType }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Trạng thái</span><span class="status-dot" :class="statusClass(selectedDevice.status)"></span>{{ selectedDevice.status }}</div>
+                    <div class="detail-row"><span class="detail-label">Hãng</span><span>{{ selectedDevice.vendor || '—' }}</span></div>
                     <div class="detail-row"><span class="detail-label">Model</span><span>{{ selectedDevice.model || '—' }}</span></div>
-                    <div class="detail-row"><span class="detail-label">Site</span><span>{{ selectedDevice.siteId || '—' }}</span></div>
+                    <div class="detail-row"><span class="detail-label">Khu vực</span><span>{{ selectedDevice.siteId || '—' }}</span></div>
                 </div>
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="selectedDevice = null">Close</button>
+                    <button class="btn btn-secondary" @click="selectedDevice = null">Đóng</button>
                 </div>
             </div>
         </div>
@@ -276,18 +276,18 @@ async function submitRequest() {
 }
 
 async function approve(r) {
-    if (!confirm(`Approve provisioning for "${r.requestedName}"?`)) return
+    if (!confirm(`Phê duyệt cấp phát thiết bị cho "${r.requestedName}"?`)) return
     try {
-        await enterpriseApi.approveProvisioningRequest(r.deviceProvisioningRequestId, { approvalNote: 'Approved via wizard' })
+        await enterpriseApi.approveProvisioningRequest(r.deviceProvisioningRequestId, { approvalNote: 'Đã duyệt qua trình cấp phát' })
         await loadRequests()
     } catch {
-        alert('Approval failed')
+        alert('Phê duyệt thất bại')
     }
 }
 
 async function finalizeProvisioning(r) {
     // After approval, auto-create the device
-    if (!confirm(`Finalize provisioning for "${r.requestedName}" by creating the device?`)) return
+    if (!confirm(`Hoàn tất cấp phát cho "${r.requestedName}" bằng cách tạo thiết bị?`)) return
     busy.value = true
     try {
         await enterpriseApi.createDevice({
@@ -295,10 +295,10 @@ async function finalizeProvisioning(r) {
             deviceType: r.deviceType,
             siteId: r.siteId || null,
         })
-        alert(`Device "${r.requestedName}" created successfully!`)
+        alert(`Đã tạo thiết bị "${r.requestedName}" thành công!`)
         await loadRequests()
     } catch (e) {
-        alert('Failed to finalize: ' + (e.response?.data?.message || e.message))
+        alert('Hoàn tất thất bại: ' + (e.response?.data?.message || e.message))
     } finally {
         busy.value = false
     }
@@ -318,7 +318,7 @@ async function submitCreateDevice() {
             ipAddress: createForm.value.ipAddress || null,
             siteId: createForm.value.siteId || null,
         })
-        createResult.value = `Device created! ID: ${res.data?.securityDeviceId || res.data?.id}`
+        createResult.value = `Đã tạo thiết bị! ID: ${res.data?.securityDeviceId || res.data?.id}`
         createForm.value = { name: '', deviceType: 'Controller', vendor: '', model: '', ipAddress: '', siteId: null }
         await loadRequests()
     } catch (e) {
@@ -338,7 +338,7 @@ async function submitRegisterController() {
             protocol: regForm.value.protocol,
             maxCredentials: regForm.value.maxCredentials,
         })
-        regResult.value = `Controller registered! ${res.data?.message || ''}`
+        regResult.value = `Đã đăng ký bộ điều khiển! ${res.data?.message || ''}`
         regForm.value = { deviceId: null, protocol: 'OSDP', maxCredentials: 50000 }
     } catch (e) {
         regError.value = e.response?.data?.message || e.message
@@ -357,10 +357,10 @@ onMounted(loadRequests)
 </script>
 
 <style scoped>
-.device-row { cursor: pointer; transition: background 0.15s; }
-.device-row:hover { background: #f1f5f9; }
+.device-row { cursor: pointer; transition: background var(--transition-fast); }
+.device-row:hover { background: var(--surface-hover); }
 .toolbar-shell { margin-bottom: 8px; }
 .search-bar { position: relative; }
-.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8; }
-.search-bar input { width: 100%; padding: 8px 10px 8px 32px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #fff; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); }
+.search-bar input { width: 100%; padding: 8px 10px 8px 32px; border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px; background: var(--surface-default); }
 </style>

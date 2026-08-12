@@ -9,12 +9,27 @@ namespace API.DTOs
         public bool IsAllowed { get; set; }
     }
 
+    public class TogglePositionGateRequest
+    {
+        public int PositionId { get; set; }
+        public int GateId { get; set; }
+        public bool Enabled { get; set; }
+    }
+
+    public class ToggleEmployeeGateRequest
+    {
+        public int EmployeeId { get; set; }
+        public int GateId { get; set; }
+        public bool Enabled { get; set; }
+    }
+
     public class QrScanAccessRequest
     {
         public string? QrPayload { get; set; }
         public int? EmployeeId { get; set; }
         public int? VisitorDetailId { get; set; }
         public int CameraId { get; set; }
+        public int? GateId { get; set; }
         public string? QrSnapshotBase64 { get; set; }
         public string? FaceSnapshotBase64 { get; set; }
     }

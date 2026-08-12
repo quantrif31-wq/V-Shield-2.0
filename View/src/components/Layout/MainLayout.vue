@@ -37,10 +37,12 @@
             <main id="main-content" class="main-content" tabindex="-1">
                 <div class="content-shell unified-ui">
                     <router-view v-slot="{ Component, route }">
-                        <keep-alive>
-                            <component :is="Component" :key="route.name" v-if="route.meta.keepAlive" />
-                        </keep-alive>
-                        <component :is="Component" :key="route.fullPath" v-if="!route.meta.keepAlive" />
+                        <transition name="page-fade" mode="out-in">
+                            <keep-alive v-if="route.meta.keepAlive">
+                                <component :is="Component" :key="route.name" />
+                            </keep-alive>
+                            <component v-else :is="Component" :key="route.fullPath" />
+                        </transition>
                     </router-view>
                 </div>
             </main>
@@ -159,5 +161,23 @@ onUnmounted(() => {
     .content-shell {
         padding-bottom: 18px;
     }
+}
+
+.page-fade-enter-active {
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.page-fade-leave-active {
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.page-fade-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+.page-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
 }
 </style>

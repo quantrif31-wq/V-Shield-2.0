@@ -172,7 +172,7 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Toàn cảnh site</span>
+                        <span class="panel-kicker">Toàn cảnh khuôn viên</span>
                         <h2 class="panel-title">Hiện diện và phạm vi hệ thống</h2>
                     </div>
                 </div>
@@ -483,7 +483,7 @@ const priorityQueue = computed(() => [
         label: 'Khách hẹn trước chờ duyệt',
         value: snapshot.value.pendingRegistrations || 0,
         helper: `${snapshot.value.expectedVisitorsToday || 0} khách hôm nay`,
-        description: 'Những lượt vào site cần được chốt trước giờ cao điểm để tránh ùn ở cổng hoặc lễ tân.',
+        description: 'Những lượt vào khuôn viên cần được chốt trước giờ cao điểm để tránh ùn ở cổng hoặc lễ tân.',
         route: resolveRoute('/pre-registrations', '/exceptions'),
         tone: (snapshot.value.pendingRegistrations || 0) > 0 ? 'warn' : 'neutral',
     },
@@ -501,7 +501,7 @@ const priorityQueue = computed(() => [
         helper: laneHealthSummary.value.degradedCount > 0
             ? laneHealthSummary.value.degradedNames.join(', ')
             : `${laneHealthSummary.value.healthyCount}/${laneHealthSummary.value.total} ổn định`,
-        description: 'Tóm tắt những làn không có event mới hoặc barrier đang ở trạng thái cần theo dõi để quản lý bám sát từ mặt nhìn tổng quan.',
+        description: 'Tóm tắt những làn không có sự kiện mới hoặc rào chắn đang ở trạng thái cần theo dõi để quản lý bám sát từ mặt nhìn tổng quan.',
         route: resolveRoute('/enterprise-security', resolveRoute('/gate-transit-monitor', '/exceptions')),
         tone: laneHealthSummary.value.degradedCount > 0 ? 'warn' : 'neutral',
     },
@@ -524,7 +524,7 @@ const sitePictureItems = computed(() => [
     {
         label: 'Khách đã check-in',
         value: snapshot.value.checkedInVisitors || 0,
-        hint: 'Người ngoài đang có mặt trong site',
+        hint: 'Người ngoài đang có mặt trong khuôn viên',
     },
     {
         label: 'Hồ sơ nhân sự',
@@ -582,7 +582,7 @@ const workforceItems = computed(() => [
         note: 'Dùng để đọc áp lực vận hành kéo dài',
     },
     {
-        label: 'QR / AI coverage',
+        label: 'QR / Độ phủ AI',
         value: `${snapshot.value.recognitionCoverage || 0}%`,
         note: 'Hiển thị độ đầy đủ dữ liệu nhận diện hiện có',
     },
@@ -592,10 +592,10 @@ const topInsights = computed(() => (intelligence.value?.insights || []).slice(0,
 
 function activityKindShort(kind) {
     switch (kind) {
-        case 'Alarm': return 'AL'
+        case 'Alarm': return 'BĐ'
         case 'Lane': return 'LN'
         case 'Intervention': return 'CT'
-        default: return 'AC'
+        default: return 'SK'
     }
 }
 
@@ -801,8 +801,8 @@ onMounted(async () => {
     gap: 16px;
     padding: 16px 18px;
     border-radius: 20px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.72);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
     transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
 }
 
@@ -864,8 +864,8 @@ onMounted(async () => {
     gap: 14px;
     padding: 14px 16px;
     border-radius: 20px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.72);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
     transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
 }
 
@@ -915,8 +915,8 @@ onMounted(async () => {
 .today-card {
     padding: 16px;
     border-radius: 18px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.68);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
 }
 
 .today-card span,
@@ -955,8 +955,8 @@ onMounted(async () => {
 .intel-insight {
     padding: 14px 16px;
     border-radius: 16px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.58);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
 }
 
 .intel-insight.warning {
@@ -984,7 +984,7 @@ onMounted(async () => {
     min-height: 220px;
     padding: 26px 14px 8px;
     overflow: hidden;
-    border: 1px solid rgba(24, 49, 77, 0.06);
+    border: 1px solid var(--border-subtle);
     border-radius: 18px;
     background:
         repeating-linear-gradient(to top, rgba(24, 49, 77, 0.055) 0 1px, transparent 1px 25%),
@@ -1026,7 +1026,7 @@ onMounted(async () => {
 }
 
 .chart-bar.in {
-    background: linear-gradient(180deg, #55c6cb, #0f7c82);
+    background: linear-gradient(180deg, var(--accent-info), var(--accent-primary));
     box-shadow: 0 8px 18px rgba(15, 124, 130, 0.18);
 }
 

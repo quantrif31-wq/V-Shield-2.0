@@ -2,55 +2,55 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Device health</span>
-                <h1 class="page-title">Device Health & Intelligence</h1>
+                <span class="panel-kicker">Sức khỏe thiết bị</span>
+                <h1 class="page-title">Sức khỏe & Thông minh thiết bị</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" @click="showRecordModal = true">Record Health</button>
-                <button class="btn btn-primary" @click="loadAll">Refresh</button>
+                <button class="btn btn-secondary" @click="showRecordModal = true">Ghi nhận sức khỏe</button>
+                <button class="btn btn-primary" @click="loadAll">Làm mới</button>
             </div>
         </div>
 
         <!-- Health Summary -->
         <section class="metric-grid four" v-if="healthSummary">
-            <article class="metric-tile"><span class="metric-label">Total</span><strong class="metric-value">{{ healthSummary.totalDevices || 0 }}</strong></article>
-            <article class="metric-tile"><span class="metric-label">Healthy</span><strong class="metric-value" style="color:#16a34a;">{{ healthSummary.healthyCount || healthSummary.onlineCount || 0 }}</strong></article>
-            <article class="metric-tile"><span class="metric-label">Degraded</span><strong class="metric-value" style="color:#d97706;">{{ healthSummary.degradedCount || 0 }}</strong></article>
-            <article class="metric-tile"><span class="metric-label">Critical</span><strong class="metric-value" style="color:#dc2626;">{{ healthSummary.criticalCount || healthSummary.offlineCount || 0 }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Tổng cộng</span><strong class="metric-value">{{ healthSummary.totalDevices || 0 }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Khỏe mạnh</span><strong class="metric-value" style="color:var(--status-success-text);">{{ healthSummary.healthyCount || healthSummary.onlineCount || 0 }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Suy giảm</span><strong class="metric-value" style="color:var(--status-warning-text);">{{ healthSummary.degradedCount || 0 }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Nghiêm trọng</span><strong class="metric-value" style="color:var(--status-danger-text);">{{ healthSummary.criticalCount || healthSummary.offlineCount || 0 }}</strong></article>
         </section>
 
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">AI Insights</span><h2 class="panel-title">Health Predictions</h2></div>
+                    <div><span class="panel-kicker">Gợi ý AI</span><h2 class="panel-title">Dự đoán sức khỏe</h2></div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="insights.length === 0" class="empty-card">No insights available.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="insights.length === 0" class="empty-card">Chưa có dự đoán nào.</div>
                 <div v-else class="device-insight-list">
                     <div v-for="di in insights" :key="di.deviceId" class="device-insight-item" :class="'pred-' + (di.predictedStatus || '').toLowerCase()">
                         <strong>{{ di.deviceName }}</strong>
                         <span class="small-meta">{{ di.predictedStatus }}</span>
                         <div class="small-meta">{{ di.summary }}</div>
-                        <button class="btn btn-sm btn-ghost" style="margin-top:4px;" @click="openDeviceHealthHistory(di.deviceId, di.deviceName)">View History</button>
+                        <button class="btn btn-sm btn-ghost" style="margin-top:4px;" @click="openDeviceHealthHistory(di.deviceId, di.deviceName)">Xem lịch sử</button>
                     </div>
                 </div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">History</span><h2 class="panel-title">Device Health History</h2></div>
+                    <div><span class="panel-kicker">Lịch sử</span><h2 class="panel-title">Lịch sử sức khỏe thiết bị</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
+                    <label>Mã thiết bị</label>
                     <div class="chip-row">
-                        <input v-model.number="selectedDevice" type="number" class="form-control" placeholder="Enter device ID" />
-                        <button class="btn btn-secondary btn-sm" @click="loadHealthHistory">Load</button>
+                        <input v-model.number="selectedDevice" type="number" class="form-control" placeholder="Nhập mã thiết bị" />
+                        <button class="btn btn-secondary btn-sm" @click="loadHealthHistory">Tải</button>
                     </div>
                 </div>
-                <div v-if="historyLoading" class="empty-card">Loading history...</div>
-                <div v-else-if="healthHistory.length === 0 && selectedDevice" class="empty-card">No health history for device {{ selectedDevice }}.</div>
+                <div v-if="historyLoading" class="empty-card">Đang tải lịch sử...</div>
+                <div v-else-if="healthHistory.length === 0 && selectedDevice" class="empty-card">Không có lịch sử sức khỏe cho thiết bị {{ selectedDevice }}.</div>
                 <div v-else-if="healthHistory.length > 0" class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Time</th><th>Status</th><th>Message</th></tr></thead>
+                        <thead><tr><th>Thời gian</th><th>Trạng thái</th><th>Nội dung</th></tr></thead>
                         <tbody>
                             <tr v-for="h in healthHistory" :key="h.healthLogId || h.id">
                                 <td class="table-sub">{{ formatTime(h.recordedAtUtc || h.timestamp) }}</td>
@@ -60,42 +60,42 @@
                         </tbody>
                     </table>
                 </div>
-                <div v-else class="empty-card">Enter a device ID and click Load.</div>
+                <div v-else class="empty-card">Nhập mã thiết bị rồi bấm Tải.</div>
             </article>
         </section>
 
         <section class="ops-grid two" style="margin-top:1rem;">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Diagnose</span><h2 class="panel-title">AI Device Diagnosis</h2></div>
+                    <div><span class="panel-kicker">Chẩn đoán</span><h2 class="panel-title">Chẩn đoán thiết bị bằng AI</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
-                    <input v-model.number="diagnoseDeviceId" type="number" class="form-control" placeholder="Enter device ID" />
+                    <label>Mã thiết bị</label>
+                    <input v-model.number="diagnoseDeviceId" type="number" class="form-control" placeholder="Nhập mã thiết bị" />
                 </div>
                 <button class="btn btn-primary" :disabled="!diagnoseDeviceId || diagnoseBusy" @click="runDiagnosis">
-                    {{ diagnoseBusy ? 'Diagnosing...' : 'Run AI Diagnosis' }}
+                    {{ diagnoseBusy ? 'Đang chẩn đoán...' : 'Chạy chẩn đoán AI' }}
                 </button>
                 <div v-if="diagnosisResult" class="result-card" style="margin-top:8px;">
-                    <strong>Diagnosis:</strong> {{ diagnosisResult }}
+                    <strong>Kết quả:</strong> {{ diagnosisResult }}
                 </div>
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Configs</span><h2 class="panel-title">Configuration Versions</h2></div>
+                    <div><span class="panel-kicker">Cấu hình</span><h2 class="panel-title">Phiên bản cấu hình</h2></div>
                 </div>
                 <div class="form-group">
-                    <label>Device ID</label>
+                    <label>Mã thiết bị</label>
                     <div class="chip-row">
-                        <input v-model.number="configDeviceId" type="number" class="form-control" placeholder="Enter device ID" />
-                        <button class="btn btn-secondary btn-sm" @click="loadConfigs">Load</button>
+                        <input v-model.number="configDeviceId" type="number" class="form-control" placeholder="Nhập mã thiết bị" />
+                        <button class="btn btn-secondary btn-sm" @click="loadConfigs">Tải</button>
                     </div>
                 </div>
-                <div v-if="configLoading" class="empty-card">Loading...</div>
-                <div v-else-if="configs.length === 0 && configDeviceId" class="empty-card">No configuration versions.</div>
+                <div v-if="configLoading" class="empty-card">Đang tải...</div>
+                <div v-else-if="configs.length === 0 && configDeviceId" class="empty-card">Không có phiên bản cấu hình.</div>
                 <div v-else-if="configs.length > 0" class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Version</th><th>Created By</th><th>Timestamp</th></tr></thead>
+                        <thead><tr><th>Phiên bản</th><th>Người tạo</th><th>Thời gian</th></tr></thead>
                         <tbody>
                             <tr v-for="c in configs" :key="c.deviceConfigurationVersionId">
                                 <td>{{ c.version }}</td>
@@ -113,35 +113,35 @@
             <div v-if="showRecordModal" class="modal-overlay" @click.self="showRecordModal = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Record Device Health</h2>
+                        <h2>Ghi nhận sức khỏe thiết bị</h2>
                         <button class="btn-close" @click="showRecordModal = false">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Device ID *</label>
-                            <input v-model.number="recordForm.deviceId" type="number" class="form-control" placeholder="Required" />
+                            <label>Mã thiết bị *</label>
+                            <input v-model.number="recordForm.deviceId" type="number" class="form-control" placeholder="Bắt buộc" />
                         </div>
                         <div class="form-group">
-                            <label>Status *</label>
+                            <label>Trạng thái *</label>
                             <select v-model="recordForm.status" class="form-control">
-                                <option value="Ok">Ok</option>
-                                <option value="Degraded">Degraded</option>
-                                <option value="Fault">Fault</option>
-                                <option value="Offline">Offline</option>
-                                <option value="Tamper">Tamper</option>
+                                <option value="Ok">Tốt</option>
+                                <option value="Degraded">Suy giảm</option>
+                                <option value="Fault">Lỗi</option>
+                                <option value="Offline">Ngoại tuyến</option>
+                                <option value="Tamper">Can thiệp</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Message</label>
-                            <textarea v-model="recordForm.message" class="form-control" rows="2" placeholder="Optional health note"></textarea>
+                            <label>Nội dung</label>
+                            <textarea v-model="recordForm.message" class="form-control" rows="2" placeholder="Ghi chú sức khỏe (không bắt buộc)"></textarea>
                         </div>
                         <div v-if="recordResult" class="alert alert-success">{{ recordResult }}</div>
                         <div v-else-if="recordError" class="alert alert-danger">{{ recordError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showRecordModal = false">Cancel</button>
+                        <button class="btn btn-secondary" @click="showRecordModal = false">Hủy</button>
                         <button class="btn btn-primary" :disabled="recordSaving || !recordForm.deviceId" @click="submitRecordHealth">
-                            {{ recordSaving ? 'Recording...' : 'Record' }}
+                            {{ recordSaving ? 'Đang ghi...' : 'Ghi nhận' }}
                         </button>
                     </div>
                 </div>
@@ -151,15 +151,15 @@
             <div v-if="historyModal.visible" class="modal-overlay" @click.self="historyModal.visible = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Health History — {{ historyModal.deviceName }}</h2>
+                        <h2>Lịch sử sức khỏe — {{ historyModal.deviceName }}</h2>
                         <button class="btn-close" @click="historyModal.visible = false">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <div v-if="historyModal.loading" class="empty-card">Loading...</div>
-                        <div v-else-if="historyModal.items.length === 0" class="empty-card">No health history.</div>
+                        <div v-if="historyModal.loading" class="empty-card">Đang tải...</div>
+                        <div v-else-if="historyModal.items.length === 0" class="empty-card">Không có lịch sử sức khỏe.</div>
                         <div v-else class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>Time</th><th>Status</th><th>Message</th></tr></thead>
+                                <thead><tr><th>Thời gian</th><th>Trạng thái</th><th>Nội dung</th></tr></thead>
                                 <tbody>
                                     <tr v-for="h in historyModal.items" :key="h.healthLogId || h.id">
                                         <td class="table-sub">{{ formatTime(h.recordedAtUtc || h.timestamp) }}</td>
@@ -171,7 +171,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="historyModal.visible = false">Close</button>
+                        <button class="btn btn-secondary" @click="historyModal.visible = false">Đóng</button>
                     </div>
                 </div>
             </div>
@@ -265,9 +265,9 @@ async function runDiagnosis() {
     diagnosisResult.value = ''
     try {
         const res = await enterpriseApi.diagnoseDevice(diagnoseDeviceId.value)
-        diagnosisResult.value = res.data?.diagnosis || res.data?.message || 'Diagnosis complete'
+        diagnosisResult.value = res.data?.diagnosis || res.data?.message || 'Hoàn tất chẩn đoán'
     } catch (e) {
-        diagnosisResult.value = 'Diagnosis failed: ' + (e.response?.data?.message || e.message)
+        diagnosisResult.value = 'Chẩn đoán thất bại: ' + (e.response?.data?.message || e.message)
     } finally {
         diagnoseBusy.value = false
     }
@@ -283,7 +283,7 @@ async function submitRecordHealth() {
             status: recordForm.value.status,
             message: recordForm.value.message || null,
         })
-        recordResult.value = 'Health recorded successfully!'
+        recordResult.value = 'Đã ghi nhận sức khỏe thành công!'
         recordForm.value = { deviceId: null, status: 'Ok', message: '' }
     } catch (e) {
         recordError.value = e.response?.data?.message || e.message

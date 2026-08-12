@@ -39,7 +39,7 @@
             </article>
         </section>
 
-        <section class="workspace-tabs" aria-label="Enterprise workspaces">
+        <section class="workspace-tabs" aria-label="Các không gian làm việc doanh nghiệp">
             <button
                 v-for="workspace in workspaces"
                 :key="workspace.id"
@@ -111,7 +111,7 @@
                         <input v-model="stepUp.password" type="password" autocomplete="current-password" />
                     </label>
                     <label>
-                        MFA code
+                        Mã MFA
                         <input v-model="stepUp.mfaCode" inputmode="numeric" autocomplete="one-time-code" />
                     </label>
                     <button type="submit" class="btn btn-primary" :disabled="busy.stepUp">
@@ -130,13 +130,13 @@
                         <h2 class="panel-title">Sức khỏe cấu hình</h2>
                     </div>
                     <span class="soft-chip" :class="{ success: configHealth.status === 'Healthy', danger: configHealth.status === 'Blocked' }">
-                        {{ configHealth.status || 'Chưa rõ' }}
+                        {{ configHealthLabel(configHealth.status) || 'Chưa rõ' }}
                     </span>
                 </div>
                 <div class="finding-list">
                     <div v-for="finding in visibleFindings" :key="finding.key" class="finding-row">
                         <strong>{{ finding.key }}</strong>
-                        <span :class="finding.status.toLowerCase()">{{ finding.status }}</span>
+                        <span :class="finding.status.toLowerCase()">{{ findingStatusLabel(finding.status) }}</span>
                     </div>
                 </div>
             </article>
@@ -450,7 +450,7 @@
                         <tbody>
                             <tr v-for="e in outboxEvents" :key="e.outboxEventId">
                                 <td class="table-sub">{{ (e.eventType || '').substring(0, 20) }}</td>
-                                <td><span class="soft-chip" :class="e.status === 'Failed' ? 'danger' : e.status === 'Delivered' ? 'success' : 'warn'">{{ e.status }}</span></td>
+                                <td><span class="soft-chip" :class="e.status === 'Failed' ? 'danger' : e.status === 'Delivered' ? 'success' : 'warn'">{{ outboxStatusLabel(e.status) }}</span></td>
                                 <td><span v-if="e.retryCount != null" class="text-muted">{{ e.retryCount }}</span></td>
                             </tr>
                         </tbody>
@@ -477,7 +477,7 @@
                         <tbody>
                             <tr v-for="b in backupRuns" :key="b.backupRunId">
                                 <td>{{ b.profile || '—' }}</td>
-                                <td><span class="soft-chip" :class="b.status === 'Completed' ? 'success' : b.status === 'Failed' ? 'danger' : 'warn'">{{ b.status }}</span></td>
+                                <td><span class="soft-chip" :class="b.status === 'Completed' ? 'success' : b.status === 'Failed' ? 'danger' : 'warn'">{{ runStatusLabel(b.status) }}</span></td>
                                 <td class="table-sub">{{ new Date(b.startedAtUtc).toLocaleString() }}</td>
                                 <td>{{ b.achievedRpoMinutes || '—' }}m</td>
                             </tr>
@@ -501,7 +501,7 @@
                         <tbody>
                             <tr v-for="r in restoreDrills" :key="r.restoreDrillId">
                                 <td>{{ r.restoreDrillId }}</td>
-                                <td><span class="soft-chip" :class="r.status === 'Completed' ? 'success' : r.status === 'Failed' ? 'danger' : 'warn'">{{ r.status }}</span></td>
+                                <td><span class="soft-chip" :class="r.status === 'Completed' ? 'success' : r.status === 'Failed' ? 'danger' : 'warn'">{{ runStatusLabel(r.status) }}</span></td>
                                 <td>{{ r.targetRtoMinutes || '—' }}m</td>
                                 <td class="table-sub">{{ new Date(r.startedAtUtc).toLocaleString() }}</td>
                             </tr>
@@ -545,7 +545,7 @@
                 <div v-if="Object.keys(socIntel.statistics.bySeverity).length" class="soc-severity-breakdown">
                     <h4>Phân bố theo mức độ</h4>
                     <div v-for="(count, sev) in socIntel.statistics.bySeverity" :key="sev" class="severity-bar-row">
-                        <span>{{ sev }}</span>
+                        <span>{{ severityLabel(sev) }}</span>
                         <div class="severity-bar-track">
                             <div class="severity-bar-fill" :class="'sev-' + sev.toLowerCase()" :style="{ width: (count / Math.max(...Object.values(socIntel.statistics.bySeverity)) * 100) + '%' }"></div>
                         </div>
@@ -569,7 +569,7 @@
                 <div v-if="incidentBriefing.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(incidentBriefing.result.severity)">
-                            {{ incidentBriefing.result.severity || 'Không rõ' }}
+                            {{ severityLabel(incidentBriefing.result.severity) || 'Không rõ' }}
                         </span>
                         <small>Nhà cung cấp: {{ incidentBriefing.result.provider || 'Không rõ' }}</small>
                     </div>
@@ -604,7 +604,7 @@
                 <div v-if="visitorScreening.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(visitorScreening.result.severity)">
-                            {{ visitorScreening.result.severity || 'Không rõ' }}
+                            {{ severityLabel(visitorScreening.result.severity) || 'Không rõ' }}
                         </span>
                         <small>Nhà cung cấp: {{ visitorScreening.result.provider || 'Không rõ' }}</small>
                     </div>
@@ -643,7 +643,7 @@
                 <div v-if="vehicleScreening.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(vehicleScreening.result.severity)">
-                            {{ vehicleScreening.result.severity || 'Không rõ' }}
+                            {{ severityLabel(vehicleScreening.result.severity) || 'Không rõ' }}
                         </span>
                         <small>Nhà cung cấp: {{ vehicleScreening.result.provider || 'Không rõ' }}</small>
                     </div>
@@ -708,7 +708,7 @@
                 <div v-if="evidenceAnalysis.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(evidenceAnalysis.result.severity)">
-                            {{ evidenceAnalysis.result.severity || 'Không rõ' }}
+                            {{ severityLabel(evidenceAnalysis.result.severity) || 'Không rõ' }}
                         </span>
                         <small>Nhà cung cấp: {{ evidenceAnalysis.result.provider || 'Không rõ' }}</small>
                     </div>
@@ -739,7 +739,7 @@
                 <div v-if="evidenceExport.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(evidenceExport.result.severity)">
-                            {{ evidenceExport.result.severity || 'Không rõ' }}
+                            {{ severityLabel(evidenceExport.result.severity) || 'Không rõ' }}
                         </span>
                         <small>Nhà cung cấp: {{ evidenceExport.result.provider || 'Không rõ' }}</small>
                     </div>
@@ -756,7 +756,7 @@
             <article class="ops-panel policy-admin-panel">
                 <div class="panel-head compact">
                     <div>
-                        <span class="panel-kicker">Access Policy Governance</span>
+                        <span class="panel-kicker">Quản trị chính sách truy cập</span>
                         <h2 class="panel-title">Quản trị policy truy cập</h2>
                     </div>
                     <span class="soft-chip">{{ overview.policy.policyVersions || 0 }} phiên bản</span>
@@ -791,9 +791,9 @@
                     <div v-if="policyResult.reason" class="policy-result-card">
                         <div class="rec-header">
                             <span class="soft-chip" :class="{ danger: policyResult.result === 'Deny', success: policyResult.result === 'Allow' }">
-                                {{ policyResult.result || 'Chưa có kết quả' }}
+                                {{ policyDecisionLabel(policyResult.result) || 'Chưa có kết quả' }}
                             </span>
-                            <small>Chế độ: {{ policyResult.decisionMode || 'Simulation' }}</small>
+                            <small>Chế độ: {{ policyDecisionModeLabel(policyResult.decisionMode) || 'Mô phỏng' }}</small>
                         </div>
                         <p class="brief-summary">{{ policyResult.reason }}</p>
                     </div>
@@ -820,14 +820,14 @@
                         <div v-for="version in policyVersions" :key="version.accessPolicyVersionId" class="version-row">
                             <div class="version-info">
                                 <strong>{{ version.name }}</strong>
-                                <span class="version-meta">Trạng thái: {{ version.status }} · {{ version.rules ?? version.ruleCount ?? 0 }} luật</span>
+                                <span class="version-meta">Trạng thái: {{ policyStatusLabel(version.status) }} · {{ version.rules ?? version.ruleCount ?? 0 }} luật</span>
                             </div>
                             <div class="version-badges">
-                                <span class="badge" :class="statusClass(version.status)">{{ version.status }}</span>
-                                <button v-if="version.status === 'Draft'" class="btn btn-xs btn-secondary" :disabled="policyGovernanceLoading" @click="submitPolicyVersion(version)">Submit</button>
-                                <button v-if="version.status === 'PendingApproval'" class="btn btn-xs btn-primary" :disabled="policyGovernanceLoading" @click="approvePolicyVersion(version)">Approve</button>
-                                <button v-if="version.status === 'Approved'" class="btn btn-xs btn-success" :disabled="policyGovernanceLoading" @click="activatePolicyVersion(version)">Activate</button>
-                                <button v-if="version.status === 'Active'" class="btn btn-xs btn-secondary" :disabled="policyGovernanceLoading" @click="retirePolicyVersion(version)">Retire</button>
+                                <span class="badge" :class="statusClass(version.status)">{{ policyStatusLabel(version.status) }}</span>
+                                <button v-if="version.status === 'Draft'" class="btn btn-xs btn-secondary" :disabled="policyGovernanceLoading" @click="submitPolicyVersion(version)">Gửi duyệt</button>
+                                <button v-if="version.status === 'PendingApproval'" class="btn btn-xs btn-primary" :disabled="policyGovernanceLoading" @click="approvePolicyVersion(version)">Phê duyệt</button>
+                                <button v-if="version.status === 'Approved'" class="btn btn-xs btn-success" :disabled="policyGovernanceLoading" @click="activatePolicyVersion(version)">Kích hoạt</button>
+                                <button v-if="version.status === 'Active'" class="btn btn-xs btn-secondary" :disabled="policyGovernanceLoading" @click="retirePolicyVersion(version)">Ngừng hiệu lực</button>
                             </div>
                         </div>
                     </div>
@@ -853,23 +853,23 @@
                             </select>
                         </label>
                         <label>
-                            Subject ID
+                            ID đối tượng
                             <input v-model.number="policyRuleForm.subjectId" type="number" min="1" />
                         </label>
                         <label>
-                            Access Level ID
+                            ID mức truy cập
                             <input v-model.number="policyRuleForm.accessLevelId" type="number" min="1" required />
                         </label>
                         <label>
-                            Site ID
+                            ID site
                             <input v-model.number="policyRuleForm.siteId" type="number" min="1" />
                         </label>
                         <label>
-                            Zone ID
+                            ID khu vực
                             <input v-model.number="policyRuleForm.securityZoneId" type="number" min="1" />
                         </label>
                         <label>
-                            Access Point ID
+                            ID điểm truy cập
                             <input v-model.number="policyRuleForm.accessPointId" type="number" min="1" />
                         </label>
                         <label class="checkbox-row">
@@ -886,15 +886,15 @@
                     <div v-else class="rule-list">
                         <div v-for="rule in policyRules" :key="rule.accessRuleId" class="rule-row">
                             <div class="rule-info">
-                                <strong>{{ rule.allowAccess ? 'ALLOW' : 'DENY' }}</strong>
+                                <strong>{{ rule.allowAccess ? 'Cho phép' : 'Từ chối' }}</strong>
                                 <span class="rule-detail">{{ rule.subjectType }}:{{ rule.subjectId || '*' }} · {{ rule.credentialType }}</span>
                             </div>
                             <div class="rule-scope">
                                 <span v-if="rule.siteId">Site {{ rule.siteId }}</span>
-                                <span v-if="rule.securityZoneId">Zone {{ rule.securityZoneId }}</span>
-                                <span v-if="rule.accessPointId">Point {{ rule.accessPointId }}</span>
+                                <span v-if="rule.securityZoneId">Khu vực {{ rule.securityZoneId }}</span>
+                                <span v-if="rule.accessPointId">Điểm truy cập {{ rule.accessPointId }}</span>
                             </div>
-                            <span class="badge" :class="rule.isActive ? 'badge-green' : 'badge-gray'">{{ rule.isActive ? 'Active' : 'Inactive' }}</span>
+                            <span class="badge" :class="rule.isActive ? 'badge-green' : 'badge-gray'">{{ rule.isActive ? 'Đang hiệu lực' : 'Không hiệu lực' }}</span>
                         </div>
                     </div>
                 </div>
@@ -918,7 +918,7 @@
                 <div v-if="policySimulation.result" class="ai-brief-result">
                     <div class="rec-header">
                         <span class="soft-chip" :class="sevClass(policySimulation.result.severity)">
-                            {{ policySimulation.result.severity || 'Không rõ' }}
+                            {{ severityLabel(policySimulation.result.severity) || 'Không rõ' }}
                         </span>
                         <small>Nhà cung cấp: {{ policySimulation.result.provider || 'Không rõ' }}</small>
                     </div>
@@ -952,7 +952,7 @@
                     <p>{{ item.detail }}</p>
                 </div>
             </div>
-            <div v-else class="empty-card">No local actions in this session.</div>
+            <div v-else class="empty-card">Chưa có thao tác cục bộ trong phiên này.</div>
         </section>
     </div>
 </template>
@@ -1219,7 +1219,7 @@ async function loadOverview() {
         laneHealth.value = laneHealthResult.status === 'fulfilled' ? (laneHealthResult.value.data || []) : []
         loadSocIntel()
     } catch (error) {
-        loadError.value = error.response?.data?.message || 'Cannot load enterprise security data.'
+        loadError.value = error.response?.data?.message || 'Không thể tải dữ liệu an ninh doanh nghiệp.'
     } finally {
         loading.value = false
     }
@@ -1240,6 +1240,21 @@ const sevClass = (sev) => {
         default: return 'success'
     }
 }
+
+const statusLabelMap = { Healthy: 'Hoạt động tốt', Blocked: 'Bị chặn', Degraded: 'Suy giảm', Unknown: 'Chưa rõ', Pass: 'Đạt', Fail: 'Không đạt', Warn: 'Cảnh báo' }
+function configHealthLabel(value) { return statusLabelMap[value] || value }
+function findingStatusLabel(value) { return statusLabelMap[value] || value }
+const severityLabelMap = { Critical: 'Nghiêm trọng', High: 'Cao', Medium: 'Trung bình', Low: 'Thấp', Unknown: 'Không rõ' }
+function severityLabel(value) { return severityLabelMap[value] || value }
+const runStatusLabelMap = { Completed: 'Hoàn tất', Failed: 'Lỗi', Running: 'Đang chạy', Pending: 'Đang chờ', Delivered: 'Đã gửi', Started: 'Đã khởi chạy', Cancelled: 'Đã hủy' }
+function outboxStatusLabel(value) { return runStatusLabelMap[value] || value }
+function runStatusLabel(value) { return runStatusLabelMap[value] || value }
+const policyStatusLabelMap = { Draft: 'Bản nháp', PendingApproval: 'Chờ phê duyệt', Approved: 'Đã phê duyệt', Active: 'Đang hiệu lực', Retired: 'Đã ngừng' }
+function policyStatusLabel(value) { return policyStatusLabelMap[value] || value }
+const policyDecisionLabelMap = { Allow: 'Cho phép', Deny: 'Từ chối' }
+function policyDecisionLabel(value) { return policyDecisionLabelMap[value] || value }
+const policyDecisionModeLabelMap = { Simulation: 'Mô phỏng', Evaluation: 'Đánh giá' }
+function policyDecisionModeLabel(value) { return policyDecisionModeLabelMap[value] || value }
 
 async function analyzeIncident() {
     if (!incidentBriefing.incidentId) return
@@ -1445,11 +1460,11 @@ async function submitPolicyVersion(version) {
     policyAdminMessage.value = ''
     try {
         await enterpriseApi.submitPolicyVersion(version.accessPolicyVersionId)
-        policyAdminMessage.value = `Đã submit phiên bản ${version.name}.`
+        policyAdminMessage.value = `Đã gửi duyệt phiên bản ${version.name}.`
         await loadPolicyVersions()
         await loadOverview()
     } catch (error) {
-        policyAdminMessage.value = error.response?.data?.message || 'Không thể submit phiên bản.'
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể gửi duyệt phiên bản.'
     } finally {
         policyGovernanceLoading.value = false
     }
@@ -1490,11 +1505,11 @@ async function retirePolicyVersion(version) {
     policyAdminMessage.value = ''
     try {
         await enterpriseApi.retirePolicyVersion(version.accessPolicyVersionId)
-        policyAdminMessage.value = `Đã retire phiên bản ${version.name}.`
+        policyAdminMessage.value = `Đã ngừng hiệu lực phiên bản ${version.name}.`
         await loadPolicyVersions()
         await loadOverview()
     } catch (error) {
-        policyAdminMessage.value = error.response?.data?.message || 'Không thể retire phiên bản.'
+        policyAdminMessage.value = error.response?.data?.message || 'Không thể ngừng hiệu lực phiên bản.'
     } finally {
         policyGovernanceLoading.value = false
     }
@@ -1612,7 +1627,7 @@ onMounted(async () => {
 
 <style scoped>
 .enterprise-page { display: flex; flex-direction: column; gap: 22px; }
-.readiness-band { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 22px; border-radius: 18px; border: 1px solid var(--border-soft); background: linear-gradient(135deg, rgba(18, 75, 91, 0.92), rgba(18, 36, 52, 0.96)); color: #f7fcff; box-shadow: var(--shadow-card); }
+.readiness-band { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 22px; border-radius: 18px; border: 1px solid var(--border-soft); background: linear-gradient(135deg, rgba(18, 75, 91, 0.92), rgba(18, 36, 52, 0.96)); color: #f7fcff; box-shadow: var(--shadow-md); }
 .readiness-score { width: 112px; height: 112px; border-radius: 999px; display: grid; place-content: center; text-align: center; border: 1px solid rgba(255, 255, 255, 0.24); background: rgba(255, 255, 255, 0.08); }
 .readiness-score span { font-size: 0.74rem; text-transform: uppercase; color: rgba(247, 252, 255, 0.72); }
 .readiness-score strong { font-size: 2rem; line-height: 1; }
@@ -1621,7 +1636,8 @@ onMounted(async () => {
 .status-pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; background: rgba(77, 216, 180, 0.16); color: #bbffe8; font-weight: 700; }
 .status-pill.danger { background: rgba(236, 91, 91, 0.18); color: #ffd0d0; }
 .workspace-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
-.workspace-tabs button { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-secondary); font-weight: 700; }
+.workspace-tabs button { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-secondary); font-weight: 700; transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast); }
+.workspace-tabs button:hover { transform: translateY(-1px); border-color: var(--border-strong); }
 .workspace-tabs button.active { color: #05313b; background: #8ceaf4; border-color: #8ceaf4; }
 .workspace-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .workspace-stat { min-height: 86px; padding: 14px; border-radius: 14px; border: 1px solid var(--border-soft); background: var(--surface-muted); }
@@ -1650,10 +1666,10 @@ onMounted(async () => {
 .version-badges { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
 .rule-scope { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.78rem; color: var(--text-secondary); }
 .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; font-weight: 700; }
-.badge-green { background: rgba(34,197,94,.15); color: #16a34a; }
-.badge-gray { background: rgba(100,116,139,.15); color: #64748b; }
-.badge-yellow { background: rgba(234,179,8,.15); color: #a16207; }
-.badge-blue { background: rgba(59,130,246,.15); color: #2563eb; }
+.badge-green { background: var(--status-success-bg); color: var(--status-success-text); }
+.badge-gray { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
+.badge-yellow { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.badge-blue { background: var(--status-info-bg); color: var(--status-info-text); }
 .btn-xs { min-height: 30px; padding: 0 10px; font-size: 0.75rem; border-radius: 9px; }
 .btn-success { background: #16a34a; color: #fff; }
 .finding-list { display: grid; gap: 8px; }
@@ -1708,7 +1724,7 @@ onMounted(async () => {
 .rec-reasoning strong { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
 .rec-reasoning p { margin: 0; font-size: 0.82rem; color: var(--text-secondary); white-space: pre-wrap; }
 .rec-actions { display: flex; gap: 8px; }
-.success-card { padding: 10px; border-radius: 8px; background: rgba(77, 180, 128, 0.12); color: #16a34a; font-size: 0.85rem; }
+.success-card { padding: 10px; border-radius: 8px; background: var(--status-success-bg); color: var(--status-success-text); font-size: 0.85rem; }
 .empty-card { padding: 40px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-soft); border-radius: 12px; }
 @media (max-width: 900px) {
     .readiness-band { grid-template-columns: 1fr; }

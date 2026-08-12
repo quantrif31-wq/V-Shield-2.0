@@ -73,12 +73,12 @@
       <span><b>Trạng thái:</b> {{ cameraRunning ? "Đang chạy" : "Đang tắt" }}</span>
       <span><b>Preview:</b> {{ previewRunning ? "Đang mở" : "Đang tắt" }}</span>
       <span><b>Nguồn backend:</b> {{ currentIp || cameraIp || "-----" }}</span>
-      <span><b>Preview URL:</b> {{ effectivePreviewUrl || "-----" }}</span>
+      <span><b>URL xem trước:</b> {{ effectivePreviewUrl || "-----" }}</span>
       <span><b>Session:</b> {{ sessionId || 0 }}</span>
       <span><b>FPS:</b> {{ fps }}</span>
       <span><b>OCR:</b> {{ ocrRunning ? "Đang xử lý" : "Sẵn sàng" }}</span>
       <span><b>Khóa phiên:</b> {{ scanLocked ? "Đã khóa" : "Đang quét" }}</span>
-      <span><b>Preview health:</b> {{ previewHealthy ? "OK" : "Waiting..." }}</span>
+      <span><b>Trạng thái xem trước:</b> {{ previewHealthy ? "OK" : "Đang chờ..." }}</span>
     </div>
 
     <div class="video-wrapper">
@@ -164,15 +164,15 @@
 
     <div class="result-panel">
       <div><b>Box:</b> {{ bboxText }}</div>
-      <div><b>Stable Count:</b> {{ stableCount }}</div>
-      <div><b>Moving Fast:</b> {{ movingFast ? "Yes" : "No" }}</div>
-      <div><b>Message:</b> {{ message || "-----" }}</div>
-      <div><b>Last Update:</b> {{ lastUpdate || "-----" }}</div>
+      <div><b>Số lần ổn định:</b> {{ stableCount }}</div>
+      <div><b>Di chuyển nhanh:</b> {{ movingFast ? "Có" : "Không" }}</div>
+      <div><b>Thông điệp:</b> {{ message || "-----" }}</div>
+      <div><b>Cập nhật cuối:</b> {{ lastUpdate || "-----" }}</div>
     </div>
 
     <div class="fuzzy-panel" v-if="confirmedPlate">
       <div class="fuzzy-header">
-        <span class="fuzzy-title">AI Fuzzy Match</span>
+        <span class="fuzzy-title">So khớp mờ AI</span>
         <button class="btn btn-sm btn-config" @click="runFuzzyMatch" :disabled="fuzzyLoading">
           {{ fuzzyLoading ? 'Đang phân tích...' : 'Phân tích biển số' }}
         </button>

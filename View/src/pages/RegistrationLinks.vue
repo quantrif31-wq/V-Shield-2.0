@@ -2,7 +2,7 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Registration links</span>
+                <span class="panel-kicker">Link đăng ký trước</span>
                 <h1 class="page-title">Link đăng ký</h1>
             </div>
             <div class="header-actions">
@@ -362,8 +362,8 @@ onBeforeUnmount(() => {
     align-items: center;
     padding: 6px 10px;
     border-radius: 10px;
-    background: rgba(236, 244, 246, 0.92);
-    border: 1px solid rgba(24, 49, 77, 0.12);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     color: var(--text-primary);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.82rem;
@@ -394,8 +394,8 @@ onBeforeUnmount(() => {
 .combobox-dropdown { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; max-height: 240px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 100; padding: 4px 0; }
 .combobox-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color); }
 .combobox-item:last-child { border-bottom: none; }
-.combobox-item:hover { background: rgba(16, 121, 196, 0.03); }
-.combobox-item.selected { background: rgba(16, 121, 196, 0.06); }
+.combobox-item:hover { background: var(--surface-hover); }
+.combobox-item.selected { background: var(--surface-selected); }
 
 .avatar, .avatar-img { width: 38px; height: 38px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; color: white; object-fit: cover; flex-shrink: 0; }
 .avatar.mini, .avatar-img-mini { width: 32px; height: 32px; font-size: 0.78rem; }

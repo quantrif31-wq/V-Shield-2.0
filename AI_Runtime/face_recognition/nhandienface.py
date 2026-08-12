@@ -589,6 +589,22 @@ def discard_enrollment(job_id):
         return enrollment_error_response(error)
 
 
+@app.post("/api/enrollments/live")
+def live_enrollment():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"failureCode": "InvalidRequest", "message": "JSON body required."}), 400
+    try:
+        return jsonify(enrollment_service.enroll_from_images(
+            str(payload.get("subjectId", "")),
+            payload.get("images")))
+    except EnrollmentError as error:
+        return enrollment_error_response(error)
+    except Exception:
+        return jsonify({"failureCode": "LiveEnrollmentFailed",
+                        "message": "Live enrollment failed."}), 500
+
+
 @app.post("/api/models/subjects/<subject_id>/revoke")
 def revoke_subject_model(subject_id):
     try:

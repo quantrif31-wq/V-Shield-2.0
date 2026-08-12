@@ -137,6 +137,26 @@ public class FaceCameraController : ControllerBase
         return ProxyAsync(_faceRecognitionClient.ReloadModelsAsync, cancellationToken);
     }
 
+    [HttpPost("enroll-live")]
+    public Task<IActionResult> LiveEnroll(
+        [FromBody] FaceLiveEnrollRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.SubjectId) ||
+            request.Images is null ||
+            request.Images.Count == 0 ||
+            request.Images.Count > 200)
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new { message = "SubjectId and 1..200 images are required." }));
+        }
+
+        return ProxyAsync(
+            token => _faceRecognitionClient.LiveEnrollAsync(
+                request.SubjectId, request.Images, token),
+            cancellationToken);
+    }
+
     private async Task<IActionResult> ProxyAsync(
         Func<CancellationToken, Task<FaceRuntimeResponse>> operation,
         CancellationToken cancellationToken)

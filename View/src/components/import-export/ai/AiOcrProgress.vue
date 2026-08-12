@@ -7,10 +7,10 @@
                         <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
                     </svg>
                 </span>
-                <span>AI OCR Processing</span>
+                <span>Xử lý OCR bằng AI</span>
                 <span v-if="status === 'processing'" class="spinner"></span>
-                <span v-else-if="status === 'done'" class="badge badge-success">Done</span>
-                <span v-else-if="status === 'error'" class="badge badge-error">Failed</span>
+                <span v-else-if="status === 'done'" class="badge badge-success">Hoàn tất</span>
+                <span v-else-if="status === 'error'" class="badge badge-error">Thất bại</span>
             </div>
         </div>
 
@@ -48,7 +48,7 @@
         <div v-if="error" class="ocr-error">{{ error }}</div>
 
         <div v-if="detectedFormat" class="ocr-meta">
-            <span class="meta-label">Detected:</span>
+            <span class="meta-label">Đã nhận dạng:</span>
             <span class="meta-value">{{ detectedFormat.toUpperCase() }}</span>
         </div>
     </div>

@@ -14,6 +14,7 @@ public static class PrivilegedActions
     public const string EvidenceRedactionApproval = "EvidenceRedactionApproval";
     public const string ReleaseApproval = "ReleaseApproval";
     public const string SiteHierarchyBackfill = "SiteHierarchyBackfill";
+    public const string GateSelection = "GateSelection";
 }
 
 public class PrivilegedActionSession

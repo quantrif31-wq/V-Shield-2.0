@@ -785,7 +785,7 @@ onUnmounted(() => {
   padding: 12px 16px;
   border: none;
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--text-on-interactive);
   cursor: pointer;
 }
 
@@ -793,7 +793,7 @@ onUnmounted(() => {
   padding: 12px 16px;
   border: none;
   background: linear-gradient(135deg, #0f766e, #0ea5a4);
-  color: #fff;
+  color: var(--text-on-interactive);
   cursor: pointer;
 }
 
@@ -862,6 +862,12 @@ onUnmounted(() => {
   color: var(--text-secondary);
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.settings-tab:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .settings-tab.active {
@@ -1057,7 +1063,7 @@ onUnmounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.02em;
   background: rgba(100, 116, 139, 0.08);
-  color: #64748b;
+  color: var(--status-neutral-text);
 }
 
 .status-pill.success {
@@ -1072,12 +1078,12 @@ onUnmounted(() => {
 
 .status-pill.info {
   background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+  color: var(--status-info-text);
 }
 
 .status-pill.neutral {
   background: rgba(100, 116, 139, 0.08);
-  color: #64748b;
+  color: var(--status-neutral-text);
 }
 
 .toggle {
@@ -1099,6 +1105,11 @@ onUnmounted(() => {
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.3);
   border: 1px solid var(--border-color);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.toggle:hover span {
+  border-color: var(--border-strong);
 }
 
 .toggle span::before {
@@ -1109,7 +1120,7 @@ onUnmounted(() => {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #94a3b8;
+  background: var(--text-disabled);
   transition: transform 0.2s ease;
 }
 
@@ -1120,7 +1131,7 @@ onUnmounted(() => {
 
 .toggle input:checked + span::before {
   transform: translateX(20px);
-  background: #fff;
+  background: var(--text-on-interactive);
 }
 
 .toggle-list {

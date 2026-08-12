@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 import pickle
@@ -179,6 +180,146 @@ class EnrollmentService:
             raise EnrollmentError("InvalidJobId", "Job ID is invalid.", 400)
         (self.config.model_staging_dir / f"{job_id.lower()}.pkl").unlink(missing_ok=True)
         return {"success": True}
+
+    def enroll_from_images(self, subject_id: str, images) -> dict:
+        """Enroll a subject directly from a batch of face images (base64/bytes).
+
+        Reuses the exact encoding format (128-d float arrays) produced by
+        face_recognition so live enrollment is fully compatible with the
+        recognition pipeline. The model is written atomically into the active
+        model directory and the registry is reloaded immediately.
+        """
+        if not SUBJECT_ID.fullmatch(subject_id or ""):
+            raise EnrollmentError("InvalidSubjectId", "Subject ID is invalid.", 400)
+        if not isinstance(images, (list, tuple)) or not images:
+            raise EnrollmentError("InvalidImages", "Image batch is required.", 400)
+        if len(images) > 200:
+            raise EnrollmentError("InvalidImages", "Image batch is too large.", 400)
+
+        encodings: list[np.ndarray] = []
+        no_face = multiple = invalid = 0
+        for raw in images:
+            try:
+                img = self._decode_image(raw)
+            except Exception:
+                invalid += 1
+                continue
+            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            locations = face_recognition.face_locations(rgb, model="hog")
+            if not locations:
+                no_face += 1
+                continue
+            if len(locations) != 1:
+                multiple += 1
+                continue
+            values = face_recognition.face_encodings(rgb, locations)
+            if len(values) != 1:
+                invalid += 1
+                continue
+            value = np.asarray(values[0], dtype=np.float64)
+            if value.shape != (128,) or not np.all(np.isfinite(value)):
+                invalid += 1
+                continue
+            encodings.append(value)
+
+        if len(encodings) < self.config.enrollment_min_encodings:
+            raise EnrollmentError(
+                "InsufficientUsableFrames",
+                f"Only {len(encodings)} usable single-face samples; need at least "
+                f"{self.config.enrollment_min_encodings}. Add more/clearer face frames.",
+                422,
+                encodingCount=len(encodings),
+                noFaceCount=no_face,
+                multipleFaceCount=multiple,
+                invalidFrameCount=invalid)
+
+        duplicate_subject, duplicate_distance = self._duplicate(encodings, subject_id)
+        if duplicate_subject is not None:
+            raise EnrollmentError(
+                "DuplicateIdentity",
+                f"Face matches existing subject {duplicate_subject} "
+                f"(distance {duplicate_distance:.6f}).",
+                409,
+                duplicateSubjectId=duplicate_subject,
+                duplicateDistance=duplicate_distance)
+
+        with self._lock:
+            snapshot = self.registry.current_snapshot()
+            old = next((m for m in snapshot.model_files if m.subject_id == subject_id), None)
+            old_path = self.config.model_dir / old.file_name if old else None
+            archive = (self.config.model_archive_dir / f"live-{old.file_name}") if old else None
+
+            payload = pickle.dumps(encodings, protocol=pickle.HIGHEST_PROTOCOL)
+            file_name = self._next_model_name(subject_id, payload)
+            active = self.config.model_dir / file_name
+            if active.exists():
+                raise EnrollmentError(
+                    "ModelAlreadyExists", "Target model already exists.", 409)
+            try:
+                with active.open("xb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                if old_path:
+                    os.replace(old_path, archive)
+                reload_result = self.registry.reload()
+                if not reload_result.success:
+                    raise EnrollmentError(
+                        "RegistryReloadFailed", "Registry rejected activation.", 500)
+                descriptor = next(
+                    (m for m in reload_result.current_snapshot.model_files
+                     if m.file_name == file_name),
+                    None)
+                if descriptor is None:
+                    raise EnrollmentError(
+                        "RegistryReloadFailed", "Registry rejected activation.", 500)
+                return {
+                    **self._activation_result(descriptor, reload_result.current_snapshot.version),
+                    "encodingCount": len(encodings),
+                    "usedFrameCount": len(encodings),
+                    "noFaceFrameCount": no_face,
+                    "multipleFaceFrameCount": multiple,
+                    "invalidFrameCount": invalid,
+                    "message": "Live enrollment activated.",
+                }
+            except Exception:
+                if active.exists():
+                    active.unlink()
+                if archive and archive.exists() and old_path:
+                    os.replace(archive, old_path)
+                self.registry.reload()
+                raise
+
+    def _next_model_name(self, subject_id: str, payload: bytes) -> str:
+        snapshot = self.registry.current_snapshot()
+        current = next(
+            (m for m in snapshot.model_files if m.subject_id == subject_id), None)
+        next_version = 1
+        if current is not None:
+            match = MODEL_NAME.fullmatch(current.file_name or "")
+            if match:
+                next_version = int(match.group(2)) + 1
+        short_hash = hashlib.sha256(payload).hexdigest()[:8]
+        return f"emp_{subject_id}_v{next_version}_{short_hash}.pkl"
+
+    @staticmethod
+    def _decode_image(raw) -> np.ndarray:
+        if isinstance(raw, str):
+            header, _, body = raw.partition(",")
+            if header.startswith("data:") and body:
+                raw = body
+            data = base64.b64decode(raw)
+        elif isinstance(raw, (bytes, bytearray)):
+            data = bytes(raw)
+        else:
+            raise ValueError("Image must be a base64 string or raw bytes")
+        if not data:
+            raise ValueError("Image payload is empty")
+        buffer = np.frombuffer(data, dtype=np.uint8)
+        image = cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError("Image could not be decoded")
+        return image
 
     def revoke_subject_model(self, subject_id: str):
         self._validate_job_subject("0" * 32, subject_id)

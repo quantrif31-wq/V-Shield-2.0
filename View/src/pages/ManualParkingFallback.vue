@@ -2,30 +2,30 @@
     <div class="page-container parking-fallback-page animate-in">
         <header class="parking-hero">
             <div>
-                <span class="panel-kicker">Parking Continuity</span>
-                <h1 class="page-title">Manual Parking Fallback</h1>
+                <span class="panel-kicker">Dự phòng bãi xe</span>
+                <h1 class="page-title">Dự phòng gửi xe thủ công</h1>
                 <p class="page-subtitle">
                     Dự phòng cho bãi xe khi camera hoặc QR flow bị tê liệt. Mỗi lane yêu cầu xác minh đúng đối
                     tượng, QR động và biển số xe trước khi cho qua.
                 </p>
             </div>
             <div class="hero-actions">
-                <button class="btn btn-secondary" :disabled="loading" @click="loadBootstrap">Refresh</button>
+                <button class="btn btn-secondary" :disabled="loading" @click="loadBootstrap">Làm mới</button>
             </div>
         </header>
 
         <section class="signal-strip">
             <article class="signal-card">
-                <span class="signal-label">Lane online</span>
+                <span class="signal-label">Lane trực tuyến</span>
                 <strong>{{ laneOptions.length }}</strong>
             </article>
             <article class="signal-card">
-                <span class="signal-label">Parking areas</span>
+                <span class="signal-label">Khu vực đỗ xe</span>
                 <strong>{{ parkingAreas.length }}</strong>
             </article>
             <article class="signal-card">
-                <span class="signal-label">Manual mode</span>
-                <strong>2 lanes</strong>
+                <span class="signal-label">Chế độ thủ công</span>
+                <strong>2 lane</strong>
             </article>
         </section>
 
@@ -40,13 +40,13 @@
                         <h2>{{ lane.title }}</h2>
                     </div>
                     <span class="lane-status-chip" :class="lane.resultTone || 'tone-idle'">
-                        {{ lane.resultLabel || 'Waiting' }}
+                        {{ lane.resultLabel || 'Chờ' }}
                     </span>
                 </div>
 
                 <div class="lane-config">
                     <label class="form-group">
-                        <span>Lane map</span>
+                        <span>Sơ đồ lane</span>
                         <select v-model="lane.selectedLaneId" class="form-control">
                             <option :value="null">-- Chọn lane --</option>
                             <option v-for="opt in laneOptions" :key="opt.laneId" :value="opt.laneId">
@@ -147,11 +147,11 @@
                 </div>
 
                 <label v-if="lane.subjectType === 'visitor'" class="form-group">
-                    <span>Parking area (nếu cần cấp permit)</span>
+                    <span>Khu vực đỗ xe (nếu cần cấp giấy phép)</span>
                     <select v-model="lane.parkingAreaId" class="form-control">
                         <option :value="null">-- Bỏ qua --</option>
                         <option v-for="area in parkingAreas" :key="area.parkingAreaId || area.id" :value="area.parkingAreaId || area.id">
-                            {{ area.name }} ({{ area.availableSpots ?? '?' }} spots)
+                            {{ area.name }} ({{ area.availableSpots ?? '?' }} chỗ)
                         </option>
                     </select>
                 </label>
@@ -164,7 +164,7 @@
                     <button class="btn btn-primary" :disabled="lane.busy || !canSubmit(lane)" @click="verifyLane(lane)">
                         {{ lane.busy ? 'Đang xử lý...' : 'Xác minh và cho qua' }}
                     </button>
-                    <button class="btn btn-secondary" :disabled="lane.busy" @click="resetLane(lane)">Reset lane</button>
+                    <button class="btn btn-secondary" :disabled="lane.busy" @click="resetLane(lane)">Đặt lại lane</button>
                 </div>
 
                 <div v-if="lane.error" class="alert alert-danger lane-alert">{{ lane.error }}</div>
@@ -435,14 +435,14 @@ const verifyLane = async (lane) => {
     lane.busy = true
     lane.error = ''
     lane.resultTone = 'tone-scanning'
-    lane.resultLabel = 'Verifying'
+    lane.resultLabel = 'Đang xác minh'
     lane.waveLevel = 3
     lane.auditTitle = ''
     lane.auditMessage = ''
 
     try {
         const verification = await verifyDynamicQr(lane.qrPayload.trim(), `manual-parking-${lane.key}`)
-        if (!verification?.success) throw new Error(verification?.message || 'QR verify failed.')
+        if (!verification?.success) throw new Error(verification?.message || 'Xác minh QR thất bại.')
 
         const verified = extractVerifiedSubject(verification)
         const expectedKind = lane.subjectType === 'visitor' ? 'visitor' : 'employee'
@@ -458,9 +458,9 @@ const verifyLane = async (lane) => {
                 `[parking-fallback] mismatch; expected=${expectedKind}:${expectedIds.join(',')}; actual=${verified.kind}:${verified.id}`
             )
             lane.resultTone = 'tone-deny'
-            lane.resultLabel = 'Denied'
+            lane.resultLabel = 'Từ chối'
             lane.waveLevel = 5
-            lane.auditTitle = 'QR mismatch'
+            lane.auditTitle = 'QR không khớp'
             lane.auditMessage = 'QR động không khớp đối tượng đã chọn. Lane event đã được ghi nhận.'
             return
         }
@@ -476,9 +476,9 @@ const verifyLane = async (lane) => {
         })
 
         lane.resultTone = 'tone-allow'
-        lane.resultLabel = 'Allowed'
+        lane.resultLabel = 'Đã cho qua'
         lane.waveLevel = 4
-        lane.auditTitle = 'Manual parking pass'
+        lane.auditTitle = 'Vé gửi xe thủ công'
         lane.auditMessage =
             lane.subjectType === 'visitor' && lane.parkingAreaId
                 ? 'Đã xác minh QR, ghi lane event và cố gắng cấp parking permit cho khách.'
@@ -487,9 +487,9 @@ const verifyLane = async (lane) => {
         const message = error?.response?.data?.message || error?.message || 'Không thể xác minh QR.'
         lane.error = message
         lane.resultTone = 'tone-deny'
-        lane.resultLabel = 'Denied'
+        lane.resultLabel = 'Từ chối'
         lane.waveLevel = 5
-        lane.auditTitle = 'Manual parking blocked'
+        lane.auditTitle = 'Gửi xe thủ công bị chặn'
         lane.auditMessage = 'Xác minh thất bại. Lane event từ chối đã được ghi nhận nếu backend sẵn sàng.'
         try {
             await logLaneEvent(lane, 'MANUAL_PARKING_DENY', `[parking-fallback] error=${message}`)
@@ -527,7 +527,7 @@ onBeforeUnmount(() => {
         radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 28%),
         radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 22%),
         linear-gradient(145deg, #0b1624 0%, #13263b 100%);
-    color: #e5f3ff;
+    color: var(--text-primary);
     border: 1px solid rgba(125, 211, 252, 0.18);
     box-shadow: 0 26px 54px rgba(7, 18, 31, 0.24);
 }
@@ -535,7 +535,7 @@ onBeforeUnmount(() => {
 .page-subtitle {
     max-width: 760px;
     margin-top: 8px;
-    color: rgba(226, 232, 240, 0.86);
+    color: var(--text-secondary);
 }
 
 .signal-strip {
@@ -548,18 +548,18 @@ onBeforeUnmount(() => {
     padding: 16px 18px;
     border-radius: 20px;
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.82));
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    border: 1px solid var(--border-subtle);
     display: grid;
     gap: 8px;
 }
 
 .signal-card strong {
     font-size: 1.5rem;
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .signal-label {
-    color: #94a3b8;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 0.75rem;
@@ -603,7 +603,7 @@ onBeforeUnmount(() => {
 
 .lane-head h2 {
     margin: 4px 0 0;
-    color: #f8fafc;
+    color: var(--text-primary);
     font-size: 1.2rem;
 }
 
@@ -620,9 +620,10 @@ onBeforeUnmount(() => {
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 700;
-    border: 1px solid rgba(148, 163, 184, 0.16);
+    border: 1px solid var(--border-default);
     background: rgba(15, 23, 42, 0.72);
-    color: #cbd5e1;
+    color: var(--text-secondary);
+    transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
 }
 
 .lane-config {
@@ -644,16 +645,24 @@ onBeforeUnmount(() => {
     min-width: 106px;
     padding: 11px 14px;
     border-radius: 999px;
-    border: 1px solid rgba(148, 163, 184, 0.16);
+    border: 1px solid var(--border-default);
     background: rgba(15, 23, 42, 0.72);
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-weight: 700;
+    transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.type-pill:not(.active):hover {
+    border-color: rgba(125, 211, 252, 0.36);
+    background: rgba(15, 23, 42, 0.92);
+    color: var(--text-primary);
+    transform: translateY(-1px);
 }
 
 .type-pill.active {
     background: rgba(14, 165, 233, 0.2);
     border-color: rgba(56, 189, 248, 0.36);
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .lookup-shell {
@@ -663,12 +672,12 @@ onBeforeUnmount(() => {
 
 .lookup-state {
     margin-top: 8px;
-    color: #dbeafe;
+    color: var(--text-secondary);
     font-size: 0.82rem;
 }
 
 .lookup-state.muted {
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 .search-dropdown {
@@ -683,10 +692,11 @@ onBeforeUnmount(() => {
     gap: 12px;
     padding: 11px 12px;
     border-radius: 16px;
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    border: 1px solid var(--border-subtle);
     background: rgba(15, 23, 42, 0.62);
-    color: #e2e8f0;
+    color: var(--text-secondary);
     text-align: left;
+    transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
 }
 
 .search-result:hover {
@@ -702,7 +712,7 @@ onBeforeUnmount(() => {
     display: grid;
     place-items: center;
     font-weight: 800;
-    color: #f8fafc;
+    color: var(--text-primary);
     flex-shrink: 0;
 }
 
@@ -732,13 +742,13 @@ onBeforeUnmount(() => {
 
 .search-copy strong,
 .subject-copy strong {
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .search-copy span,
 .subject-copy span,
 .subject-copy small {
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 0.8rem;
 }
 
@@ -751,16 +761,24 @@ onBeforeUnmount(() => {
     padding: 14px;
     border-radius: 22px;
     background: rgba(15, 23, 42, 0.62);
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    border: 1px solid var(--border-subtle);
 }
 
 .subject-clear {
     width: 34px;
     height: 34px;
     border-radius: 999px;
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid var(--border-subtle);
     background: rgba(15, 23, 42, 0.74);
-    color: #cbd5e1;
+    color: var(--text-secondary);
+    transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.subject-clear:hover {
+    border-color: var(--border-danger);
+    background: rgba(239, 68, 68, 0.14);
+    color: var(--status-danger-text);
+    transform: translateY(-1px);
 }
 
 .entry-grid {
@@ -776,7 +794,7 @@ onBeforeUnmount(() => {
 }
 
 .form-group span {
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-size: 0.82rem;
     font-weight: 700;
 }
@@ -784,14 +802,14 @@ onBeforeUnmount(() => {
 .form-control {
     min-height: 46px;
     border-radius: 16px;
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid var(--border-subtle);
     background: rgba(15, 23, 42, 0.82);
-    color: #f8fafc;
+    color: var(--text-primary);
     padding: 0 14px;
 }
 
 .form-control::placeholder {
-    color: #64748b;
+    color: var(--text-disabled);
 }
 
 .wave-row {
@@ -807,6 +825,7 @@ onBeforeUnmount(() => {
     height: 7px;
     border-radius: 999px;
     background: rgba(71, 85, 105, 0.78);
+    transition: height 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .wave-bar:nth-child(2) {
@@ -851,15 +870,15 @@ onBeforeUnmount(() => {
     padding: 14px;
     border-radius: 18px;
     background: rgba(15, 23, 42, 0.72);
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    border: 1px solid var(--border-subtle);
 }
 
 .lane-receipt strong {
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .lane-receipt span {
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-size: 0.88rem;
 }
 

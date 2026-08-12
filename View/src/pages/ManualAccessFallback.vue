@@ -57,7 +57,7 @@
         </div>
       </template>
 
-      <!-- Subject card (photo + info) -->
+        <!-- Subject card (photo + info) -->
       <div v-if="subject" class="maf-photo-card" :class="photoClass">
         <div class="maf-photo-col">
           <img v-if="faceImg" :src="faceImg" class="maf-photo" />
@@ -67,26 +67,16 @@
           <div class="maf-name">{{ subject.displayName }}</div>
           <div class="maf-id">{{ idLabel }}: {{ subject.idValue }}</div>
           <div class="maf-extra">{{ extraInfo }}</div>
+          <div v-if="subject.idCardNumber" class="maf-extra maf-cccd">CCCD: {{ subject.idCardNumber }}</div>
         </div>
         <div v-if="resultMsg" class="maf-badge" :class="resultOk ? 'badge-ok' : 'badge-fail'">{{ resultMsg }}</div>
         <button class="maf-close" :disabled="busy" @click="clearSubject">✕</button>
       </div>
 
-      <!-- QR code input (employee only) -->
-      <div v-if="tab === 'employee' && subject" class="form-group" style="margin-top:1rem;">
-        <label>Mã xác nhận (QR động)</label>
-        <div class="qr-input-row">
-          <input v-model="qrCode" type="text" class="form-control" placeholder="Nhập mã QR từ điện thoại..." :disabled="busy" @keyup.enter="verify" />
-          <button class="btn btn-primary" style="flex-shrink:0;padding:0 20px;height:44px;" :disabled="!canVerify || busy" @click="verify">
-            {{ busy ? '...' : 'Xác thực' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Visitor: allow/deny buttons -->
-      <div v-if="tab === 'visitor' && subject && !resultMsg" class="maf-actions">
-        <button class="maf-btn maf-btn-allow" :disabled="!gateId || busy" @click="submitVisitor(true)">✅ Cho phép</button>
-        <button class="maf-btn maf-btn-deny" :disabled="!gateId || busy" @click="submitVisitor(false)">❌ Từ chối</button>
+      <!-- Allow/deny actions -->
+      <div v-if="subject && !resultMsg" class="maf-actions">
+        <button class="maf-btn maf-btn-allow" :disabled="!gateId || busy" @click="submitDecision(true)">✅ Cho phép</button>
+        <button class="maf-btn maf-btn-deny" :disabled="!gateId || busy" @click="submitDecision(false)">❌ Từ chối</button>
       </div>
 
       <!-- Error -->
@@ -110,7 +100,6 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { getGates } from '../services/deviceManagementApi'
 import { getAll as getEmployees, getProtectedFaceImage } from '../services/employeeApi'
 import { getVisitorDirectory } from '../services/guestProfileApi'
-import { verifyDynamicQr } from '../services/dynamicQrVerifyApi'
 import http from '../services/http'
 
 const gates = ref([])
@@ -128,7 +117,6 @@ const visLoading = ref(false)
 
 const subject = ref(null)
 const faceImg = ref('')
-const qrCode = ref('')
 
 const resultOk = ref(null)
 const resultMsg = ref('')
@@ -149,7 +137,6 @@ const photoClass = computed(() => {
   if (resultOk.value === null) return ''
   return resultOk.value ? 'border-ok' : 'border-fail'
 })
-const canVerify = computed(() => !!gateId.value && !!subject.value && qrCode.value?.trim()?.length > 0)
 
 onMounted(async () => {
   try { const r = await getGates(); gates.value = r.data || [] } catch (e) { console.error(e) }
@@ -157,7 +144,7 @@ onMounted(async () => {
 onBeforeUnmount(() => { if (faceImg.value) URL.revokeObjectURL(faceImg.value) })
 
 function switchTab(t) {
-  tab.value = t; clearSubject(); qrCode.value = ''; resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
+  tab.value = t; clearSubject(); resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
 }
 
 function onEmpSearch() {
@@ -172,7 +159,7 @@ async function pickEmp(e) {
   empResults.value = []
   empQ.value = e.fullName || e.name || ''
   subject.value = { displayName: e.fullName || e.name, idValue: e.employeeId, employeeId: e.employeeId, department: e.department, faceImageUrl: e.faceImageUrl }
-  resultOk.value = null; resultMsg.value = ''; qrCode.value = ''; errorMsg.value = ''
+  resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
   if (e?.faceImageUrl && !e.faceImageUrl.startsWith('http')) {
     try { const r = await getProtectedFaceImage(e.employeeId); faceImg.value = URL.createObjectURL(r.data) } catch { faceImg.value = '' }
   } else { faceImg.value = '' }
@@ -190,106 +177,81 @@ function onVisSearch() {
 function pickVis(v) {
   visResults.value = []
   visQ.value = v.fullName || ''
-  subject.value = { displayName: v.fullName, idValue: v.visitorDetailId, visitorDetailId: v.visitorDetailId, guestPhone: v.guestPhone, hostEmployeeName: v.hostEmployeeName }
+  subject.value = { displayName: v.fullName, idValue: v.visitorDetailId, visitorDetailId: v.visitorDetailId, guestPhone: v.guestPhone, hostEmployeeName: v.hostEmployeeName, idCardNumber: v.idCardNumber }
   resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
 }
 
 function clearSubject() {
   if (faceImg.value) { URL.revokeObjectURL(faceImg.value); faceImg.value = '' }
   subject.value = null; empQ.value = ''; empResults.value = []; visQ.value = ''; visResults.value = []
-  resultOk.value = null; resultMsg.value = ''; qrCode.value = ''; errorMsg.value = ''
+  resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
 }
 
-async function verify() {
-  if (!canVerify.value) return
-  busy.value = true; errorMsg.value = ''; resultOk.value = null; resultMsg.value = ''
-  try {
-    const data = await verifyDynamicQr(qrCode.value.trim(), 'manual-fallback')
-    if (data?.success && data?.data?.employeeId === subject.value?.employeeId) {
-      resultOk.value = true
-      resultMsg.value = 'Cho phép'
-      await logGateAccess(false)
-    } else {
-      resultOk.value = false
-      resultMsg.value = 'Từ chối — QR không khớp'
-      await logGateAccess(true)
-    }
-  } catch (e) {
-    resultOk.value = false
-    resultMsg.value = 'Từ chối — QR không hợp lệ'
-    await logGateAccess(true)
-  } finally {
-    busy.value = false
-  }
-}
-
-async function logGateAccess(isDenied) {
-  const payload = { gateId: Number(gateId.value), isDenied, reason: resultMsg.value || null }
+async function submitDecision(allow) {
+  busy.value = true; errorMsg.value = ''
+  const payload = { gateId: Number(gateId.value), isDenied: !allow, reason: allow ? 'Bảo vệ xác nhận đúng người' : 'Bảo vệ xác nhận không đúng người' }
   if (subject.value?.employeeId) payload.employeeId = subject.value.employeeId
   else if (subject.value?.visitorDetailId) payload.visitorDetailId = subject.value.visitorDetailId
   try {
-    await http.post('/QrAccess/manual-access', payload)
-  } catch { /* log best-effort */ }
-}
-
-async function submitVisitor(allow) {
-  busy.value = true; errorMsg.value = ''
-  const payload = { gateId: Number(gateId.value), isDenied: !allow, reason: allow ? 'Bảo vệ cho phép' : 'Bảo vệ từ chối' }
-  if (subject.value?.visitorDetailId) payload.visitorDetailId = subject.value.visitorDetailId
-  try {
-    await http.post('/QrAccess/manual-access', payload)
-    resultOk.value = allow; resultMsg.value = allow ? 'Cho phép' : 'Từ chối'
+    const res = await http.post('/QrAccess/manual-access', payload)
+    resultOk.value = true; resultMsg.value = allow ? 'Cho phép' : 'Từ chối'
   } catch (e) {
-    errorMsg.value = e?.response?.data?.message || e?.message || 'Lỗi'
+    resultOk.value = false
+    resultMsg.value = allow
+      ? (e?.response?.data?.message || 'Từ chối — người này không có quyền vào khu vực này')
+      : 'Từ chối'
   } finally {
     busy.value = false
   }
 }
 
 function fullReset() {
-  gateId.value = ''; clearSubject(); qrCode.value = ''; errorMsg.value = ''; logResult.value = { show: false, ok: false, title: '', message: '' }
+  gateId.value = ''; clearSubject(); errorMsg.value = ''; logResult.value = { show: false, ok: false, title: '', message: '' }
 }
 </script>
 
 <style scoped>
 .maf-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
 .maf-header-icon { font-size: 2rem; }
-.maf-tabs { display: flex; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
-.maf-tab { flex: 1; padding: 10px; border: none; background: #f8fafc; font-weight: 700; cursor: pointer; font-size: 14px; }
-.maf-tab.active { background: #6a8fe8; color: #fff; }
+.maf-tabs { display: flex; border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
+.maf-tab { flex: 1; padding: 10px; border: none; background: var(--surface-subtle); font-weight: 700; cursor: pointer; font-size: 14px; transition: background var(--transition-fast), color var(--transition-fast); }
+.maf-tab:hover:not(:disabled):not(.active) { background: var(--surface-hover); }
+.maf-tab.active { background: var(--accent-primary); color: var(--text-on-interactive); }
 .maf-tab:disabled { opacity: .5; cursor: not-allowed; }
 .search-box { position: relative; }
-.dropdown { position: absolute; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; width: 100%; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
-.dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; }
-.dropdown-item:hover { background: #f0f4ff; }
+.dropdown { position: absolute; background: var(--surface-default); border: 1px solid var(--border-subtle); border-radius: 8px; width: 100%; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-sm); }
+.dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; transition: background var(--transition-fast); }
+.dropdown-item:hover { background: var(--surface-hover); }
 
-.maf-photo-card { display: flex; align-items: center; gap: 14px; padding: 1rem; background: #f8faff; border: 3px solid #dde6f0; border-radius: 16px; margin-top: .75rem; position: relative; transition: border-color .25s, box-shadow .25s; }
-.maf-photo-card.border-ok { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
-.maf-photo-card.border-fail { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.2); }
+.maf-photo-card { display: flex; align-items: center; gap: 14px; padding: 1rem; background: var(--surface-subtle); border: 3px solid var(--border-subtle); border-radius: 16px; margin-top: .75rem; position: relative; transition: border-color .25s, box-shadow .25s; }
+.maf-photo-card.border-ok { border-color: var(--status-success-text); box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+.maf-photo-card.border-fail { border-color: var(--status-danger-text); box-shadow: 0 0 0 3px rgba(239,68,68,0.2); }
 .maf-photo-col { flex-shrink: 0; }
-.maf-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #cbd5e1; }
-.maf-photo-fallback { width: 80px; height: 80px; border-radius: 50%; background: #6a8fe8; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 900; }
+.maf-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-default); }
+.maf-photo-fallback { width: 80px; height: 80px; border-radius: 50%; background: var(--accent-primary); color: var(--text-on-interactive); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 900; }
 .maf-info-col { flex: 1; min-width: 0; }
 .maf-name { font-weight: 800; font-size: 18px; }
-.maf-id { font-size: 14px; color: #475569; margin-top: 2px; }
-.maf-extra { font-size: 13px; color: #64748b; margin-top: 2px; }
-.maf-badge { position: absolute; top: 10px; right: 40px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; color: #fff; }
-.badge-ok { background: #22c55e; }
-.badge-fail { background: #ef4444; }
-.maf-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; font-size: 14px; display: grid; place-items: center; color: #94a3b8; }
+.maf-id { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+.maf-extra { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.maf-badge { position: absolute; top: 10px; right: 40px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; color: var(--text-on-interactive); }
+.badge-ok { background: var(--status-success-text); }
+.badge-fail { background: var(--status-danger-text); }
+.maf-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-default); cursor: pointer; font-size: 14px; display: grid; place-items: center; color: var(--text-disabled); transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast); }
+.maf-close:hover:not(:disabled) { background: var(--surface-hover); color: var(--accent-primary); border-color: var(--border-default); }
 .maf-close:disabled { opacity: .5; }
 
 .qr-input-row { display: flex; gap: 8px; }
 
 .maf-actions { display: flex; gap: 10px; margin-top: 1.25rem; }
-.maf-btn { flex: 1; height: 52px; font-size: 16px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; color: #fff; }
+.maf-btn { flex: 1; height: 52px; font-size: 16px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; color: var(--text-on-interactive); transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast); }
+.maf-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .maf-btn:disabled { opacity: .5; cursor: not-allowed; }
-.maf-btn-allow { background: #22c55e; }
-.maf-btn-deny { background: #ef4444; }
+.maf-btn-allow { background: var(--status-success-text); }
+.maf-btn-deny { background: var(--status-danger-text); }
 
-.maf-mask { position: fixed; inset: 0; background: rgba(2,6,23,0.45); z-index: 300; display: grid; place-items: center; }
-.maf-dialog { width: min(420px, 92vw); background: #fff; border-radius: 14px; padding: 2rem; text-align: center; }
-.maf-dialog.maf-allow { border: 2px solid #22c55e; }
-.maf-dialog.maf-deny { border: 2px solid #ef4444; }
+.maf-mask { position: fixed; inset: 0; background: var(--surface-overlay); z-index: 300; display: grid; place-items: center; }
+.maf-dialog { width: min(420px, 92vw); background: var(--surface-default); border-radius: 14px; padding: 2rem; text-align: center; }
+.maf-dialog.maf-allow { border: 2px solid var(--status-success-text); }
+.maf-dialog.maf-deny { border: 2px solid var(--status-danger-text); }
 .maf-dialog h2 { margin: .5rem 0; }
 </style>

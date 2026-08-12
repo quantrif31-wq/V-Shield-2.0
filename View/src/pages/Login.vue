@@ -242,6 +242,8 @@
                 </div>
             </section>
         </div>
+
+        <ForcePasswordChange v-if="forcePasswordChange" @changed="handlePasswordChanged" />
     </div>
 </template>
 
@@ -252,6 +254,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { login } from '../stores/auth'
 import { identityApi } from '../services/identityApi'
 import BaseButton from '../components/ui/BaseButton.vue'
+import ForcePasswordChange from '../components/auth/ForcePasswordChange.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -267,6 +270,7 @@ const mfaSetupSecret = ref('')
 const mfaSetupUri = ref('')
 const mfaQrDataUrl = ref('')
 const mfaInputRef = ref(null)
+const forcePasswordChange = ref(false)
 let redirectTimer = null
 const ssoProviders = ref([])
 
@@ -362,6 +366,12 @@ async function handleLogin() {
 
         feedbackType.value = 'success'
         feedbackMessage.value = 'Đăng nhập thành công. Đang chuyển vào trung tâm điều phối...'
+        if (result?.requiresPasswordChange) {
+            forcePasswordChange.value = true
+            feedbackType.value = 'success'
+            feedbackMessage.value = 'Bạn vừa thiết lập xác thực hai lớp lần đầu. Hãy đặt mật khẩu mới để bảo vệ tài khoản trước khi vào hệ thống.'
+            return
+        }
         redirectTimer = setTimeout(() => {
             const requestedPath = String(route.query.redirect || '')
             router.push(requestedPath.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/')
@@ -385,6 +395,11 @@ async function handleLogin() {
     } finally {
         loading.value = false
     }
+}
+
+async function handlePasswordChanged() {
+    const requestedPath = String(route.query.redirect || '')
+    router.push(requestedPath.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/')
 }
 
 onUnmounted(() => {

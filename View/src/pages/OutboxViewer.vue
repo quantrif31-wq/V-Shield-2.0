@@ -2,43 +2,43 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Outbox</span>
-                <h1 class="page-title">Outbox Events</h1>
+                <span class="panel-kicker">Hàng đợi gửi</span>
+                <h1 class="page-title">Sự kiện hàng đợi gửi</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" @click="loadEvents">Refresh</button>
+                <button class="btn btn-primary" @click="loadEvents">Làm mới</button>
             </div>
         </div>
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Events</span><h2 class="panel-title">Pending Events</h2></div>
+                    <div><span class="panel-kicker">Sự kiện</span><h2 class="panel-title">Sự kiện chờ gửi</h2></div>
                     <div class="panel-actions">
                         <select v-model="statusFilter" @change="loadEvents" class="form-select">
-                            <option value="">All</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Dispatched">Dispatched</option>
-                            <option value="Failed">Failed</option>
-                            <option value="DeadLetter">Dead Letter</option>
+                            <option value="">Tất cả</option>
+                            <option value="Pending">Chờ gửi</option>
+                            <option value="Dispatched">Đã gửi</option>
+                            <option value="Failed">Thất bại</option>
+                            <option value="DeadLetter">Thư chết</option>
                         </select>
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="events.length === 0" class="empty-card">No outbox events.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="events.length === 0" class="empty-card">Không có sự kiện hàng đợi.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Type</th><th>Aggregate</th><th>Event Type</th><th>Status</th><th>Correlation</th><th>Created</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Loại</th><th>Tổng hợp</th><th>Loại sự kiện</th><th>Trạng thái</th><th>Tương quan</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
                         <tbody>
                             <tr v-for="e in events" :key="e.outboxEventId">
                                 <td>{{ e.outboxEventId }}</td>
                                 <td>{{ e.eventType }}</td>
                                 <td>{{ e.aggregateType }}</td>
                                 <td>{{ e.eventType }}</td>
-                                <td><span class="badge" :class="statusClass(e.status)">{{ e.status }}</span></td>
+                                <td><span class="badge" :class="statusClass(e.status)">{{ statusLabel(e.status) }}</span></td>
                                 <td class="table-sub">{{ e.correlationId }}</td>
                                 <td class="table-sub">{{ new Date(e.createdAtUtc).toLocaleString() }}</td>
                                 <td>
-                                    <button v-if="e.status === 'Pending'" class="btn btn-success btn-sm" @click="dispatchEvent(e.outboxEventId)">Dispatch</button>
+                                    <button v-if="e.status === 'Pending'" class="btn btn-success btn-sm" @click="dispatchEvent(e.outboxEventId)">Gửi đi</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -47,13 +47,13 @@
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Deliveries</span><h2 class="panel-title">Webhook Deliveries</h2></div>
+                    <div><span class="panel-kicker">Chuyển giao</span><h2 class="panel-title">Lần chuyển giao Webhook</h2></div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="deliveries.length === 0" class="empty-card">No webhook deliveries.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="deliveries.length === 0" class="empty-card">Không có lần chuyển giao webhook.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Event ID</th><th>Target</th><th>Signature</th><th>Attempts</th><th>Last Attempt</th><th>Status</th></tr></thead>
+                        <thead><tr><th>ID</th><th>ID sự kiện</th><th>Đích</th><th>Chữ ký</th><th>Số lần thử</th><th>Lần thử cuối</th><th>Trạng thái</th></tr></thead>
                         <tbody>
                             <tr v-for="d in deliveries" :key="d.webhookDeliveryId">
                                 <td>{{ d.webhookDeliveryId }}</td>
@@ -62,7 +62,7 @@
                                 <td class="table-sub">{{ d.signature?.substring(0, 16) }}...</td>
                                 <td>{{ d.attemptCount }}</td>
                                 <td class="table-sub">{{ d.lastAttemptAtUtc ? new Date(d.lastAttemptAtUtc).toLocaleString() : '—' }}</td>
-                                <td><span class="badge" :class="d.status === 'Delivered' ? 'badge-success' : 'badge-warn'">{{ d.status }}</span></td>
+                                <td><span class="badge" :class="d.status === 'Delivered' ? 'badge-success' : 'badge-warn'">{{ deliveryLabel(d.status) }}</span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -81,6 +81,19 @@ const deliveries = ref([])
 const loading = ref(true)
 const statusFilter = ref('')
 
+const statusLabels = {
+    Pending: 'Chờ gửi',
+    Dispatched: 'Đã gửi',
+    Failed: 'Thất bại',
+    DeadLetter: 'Thư chết'
+}
+const deliveryLabels = {
+    Delivered: 'Đã gửi',
+    Failed: 'Thất bại'
+}
+function statusLabel(s) { return statusLabels[s] || s }
+function deliveryLabel(s) { return deliveryLabels[s] || s }
+
 async function loadEvents() {
     loading.value = true
     try {
@@ -95,11 +108,11 @@ async function loadEvents() {
 }
 
 async function dispatchEvent(eventId) {
-    if (!confirm(`Dispatch outbox event #${eventId}?`)) return
+    if (!confirm(`Gửi đi sự kiện hàng đợi #${eventId}?`)) return
     try {
         await enterpriseApi.dispatchEvent(eventId)
         await loadEvents()
-    } catch { alert('Dispatch failed') }
+    } catch { alert('Gửi đi thất bại') }
 }
 
 function statusClass(s) {

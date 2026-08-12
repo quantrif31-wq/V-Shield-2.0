@@ -14,8 +14,12 @@ import uvicorn
 
 PREVIEW_WIDTH = 960
 PREVIEW_HEIGHT = 540
-CANDIDATE_REQUIRED_COUNT = 1
+CANDIDATE_REQUIRED_COUNT = 2
 CANDIDATE_WINDOW_MS = 800
+CANDIDATE_PERSIST_MS = 800
+RESULT_HOLD_MS = 1500
+SAME_CODE_COOLDOWN_MS = 4000
+VANISH_RESET_MS = 2000
 IDLE_SLEEP_SECONDS = 0.008
 SCAN_TARGET_INTERVAL_SECONDS = 0.02
 BURST_SCAN_WINDOW_SECONDS = 1.8
@@ -39,11 +43,19 @@ state = {
     "candidate_payload": "",
     "candidate_source": "",
     "candidate_seen_count": 0,
+    "candidate_last_seen_at": 0,
     "locked_payload": "",
     "locked_at": 0,
+    "locked_expires_at": 0,
     "scan_started_at": 0.0,
     "scan_frame_seq": 0,
     "scan_session_id": 0,
+    "last_fired_payload": "",
+    "last_fired_at": 0,
+    "last_vanish_at": 0,
+    "cooldown_payload": "",
+    "cooldown_until": 0,
+    "session_active": False,
 }
 
 lock = Lock()
@@ -191,6 +203,7 @@ def clear_candidate_state_unlocked():
     state["candidate_payload"] = ""
     state["candidate_source"] = ""
     state["candidate_seen_count"] = 0
+    state["candidate_last_seen_at"] = 0
 
 
 def mark_scan_started_unlocked():
@@ -209,6 +222,7 @@ def reset_scan_session_unlocked(scan_enabled=False):
         state["scan_session_id"] = int(state.get("scan_session_id") or 0) + 1
         state["scan_started_at"] = 0.0
         state["scan_frame_seq"] = latest_frame_seq
+        state["session_active"] = False
 
 
 def unlock_state_unlocked():
@@ -216,6 +230,7 @@ def unlock_state_unlocked():
     state["qr"] = ""
     state["locked_payload"] = ""
     state["locked_at"] = 0
+    state["locked_expires_at"] = 0
 
 
 def set_phase_unlocked():
@@ -229,6 +244,10 @@ def set_phase_unlocked():
 
     if state["locked"] and state["locked_payload"]:
         state["phase"] = "locked"
+        return
+
+    if state["cooldown_payload"]:
+        state["phase"] = "cooldown"
         return
 
     if state["scan_enabled"]:
@@ -368,6 +387,69 @@ def decode_live_frame(frame, allow_full=True, scan_session_id=0, deadline_at=0.0
         return None, ""
     preview = fit_preview(frame)
     slog(f"decode_live_frame: frame={frame.shape} preview={preview.shape}")
+
+    gray = cv2.cvtColor(preview, cv2.COLOR_BGR2GRAY)
+    eq = cv2.equalizeHist(gray)
+    sharp = sharpen(gray)
+    quick_variants = [
+        ("preview-gray", gray),
+        ("preview-eq", eq),
+        ("preview-sharp", sharp),
+        ("preview-blur", cv2.GaussianBlur(eq, (3, 3), 0)),
+    ]
+
+    # 1) fast whole-image pass: pyzbar + cv2 on a few grayscale variants
+    for variant_name, img in quick_variants:
+        if should_abort_decode(scan_session_id, deadline_at):
+            return None, ""
+        barcodes = pyzbar.decode(img)
+        if barcodes:
+            data = barcodes[0].data.decode(errors="ignore")
+            slog(f"decode_live_frame pyzbar OK: {data} ({variant_name})")
+            return data, variant_name
+        decoded, _, _ = qr_detector.detectAndDecode(img)
+        if decoded:
+            data = decoded.strip()
+            slog(f"decode_live_frame cv2 OK: {data} ({variant_name})")
+            return data, variant_name
+
+    # 2) detection-driven ROI decode: find QR boxes, crop + upscale to catch
+    #    small or partially-visible codes that the whole-image pass missed.
+    for variant_name, img in (("eq", eq), ("gray", gray)):
+        if should_abort_decode(scan_session_id, deadline_at):
+            return None, ""
+        ok, points = qr_detector.detect(img)
+        if not ok or points is None or len(points) == 0:
+            continue
+        for pts in points:
+            if should_abort_decode(scan_session_id, deadline_at):
+                return None, ""
+            try:
+                xs = [p[0][0] for p in pts]
+                ys = [p[0][1] for p in pts]
+                h, w = preview.shape[:2]
+                x0, x1 = max(0, int(min(xs))), min(w, int(max(xs)))
+                y0, y1 = max(0, int(min(ys))), min(h, int(max(ys)))
+                if x1 - x0 < 8 or y1 - y0 < 8:
+                    continue
+                roi = preview[y0:y1, x0:x1]
+                roi_big = cv2.resize(roi, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_CUBIC)
+                decoded, _, _ = qr_detector.detectAndDecode(roi_big)
+                if not decoded:
+                    barcodes = pyzbar.decode(roi_big)
+                    if barcodes:
+                        decoded = barcodes[0].data.decode(errors="ignore")
+                if decoded:
+                    data = decoded.strip()
+                    slog(f"decode_live_frame ROI OK: {data} ({variant_name})")
+                    return data, f"roi-{variant_name}"
+            except Exception:
+                continue
+
+    if not allow_full or should_abort_decode(scan_session_id, deadline_at):
+        return None, ""
+
+    # 3) heavy fallback: region pyramid for very small / blurry codes
     preview_upscaled = cv2.resize(
         preview,
         None,
@@ -375,23 +457,6 @@ def decode_live_frame(frame, allow_full=True, scan_session_id=0, deadline_at=0.0
         fy=1.35,
         interpolation=cv2.INTER_CUBIC,
     )
-
-    fast_attempts = []
-    fast_attempts.extend(build_scan_regions(frame, "raw-fast"))
-    fast_attempts.extend(build_scan_regions(preview, "preview-fast"))
-    fast_attempts.extend(build_scan_regions(preview_upscaled, "preview-upscaled-fast"))
-
-    for source_name, candidate in fast_attempts:
-        if should_abort_decode(scan_session_id, deadline_at):
-            return None, ""
-        if candidate is None or getattr(candidate, "size", 0) == 0:
-            continue
-        decoded = decode_qr_fast(candidate, scan_session_id=scan_session_id, deadline_at=deadline_at)
-        if decoded:
-            return decoded, source_name
-
-    if not allow_full or should_abort_decode(scan_session_id, deadline_at):
-        return None, ""
 
     attempts = []
     attempts.extend(build_scan_regions(frame, "raw"))
@@ -417,12 +482,19 @@ def lock_candidate_unlocked(payload, source_name):
     state["qr"] = payload
     state["locked_payload"] = payload
     state["locked_at"] = now_ms()
+    state["locked_expires_at"] = now_ms() + RESULT_HOLD_MS
     state["scan_enabled"] = False
     state["candidate_payload"] = payload
     state["candidate_source"] = source_name
     state["candidate_seen_count"] = max(
         state["candidate_seen_count"], CANDIDATE_REQUIRED_COUNT
     )
+    state["last_fired_payload"] = payload
+    state["last_fired_at"] = now_ms()
+    state["last_vanish_at"] = 0
+    state["cooldown_payload"] = ""
+    state["cooldown_until"] = 0
+    state["session_active"] = True
     set_phase_unlocked()
 
 
@@ -435,22 +507,39 @@ def process_candidate(payload, source_name, scan_session_id):
         ):
             return False
 
+        now = now_ms()
+        payload = str(payload or "").strip()
+
         if not payload:
-            if state["candidate_payload"]:
-                slog("process_candidate: cleared candidate (null payload)")
+            last_vanish = int(state.get("last_vanish_at") or 0)
+            if not last_vanish:
+                state["last_vanish_at"] = now
+            elif (now - last_vanish) >= VANISH_RESET_MS:
+                slog("process_candidate: code fully left scan zone for >= VANISH_RESET_MS, session ended")
+                state["session_active"] = False
+                state["cooldown_payload"] = ""
+                state["cooldown_until"] = 0
+                state["last_fired_payload"] = ""
+                state["last_fired_at"] = 0
+                state["last_vanish_at"] = 0
                 clear_candidate_state_unlocked()
             set_phase_unlocked()
             return False
 
-        payload = str(payload).strip()
-        if not payload:
-            slog("process_candidate: cleared candidate (empty payload)")
-            clear_candidate_state_unlocked()
-            set_phase_unlocked()
-            return False
+        last_vanish = int(state.get("last_vanish_at") or 0)
+        if last_vanish:
+            if (now - last_vanish) >= VANISH_RESET_MS:
+                slog("process_candidate: new code after full exit, counting from scratch")
+                state["session_active"] = False
+                state["cooldown_payload"] = ""
+                state["cooldown_until"] = 0
+                state["last_fired_payload"] = ""
+                state["last_fired_at"] = 0
+            state["last_vanish_at"] = 0
 
         current = state["candidate_payload"]
-        if current == payload:
+        last_seen = int(state.get("candidate_last_seen_at") or 0)
+        if current == payload and last_seen and (now - last_seen) <= CANDIDATE_PERSIST_MS:
             state["candidate_seen_count"] += 1
             slog(f"process_candidate: same payload '{payload}' count={state['candidate_seen_count']} src={source_name}")
         else:
@@ -459,9 +548,17 @@ def process_candidate(payload, source_name, scan_session_id):
             state["candidate_seen_count"] = 1
             slog(f"process_candidate: new payload '{payload}' count=1 src={source_name}")
 
+        state["candidate_last_seen_at"] = now
         state["candidate_source"] = source_name
 
         if state["candidate_seen_count"] >= CANDIDATE_REQUIRED_COUNT:
+            if payload == state.get("last_fired_payload"):
+                state["cooldown_payload"] = payload
+                state["cooldown_until"] = now + SAME_CODE_COOLDOWN_MS
+                state["candidate_seen_count"] = 1
+                slog(f"process_candidate: same code in cooldown '{payload}'")
+                set_phase_unlocked()
+                return False
             slog(f"process_candidate: LOCKED '{payload}'")
             lock_candidate_unlocked(payload, source_name)
             return True
@@ -488,6 +585,7 @@ def build_preview_frame():
 
     with lock:
         locked_payload = state["locked_payload"]
+        cooldown_payload = state["cooldown_payload"]
         phase = state["phase"]
 
     if phase in ("scanning", "candidate_found"):
@@ -498,6 +596,17 @@ def build_preview_frame():
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (0, 165, 255),
+            2,
+        )
+
+    if cooldown_payload:
+        cv2.putText(
+            frame,
+            f"COOLDOWN: {cooldown_payload}",
+            (10, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 165, 0),
             2,
         )
 
@@ -625,6 +734,24 @@ def scan_worker():
 
     while not stop_flag:
         with lock:
+            locked_expires_at = int(state.get("locked_expires_at") or 0)
+            if (
+                state["running"]
+                and state["locked"]
+                and locked_expires_at
+                and now_ms() >= locked_expires_at
+            ):
+                slog("scan_worker: lock hold expired -> auto rearm")
+                reset_scan_session_unlocked(scan_enabled=True)
+                set_phase_unlocked()
+
+            cooldown_until = int(state.get("cooldown_until") or 0)
+            if state.get("cooldown_payload") and cooldown_until and now_ms() >= cooldown_until:
+                slog("scan_worker: cooldown expired")
+                state["cooldown_payload"] = ""
+                state["cooldown_until"] = 0
+                set_phase_unlocked()
+
             should_scan = state["running"] and state["scan_enabled"] and not state["locked"]
             scan_started_at = float(state.get("scan_started_at") or 0.0)
             scan_frame_seq = int(state.get("scan_frame_seq") or 0)

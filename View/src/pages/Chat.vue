@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-container">
+  <div class="chat-container animate-in">
     <div class="chat-realtime-status chat-realtime-global" :class="`is-${hubStatus}`" role="status" aria-live="polite">
       <span class="status-dot" aria-hidden="true"></span>
       <span>{{ hubStatusLabel }}</span>
@@ -10,7 +10,7 @@
       <div class="sidebar-tabs">
         <button :class="{ active: activeTab === 'conversations' }" @click="activeTab = 'conversations'">Hội thoại</button>
         <button :class="{ active: activeTab === 'contacts' }" @click="activeTab = 'contacts'">Danh bạ</button>
-        <button v-if="activeTab === 'contacts'" style="margin-left:auto;padding:8px 10px;font-size:12px;border:none;background:none;cursor:pointer;color:#1976D2;" @click="showFilters = !showFilters">
+        <button v-if="activeTab === 'contacts'" style="margin-left:auto;padding:8px 10px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--accent-primary);" @click="showFilters = !showFilters">
           <i class="fas fa-filter"></i>
         </button>
       </div>
@@ -537,7 +537,7 @@ export default {
   position: relative;
   display: flex;
   height: calc(100vh - 120px);
-  background: #f5f5f5;
+  background: var(--surface-subtle);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -546,15 +546,15 @@ export default {
 .chat-sidebar {
   width: 320px;
   min-width: 320px;
-  background: white;
-  border-right: 1px solid #e0e0e0;
+  background: var(--surface-default);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
 }
 
 .sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .sidebar-tabs button {
@@ -564,13 +564,13 @@ export default {
   background: none;
   cursor: pointer;
   font-size: 14px;
-  color: #666;
+  color: var(--text-muted);
   transition: all 0.2s;
 }
 
 .sidebar-tabs button.active {
-  color: #1976D2;
-  border-bottom: 2px solid #1976D2;
+  color: var(--accent-primary);
+  border-bottom: 2px solid var(--accent-primary);
   font-weight: 600;
 }
 
@@ -581,7 +581,7 @@ export default {
 .sidebar-search input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-subtle);
   border-radius: 20px;
   font-size: 13px;
   outline: none;
@@ -589,7 +589,7 @@ export default {
 }
 
 .sidebar-search input:focus {
-  border-color: #1976D2;
+  border-color: var(--accent-primary);
 }
 
 .sidebar-list {
@@ -604,16 +604,18 @@ export default {
   cursor: pointer;
   align-items: center;
   gap: 12px;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .conversation-item:hover,
 .contact-item:hover {
-  background: #f0f7ff;
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
 
 .conversation-item.active {
-  background: #e3f2fd;
+  background: var(--surface-selected);
 }
 
 .conv-avatar,
@@ -622,7 +624,7 @@ export default {
   height: 40px;
   border-radius: 50%;
   background: #1976D2;
-  color: white;
+  color: var(--text-on-interactive);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -641,7 +643,7 @@ export default {
 .contact-name {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -649,7 +651,7 @@ export default {
 
 .conv-preview {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -658,7 +660,7 @@ export default {
 
 .contact-dept {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -671,32 +673,32 @@ export default {
 
 .contact-position {
   font-size: 11px;
-  color: #1976D2;
-  background: #e3f2fd;
+  color: var(--accent-primary);
+  background: var(--status-info-bg);
   padding: 1px 6px;
   border-radius: 4px;
 }
 
 .contact-email {
   font-size: 11px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .contact-filters {
   padding: 8px 12px;
   display: flex;
   gap: 6px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .contact-filters select {
   flex: 1;
   padding: 6px 8px;
   font-size: 12px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   outline: none;
-  background: white;
+  background: var(--surface-default);
 }
 
 .conv-meta {
@@ -706,12 +708,12 @@ export default {
 
 .conv-time {
   font-size: 11px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .unread-badge {
-  background: #1976D2;
-  color: white;
+  background: var(--accent-primary);
+  color: var(--text-on-interactive);
   font-size: 11px;
   border-radius: 10px;
   padding: 2px 7px;
@@ -723,25 +725,25 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--surface-default);
 }
 
 .chat-empty {
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .empty-state-large i {
   font-size: 64px;
-  color: #ddd;
+  color: var(--text-disabled);
   display: block;
   margin-bottom: 16px;
 }
 
 .chat-header {
   padding: 12px 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -750,12 +752,12 @@ export default {
 .chat-header-info h3 {
   margin: 0;
   font-size: 16px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .chat-header-members {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .chat-header-actions {
@@ -766,21 +768,22 @@ export default {
 .btn-icon {
   width: 36px;
   height: 36px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-subtle);
   border-radius: 50%;
   background: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: var(--text-muted);
   transition: all 0.2s;
 }
 
 .btn-icon:hover {
-  background: #e3f2fd;
-  color: #1976D2;
-  border-color: #1976D2;
+  background: var(--surface-selected);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
 }
 
 .messages-container {
@@ -810,7 +813,7 @@ export default {
 
 .message-sender {
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted);
   margin-bottom: 2px;
   margin-left: 4px;
 }
@@ -818,13 +821,13 @@ export default {
 .message-bubble {
   padding: 10px 14px;
   border-radius: 18px;
-  background: #f0f0f0;
+  background: var(--surface-subtle);
   position: relative;
 }
 
 .message-mine .message-bubble {
   background: #1976D2;
-  color: white;
+  color: var(--text-on-interactive);
   border-bottom-right-radius: 4px;
 }
 
@@ -839,7 +842,7 @@ export default {
 
 .message-time {
   font-size: 10px;
-  color: #999;
+  color: var(--text-muted);
   margin-top: 4px;
   text-align: right;
 }
@@ -864,7 +867,7 @@ export default {
 .typing-indicator {
   padding: 4px 20px;
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -878,39 +881,39 @@ export default {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #2e7d32;
+  color: var(--status-success-text);
 }
 .chat-realtime-global { position: absolute; z-index: 2; right: 16px; top: 8px; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.92); }
 
 .chat-realtime-status:not(.is-live) {
-  color: #8a6d3b;
+  color: var(--status-warning-text);
 }
 
-.chat-realtime-status.is-disconnected { color: #c62828; }
+.chat-realtime-status.is-disconnected { color: var(--status-danger-text); }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
 .chat-error {
-  color: #c62828;
+  color: var(--status-danger-text);
 }
 
 .chat-input {
   display: flex;
   padding: 12px 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-subtle);
   gap: 8px;
 }
 
 .chat-input input {
   flex: 1;
   padding: 10px 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-subtle);
   border-radius: 24px;
   font-size: 14px;
   outline: none;
 }
 
 .chat-input input:focus {
-  border-color: #1976D2;
+  border-color: var(--accent-primary);
 }
 
 .chat-input button {
@@ -919,27 +922,29 @@ export default {
   border: none;
   border-radius: 50%;
   background: #1976D2;
-  color: white;
+  color: var(--text-on-interactive);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
-.chat-input button:hover {
+.chat-input button:hover:not(:disabled) {
   background: #1565C0;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(25, 118, 210, 0.3);
 }
 
 .chat-input button:disabled {
-  background: #ccc;
+  background: var(--interactive-disabled);
   cursor: not-allowed;
 }
 
 .empty-state {
   text-align: center;
   padding: 32px 16px;
-  color: #999;
+  color: var(--text-muted);
   font-size: 14px;
 }
 </style>

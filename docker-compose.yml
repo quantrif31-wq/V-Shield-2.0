@@ -28,6 +28,7 @@ services:
       VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:-VshieldLocalJwtSecretKey_2026_ChangeMe123}"
       VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:-admin}"
       VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:-AdminLocal@2026}"
+      DemoData__Enabled: "${DEMO_DATA_ENABLED:-true}"
       Runtime__Mode: docker
       Security__EnableHttpsRedirection: "false"
       DataProtection__KeyRingPath: "/var/app/data-protection"

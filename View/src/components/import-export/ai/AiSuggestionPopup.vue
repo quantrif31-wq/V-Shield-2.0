@@ -1,7 +1,7 @@
 <template>
     <div v-if="visible" class="suggestion-popup">
         <div class="popup-header">
-            <span>Synonyms & Suggestions</span>
+            <span>Đồng nghĩa & Gợi ý</span>
             <button class="btn-icon" @click="$emit('close')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -16,27 +16,27 @@
         <div v-for="(grp, gi) in groupedIssues" :key="gi" class="issue-group">
             <div class="group-header">
                 <span class="group-badge" :class="grp.category">{{ grp.categoryLabel }}</span>
-                <span class="group-count">{{ grp.items.length }} issues</span>
+                <span class="group-count">{{ grp.items.length }} vấn đề</span>
             </div>
             <div v-for="(item, ii) in grp.items.slice(0, 20)" :key="ii" class="issue-row">
                 <div class="issue-cell">
-                    <span class="cell-label">Row</span>
+                    <span class="cell-label">Hàng</span>
                     <span>{{ item.row || '—' }}</span>
                 </div>
                 <div class="issue-cell">
-                    <span class="cell-label">Column</span>
+                    <span class="cell-label">Cột</span>
                     <span>{{ item.column }}</span>
                 </div>
                 <div class="issue-cell">
-                    <span class="cell-label">Original</span>
+                    <span class="cell-label">Gốc</span>
                     <span class="original">{{ item.originalValue }}</span>
                 </div>
                 <div class="issue-cell">
-                    <span class="cell-label">Suggest</span>
+                    <span class="cell-label">Gợi ý</span>
                     <span class="suggested">{{ item.suggestedValue }}</span>
                 </div>
                 <div class="issue-cell">
-                    <span class="cell-label">Conf</span>
+                    <span class="cell-label">Độ tin cậy</span>
                     <span class="confidence" :class="confidenceClass(item.confidence)">
                         {{ (item.confidence * 100).toFixed(0) }}%
                     </span>

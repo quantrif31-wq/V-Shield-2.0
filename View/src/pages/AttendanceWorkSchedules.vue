@@ -6,6 +6,8 @@
                 <p class="page-subtitle">Lên lịch ca làm, theo dõi trạng thái làm việc theo ngày.</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" @click="showImportModal = true">Nhập dữ liệu</button>
+                <button class="btn btn-secondary" @click="showExportModal = true">Xuất dữ liệu</button>
                 <button class="btn btn-secondary" @click="openBulkModal">Tạo lịch hàng loạt</button>
                 <button class="btn btn-primary" @click="openCreateModal">Tạo lịch làm</button>
             </div>
@@ -112,28 +114,31 @@
                     </div>
                     <form @submit.prevent="submitForm">
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Nhân viên</label>
-                                <select v-model.number="form.employeeId" required>
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.employeeId }">
+                                <label>Nhân viên <span class="req">*</span></label>
+                                <select v-model.number="form.employeeId" required @change="clearFieldError('employeeId')">
                                     <option :value="null">-- Chọn nhân viên --</option>
                                     <option v-for="emp in employees" :key="emp.employeeId" :value="emp.employeeId">
                                         {{ emp.fullName }}
                                     </option>
                                 </select>
+                                <p v-if="fieldErrors.employeeId" class="field-error" role="alert">{{ fieldErrors.employeeId }}</p>
                             </div>
-                            <div class="form-group">
-                                <label>Ca làm</label>
-                                <select v-model.number="form.shiftId" required>
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.shiftId }">
+                                <label>Ca làm <span class="req">*</span></label>
+                                <select v-model.number="form.shiftId" required @change="clearFieldError('shiftId')">
                                     <option :value="null">-- Chọn ca làm --</option>
                                     <option v-for="shift in shifts" :key="shift.shiftId" :value="shift.shiftId">
                                         {{ shift.shiftName }} ({{ formatTime(shift.startTime) }} - {{ formatTime(shift.endTime) }})
                                     </option>
                                 </select>
+                                <p v-if="fieldErrors.shiftId" class="field-error" role="alert">{{ fieldErrors.shiftId }}</p>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Ngày làm</label>
-                            <input v-model="form.workDate" type="date" required />
+                        <div class="form-group" :class="{ 'has-error': fieldErrors.workDate }">
+                            <label>Ngày làm <span class="req">*</span></label>
+                            <input v-model="form.workDate" type="date" required @input="clearFieldError('workDate')" />
+                            <p v-if="fieldErrors.workDate" class="field-error" role="alert">{{ fieldErrors.workDate }}</p>
                         </div>
                         <div class="form-group">
                             <label>Ghi chú</label>
@@ -162,14 +167,15 @@
                     </div>
                     <form @submit.prevent="submitBulkForm">
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Ca làm</label>
-                                <select v-model.number="bulkForm.shiftId" required>
+                            <div class="form-group" :class="{ 'has-error': bulkErrors.shiftId }">
+                                <label>Ca làm <span class="req">*</span></label>
+                                <select v-model.number="bulkForm.shiftId" required @change="clearBulkError('shiftId')">
                                     <option :value="null">-- Chọn ca làm --</option>
                                     <option v-for="shift in shifts" :key="shift.shiftId" :value="shift.shiftId">
                                         {{ shift.shiftName }} ({{ formatTime(shift.startTime) }} - {{ formatTime(shift.endTime) }})
                                     </option>
                                 </select>
+                                <p v-if="bulkErrors.shiftId" class="field-error" role="alert">{{ bulkErrors.shiftId }}</p>
                             </div>
                             <div class="form-group">
                                 <label>Phòng ban</label>
@@ -182,17 +188,19 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Từ ngày</label>
-                                <input v-model="bulkForm.fromDate" type="date" required />
+                            <div class="form-group" :class="{ 'has-error': bulkErrors.fromDate }">
+                                <label>Từ ngày <span class="req">*</span></label>
+                                <input v-model="bulkForm.fromDate" type="date" required @input="clearBulkError('fromDate'); clearBulkError('toDate')" />
+                                <p v-if="bulkErrors.fromDate" class="field-error" role="alert">{{ bulkErrors.fromDate }}</p>
                             </div>
-                            <div class="form-group">
-                                <label>Đến ngày</label>
-                                <input v-model="bulkForm.toDate" type="date" required />
+                            <div class="form-group" :class="{ 'has-error': bulkErrors.toDate }">
+                                <label>Đến ngày <span class="req">*</span></label>
+                                <input v-model="bulkForm.toDate" type="date" required @input="clearBulkError('toDate'); clearBulkError('fromDate')" />
+                                <p v-if="bulkErrors.toDate" class="field-error" role="alert">{{ bulkErrors.toDate }}</p>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Nhân viên áp dụng</label>
+                        <div class="form-group" :class="{ 'has-error': bulkErrors.employeeIds }">
+                            <label>Nhân viên áp dụng <span class="req">*</span></label>
                             <div class="bulk-toolbar">
                                 <button type="button" class="btn btn-ghost btn-sm" @click="selectFilteredEmployees">Chọn theo bộ lọc</button>
                                 <button type="button" class="btn btn-ghost btn-sm" @click="clearBulkEmployees">Bỏ chọn</button>
@@ -209,6 +217,7 @@
                                     <small>{{ emp.departmentName || 'Chưa có phòng ban' }}</small>
                                 </label>
                             </div>
+                            <p v-if="bulkErrors.employeeIds" class="field-error" role="alert">{{ bulkErrors.employeeIds }}</p>
                         </div>
                         <div class="form-group">
                             <label>Ghi chú</label>
@@ -246,6 +255,9 @@
         <transition name="toast">
             <div v-if="toast" class="toast-card" :class="toast.type">{{ toast.message }}</div>
         </transition>
+
+        <ImportModal v-if="showImportModal" entity-type="WorkSchedule" entity-display-name="Lịch làm việc" @close="showImportModal = false" @import-complete="onImportComplete" />
+        <ExportModal v-if="showExportModal" entity-type="WorkSchedule" entity-display-name="Lịch làm việc" :available-columns="['WorkScheduleId','EmployeeEmail','ShiftName','WorkDate','Status','Note']" @close="showExportModal = false" />
     </div>
 </template>
 
@@ -253,6 +265,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getAll as getEmployees } from '../services/employeeApi'
 import { getDepartments } from '../services/lookupApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 import {
     attendanceStatusLabelMap,
     cancelWorkSchedule,
@@ -273,6 +287,8 @@ const modalError = ref('')
 const bulkError = ref('')
 const showModal = ref(false)
 const showBulkModal = ref(false)
+const showImportModal = ref(false)
+const showExportModal = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const toast = ref(null)
@@ -296,6 +312,12 @@ const form = reactive({
     note: '',
 })
 
+const fieldErrors = reactive({
+    employeeId: '',
+    shiftId: '',
+    workDate: '',
+})
+
 const bulkForm = reactive({
     shiftId: null,
     departmentId: '',
@@ -303,6 +325,13 @@ const bulkForm = reactive({
     toDate: '',
     employeeIds: [],
     note: '',
+})
+
+const bulkErrors = reactive({
+    shiftId: '',
+    fromDate: '',
+    toDate: '',
+    employeeIds: '',
 })
 
 const confirmDialog = reactive({
@@ -373,10 +402,18 @@ const loadSchedules = async () => {
     }
 }
 
+const onImportComplete = (result) => {
+    showImportModal.value = false
+    loadSchedules()
+    const message = `${result.successCount} bản ghi thành công${result.errorCount ? `, ${result.errorCount} lỗi` : ''}`
+    result.errorCount ? showToast(message, 'error') : showToast(message, 'success')
+}
+
 const openCreateModal = () => {
     isEdit.value = false
     editId.value = null
     modalError.value = ''
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
     Object.assign(form, {
         employeeId: null,
         shiftId: null,
@@ -388,6 +425,7 @@ const openCreateModal = () => {
 
 const openBulkModal = () => {
     bulkError.value = ''
+    Object.keys(bulkErrors).forEach((key) => { bulkErrors[key] = '' })
     bulkForm.shiftId = null
     bulkForm.departmentId = ''
     bulkForm.fromDate = filters.fromDate
@@ -401,6 +439,7 @@ const openEditModal = (item) => {
     isEdit.value = true
     editId.value = item.scheduleId
     modalError.value = ''
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
     Object.assign(form, {
         employeeId: item.employeeId,
         shiftId: item.shiftId,
@@ -449,26 +488,19 @@ const enumerateDates = (fromDate, toDate) => {
 
 const submitBulkForm = async () => {
     bulkError.value = ''
+    Object.keys(bulkErrors).forEach((key) => { bulkErrors[key] = '' })
 
-    if (!bulkForm.shiftId) {
-        bulkError.value = 'Vui lòng chọn ca làm.'
-        return
+    bulkErrors.shiftId = bulkForm.shiftId ? '' : 'Vui lòng chọn ca làm.'
+    bulkErrors.fromDate = bulkForm.fromDate ? '' : 'Vui lòng chọn ngày bắt đầu.'
+    bulkErrors.toDate = bulkForm.toDate ? '' : 'Vui lòng chọn ngày kết thúc.'
+    if (bulkForm.fromDate && bulkForm.toDate) {
+        if (bulkForm.toDate < bulkForm.fromDate) {
+            bulkErrors.toDate = 'Ngày kết thúc không được nhỏ hơn ngày bắt đầu.'
+        }
     }
+    bulkErrors.employeeIds = bulkForm.employeeIds.length ? '' : 'Vui lòng chọn ít nhất một nhân viên.'
 
-    if (!bulkForm.fromDate || !bulkForm.toDate) {
-        bulkError.value = 'Vui lòng chọn khoảng ngày.'
-        return
-    }
-
-    if (bulkForm.toDate < bulkForm.fromDate) {
-        bulkError.value = 'Ngày kết thúc không được nhỏ hơn ngày bắt đầu.'
-        return
-    }
-
-    if (!bulkForm.employeeIds.length) {
-        bulkError.value = 'Vui lòng chọn ít nhất một nhân viên.'
-        return
-    }
+    if (Object.values(bulkErrors).some((msg) => msg)) return
 
     saving.value = true
 
@@ -521,6 +553,13 @@ const submitBulkForm = async () => {
 
 const submitForm = async () => {
     modalError.value = ''
+
+    fieldErrors.employeeId = form.employeeId ? '' : 'Vui lòng chọn nhân viên.'
+    fieldErrors.shiftId = form.shiftId ? '' : 'Vui lòng chọn ca làm.'
+    fieldErrors.workDate = form.workDate ? '' : 'Vui lòng chọn ngày làm.'
+
+    if (Object.values(fieldErrors).some((msg) => msg)) return
+
     saving.value = true
     try {
         const payload = {
@@ -543,6 +582,14 @@ const submitForm = async () => {
     } finally {
         saving.value = false
     }
+}
+
+const clearFieldError = (field) => {
+    if (fieldErrors[field]) fieldErrors[field] = ''
+}
+
+const clearBulkError = (field) => {
+    if (bulkErrors[field]) bulkErrors[field] = ''
 }
 
 const confirmCancel = (item) => {

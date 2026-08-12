@@ -39,4 +39,23 @@ namespace API.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
+
+    // Quyền khu vực mặc định theo Chức vụ (Position). Nhân viên gắn chức vụ
+    // sẽ kế thừa ngay các quyền này (resolve khi đọc, không cần vật liệu hóa).
+    [Table("Position_Access_Permissions")]
+    public class PositionAccessPermission
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public int PositionId { get; set; }
+
+        [Required]
+        public int GateId { get; set; }
+
+        public bool IsAllowed { get; set; } = true;
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+    }
 }

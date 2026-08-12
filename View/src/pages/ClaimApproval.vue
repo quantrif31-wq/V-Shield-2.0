@@ -361,7 +361,7 @@ function printReceipt(claim) {
 <body>
   <div class="sheet">
     <div class="center">
-      <div class="title">Bien Ban Trao Tra Do That Lac</div>
+      <div class="title">Biên Bản Trao Trả Đồ Thất Lạc</div>
       <div class="subtitle">Lap luc: ${completedAt}</div>
     </div>
 
@@ -595,11 +595,13 @@ function statusLabel(status) {
 .filter-row .form-control { width: 180px; }
 .loading-spinner { text-align: center; padding: 2rem; color: var(--text-secondary); }
 .wide-modal { width: min(920px, calc(100vw - 2rem)); }
-.photo-preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 0.75rem; margin-top: 0.75rem; border: 1px solid var(--border-color, #d7dce5); }
+.photo-preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 0.75rem; margin-top: 0.75rem; border: 1px solid var(--border-color); }
 .action-cell { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .evidence-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.evidence-card { border: 1px solid var(--border-color, #d7dce5); border-radius: 0.9rem; padding: 1rem; background: var(--surface-1, #fff); }
+.evidence-card { border: 1px solid var(--border-color); border-radius: 0.9rem; padding: 1rem; background: var(--surface-1, var(--surface-default)); transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast); }
+
+.evidence-card:hover { border-color: var(--border-color-hover); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
 .evidence-title { font-weight: 700; margin-bottom: 0.5rem; }
 .compact { padding: 1rem; }
 .evidence-meta { display: grid; gap: 0.75rem; margin-top: 1rem; }

@@ -2,62 +2,62 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Evidence</span>
-                <h1 class="page-title">Evidence Repository</h1>
+                <span class="panel-kicker">Bằng chứng</span>
+                <h1 class="page-title">Kho lưu trữ bằng chứng</h1>
             </div>
             <div class="header-actions">
                 <template v-if="activeRepoTab === 'items'">
-                    <button class="btn btn-secondary" @click="showCreateItem = true">+ Evidence</button>
-                    <button class="btn btn-secondary" @click="showCollections = true">Collections</button>
+                    <button class="btn btn-secondary" @click="showCreateItem = true">+ Bằng chứng</button>
+                    <button class="btn btn-secondary" @click="showCollections = true">Bộ sưu tập</button>
                 </template>
                 <template v-else>
                     <button class="btn btn-secondary" @click="showPolicyComposer = !showPolicyComposer">
-                        {{ showPolicyComposer ? 'Close Policy Form' : '+ Retention Policy' }}
+                        {{ showPolicyComposer ? 'Đóng biểu mẫu chính sách' : '+ Chính sách lưu giữ' }}
                     </button>
-                    <button class="btn btn-secondary" @click="runRetentionDryRun">Dry Run</button>
+                    <button class="btn btn-secondary" @click="runRetentionDryRun">Chạy thử</button>
                 </template>
-                <button class="btn btn-primary" @click="refreshCurrentView">Refresh</button>
+                <button class="btn btn-primary" @click="refreshCurrentView">Làm mới</button>
             </div>
         </div>
         <div class="repo-tabs">
-            <button :class="{ active: activeRepoTab === 'items' }" @click="activeRepoTab = 'items'">Evidence Items</button>
-            <button :class="{ active: activeRepoTab === 'governance' }" @click="activeRepoTab = 'governance'">Retention & Legal Hold</button>
+            <button :class="{ active: activeRepoTab === 'items' }" @click="activeRepoTab = 'items'">Mục bằng chứng</button>
+            <button :class="{ active: activeRepoTab === 'governance' }" @click="activeRepoTab = 'governance'">Lưu giữ & Khóa pháp lý</button>
         </div>
         <section v-if="activeRepoTab === 'items'" class="ops-grid one">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Items</span><h2 class="panel-title">Evidence Items</h2></div>
+                    <div><span class="panel-kicker">Mục</span><h2 class="panel-title">Mục bằng chứng</h2></div>
                     <div class="filter-row">
                         <select v-model="filters.evidenceType" class="form-select" @change="loadItems">
-                            <option value="">All Types</option>
-                            <option value="Document">Document</option>
-                            <option value="Image">Image</option>
+                            <option value="">Tất cả loại</option>
+                            <option value="Document">Tài liệu</option>
+                            <option value="Image">Ảnh</option>
                             <option value="Video">Video</option>
-                            <option value="Log">Log</option>
-                            <option value="Report">Report</option>
+                            <option value="Log">Nhật ký</option>
+                            <option value="Report">Báo cáo</option>
                         </select>
                         <select v-model="filters.privacyLabel" class="form-select" @change="loadItems">
-                            <option value="">All Privacy</option>
-                            <option value="Internal">Internal</option>
-                            <option value="Biometric">Biometric</option>
-                            <option value="PersonalIdentity">Personal Identity</option>
-                            <option value="VehicleIdentity">Vehicle Identity</option>
-                            <option value="VisitorDocument">Visitor Document</option>
-                            <option value="SensitiveSite">Sensitive Site</option>
-                            <option value="Public">Public</option>
+                            <option value="">Tất cả quyền riêng tư</option>
+                            <option value="Internal">Nội bộ</option>
+                            <option value="Biometric">Sinh trắc học</option>
+                            <option value="PersonalIdentity">Danh tính cá nhân</option>
+                            <option value="VehicleIdentity">Danh tính phương tiện</option>
+                            <option value="VisitorDocument">Giấy tờ khách</option>
+                            <option value="SensitiveSite">Khu vực nhạy cảm</option>
+                            <option value="Public">Công khai</option>
                         </select>
                         <select v-model="filters.isLegalHold" class="form-select" @change="loadItems">
-                            <option value="">All Hold</option>
-                            <option value="true">Legal Hold</option>
-                            <option value="false">No Hold</option>
+                            <option value="">Tất cả khóa</option>
+                            <option value="true">Có Khóa pháp lý</option>
+                            <option value="false">Không khóa</option>
                         </select>
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="items.length === 0" class="empty-card">No evidence items.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="items.length === 0" class="empty-card">Chưa có mục bằng chứng.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Type</th><th>Source</th><th>Privacy</th><th>Retention</th><th>Hash</th><th>Legal Hold</th><th>Created</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Loại</th><th>Nguồn</th><th>Quyền riêng tư</th><th>Lưu giữ</th><th>Hash</th><th>Khóa pháp lý</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
                         <tbody>
                             <tr v-for="item in items" :key="item.evidenceItemId">
                                 <td>{{ item.evidenceItemId }}</td>
@@ -66,14 +66,14 @@
                                 <td><span class="badge" :class="privacyClass(item.privacyLabel)">{{ item.privacyLabel }}</span></td>
                                 <td>{{ item.retentionCategory }}</td>
                                 <td class="table-sub">{{ (item.hashSha256 || '').substring(0, 12) }}...</td>
-                                <td><span v-if="item.isLegalHold" class="badge badge-danger">Hold</span><span v-else class="table-sub">—</span></td>
+                                <td><span v-if="item.isLegalHold" class="badge badge-danger">Khóa</span><span v-else class="table-sub">—</span></td>
                                 <td class="table-sub">{{ new Date(item.createdAtUtc).toLocaleDateString() }}</td>
-                                <td><button class="btn btn-secondary btn-sm" @click="viewDetail(item)">Detail</button></td>
+                                <td><button class="btn btn-secondary btn-sm" @click="viewDetail(item)">Chi tiết</button></td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="pagination-bar">
-                        <span>Page {{ page }}/{{ totalPages }}</span>
+                        <span>Trang {{ page }}/{{ totalPages }}</span>
                         <div class="page-buttons">
                             <button class="page-btn" :disabled="page <= 1" @click="page--; loadItems()">‹</button>
                             <button class="page-btn" :disabled="page >= totalPages" @click="page++; loadItems()">›</button>
@@ -86,67 +86,67 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Governance</span>
-                        <h2 class="panel-title">Retention Policies</h2>
+                        <span class="panel-kicker">Quản trị</span>
+                        <h2 class="panel-title">Chính sách lưu giữ</h2>
                     </div>
                     <div class="panel-actions">
-                        <span class="soft-chip muted">{{ retentionPolicies.length }} policies</span>
+                        <span class="soft-chip muted">{{ retentionPolicies.length }} chính sách</span>
                     </div>
                 </div>
                 <div v-if="showPolicyComposer" class="policy-composer">
                     <div class="form-row two">
                         <div class="form-group">
-                            <label>Policy Name</label>
-                            <input v-model="policyForm.name" class="form-control" placeholder="e.g. Incident video retention" />
+                            <label>Tên chính sách</label>
+                            <input v-model="policyForm.name" class="form-control" placeholder="vd. Lưu giữ video sự cố" />
                         </div>
                         <div class="form-group">
-                            <label>Evidence Type</label>
+                            <label>Loại bằng chứng</label>
                             <select v-model="policyForm.evidenceType" class="form-control">
-                                <option value="Any">Any</option>
-                                <option value="Document">Document</option>
-                                <option value="Image">Image</option>
+                                <option value="Any">Bất kỳ</option>
+                                <option value="Document">Tài liệu</option>
+                                <option value="Image">Ảnh</option>
                                 <option value="Video">Video</option>
-                                <option value="Log">Log</option>
-                                <option value="Report">Report</option>
+                                <option value="Log">Nhật ký</option>
+                                <option value="Report">Báo cáo</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-row three">
                         <div class="form-group">
-                            <label>Retention Category</label>
-                            <input v-model="policyForm.retentionCategory" class="form-control" placeholder="Default, Incident, Privacy" />
+                            <label>Danh mục lưu giữ</label>
+                            <input v-model="policyForm.retentionCategory" class="form-control" placeholder="Mặc định, Sự cố, Quyền riêng tư" />
                         </div>
                         <div class="form-group">
-                            <label>Retention Days</label>
+                            <label>Số ngày lưu giữ</label>
                             <input v-model.number="policyForm.retentionDays" type="number" min="1" class="form-control" />
                         </div>
                         <div class="form-group">
-                            <label>Purge Mode</label>
+                            <label>Chế độ xóa</label>
                             <select v-model="policyForm.purgeMode" class="form-control">
-                                <option value="ReviewRequired">ReviewRequired</option>
-                                <option value="Auto">Auto</option>
+                                <option value="ReviewRequired">Cần rà soát</option>
+                                <option value="Auto">Tự động</option>
                             </select>
                         </div>
                     </div>
                     <label class="checkbox-row">
                         <input v-model="policyForm.isActive" type="checkbox" />
-                        <span>Activate immediately</span>
+                        <span>Kích hoạt ngay</span>
                     </label>
                     <div class="chip-row">
-                        <button class="btn btn-sm btn-secondary" @click="resetPolicyForm">Reset</button>
+                        <button class="btn btn-sm btn-secondary" @click="resetPolicyForm">Đặt lại</button>
                         <button class="btn btn-sm btn-primary" :disabled="policySaving || !policyForm.name || !policyForm.retentionDays" @click="submitRetentionPolicy">
-                            {{ policySaving ? 'Saving...' : 'Create Policy' }}
+                            {{ policySaving ? 'Đang lưu...' : 'Tạo chính sách' }}
                         </button>
                     </div>
                 </div>
                 <div v-if="governanceMessage" class="alert" :class="governanceMessageType === 'success' ? 'alert-success' : 'alert-danger'" style="margin-bottom:12px;">
                     {{ governanceMessage }}
                 </div>
-                <div v-if="loadingPolicies" class="empty-card">Loading...</div>
-                <div v-else-if="retentionPolicies.length === 0" class="empty-card">No retention policies yet.</div>
+                <div v-if="loadingPolicies" class="empty-card">Đang tải...</div>
+                <div v-else-if="retentionPolicies.length === 0" class="empty-card">Chưa có chính sách lưu giữ.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Days</th><th>Purge Mode</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Tên</th><th>Loại</th><th>Danh mục</th><th>Số ngày</th><th>Chế độ xóa</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
                         <tbody>
                             <tr v-for="policy in retentionPolicies" :key="policy.retentionPolicyId">
                                 <td>{{ policy.name }}</td>
@@ -154,14 +154,14 @@
                                 <td>{{ policy.retentionCategory }}</td>
                                 <td>{{ policy.retentionDays }}</td>
                                 <td><span class="badge badge-info">{{ policy.purgeMode }}</span></td>
-                                <td><span class="badge" :class="policy.isActive ? 'badge-success' : 'badge-secondary'">{{ policy.isActive ? 'Active' : 'Inactive' }}</span></td>
+                                <td><span class="badge" :class="policy.isActive ? 'badge-success' : 'badge-secondary'">{{ policy.isActive ? 'Hoạt động' : 'Ngừng' }}</span></td>
                                 <td>
                                     <button
                                         class="btn btn-sm"
                                         :class="policy.isActive ? 'btn-warning' : 'btn-success'"
                                         @click="toggleRetentionPolicy(policy, !policy.isActive)"
                                     >
-                                        {{ policy.isActive ? 'Deactivate' : 'Activate' }}
+                                        {{ policy.isActive ? 'Ngừng' : 'Kích hoạt' }}
                                     </button>
                                 </td>
                             </tr>
@@ -172,28 +172,28 @@
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Protection</span>
-                        <h2 class="panel-title">Active Legal Holds</h2>
+                        <span class="panel-kicker">Bảo vệ</span>
+                        <h2 class="panel-title">Khóa pháp lý đang hoạt động</h2>
                     </div>
                     <div class="panel-actions">
-                        <span class="soft-chip success">{{ legalHolds.length }} active</span>
+                        <span class="soft-chip success">{{ legalHolds.length }} đang khóa</span>
                     </div>
                 </div>
                 <div class="governance-note">
-                    Legal hold vẫn có thể áp dụng ngay trong chi tiết từng evidence. Khu vực này là nơi theo dõi và gỡ hold đang hoạt động một cách tập trung.
+                    Khóa pháp lý vẫn có thể áp dụng ngay trong chi tiết từng bằng chứng. Khu vực này là nơi theo dõi và gỡ khóa đang hoạt động một cách tập trung.
                 </div>
-                <div v-if="loadingHolds" class="empty-card">Loading...</div>
-                <div v-else-if="legalHolds.length === 0" class="empty-card">No active legal holds.</div>
+                <div v-if="loadingHolds" class="empty-card">Đang tải...</div>
+                <div v-else-if="legalHolds.length === 0" class="empty-card">Không có khóa pháp lý đang hoạt động.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Scope</th><th>Reason</th><th>Applied</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Phạm vi</th><th>Lý do</th><th>Ngày áp dụng</th><th>Thao tác</th></tr></thead>
                         <tbody>
                             <tr v-for="hold in legalHolds" :key="hold.legalHoldId">
                                 <td>{{ hold.legalHoldId }}</td>
                                 <td>{{ formatHoldScope(hold) }}</td>
                                 <td class="table-sub">{{ (hold.reason || '').substring(0, 60) || '—' }}</td>
                                 <td class="table-sub">{{ new Date(hold.appliedAtUtc).toLocaleString() }}</td>
-                                <td><button class="btn btn-warning btn-sm" @click="releaseHoldFromGovernance(hold)">Release</button></td>
+                                <td><button class="btn btn-warning btn-sm" @click="releaseHoldFromGovernance(hold)">Gỡ khóa</button></td>
                             </tr>
                         </tbody>
                     </table>
@@ -203,11 +203,11 @@
 
         <div v-if="dryRunResult" class="modal-overlay" @click.self="dryRunResult = null">
             <div class="modal-box wide-modal">
-                <h3>Retention Dry Run</h3>
+                <h3>Chạy thử lưu giữ</h3>
                 <pre class="dry-run-output">{{ JSON.stringify(dryRunResult, null, 2) }}</pre>
                 <div class="modal-actions">
-                    <button class="btn btn-danger" :disabled="purgeBusy" @click="confirmGovernancePurge">Purge Listed Items</button>
-                    <button class="btn btn-secondary" @click="dryRunResult = null">Close</button>
+                    <button class="btn btn-danger" :disabled="purgeBusy" @click="confirmGovernancePurge">Xóa các mục đã liệt kê</button>
+                    <button class="btn btn-secondary" @click="dryRunResult = null">Đóng</button>
                 </div>
             </div>
         </div>
@@ -231,22 +231,22 @@
                         <!-- Overview Tab -->
                         <div v-if="activeDetailTab === 'overview'" class="drawer-tab-content">
                             <div class="detail-grid">
-                                <div class="detail-row"><span class="detail-label">Type</span><span>{{ detail.evidenceType }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Source</span><span>{{ detail.sourceType }}:{{ detail.sourceReference || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Storage</span><span class="table-sub">{{ detail.storageReference }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Loại</span><span>{{ detail.evidenceType }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Nguồn</span><span>{{ detail.sourceType }}:{{ detail.sourceReference || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Lưu trữ</span><span class="table-sub">{{ detail.storageReference }}</span></div>
                                 <div class="detail-row"><span class="detail-label">Hash (SHA256)</span><span class="table-sub" style="font-size:11px;word-break:break-all;">{{ detail.hashSha256 }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Privacy</span><span class="badge" :class="privacyClass(detail.privacyLabel)">{{ detail.privacyLabel }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Retention</span><span>{{ detail.retentionCategory }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Legal Hold</span><span>{{ detail.isLegalHold ? 'Yes' : 'No' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Created</span><span>{{ new Date(detail.createdAtUtc).toLocaleString() }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Quyền riêng tư</span><span class="badge" :class="privacyClass(detail.privacyLabel)">{{ detail.privacyLabel }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Lưu giữ</span><span>{{ detail.retentionCategory }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Khóa pháp lý</span><span>{{ detail.isLegalHold ? 'Có' : 'Không' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Ngày tạo</span><span>{{ new Date(detail.createdAtUtc).toLocaleString() }}</span></div>
                             </div>
 
                             <div class="chip-row" style="margin-top:12px;flex-wrap:wrap;gap:6px;">
-                                <button class="btn btn-sm btn-secondary" @click="verifyHash">Verify Hash</button>
-                                <button class="btn btn-sm btn-secondary" @click="showCreateExport = true">Request Export</button>
-                                <button class="btn btn-sm btn-secondary" @click="showCreateRedaction = true">Request Redaction</button>
-                                <button v-if="!detail.isLegalHold" class="btn btn-sm btn-danger" @click="applyLegalHold">Apply Legal Hold</button>
-                                <button v-if="detail.isLegalHold" class="btn btn-sm btn-warning" @click="releaseLegalHold">Release Hold</button>
+                                <button class="btn btn-sm btn-secondary" @click="verifyHash">Xác minh Hash</button>
+                                <button class="btn btn-sm btn-secondary" @click="showCreateExport = true">Yêu cầu xuất</button>
+                                <button class="btn btn-sm btn-secondary" @click="showCreateRedaction = true">Yêu cầu che dữ liệu</button>
+                                <button v-if="!detail.isLegalHold" class="btn btn-sm btn-danger" @click="applyLegalHold">Áp dụng Khóa pháp lý</button>
+                                <button v-if="detail.isLegalHold" class="btn btn-sm btn-warning" @click="releaseLegalHold">Gỡ Khóa</button>
                             </div>
                             <div v-if="hashResult" class="alert" :class="hashResult.valid ? 'alert-success' : 'alert-danger'" style="margin-top:8px;">
                                 {{ hashResult.message }}
@@ -258,13 +258,13 @@
                         <!-- Custody Tab -->
                         <div v-if="activeDetailTab === 'custody'" class="drawer-tab-content">
                             <div class="chip-row" style="margin-bottom:8px;">
-                                <button class="btn btn-sm btn-secondary" @click="showAddCustody = true">+ Custody Entry</button>
+                                <button class="btn btn-sm btn-secondary" @click="showAddCustody = true">+ Thêm lệnh chuyển</button>
                             </div>
-                            <div v-if="detailLoading" class="empty-card">Loading...</div>
-                            <div v-else-if="custody.length === 0" class="empty-card">No custody entries.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải...</div>
+                            <div v-else-if="custody.length === 0" class="empty-card">Chưa có lệnh chuyển.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>Action</th><th>Actor</th><th>From</th><th>To</th><th>Note</th><th>Time</th></tr></thead>
+                                    <thead><tr><th>Hành động</th><th>Người thực hiện</th><th>Từ</th><th>Đến</th><th>Ghi chú</th><th>Thời gian</th></tr></thead>
                                     <tbody>
                                         <tr v-for="c in custody" :key="c.chainOfCustodyEntryId">
                                             <td><span class="badge badge-info">{{ c.action }}</span></td>
@@ -279,35 +279,35 @@
                             </div>
 
                             <div v-if="showAddCustody" style="margin-top:12px;">
-                                <div class="detail-section-title">New Custody Entry</div>
+                                <div class="detail-section-title">Thêm lệnh chuyển</div>
                                 <div class="form-row two">
                                     <div class="form-group">
-                                        <label>Action</label>
-                                        <input v-model="custodyForm.action" class="form-control" placeholder="e.g. Transferred, Reviewed" />
+                                        <label>Hành động</label>
+                                        <input v-model="custodyForm.action" class="form-control" placeholder="vd. Bàn giao, Rà soát" />
                                     </div>
                                     <div class="form-group">
-                                        <label>To Custodian</label>
-                                        <input v-model="custodyForm.toCustodian" class="form-control" placeholder="Person/Dept" />
+                                        <label>Người nhận</label>
+                                        <input v-model="custodyForm.toCustodian" class="form-control" placeholder="Người/Bộ phận" />
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label>Note</label>
+                                    <label>Ghi chú</label>
                                     <textarea v-model="custodyForm.note" class="form-control" rows="2"></textarea>
                                 </div>
                                 <div class="chip-row">
-                                    <button class="btn btn-sm btn-secondary" @click="showAddCustody = false">Cancel</button>
-                                    <button class="btn btn-sm btn-primary" :disabled="custodySaving" @click="submitCustodyEntry">{{ custodySaving ? 'Saving...' : 'Save' }}</button>
+                                    <button class="btn btn-sm btn-secondary" @click="showAddCustody = false">Hủy</button>
+                                    <button class="btn btn-sm btn-primary" :disabled="custodySaving" @click="submitCustodyEntry">{{ custodySaving ? 'Đang lưu...' : 'Lưu' }}</button>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Access Logs Tab -->
                         <div v-if="activeDetailTab === 'access'" class="drawer-tab-content">
-                            <div v-if="detailLoading" class="empty-card">Loading...</div>
-                            <div v-else-if="accessLogs.length === 0" class="empty-card">No access logs.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải...</div>
+                            <div v-else-if="accessLogs.length === 0" class="empty-card">Không có nhật ký truy cập.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>User</th><th>Action</th><th>Time</th></tr></thead>
+                                    <thead><tr><th>Người dùng</th><th>Hành động</th><th>Thời gian</th></tr></thead>
                                     <tbody>
                                         <tr v-for="a in accessLogs" :key="a.evidenceAccessLogId || a.id">
                                             <td>{{ a.userId || a.actorUserId || '—' }}</td>
@@ -321,12 +321,12 @@
 
                         <!-- Collections Tab -->
                         <div v-if="activeDetailTab === 'collections'" class="drawer-tab-content">
-                            <div v-if="detailLoading" class="empty-card">Loading...</div>
-                            <div v-else-if="evidenceCollections.length === 0" class="empty-card">Not in any collection.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải...</div>
+                            <div v-else-if="evidenceCollections.length === 0" class="empty-card">Chưa thuộc bộ sưu tập nào.</div>
                             <div v-else class="collection-list">
                                 <div v-for="col in evidenceCollections" :key="col.evidenceCollectionId" class="collection-card" @click="showCollectionDetail(col)">
                                     <strong>{{ col.name }}</strong>
-                                    <div class="text-muted">{{ col.status }} · {{ col.itemCount || 0 }} items</div>
+                                    <div class="text-muted">{{ col.status }} · {{ col.itemCount || 0 }} mục</div>
                                 </div>
                             </div>
                         </div>
@@ -338,25 +338,25 @@
             <div v-if="showCreateExport" class="modal-overlay" @click.self="showCreateExport = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Request Export — #{{ detail?.evidenceItemId }}</h2>
+                        <h2>Yêu cầu xuất — #{{ detail?.evidenceItemId }}</h2>
                         <button class="btn-close" @click="showCreateExport = false">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Recipient *</label>
-                            <input v-model="exportForm.recipient" class="form-control" placeholder="Email or name" />
+                            <label>Người nhận *</label>
+                            <input v-model="exportForm.recipient" class="form-control" placeholder="Email hoặc tên" />
                         </div>
                         <div class="form-group">
-                            <label>Purpose *</label>
-                            <textarea v-model="exportForm.purpose" class="form-control" rows="2" placeholder="Why this export is needed"></textarea>
+                            <label>Mục đích *</label>
+                            <textarea v-model="exportForm.purpose" class="form-control" rows="2" placeholder="Vì sao cần xuất dữ liệu"></textarea>
                         </div>
                         <div v-if="exportResult" class="alert alert-success">{{ exportResult }}</div>
                         <div v-else-if="exportError" class="alert alert-danger">{{ exportError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showCreateExport = false">Cancel</button>
+                        <button class="btn btn-secondary" @click="showCreateExport = false">Hủy</button>
                         <button class="btn btn-primary" :disabled="exportSaving || !exportForm.recipient || !exportForm.purpose" @click="submitExportRequest">
-                            {{ exportSaving ? 'Sending...' : 'Submit Request' }}
+                            {{ exportSaving ? 'Đang gửi...' : 'Gửi yêu cầu' }}
                         </button>
                     </div>
                 </div>
@@ -366,31 +366,31 @@
             <div v-if="showCreateRedaction" class="modal-overlay" @click.self="showCreateRedaction = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Request Redaction — #{{ detail?.evidenceItemId }}</h2>
+                        <h2>Yêu cầu che dữ liệu — #{{ detail?.evidenceItemId }}</h2>
                         <button class="btn-close" @click="showCreateRedaction = false">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Privacy Label</label>
+                            <label>Nhãn quyền riêng tư</label>
                             <select v-model="redactionForm.privacyLabel" class="form-control">
-                                <option value="PersonalIdentity">Personal Identity</option>
-                                <option value="Biometric">Biometric</option>
-                                <option value="VehicleIdentity">Vehicle Identity</option>
-                                <option value="SensitiveSite">Sensitive Site</option>
-                                <option value="VisitorDocument">Visitor Document</option>
+                                <option value="PersonalIdentity">Danh tính cá nhân</option>
+                                <option value="Biometric">Sinh trắc học</option>
+                                <option value="VehicleIdentity">Danh tính phương tiện</option>
+                                <option value="SensitiveSite">Khu vực nhạy cảm</option>
+                                <option value="VisitorDocument">Giấy tờ khách</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Reason *</label>
-                            <textarea v-model="redactionForm.reason" class="form-control" rows="2" placeholder="Why redaction is needed"></textarea>
+                            <label>Lý do *</label>
+                            <textarea v-model="redactionForm.reason" class="form-control" rows="2" placeholder="Vì sao cần che dữ liệu"></textarea>
                         </div>
                         <div v-if="redactResult" class="alert alert-success">{{ redactResult }}</div>
                         <div v-else-if="redactError" class="alert alert-danger">{{ redactError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showCreateRedaction = false">Cancel</button>
+                        <button class="btn btn-secondary" @click="showCreateRedaction = false">Hủy</button>
                         <button class="btn btn-primary" :disabled="redactSaving || !redactionForm.reason" @click="submitRedactionRequest">
-                            {{ redactSaving ? 'Sending...' : 'Submit Request' }}
+                            {{ redactSaving ? 'Đang gửi...' : 'Gửi yêu cầu' }}
                         </button>
                     </div>
                 </div>
@@ -400,52 +400,52 @@
             <div v-if="showCreateItem" class="modal-overlay" @click.self="showCreateItem = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Create Evidence Item</h2>
+                        <h2>Tạo mục bằng chứng</h2>
                         <button class="btn-close" @click="showCreateItem = false">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Evidence Type *</label>
+                            <label>Loại bằng chứng *</label>
                             <select v-model="createForm.evidenceType" class="form-control">
-                                <option value="Document">Document</option>
-                                <option value="Image">Image</option>
+                                <option value="Document">Tài liệu</option>
+                                <option value="Image">Ảnh</option>
                                 <option value="Video">Video</option>
-                                <option value="Log">Log</option>
-                                <option value="Report">Report</option>
+                                <option value="Log">Nhật ký</option>
+                                <option value="Report">Báo cáo</option>
                             </select>
                         </div>
                         <div class="form-row two">
                             <div class="form-group">
-                                <label>Source Type</label>
-                                <input v-model="createForm.sourceType" class="form-control" placeholder="e.g. Camera, AccessLog" />
+                                <label>Loại nguồn</label>
+                                <input v-model="createForm.sourceType" class="form-control" placeholder="vd. Camera, AccessLog" />
                             </div>
                             <div class="form-group">
-                                <label>Source Ref</label>
-                                <input v-model="createForm.sourceReference" class="form-control" placeholder="Optional reference" />
+                                <label>Tham chiếu nguồn</label>
+                                <input v-model="createForm.sourceReference" class="form-control" placeholder="Tham chiếu tùy chọn" />
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Storage Reference</label>
+                            <label>Tham chiếu lưu trữ</label>
                             <input v-model="createForm.storageReference" class="form-control" placeholder="S3://, /path/to/file" />
                         </div>
                         <div class="form-group">
-                            <label>Privacy Label</label>
+                            <label>Nhãn quyền riêng tư</label>
                             <select v-model="createForm.privacyLabel" class="form-control">
-                                <option value="Internal">Internal</option>
-                                <option value="PersonalIdentity">Personal Identity</option>
-                                <option value="Biometric">Biometric</option>
-                                <option value="VehicleIdentity">Vehicle Identity</option>
-                                <option value="VisitorDocument">Visitor Document</option>
-                                <option value="SensitiveSite">Sensitive Site</option>
+                                <option value="Internal">Nội bộ</option>
+                                <option value="PersonalIdentity">Danh tính cá nhân</option>
+                                <option value="Biometric">Sinh trắc học</option>
+                                <option value="VehicleIdentity">Danh tính phương tiện</option>
+                                <option value="VisitorDocument">Giấy tờ khách</option>
+                                <option value="SensitiveSite">Khu vực nhạy cảm</option>
                             </select>
                         </div>
                         <div v-if="createResult" class="alert alert-success">{{ createResult }}</div>
                         <div v-else-if="createError" class="alert alert-danger">{{ createError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showCreateItem = false">Cancel</button>
+                        <button class="btn btn-secondary" @click="showCreateItem = false">Hủy</button>
                         <button class="btn btn-primary" :disabled="createBusy || !createForm.evidenceType" @click="submitCreateItem">
-                            {{ createBusy ? 'Creating...' : 'Create' }}
+                            {{ createBusy ? 'Đang tạo...' : 'Tạo' }}
                         </button>
                     </div>
                 </div>
@@ -455,42 +455,42 @@
             <div v-if="showCollections" class="modal-overlay" @click.self="showCollections = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Evidence Collections</h2>
+                        <h2>Bộ sưu tập bằng chứng</h2>
                         <button class="btn-close" @click="showCollections = false">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="chip-row" style="margin-bottom:12px;">
-                            <button class="btn btn-sm btn-primary" @click="showNewCollection = true">+ New Collection</button>
-                            <button class="btn btn-sm btn-secondary" @click="loadCollections">Refresh</button>
+                            <button class="btn btn-sm btn-primary" @click="showNewCollection = true">+ Bộ sưu tập mới</button>
+                            <button class="btn btn-sm btn-secondary" @click="loadCollections">Làm mới</button>
                         </div>
 
                         <div v-if="showNewCollection" style="margin-bottom:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;">
                             <div class="form-group">
-                                <label>Collection Name *</label>
-                                <input v-model="collectionForm.name" class="form-control" placeholder="e.g. Case #2024-001" />
+                                <label>Tên bộ sưu tập *</label>
+                                <input v-model="collectionForm.name" class="form-control" placeholder="vd. Vụ việc #2024-001" />
                             </div>
                             <div class="form-group">
-                                <label>Description</label>
+                                <label>Mô tả</label>
                                 <textarea v-model="collectionForm.description" class="form-control" rows="2"></textarea>
                             </div>
                             <div v-if="colResult" class="alert alert-success">{{ colResult }}</div>
                             <div class="chip-row">
-                                <button class="btn btn-sm btn-secondary" @click="showNewCollection = false">Cancel</button>
+                                <button class="btn btn-sm btn-secondary" @click="showNewCollection = false">Hủy</button>
                                 <button class="btn btn-sm btn-primary" :disabled="colBusy || !collectionForm.name" @click="createCollection">
-                                    {{ colBusy ? 'Creating...' : 'Create' }}
+                                    {{ colBusy ? 'Đang tạo...' : 'Tạo' }}
                                 </button>
                             </div>
                         </div>
 
-                        <div v-if="colLoading" class="empty-card">Loading...</div>
-                        <div v-else-if="collections.length === 0" class="empty-card">No collections.</div>
+                        <div v-if="colLoading" class="empty-card">Đang tải...</div>
+                        <div v-else-if="collections.length === 0" class="empty-card">Chưa có bộ sưu tập.</div>
                         <div v-else class="collection-list">
                             <div v-for="col in collections" :key="col.evidenceCollectionId" class="collection-card" @click="showCollectionDetail(col)">
                                 <div class="collection-card-header">
                                     <strong>{{ col.name }}</strong>
-                                    <span class="soft-chip" :class="col.status === 'Open' ? 'success' : 'muted'">{{ col.status }}</span>
+                                    <span class="soft-chip" :class="col.status === 'Open' ? 'success' : 'muted'">{{ col.status === 'Open' ? 'Đang mở' : col.status }}</span>
                                 </div>
-                                <div class="text-muted">{{ col.itemCount || 0 }} items · {{ col.description || '' }}</div>
+                                <div class="text-muted">{{ col.itemCount || 0 }} mục · {{ col.description || '' }}</div>
                             </div>
                         </div>
 
@@ -498,14 +498,14 @@
                         <div v-if="selectedCollection" style="margin-top:16px;">
                             <div class="detail-section-title">{{ selectedCollection.name }}</div>
                             <div class="detail-grid" style="margin-bottom:12px;">
-                                <div class="detail-row"><span class="detail-label">Status</span><span class="soft-chip" :class="selectedCollection.status === 'Open' ? 'success' : 'muted'">{{ selectedCollection.status }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Items</span><span>{{ selectedCollection.itemCount || collectionItems.length }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Trạng thái</span><span class="soft-chip" :class="selectedCollection.status === 'Open' ? 'success' : 'muted'">{{ selectedCollection.status === 'Open' ? 'Đang mở' : selectedCollection.status }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Số mục</span><span>{{ selectedCollection.itemCount || collectionItems.length }}</span></div>
                             </div>
-                            <div v-if="colDetailLoading" class="empty-card">Loading...</div>
-                            <div v-else-if="collectionItems.length === 0" class="text-muted">No items in this collection.</div>
+                            <div v-if="colDetailLoading" class="empty-card">Đang tải...</div>
+                            <div v-else-if="collectionItems.length === 0" class="text-muted">Bộ sưu tập chưa có mục nào.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>Evidence ID</th><th>Type</th><th>Added</th></tr></thead>
+                                    <thead><tr><th>ID bằng chứng</th><th>Loại</th><th>Ngày thêm</th></tr></thead>
                                     <tbody>
                                         <tr v-for="ci in collectionItems" :key="ci.evidenceItemId || ci.id">
                                             <td>{{ ci.evidenceItemId }}</td>
@@ -516,13 +516,13 @@
                                 </table>
                             </div>
                             <div v-if="selectedCollection.status === 'Open'" class="chip-row" style="margin-top:8px;">
-                                <button class="btn btn-sm btn-secondary" @click="showAddToCollection = !showAddToCollection">+ Add Item</button>
-                                <button class="btn btn-sm btn-warning" @click="closeCollection">Close Collection</button>
+                                <button class="btn btn-sm btn-secondary" @click="showAddToCollection = !showAddToCollection">+ Thêm mục</button>
+                                <button class="btn btn-sm btn-warning" @click="closeCollection">Đóng bộ sưu tập</button>
                             </div>
                             <div v-if="showAddToCollection" style="margin-top:8px;">
                                 <div class="chip-row">
-                                    <input v-model.number="addToCollectionForm.evidenceItemId" type="number" class="form-control" placeholder="Evidence ID" style="width:150px;" />
-                                    <button class="btn btn-sm btn-primary" :disabled="!addToCollectionForm.evidenceItemId" @click="addItemToCollection">Add</button>
+                                    <input v-model.number="addToCollectionForm.evidenceItemId" type="number" class="form-control" placeholder="ID bằng chứng" style="width:150px;" />
+                                    <button class="btn btn-sm btn-primary" :disabled="!addToCollectionForm.evidenceItemId" @click="addItemToCollection">Thêm</button>
                                 </div>
                             </div>
                         </div>
@@ -617,10 +617,10 @@ const policyForm = ref({
 })
 
 const detailTabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'custody', label: 'Custody' },
-    { key: 'access', label: 'Access Logs' },
-    { key: 'collections', label: 'Collections' },
+    { key: 'overview', label: 'Tổng quan' },
+    { key: 'custody', label: 'Chuỗi bàn giao' },
+    { key: 'access', label: 'Nhật ký truy cập' },
+    { key: 'collections', label: 'Bộ sưu tập' },
 ]
 
 async function loadItems() {
@@ -730,12 +730,12 @@ async function runRetentionDryRun() {
         const res = await enterpriseApi.dryRunRetention({ asOfUtc: new Date().toISOString(), limit: 100 })
         dryRunResult.value = res.data
     } catch {
-        alert('Dry run failed')
+        alert('Chạy thử thất bại')
     }
 }
 
 async function confirmGovernancePurge() {
-    if (!confirm('This will purge evidence items. This action requires step-up MFA. Continue?')) return
+    if (!confirm('Thao tác này sẽ xóa các mục bằng chứng và yêu cầu xác thực tăng cường MFA. Tiếp tục?')) return
     purgeBusy.value = true
     try {
         const ids = dryRunResult.value?.candidates?.map(candidate => candidate.evidenceItemId) || []
@@ -751,7 +751,7 @@ async function confirmGovernancePurge() {
         governanceMessage.value = 'Đã purge các evidence đủ điều kiện theo retention policy.'
         await Promise.all([loadItems(), loadGovernance()])
     } catch {
-        alert('Purge failed')
+        alert('Xóa dữ liệu thất bại')
     } finally {
         purgeBusy.value = false
     }
@@ -764,7 +764,7 @@ function formatHoldScope(hold) {
 }
 
 async function releaseHoldFromGovernance(hold) {
-    const reason = prompt(`Release reason for legal hold #${hold.legalHoldId}:`)
+    const reason = prompt(`Lý do gỡ khóa pháp lý #${hold.legalHoldId}:`)
     if (!reason) return
     governanceMessage.value = ''
     governanceMessageType.value = 'success'
@@ -826,9 +826,9 @@ async function verifyHash() {
     if (!detail.value) return
     try {
         const res = await enterpriseApi.verifyEvidenceHash(detail.value.evidenceItemId, {})
-        hashResult.value = { valid: true, message: res.data?.message || 'Hash verified successfully!' }
+        hashResult.value = { valid: true, message: res.data?.message || 'Xác minh Hash thành công!' }
     } catch (e) {
-        hashResult.value = { valid: false, message: 'Hash verification failed' }
+        hashResult.value = { valid: false, message: 'Xác minh Hash thất bại' }
     }
 }
 
@@ -843,7 +843,7 @@ async function submitExportRequest() {
             recipient: exportForm.value.recipient,
             purpose: exportForm.value.purpose,
         })
-        exportResult.value = 'Export request submitted for approval!'
+        exportResult.value = 'Yêu cầu xuất đã gửi để phê duyệt!'
         exportForm.value = { recipient: '', purpose: '' }
     } catch (e) {
         exportError.value = e.response?.data?.message || e.message
@@ -863,7 +863,7 @@ async function submitRedactionRequest() {
             privacyLabel: redactionForm.value.privacyLabel,
             reason: redactionForm.value.reason,
         })
-        redactResult.value = 'Redaction request submitted for approval!'
+        redactResult.value = 'Yêu cầu che dữ liệu đã gửi để phê duyệt!'
         redactionForm.value = { privacyLabel: 'PersonalIdentity', reason: '' }
     } catch (e) {
         redactError.value = e.response?.data?.message || e.message
@@ -876,7 +876,7 @@ async function applyLegalHold() {
     if (!detail.value) return
     actionSuccess.value = ''
     actionError.value = ''
-    const reason = prompt('Legal hold reason:')
+    const reason = prompt('Lý do áp dụng khóa pháp lý:')
     if (!reason) return
     try {
         await enterpriseApi.createLegalHold({
@@ -884,7 +884,7 @@ async function applyLegalHold() {
             reason,
         })
         detail.value.isLegalHold = true
-        actionSuccess.value = 'Legal hold applied!'
+        actionSuccess.value = 'Đã áp dụng khóa pháp lý!'
     } catch (e) {
         actionError.value = e.response?.data?.message || e.message
     }
@@ -894,7 +894,7 @@ async function releaseLegalHold() {
     if (!detail.value) return
     actionSuccess.value = ''
     actionError.value = ''
-    const reason = prompt('Release reason:')
+    const reason = prompt('Lý do gỡ khóa:')
     if (!reason) return
     try {
         const holds = await enterpriseApi.getLegalHolds({ evidenceItemId: detail.value.evidenceItemId })
@@ -903,7 +903,7 @@ async function releaseLegalHold() {
         if (activeHold) {
             await enterpriseApi.releaseLegalHold(activeHold.legalHoldId, { reason })
             detail.value.isLegalHold = false
-            actionSuccess.value = 'Legal hold released!'
+            actionSuccess.value = 'Đã gỡ khóa pháp lý!'
         }
     } catch (e) {
         actionError.value = e.response?.data?.message || e.message
@@ -924,7 +924,7 @@ async function submitCustodyEntry() {
         showAddCustody.value = false
         const res = await enterpriseApi.getChainOfCustody(detail.value.evidenceItemId)
         custody.value = Array.isArray(res.data) ? res.data : []
-    } catch { alert('Failed to add custody entry') }
+    } catch { alert('Không thể thêm lệnh chuyển') }
     finally { custodySaving.value = false }
 }
 
@@ -942,7 +942,7 @@ async function submitCreateItem() {
             storageReference: createForm.value.storageReference || null,
             privacyLabel: createForm.value.privacyLabel,
         })
-        createResult.value = 'Evidence item created!'
+        createResult.value = 'Đã tạo mục bằng chứng!'
         createForm.value = { evidenceType: 'Document', sourceType: '', sourceReference: '', storageReference: '', privacyLabel: 'Internal' }
         showCreateItem.value = false
         await loadItems()
@@ -985,10 +985,10 @@ async function createCollection() {
         })
         collectionForm.value = { name: '', description: '' }
         showNewCollection.value = false
-        colResult.value = 'Collection created!'
+        colResult.value = 'Đã tạo bộ sưu tập!'
         await loadCollections()
     } catch (e) {
-        colResult.value = 'Failed: ' + (e.response?.data?.message || e.message)
+        colResult.value = 'Thất bại: ' + (e.response?.data?.message || e.message)
     } finally {
         colBusy.value = false
     }
@@ -1003,17 +1003,17 @@ async function addItemToCollection() {
         addToCollectionForm.value = { evidenceItemId: null }
         showAddToCollection.value = false
         await showCollectionDetail(selectedCollection.value)
-    } catch { alert('Failed to add item') }
+    } catch { alert('Không thể thêm mục') }
 }
 
 async function closeCollection() {
     if (!selectedCollection.value) return
-    if (!confirm(`Close collection "${selectedCollection.value.name}"?`)) return
+    if (!confirm(`Đóng bộ sưu tập "${selectedCollection.value.name}"?`)) return
     try {
         await enterpriseApi.closeEvidenceCollection(selectedCollection.value.evidenceCollectionId, {})
         selectedCollection.value.status = 'Closed'
         await loadCollections()
-    } catch { alert('Failed to close collection') }
+    } catch { alert('Không thể đóng bộ sưu tập') }
 }
 
 function privacyClass(l) {
@@ -1030,22 +1030,22 @@ onMounted(async () => {
 
 <style scoped>
 .repo-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-.repo-tabs button { border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
-.repo-tabs button.active { background: #0f766e; border-color: #0f766e; color: #fff; }
-.policy-composer { margin-bottom: 16px; padding: 16px; border: 1px solid #dbe4ee; border-radius: 14px; background: linear-gradient(180deg, #f8fbff 0%, #f3f8f6 100%); }
+.repo-tabs button { border: 1px solid var(--border-default); background: var(--surface-default); color: var(--text-secondary); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+.repo-tabs button.active { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+.policy-composer { margin-bottom: 16px; padding: 16px; border: 1px solid var(--border-subtle); border-radius: 14px; background: linear-gradient(180deg, var(--surface-subtle) 0%, var(--surface-hover) 100%); }
 .form-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.checkbox-row { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #475569; font-size: 13px; }
-.governance-note { margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; font-size: 13px; line-height: 1.5; }
-.dry-run-output { max-height: 320px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 14px; font-size: 12px; }
+.checkbox-row { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; }
+.governance-note { margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.dry-run-output { max-height: 320px; overflow: auto; background: var(--ink-950); color: var(--text-inverse); border-radius: 12px; padding: 14px; font-size: 12px; }
 .drawer-overlay { display: flex; justify-content: flex-end; }
 .drawer-panel { width: 540px; max-width: 95vw; height: 100vh; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg-card-strong); }
-.drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-.drawer-tabs button { padding: 6px 14px; border: none; background: transparent; color: #51657b; font-size: 13px; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
-.drawer-tabs button:hover { background: #f1f5f9; }
-.drawer-tabs button.active { background: #e0f2fe; color: #0369a1; font-weight: 600; }
+.drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+.drawer-tabs button { padding: 6px 14px; border: none; background: transparent; color: var(--text-secondary); font-size: 13px; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+.drawer-tabs button:hover { background: var(--surface-subtle); }
+.drawer-tabs button.active { background: var(--status-info-bg); color: var(--status-info-text); font-weight: 600; }
 .drawer-tab-content { min-height: 100px; }
-.detail-section-title { font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
-.collection-card { padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: background 0.15s; }
-.collection-card:hover { background: #f8fafc; }
+.detail-section-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border-subtle); }
+.collection-card { padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: background 0.15s; }
+.collection-card:hover { background: var(--surface-subtle); }
 .collection-card-header { display: flex; justify-content: space-between; align-items: center; }
 </style>

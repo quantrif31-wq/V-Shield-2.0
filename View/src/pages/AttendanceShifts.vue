@@ -5,7 +5,11 @@
                 <h1 class="page-title">Ca làm việc</h1>
                 <p class="page-subtitle">Quản lý cấu hình ca làm cho module chấm công.</p>
             </div>
-            <button class="btn btn-primary" @click="openCreateModal">Thêm ca làm</button>
+            <div class="header-actions">
+                <button class="btn btn-secondary" @click="showImportModal = true">Nhập dữ liệu</button>
+                <button class="btn btn-secondary" @click="showExportModal = true">Xuất dữ liệu</button>
+                <button class="btn btn-primary" @click="openCreateModal">Thêm ca làm</button>
+            </div>
         </header>
 
         <section class="card panel">
@@ -81,34 +85,40 @@
                     </div>
 
                     <form @submit.prevent="submitForm">
-                        <div class="form-group">
-                            <label>Tên ca</label>
-                            <input v-model="form.shiftName" required />
+                        <div class="form-group" :class="{ 'has-error': fieldErrors.shiftName }">
+                            <label>Tên ca <span class="req">*</span></label>
+                            <input v-model="form.shiftName" required @input="clearFieldError('shiftName')" />
+                            <p v-if="fieldErrors.shiftName" class="field-error" role="alert">{{ fieldErrors.shiftName }}</p>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Giờ bắt đầu</label>
-                                <input v-model="form.startTime" type="time" required />
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.startTime }">
+                                <label>Giờ bắt đầu <span class="req">*</span></label>
+                                <input v-model="form.startTime" type="time" required @input="clearFieldError('startTime'); clearFieldError('endTime')" />
+                                <p v-if="fieldErrors.startTime" class="field-error" role="alert">{{ fieldErrors.startTime }}</p>
                             </div>
-                            <div class="form-group">
-                                <label>Giờ kết thúc</label>
-                                <input v-model="form.endTime" type="time" required />
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.endTime }">
+                                <label>Giờ kết thúc <span class="req">*</span></label>
+                                <input v-model="form.endTime" type="time" required @input="clearFieldError('endTime'); clearFieldError('startTime')" />
+                                <p v-if="fieldErrors.endTime" class="field-error" role="alert">{{ fieldErrors.endTime }}</p>
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.breakMinutes }">
                                 <label>Nghỉ giữa ca (phút)</label>
-                                <input v-model.number="form.breakMinutes" type="number" min="0" />
+                                <input v-model.number="form.breakMinutes" type="number" min="0" @input="clearFieldError('breakMinutes')" />
+                                <p v-if="fieldErrors.breakMinutes" class="field-error" role="alert">{{ fieldErrors.breakMinutes }}</p>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.allowedLateMinutes }">
                                 <label>Cho phép đi trễ (phút)</label>
-                                <input v-model.number="form.allowedLateMinutes" type="number" min="0" />
+                                <input v-model.number="form.allowedLateMinutes" type="number" min="0" @input="clearFieldError('allowedLateMinutes')" />
+                                <p v-if="fieldErrors.allowedLateMinutes" class="field-error" role="alert">{{ fieldErrors.allowedLateMinutes }}</p>
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
+                            <div class="form-group" :class="{ 'has-error': fieldErrors.allowedEarlyLeaveMinutes }">
                                 <label>Cho phép về sớm (phút)</label>
-                                <input v-model.number="form.allowedEarlyLeaveMinutes" type="number" min="0" />
+                                <input v-model.number="form.allowedEarlyLeaveMinutes" type="number" min="0" @input="clearFieldError('allowedEarlyLeaveMinutes')" />
+                                <p v-if="fieldErrors.allowedEarlyLeaveMinutes" class="field-error" role="alert">{{ fieldErrors.allowedEarlyLeaveMinutes }}</p>
                             </div>
                             <div class="form-group">
                                 <label>Trạng thái</label>
@@ -150,12 +160,17 @@
         <transition name="toast">
             <div v-if="toast" class="toast-card" :class="toast.type">{{ toast.message }}</div>
         </transition>
+
+        <ImportModal v-if="showImportModal" entity-type="Shift" entity-display-name="Ca làm việc" @close="showImportModal = false" @import-complete="onImportComplete" />
+        <ExportModal v-if="showExportModal" entity-type="Shift" entity-display-name="Ca làm việc" :available-columns="['ShiftId','ShiftName','StartTime','EndTime','BreakMinutes','AllowedLateMinutes','AllowedEarlyLeaveMinutes','IsActive']" @close="showExportModal = false" />
     </div>
 </template>
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { createShift, deactivateShift, getShifts, updateShift } from '../services/attendanceApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -166,6 +181,8 @@ const showModal = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const toast = ref(null)
+const showImportModal = ref(false)
+const showExportModal = ref(false)
 let toastTimer = null
 
 const filters = reactive({
@@ -181,6 +198,15 @@ const form = reactive({
     allowedLateMinutes: 5,
     allowedEarlyLeaveMinutes: 5,
     isActive: true,
+})
+
+const fieldErrors = reactive({
+    shiftName: '',
+    startTime: '',
+    endTime: '',
+    breakMinutes: '',
+    allowedLateMinutes: '',
+    allowedEarlyLeaveMinutes: '',
 })
 
 const confirmDialog = reactive({
@@ -233,10 +259,18 @@ const resetForm = () => {
     })
 }
 
+const onImportComplete = (result) => {
+    showImportModal.value = false
+    loadShifts()
+    const message = `${result.successCount} bản ghi thành công${result.errorCount ? `, ${result.errorCount} lỗi` : ''}`
+    result.errorCount ? showToast(message, 'error') : showToast(message, 'success')
+}
+
 const openCreateModal = () => {
     isEdit.value = false
     editId.value = null
     modalError.value = ''
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
     resetForm()
     showModal.value = true
 }
@@ -245,6 +279,7 @@ const openEditModal = (shift) => {
     isEdit.value = true
     editId.value = shift.shiftId
     modalError.value = ''
+    Object.keys(fieldErrors).forEach((key) => { fieldErrors[key] = '' })
     Object.assign(form, {
         shiftName: shift.shiftName,
         startTime: formatTimeOnly(shift.startTime),
@@ -263,6 +298,23 @@ const closeModal = () => {
 
 const submitForm = async () => {
     modalError.value = ''
+
+    fieldErrors.shiftName = form.shiftName.trim() ? '' : 'Vui lòng nhập tên ca.'
+    fieldErrors.startTime = form.startTime ? '' : 'Vui lòng chọn giờ bắt đầu.'
+    fieldErrors.endTime = form.endTime ? '' : 'Vui lòng chọn giờ kết thúc.'
+    if (form.startTime && form.endTime) {
+        fieldErrors.startTime = ''
+        fieldErrors.endTime = ''
+        if (form.endTime <= form.startTime) {
+            fieldErrors.endTime = 'Giờ kết thúc phải sau giờ bắt đầu.'
+        }
+    }
+    fieldErrors.breakMinutes = Number(form.breakMinutes) >= 0 ? '' : 'Không được nhỏ hơn 0.'
+    fieldErrors.allowedLateMinutes = Number(form.allowedLateMinutes) >= 0 ? '' : 'Không được nhỏ hơn 0.'
+    fieldErrors.allowedEarlyLeaveMinutes = Number(form.allowedEarlyLeaveMinutes) >= 0 ? '' : 'Không được nhỏ hơn 0.'
+
+    if (Object.values(fieldErrors).some((msg) => msg)) return
+
     saving.value = true
     try {
         const payload = {
@@ -289,6 +341,10 @@ const submitForm = async () => {
     } finally {
         saving.value = false
     }
+}
+
+const clearFieldError = (field) => {
+    if (fieldErrors[field]) fieldErrors[field] = ''
 }
 
 const confirmDeactivate = (shift) => {

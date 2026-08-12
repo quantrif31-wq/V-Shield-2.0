@@ -6,6 +6,8 @@
       :breadcrumbs="[{ label: 'Khách' }, { label: 'Đăng ký trước' }]"
     >
       <template #actions>
+        <BaseButton variant="secondary" @click="showImportModal = true">Nhập dữ liệu</BaseButton>
+        <BaseButton variant="secondary" @click="showExportModal = true">Xuất dữ liệu</BaseButton>
         <BaseButton variant="secondary" :loading="isLoading" @click="refreshPage">Làm mới</BaseButton>
         <BaseButton @click="openCreateLink">Tạo link đăng ký</BaseButton>
       </template>
@@ -87,6 +89,9 @@
 
     <ConfirmDialog :open="showRejectDialog" kind="destructive" title="Từ chối đăng ký?" :description="`Yêu cầu của ${rejectTarget?.guestFullName || 'khách'} sẽ bị từ chối và không được cấp quyền truy cập.`" confirm-label="Từ chối yêu cầu" :loading="statusSaving" @cancel="showRejectDialog = false" @confirm="confirmReject" />
     <ConfirmDialog :open="showDiscardDialog" title="Bỏ thông tin đang nhập?" description="Host và thời hạn link chưa được lưu sẽ bị mất." confirm-label="Bỏ thay đổi" @cancel="showDiscardDialog = false" @confirm="closeCreateLink(true)" />
+
+    <ImportModal v-if="showImportModal" entity-type="PreRegistration" entity-display-name="Đăng ký khách trước" @close="showImportModal = false" @import-complete="onImportComplete" />
+    <ExportModal v-if="showExportModal" entity-type="PreRegistration" entity-display-name="Đăng ký khách trước" :available-columns="['RegistrationId','GuestPhone','GuestFullName','HostEmployeeEmail','ExpectedTimeIn','ExpectedTimeOut','NumberOfVisitors','Status']" @close="showExportModal = false" />
   </div>
 </template>
 
@@ -108,11 +113,14 @@ import EmptyState from '../components/ui/EmptyState.vue'
 import LoadingSkeleton from '../components/ui/LoadingSkeleton.vue'
 import PageHeader from '../components/ui/PageHeader.vue'
 import StatusBadge from '../components/ui/StatusBadge.vue'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
 import { useToasts } from '../composables/useToasts'
 
 const route = useRoute(); const router = useRouter(); const { success, error: showError } = useToasts()
 const registrations = ref([]); const totalItems = ref(0); const currentPage = ref(1); const pageSize = 10; const totalPages = ref(1)
 const isLoading = ref(true); const loadError = ref(''); const permissionDenied = ref(false); const searchQuery = ref(''); const filterStatus = ref(''); const filterDate = ref('')
+const showImportModal = ref(false); const showExportModal = ref(false)
 const stats = reactive({ total: 0, pending: 0, approved: 0, rejected: 0 }); const detail = ref(null); const detailId = ref(null); const isLoadingDetail = ref(false); const detailError = ref(''); const showDetailModal = ref(false)
 const employees = ref([]); const employeesLoading = ref(false); const showCreateLinkModal = ref(false); const createdLink = ref(null); const isCreatingLink = ref(false); const linkError = ref(''); const linkSubmitted = ref(false); const copied = ref(false); const linkForm = reactive({ hostEmployeeId: '', expiryHours: 24 }); const formBaseline = ref('')
 const showRejectDialog = ref(false); const rejectTarget = ref(null); const statusSaving = ref(false); const showDiscardDialog = ref(false); const qrCardRefs = ref([]); let searchTimer = null; let copiedTimer = null
@@ -127,6 +135,7 @@ function setPage(page){router.replace({query:{...route.query,page:page>1?page:un
 async function fetchRegistrations(){isLoading.value=true;loadError.value='';permissionDenied.value=false;try{const params={page:currentPage.value,pageSize};if(filterStatus.value)params.status=filterStatus.value;if(filterDate.value)params.date=filterDate.value;const {data}=await getAll(params);let items=data.items||[];if(searchQuery.value.trim()){const q=searchQuery.value.trim().toLocaleLowerCase('vi');items=items.filter(item=>String(item.guestFullName||'').toLocaleLowerCase('vi').includes(q)||String(item.guestPhone||'').includes(q))}registrations.value=items;totalItems.value=data.total||0;totalPages.value=Math.max(1,Math.ceil(totalItems.value/pageSize));if(currentPage.value>totalPages.value)setPage(totalPages.value)}catch(err){registrations.value=[];if(err.response?.status===403)permissionDenied.value=true;else loadError.value=err.response?.data?.message||'Không thể tải danh sách đăng ký khách.'}finally{isLoading.value=false}}
 async function fetchStats(){try{const responses=await Promise.all([getAll({pageSize:1}),getAll({status:'Pending',pageSize:1}),getAll({status:'Approved',pageSize:1}),getAll({status:'Rejected',pageSize:1})]);Object.assign(stats,{total:responses[0].data.total||0,pending:responses[1].data.total||0,approved:responses[2].data.total||0,rejected:responses[3].data.total||0})}catch{Object.assign(stats,{total:totalItems.value,pending:0,approved:0,rejected:0})}}
 async function refreshPage(){await Promise.all([fetchRegistrations(),fetchStats()])}
+function onImportComplete(result){showImportModal.value=false;refreshPage();const message=`${result.successCount} bản ghi thành công${result.errorCount?`, ${result.errorCount} lỗi`:''}`;result.errorCount?showError('Import hoàn tất có lỗi',message):success('Import hoàn tất',message)}
 async function fetchEmployees(){employeesLoading.value=true;try{employees.value=(await getAllEmployees()).data||[]}catch{showError('Không thể tải danh sách host','Bạn vẫn có thể đóng hộp thoại và thử lại.')}finally{employeesLoading.value=false}}
 async function viewDetail(id){detailId.value=id;showDetailModal.value=true;isLoadingDetail.value=true;detailError.value='';detail.value=null;try{detail.value=(await getDetail(id)).data}catch(err){detailError.value=err.response?.status===403?'Bạn không có quyền xem chi tiết đăng ký này.':err.response?.data?.message||'Máy chủ không trả về dữ liệu chi tiết.'}finally{isLoadingDetail.value=false}}
 function closeDetail(){showDetailModal.value=false;detail.value=null;detailError.value='';qrCardRefs.value=[]}

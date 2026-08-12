@@ -44,7 +44,7 @@
 
           <!-- Actions -->
           <div class="dd-actions-section">
-            <div class="dd-actions-label">Thao tác</div>
+            <div class="dd-actions-label">Thao tác quyết định</div>
 
             <!-- Safe Actions -->
             <button

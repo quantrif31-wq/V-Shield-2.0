@@ -2,74 +2,74 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Enterprise devices</span>
-                <h1 class="page-title">Device Topology</h1>
+                <span class="panel-kicker">Thiết bị doanh nghiệp</span>
+                <h1 class="page-title">Sơ đồ thiết bị</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" @click="openOfflinePackages()">Offline Packages</button>
-                <button class="btn btn-primary" :disabled="loading" @click="loadTopology">Refresh</button>
+                <button class="btn btn-secondary" @click="openOfflinePackages()">Gói ngoại tuyến</button>
+                <button class="btn btn-primary" :disabled="loading" @click="loadTopology">Làm mới</button>
             </div>
         </div>
 
         <!-- Health Summary row -->
         <section class="metric-grid four" v-if="healthSummary">
-            <article class="metric-tile"><span class="metric-label">Total Devices</span><strong class="metric-value">{{ healthSummary.totalDevices || topology.length }}</strong></article>
-            <article class="metric-tile"><span class="metric-label">Online</span><strong class="metric-value">{{ healthSummary.onlineCount || topology.filter(d => d.status === 'Ok').length }}</strong></article>
-            <article class="metric-tile"><span class="metric-label">Degraded</span><strong class="metric-value" style="color:#d97706;">{{ healthSummary.degradedCount || topology.filter(d => d.status === 'Degraded').length }}</strong></article>
-            <article class="metric-tile"><span class="metric-label">Offline/Fault</span><strong class="metric-value" style="color:#dc2626;">{{ healthSummary.offlineCount || topology.filter(d => d.status === 'Offline' || d.status === 'Fault' || d.status === 'Tamper').length }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Tổng thiết bị</span><strong class="metric-value">{{ healthSummary.totalDevices || topology.length }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Trực tuyến</span><strong class="metric-value">{{ healthSummary.onlineCount || topology.filter(d => d.status === 'Ok').length }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Suy giảm</span><strong class="metric-value" style="color:#d97706;">{{ healthSummary.degradedCount || topology.filter(d => d.status === 'Degraded').length }}</strong></article>
+            <article class="metric-tile"><span class="metric-label">Ngoại tuyến/Lỗi</span><strong class="metric-value" style="color:#dc2626;">{{ healthSummary.offlineCount || topology.filter(d => d.status === 'Offline' || d.status === 'Fault' || d.status === 'Tamper').length }}</strong></article>
         </section>
 
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Overviews</span><h2 class="panel-title">Device Landscape</h2></div>
+                    <div><span class="panel-kicker">Tổng quan</span><h2 class="panel-title">Bản đồ thiết bị</h2></div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading topology...</div>
+                <div v-if="loading" class="empty-card">Đang tải sơ đồ...</div>
                 <div v-else>
                     <div class="toolbar-shell">
                         <div class="search-bar">
                             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                             </svg>
-                            <input v-model="searchQuery" type="text" placeholder="Search device..." />
+                            <input v-model="searchQuery" type="text" placeholder="Tìm kiếm thiết bị..." />
                         </div>
                         <select v-model="typeFilter" class="form-control" style="width:auto;">
-                            <option value="">All types</option>
-                            <option value="Controller">Controller</option>
-                            <option value="Reader">Reader</option>
+                            <option value="">Tất cả loại</option>
+                            <option value="Controller">Bộ điều khiển</option>
+                            <option value="Reader">Đầu đọc</option>
                             <option value="Camera">Camera</option>
-                            <option value="Barrier">Barrier</option>
-                            <option value="Sensor">Sensor</option>
+                            <option value="Barrier">Barie</option>
+                            <option value="Sensor">Cảm biến</option>
                         </select>
                     </div>
                     <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Device</th>
-                                    <th>Type</th>
-                                    <th>Status</th>
-                                    <th>Controller</th>
+                                    <th>Thiết bị</th>
+                                    <th>Loại</th>
+                                    <th>Trạng thái</th>
+                                    <th>Bộ điều khiển</th>
                                     <th>R/S</th>
-                                    <th>Site</th>
-                                    <th>Health</th>
+                                    <th>Khu vực</th>
+                                    <th>Sức khỏe</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="d in filteredTopology" :key="d.securityDeviceId" class="device-row" @click="openDeviceDetail(d)" :class="{ 'selected-row': selectedDevice?.securityDeviceId === d.securityDeviceId }">
                                     <td><strong>{{ d.name }}</strong></td>
-                                    <td><span class="badge badge-info">{{ d.deviceType }}</span></td>
-                                    <td><span class="status-dot" :class="statusClass(d.status)"></span>{{ d.status }}</td>
+                                    <td><span class="badge badge-info">{{ typeLabel(d.deviceType) }}</span></td>
+                                    <td><span class="status-dot" :class="statusClass(d.status)"></span>{{ statusLabel(d.status) }}</td>
                                     <td>{{ d.controller?.protocol || '—' }}</td>
                                     <td>
-                                        <span class="reader-count" :title="`${d.readerCount || 0} readers`">R:{{ d.readerCount || 0 }}</span>
+                                        <span class="reader-count" :title="`${d.readerCount || 0} đầu đọc`">R:{{ d.readerCount || 0 }}</span>
                                         /
-                                        <span :title="`${d.relayCount || 0} relays`">S:{{ d.relayCount || 0 }}/{{ d.sensorCount || 0 }}</span>
+                                        <span :title="`${d.relayCount || 0} rơ le`">S:{{ d.relayCount || 0 }}/{{ d.sensorCount || 0 }}</span>
                                     </td>
                                     <td>{{ d.siteId || '—' }}</td>
                                     <td>
                                         <span class="health-dot" :class="healthDotClass(d)"></span>
-                                        {{ d.healthStatus?.status || '—' }}
+                                        {{ statusLabel(d.healthStatus?.status) || '—' }}
                                     </td>
                                 </tr>
                             </tbody>
@@ -79,17 +79,17 @@
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Connectors</span><h2 class="panel-title">Connector & Adapter Status</h2></div>
+                    <div><span class="panel-kicker">Bộ kết nối</span><h2 class="panel-title">Trạng thái bộ kết nối & bộ điều hợp</h2></div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
                 <div v-else>
                     <div v-if="connectorStatus.length > 0" class="table-container" style="margin-bottom:12px;">
                         <table class="data-table">
-                            <thead><tr><th>Connector</th><th>Status</th><th>Last Seen</th></tr></thead>
+                            <thead><tr><th>Bộ kết nối</th><th>Trạng thái</th><th>Lần cuối</th></tr></thead>
                             <tbody>
                                 <tr v-for="cs in connectorStatus" :key="cs.connectorId || cs.name">
                                     <td>{{ cs.name || cs.connectorId }}</td>
-                                    <td><span class="status-dot" :class="cs.status === 'Connected' ? 'status-ok' : 'status-danger'"></span>{{ cs.status }}</td>
+                                    <td><span class="status-dot" :class="cs.status === 'Connected' ? 'status-ok' : 'status-danger'"></span>{{ statusLabel(cs.status) }}</td>
                                     <td class="table-sub">{{ cs.lastSeenUtc ? formatTime(cs.lastSeenUtc) : '—' }}</td>
                                 </tr>
                             </tbody>
@@ -97,12 +97,12 @@
                     </div>
                     <div class="table-container">
                         <table class="data-table">
-                            <thead><tr><th>Protocol</th><th>Type</th><th>Status</th></tr></thead>
+                            <thead><tr><th>Giao thức</th><th>Loại</th><th>Trạng thái</th></tr></thead>
                             <tbody>
                                 <tr v-for="a in adapters" :key="a.protocol">
                                     <td>{{ a.protocol }}</td>
                                     <td>{{ a.type }}</td>
-                                    <td><span class="status-dot" :class="a.status === 'Simulated' ? 'status-ok' : 'status-warn'"></span>{{ a.status }}</td>
+                                    <td><span class="status-dot" :class="a.status === 'Simulated' ? 'status-ok' : 'status-warn'"></span>{{ statusLabel(a.status) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -117,7 +117,7 @@
                 <div class="modal-panel drawer-panel">
                     <div class="modal-header">
                         <h2>{{ selectedDevice.name }}</h2>
-                        <span class="badge badge-info" style="margin-right:8px;">{{ selectedDevice.deviceType }}</span>
+                        <span class="badge badge-info" style="margin-right:8px;">{{ typeLabel(selectedDevice.deviceType) }}</span>
                         <button class="btn-close" @click="selectedDevice = null">&times;</button>
                     </div>
                     <div class="modal-body">
@@ -130,38 +130,38 @@
                         <!-- Overview Tab -->
                         <div v-if="activeDetailTab === 'overview'" class="drawer-tab-content">
                             <div class="detail-grid">
-                                <div class="detail-row"><span class="detail-label">Device ID</span><span>{{ selectedDevice.securityDeviceId }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Type</span><span>{{ selectedDevice.deviceType }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Status</span><span class="status-dot" :class="statusClass(selectedDevice.status)"></span>{{ selectedDevice.status }}</div>
-                                <div class="detail-row"><span class="detail-label">Vendor</span><span>{{ selectedDevice.vendor || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Model</span><span>{{ selectedDevice.model || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">IP Address</span><span>{{ selectedDevice.ipAddress || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Site</span><span>{{ selectedDevice.siteId || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Controller</span><span>{{ selectedDevice.controller?.protocol || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Health</span><span>{{ selectedDevice.healthStatus?.status || '—' }}</span></div>
-                                <div class="detail-row"><span class="detail-label">Last Seen</span><span>{{ selectedDevice.lastSeenUtc ? formatTime(selectedDevice.lastSeenUtc) : '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Mã thiết bị</span><span>{{ selectedDevice.securityDeviceId }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Loại</span><span>{{ typeLabel(selectedDevice.deviceType) }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Trạng thái</span><span class="status-dot" :class="statusClass(selectedDevice.status)"></span>{{ statusLabel(selectedDevice.status) }}</div>
+                                <div class="detail-row"><span class="detail-label">Hãng sản xuất</span><span>{{ selectedDevice.vendor || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Mẫu máy</span><span>{{ selectedDevice.model || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Địa chỉ IP</span><span>{{ selectedDevice.ipAddress || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Khu vực</span><span>{{ selectedDevice.siteId || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Bộ điều khiển</span><span>{{ selectedDevice.controller?.protocol || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Sức khỏe</span><span>{{ statusLabel(selectedDevice.healthStatus?.status) || '—' }}</span></div>
+                                <div class="detail-row"><span class="detail-label">Lần cuối</span><span>{{ selectedDevice.lastSeenUtc ? formatTime(selectedDevice.lastSeenUtc) : '—' }}</span></div>
                             </div>
                             <div class="chip-row" style="margin-top:12px;">
-                                <button class="btn btn-sm btn-secondary" @click="diagnoseDevice(selectedDevice)">AI Diagnose</button>
-                                <button class="btn btn-sm btn-secondary" @click="recordHealthForDevice(selectedDevice)">Record Health</button>
+                                <button class="btn btn-sm btn-secondary" @click="diagnoseDevice(selectedDevice)">Chẩn đoán AI</button>
+                                <button class="btn btn-sm btn-secondary" @click="recordHealthForDevice(selectedDevice)">Ghi nhận sức khỏe</button>
                             </div>
                             <div v-if="diagnosisResult" class="alert alert-info" style="margin-top:8px;">
-                                <strong>Diagnosis:</strong> {{ diagnosisResult }}
+                                <strong>Chẩn đoán:</strong> {{ diagnosisResult }}
                             </div>
                         </div>
 
                         <!-- Readers Tab -->
                         <div v-if="activeDetailTab === 'readers'" class="drawer-tab-content">
-                            <div v-if="detailLoading" class="empty-card">Loading readers...</div>
-                            <div v-else-if="readers.length === 0" class="empty-card">No readers.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải đầu đọc...</div>
+                            <div v-else-if="readers.length === 0" class="empty-card">Không có đầu đọc.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>Name</th><th>Type</th><th>Status</th></tr></thead>
+                                    <thead><tr><th>Tên</th><th>Loại</th><th>Trạng thái</th></tr></thead>
                                     <tbody>
                                         <tr v-for="r in readers" :key="r.readerId || r.id">
                                             <td>{{ r.name || r.readerName }}</td>
                                             <td>{{ r.readerType || r.type }}</td>
-                                            <td><span class="status-dot" :class="statusClass(r.status)"></span>{{ r.status }}</td>
+                                            <td><span class="status-dot" :class="statusClass(r.status)"></span>{{ statusLabel(r.status) }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -170,17 +170,17 @@
 
                         <!-- Relays Tab -->
                         <div v-if="activeDetailTab === 'relays'" class="drawer-tab-content">
-                            <div v-if="detailLoading" class="empty-card">Loading relays...</div>
-                            <div v-else-if="relays.length === 0" class="empty-card">No relays.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải rơ le...</div>
+                            <div v-else-if="relays.length === 0" class="empty-card">Không có rơ le.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>Name</th><th>Type</th><th>State</th><th>Status</th></tr></thead>
+                                    <thead><tr><th>Tên</th><th>Loại</th><th>Trạng thái</th><th>Tình trạng</th></tr></thead>
                                     <tbody>
                                         <tr v-for="r in relays" :key="r.relayId || r.id">
                                             <td>{{ r.name || r.relayName }}</td>
                                             <td>{{ r.relayType || r.type }}</td>
-                                            <td><span class="soft-chip" :class="r.state === 'Closed' ? 'success' : 'warn'">{{ r.state }}</span></td>
-                                            <td><span class="status-dot" :class="statusClass(r.status)"></span>{{ r.status }}</td>
+                                            <td><span class="soft-chip" :class="r.state === 'Closed' ? 'success' : 'warn'">{{ statusLabel(r.state) }}</span></td>
+                                            <td><span class="status-dot" :class="statusClass(r.status)"></span>{{ statusLabel(r.status) }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -189,17 +189,17 @@
 
                         <!-- Sensors Tab -->
                         <div v-if="activeDetailTab === 'sensors'" class="drawer-tab-content">
-                            <div v-if="detailLoading" class="empty-card">Loading sensors...</div>
-                            <div v-else-if="sensors.length === 0" class="empty-card">No sensors.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải cảm biến...</div>
+                            <div v-else-if="sensors.length === 0" class="empty-card">Không có cảm biến.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Status</th></tr></thead>
+                                    <thead><tr><th>Tên</th><th>Loại</th><th>Giá trị</th><th>Tình trạng</th></tr></thead>
                                     <tbody>
                                         <tr v-for="s in sensors" :key="s.sensorId || s.id">
                                             <td>{{ s.name || s.sensorName }}</td>
                                             <td>{{ s.sensorType || s.type }}</td>
                                             <td>{{ s.value || s.currentValue || '—' }}</td>
-                                            <td><span class="status-dot" :class="statusClass(s.status)"></span>{{ s.status }}</td>
+                                            <td><span class="status-dot" :class="statusClass(s.status)"></span>{{ statusLabel(s.status) }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -208,15 +208,15 @@
 
                         <!-- Health History Tab -->
                         <div v-if="activeDetailTab === 'health'" class="drawer-tab-content">
-                            <div v-if="detailLoading" class="empty-card">Loading health history...</div>
-                            <div v-else-if="healthHistory.length === 0" class="empty-card">No health history.</div>
+                            <div v-if="detailLoading" class="empty-card">Đang tải lịch sử sức khỏe...</div>
+                            <div v-else-if="healthHistory.length === 0" class="empty-card">Không có lịch sử sức khỏe.</div>
                             <div v-else class="table-container">
                                 <table class="data-table">
-                                    <thead><tr><th>Time</th><th>Status</th><th>Message</th></tr></thead>
+                                    <thead><tr><th>Thời gian</th><th>Trạng thái</th><th>Nội dung</th></tr></thead>
                                     <tbody>
                                         <tr v-for="h in healthHistory" :key="h.healthLogId || h.id">
                                             <td class="table-sub">{{ formatTime(h.recordedAtUtc || h.timestamp) }}</td>
-                                            <td><span class="status-dot" :class="statusClass(h.status)"></span>{{ h.status }}</td>
+                                            <td><span class="status-dot" :class="statusClass(h.status)"></span>{{ statusLabel(h.status) }}</td>
                                             <td>{{ h.message || h.description || '—' }}</td>
                                         </tr>
                                     </tbody>
@@ -231,29 +231,29 @@
             <div v-if="recordHealthTarget" class="modal-overlay" @click.self="recordHealthTarget = null">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Record Health — {{ recordHealthTarget.name }}</h2>
+                        <h2>Ghi nhận sức khỏe — {{ recordHealthTarget.name }}</h2>
                         <button class="btn-close" @click="recordHealthTarget = null">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Status</label>
+                            <label>Trạng thái</label>
                             <select v-model="healthForm.status" class="form-control">
-                                <option value="Ok">Ok</option>
-                                <option value="Degraded">Degraded</option>
-                                <option value="Fault">Fault</option>
-                                <option value="Offline">Offline</option>
+                                <option value="Ok">Bình thường</option>
+                                <option value="Degraded">Suy giảm</option>
+                                <option value="Fault">Lỗi</option>
+                                <option value="Offline">Ngoại tuyến</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Message</label>
-                            <textarea v-model="healthForm.message" class="form-control" rows="2" placeholder="Optional health note"></textarea>
+                            <label>Nội dung</label>
+                            <textarea v-model="healthForm.message" class="form-control" rows="2" placeholder="Ghi chú sức khỏe (tùy chọn)"></textarea>
                         </div>
                         <div v-if="healthSaveResult" class="alert alert-success">{{ healthSaveResult }}</div>
                         <div v-else-if="healthSaveError" class="alert alert-danger">{{ healthSaveError }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="recordHealthTarget = null">Close</button>
-                        <button class="btn btn-primary" :disabled="healthSaving" @click="submitHealthRecord">{{ healthSaving ? 'Saving...' : 'Save' }}</button>
+                        <button class="btn btn-secondary" @click="recordHealthTarget = null">Đóng</button>
+                        <button class="btn btn-primary" :disabled="healthSaving" @click="submitHealthRecord">{{ healthSaving ? 'Đang lưu...' : 'Lưu' }}</button>
                     </div>
                 </div>
             </div>
@@ -262,37 +262,37 @@
             <div v-if="showOfflinePackages" class="modal-overlay" @click.self="showOfflinePackages = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Offline Policy Packages</h2>
+                        <h2>Gói chính sách ngoại tuyến</h2>
                         <button class="btn-close" @click="showOfflinePackages = false">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Device ID</label>
-                            <input v-model.number="offlinePackageForm.deviceId" type="number" class="form-control" placeholder="Device ID" />
+                            <label>Mã thiết bị</label>
+                            <input v-model.number="offlinePackageForm.deviceId" type="number" class="form-control" placeholder="Mã thiết bị" />
                         </div>
                         <div class="form-group">
-                            <label>Policy Version ID</label>
-                            <input v-model.number="offlinePackageForm.policyVersionId" type="number" class="form-control" placeholder="Optional" />
+                            <label>Mã phiên bản chính sách</label>
+                            <input v-model.number="offlinePackageForm.policyVersionId" type="number" class="form-control" placeholder="Tùy chọn" />
                         </div>
                         <div v-if="offlinePkgResult" class="alert alert-success">{{ offlinePkgResult }}</div>
                         <div v-else-if="offlinePkgError" class="alert alert-danger">{{ offlinePkgError }}</div>
                         <div class="chip-row" style="margin-top:8px;">
                             <button class="btn btn-primary" :disabled="offlinePkgSaving || !offlinePackageForm.deviceId" @click="createOfflinePackage">
-                                {{ offlinePkgSaving ? 'Creating...' : 'Create Package' }}
+                                {{ offlinePkgSaving ? 'Đang tạo...' : 'Tạo gói' }}
                             </button>
                         </div>
 
                         <div style="margin-top:16px;">
-                            <div class="detail-section-title">Existing Packages</div>
-                            <div v-if="offlinePackages.length === 0" class="text-muted">No packages.</div>
+                            <div class="detail-section-title">Gói hiện có</div>
+                            <div v-if="offlinePackages.length === 0" class="text-muted">Không có gói.</div>
                             <div v-for="pkg in offlinePackages" :key="pkg.offlinePolicyPackageId || pkg.id" class="pkg-card">
-                                <div><strong>Device {{ pkg.securityDeviceId }}</strong></div>
-                                <div class="text-muted">Version {{ pkg.policyVersionId }} · {{ formatTime(pkg.createdAtUtc) }}</div>
+                                <div><strong>Thiết bị {{ pkg.securityDeviceId }}</strong></div>
+                                <div class="text-muted">Phiên bản {{ pkg.policyVersionId }} · {{ formatTime(pkg.createdAtUtc) }}</div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showOfflinePackages = false">Close</button>
+                        <button class="btn btn-secondary" @click="showOfflinePackages = false">Đóng</button>
                     </div>
                 </div>
             </div>
@@ -311,6 +311,33 @@ const healthSummary = ref(null)
 const loading = ref(true)
 const searchQuery = ref('')
 const typeFilter = ref('')
+
+const typeLabels = {
+    Controller: 'Bộ điều khiển',
+    Reader: 'Đầu đọc',
+    Camera: 'Camera',
+    Barrier: 'Barie',
+    Sensor: 'Cảm biến',
+}
+
+const statusLabels = {
+    Ok: 'Bình thường',
+    Online: 'Trực tuyến',
+    Connected: 'Đã kết nối',
+    Simulated: 'Mô phỏng',
+    Healthy: 'Khỏe mạnh',
+    Degraded: 'Suy giảm',
+    Warning: 'Cảnh báo',
+    Offline: 'Ngoại tuyến',
+    Fault: 'Lỗi',
+    Tamper: 'Can thiệp',
+    Critical: 'Nghiêm trọng',
+    Closed: 'Đóng',
+    Open: 'Mở',
+}
+
+function typeLabel(v) { return typeLabels[v] || v || '—' }
+function statusLabel(v) { return statusLabels[v] || v || '—' }
 
 // Device detail drawer
 const selectedDevice = ref(null)
@@ -338,11 +365,11 @@ const offlinePkgResult = ref('')
 const offlinePkgError = ref('')
 
 const detailTabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'readers', label: 'Readers' },
-    { key: 'relays', label: 'Relays' },
-    { key: 'sensors', label: 'Sensors' },
-    { key: 'health', label: 'Health History' },
+    { key: 'overview', label: 'Tổng quan' },
+    { key: 'readers', label: 'Đầu đọc' },
+    { key: 'relays', label: 'Rơ le' },
+    { key: 'sensors', label: 'Cảm biến' },
+    { key: 'health', label: 'Lịch sử sức khỏe' },
 ]
 
 const filteredTopology = computed(() => {
@@ -439,9 +466,9 @@ async function diagnoseDevice(d) {
     diagnosisResult.value = ''
     try {
         const res = await enterpriseApi.diagnoseDevice(d.securityDeviceId)
-        diagnosisResult.value = res.data?.diagnosis || res.data?.message || 'Diagnosis complete'
+        diagnosisResult.value = res.data?.diagnosis || res.data?.message || 'Chẩn đoán hoàn tất'
     } catch (e) {
-        diagnosisResult.value = 'Diagnosis failed: ' + (e.response?.data?.message || e.message)
+        diagnosisResult.value = 'Chẩn đoán thất bại: ' + (e.response?.data?.message || e.message)
     }
 }
 
@@ -469,7 +496,7 @@ async function submitHealthRecord() {
             status: healthForm.value.status,
             message: healthForm.value.message || null,
         })
-        healthSaveResult.value = 'Health recorded successfully!'
+        healthSaveResult.value = 'Đã ghi nhận sức khỏe thành công!'
     } catch (e) {
         healthSaveError.value = e.response?.data?.message || e.message
     } finally {
@@ -497,7 +524,7 @@ async function createOfflinePackage() {
             securityDeviceId: offlinePackageForm.value.deviceId,
             policyVersionId: offlinePackageForm.value.policyVersionId || undefined,
         })
-        offlinePkgResult.value = 'Offline package created!'
+        offlinePkgResult.value = 'Đã tạo gói ngoại tuyến thành công!'
         offlinePackageForm.value = { deviceId: null, policyVersionId: null }
         await loadOfflinePackages()
     } catch (e) {
@@ -511,27 +538,29 @@ onMounted(loadTopology)
 </script>
 
 <style scoped>
-.device-row { cursor: pointer; transition: background 0.15s; }
-.device-row:hover { background: #f1f5f9; }
-.selected-row { background: #e0f2fe !important; }
+.device-row { cursor: pointer; transition: background-color 0.15s ease; }
+.device-row:hover { background: var(--surface-hover); }
+.selected-row { background: var(--surface-selected) !important; }
 .reader-count { cursor: help; }
 .health-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
-.health-ok { background: #22c55e; }
-.health-warn { background: #eab308; }
-.health-danger { background: #ef4444; }
+.health-ok { background: var(--status-success-text); }
+.health-warn { background: var(--status-warning-text); }
+.health-danger { background: var(--status-danger-text); }
 
 .drawer-overlay { display: flex; justify-content: flex-end; }
 .drawer-panel { width: 520px; max-width: 95vw; height: 100vh; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg-card-strong); }
-.drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-.drawer-tabs button { padding: 6px 14px; border: none; background: transparent; color: #51657b; font-size: 13px; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
-.drawer-tabs button:hover { background: #f1f5f9; }
-.drawer-tabs button.active { background: #e0f2fe; color: #0369a1; font-weight: 600; }
+.drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+.drawer-tabs button { padding: 6px 14px; border: none; background: transparent; color: var(--text-secondary); font-size: 13px; border-radius: 8px; cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; }
+.drawer-tabs button:hover { background: var(--surface-hover); }
+.drawer-tabs button.active { background: var(--surface-selected); color: var(--interactive-secondary); font-weight: 600; }
 .drawer-tab-content { min-height: 100px; }
-.detail-section-title { font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
-.pkg-card { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 6px; }
+.detail-section-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border-subtle); }
+.pkg-card { padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; margin-bottom: 6px; transition: border-color 0.15s ease; }
+.pkg-card:hover { border-color: var(--border-default); }
 
 .toolbar-shell { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
 .search-bar { flex: 1; position: relative; }
-.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8; }
-.search-bar input { width: 100%; padding: 8px 10px 8px 32px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #fff; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); }
+.search-bar input { width: 100%; padding: 8px 10px 8px 32px; border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px; background: var(--surface-default); transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
+.search-bar input:hover { border-color: var(--border-default); }
 </style>

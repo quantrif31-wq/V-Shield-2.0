@@ -2,7 +2,7 @@
   <div class="page">
     <div class="topbar">
       <div>
-        <h1>V-Shield Gate Monitor</h1>
+        <h1>Giám sát cổng V-Shield</h1>
         <p>Giao diện tối giản cho bảo an vận hành nhanh</p>
       </div>
     </div>
@@ -27,7 +27,7 @@
 
         <div class="lane-actions">
           <button class="btn btn-preview" :disabled="lane.loading" @click="previewLane(lane)">
-            {{ lane.loading ? "Đang xử lý..." : "Preview" }}
+            {{ lane.loading ? "Đang xử lý..." : "Xem trước" }}
           </button>
 
           <button
@@ -69,7 +69,7 @@
 
         <div class="ip-row">
           <div class="ip-box">
-            <label>Face Camera URL</label>
+            <label>URL Camera Face</label>
             <input
               v-model="lane.face.cameraIp"
               type="text"
@@ -79,7 +79,7 @@
           </div>
 
           <div class="ip-box">
-            <label>Plate Camera URL</label>
+            <label>URL Camera Biển số</label>
             <input
               v-model="lane.plate.cameraIp"
               type="text"
@@ -91,12 +91,12 @@
 
         <div class="summary-bar">
           <div class="summary-item">
-            <span class="label">Employee ID</span>
+            <span class="label">Nhân viên</span>
             <span class="value strong">{{ lane.face.employeeId || "-----" }}</span>
           </div>
 
           <div class="summary-item">
-            <span class="label">Face</span>
+            <span class="label">Khuôn mặt</span>
             <span class="value" :class="faceStateClass(lane.face)">
               {{ faceStateText(lane.face) }}
             </span>
@@ -119,9 +119,9 @@
           <!-- FACE -->
           <div class="cam-block">
             <div class="cam-head">
-              <span>Face Camera</span>
+              <span>Camera Face</span>
               <span class="mini-status" :class="lane.face.previewHealthy ? 'ok' : 'wait'">
-                {{ lane.face.previewRunning ? (lane.face.previewHealthy ? "Preview OK" : "Preview...") : "Preview OFF" }}
+                {{ lane.face.previewRunning ? (lane.face.previewHealthy ? "Xem trước OK" : "Đang xem trước...") : "Tắt xem trước" }}
               </span>
             </div>
 
@@ -139,18 +139,18 @@
                 @load="onPreviewLoaded(lane.face)"
                 @error="onPreviewError(lane.face)"
               />
-              <div v-else class="cam-off">Face Offline</div>
+              <div v-else class="cam-off">Face ngoại tuyến</div>
             </div>
 
             <div class="quick-result">
               <div class="result-pill" :class="lane.face.cameraRunning ? 'ok' : 'off'">
-                {{ lane.face.cameraRunning ? "RUNNING" : "STOPPED" }}
+                {{ lane.face.cameraRunning ? "ĐANG CHẠY" : "ĐÃ DỪNG" }}
               </div>
               <div class="result-pill" :class="lane.face.scanLocked ? 'ok' : 'wait'">
-                {{ lane.face.scanLocked ? "LOCKED" : "SCANNING" }}
+                {{ lane.face.scanLocked ? "ĐÃ KHÓA" : "ĐANG QUÉT" }}
               </div>
               <div class="result-pill" :class="lane.face.alert ? 'danger' : 'neutral'">
-                {{ lane.face.alert ? "ALERT" : "NORMAL" }}
+                {{ lane.face.alert ? "CẢNH BÁO" : "BÌNH THƯỜNG" }}
               </div>
             </div>
 
@@ -162,7 +162,7 @@
                   class="evidence-image"
                   alt="Face Crop"
                 />
-                <div v-else class="evidence-empty">Face Crop</div>
+                <div v-else class="evidence-empty">Ảnh crop mặt</div>
               </div>
 
               <div class="evidence-box">
@@ -172,7 +172,7 @@
                   class="evidence-image"
                   alt="Face Snapshot"
                 />
-                <div v-else class="evidence-empty">Face Snapshot</div>
+                <div v-else class="evidence-empty">Ảnh chụp mặt</div>
               </div>
             </div>
           </div>
@@ -180,7 +180,7 @@
           <!-- PLATE -->
           <div class="cam-block">
             <div class="cam-head">
-              <span>Plate Camera</span>
+              <span>Camera Biển số</span>
               <span class="mini-status" :class="platePreviewStatusClass(lane.plate)">
                 {{ platePreviewStatusText(lane.plate) }}
               </span>
@@ -197,18 +197,18 @@
                 @error="onPreviewError(lane.plate)"
               />
               <div v-else-if="lane.plate.previewRunning" class="cam-off">Chờ ảnh chụp biển...</div>
-              <div v-else class="cam-off">Plate Offline</div>
+              <div v-else class="cam-off">Biển ngoại tuyến</div>
             </div>
 
             <div class="quick-result">
               <div class="result-pill" :class="lane.plate.cameraRunning ? 'ok' : 'off'">
-                {{ lane.plate.cameraRunning ? "RUNNING" : "STOPPED" }}
+                {{ lane.plate.cameraRunning ? "ĐANG CHẠY" : "ĐÃ DỪNG" }}
               </div>
               <div class="result-pill" :class="lane.plate.scanLocked ? 'ok' : 'wait'">
-                {{ lane.plate.scanLocked ? "LOCKED" : "SCANNING" }}
+                {{ lane.plate.scanLocked ? "ĐÃ KHÓA" : "ĐANG QUÉT" }}
               </div>
               <div class="result-pill neutral">
-                {{ lane.plate.confirmedPlate || "NO PLATE" }}
+                {{ lane.plate.confirmedPlate || "CHƯA CÓ BIỂN" }}
               </div>
             </div>
 
@@ -220,7 +220,7 @@
                   class="evidence-image"
                   alt="Plate Crop"
                 />
-                <div v-else class="evidence-empty">Plate Crop</div>
+                <div v-else class="evidence-empty">Ảnh crop biển</div>
               </div>
 
               <div class="evidence-box">
@@ -230,7 +230,7 @@
                   class="evidence-image"
                   alt="Plate Snapshot"
                 />
-                <div v-else class="evidence-empty">Plate Snapshot</div>
+                <div v-else class="evidence-empty">Ảnh chụp biển</div>
               </div>
             </div>
           </div>
@@ -238,7 +238,7 @@
 
         <div class="bottom-note">
           <span><b>Face Msg:</b> {{ lane.face.message || "-----" }}</span>
-          <span><b>Plate Msg:</b> {{ lane.plate.message || "-----" }}</span>
+          <span><b>Biển Msg:</b> {{ lane.plate.message || "-----" }}</span>
         </div>
       </section>
     </div>
@@ -337,8 +337,8 @@ export default {
         {
           id: "lane1",
           laneId: "lane-1",
-          accessLaneId: 1,
-          gateId: 1,
+          accessLaneId: 131,
+          gateId: 1177,
           direction: "IN",
           faceCameraId: "lane-1-face",
           name: "Làn 1",
@@ -352,8 +352,8 @@ export default {
         {
           id: "lane2",
           laneId: "lane-2",
-          accessLaneId: 2,
-          gateId: 1,
+          accessLaneId: 132,
+          gateId: 1177,
           direction: "OUT",
           faceCameraId: "lane-2-face",
           name: "Làn 2",

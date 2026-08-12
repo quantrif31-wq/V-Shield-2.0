@@ -96,6 +96,7 @@ export default {
   props: {
     visible: { type: Boolean, default: false },
     actionLabel: { type: String, default: '' },
+    action: { type: String, default: 'AllPrivilegedActions' },
     actionDescription: { type: String, default: '' },
     severity: {
       type: String,
@@ -158,7 +159,7 @@ export default {
       this.loading = true
       this.error = ''
       try {
-        const res = await enterpriseApi.stepUpStart(this.actionLabel, this.reason.trim())
+        const res = await enterpriseApi.stepUpStart(this.action, this.reason.trim())
         this.stepUpSessionId = res.data?.sessionId
         this.requireMfaCode = this.requireMfa || res.data?.requiresMfa
         this.stepUpStarted = true

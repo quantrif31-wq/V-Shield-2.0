@@ -198,20 +198,26 @@ function resolveTab(rawTab) {
 .page-subtitle { margin-top: 0.35rem; color: var(--text-secondary); }
 .tab-shell { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0 1.25rem; }
 .tab-pill {
-    border: 1px solid var(--border-color, #d7dce5);
-    background: var(--surface-1, #fff);
-    color: var(--text-primary, #16202a);
+    border: 1px solid var(--border-default);
+    background: var(--surface-default);
+    color: var(--text-primary);
     border-radius: 999px;
     padding: 0.7rem 1rem;
     font-weight: 600;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+.tab-pill:hover:not(.active) {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
 }
 .tab-pill.active {
-    background: var(--primary, #0f766e);
-    color: #fff;
-    border-color: var(--primary, #0f766e);
+    background: var(--accent-primary);
+    color: var(--text-on-interactive);
+    border-color: var(--accent-primary);
 }
 .summary-card { text-align: center; padding: 1.5rem; }
-.summary-value { font-size: 2.2rem; font-weight: 700; color: var(--primary); }
+.summary-value { font-size: 2.2rem; font-weight: 700; color: var(--accent-primary); }
 .summary-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
 .text-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .embedded-page :deep(.page-container) { padding: 0; }

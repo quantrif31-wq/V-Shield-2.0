@@ -6,6 +6,12 @@
                 <h1 class="page-title">Phòng ban & Chức vụ</h1>
                 <p class="page-subtitle">Cấu trúc tổ chức và danh mục hệ thống</p>
             </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" @click="showDeptImport = true">Nhập phòng ban</button>
+                <button class="btn btn-secondary btn-sm" @click="showDeptExport = true">Xuất phòng ban</button>
+                <button class="btn btn-secondary btn-sm" @click="showPosImport = true">Nhập chức vụ</button>
+                <button class="btn btn-secondary btn-sm" @click="showPosExport = true">Xuất chức vụ</button>
+            </div>
         </header>
 
         <!-- Two Column Layout using Bento Grid -->
@@ -119,6 +125,11 @@
                                 </td>
                                 <td>
                                     <div class="action-menu">
+                                        <button class="icon-btn" @click="goToRolePermissions(pos)" title="Cấu hình khu vực theo vai trò"><svg
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M19 11H5a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2z" />
+                                                <path d="M7 11V7a5 5 0 0110 0v4" />
+                                            </svg></button>
                                         <button class="icon-btn" @click="openPosModal(pos)" title="Sửa"><svg
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
@@ -179,10 +190,13 @@
                             </svg></button>
                     </div>
                     <form @submit.prevent="handleDeptSubmit" class="modal-body">
-                        <div class="input-pane mb-4">
+                        <div class="input-pane mb-4" :class="{ 'has-error': deptErrors.name }">
                             <label>Tên phòng ban <span class="req">*</span></label>
                             <input v-model="deptForm.name" type="text" class="sleek-input"
-                                placeholder="Ví dụ: Phòng Nhân sự" required maxlength="100" />
+                                :class="{ 'input-error': deptErrors.name }"
+                                placeholder="Ví dụ: Phòng Nhân sự" required maxlength="100"
+                                @input="deptErrors.name = ''" />
+                            <p v-if="deptErrors.name" class="field-error" role="alert">{{ deptErrors.name }}</p>
                         </div>
                         <div v-if="modalError" class="error-box mb-4"><svg viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2">
@@ -215,10 +229,13 @@
                             </svg></button>
                     </div>
                     <form @submit.prevent="handlePosSubmit" class="modal-body">
-                        <div class="input-pane mb-4">
+                        <div class="input-pane mb-4" :class="{ 'has-error': posErrors.name }">
                             <label>Tên chức vụ <span class="req">*</span></label>
                             <input v-model="posForm.name" type="text" class="sleek-input"
-                                placeholder="Ví dụ: Trưởng phòng" required maxlength="100" />
+                                :class="{ 'input-error': posErrors.name }"
+                                placeholder="Ví dụ: Trưởng phòng" required maxlength="100"
+                                @input="posErrors.name = ''" />
+                            <p v-if="posErrors.name" class="field-error" role="alert">{{ posErrors.name }}</p>
                         </div>
                         <div v-if="modalError" class="error-box mb-4"><svg viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2">
@@ -266,15 +283,29 @@
                 </div>
             </div>
         </transition>
+
+        <ImportModal v-if="showDeptImport" entity-type="Department" entity-display-name="Phòng ban" @close="showDeptImport = false" @import-complete="onDeptImportComplete" />
+        <ExportModal v-if="showDeptExport" entity-type="Department" entity-display-name="Phòng ban" :available-columns="['DepartmentId','Name']" @close="showDeptExport = false" />
+        <ImportModal v-if="showPosImport" entity-type="Position" entity-display-name="Chức vụ" @close="showPosImport = false" @import-complete="onPosImportComplete" />
+        <ExportModal v-if="showPosExport" entity-type="Position" entity-display-name="Chức vụ" :available-columns="['PositionId','Name']" @close="showPosExport = false" />
     </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
     getDepartments, createDepartment, updateDepartment, deleteDepartment,
     getPositions, createPosition, updatePosition, deletePosition
 } from '../services/lookupApi'
+import ImportModal from '../components/import-export/ImportModal.vue'
+import ExportModal from '../components/import-export/ExportModal.vue'
+
+const router = useRouter()
+
+function goToRolePermissions(position) {
+    router.push({ name: 'RolePermissions' })
+}
 
 const departments = ref([])
 const positions = ref([])
@@ -285,6 +316,10 @@ const posLoading = ref(true)
 const showDeptModal = ref(false)
 const showPosModal = ref(false)
 const showDeleteModal = ref(false)
+const showDeptImport = ref(false)
+const showDeptExport = ref(false)
+const showPosImport = ref(false)
+const showPosExport = ref(false)
 const editingDept = ref(null)
 const editingPos = ref(null)
 const deleteTarget = ref(null)
@@ -294,6 +329,8 @@ const modalError = ref('')
 
 const deptForm = reactive({ name: '' })
 const posForm = reactive({ name: '' })
+const deptErrors = reactive({ name: '' })
+const posErrors = reactive({ name: '' })
 
 // Toast
 const toast = ref(null)
@@ -323,10 +360,25 @@ async function fetchPositions() {
     finally { posLoading.value = false }
 }
 
+function onDeptImportComplete(result) {
+    showDeptImport.value = false
+    fetchDepartments()
+    const message = `${result.successCount} bản ghi thành công${result.errorCount ? `, ${result.errorCount} lỗi` : ''}`
+    showToast(message, result.errorCount ? 'error' : 'success')
+}
+
+function onPosImportComplete(result) {
+    showPosImport.value = false
+    fetchPositions()
+    const message = `${result.successCount} bản ghi thành công${result.errorCount ? `, ${result.errorCount} lỗi` : ''}`
+    showToast(message, result.errorCount ? 'error' : 'success')
+}
+
 // Department CRUD
 function openDeptModal(dept = null) {
     editingDept.value = dept
     modalError.value = ''
+    deptErrors.name = ''
     deptForm.name = dept ? dept.name : ''
     showDeptModal.value = true
 }
@@ -334,6 +386,11 @@ function openDeptModal(dept = null) {
 async function handleDeptSubmit() {
     saving.value = true
     modalError.value = ''
+    deptErrors.name = deptForm.name.trim() ? '' : 'Vui lòng nhập tên phòng ban.'
+    if (deptErrors.name) {
+        saving.value = false
+        return
+    }
     try {
         if (editingDept.value) {
             await updateDepartment(editingDept.value.departmentId, { name: deptForm.name })
@@ -360,6 +417,7 @@ function confirmDeleteDept(dept) {
 function openPosModal(pos = null) {
     editingPos.value = pos
     modalError.value = ''
+    posErrors.name = ''
     posForm.name = pos ? pos.name : ''
     showPosModal.value = true
 }
@@ -367,6 +425,11 @@ function openPosModal(pos = null) {
 async function handlePosSubmit() {
     saving.value = true
     modalError.value = ''
+    posErrors.name = posForm.name.trim() ? '' : 'Vui lòng nhập tên chức vụ.'
+    if (posErrors.name) {
+        saving.value = false
+        return
+    }
     try {
         if (editingPos.value) {
             await updatePosition(editingPos.value.positionId, { name: posForm.name })

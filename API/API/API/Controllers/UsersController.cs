@@ -34,7 +34,12 @@ public class UsersController : ControllerBase
     {
         var users = await _context.AppUsers
             .OrderBy(u => u.UserId)
-            .Select(u => new UserResponse
+            .ToListAsync();
+
+        var result = new List<UserResponse>();
+        foreach (var u in users)
+        {
+            result.Add(new UserResponse
             {
                 UserId = u.UserId,
                 Username = u.Username,
@@ -44,18 +49,15 @@ public class UsersController : ControllerBase
                 CreatedAt = u.CreatedAt,
                 EmployeeId = u.EmployeeId,
                 MfaEnabled = u.MfaEnabled,
-                MfaRequired = u.Role == "Admin" || u.Role == "BaoVe",
-                LastLoginAtUtc = u.LastLoginAtUtc
-            })
-            .ToListAsync();
-
-        foreach (var user in users)
-        {
-            user.HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId);
-            user.OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role);
+                MfaRequired = _authService.RequiresMfa(u),
+                RequiresPasswordChange = _authService.RequiresPasswordChange(u),
+                LastLoginAtUtc = u.LastLoginAtUtc,
+                HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(u.UserId),
+                OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(u.UserId, u.Role)
+            });
         }
 
-        return Ok(users);
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
@@ -76,6 +78,7 @@ public class UsersController : ControllerBase
             EmployeeId = user.EmployeeId,
             MfaEnabled = user.MfaEnabled,
             MfaRequired = _authService.RequiresMfa(user),
+            RequiresPasswordChange = _authService.RequiresPasswordChange(user),
             LastLoginAtUtc = user.LastLoginAtUtc,
             HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId),
             OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role)
@@ -203,6 +206,7 @@ public class UsersController : ControllerBase
             EmployeeId = user.EmployeeId,
             MfaEnabled = user.MfaEnabled,
             MfaRequired = _authService.RequiresMfa(user),
+            RequiresPasswordChange = _authService.RequiresPasswordChange(user),
             LastLoginAtUtc = user.LastLoginAtUtc,
             HasOperationalScopeAssignments = await _scopeService.HasScopedAssignmentsAsync(user.UserId),
             OperationalTaskKeys = await _scopeService.GetEffectiveTaskKeysAsync(user.UserId, user.Role)
@@ -287,6 +291,172 @@ public class UsersController : ControllerBase
                 : "Da cap nhat ma tran quyen theo vai tro.",
             count = request.Count
         });
+    }
+
+    [HttpGet("gate-access-reference")]
+    public async Task<IActionResult> GetGateAccessReference()
+    {
+        var gates = await _context.Gates
+            .AsNoTracking()
+            .OrderBy(item => item.GateName)
+            .Select(item => new { item.GateId, item.GateName, item.Location })
+            .ToListAsync();
+
+        var rows = await _context.RoleGateAccessPermissions
+            .AsNoTracking()
+            .ToListAsync();
+
+        var gatesByRole = UserOperationalScopeService.SupportedRoles.ToDictionary(
+            role => role,
+            role => rows
+                .Where(row => string.Equals(row.Role, role, StringComparison.OrdinalIgnoreCase) && row.IsAllowed)
+                .Select(row => row.GateId)
+                .Distinct()
+                .ToList());
+
+        return Ok(new { gates, gatesByRole });
+    }
+
+    [HttpPut("gate-access/roles")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
+    public async Task<IActionResult> ReplaceRoleGatePermissions([FromBody] List<RoleGatePermissionUpsertRequest>? request)
+    {
+        request ??= [];
+        foreach (var item in request)
+        {
+            if (string.IsNullOrWhiteSpace(item.Role) || !SupportedRoles.Contains(item.Role))
+                return BadRequest(new { message = $"Role '{item.Role}' khong hop le." });
+        }
+
+        var gateIds = request.Select(item => item.GateId).Distinct().ToList();
+        if (gateIds.Count > 0 && await _context.Gates.CountAsync(gate => gateIds.Contains(gate.GateId)) != gateIds.Count)
+            return BadRequest(new { message = "Co Gate khong ton tai." });
+
+        var existing = await _context.RoleGateAccessPermissions.ToListAsync();
+        _context.RoleGateAccessPermissions.RemoveRange(existing);
+
+        var rows = request
+            .GroupBy(item => (item.Role.Trim(), item.GateId))
+            .Select(group => group.Last())
+            .Select(item => new RoleGateAccessPermission
+            {
+                Role = item.Role.Trim(),
+                GateId = item.GateId,
+                IsAllowed = item.IsAllowed,
+                CreatedAt = DateTime.Now
+            })
+            .ToList();
+
+        if (rows.Count > 0)
+            _context.RoleGateAccessPermissions.AddRange(rows);
+
+        await _context.SaveChangesAsync();
+        return Ok(new
+        {
+            message = request.Count == 0
+                ? "Da khoi phuc quyen qua cong mac dinh theo vai tro."
+                : "Da cap nhat quyen qua cong theo vai tro.",
+            count = request.Count
+        });
+    }
+
+    [HttpGet("{id:int}/gate-access")]
+    public async Task<IActionResult> GetUserGateAccess(int id)
+    {
+        var user = await _context.AppUsers.AsNoTracking().FirstOrDefaultAsync(item => item.UserId == id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        var roleRows = await _context.RoleGateAccessPermissions
+            .AsNoTracking()
+            .Where(row => row.Role == user.Role)
+            .ToListAsync();
+        var roleAllowed = roleRows
+            .Where(row => row.IsAllowed)
+            .Select(row => row.GateId)
+            .ToHashSet();
+
+        var userRows = await _context.UserGateAccessPermissions
+            .AsNoTracking()
+            .Where(row => row.UserId == id)
+            .ToListAsync();
+        var userOverrides = userRows.ToDictionary(row => row.GateId);
+
+        var gates = await _context.Gates
+            .AsNoTracking()
+            .OrderBy(item => item.GateName)
+            .ToListAsync();
+
+        var isAdmin = string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+        var items = gates.Select(gate =>
+        {
+            var defaultAllowed = isAdmin || roleAllowed.Contains(gate.GateId);
+            var hasOverride = userOverrides.TryGetValue(gate.GateId, out var overrideRow);
+            var accessMode = !hasOverride ? "inherit" : overrideRow!.IsAllowed ? "allow" : "deny";
+            var effectiveAllowed = isAdmin || accessMode == "allow" || (accessMode == "inherit" && defaultAllowed);
+            return new
+            {
+                gate.GateId,
+                gate.GateName,
+                gate.Location,
+                defaultAllowed,
+                accessMode,
+                effectiveAllowed
+            };
+        }).ToList();
+
+        return Ok(new
+        {
+            userId = user.UserId,
+            role = user.Role,
+            gates = items,
+            effectiveGateIds = items.Where(item => item.effectiveAllowed).Select(item => item.GateId).ToList()
+        });
+    }
+
+    [HttpPut("{id:int}/gate-access")]
+    [RequireStepUp(PrivilegedActions.UserAdministration)]
+    public async Task<IActionResult> ReplaceUserGateAccess(int id, [FromBody] List<UserGateAccessUpsertRequest>? request)
+    {
+        var user = await _context.AppUsers.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = $"Khong tim thay tai khoan ID {id}" });
+
+        request ??= [];
+        foreach (var item in request)
+        {
+            if (item.AccessMode != "inherit" && item.AccessMode != "allow" && item.AccessMode != "deny")
+                return BadRequest(new { message = $"AccessMode '{item.AccessMode}' khong hop le (inherit|allow|deny)." });
+        }
+
+        var gateIds = request.Select(item => item.GateId).Distinct().ToList();
+        if (gateIds.Count > 0 && await _context.Gates.CountAsync(gate => gateIds.Contains(gate.GateId)) != gateIds.Count)
+            return BadRequest(new { message = "Co Gate khong ton tai." });
+
+        var existing = await _context.UserGateAccessPermissions
+            .Where(row => row.UserId == id)
+            .ToListAsync();
+        _context.UserGateAccessPermissions.RemoveRange(existing);
+
+        var rows = request
+            .Where(item => item.AccessMode != "inherit")
+            .GroupBy(item => item.GateId)
+            .Select(group => group.Last())
+            .Select(item => new UserGateAccessPermission
+            {
+                UserId = id,
+                GateId = item.GateId,
+                IsAllowed = item.AccessMode == "allow",
+                CreatedAt = DateTime.Now
+            })
+            .ToList();
+
+        if (rows.Count > 0)
+            _context.UserGateAccessPermissions.AddRange(rows);
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Da cap nhat quyen qua cong rieng cho tai khoan.", count = rows.Count });
     }
 
     [HttpGet("{id:int}/operational-scopes")]
@@ -410,6 +580,19 @@ public class UsersController : ControllerBase
         public string Role { get; set; } = string.Empty;
         public string TaskKey { get; set; } = string.Empty;
         public bool IsAllowed { get; set; }
+    }
+
+    public sealed class RoleGatePermissionUpsertRequest
+    {
+        public string Role { get; set; } = string.Empty;
+        public int GateId { get; set; }
+        public bool IsAllowed { get; set; } = true;
+    }
+
+    public sealed class UserGateAccessUpsertRequest
+    {
+        public int GateId { get; set; }
+        public string AccessMode { get; set; } = "inherit";
     }
 
     [HttpPost("{id}/mfa/reset")]

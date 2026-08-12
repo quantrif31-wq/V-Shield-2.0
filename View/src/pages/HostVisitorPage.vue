@@ -2,24 +2,24 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Host Portal</span>
-                <h1 class="page-title">Invite a Visitor</h1>
+                <span class="panel-kicker">Cổng chủ nhà</span>
+                <h1 class="page-title">Mời khách đến thăm</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" @click="showForm = true" v-if="!showForm">New Invitation</button>
-                <button class="btn btn-secondary" @click="showFormTemplates = true">Forms</button>
+                <button class="btn btn-primary" @click="showForm = true" v-if="!showForm">Lời mời mới</button>
+                <button class="btn btn-secondary" @click="showFormTemplates = true">Biểu mẫu</button>
             </div>
         </div>
 
         <section v-if="showForm" class="ops-panel">
-            <h2 class="panel-title">Create Visitor Invitation</h2>
+            <h2 class="panel-title">Tạo lời mời khách</h2>
             <div class="form-group">
-                <label>Visitor Name *</label>
-                <input v-model="form.name" type="text" class="form-control" placeholder="Full name" />
+                <label>Tên khách *</label>
+                <input v-model="form.name" type="text" class="form-control" placeholder="Họ và tên" />
             </div>
             <div class="form-row two">
                 <div class="form-group">
-                    <label>Phone</label>
+                    <label>Số điện thoại</label>
                     <input v-model="form.phone" type="text" class="form-control" />
                 </div>
                 <div class="form-group">
@@ -29,35 +29,35 @@
             </div>
             <div class="form-row two">
                 <div class="form-group">
-                    <label>Expected Date/Time In *</label>
+                    <label>Ngày/giờ đến dự kiến *</label>
                     <input v-model="form.expectedIn" type="datetime-local" class="form-control" />
                 </div>
                 <div class="form-group">
-                    <label>Expected Date/Time Out *</label>
+                    <label>Ngày/giờ rời đi dự kiến *</label>
                     <input v-model="form.expectedOut" type="datetime-local" class="form-control" />
                 </div>
             </div>
             <div class="form-group">
-                <label>Site</label>
+                <label>Khu vực</label>
                 <select v-model="form.siteId" class="form-control">
-                    <option :value="null">— Select site —</option>
+                    <option :value="null">— Chọn khu vực —</option>
                     <option v-for="s in sites" :key="s.siteId" :value="s.siteId">{{ s.name }}</option>
                 </select>
             </div>
             <div class="form-row two">
-                <label class="checkbox-label"><input v-model="form.ndaRequired" type="checkbox" /> NDA required</label>
-                <label class="checkbox-label"><input v-model="form.escortRequired" type="checkbox" /> Escort required</label>
-                <label class="checkbox-label"><input v-model="form.safetyBriefingRequired" type="checkbox" /> Safety briefing</label>
-                <label class="checkbox-label"><input v-model="form.parkingRequired" type="checkbox" /> Parking permit</label>
+                <label class="checkbox-label"><input v-model="form.ndaRequired" type="checkbox" /> Yêu cầu NDA</label>
+                <label class="checkbox-label"><input v-model="form.escortRequired" type="checkbox" /> Yêu cầu hộ tống</label>
+                <label class="checkbox-label"><input v-model="form.safetyBriefingRequired" type="checkbox" /> Phổ biến an toàn</label>
+                <label class="checkbox-label"><input v-model="form.parkingRequired" type="checkbox" /> Giấy phép đỗ xe</label>
             </div>
             <div v-if="form.parkingRequired" class="form-group">
-                <label>Vehicle Plate</label>
-                <input v-model="form.plateNumber" type="text" class="form-control" placeholder="e.g. 29A-12345" />
+                <label>Biển số xe</label>
+                <input v-model="form.plateNumber" type="text" class="form-control" placeholder="vd. 29A-12345" />
             </div>
             <div v-if="formExtra.ndaTemplate" class="form-group">
-                <label>Attach NDA Template</label>
+                <label>Đính kèm mẫu NDA</label>
                 <select v-model="formExtra.selectedNdaTemplateId" class="form-control">
-                    <option :value="null">— None —</option>
+                    <option :value="null">— Không —</option>
                     <option v-for="ft in formTemplates" :key="ft.formTemplateId || ft.id" :value="ft.formTemplateId || ft.id">
                         {{ ft.templateName || ft.name }}
                     </option>
@@ -66,29 +66,29 @@
             <div v-if="formError" class="alert alert-danger">{{ formError }}</div>
             <div v-if="formSuccess" class="alert alert-success">{{ formSuccess }}</div>
             <div class="chip-row">
-                <button class="btn btn-secondary" @click="showForm = false">Cancel</button>
-                <button class="btn btn-primary" :disabled="saving" @click="submitInvitation">{{ saving ? 'Sending...' : 'Send Invitation' }}</button>
+                <button class="btn btn-secondary" @click="showForm = false">Hủy</button>
+                <button class="btn btn-primary" :disabled="saving" @click="submitInvitation">{{ saving ? 'Đang gửi...' : 'Gửi lời mời' }}</button>
             </div>
         </section>
 
         <section class="ops-panel" style="margin-top: 1rem;">
             <div class="panel-head">
-                <h2 class="panel-title">My Invitations</h2>
+                <h2 class="panel-title">Lời mời của tôi</h2>
             </div>
             <div class="toolbar-shell">
                 <div class="search-bar">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                     </svg>
-                    <input v-model="searchQuery" type="text" placeholder="Search visitor..." />
+                    <input v-model="searchQuery" type="text" placeholder="Tìm khách..." />
                 </div>
             </div>
-            <div v-if="loading" class="empty-card">Loading...</div>
-            <div v-else-if="filteredInvitations.length === 0" class="empty-card">No invitations yet.</div>
+            <div v-if="loading" class="empty-card">Đang tải...</div>
+            <div v-else-if="filteredInvitations.length === 0" class="empty-card">Chưa có lời mời nào.</div>
             <div v-else class="table-container">
                 <table class="data-table">
                     <thead>
-                        <tr><th>Visitor</th><th>Phone</th><th>Time</th><th>Status</th><th>Actions</th></tr>
+                        <tr><th>Khách</th><th>SĐT</th><th>Thời gian</th><th>Trạng thái</th><th>Thao tác</th></tr>
                     </thead>
                     <tbody>
                         <tr v-for="v in filteredInvitations" :key="v.visitId">
@@ -98,9 +98,9 @@
                             <td><span class="soft-chip" :class="statusClass(v.status)">{{ v.status }}</span></td>
                             <td>
                                 <div class="chip-row">
-                                    <button v-if="v.status === 'Approved' || v.status === 'Invited'" class="btn btn-sm btn-primary" @click="issueCredential(v)">Issue QR</button>
-                                    <button v-if="v.status === 'Approved' || v.status === 'CheckedIn'" class="btn btn-sm btn-secondary" @click="openParkingForm(v)">Parking</button>
-                                    <button class="btn btn-sm btn-ghost" @click="viewDetail(v)">Detail</button>
+                                    <button v-if="v.status === 'Approved' || v.status === 'Invited'" class="btn btn-sm btn-primary" @click="issueCredential(v)">Cấp QR</button>
+                                    <button v-if="v.status === 'Approved' || v.status === 'CheckedIn'" class="btn btn-sm btn-secondary" @click="openParkingForm(v)">Đỗ xe</button>
+                                    <button class="btn btn-sm btn-ghost" @click="viewDetail(v)">Chi tiết</button>
                                 </div>
                             </td>
                         </tr>
@@ -113,26 +113,26 @@
             <div v-if="credentialVisit" class="modal-overlay" @click.self="credentialVisit = null">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Issue Visitor Credential</h2>
+                        <h2>Cấp thẻ truy cập khách</h2>
                         <button class="btn-close" @click="credentialVisit = null">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <p>Issue a QR credential for <strong>{{ credentialVisit.visitorName }}</strong></p>
+                        <p>Cấp thẻ QR cho <strong>{{ credentialVisit.visitorName }}</strong></p>
                         <div class="form-row two">
                             <div class="form-group">
-                                <label>Valid From</label>
+                                <label>Có hiệu lực từ</label>
                                 <input v-model="credFrom" type="datetime-local" class="form-control" />
                             </div>
                             <div class="form-group">
-                                <label>Valid To</label>
+                                <label>Đến</label>
                                 <input v-model="credTo" type="datetime-local" class="form-control" />
                             </div>
                         </div>
-                        <div v-if="credSuccess" class="alert alert-success">Credential issued! Reference: {{ credSuccess }}</div>
+                        <div v-if="credSuccess" class="alert alert-success">Đã cấp thẻ! Tham chiếu: {{ credSuccess }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="credentialVisit = null">Close</button>
-                        <button class="btn btn-primary" :disabled="saving" @click="submitCredential">{{ saving ? 'Issuing...' : 'Issue' }}</button>
+                        <button class="btn btn-secondary" @click="credentialVisit = null">Đóng</button>
+                        <button class="btn btn-primary" :disabled="saving" @click="submitCredential">{{ saving ? 'Đang cấp...' : 'Cấp thẻ' }}</button>
                     </div>
                 </div>
             </div>
@@ -141,38 +141,38 @@
             <div v-if="parkingTarget" class="modal-overlay" @click.self="parkingTarget = null">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Parking Permit — {{ parkingTarget.visitorName }}</h2>
+                        <h2>Giấy phép đỗ xe — {{ parkingTarget.visitorName }}</h2>
                         <button class="btn-close" @click="parkingTarget = null">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label>Parking Area</label>
+                            <label>Khu đỗ xe</label>
                             <select v-model="parkingForm.areaId" class="form-control">
-                                <option :value="null">— Select —</option>
+                                <option :value="null">— Chọn —</option>
                                 <option v-for="pa in parkingAreas" :key="pa.parkingAreaId || pa.id" :value="pa.parkingAreaId || pa.id">{{ pa.name }}</option>
                             </select>
                         </div>
                         <div class="form-row two">
                             <div class="form-group">
-                                <label>From</label>
+                                <label>Từ</label>
                                 <input v-model="parkingForm.from" type="datetime-local" class="form-control" />
                             </div>
                             <div class="form-group">
-                                <label>To</label>
+                                <label>Đến</label>
                                 <input v-model="parkingForm.to" type="datetime-local" class="form-control" />
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Plate Number</label>
-                            <input v-model="parkingForm.plate" type="text" class="form-control" placeholder="e.g. 29A-12345" />
+                            <label>Biển số xe</label>
+                            <input v-model="parkingForm.plate" type="text" class="form-control" placeholder="vd. 29A-12345" />
                         </div>
                         <div v-if="parkingError" class="alert alert-danger">{{ parkingError }}</div>
                         <div v-if="parkingDone" class="alert alert-success">{{ parkingDone }}</div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="parkingTarget = null">Close</button>
+                        <button class="btn btn-secondary" @click="parkingTarget = null">Đóng</button>
                         <button class="btn btn-primary" :disabled="parkingSaving || !parkingForm.areaId" @click="submitParking">
-                            {{ parkingSaving ? 'Issuing...' : 'Issue Permit' }}
+                            {{ parkingSaving ? 'Đang cấp...' : 'Cấp giấy phép' }}
                         </button>
                     </div>
                 </div>
@@ -182,18 +182,18 @@
             <div v-if="showFormTemplates" class="modal-overlay" @click.self="showFormTemplates = false">
                 <div class="modal-panel">
                     <div class="modal-header">
-                        <h2>Form Templates</h2>
+                        <h2>Biểu mẫu</h2>
                         <button class="btn-close" @click="showFormTemplates = false">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <div v-if="formTemplates.length === 0" class="empty-card">No form templates available.</div>
+                        <div v-if="formTemplates.length === 0" class="empty-card">Chưa có biểu mẫu nào.</div>
                         <div v-for="ft in formTemplates" :key="ft.formTemplateId || ft.id" class="template-card">
                             <div><strong>{{ ft.templateName || ft.name }}</strong></div>
                             <div class="text-muted">{{ ft.description || ft.category || '' }}</div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showFormTemplates = false">Close</button>
+                        <button class="btn btn-secondary" @click="showFormTemplates = false">Đóng</button>
                     </div>
                 </div>
             </div>
@@ -288,8 +288,8 @@ async function loadData() {
 }
 
 async function submitInvitation() {
-    if (!form.value.name) { formError.value = 'Visitor name is required.'; return }
-    if (!form.value.expectedIn || !form.value.expectedOut) { formError.value = 'Expected time is required.'; return }
+    if (!form.value.name) { formError.value = 'Tên khách là bắt buộc.'; return }
+    if (!form.value.expectedIn || !form.value.expectedOut) { formError.value = 'Thời gian dự kiến là bắt buộc.'; return }
     formError.value = ''
     formSuccess.value = ''
     saving.value = true
@@ -328,7 +328,7 @@ async function submitInvitation() {
                 })
             } catch (_) {}
         }
-        formSuccess.value = `Invitation sent to ${form.value.name}!`
+        formSuccess.value = `Đã gửi lời mời tới ${form.value.name}!`
         form.value = { name: '', phone: '', email: '', expectedIn: '', expectedOut: '', siteId: null, ndaRequired: false, escortRequired: false, safetyBriefingRequired: false, parkingRequired: false, plateNumber: '' }
         formExtra.value = { selectedNdaTemplateId: null, ndaTemplate: false }
         showForm.value = false
@@ -341,7 +341,7 @@ async function submitInvitation() {
 }
 
 function viewDetail(v) {
-    alert(`Visitor: ${v.visitorName}\nStatus: ${v.status}\nTime: ${formatDate(v.expectedInUtc)} → ${formatDate(v.expectedOutUtc)}`)
+    alert(`Khách: ${v.visitorName}\nTrạng thái: ${v.status}\nThời gian: ${formatDate(v.expectedInUtc)} → ${formatDate(v.expectedOutUtc)}`)
 }
 
 function issueCredential(v) {
@@ -364,7 +364,7 @@ async function submitCredential() {
         })
         credSuccess.value = res.data?.credentialReference || 'issued'
     } catch (e) {
-        alert('Failed: ' + (e.response?.data?.message || e.message))
+        alert('Thất bại: ' + (e.response?.data?.message || e.message))
     } finally {
         saving.value = false
     }
@@ -399,7 +399,7 @@ async function submitParking() {
             validToUtc: to,
             plateNumber: parkingForm.value.plate || null,
         })
-        parkingDone.value = 'Parking permit issued!'
+        parkingDone.value = 'Đã cấp giấy phép đỗ xe!'
     } catch (e) {
         parkingError.value = e.response?.data?.message || e.message
     } finally {
@@ -413,7 +413,7 @@ onMounted(loadData)
 <style scoped>
 .template-card {
     padding: 10px 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     margin-bottom: 8px;
 }

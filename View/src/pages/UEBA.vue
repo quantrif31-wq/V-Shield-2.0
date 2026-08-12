@@ -156,7 +156,7 @@
                         <option value="">Tất cả trạng thái</option>
                         <option value="Open">Mở</option>
                         <option value="Resolved">Đã xử lý</option>
-                        <option value="FalsePositive">False positive</option>
+                        <option value="FalsePositive">Sai dương (False positive)</option>
                     </select>
                     <button class="btn btn-primary" @click="loadAnomalies">Tải</button>
                 </div>
@@ -410,12 +410,12 @@ onMounted(async () => {
 .risk-item {
     padding: 10px 12px;
     border-radius: 12px;
-    border: 1px solid rgba(24, 49, 77, 0.06);
-    background: rgba(236, 244, 246, 0.4);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
 }
 
-.risk-item.high { border-color: rgba(200, 50, 50, 0.2); }
-.risk-item.medium { border-color: rgba(216, 155, 55, 0.2); }
+.risk-item.high { border-color: var(--status-danger-border); }
+.risk-item.medium { border-color: var(--status-warning-border); }
 
 .risk-head {
     display: flex;
@@ -433,9 +433,9 @@ onMounted(async () => {
     border-radius: 10px;
 }
 
-.risk-score.high { background: rgba(200, 50, 50, 0.12); color: #c83232; }
-.risk-score.medium { background: rgba(216, 155, 55, 0.12); color: #b86f21; }
-.risk-score.low { background: rgba(84, 196, 211, 0.1); color: var(--accent-primary); }
+.risk-score.high { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.risk-score.medium { background: var(--status-warning-bg); color: var(--accent-warning); }
+.risk-score.low { background: var(--status-info-bg); color: var(--accent-primary); }
 
 .risk-meta {
     display: flex;
@@ -466,12 +466,12 @@ onMounted(async () => {
 .anomaly-card {
     padding: 14px;
     border-radius: 16px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.5);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
 }
 
-.anomaly-card.cao { border-color: rgba(200, 50, 50, 0.3); background: rgba(200, 50, 50, 0.04); }
-.anomaly-card.trung-binh { border-color: rgba(216, 155, 55, 0.25); background: rgba(216, 155, 55, 0.04); }
+.anomaly-card.cao { border-color: var(--status-danger-border); background: var(--status-danger-bg); }
+.anomaly-card.trung-binh { border-color: var(--status-warning-border); background: var(--status-warning-bg); }
 
 .anomaly-head {
     display: flex;
@@ -486,17 +486,17 @@ onMounted(async () => {
     font-weight: 700;
     padding: 2px 10px;
     border-radius: 20px;
-    background: rgba(84, 196, 211, 0.1);
+    background: var(--status-info-bg);
     color: var(--accent-primary);
 }
 
-.anomaly-type-badge.cao { background: rgba(200, 50, 50, 0.1); color: #c83232; }
-.anomaly-type-badge.trung-binh { background: rgba(216, 155, 55, 0.1); color: #b86f21; }
+.anomaly-type-badge.cao { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.anomaly-type-badge.trung-binh { background: var(--status-warning-bg); color: var(--accent-warning); }
 
 .anomaly-severity { font-size: 0.68rem; padding: 1px 8px; border-radius: 12px; }
-.anomaly-severity.cao { background: rgba(200, 50, 50, 0.12); color: #c83232; }
-.anomaly-severity.trung-binh { background: rgba(216, 155, 55, 0.12); color: #b86f21; }
-.anomaly-severity.thap { background: rgba(24, 49, 77, 0.06); color: var(--text-muted); }
+.anomaly-severity.cao { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.anomaly-severity.trung-binh { background: var(--status-warning-bg); color: var(--accent-warning); }
+.anomaly-severity.thap { background: var(--status-neutral-bg); color: var(--text-muted); }
 
 .anomaly-status {
     font-size: 0.68rem;
@@ -505,9 +505,9 @@ onMounted(async () => {
     border-radius: 12px;
 }
 
-.anomaly-status.Open { background: rgba(84, 196, 211, 0.1); color: var(--accent-primary); }
-.anomaly-status.Resolved { background: rgba(20, 134, 109, 0.1); color: var(--accent-success); }
-.anomaly-status.FalsePositive { background: rgba(24, 49, 77, 0.08); color: var(--text-secondary); }
+.anomaly-status.Open { background: var(--status-info-bg); color: var(--accent-primary); }
+.anomaly-status.Resolved { background: var(--status-success-bg); color: var(--accent-success); }
+.anomaly-status.FalsePositive { background: var(--status-neutral-bg); color: var(--text-muted); }
 
 .anomaly-desc {
     font-size: 0.88rem;
@@ -536,4 +536,7 @@ onMounted(async () => {
     gap: 8px;
     margin-top: 10px;
 }
+
+.btn-ghost { transition: background var(--transition-fast); }
+.btn-ghost:hover:not(:disabled) { background: var(--surface-hover); }
 </style>

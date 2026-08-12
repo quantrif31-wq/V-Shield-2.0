@@ -16,6 +16,22 @@ public class LoginResponse
     public string? MfaSetupSecret { get; set; }
     public string? MfaSetupUri { get; set; }
     public string? Message { get; set; }
+    public bool RequiresPasswordChange { get; set; }
     public bool HasOperationalScopeAssignments { get; set; }
     public List<string> OperationalTaskKeys { get; set; } = new();
+}
+
+public class ChangePasswordRequest
+{
+    [System.ComponentModel.DataAnnotations.Required]
+    public string CurrentPassword { get; set; } = null!;
+
+    [System.ComponentModel.DataAnnotations.Required]
+    public string NewPassword { get; set; } = null!;
+}
+
+public class ChangePasswordResult
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
 }

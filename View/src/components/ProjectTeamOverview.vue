@@ -24,19 +24,19 @@ const advisor = {
 
 const featureCards = [
   {
-    title: "Virtual Checkpoint (Thanh chắn ảo)",
+    title: "Thanh chắn ảo (Virtual Checkpoint)",
     tone: "green",
     description:
       "Loại bỏ rào cản vật lý, sử dụng hệ thống đèn tín hiệu ảo (xanh, vàng, đỏ) trên dashboard để điều phối giao thông mượt mà.",
   },
   {
-    title: "Draft Area (Vùng đệm xử lý)",
+    title: "Vùng đệm xử lý (Draft Area)",
     tone: "orange",
     description:
       "Trao quyền kiểm soát linh hoạt cho bảo vệ xử lý các tình huống ngoại lệ ngay trên màn hình theo thời gian thực mà không làm sập luồng dữ liệu.",
   },
   {
-    title: "Audit Trail (Lưu vết vĩnh viễn)",
+    title: "Lưu vết vĩnh viễn (Audit Trail)",
     tone: "blue",
     description:
       "Áp dụng ràng buộc khóa chéo XOR và ghép cặp IN-OUT khép kín. Mọi thao tác cấp phép cưỡng chế đều phải gắn mã lý do và bị lưu vết vĩnh viễn.",
@@ -149,7 +149,7 @@ const getInitials = (name) =>
       </div>
 
       <div class="header-text">
-        <h1 class="page-title">V-SHIELD | SMART ACCESS CONTROL</h1>
+        <h1 class="page-title">V-SHIELD | KIỂM SOÁT RA VÀO THÔNG MINH</h1>
         <p class="page-subtitle">
           V-Shield là hệ thống kiểm soát an ninh ra vào thông minh được thiết kế
           theo chuẩn enterprise. Bằng việc số hóa 100% quy trình đối chiếu tại
@@ -162,7 +162,7 @@ const getInitials = (name) =>
 
     <div class="bento-grid profile-grid">
       <div class="bento-card col-span-4 project-intro">
-        <h2 class="section-title">Giới thiệu dự án (The Project)</h2>
+        <h2 class="section-title">Giới thiệu dự án</h2>
 
         <div class="core-description">
           <strong>Mô tả cốt lõi:</strong> V-Shield vận hành dựa trên kiến trúc
@@ -251,7 +251,7 @@ const getInitials = (name) =>
       </div>
 
       <div class="bento-card col-span-4 roadmap-section">
-        <h2 class="section-title">Hướng đi tương lai (Future Roadmap)</h2>
+        <h2 class="section-title">Hướng đi tương lai</h2>
 
         <div class="three-col-grid">
           <div

@@ -330,7 +330,7 @@
                             <article v-for="item in interactionItems" :key="item.receptionInteractionId" class="timeline-item">
                                 <div class="timeline-title-row">
                                     <strong>{{ item.summary }}</strong>
-                                    <span class="timeline-status">{{ item.status }}</span>
+                                    <span class="timeline-status" :class="interactionStatusSemantic(item.status)">{{ interactionStatusLabel(item.status) }}</span>
                                 </div>
                                 <div class="timeline-meta">
                                     <span>{{ interactionTypeLabel(item.interactionType) }}</span>
@@ -682,6 +682,24 @@ function interactionTypeLabel(type) {
     return map[type] || type
 }
 
+function interactionStatusLabel(status) {
+    const map = {
+        Open: 'Mới mở',
+        InProgress: 'Đang xử lý',
+        Resolved: 'Đã xử lý xong',
+        Escalated: 'Đã chuyển tiếp',
+        Cancelled: 'Hủy',
+    }
+    return map[status] || status
+}
+
+function interactionStatusSemantic(status) {
+    if (status === 'Resolved') return 'success'
+    if (status === 'InProgress') return 'info'
+    if (status === 'Escalated' || status === 'Cancelled') return 'danger'
+    return 'warning'
+}
+
 function statusClass(status) {
     if (status === 'CheckedIn') return 'success'
     if (status === 'Overstay') return 'danger'
@@ -769,7 +787,15 @@ onMounted(loadAll)
     font-size: 0.8rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
+}
+
+.hero-kicker {
     color: rgba(255, 247, 239, 0.74);
+}
+
+.section-kicker {
+    color: var(--reception-teal);
+    font-weight: 700;
 }
 
 .hero-title {
@@ -906,7 +932,7 @@ onMounted(loadAll)
 
 .search-bar.glass {
     border-radius: 18px;
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 241, 231, 0.92));
 }
 
@@ -933,13 +959,20 @@ onMounted(loadAll)
     min-width: 140px;
     padding: 12px 14px;
     border-radius: 16px;
-    border: 1px solid rgba(35, 49, 63, 0.08);
-    background: #fff;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 10px;
     color: var(--reception-ink);
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.reception-tabs button:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-color-hover);
+    box-shadow: 0 12px 24px rgba(16, 32, 51, 0.07);
 }
 
 .reception-tabs button small {
@@ -952,13 +985,13 @@ onMounted(loadAll)
 
 .reception-tabs button.active {
     background: linear-gradient(135deg, #173941 0%, #0f766e 100%);
-    color: #fff;
+    color: var(--text-on-interactive);
     border-color: transparent;
 }
 
 .reception-tabs button.active small {
     background: rgba(255, 255, 255, 0.16);
-    color: #fff;
+    color: var(--text-on-interactive);
 }
 
 .queue-layout,
@@ -989,7 +1022,7 @@ onMounted(loadAll)
 .case-card {
     width: 100%;
     border-radius: 20px;
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
     background: linear-gradient(180deg, #ffffff 0%, #fbf6ee 100%);
     padding: 16px 18px;
     text-align: left;
@@ -1003,7 +1036,7 @@ onMounted(loadAll)
 .visit-card.selected,
 .case-card:hover {
     transform: translateY(-1px);
-    border-color: rgba(15, 118, 110, 0.28);
+    border-color: var(--border-color-hover);
     box-shadow: 0 16px 32px rgba(23, 57, 65, 0.08);
 }
 
@@ -1067,7 +1100,7 @@ onMounted(loadAll)
     background:
         radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 34%),
         linear-gradient(180deg, #fffdf8 0%, #f7efe1 100%);
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
 }
 
 .profile-top {
@@ -1124,9 +1157,9 @@ onMounted(loadAll)
 .action-tile {
     padding: 14px 16px;
     border-radius: 18px;
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
     text-align: left;
-    background: #fff;
+    background: var(--surface-default);
     color: var(--reception-ink);
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
@@ -1139,7 +1172,7 @@ onMounted(loadAll)
 .action-tile.primary {
     background: linear-gradient(135deg, #173941 0%, #0f766e 100%);
     border-color: transparent;
-    color: #fff;
+    color: var(--text-on-interactive);
 }
 
 .action-tile.warning {
@@ -1166,7 +1199,7 @@ onMounted(loadAll)
 
 .timeline-item {
     border-radius: 18px;
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
     background: linear-gradient(180deg, #ffffff 0%, #f9f4ec 100%);
     padding: 14px 16px;
 }
@@ -1182,10 +1215,30 @@ onMounted(loadAll)
 .timeline-status {
     padding: 4px 8px;
     border-radius: 999px;
-    background: #edf2f7;
+    background: var(--status-neutral-bg);
     color: var(--reception-slate);
     font-size: 0.8rem;
     font-weight: 600;
+}
+
+.timeline-status.success {
+    background: var(--status-success-bg);
+    color: var(--status-success-text);
+}
+
+.timeline-status.info {
+    background: var(--status-info-bg);
+    color: var(--status-info-text);
+}
+
+.timeline-status.warning {
+    background: var(--status-warning-bg);
+    color: var(--status-warning-text);
+}
+
+.timeline-status.danger {
+    background: var(--status-danger-bg);
+    color: var(--status-danger-text);
 }
 
 .timeline-meta {
@@ -1208,7 +1261,7 @@ onMounted(loadAll)
     padding: 24px;
     border-radius: 24px;
     background: linear-gradient(180deg, #fffdf8 0%, #f5ecde 100%);
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
 }
 
 .handoff-metrics {
@@ -1273,7 +1326,7 @@ onMounted(loadAll)
     width: min(760px, calc(100vw - 32px));
     border-radius: 28px;
     background: linear-gradient(180deg, #fffdf9 0%, #f5ece0 100%);
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
 }
 
 .form-grid {
@@ -1292,7 +1345,7 @@ onMounted(loadAll)
     min-height: 46px;
     padding: 0 14px;
     border-radius: 14px;
-    border: 1px solid rgba(35, 49, 63, 0.08);
+    border: 1px solid var(--border-subtle);
     background: rgba(255, 255, 255, 0.72);
 }
 

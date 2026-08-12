@@ -1,14 +1,14 @@
 <template>
     <section class="metric-grid">
         <article class="metric-tile">
-            <span class="metric-label">Site trong mo hinh</span>
+            <span class="metric-label">Site trong mô hình</span>
             <strong class="metric-value">{{ summary.siteCount || 0 }}</strong>
             <span class="metric-note">Số khuôn viên đang được mô phỏng trong cảnh 3D.</span>
         </article>
         <article class="metric-tile">
-            <span class="metric-label">Doi tuong 3D</span>
+            <span class="metric-label">Đối tượng 3D</span>
             <strong class="metric-value">{{ summary.objectCount || 0 }}</strong>
-            <span class="metric-note">Tong building, gate, path, parking va landmark.</span>
+            <span class="metric-note">Tổng building, gate, path, parking và landmark.</span>
         </article>
         <article class="metric-tile">
             <span class="metric-label">Cổng đang hoạt động</span>
@@ -23,12 +23,12 @@
         <article class="metric-tile">
             <span class="metric-label">Camera offline</span>
             <strong class="metric-value">{{ summary.offlineCameraCount || 0 }}</strong>
-            <span class="metric-note">Tinh theo camera thieu stream hoac URL xem.</span>
+            <span class="metric-note">Tính theo camera thiếu stream hoặc URL xem.</span>
         </article>
         <article class="metric-tile">
             <span class="metric-label">Sự kiện 5 phút</span>
             <strong class="metric-value">{{ summary.recentEventCount || 0 }}</strong>
-            <span class="metric-note">Lay truc tiep tu luong AccessLog realtime.</span>
+            <span class="metric-note">Lấy trực tiếp từ luồng AccessLog realtime.</span>
         </article>
     </section>
 </template>

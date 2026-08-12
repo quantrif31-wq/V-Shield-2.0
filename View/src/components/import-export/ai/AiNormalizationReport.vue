@@ -5,8 +5,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18" class="report-icon">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
-                <span class="report-title">AI Normalization Report</span>
-                <span class="report-badge">{{ changes.length }} changes</span>
+                <span class="report-title">Báo cáo chuẩn hóa AI</span>
+                <span class="report-badge">{{ changes.length }} thay đổi</span>
             </div>
             <p class="report-desc">
                 AI đã tự động chuẩn hóa {{ changes.length }} giá trị để đảm bảo dữ liệu nhất quán.
@@ -19,7 +19,7 @@
                 <div class="change-details">
                     <div class="change-meta">
                         <span class="meta-badge" :class="ch.reason">{{ reasonLabel(ch.reason) }}</span>
-                        <span class="meta-position">Row {{ ch.row }} · {{ ch.column }}</span>
+                        <span class="meta-position">Hàng {{ ch.row }} · {{ ch.column }}</span>
                     </div>
                     <div class="change-values">
                         <span class="old-value">{{ ch.originalValue }}</span>

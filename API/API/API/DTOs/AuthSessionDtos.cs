@@ -42,6 +42,7 @@ public class StepUpSessionResponse
     public DateTime? VerifiedAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
     public bool Active { get; set; }
+    public bool RequiresMfa { get; set; }
     public string? Message { get; set; }
 }
 

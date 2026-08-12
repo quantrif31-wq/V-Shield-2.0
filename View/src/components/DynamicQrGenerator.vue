@@ -101,12 +101,12 @@
 
                             <div class="stage-foot">
                                 <div class="stage-stat">
-                                    <span>Payload</span>
+                                    <span>Dữ liệu QR</span>
                                     <strong>{{ compactPayload }}</strong>
                                 </div>
 
                                 <button class="ghost-copy" :disabled="!canCopyPayload" @click="copyPayload">
-                                    Sao chép payload
+                                    Sao chép dữ liệu QR
                                 </button>
                             </div>
                         </div>
@@ -151,12 +151,12 @@
                             <div class="payload-card">
                                 <div class="payload-head">
                                     <div>
-                                        <span class="metric-eyebrow">QR payload</span>
+                                        <span class="metric-eyebrow">Nội dung QR</span>
                                         <p>Chuỗi gốc được dùng để render thành mã QR và phục vụ đối chiếu khi cần.</p>
                                     </div>
 
                                     <button class="ghost-copy secondary" :disabled="!canCopyPayload" @click="copyPayload">
-                                        Copy
+                                        Sao chép
                                     </button>
                                 </div>
 

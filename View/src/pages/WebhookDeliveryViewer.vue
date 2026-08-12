@@ -2,33 +2,33 @@
     <div class="page-container ops-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Webhooks</span>
-                <h1 class="page-title">Webhook Delivery Viewer</h1>
+                <span class="panel-kicker">Webhook</span>
+                <h1 class="page-title">Trình xem chuyển phát Webhook</h1>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" @click="loadSubscriptions">Refresh</button>
+                <button class="btn btn-primary" @click="loadSubscriptions">Làm mới</button>
             </div>
         </div>
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Subscriptions</span><h2 class="panel-title">Webhook Subscriptions</h2></div>
+                    <div><span class="panel-kicker">Đăng ký</span><h2 class="panel-title">Đăng ký Webhook</h2></div>
                     <div class="panel-actions">
-                        <button class="btn btn-secondary btn-sm" @click="showForm = true">+ Create</button>
+                        <button class="btn btn-secondary btn-sm" @click="showForm = true">+ Tạo mới</button>
                     </div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
-                <div v-else-if="subscriptions.length === 0" class="empty-card">No webhook subscriptions.</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
+                <div v-else-if="subscriptions.length === 0" class="empty-card">Chưa có đăng ký webhook.</div>
                 <div v-else class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Target URL</th><th>Secret</th><th>Event Types</th><th>Active</th><th>Created</th></tr></thead>
+                        <thead><tr><th>ID</th><th>URL đích</th><th>Khóa bí mật</th><th>Loại sự kiện</th><th>Kích hoạt</th><th>Ngày tạo</th></tr></thead>
                         <tbody>
                             <tr v-for="s in subscriptions" :key="s.webhookSubscriptionId">
                                 <td>{{ s.webhookSubscriptionId }}</td>
                                 <td class="table-sub">{{ s.targetUrl }}</td>
                                 <td class="table-sub">{{ s.secretReference?.substring(0, 8) }}...</td>
-                                <td>{{ s.eventTypes === '*' ? 'All' : s.eventTypes }}</td>
-                                <td><span class="badge" :class="s.isActive ? 'badge-success' : 'badge-secondary'">{{ s.isActive ? 'Active' : 'Inactive' }}</span></td>
+                                <td>{{ s.eventTypes === '*' ? 'Tất cả' : s.eventTypes }}</td>
+                                <td><span class="badge" :class="s.isActive ? 'badge-success' : 'badge-secondary'">{{ s.isActive ? 'Hoạt động' : 'Không hoạt động' }}</span></td>
                                 <td class="table-sub">{{ new Date(s.createdAtUtc).toLocaleString() }}</td>
                             </tr>
                         </tbody>
@@ -37,19 +37,19 @@
             </article>
             <article class="ops-panel">
                 <div class="panel-head">
-                    <div><span class="panel-kicker">Status</span><h2 class="panel-title">Delivery Summary</h2></div>
+                    <div><span class="panel-kicker">Trạng thái</span><h2 class="panel-title">Tóm tắt chuyển phát</h2></div>
                 </div>
-                <div v-if="loading" class="empty-card">Loading...</div>
+                <div v-if="loading" class="empty-card">Đang tải...</div>
                 <div v-else>
                     <div class="kpi-row">
-                        <div class="kpi-card"><strong>{{ deliveryStats.total }}</strong><span>Total</span></div>
-                        <div class="kpi-card"><strong>{{ deliveryStats.delivered }}</strong><span>Delivered</span></div>
-                        <div class="kpi-card"><strong>{{ deliveryStats.failed }}</strong><span>Failed</span></div>
-                        <div class="kpi-card"><strong>{{ deliveryStats.pending }}</strong><span>Pending</span></div>
+                        <div class="kpi-card"><strong>{{ deliveryStats.total }}</strong><span>Tổng</span></div>
+                        <div class="kpi-card"><strong>{{ deliveryStats.delivered }}</strong><span>Đã gửi</span></div>
+                        <div class="kpi-card"><strong>{{ deliveryStats.failed }}</strong><span>Thất bại</span></div>
+                        <div class="kpi-card"><strong>{{ deliveryStats.pending }}</strong><span>Chờ xử lý</span></div>
                     </div>
                     <div class="chart-container">
-                        <h3>Delivery Status</h3>
-                        <div class="pie-chart">
+                        <h3>Trạng thái chuyển phát</h3>
+                        <div class="pie-chart" :style="{ '--angle1': deliveredPercent + '%', '--angle2': failedPercent + '%', '--angle3': pendingPercent + '%' }">
                             <div class="pie-segment delivered" :style="{ width: deliveredPercent + '%', transform: 'rotate(' + totalAngle + 'deg)' }"></div>
                             <div class="pie-segment failed" :style="{ width: failedPercent + '%', transform: 'rotate(' + (totalAngle + deliveredAngle) + 'deg)' }"></div>
                             <div class="pie-segment pending" :style="{ width: pendingPercent + '%', transform: 'rotate(' + (totalAngle + deliveredAngle + failedAngle) + 'deg)' }"></div>
@@ -60,29 +60,29 @@
         </section>
         <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
             <div class="modal-box">
-                <h3>Create Webhook Subscription</h3>
+                <h3>Tạo đăng ký Webhook</h3>
                 <div class="form-group">
-                    <label>Target URL</label>
+                    <label>URL đích</label>
                     <input v-model="form.targetUrl" class="form-input" placeholder="https://example.com/webhook" />
                 </div>
                 <div class="form-group">
-                    <label>Secret Reference</label>
+                    <label>Tham chiếu khóa bí mật</label>
                     <input v-model="form.secretReference" class="form-input" placeholder="secret-reference" />
                 </div>
                 <div class="form-group">
-                    <label>Event Types</label>
+                    <label>Loại sự kiện</label>
                     <input v-model="form.eventTypes" class="form-input" placeholder="*, SecurityEvent, Alarm" />
                 </div>
                 <div class="form-group">
-                    <label>Active</label>
+                    <label>Kích hoạt</label>
                     <select v-model="form.isActive" class="form-select">
-                        <option :value="true">Active</option>
-                        <option :value="false">Inactive</option>
+                        <option :value="true">Kích hoạt</option>
+                        <option :value="false">Không hoạt động</option>
                     </select>
                 </div>
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="showForm = false">Cancel</button>
-                    <button class="btn btn-primary" :disabled="busy" @click="submitSubscription">{{ busy ? 'Creating...' : 'Create' }}</button>
+                    <button class="btn btn-secondary" @click="showForm = false">Hủy</button>
+                    <button class="btn btn-primary" :disabled="busy" @click="submitSubscription">{{ busy ? 'Đang tạo...' : 'Tạo' }}</button>
                 </div>
             </div>
         </div>
@@ -156,10 +156,10 @@ onMounted(loadSubscriptions)
 </script>
 <style>
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0; }
-.kpi-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 1rem; text-align: center; }
+.kpi-card { background: var(--surface-subtle); border: 1px solid var(--border-default); border-radius: 4px; padding: 1rem; text-align: center; }
 .kpi-card strong { font-size: 1.5rem; display: block; }
-.kpi-card span { font-size: 0.9rem; color: #6c757d; }
+.kpi-card span { font-size: 0.9rem; color: var(--text-muted); }
 .chart-container { margin-top: 1rem; }
-.pie-chart { position: relative; width: 200px; height: 200px; margin: 0 auto; border-radius: 50%; background: conic-gradient(#28a745 var(--angle1), transparent 0), conic-gradient(#dc3545 var(--angle2), transparent 0), conic-gradient(#ffc107 var(--angle3), transparent 0); }
+.pie-chart { position: relative; width: 200px; height: 200px; margin: 0 auto; border-radius: 50%; background: conic-gradient(var(--status-success-text) var(--angle1), transparent 0), conic-gradient(var(--status-danger-text) var(--angle2), transparent 0), conic-gradient(var(--status-warning-text) var(--angle3), transparent 0); }
 .pie-segment { position: absolute; width: 100%; height: 100%; border-radius: 50%; }
 </style>

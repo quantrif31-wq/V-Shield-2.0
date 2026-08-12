@@ -55,6 +55,35 @@ public abstract class EntityImportHandlerBase : IEntityImportHandler
         return null;
     }
 
+    protected static decimal? GetDecimal(Dictionary<string, object?> row, string key)
+    {
+        var val = GetString(row, key);
+        if (string.IsNullOrEmpty(val)) return null;
+        if (decimal.TryParse(val, NumberStyles.Number, CultureInfo.InvariantCulture, out var result))
+            return result;
+        return null;
+    }
+
+    protected static DateTime? GetDateTime(Dictionary<string, object?> row, string key)
+    {
+        var val = GetString(row, key);
+        if (string.IsNullOrEmpty(val)) return null;
+        if (DateTime.TryParse(val, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
+            return result;
+        return null;
+    }
+
+    protected static TimeSpan? GetTimeSpan(Dictionary<string, object?> row, string key)
+    {
+        var val = GetString(row, key);
+        if (string.IsNullOrEmpty(val)) return null;
+        if (TimeSpan.TryParse(val, CultureInfo.InvariantCulture, out var result))
+            return result;
+        if (DateTime.TryParse(val, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            return dt.TimeOfDay;
+        return null;
+    }
+
     protected static ImportErrorDetail MakeError(int rowIndex, string? column, string message, string? errorCode = null)
     {
         return new ImportErrorDetail
