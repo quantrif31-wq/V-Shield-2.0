@@ -1,1104 +1,1012 @@
 <template>
-    <div class="page-container ops-page animate-in dashboard-ops">
+    <div class="page-container report-page animate-in">
         <div class="page-header-bar">
             <div>
-                <span class="panel-kicker">Tổng quan vận hành</span>
-                <h1 class="page-title">Bảng điều phối cho ca trực</h1>
+                <span class="panel-kicker">Báo cáo thống kê</span>
+                <h1 class="page-title">Tổng quan an ninh &amp; ra vào</h1>
                 <p class="page-subtitle dashboard-subtitle">
-                    Gom cảnh báo, hàng chờ xử lý, luồng cổng và mức sẵn sàng hệ thống vào một mặt nhìn
-                    để người vận hành quyết định nhanh hơn.
+                    Nhìn nhanh hoạt động 30 ngày gần nhất: lưu lượng ra vào, chấm công, khách thăm, cảnh báo
+                    và sức khỏe thiết bị. Bấm vào từng chỉ số để xem chi tiết.
                 </p>
             </div>
             <div class="header-actions">
-                <router-link
-                    v-for="action in dashboardActions"
-                    :key="action.label"
-                    :to="action.route"
-                    :class="action.primary ? 'btn btn-primary' : 'btn btn-secondary'"
-                >
-                    {{ action.label }}
-                </router-link>
+                <span class="updated-at">Cập nhật {{ generatedAtLabel }}</span>
+                <button type="button" class="btn btn-secondary" :disabled="loading" @click="loadAll">
+                    Làm mới
+                </button>
             </div>
         </div>
 
-        <section class="command-deck">
-            <article class="command-hero">
-                <div class="hero-topline">
-                    <span class="hero-kicker">{{ statusBanner.kicker }}</span>
-                    <span class="hero-updated">Cập nhật {{ generatedAtLabel }}</span>
-                </div>
-
-                <div class="hero-copy">
-                    <h2>{{ statusBanner.title }}</h2>
-                    <p>{{ statusBanner.message }}</p>
-                </div>
-
-                <div class="hero-chip-row">
-                    <span class="soft-chip" :class="statusBanner.chipClass">{{ statusBanner.chipText }}</span>
-                    <span class="soft-chip">{{ snapshot.openAlarms || 0 }} cảnh báo đang mở</span>
-                    <span class="soft-chip warn">{{ snapshot.pendingInterventions || 0 }} yêu cầu can thiệp</span>
-                </div>
-
-                <div class="hero-actions">
-                    <router-link
-                        v-for="action in heroActions"
-                        :key="action.label"
-                        :to="action.route"
-                        :class="action.primary ? 'btn btn-primary' : 'btn btn-secondary'"
-                    >
-                        {{ action.label }}
-                    </router-link>
+        <!-- KPI CARDS: trả lời nhanh "có ổn không?" -->
+        <section class="kpi-grid">
+            <article class="kpi-card" :class="kpiCardTone(kpis.todayAnomalies, 'warn')">
+                <div class="kpi-icon">🚪</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Lượt ra/vào hôm nay</span>
+                    <strong class="kpi-value">{{ kpis.todayTotal || 0 }}</strong>
+                    <span class="kpi-note">
+                        Vào {{ kpis.todayCheckIn || 0 }} · Ra {{ kpis.todayCheckOut || 0 }}
+                    </span>
                 </div>
             </article>
 
-            <aside class="command-side">
-                <div class="side-head">
-                    <span class="panel-kicker">Điểm cần chú ý</span>
-                    <strong>Bức tranh vận hành tổng thể</strong>
+            <article class="kpi-card">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Khách đang có mặt</span>
+                    <strong class="kpi-value">{{ kpis.checkedInVisitors || 0 }}</strong>
+                    <span class="kpi-note">{{ kpis.todayVisitors || 0 }} lượt hôm nay</span>
                 </div>
+            </article>
 
-                <div class="command-metric-grid">
-                    <article
-                        v-for="item in commandMetrics"
-                        :key="item.label"
-                        class="command-metric"
-                        :class="item.tone"
-                    >
-                        <span>{{ item.label }}</span>
-                        <strong>{{ item.value }}</strong>
-                        <small>{{ item.note }}</small>
-                    </article>
+            <article class="kpi-card" :class="kpiCardTone(kpis.todayAnomalies, 'danger')">
+                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Bất thường hôm nay</span>
+                    <strong class="kpi-value">{{ kpis.todayAnomalies || 0 }}</strong>
+                    <span class="kpi-note">Bypass / từ chối / ngoại lệ</span>
                 </div>
-            </aside>
+            </article>
+
+            <article class="kpi-card" :class="kpiCardTone(kpis.criticalAlarms, 'danger')">
+                <div class="kpi-icon">🚨</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Báo động đang mở</span>
+                    <strong class="kpi-value">{{ kpis.openAlarms || 0 }}</strong>
+                    <span class="kpi-note">{{ kpis.criticalAlarms || 0 }} nghiêm trọng</span>
+                </div>
+            </article>
+
+            <article class="kpi-card" :class="kpiCardTone(kpis.offlineDevices + kpis.degradedDevices, 'warn')">
+                <div class="kpi-icon">📡</div>
+                <div class="kpi-body">
+                    <span class="kpi-label">Thiết bị cần chú ý</span>
+                    <strong class="kpi-value">{{ (kpis.offlineDevices || 0) + (kpis.degradedDevices || 0) }}</strong>
+                    <span class="kpi-note">{{ kpis.offlineDevices || 0 }} mất kết nối · {{ kpis.degradedDevices || 0 }} suy giảm</span>
+                </div>
+            </article>
         </section>
 
+        <!-- BIỂU ĐỒ CHÍNH: xu hướng 30 ngày -->
+        <section class="panel-main">
+            <div class="panel-head">
+                <div>
+                    <span class="panel-kicker">Xu hướng 30 ngày</span>
+                    <h2 class="panel-title">Lượt ra vào theo ngày</h2>
+                </div>
+                <div class="legend">
+                    <span class="legend-item"><i class="dot in"></i>Vào</span>
+                    <span class="legend-item"><i class="dot out"></i>Ra</span>
+                    <span class="legend-item"><i class="dot total"></i>Tổng</span>
+                </div>
+            </div>
+
+            <div v-if="trafficByDay.length" class="line-chart">
+                <svg :viewBox="lineViewBox" class="line-svg" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#0f7c82" stop-opacity="0.25" />
+                            <stop offset="100%" stop-color="#0f7c82" stop-opacity="0.02" />
+                        </linearGradient>
+                    </defs>
+
+                    <template v-for="line in lineGrid" :key="'g' + line">
+                        <line :x1="0" :x2="chartW" :y1="line" :y2="line" class="grid-line" />
+                    </template>
+
+                    <path :d="areaInPath" fill="url(#areaGrad)" />
+
+                    <path :d="lineInPath" class="line-path in" />
+                    <path :d="lineOutPath" class="line-path out" />
+
+                    <template v-for="(point, i) in lineInPoints" :key="'pin' + i">
+                        <circle :cx="point.x" :cy="point.y" r="2.6" class="point-dot in" />
+                    </template>
+                    <template v-for="(point, i) in lineOutPoints" :key="'pout' + i">
+                        <circle :cx="point.x" :cy="point.y" r="2.6" class="point-dot out" />
+                    </template>
+                </svg>
+
+                <div class="axis-x">
+                    <span v-for="tick in xTicks" :key="tick.label">{{ tick.label }}</span>
+                </div>
+            </div>
+            <div v-else class="empty-card">Chưa có dữ liệu ra vào trong 30 ngày qua.</div>
+        </section>
+
+        <!-- HÀNG GIỮA: so sánh theo cổng + tỷ trọng -->
+        <section class="mid-grid">
+            <article class="ops-panel">
+                <div class="panel-head">
+                    <div>
+                        <span class="panel-kicker">So sánh theo cổng</span>
+                        <h2 class="panel-title">Ra/vào theo cổng (30 ngày)</h2>
+                    </div>
+                </div>
+
+                <div v-if="trafficByGate.length" class="gate-bars">
+                    <div v-for="gate in trafficByGate" :key="gate.gate" class="gate-row">
+                        <span class="gate-name" :title="gate.gate">{{ gate.gate }}</span>
+                        <div class="gate-track">
+                            <div class="gate-stack">
+                                <div class="gate-bar in" :style="{ width: barPercent(gate.checkIn, maxGate) + '%' }"></div>
+                                <div class="gate-bar out" :style="{ width: barPercent(gate.checkOut, maxGate) + '%' }"></div>
+                            </div>
+                        </div>
+                        <span class="gate-total">{{ gate.total }}</span>
+                    </div>
+                    <div class="legend">
+                        <span class="legend-item"><i class="dot in"></i>Vào</span>
+                        <span class="legend-item"><i class="dot out"></i>Ra</span>
+                    </div>
+                </div>
+                <div v-else class="empty-card">Chưa có dữ liệu theo cổng.</div>
+            </article>
+
+            <article class="ops-panel">
+                <div class="panel-head">
+                    <div>
+                        <span class="panel-kicker">Tỷ trọng</span>
+                        <h2 class="panel-title">Trạng thái chấm công (30 ngày)</h2>
+                    </div>
+                </div>
+
+                <div v-if="attendanceStatus.length" class="donut-wrap">
+                    <div class="donut-holder">
+                        <svg viewBox="0 0 42 42" class="donut-svg">
+                            <circle cx="21" cy="21" r="15.9" fill="none" class="donut-ring" />
+                            <template v-for="(seg, i) in attendanceSegments" :key="'seg' + i">
+                                <circle
+                                    cx="21" cy="21" r="15.9" fill="none"
+                                    class="donut-seg"
+                                    :stroke="seg.color"
+                                    :stroke-dasharray="`${seg.length} ${100 - seg.length}`"
+                                    :stroke-dashoffset="seg.offset"
+                                />
+                            </template>
+                        </svg>
+                        <div class="donut-center">
+                            <strong>{{ attendanceTotal }}</strong>
+                            <span>bản ghi</span>
+                        </div>
+                    </div>
+                    <ul class="donut-legend">
+                        <li v-for="item in attendanceStatus" :key="item.status">
+                            <i class="swatch" :style="{ background: statusColor(item.status) }"></i>
+                            <span class="legend-label">{{ statusLabel(item.status) }}</span>
+                            <span class="legend-count">{{ item.count }}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div v-else class="empty-card">Chưa có dữ liệu chấm công.</div>
+            </article>
+        </section>
+
+        <!-- HÀNG DƯỚI: heatmap theo giờ + khách thăm + bảng bất thường -->
         <section class="ops-grid two">
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Hàng chờ công việc</span>
-                        <h2 class="panel-title">Việc cần xử lý trước</h2>
+                        <span class="panel-kicker">Phân bố theo giờ</span>
+                        <h2 class="panel-title">Lượt ra/vào theo giờ trong ngày</h2>
                     </div>
                 </div>
 
-                <div class="queue-list">
-                    <router-link
-                        v-for="item in priorityQueue"
-                        :key="item.label"
-                        :to="item.route"
-                        class="queue-item"
-                        :class="item.tone"
-                    >
-                        <div class="queue-main">
-                            <strong>{{ item.label }}</strong>
-                            <p>{{ item.description }}</p>
-                        </div>
-                        <div class="queue-side">
-                            <span class="queue-value">{{ item.value }}</span>
-                            <small>{{ item.helper }}</small>
-                        </div>
-                    </router-link>
+                <div v-if="hourlyByWeekday.length" class="heatmap">
+                    <div class="heatmap-row heatmap-header">
+                        <span class="heatmap-corner">Giờ</span>
+                        <span v-for="hour in hourLabels" :key="'h' + hour" class="heatmap-hour">{{ hour }}</span>
+                    </div>
+                    <div v-for="row in hourlyByWeekday" :key="row.day" class="heatmap-row">
+                        <span class="heatmap-corner">{{ row.day }}</span>
+                        <div
+                            v-for="cell in row.hours"
+                            :key="row.day + cell.hour"
+                            class="heatmap-cell"
+                            :class="heatClass(cell.checkIn + cell.checkOut, maxHourly)"
+                            :title="`${row.day} ${cell.hour}:00 — Vào ${cell.checkIn} · Ra ${cell.checkOut}`"
+                        ></div>
+                    </div>
                 </div>
+                <div v-else class="empty-card">Chưa có dữ liệu theo giờ.</div>
             </article>
 
             <article class="ops-panel">
                 <div class="panel-head">
                     <div>
-                        <span class="panel-kicker">Sự kiện gần đây</span>
-                        <h2 class="panel-title">Dòng sự kiện gần nhất</h2>
+                        <span class="panel-kicker">Khách thăm</span>
+                        <h2 class="panel-title">Lượt khách theo ngày (30 ngày)</h2>
                     </div>
-                    <router-link to="/access-logs" class="btn btn-secondary btn-sm">Nhật ký</router-link>
                 </div>
 
-                <div v-if="recentActivities.length" class="surface-list scrollable-panel">
-                    <router-link
-                        v-for="activity in recentActivities"
-                        :key="activity.id"
-                        :to="resolveRoute(activity.route, '/access-logs')"
-                        class="event-row"
-                    >
-                        <div class="event-icon" :class="activity.severity || 'info'">{{ activityKindShort(activity.kind) }}</div>
-                        <div class="event-copy">
-                            <div class="event-topline">
-                                <strong>{{ activity.title }}</strong>
-                                <span>{{ formatRelativeTime(activity.occurredAt || activity.timestamp) }}</span>
-                            </div>
-                            <p>{{ activity.subtitle }}</p>
-                            <div class="chip-row">
-                                <span class="soft-chip">{{ activity.status || 'Đã ghi nhận' }}</span>
-                                <span v-if="activity.kind" class="soft-chip">{{ activity.kind }}</span>
-                                <span v-if="activity.meta" class="soft-chip warn">{{ activity.meta }}</span>
-                            </div>
+                <div v-if="visitorTrend.length" class="mini-bars">
+                    <div v-for="day in visitorTrend" :key="day.date" class="mini-bar-col">
+                        <div class="mini-bar-track">
+                            <div
+                                class="mini-bar-fill"
+                                :style="{ height: miniPercent(day.total, maxVisitors) + '%' }"
+                                :title="`${day.label}: ${day.total} lượt`"
+                            ></div>
                         </div>
-                    </router-link>
+                        <span class="mini-bar-label">{{ day.label }}</span>
+                    </div>
                 </div>
-                <div v-else class="empty-card">
-                    Chưa có sự kiện mới. Hệ thống vẫn sẵn sàng, nhưng chưa có hoạt động đủ gần để đưa lên dòng vận hành.
+                <div v-else class="empty-card">Chưa có dữ liệu khách thăm.</div>
+
+                <div v-if="visitorStatus.length" class="visitor-status-row">
+                    <span v-for="s in visitorStatus" :key="s.status" class="soft-chip">
+                        {{ visitorStatusLabel(s.status) }}: {{ s.count }}
+                    </span>
                 </div>
             </article>
         </section>
 
-        <section class="ops-grid two">
-            <article class="ops-panel">
-                <div class="panel-head">
-                    <div>
-                        <span class="panel-kicker">Lưu lượng</span>
-                        <h2 class="panel-title">Nhịp ra vào trong tuần</h2>
-                    </div>
-                    <div class="chip-row">
-                        <span class="soft-chip">Vào {{ snapshot.dailyCheckIn || 0 }}</span>
-                        <span class="soft-chip warn">Ra {{ snapshot.dailyCheckOut || 0 }}</span>
-                    </div>
+        <!-- Bảng bất thường gần đây: drill-down -->
+        <section class="ops-panel">
+            <div class="panel-head">
+                <div>
+                    <span class="panel-kicker">Bất thường gần đây</span>
+                    <h2 class="panel-title">Sự kiện cần xem xét hôm nay</h2>
                 </div>
+                <router-link to="/access-logs" class="btn btn-secondary btn-sm">Xem nhật ký đầy đủ</router-link>
+            </div>
 
-                <div v-if="hasTrafficData" class="traffic-chart">
-                    <div v-for="day in trafficChart" :key="day.label" class="chart-day">
-                        <div class="chart-stack">
-                            <div class="chart-bar in" :style="{ height: `${day.inPercent}%` }">
-                                <span>{{ day.checkIn }}</span>
-                            </div>
-                            <div class="chart-bar out" :style="{ height: `${day.outPercent}%` }">
-                                <span>{{ day.checkOut }}</span>
-                            </div>
-                        </div>
-                        <strong>{{ day.label }}</strong>
-                    </div>
+            <div v-if="anomalies.length" class="anomaly-table">
+                <div class="anomaly-row anomaly-head">
+                    <span>Thời gian</span>
+                    <span>Cổng</span>
+                    <span>Chiều</span>
+                    <span>Lý do</span>
                 </div>
-                <div v-else class="empty-card">
-                    Không có lưu lượng trong tuần hiện tại. Trạng thái này được hiển thị như một ca trực yên tĩnh, không phải lỗi tải dữ liệu.
+                <div v-for="(item, idx) in anomalies" :key="idx" class="anomaly-row">
+                    <span>{{ formatTime(item.time) }}</span>
+                    <span>{{ item.gate || '—' }}</span>
+                    <span>
+                        <span class="badge" :class="item.direction === 'IN' ? 'in-badge' : 'out-badge'">
+                            {{ item.direction === 'IN' ? 'Vào' : 'Ra' }}
+                        </span>
+                    </span>
+                    <span class="anomaly-note">{{ item.note }}</span>
                 </div>
-            </article>
-
-            <article class="ops-panel">
-                <div class="panel-head">
-                    <div>
-                        <span class="panel-kicker">Toàn cảnh khuôn viên</span>
-                        <h2 class="panel-title">Hiện diện và phạm vi hệ thống</h2>
-                    </div>
-                </div>
-
-                <div class="surface-list">
-                    <article v-for="item in sitePictureItems" :key="item.label" class="surface-item">
-                        <div class="dashboard-surface-line">
-                            <div class="inline-stat">
-                                <strong>{{ item.value }}</strong>
-                                <span>{{ item.label }}</span>
-                            </div>
-                            <span class="surface-hint">{{ item.hint }}</span>
-                        </div>
-                    </article>
-                </div>
-            </article>
+            </div>
+            <div v-else class="empty-card">Không có bất thường nào hôm nay. Hoạt động diễn ra bình thường.</div>
         </section>
 
-        <section class="ops-grid two">
-            <article class="ops-panel">
-                <div class="panel-head">
-                    <div>
-                        <span class="panel-kicker">Hôm nay</span>
-                        <h2 class="panel-title">Nhân sự và lịch trong ngày</h2>
-                    </div>
-                </div>
-
-                <div class="today-grid">
-                    <article v-for="item in workforceItems" :key="item.label" class="today-card">
-                        <span>{{ item.label }}</span>
-                        <strong>{{ item.value }}</strong>
-                        <small>{{ item.note }}</small>
-                    </article>
-                </div>
-            </article>
-
-            <article class="ops-panel">
-                <div class="panel-head">
-                    <div>
-                        <span class="panel-kicker">Tóm tắt AI</span>
-                        <h2 class="panel-title">Nhắc việc và xu hướng</h2>
-                    </div>
-                    <span v-if="intelligenceLoading" class="soft-chip">Đang cập nhật</span>
-                </div>
-
-                <div v-if="intelligence" class="intel-stack">
-                    <p class="intel-summary">{{ intelligence.summary }}</p>
-                    <div v-if="topInsights.length" class="intel-insights">
-                        <article
-                            v-for="insight in topInsights"
-                            :key="insight.title"
-                            class="intel-insight"
-                            :class="insight.type || 'info'"
-                        >
-                            <strong>{{ insight.title }}</strong>
-                            <p>{{ insight.detail }}</p>
-                        </article>
-                    </div>
-                </div>
-                <div v-else-if="loadError" class="empty-card">
-                    {{ loadError }}
-                </div>
-                <div v-else class="empty-card">
-                    Chưa có lớp tổng hợp AI phù hợp để hiển thị ở thời điểm này.
-                </div>
-            </article>
-        </section>
+        <div v-if="loadError" class="alert-danger-bar">{{ loadError }}</div>
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { getDashboardOverview, getDashboardIntelligence } from '../services/dashboardApi'
-import { enterpriseApi } from '../services/enterpriseSecurityApi'
-import { authState } from '../stores/auth'
+import { getDashboardReports } from '../services/dashboardApi'
 
-const snapshot = ref({
-    generatedAt: null,
-    vehiclesInside: 0,
-    expectedVisitorsToday: 0,
-    pendingRegistrations: 0,
-    dailyCheckIn: 0,
-    dailyCheckOut: 0,
-    dailyExceptions: 0,
-    camerasConfigured: 0,
-    gatesConfigured: 0,
-    guestProfiles: 0,
-    employeeCount: 0,
-    trainedEmployeeCount: 0,
-    recognitionCoverage: 0,
-    checkedInVisitors: 0,
-    openAlarms: 0,
-    criticalOpenAlarms: 0,
-    offlineDevices: 0,
-    degradedDevices: 0,
-    activeEmergencyPasses: 0,
-    pendingInterventions: 0,
-    oldestPendingInterventionMinutes: 0,
-    employeesWorkingToday: 0,
-    employeesNotCheckedIn: 0,
-    employeesLateToday: 0,
-    pendingLeaveApprovals: 0,
-    totalShiftsToday: 0,
-    totalOvertimeHoursToday: 0,
-})
-
-const weeklyTraffic = ref([])
-const recentActivities = ref([])
-const laneHealth = ref([])
-const intelligence = ref(null)
-const intelligenceLoading = ref(false)
-const isLoading = ref(true)
+const loading = ref(true)
 const loadError = ref('')
-const currentRole = computed(() => authState.user?.role || 'Admin')
+const report = ref(null)
 
-function hasAccess(route) {
-    const role = currentRole.value
-    const roleAccess = {
-        '/soc-console': ['Admin', 'BaoVe'],
-        '/enterprise-security': ['Admin', 'BaoVe'],
-        '/gate-transit-monitor': ['Admin', 'BaoVe'],
-        '/exceptions': ['Admin', 'BaoVe', 'QuanLy'],
-        '/pre-registrations': ['Admin'],
-        '/device-health': ['Admin', 'BaoVe'],
-        '/attendance/leave-approvals': ['Admin', 'QuanLy'],
-        '/access-logs': ['Admin', 'BaoVe', 'QuanLy'],
-    }
-
-    const allowed = roleAccess[route]
-    return !allowed || allowed.includes(role)
-}
-
-function resolveRoute(primaryRoute, fallbackRoute = '/dashboard') {
-    if (primaryRoute && hasAccess(primaryRoute)) return primaryRoute
-    if (fallbackRoute && hasAccess(fallbackRoute)) return fallbackRoute
-    return '/dashboard'
-}
-
-const hasTrafficData = computed(() =>
-    weeklyTraffic.value.some((day) => Number(day.checkIn || 0) > 0 || Number(day.checkOut || 0) > 0)
-)
-
-const trafficChart = computed(() => {
-    const maxValue = Math.max(
-        ...weeklyTraffic.value.flatMap((day) => [Number(day.checkIn || 0), Number(day.checkOut || 0)]),
-        1
-    )
-
-    return weeklyTraffic.value.map((day) => ({
-        ...day,
-        inPercent: Number(day.checkIn || 0) > 0
-            ? Math.max(8, Math.round((Number(day.checkIn || 0) / maxValue) * 100))
-            : 0,
-        outPercent: Number(day.checkOut || 0) > 0
-            ? Math.max(8, Math.round((Number(day.checkOut || 0) / maxValue) * 100))
-            : 0,
-    }))
-})
+const kpis = computed(() => report.value?.kpis || {})
+const trafficByDay = computed(() => report.value?.trafficByDay || [])
+const trafficByGate = computed(() => report.value?.trafficByGate || [])
+const hourlyByWeekday = computed(() => report.value?.hourlyByWeekday || [])
+const attendanceStatus = computed(() => report.value?.attendanceStatus || [])
+const attendanceTrend = computed(() => report.value?.attendanceTrend || [])
+const visitorTrend = computed(() => report.value?.visitorTrend || [])
+const visitorStatus = computed(() => report.value?.visitorStatus || [])
+const alarmBySeverity = computed(() => report.value?.alarmBySeverity || [])
+const alarmByState = computed(() => report.value?.alarmByState || [])
+const deviceByStatus = computed(() => report.value?.deviceByStatus || [])
+const anomalies = computed(() => report.value?.anomalies || [])
 
 const generatedAtLabel = computed(() => {
-    if (!snapshot.value.generatedAt) return 'vừa xong'
-    return new Date(snapshot.value.generatedAt).toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
+    if (!report.value?.generatedAt) return 'vừa xong'
+    return new Date(report.value.generatedAt).toLocaleString('vi-VN', {
+        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
     })
 })
 
-const laneHealthSummary = computed(() => {
-    const lanes = Array.isArray(laneHealth.value) ? laneHealth.value : []
-    const degraded = lanes.filter((lane) => lane?.isDegraded)
-    const healthyCount = Math.max(0, lanes.length - degraded.length)
+// ---- Line chart geometry ----
+const chartW = 960
+const chartH = 240
+const padL = 8
+const padR = 8
+const padT = 12
+const padB = 8
+const plotW = chartW - padL - padR
+const plotH = chartH - padT - padB
 
+const maxTraffic = computed(() => Math.max(1, ...trafficByDay.value.map(d => d.total || 0)))
+
+const linePoints = computed(() => {
+    const arr = trafficByDay.value
+    if (!arr.length) return { inPts: [], outPts: [] }
+    const step = arr.length > 1 ? plotW / (arr.length - 1) : 0
+    const y = (v) => padT + plotH - (Math.min(v, maxTraffic.value) / maxTraffic.value) * plotH
     return {
-        total: lanes.length,
-        healthyCount,
-        degradedCount: degraded.length,
-        barrierCount: lanes.reduce((sum, lane) => sum + Number(lane?.barrierCount || 0), 0),
-        degradedNames: degraded.map((lane) => lane?.name).filter(Boolean).slice(0, 3),
+        inPts: arr.map((d, i) => ({ x: padL + i * step, y: y(d.checkIn || 0) })),
+        outPts: arr.map((d, i) => ({ x: padL + i * step, y: y(d.checkOut || 0) })),
     }
 })
 
-const statusBanner = computed(() => {
-    if ((snapshot.value.criticalOpenAlarms || 0) > 0 || (snapshot.value.activeEmergencyPasses || 0) > 0) {
-        return {
-            kicker: 'Cần ưu tiên',
-            title: 'Ca trực đang có hạng mục cần phản ứng ngay',
-            message: 'Ưu tiên kiểm tra cảnh báo mức nghiêm trọng, thông hành khẩn cấp và xác nhận không có điểm kiểm soát nào đang bị bỏ ngỏ.',
-            chipText: 'Ưu tiên phản ứng',
-            chipClass: 'danger',
+const lineInPoints = computed(() => linePoints.value.inPts)
+const lineOutPoints = computed(() => linePoints.value.outPts)
+
+function buildPath(pts) {
+    if (!pts.length) return ''
+    return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
+}
+
+const lineInPath = computed(() => buildPath(lineInPoints.value))
+const lineOutPath = computed(() => buildPath(lineOutPoints.value))
+
+const areaInPath = computed(() => {
+    const pts = lineInPoints.value
+    if (!pts.length) return ''
+    const top = buildPath(pts)
+    const last = pts[pts.length - 1]
+    const first = pts[0]
+    return `${top} L ${last.x} ${padT + plotH} L ${first.x} ${padT + plotH} Z`
+})
+
+const lineViewBox = computed(() => `0 0 ${chartW} ${chartH}`)
+
+const lineGrid = computed(() => {
+    const lines = []
+    for (let i = 0; i <= 4; i++) {
+        lines.push(padT + (plotH / 4) * i)
+    }
+    return lines
+})
+
+const xTicks = computed(() => {
+    const arr = trafficByDay.value
+    if (!arr.length) return []
+    const step = Math.max(1, Math.floor(arr.length / 6))
+    const ticks = []
+    for (let i = 0; i < arr.length; i += step) {
+        ticks.push({ label: arr[i].label })
+    }
+    if (arr.length && ticks[ticks.length - 1]?.label !== arr[arr.length - 1].label) {
+        ticks.push({ label: arr[arr.length - 1].label })
+    }
+    return ticks
+})
+
+// ---- Bar helpers ----
+const maxGate = computed(() => Math.max(1, ...trafficByGate.value.map(g => g.total || 0)))
+const maxVisitors = computed(() => Math.max(1, ...visitorTrend.value.map(d => d.total || 0)))
+const maxHourly = computed(() => {
+    let m = 1
+    for (const row of hourlyByWeekday.value) {
+        for (const cell of row.hours) {
+            m = Math.max(m, cell.checkIn + cell.checkOut)
         }
     }
+    return m
+})
 
-    if (
-        (snapshot.value.offlineDevices || 0) > 0 ||
-        (snapshot.value.pendingInterventions || 0) > 0 ||
-        (snapshot.value.dailyExceptions || 0) > 0 ||
-        laneHealthSummary.value.degradedCount > 0
-    ) {
+function barPercent(v, max) {
+    return Math.max(2, Math.round((v / max) * 100))
+}
+function miniPercent(v, max) {
+    return Math.max(4, Math.round((v / max) * 100))
+}
+
+// ---- Donut (SVG circle stroke-dasharray) ----
+const DONUT_COLORS = {
+    Completed: '#2f9e74',
+    Late: '#d49b47',
+    EarlyLeave: '#e8925a',
+    Absent: '#d44747',
+    CheckedIn: '#47a3d4',
+    ForgotCheckout: '#8b5cf6',
+    Leave: '#9aa5b1',
+}
+
+const attendanceTotal = computed(() => attendanceStatus.value.reduce((s, x) => s + x.count, 0))
+
+const attendanceSegments = computed(() => {
+    const total = attendanceTotal.value || 1
+    let acc = 0
+    return attendanceStatus.value.map((x) => {
+        const length = Math.max(0.5, (x.count / total) * 100)
+        const offset = 25 - acc
+        acc += length
         return {
-            kicker: 'Cần theo dõi',
-            title: 'Hệ thống ổn nhưng cần theo dõi sát các điểm phát sinh',
-            message: 'Có thiết bị, ngoại lệ hoặc yêu cầu can thiệp đang chờ xử lý. Ca trực nên bám sát hàng chờ thay vì chỉ nhìn số liệu tổng hợp.',
-            chipText: 'Theo dõi chủ động',
-            chipClass: 'warn',
+            length,
+            offset,
+            color: statusColor(x.status),
         }
-    }
-
-    return {
-        kicker: 'Vận hành ổn định',
-        title: 'Tình hình đang yên, phù hợp cho giám sát chủ động',
-        message: 'Chưa có tín hiệu khẩn cấp nổi bật. Nên dùng thời gian này để rà soát hàng chờ, sức khỏe thiết bị và bảo đảm các luồng vào/ra giữ đúng chuẩn.',
-        chipText: 'Ổn định',
-        chipClass: 'success',
-    }
+    })
 })
 
-const commandMetrics = computed(() => [
-    {
-        label: 'Cảnh báo nghiêm trọng',
-        value: snapshot.value.criticalOpenAlarms || 0,
-        note: `${snapshot.value.openAlarms || 0} cảnh báo đang mở`,
-        tone: (snapshot.value.criticalOpenAlarms || 0) > 0 ? 'danger' : 'neutral',
-    },
-    {
-        label: 'Can thiệp chờ duyệt',
-        value: snapshot.value.pendingInterventions || 0,
-        note: (snapshot.value.oldestPendingInterventionMinutes || 0) > 0
-            ? `Cũ nhất ${snapshot.value.oldestPendingInterventionMinutes} phút`
-            : 'Không có tồn đọng',
-        tone: (snapshot.value.pendingInterventions || 0) > 0 ? 'warn' : 'neutral',
-    },
-    {
-        label: 'Khách đang ở trong khuôn viên',
-        value: snapshot.value.checkedInVisitors || 0,
-        note: `${snapshot.value.expectedVisitorsToday || 0} khách dự kiến hôm nay`,
-        tone: 'neutral',
-    },
-    {
-        label: 'Thiết bị cần chú ý',
-        value: (snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0),
-        note: `${snapshot.value.offlineDevices || 0} mất kết nối / ${snapshot.value.degradedDevices || 0} suy giảm`,
-        tone: ((snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0)) > 0 ? 'warn' : 'neutral',
-    },
-    {
-        label: 'Làn cần chú ý',
-        value: laneHealthSummary.value.degradedCount,
-        note: laneHealthSummary.value.degradedCount > 0
-            ? laneHealthSummary.value.degradedNames.join(', ')
-            : `${laneHealthSummary.value.healthyCount}/${laneHealthSummary.value.total} làn ổn định`,
-        tone: laneHealthSummary.value.degradedCount > 0 ? 'warn' : 'neutral',
-    },
-])
+function statusColor(status) {
+    return DONUT_COLORS[status] || '#94a3b8'
+}
 
-const dashboardActions = computed(() => {
-    if (currentRole.value === 'QuanLy') {
-        return [
-            { label: 'Xử lý ngoại lệ', route: '/exceptions', primary: true },
-            { label: 'Tra cứu vào/ra', route: '/access-logs', primary: false },
-            { label: 'Báo cáo chấm công', route: '/attendance/reports', primary: false },
-        ]
-    }
-
-    return [
-        { label: 'Mở SOC', route: '/soc-console', primary: true },
-        { label: 'Theo dõi cổng', route: '/gate-transit-monitor', primary: false },
-        { label: 'Xử lý ngoại lệ', route: '/exceptions', primary: false },
-    ]
-})
-
-const heroActions = computed(() => {
-    if (currentRole.value === 'QuanLy') {
-        return [
-            { label: 'Mở hàng chờ', route: '/exceptions', primary: true },
-            { label: 'Tra cứu nhật ký', route: '/access-logs', primary: false },
-            { label: 'Xem báo cáo', route: '/attendance/reports', primary: false },
-        ]
-    }
-
-    return [
-        { label: 'Xem cảnh báo', route: '/soc-console', primary: true },
-        { label: 'Duyệt khách hẹn', route: resolveRoute('/pre-registrations', '/exceptions'), primary: false },
-        { label: 'Kiểm tra thiết bị', route: resolveRoute('/device-health', '/exceptions'), primary: false },
-    ]
-})
-
-const priorityQueue = computed(() => [
-    {
-        label: 'Cảnh báo SOC',
-        value: snapshot.value.criticalOpenAlarms || 0,
-        helper: `${snapshot.value.openAlarms || 0} mở`,
-        description: 'Điểm vào nhanh để xác nhận báo động, phân công người xử lý và đóng vòng phản ứng.',
-        route: resolveRoute('/soc-console', '/exceptions'),
-        tone: (snapshot.value.criticalOpenAlarms || 0) > 0 ? 'danger' : 'neutral',
-    },
-    {
-        label: 'Yêu cầu can thiệp',
-        value: snapshot.value.pendingInterventions || 0,
-        helper: (snapshot.value.oldestPendingInterventionMinutes || 0) > 0
-            ? `${snapshot.value.oldestPendingInterventionMinutes} phút`
-            : 'Sạch hàng chờ',
-        description: 'Các tình huống cần quản lý hoặc quản trị chấp nhận trước khi thực thi.',
-        route: '/exceptions',
-        tone: (snapshot.value.pendingInterventions || 0) > 0 ? 'warn' : 'neutral',
-    },
-    {
-        label: 'Khách hẹn trước chờ duyệt',
-        value: snapshot.value.pendingRegistrations || 0,
-        helper: `${snapshot.value.expectedVisitorsToday || 0} khách hôm nay`,
-        description: 'Những lượt vào khuôn viên cần được chốt trước giờ cao điểm để tránh ùn ở cổng hoặc lễ tân.',
-        route: resolveRoute('/pre-registrations', '/exceptions'),
-        tone: (snapshot.value.pendingRegistrations || 0) > 0 ? 'warn' : 'neutral',
-    },
-    {
-        label: 'Thiết bị cần kiểm tra',
-        value: (snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0),
-        helper: `${snapshot.value.camerasConfigured || 0} camera / ${snapshot.value.gatesConfigured || 0} cổng`,
-        description: 'Các thiết bị mất kết nối hoặc suy giảm thường là nguồn gây lỗi vận hành khó demo nhất.',
-        route: resolveRoute('/device-health', '/exceptions'),
-        tone: ((snapshot.value.offlineDevices || 0) + (snapshot.value.degradedDevices || 0)) > 0 ? 'warn' : 'neutral',
-    },
-    {
-        label: 'Sức khỏe làn',
-        value: laneHealthSummary.value.degradedCount,
-        helper: laneHealthSummary.value.degradedCount > 0
-            ? laneHealthSummary.value.degradedNames.join(', ')
-            : `${laneHealthSummary.value.healthyCount}/${laneHealthSummary.value.total} ổn định`,
-        description: 'Tóm tắt những làn không có sự kiện mới hoặc rào chắn đang ở trạng thái cần theo dõi để quản lý bám sát từ mặt nhìn tổng quan.',
-        route: resolveRoute('/enterprise-security', resolveRoute('/gate-transit-monitor', '/exceptions')),
-        tone: laneHealthSummary.value.degradedCount > 0 ? 'warn' : 'neutral',
-    },
-    {
-        label: 'Nghỉ phép chờ duyệt',
-        value: snapshot.value.pendingLeaveApprovals || 0,
-        helper: `${snapshot.value.totalShiftsToday || 0} ca hôm nay`,
-        description: 'Tác động gián tiếp đến vận hành vì làm thay đổi nhân lực thật sự còn có mặt trong ca.',
-        route: resolveRoute('/attendance/leave-approvals', '/attendance/reports'),
-        tone: (snapshot.value.pendingLeaveApprovals || 0) > 0 ? 'neutral' : 'neutral',
-    },
-])
-
-const sitePictureItems = computed(() => [
-    {
-        label: 'Xe đang ở trong bãi',
-        value: snapshot.value.vehiclesInside || 0,
-        hint: 'Tình trạng tồn xe hiện tại',
-    },
-    {
-        label: 'Khách đã check-in',
-        value: snapshot.value.checkedInVisitors || 0,
-        hint: 'Người ngoài đang có mặt trong khuôn viên',
-    },
-    {
-        label: 'Hồ sơ nhân sự',
-        value: snapshot.value.employeeCount || 0,
-        hint: 'Tổng nhân sự trong dữ liệu',
-    },
-    {
-        label: 'Hồ sơ khách',
-        value: snapshot.value.guestProfiles || 0,
-        hint: 'Tập hồ sơ phục vụ kiểm soát khách',
-    },
-    {
-        label: 'Camera đã cấu hình',
-        value: snapshot.value.camerasConfigured || 0,
-        hint: 'Nguồn theo dõi hiện trường',
-    },
-    {
-        label: 'Cổng / làn đang quản lý',
-        value: snapshot.value.gatesConfigured || 0,
-        hint: 'Điểm kiểm soát trong phạm vi hiện tại',
-    },
-    {
-        label: 'Làn ổn định',
-        value: laneHealthSummary.value.healthyCount,
-        hint: laneHealthSummary.value.degradedCount > 0
-            ? `${laneHealthSummary.value.degradedCount} làn cần chú ý`
-            : 'Không có làn suy giảm',
-    },
-])
-
-const workforceItems = computed(() => [
-    {
-        label: 'Nhân sự có lịch làm',
-        value: snapshot.value.employeesWorkingToday || 0,
-        note: 'Quy mô lực lượng dự kiến trong ngày',
-    },
-    {
-        label: 'Chưa check-in',
-        value: snapshot.value.employeesNotCheckedIn || 0,
-        note: 'Cần phân biệt vắng mặt thật và dữ liệu chưa lên',
-    },
-    {
-        label: 'Đi trễ',
-        value: snapshot.value.employeesLateToday || 0,
-        note: 'Một tín hiệu để rà lại kỷ luật vào ca',
-    },
-    {
-        label: 'Tổng ca hôm nay',
-        value: snapshot.value.totalShiftsToday || 0,
-        note: 'Mốc nền để giải nghĩa các số liệu hiện diện',
-    },
-    {
-        label: 'Tăng ca ghi nhận',
-        value: `${Number(snapshot.value.totalOvertimeHoursToday || 0).toFixed(1)}h`,
-        note: 'Dùng để đọc áp lực vận hành kéo dài',
-    },
-    {
-        label: 'QR / Độ phủ AI',
-        value: `${snapshot.value.recognitionCoverage || 0}%`,
-        note: 'Hiển thị độ đầy đủ dữ liệu nhận diện hiện có',
-    },
-])
-
-const topInsights = computed(() => (intelligence.value?.insights || []).slice(0, 3))
-
-function activityKindShort(kind) {
-    switch (kind) {
-        case 'Alarm': return 'BĐ'
-        case 'Lane': return 'LN'
-        case 'Intervention': return 'CT'
-        default: return 'SK'
+function statusLabel(status) {
+    switch (status) {
+        case 'Completed': return 'Đúng giờ'
+        case 'Late': return 'Đi trễ'
+        case 'EarlyLeave': return 'Về sớm'
+        case 'Absent': return 'Vắng mặt'
+        case 'CheckedIn': return 'Đã check-in'
+        case 'ForgotCheckout': return 'Quên check-out'
+        case 'Leave': return 'Nghỉ phép'
+        default: return status || 'Không rõ'
     }
 }
 
-function formatRelativeTime(value) {
-    if (!value) return '--'
-    const diffMs = Date.now() - new Date(value).getTime()
-    const diffMinutes = Math.max(0, Math.round(diffMs / 60000))
-
-    if (diffMinutes < 1) return 'vừa xong'
-    if (diffMinutes < 60) return `${diffMinutes} phút trước`
-
-    const diffHours = Math.round(diffMinutes / 60)
-    if (diffHours < 24) return `${diffHours} giờ trước`
-
-    const diffDays = Math.round(diffHours / 24)
-    return `${diffDays} ngày trước`
+function visitorStatusLabel(status) {
+    switch (status) {
+        case 'Completed': return 'Đã xong'
+        case 'CheckedIn': return 'Đang trong'
+        case 'Overstay': return 'Quá giờ'
+        case 'CheckedOut': return 'Đã ra'
+        case 'Approved': return 'Đã duyệt'
+        case 'Pending': return 'Chờ duyệt'
+        default: return status || 'Khác'
+    }
 }
 
-async function loadDashboard() {
-    isLoading.value = true
+// ---- Heatmap ----
+const hourLabels = ['0', '4', '8', '12', '16', '20']
+
+function heatClass(value, max) {
+    if (value <= 0) return 'lvl-0'
+    const ratio = value / max
+    if (ratio <= 0.2) return 'lvl-1'
+    if (ratio <= 0.4) return 'lvl-2'
+    if (ratio <= 0.6) return 'lvl-3'
+    if (ratio <= 0.8) return 'lvl-4'
+    return 'lvl-5'
+}
+
+// ---- KPI tone ----
+function kpiCardTone(value, tone) {
+    return value > 0 ? tone : ''
+}
+
+function formatTime(value) {
+    if (!value) return '—'
+    return new Date(value).toLocaleString('vi-VN', {
+        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
+    })
+}
+
+async function loadAll() {
+    loading.value = true
     loadError.value = ''
     try {
-        const [overviewResult, laneHealthResult] = await Promise.allSettled([
-            getDashboardOverview(),
-            enterpriseApi.getLaneHealth(),
-        ])
-
-        if (overviewResult.status !== 'fulfilled') {
-            throw overviewResult.reason
-        }
-
-        const { data } = overviewResult.value
-        snapshot.value = { ...snapshot.value, ...(data.snapshot || {}) }
-        weeklyTraffic.value = data.weeklyTraffic || []
-        recentActivities.value = data.recentActivities || []
-        laneHealth.value = laneHealthResult.status === 'fulfilled' ? (laneHealthResult.value.data || []) : []
+        const { data } = await getDashboardReports()
+        report.value = data
     } catch (error) {
         console.error('Dashboard load error:', error)
-        loadError.value = 'Không thể tải bức tranh vận hành tổng quan.'
+        loadError.value = 'Không thể tải dữ liệu báo cáo thống kê. Vui lòng thử lại.'
     } finally {
-        isLoading.value = false
+        loading.value = false
     }
 }
 
-async function loadIntelligence() {
-    intelligenceLoading.value = true
-    try {
-        const { data } = await getDashboardIntelligence()
-        intelligence.value = data
-    } catch (error) {
-        console.error('Intelligence load error:', error)
-    } finally {
-        intelligenceLoading.value = false
-    }
-}
-
-onMounted(async () => {
-    await Promise.allSettled([loadDashboard(), loadIntelligence()])
-})
+onMounted(loadAll)
 </script>
 
 <style scoped>
-.dashboard-ops {
+.report-page {
     gap: 20px;
 }
 
 .dashboard-subtitle {
     margin-top: 12px;
-    max-width: 70ch;
+    max-width: 76ch;
 }
 
-.command-deck {
-    display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
-    gap: 18px;
+.updated-at {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    white-space: nowrap;
 }
 
-.command-hero,
-.command-side {
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    border-radius: 28px;
-    box-shadow: var(--shadow-sm);
-    backdrop-filter: var(--glass-blur);
-}
-
-.command-hero {
-    padding: 28px;
-    background:
-        radial-gradient(circle at top left, rgba(84, 196, 211, 0.16), transparent 34%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 252, 253, 0.92));
-}
-
-.command-side {
-    padding: 24px;
-    background:
-        radial-gradient(circle at top right, rgba(84, 196, 211, 0.18), transparent 35%),
-        linear-gradient(180deg, rgba(16, 32, 51, 0.97), rgba(24, 49, 77, 0.95));
-    color: var(--text-inverse);
-}
-
-.hero-topline,
-.side-head {
+.header-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
 }
 
-.hero-updated {
-    color: var(--text-muted);
-    font-size: 0.86rem;
+/* KPI cards */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
 }
 
-.hero-copy {
-    margin-top: 18px;
-}
-
-.hero-copy h2 {
-    font-family: var(--font-heading);
-    font-size: clamp(1.8rem, 2.6vw, 2.6rem);
-    line-height: 1.04;
-    max-width: 18ch;
-}
-
-.hero-copy p {
-    margin-top: 12px;
-    max-width: 62ch;
-    color: var(--text-secondary);
-    font-size: 1rem;
-    line-height: 1.7;
-}
-
-.hero-chip-row {
+.kpi-card {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 22px;
-}
-
-.side-head strong {
-    font-family: var(--font-heading);
-    font-size: 1.08rem;
-}
-
-.command-metric-grid {
-    margin-top: 18px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.command-metric {
-    padding: 16px;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 18px;
     border-radius: 20px;
-    border: 1px solid rgba(239, 247, 248, 0.08);
-    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
-.command-metric.warn {
-    border-color: rgba(216, 155, 55, 0.22);
-    background: rgba(216, 155, 55, 0.12);
-}
-
-.command-metric.danger {
-    border-color: rgba(195, 81, 70, 0.24);
-    background: rgba(195, 81, 70, 0.12);
-}
-
-.command-metric span,
-.command-metric small {
-    display: block;
-}
-
-.command-metric span {
-    color: rgba(239, 247, 248, 0.78);
-    font-size: 0.82rem;
-}
-
-.command-metric strong {
-    display: block;
-    margin-top: 10px;
-    font-family: var(--font-heading);
-    font-size: 2rem;
-    line-height: 1;
-}
-
-.command-metric small {
-    margin-top: 10px;
-    color: rgba(239, 247, 248, 0.68);
-    line-height: 1.5;
-}
-
-.queue-list,
-.intel-stack {
-    display: grid;
-    gap: 12px;
-}
-
-.queue-item {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 112px;
-    gap: 16px;
-    padding: 16px 18px;
-    border-radius: 20px;
-    border: 1px solid var(--border-subtle);
-    background: var(--surface-subtle);
-    transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
-}
-
-.queue-item:hover,
-.event-row:hover {
+.kpi-card:hover {
     transform: translateY(-2px);
-    border-color: var(--border-color-hover);
     box-shadow: var(--shadow-md);
 }
 
-.queue-item.warn {
-    border-color: rgba(216, 155, 55, 0.18);
+.kpi-card.warn {
+    border-color: rgba(216, 155, 55, 0.35);
+    background: linear-gradient(180deg, rgba(216, 155, 55, 0.07), var(--surface));
 }
 
-.queue-item.danger {
-    border-color: rgba(195, 81, 70, 0.18);
+.kpi-card.danger {
+    border-color: rgba(195, 81, 70, 0.4);
+    background: linear-gradient(180deg, rgba(195, 81, 70, 0.08), var(--surface));
 }
 
-.queue-main strong,
-.event-copy strong {
-    color: var(--text-primary);
-    font-size: 0.98rem;
+.kpi-icon {
+    font-size: 1.5rem;
+    line-height: 1;
 }
 
-.queue-main p,
-.event-copy p {
-    margin-top: 6px;
+.kpi-body {
+    min-width: 0;
+}
+
+.kpi-label {
+    display: block;
     color: var(--text-secondary);
-    font-size: 0.88rem;
-    line-height: 1.6;
+    font-size: 0.82rem;
+    font-weight: 600;
 }
 
-.queue-side {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: center;
-    gap: 4px;
-    text-align: right;
-}
-
-.queue-value {
+.kpi-value {
+    display: block;
+    margin-top: 6px;
     font-family: var(--font-heading);
-    font-size: 1.8rem;
+    font-size: 2rem;
     line-height: 1;
     color: var(--text-primary);
 }
 
-.queue-side small,
-.surface-hint {
+.kpi-note {
+    display: block;
+    margin-top: 6px;
     color: var(--text-muted);
     font-size: 0.78rem;
     line-height: 1.5;
 }
 
-.event-row {
-    display: grid;
-    grid-template-columns: 50px minmax(0, 1fr);
-    gap: 14px;
-    padding: 14px 16px;
+/* Panel main (line chart) */
+.panel-main {
+    border: 1px solid var(--border-soft);
     border-radius: 20px;
-    border: 1px solid var(--border-subtle);
-    background: var(--surface-subtle);
-    transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+    background: var(--surface);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
 }
 
-.event-icon {
-    width: 50px;
-    height: 50px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 16px;
-    font-weight: 800;
-    font-size: 0.84rem;
-    color: var(--accent-primary);
-    background: rgba(15, 124, 130, 0.1);
-}
-
-.event-icon.warn {
-    color: var(--accent-warning);
-    background: rgba(184, 111, 33, 0.12);
-}
-
-.event-icon.danger {
-    color: var(--accent-danger);
-    background: rgba(195, 81, 70, 0.12);
-}
-
-.event-topline,
-.dashboard-surface-line {
+.panel-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
 }
 
-.event-topline span {
+.panel-kicker {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: var(--text-muted);
-    font-size: 0.8rem;
-    white-space: nowrap;
 }
 
-.today-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+.panel-title {
+    margin: 2px 0 0;
+    font-size: 1.05rem;
 }
 
-.today-card {
-    padding: 16px;
-    border-radius: 18px;
-    border: 1px solid var(--border-subtle);
-    background: var(--surface-subtle);
-}
-
-.today-card span,
-.today-card small {
-    display: block;
-}
-
-.today-card span {
-    color: var(--text-secondary);
-    font-size: 0.84rem;
-}
-
-.today-card strong {
-    display: block;
-    margin-top: 8px;
-    font-family: var(--font-heading);
-    font-size: 1.7rem;
-    line-height: 1;
-}
-
-.today-card small {
-    margin-top: 8px;
-    color: var(--text-muted);
-    line-height: 1.55;
-}
-
-.intel-summary {
-    margin: 0;
-}
-
-.intel-insights {
-    display: grid;
-    gap: 10px;
-}
-
-.intel-insight {
-    padding: 14px 16px;
-    border-radius: 16px;
-    border: 1px solid var(--border-subtle);
-    background: var(--surface-subtle);
-}
-
-.intel-insight.warning {
-    border-color: rgba(216, 155, 55, 0.18);
-    background: rgba(216, 155, 55, 0.07);
-}
-
-.intel-insight.critical {
-    border-color: rgba(195, 81, 70, 0.18);
-    background: rgba(195, 81, 70, 0.07);
-}
-
-.intel-insight p {
-    margin-top: 6px;
-    color: var(--text-secondary);
-    font-size: 0.88rem;
-    line-height: 1.6;
-}
-
-.traffic-chart {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(44px, 1fr));
-    align-items: end;
+.legend {
+    display: flex;
     gap: 14px;
-    min-height: 220px;
-    padding: 26px 14px 8px;
-    overflow: hidden;
-    border: 1px solid var(--border-subtle);
-    border-radius: 18px;
-    background:
-        repeating-linear-gradient(to top, rgba(24, 49, 77, 0.055) 0 1px, transparent 1px 25%),
-        linear-gradient(180deg, rgba(236, 244, 246, 0.48), rgba(255, 255, 255, 0));
+    align-items: center;
+    flex-wrap: wrap;
 }
 
-.chart-day {
-    min-width: 0;
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot.in { background: var(--accent-info); }
+.dot.out { background: #d49b47; }
+.dot.total { background: #8b5cf6; }
+
+/* Line chart */
+.line-chart {
+    position: relative;
+    min-height: 260px;
+}
+
+.line-svg {
+    width: 100%;
+    height: 240px;
+    display: block;
+}
+
+.grid-line {
+    stroke: rgba(24, 49, 77, 0.08);
+    stroke-width: 1;
+}
+
+.line-path {
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.line-path.in { stroke: var(--accent-info); }
+.line-path.out { stroke: #d49b47; }
+
+.point-dot {
+    stroke: #fff;
+    stroke-width: 1.2;
+}
+
+.point-dot.in { fill: var(--accent-info); }
+.point-dot.out { fill: #d49b47; }
+
+.axis-x {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding-inline: 6px;
+}
+
+.axis-x span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+/* Mid grid: gate bars + donut */
+.mid-grid {
     display: grid;
-    grid-template-rows: 180px auto;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.ops-panel {
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    background: var(--surface);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Gate bars */
+.gate-bars {
+    display: grid;
     gap: 10px;
+}
+
+.gate-row {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr) 44px;
+    gap: 12px;
+    align-items: center;
+}
+
+.gate-name {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gate-track {
+    height: 22px;
+    background: var(--surface-muted);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.gate-stack {
+    display: flex;
+    height: 100%;
+}
+
+.gate-bar {
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.gate-bar.in { background: linear-gradient(90deg, var(--accent-primary), var(--accent-info)); }
+.gate-bar.out { background: linear-gradient(90deg, #e6b56b, #c47d2d); }
+
+.gate-total {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+/* Donut */
+.donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.donut-holder {
+    position: relative;
+    width: 170px;
+    height: 170px;
+    flex-shrink: 0;
+}
+
+.donut-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.donut-ring {
+    stroke: var(--surface-muted);
+    stroke-width: 4.5;
+}
+
+.donut-seg {
+    stroke-width: 4.5;
+    transition: stroke-dasharray 0.4s ease;
+}
+
+.donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
 }
 
-.chart-day > strong {
-    color: var(--text-secondary);
-    font-size: 0.78rem;
+.donut-center strong {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    line-height: 1;
 }
 
-.chart-stack {
-    height: 180px;
+.donut-center span {
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+}
+
+.donut-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+    flex: 1;
+    min-width: 150px;
+}
+
+.donut-legend li {
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.84rem;
+}
+
+.swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+.legend-count {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Heatmap */
+.heatmap {
+    display: grid;
     gap: 6px;
 }
 
-.chart-bar {
-    position: relative;
-    width: min(24px, 42%);
-    min-height: 0;
-    border-radius: 9px 9px 4px 4px;
-    transition: height 420ms ease, filter 180ms ease, transform 180ms ease;
+.heatmap-row {
+    display: grid;
+    grid-template-columns: 44px repeat(24, minmax(0, 1fr));
+    gap: 3px;
+    align-items: center;
 }
 
-.chart-bar:hover {
-    filter: brightness(0.96);
-    transform: translateY(-2px);
+.heatmap-header {
+    margin-bottom: 2px;
 }
 
-.chart-bar.in {
-    background: linear-gradient(180deg, var(--accent-info), var(--accent-primary));
-    box-shadow: 0 8px 18px rgba(15, 124, 130, 0.18);
-}
-
-.chart-bar.out {
-    background: linear-gradient(180deg, #f4c46d, #c47d2d);
-    box-shadow: 0 8px 18px rgba(196, 125, 45, 0.16);
-}
-
-.chart-bar span {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 6px);
-    transform: translateX(-50%);
-    color: var(--text-primary);
-    font-size: 0.72rem;
-    font-weight: 800;
-}
-
-.chart-bar[style*="height: 0%"] span {
-    bottom: 4px;
+.heatmap-corner,
+.heatmap-hour {
     color: var(--text-muted);
+    font-size: 0.68rem;
+    text-align: center;
+}
+
+.heatmap-cell {
+    height: 18px;
+    border-radius: 4px;
+    transition: transform 0.12s ease;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.15);
+}
+
+.lvl-0 { background: var(--surface-muted); }
+.lvl-1 { background: rgba(15, 124, 130, 0.18); }
+.lvl-2 { background: rgba(15, 124, 130, 0.38); }
+.lvl-3 { background: rgba(15, 124, 130, 0.6); }
+.lvl-4 { background: rgba(15, 124, 130, 0.8); }
+.lvl-5 { background: #0f7c82; }
+
+/* Mini bars (visitor trend) */
+.mini-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 120px;
+    padding-top: 8px;
+}
+
+.mini-bar-col {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-rows: 96px 18px;
+    gap: 4px;
+    text-align: center;
+}
+
+.mini-bar-track {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.mini-bar-fill {
+    width: 70%;
+    min-height: 3px;
+    border-radius: 6px 6px 2px 2px;
+    background: linear-gradient(180deg, var(--accent-info), var(--accent-primary));
+    transition: height 0.3s ease;
+}
+
+.mini-bar-label {
+    color: var(--text-muted);
+    font-size: 0.64rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.visitor-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+/* Anomaly table */
+.anomaly-table {
+    display: grid;
+    gap: 2px;
+}
+
+.anomaly-row {
+    display: grid;
+    grid-template-columns: 140px minmax(120px, 1fr) 70px minmax(160px, 2fr);
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.84rem;
+}
+
+.anomaly-row:nth-child(odd) {
+    background: var(--surface-muted);
+}
+
+.anomaly-head {
+    background: transparent !important;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding-bottom: 6px;
+}
+
+.anomaly-note {
+    color: var(--text-secondary);
+}
+
+.badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.in-badge { background: rgba(15, 124, 130, 0.14); color: var(--accent-primary); }
+.out-badge { background: rgba(196, 125, 45, 0.14); color: #c47d2d; }
+
+.alert-danger-bar {
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(195, 81, 70, 0.1);
+    color: var(--accent-danger);
+    border: 1px solid rgba(195, 81, 70, 0.25);
+    font-size: 0.88rem;
 }
 
 @media (max-width: 1180px) {
-    .command-deck,
-    .today-grid {
+    .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .mid-grid {
         grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 900px) {
-    .command-metric-grid,
-    .today-grid {
-        grid-template-columns: 1fr 1fr;
+@media (max-width: 820px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-
-    .queue-item {
-        grid-template-columns: 1fr;
+    .anomaly-row {
+        grid-template-columns: 120px 1fr 60px;
     }
-
-    .queue-side {
-        align-items: flex-start;
-        text-align: left;
+    .anomaly-row .anomaly-note {
+        grid-column: 1 / -1;
+    }
+    .heatmap-row {
+        grid-template-columns: 40px repeat(24, minmax(0, 1fr));
+        gap: 2px;
     }
 }
 
-@media (max-width: 640px) {
-    .command-metric-grid,
-    .today-grid {
+@media (max-width: 560px) {
+    .kpi-grid {
         grid-template-columns: 1fr;
     }
-
-    .event-row {
-        grid-template-columns: 1fr;
+    .gate-row {
+        grid-template-columns: 96px minmax(0, 1fr) 40px;
     }
-
-    .event-icon {
-        width: 42px;
-        height: 42px;
-    }
-
-    .event-topline,
-    .dashboard-surface-line {
+    .donut-wrap {
         flex-direction: column;
+        align-items: center;
     }
-
-    .traffic-chart {
-        gap: 8px;
-        padding-inline: 5px;
-    }
-
-    .chart-stack { gap: 3px; }
-    .chart-bar span { font-size: 0.65rem; }
 }
 </style>

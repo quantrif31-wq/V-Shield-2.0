@@ -338,6 +338,213 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("reports")]
+    public async Task<IActionResult> GetReports()
+    {
+        var today = DateTime.Today;
+        var nowUtc = DateTime.UtcNow;
+        var todayStartUtc = today;
+        var todayEndUtc = today.AddDays(1);
+
+        // --- Lượt ra/vào theo ngày (30 ngày) ---
+        var dayLogs = await _context.AccessLogs.AsNoTracking()
+            .Where(log => log.Timestamp >= today.AddDays(-29) && log.Timestamp < todayEndUtc)
+            .Select(log => new { log.Timestamp, log.Direction, log.GateNameSnapshot, log.IsBypass, log.ResultStatus, log.ExceptionReasonId })
+            .ToListAsync();
+
+        var trafficByDay = dayLogs
+            .GroupBy(log => (log.Timestamp ?? DateTime.MinValue).Date)
+            .OrderBy(g => g.Key)
+            .Select(g => new
+            {
+                date = g.Key,
+                label = g.Key.ToString("dd/MM"),
+                checkIn = g.Count(log => string.Equals(log.Direction, "IN", StringComparison.OrdinalIgnoreCase)),
+                checkOut = g.Count(log => string.Equals(log.Direction, "OUT", StringComparison.OrdinalIgnoreCase)),
+                total = g.Count()
+            })
+            .ToList();
+
+        // --- Ra/vào theo cổng ---
+        var trafficByGate = dayLogs
+            .GroupBy(log => log.GateNameSnapshot ?? "Chưa gán cổng")
+            .OrderByDescending(g => g.Count())
+            .Select(g => new
+            {
+                gate = g.Key,
+                checkIn = g.Count(log => string.Equals(log.Direction, "IN", StringComparison.OrdinalIgnoreCase)),
+                checkOut = g.Count(log => string.Equals(log.Direction, "OUT", StringComparison.OrdinalIgnoreCase)),
+                total = g.Count()
+            })
+            .ToList();
+
+        // --- Ra/vào theo giờ trong ngày (7 ngày) ---
+        var hourlyLogs = await _context.AccessLogs.AsNoTracking()
+            .Where(log => log.Timestamp >= today.AddDays(-6) && log.Timestamp < todayEndUtc)
+            .Select(log => new { log.Timestamp, log.Direction })
+            .ToListAsync();
+
+        var weekdayOrder = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
+        var hourlyByWeekday = weekdayOrder.Select(day =>
+        {
+            var date = GetStartOfWeek(today, DayOfWeek.Monday).AddDays((int)day);
+            var nextDate = date.AddDays(1);
+            var hours = Enumerable.Range(0, 24).Select(hour =>
+            {
+                var inCount = hourlyLogs.Count(log =>
+                    (log.Timestamp ?? DateTime.MinValue).Date == date &&
+                    (log.Timestamp ?? DateTime.MinValue).Hour == hour &&
+                    string.Equals(log.Direction, "IN", StringComparison.OrdinalIgnoreCase));
+                var outCount = hourlyLogs.Count(log =>
+                    (log.Timestamp ?? DateTime.MinValue).Date == date &&
+                    (log.Timestamp ?? DateTime.MinValue).Hour == hour &&
+                    string.Equals(log.Direction, "OUT", StringComparison.OrdinalIgnoreCase));
+                return new { hour, checkIn = inCount, checkOut = outCount };
+            }).ToList();
+            return new
+            {
+                day = GetVietnameseWeekdayLabel(day),
+                date = date,
+                hours
+            };
+        }).ToList();
+
+        // --- Chấm công: tỷ trọng trạng thái (30 ngày) ---
+        var attendances = await _context.Attendances.AsNoTracking()
+            .Where(a => a.WorkDate >= today.AddDays(-29) && a.WorkDate < todayEndUtc)
+            .Select(a => new { a.Status, a.LateMinutes, a.OvertimeHours, a.WorkDate })
+            .ToListAsync();
+
+        var attendanceStatus = attendances
+            .GroupBy(a => a.Status)
+            .Select(g => new { status = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        var attendanceTrend = attendances
+            .GroupBy(a => a.WorkDate)
+            .OrderBy(g => g.Key)
+            .Select(g => new
+            {
+                date = g.Key,
+                label = g.Key.ToString("dd/MM"),
+                late = g.Count(a => a.LateMinutes > 0),
+                absent = g.Count(a => a.Status == AttendanceStatuses.Absent),
+                total = g.Count()
+            })
+            .ToList();
+
+        // --- Khách thăm (30 ngày) ---
+        var visits = await _context.Visits.AsNoTracking()
+            .Where(v => v.ExpectedInUtc >= today.AddDays(-29) && v.ExpectedInUtc < todayEndUtc)
+            .Select(v => new { v.ExpectedInUtc, v.Status })
+            .ToListAsync();
+
+        var visitorTrend = visits
+            .GroupBy(v => v.ExpectedInUtc.Date)
+            .OrderBy(g => g.Key)
+            .Select(g => new
+            {
+                date = g.Key,
+                label = g.Key.ToString("dd/MM"),
+                total = g.Count()
+            })
+            .ToList();
+
+        var visitorStatus = visits
+            .GroupBy(v => v.Status)
+            .Select(g => new { status = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        // --- Báo động theo mức độ & trạng thái ---
+        var alarms = await _context.Alarms.AsNoTracking()
+            .Where(a => a.CreatedAtUtc >= today.AddDays(-29))
+            .Select(a => new { a.Severity, a.State })
+            .ToListAsync();
+
+        var alarmBySeverity = alarms
+            .GroupBy(a => a.Severity ?? "Không rõ")
+            .Select(g => new { severity = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        var alarmByState = alarms
+            .GroupBy(a => a.State ?? "Không rõ")
+            .Select(g => new { state = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        // --- Thiết bị ---
+        var devices = await _context.SecurityDevices.AsNoTracking()
+            .Select(d => new { d.Status, d.DeviceType })
+            .ToListAsync();
+
+        var deviceByStatus = devices
+            .GroupBy(d => d.Status ?? "Không rõ")
+            .Select(g => new { status = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        // --- Bất thường hôm nay ---
+        var successfulStatuses = new[] { "APPROVED", "SUCCESS", "GRANTED", "OK", "MATCHED" };
+        var todayAnomalies = dayLogs
+            .Where(log =>
+                (log.Timestamp ?? DateTime.MinValue) >= todayStartUtc &&
+                (log.Timestamp ?? DateTime.MinValue) < todayEndUtc &&
+                (log.IsBypass == true ||
+                 log.ExceptionReasonId != null ||
+                 (!string.IsNullOrWhiteSpace(log.ResultStatus) && !successfulStatuses.Contains(log.ResultStatus.ToUpper()))))
+            .ToList();
+
+        var exceptionByReason = todayAnomalies
+            .GroupBy(log => log.ExceptionReasonId == null ? "Bypass / từ chối" : "Có lý do")
+            .Select(g => new { reason = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ToList();
+
+        return Ok(new
+        {
+            generatedAt = DateTime.Now,
+            kpis = new
+            {
+                todayTotal = dayLogs.Count(log => (log.Timestamp ?? DateTime.MinValue) >= todayStartUtc),
+                todayCheckIn = dayLogs.Count(log => (log.Timestamp ?? DateTime.MinValue) >= todayStartUtc && string.Equals(log.Direction, "IN", StringComparison.OrdinalIgnoreCase)),
+                todayCheckOut = dayLogs.Count(log => (log.Timestamp ?? DateTime.MinValue) >= todayStartUtc && string.Equals(log.Direction, "OUT", StringComparison.OrdinalIgnoreCase)),
+                todayAnomalies = todayAnomalies.Count,
+                todayVisitors = visitorTrend.Where(x => x.date == today).Sum(x => x.total),
+                openAlarms = alarms.Count(a => a.State != "Closed"),
+                criticalAlarms = alarms.Count(a => a.State != "Closed" && a.Severity == "Critical"),
+                offlineDevices = devices.Count(d => d.Status == "Offline"),
+                degradedDevices = devices.Count(d => d.Status == "Degraded"),
+                vehiclesInside = await _context.Vehicles.AsNoTracking().CountAsync(v => v.ParkingStatus != null && v.ParkingStatus.ToUpper() == "IN"),
+                checkedInVisitors = await _context.Visits.AsNoTracking().CountAsync(v => v.Status == VisitStatuses.CheckedIn || v.Status == VisitStatuses.Overstay)
+            },
+            trafficByDay,
+            trafficByGate,
+            hourlyByWeekday,
+            attendanceStatus,
+            attendanceTrend,
+            visitorTrend,
+            visitorStatus,
+            alarmBySeverity,
+            alarmByState,
+            deviceByStatus,
+            exceptionByReason,
+            anomalies = todayAnomalies
+                .OrderByDescending(log => log.Timestamp)
+                .Take(10)
+                .Select(log => new
+                {
+                    time = log.Timestamp,
+                    gate = log.GateNameSnapshot,
+                    direction = log.Direction,
+                    note = log.IsBypass == true ? "Bypass" : log.ResultStatus
+                })
+                .ToList()
+        });
+    }
+
     private static DateTime GetStartOfWeek(DateTime value, DayOfWeek startOfWeek)
     {
         var diff = (7 + (value.DayOfWeek - startOfWeek)) % 7;
