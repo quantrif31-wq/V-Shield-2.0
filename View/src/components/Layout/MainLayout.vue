@@ -36,14 +36,16 @@
             />
             <main id="main-content" class="main-content" tabindex="-1">
                 <div class="content-shell unified-ui">
-                    <router-view v-slot="{ Component, route }">
-                        <transition name="page-fade" mode="out-in">
-                            <keep-alive v-if="route.meta.keepAlive">
-                                <component :is="Component" :key="route.name" />
-                            </keep-alive>
-                            <component v-else :is="Component" :key="route.fullPath" />
-                        </transition>
-                    </router-view>
+                    <RouteErrorBoundary>
+                        <router-view v-slot="{ Component, route }">
+                            <transition name="page-fade" mode="out-in">
+                                <keep-alive v-if="route.meta.keepAlive">
+                                    <component :is="Component" :key="route.name" />
+                                </keep-alive>
+                                <component v-else :is="Component" :key="route.fullPath" />
+                            </transition>
+                        </router-view>
+                    </RouteErrorBoundary>
                 </div>
             </main>
         </div>
@@ -56,6 +58,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
 import AIChatBot from '../AIChatBot.vue'
+import RouteErrorBoundary from '../ui/RouteErrorBoundary.vue'
 import { startSecurityAlertPolling, stopSecurityAlertPolling } from '../../services/securityAlertBus'
 
 const isMobile = ref(false)

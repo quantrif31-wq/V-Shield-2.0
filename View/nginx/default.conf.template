@@ -163,6 +163,7 @@ server {
   # immediately; versioned assets can remain cached safely.
   location = /index.html {
     expires -1;
+    add_header Cache-Control "no-store, must-revalidate" always;
   }
 
   location ~* \.(?:css|js|woff2?|png|jpe?g|gif|svg|webp|ico)$ {

@@ -340,27 +340,31 @@ router.beforeEach((to, from, next) => {
 })
 
 router.onError((error, to) => {
-    console.error('Router navigation error:', error)
+  console.error('Router navigation error:', error)
 
-    const message = String(error?.message || '')
-    if (!message.includes(DYNAMIC_IMPORT_ERROR_MARKER)) {
-        return
-    }
+  const message = String(error?.message || '')
+  if (!message.includes(DYNAMIC_IMPORT_ERROR_MARKER)) {
+    return
+  }
 
-    if (typeof window === 'undefined') {
-        return
-    }
+  if (typeof window === 'undefined') {
+    return
+  }
 
-    const reloadTarget = typeof to?.fullPath === 'string' && to.fullPath ? to.fullPath : window.location.pathname
-    const lastReloadTarget = window.sessionStorage.getItem(DYNAMIC_IMPORT_RELOAD_KEY)
+  const reloadTarget = typeof to?.fullPath === 'string' && to.fullPath ? to.fullPath : window.location.pathname
+  const lastReloadTarget = window.sessionStorage.getItem(DYNAMIC_IMPORT_RELOAD_KEY)
 
-    if (lastReloadTarget === reloadTarget) {
-        window.sessionStorage.removeItem(DYNAMIC_IMPORT_RELOAD_KEY)
-        return
-    }
+  if (lastReloadTarget === reloadTarget) {
+    // Đã thử reload target này; đặt lại khoá để lần sau thử lại, tránh kẹt vĩnh viễn.
+    window.sessionStorage.removeItem(DYNAMIC_IMPORT_RELOAD_KEY)
+    return
+  }
 
-    window.sessionStorage.setItem(DYNAMIC_IMPORT_RELOAD_KEY, reloadTarget)
-    window.location.assign(reloadTarget)
+  window.sessionStorage.setItem(DYNAMIC_IMPORT_RELOAD_KEY, reloadTarget)
+  window.setTimeout(() => {
+    window.sessionStorage.removeItem(DYNAMIC_IMPORT_RELOAD_KEY)
+  }, 3000)
+  window.location.assign(reloadTarget)
 })
 
 export default router
