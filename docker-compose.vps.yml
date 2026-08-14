@@ -33,6 +33,7 @@ services:
       VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY: "${VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY:?Set VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY in your environment or .env.vps file}"
       Authentication__RequireMfaForRoles__0: "Admin"
       Authentication__RequireMfaForRoles__1: "BaoVe"
+      Authentication__DemoBypassMfa: "${AUTH_DEMO_BYPASS_MFA:-false}"
       RateLimiting__Backend: "SqlServer"
       Runtime__Mode: docker
       DemoData__Enabled: "${DEMO_DATA_ENABLED:-true}"
