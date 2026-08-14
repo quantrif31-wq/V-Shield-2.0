@@ -15,7 +15,7 @@ android {
         versionName = "1.0.0"
 
         buildConfigField("String", "API_BASE_URL", "\"https://v-shield.site\"")
-        buildConfigField("Boolean", "DEMO_MODE", "true")
+        buildConfigField("Boolean", "DEMO_MODE", "false")
     }
 
     buildTypes {

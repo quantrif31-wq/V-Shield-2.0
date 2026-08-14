@@ -595,13 +595,13 @@ object DemoApiService : ApiService {
     override suspend fun getConversations(): Response<ConversationsResponse> =
         Response.success(ConversationsResponse(true, conversations))
 
-    override suspend fun createConversation(request: CreateConversationRequest): Response<ApiChatResponse<CreateConversationResponse>> {
+    override suspend fun createConversation(request: CreateConversationRequest): Response<ApiResponse<CreateConversationResponse>> {
         val newParticipants = (listOf(5734) + request.employeeIds).distinct().mapNotNull { id ->
             contacts.find { it.employeeId == id }?.let { ParticipantInfo(it.employeeId, it.fullName) }
                 ?: employees.find { it.employeeId == id }?.let { ParticipantInfo(it.employeeId, it.fullName) }
         }
         if (newParticipants.isEmpty()) {
-            return Response.success(ApiChatResponse(false, "Không tìm thấy liên hệ", null))
+            return Response.success(ApiResponse(false, "Không tìm thấy liên hệ", null))
         }
         val convId = nextConversationId++
         conversations.add(
@@ -617,7 +617,7 @@ object DemoApiService : ApiService {
             )
         )
         messagesByConversation[convId] = mutableListOf()
-        return Response.success(ApiChatResponse(true, null, CreateConversationResponse(convId, false)))
+        return Response.success(ApiResponse(true, null, CreateConversationResponse(convId, false)))
     }
 
     override suspend fun getConversationMessages(
@@ -663,7 +663,7 @@ object DemoApiService : ApiService {
     }
 
     override suspend fun markConversationRead(conversationId: Int): Response<MarkReadResponse> {
-        val list = messagesByConversation[conversationId].orEmpty()
+        val list = messagesByConversation.getOrPut(conversationId) { mutableListOf() }
         val readAt = isoFormatter.format(Instant.now())
         list.forEachIndexed { index, msg ->
             if (msg.senderId != DEMO_EMPLOYEE_ID && !msg.isRead) {
