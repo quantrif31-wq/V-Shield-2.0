@@ -63,3 +63,13 @@ public record SyncAckRequest(long LastAcknowledgedOutboxEventId);
 public record SyncBootstrapResponse(
     long RecommendedSequence,
     IReadOnlyList<SyncOutboxEnvelopeDto> Events);
+
+public sealed record CompleteFaceEnrollmentRequest(
+    string ModelFileName,
+    string? Checksum,
+    int? EncodingCount,
+    string? TemplateContent);
+
+public sealed record FailFaceEnrollmentRequest(
+    string? FailureCode,
+    string? FailureMessage);

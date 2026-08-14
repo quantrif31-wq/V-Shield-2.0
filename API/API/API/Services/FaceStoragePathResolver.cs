@@ -7,11 +7,15 @@ public sealed class FaceStorageOptions
     public const string SectionName = "FaceStorage";
 
     public string? InputRoot { get; set; }
+
+    /// <summary>Thư mục chứa model Face ID đang active (do Face Runtime ghi).</summary>
+    public string? ModelActiveDir { get; set; }
 }
 
 public interface IFaceStoragePathResolver
 {
     string InputRoot { get; }
+    string ModelActiveDir { get; }
     string ResolveDirectory(string directoryName);
     string ResolveFile(string directoryName, string fileName);
 }
@@ -32,9 +36,17 @@ public sealed class FaceStoragePathResolver : IFaceStoragePathResolver
             string.IsNullOrWhiteSpace(configuredRoot)
                 ? Path.Combine(fallbackWebRoot, "uploads", "VideoFace")
                 : configuredRoot);
+
+        var configuredModelDir = options.Value.ModelActiveDir;
+        ModelActiveDir = Path.GetFullPath(
+            string.IsNullOrWhiteSpace(configuredModelDir)
+                ? Path.Combine(InputRoot, "models", "active")
+                : configuredModelDir);
     }
 
     public string InputRoot { get; }
+
+    public string ModelActiveDir { get; }
 
     public string ResolveDirectory(string directoryName)
     {

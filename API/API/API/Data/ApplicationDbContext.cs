@@ -71,6 +71,8 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<EmployeeFaceVideo> EmployeeFaceVideos { get; set; }
     public virtual DbSet<EmployeeFaceModel> EmployeeFaceModels { get; set; }
     public virtual DbSet<FaceEnrollmentJob> FaceEnrollmentJobs { get; set; }
+    public virtual DbSet<RemoteFaceEnrollmentJob> RemoteFaceEnrollmentJobs { get; set; }
+    public virtual DbSet<RemoteFaceEnrollmentFrame> RemoteFaceEnrollmentFrames { get; set; }
     public virtual DbSet<FaceRecognitionEvent> FaceRecognitionEvents { get; set; }
     public virtual DbSet<FaceRecognitionCollectorCheckpoint> FaceRecognitionCollectorCheckpoints { get; set; }
     public virtual DbSet<EmployeeDynamicQr> EmployeeDynamicQrs { get; set; }

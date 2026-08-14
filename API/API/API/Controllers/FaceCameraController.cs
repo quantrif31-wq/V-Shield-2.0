@@ -1,8 +1,13 @@
+using API.Data;
 using API.Middleware;
+using API.Models;
 using API.Services;
 using API.Services.FaceRecognition;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Text.Json;
 
 namespace API.Controllers;
 
@@ -13,10 +18,14 @@ namespace API.Controllers;
 public class FaceCameraController : ControllerBase
 {
     private readonly IFaceRecognitionClient _faceRecognitionClient;
+    private readonly ApplicationDbContext _context;
 
-    public FaceCameraController(IFaceRecognitionClient faceRecognitionClient)
+    public FaceCameraController(
+        IFaceRecognitionClient faceRecognitionClient,
+        ApplicationDbContext context)
     {
         _faceRecognitionClient = faceRecognitionClient;
+        _context = context;
     }
 
     [HttpGet("cameras")]

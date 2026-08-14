@@ -56,6 +56,9 @@
         <template #cell-contact="{ row }"><div class="stacked-cell"><span>{{ row.phone || 'Chưa có số điện thoại' }}</span><small>{{ row.email || 'Chưa có email' }}</small></div></template>
         <template #cell-organization="{ row }"><div class="stacked-cell"><span>{{ row.departmentName || 'Chưa xếp phòng' }}</span><small>{{ row.positionName || 'Chưa có chức vụ' }}</small></div></template>
         <template #cell-status="{ row }"><StatusBadge :status="row.status ? 'active' : 'inactive'" :label="row.status ? 'Hoạt động' : 'Đã khóa'" dot /></template>
+        <template #cell-faceId="{ row }">
+          <StatusBadge :status="row.hasFaceId ? 'active' : 'inactive'" :label="row.hasFaceId ? 'Đã đăng ký' : 'Chưa đăng ký'" dot />
+        </template>
         <template #actions="{ row }">
           <div class="row-actions">
             <BaseButton variant="ghost" size="small" @click="openEditModal(row)">Sửa</BaseButton>
@@ -137,7 +140,7 @@ const isEditing = ref(false); const editingId = ref(null); const saving = ref(fa
 const modalForm = reactive({ fullName: '', phone: '', email: '', departmentId: null, positionId: null, status: true, faceImageUrl: '' }); const faceFile = ref(null); const facePreview = ref(''); const uploadMode = ref('file'); const urlError = ref(false)
 const faceUploadInput = ref(null); const faceUploadTarget = ref(null); let searchTimer = null
 const empNameValidation = reactive({ touched: false, isValid: false, error: '' })
-const columns = [{ key: 'fullName', label: 'Nhân viên', sortable: true }, { key: 'contact', label: 'Liên hệ' }, { key: 'organization', label: 'Đơn vị' }, { key: 'status', label: 'Trạng thái', sortable: true }]
+const columns = [{ key: 'fullName', label: 'Nhân viên', sortable: true }, { key: 'contact', label: 'Liên hệ' }, { key: 'organization', label: 'Đơn vị' }, { key: 'faceId', label: 'Face ID' }, { key: 'status', label: 'Trạng thái', sortable: true }]
 const sortedEmployees = computed(() => [...employees.value].sort((a,b) => { const av=sortKey.value==='status'?Number(a.status):String(a.fullName||''); const bv=sortKey.value==='status'?Number(b.status):String(b.fullName||''); return (typeof av==='string'?av.localeCompare(bv,'vi'):av-bv)*(sortDirection.value==='asc'?1:-1) }))
 const totalPages = computed(() => Math.max(1, Math.ceil(sortedEmployees.value.length / pageSize))); const paginatedEmployees = computed(() => sortedEmployees.value.slice((currentPage.value-1)*pageSize,currentPage.value*pageSize)); const pagStart = computed(() => employees.value.length ? (currentPage.value-1)*pageSize+1 : 0); const pagEnd = computed(() => Math.min(currentPage.value*pageSize,employees.value.length))
 const activeCount = computed(() => employeeSummary.value.activeEmployees || employees.value.filter(item=>item.status).length); const inactiveCount = computed(() => employeeSummary.value.inactiveEmployees || employees.value.filter(item=>!item.status).length); const hasActiveFilters = computed(() => Boolean(searchQuery.value || filterStatus.value)); const nameError = computed(() => empNameValidation.touched && !empNameValidation.isValid ? empNameValidation.error : '')

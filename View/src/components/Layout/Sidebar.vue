@@ -772,6 +772,13 @@ const navGroups = ref([
                 roles: ['NhanVien'],
             },
             {
+                path: '/my-face-id',
+                label: 'Đăng ký Face ID',
+                hint: 'Đăng ký nhận diện khuôn mặt',
+                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 19a6 6 0 0112 0"/><path d="M21 8h-3"/><path d="M21 5v6"/></svg>',
+                roles: ['NhanVien', 'NhanSu', 'Admin', 'QuanLy', 'BaoVe', 'LeTan'],
+            },
+            {
                 path: '/my-vehicles',
                 label: 'Xe của tôi',
                 hint: 'Xe đang gửi trong bãi',

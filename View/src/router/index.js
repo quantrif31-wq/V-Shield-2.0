@@ -218,6 +218,7 @@ const routes = [
             { path: 'vehicles', name: 'Vehicles', component: Vehicles, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'parking' } },
             { path: 'my-vehicles', name: 'MyVehicles', component: MyVehicles, meta: { allowedRoles: ['NhanVien'] } },
             { path: 'my-schedule', name: 'MySchedule', component: MySchedule, meta: { allowedRoles: ['NhanVien'] } },
+            { path: 'my-face-id', name: 'MyFaceId', component: () => import('../pages/MyFaceId.vue') },
             { path: 'profile', name: 'MyProfile', component: MyProfile, meta: { allowedRoles: ['NhanVien', 'NhanSu'] } },
             { path: 'vehicle-transfer', name: 'VehicleTransfer', component: VehicleTransfer, meta: { allowedRoles: ['NhanVien'] } },
             { path: 'my-dynamic-qr', name: 'MyDynamicQr', component: DynamicQrGenerator, meta: { allowedRoles: ['NhanVien', 'NhanSu'] } },

@@ -75,6 +75,7 @@ services:
       - ./runtime/go2rtc:/runtime/go2rtc
       - ./runtime/uploads:/app/wwwroot/uploads
       - ./runtime/face-data/input:/app/wwwroot/uploads/VideoFace
+      - ./runtime/face-data/models:/app/wwwroot/uploads/VideoFace/models
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health/ready"]
       interval: 15s

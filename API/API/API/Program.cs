@@ -174,6 +174,7 @@ namespace API
             builder.Services.AddScoped<SyncSystemConfigStore>();
             builder.Services.AddScoped<SyncEventApplier>();
             builder.Services.AddScoped<CentralSyncService>();
+            builder.Services.AddScoped<RemoteFaceEnrollmentQueueService>();
             builder.Services.AddSingleton<SyncRealtimeNotifier>();
             builder.Services.AddScoped<IRoutingService, RoutingService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
@@ -218,6 +219,7 @@ namespace API
                 builder.Services.AddHostedService<CameraRecordingService>();
                 builder.Services.AddHostedService<AreaNodeSyncWorker>();
                 builder.Services.AddHostedService<CentralSyncInboxWorker>();
+                builder.Services.AddHostedService<RemoteFaceEnrollmentWorker>();
             }
             builder.Services.AddHttpClient();
             var faceRecognitionClientOptions =

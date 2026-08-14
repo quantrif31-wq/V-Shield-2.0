@@ -16,4 +16,8 @@ public class EmployeeResponse
     // Position info
     public int? PositionId { get; set; }
     public string? PositionName { get; set; }
+
+    // Face ID status
+    public bool HasFaceId { get; set; }
+    public string? FaceModelFileName { get; set; }
 }

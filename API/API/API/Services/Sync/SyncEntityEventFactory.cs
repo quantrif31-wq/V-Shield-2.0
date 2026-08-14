@@ -20,7 +20,8 @@ public sealed class SyncEntityEventFactory
         nameof(DynamicQrScanLog),
         nameof(ChatConversation),
         nameof(ChatParticipant),
-        nameof(ChatMessage)
+        nameof(ChatMessage),
+        nameof(RemoteFaceEnrollmentJob)
     ];
 
     private static readonly HashSet<string> CentralEntities =
@@ -40,7 +41,9 @@ public sealed class SyncEntityEventFactory
         nameof(Alarm),
         nameof(ChatConversation),
         nameof(ChatParticipant),
-        nameof(ChatMessage)
+        nameof(ChatMessage),
+        nameof(RemoteFaceEnrollmentJob),
+        nameof(EmployeeFaceModel)
     ];
 
     private readonly SyncRuntimeOptions _options;

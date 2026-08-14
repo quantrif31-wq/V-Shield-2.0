@@ -52,8 +52,85 @@ public class SyncEventApplier
             nameof(ChatConversation) => await ApplyChatConversationAsync(syncEvent, action, entity, cancellationToken),
             nameof(ChatParticipant) => await ApplyChatParticipantAsync(syncEvent, action, entity, cancellationToken),
             nameof(ChatMessage) => await ApplyChatMessageAsync(syncEvent, action, entity, cancellationToken),
+            nameof(RemoteFaceEnrollmentJob) => await ApplyRemoteFaceEnrollmentJobAsync(syncEvent, action, entity, cancellationToken),
+            nameof(EmployeeFaceModel) => await ApplyEmployeeFaceModelAsync(syncEvent, action, entity, cancellationToken),
             _ => null
         };
+    }
+
+    private async Task<string?> ApplyRemoteFaceEnrollmentJobAsync(SyncEventDto syncEvent, string action, JsonElement entity, CancellationToken cancellationToken)
+    {
+        var fields = entity.ValueKind == JsonValueKind.Object
+            ? entity.EnumerateObject().ToDictionary(item => item.Name, item => item.Value, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+
+        var jobId = Guid.TryParse(syncEvent.AggregateId, out var parsedGuid) ? parsedGuid : (Guid?)null;
+        var existing = jobId.HasValue
+            ? await _db.RemoteFaceEnrollmentJobs.FirstOrDefaultAsync(item => item.Id == jobId.Value, cancellationToken)
+            : null;
+
+        if (string.Equals(action, "Delete", StringComparison.OrdinalIgnoreCase))
+        {
+            if (existing != null)
+            {
+                _db.RemoteFaceEnrollmentJobs.Remove(existing);
+                await _db.SaveChangesAsync(cancellationToken);
+                return existing.Id.ToString();
+            }
+            return syncEvent.AggregateId;
+        }
+
+        var job = existing ?? new RemoteFaceEnrollmentJob();
+        ApplyScalarValues(job, entity, includePrimaryKey: existing == null);
+        if (existing == null)
+        {
+            _db.RemoteFaceEnrollmentJobs.Add(job);
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+        return job.Id.ToString();
+    }
+
+    private async Task<string?> ApplyEmployeeFaceModelAsync(SyncEventDto syncEvent, string action, JsonElement entity, CancellationToken cancellationToken)
+    {
+        var fields = entity.ValueKind == JsonValueKind.Object
+            ? entity.EnumerateObject().ToDictionary(item => item.Name, item => item.Value, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+
+        var modelId = int.TryParse(syncEvent.AggregateId, out var parsedId) ? parsedId : (int?)null;
+        var existing = modelId.HasValue
+            ? await _db.EmployeeFaceModels.FirstOrDefaultAsync(item => item.Id == modelId.Value, cancellationToken)
+            : null;
+
+        if (string.Equals(action, "Delete", StringComparison.OrdinalIgnoreCase))
+        {
+            if (existing != null)
+            {
+                _db.EmployeeFaceModels.Remove(existing);
+                await _db.SaveChangesAsync(cancellationToken);
+                return existing.Id.ToString();
+            }
+            return syncEvent.AggregateId;
+        }
+
+        // EmployeeFaceModel keyed by (EmployeeId, Version) for stable identity.
+        var employeeId = TryGetInt(fields, nameof(EmployeeFaceModel.EmployeeId));
+        if (existing == null && employeeId.HasValue)
+        {
+            existing = await _db.EmployeeFaceModels
+                .Where(item => item.EmployeeId == employeeId.Value && item.Status == FaceModelLifecycleStatuses.Active)
+                .OrderByDescending(item => item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        var model = existing ?? new EmployeeFaceModel();
+        ApplyScalarValues(model, entity, includePrimaryKey: existing == null);
+        if (existing == null)
+        {
+            model.Id = 0;
+            _db.EmployeeFaceModels.Add(model);
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+        return model.Id.ToString();
     }
 
     private async Task<string?> ApplyAccessLogAsync(SyncEventDto syncEvent, string action, JsonElement entity, CancellationToken cancellationToken)

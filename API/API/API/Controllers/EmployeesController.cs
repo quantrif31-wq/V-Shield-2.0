@@ -71,7 +71,8 @@ public class EmployeesController : ControllerBase
                 DepartmentId = e.DepartmentId,
                 DepartmentName = e.Department != null ? e.Department.Name : null,
                 PositionId = e.PositionId,
-                PositionName = e.Position != null ? e.Position.Name : null
+                PositionName = e.Position != null ? e.Position.Name : null,
+                HasFaceId = _context.EmployeeFaceModels.Any(m => m.EmployeeId == e.EmployeeId && m.Status == FaceModelLifecycleStatuses.Active)
             })
             .ToListAsync();
 
