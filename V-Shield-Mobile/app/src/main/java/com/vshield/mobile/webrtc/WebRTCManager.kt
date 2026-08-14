@@ -46,6 +46,18 @@ class WebRTCManager(private val context: Context) {
     fun initialize() {
         if (isInitialized) return
         try {
+            try {
+                System.loadLibrary("jingle_peerconnection_so")
+            } catch (e: Throwable) {
+                Log.w("WebRTCManager", "loadLibrary jingle_peerconnection_so failed, trying alternative", e)
+                try {
+                    System.loadLibrary("jingle_peerconnection")
+                } catch (e2: Throwable) {
+                    listener?.onError("Không load được thư viện WebRTC native")
+                    return
+                }
+            }
+
             rootEglBase = EglBase.create()
             val encoderFactory = DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true)
             val decoderFactory = DefaultVideoDecoderFactory(rootEglBase.eglBaseContext)

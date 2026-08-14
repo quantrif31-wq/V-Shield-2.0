@@ -146,17 +146,25 @@ private fun VideoSurfaceView(videoTrack: VideoTrack?, isMirror: Boolean, modifie
             SurfaceViewRenderer(ctx).apply {
                 setMirror(isMirror)
                 setZOrderMediaOverlay(true)
+                init(sharedEglBase.eglBaseContext, null)
+                videoTrack?.addSink(this)
             }
         },
         update = { view ->
             videoTrack?.let { track ->
+                track.removeSink(view)
                 track.addSink(view)
             }
         },
         onRelease = { view ->
             videoTrack?.removeSink(view)
+            view.release()
         }
     )
+}
+
+private val sharedEglBase: org.webrtc.EglBase by lazy {
+    org.webrtc.EglBase.create()
 }
 
 @Composable

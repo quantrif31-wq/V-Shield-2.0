@@ -415,6 +415,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (offer != null && offer.isNotBlank()) {
             manager.handleRemoteOffer(offer)
             signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
+            _uiState.value = _uiState.value.copy(
+                callState = ChatCallState.Connected(
+                    withEmployeeId = state.fromEmployeeId,
+                    withFullName = state.fromFullName
+                )
+            )
         } else {
             _uiState.value = _uiState.value.copy(callError = "Không nhận được offer")
         }
@@ -524,13 +530,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             override fun onConnectionStateChanged(state: String) {
                 val current = _uiState.value
-                if (state == "CONNECTED" && current.callState is ChatCallState.Outgoing) {
-                    _uiState.value = current.copy(
-                        callState = ChatCallState.Connected(
-                            withEmployeeId = current.callState.toEmployeeId,
-                            withFullName = current.callState.toFullName
-                        )
-                    )
+                if (state == "CONNECTED" || state == "COMPLETED") {
+                    when (val cs = current.callState) {
+                        is ChatCallState.Outgoing -> {
+                            _uiState.value = current.copy(
+                                callState = ChatCallState.Connected(
+                                    withEmployeeId = cs.toEmployeeId,
+                                    withFullName = cs.toFullName
+                                )
+                            )
+                        }
+                        is ChatCallState.Incoming -> {
+                            _uiState.value = current.copy(
+                                callState = ChatCallState.Connected(
+                                    withEmployeeId = cs.fromEmployeeId,
+                                    withFullName = cs.fromFullName
+                                )
+                            )
+                        }
+                        else -> {}
+                    }
                 }
             }
 
