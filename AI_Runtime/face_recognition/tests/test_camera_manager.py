@@ -48,6 +48,13 @@ class FakeCapture:
         self.released = True
 
 
+class NoFaceDetector:
+    """Test detector that never reports a face, keeping the registry untouched."""
+
+    def detect(self, frame):
+        return None
+
+
 class CameraManagerTests(unittest.TestCase):
     def setUp(self):
         self.models = tempfile.TemporaryDirectory(prefix="camera-manager-models-")
@@ -75,16 +82,14 @@ class CameraManagerTests(unittest.TestCase):
 
         self.capture_factory = capture_factory
         self.manager = CameraManager(
-            self.registry, self.config, capture_factory=capture_factory
+            self.registry,
+            self.config,
+            capture_factory=capture_factory,
+            detector=NoFaceDetector(),
         )
-        self.face_locations = mock.patch(
-            "camera_session.face_recognition.face_locations", return_value=[]
-        )
-        self.face_locations.start()
 
     def tearDown(self):
         self.manager.shutdown_all()
-        self.face_locations.stop()
         self.models.cleanup()
         self.storage.cleanup()
 

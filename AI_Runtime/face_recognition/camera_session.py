@@ -11,8 +11,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 import cv2
-import face_recognition
 import numpy as np
+
+from face_detector import FaceDetector
+from template_store import cosine_distance
 
 
 MAX_READ_FAILS_BEFORE_WARN = 20
@@ -41,6 +43,8 @@ class CameraSession:
         config: Any,
         *,
         capture_factory: Callable[[str], Any] | None = None,
+        detector: Any | None = None,
+        embedder: Any | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.lane_id: str | None = None
@@ -91,6 +95,8 @@ class CameraSession:
         self._model_registry = model_registry
         self._config = config
         self._capture_factory = capture_factory
+        self._detector = detector
+        self._embedder = embedder
         self._tracking_active = False
         self._identity_confirmed = False
         self._last_face_box: dict[str, int] | None = None
@@ -512,16 +518,29 @@ class CameraSession:
                     continue
                 last_recognition_at = self.last_recognition_at
 
-            rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
             current_time = time.time()
-            locations = face_recognition.face_locations(rgb, model="hog")
-            if locations:
-                face_location = locations[0]
+            detections = (
+                self._detector.detect(processed)
+                if self._detector is not None
+                else None
+            )
+            if detections is not None and len(detections):
+                detection = detections[0]
+                face_location = FaceDetector.box_from_detection(detection)
+                landmarks = FaceDetector.landmarks_from_detection(detection)
                 face_crop = self._crop_face(processed, face_location)
                 snapshot_b64 = self._image_to_base64(processed)
                 crop_b64 = self._image_to_base64(face_crop)
                 if current_time - last_recognition_at > self._config.encode_interval:
-                    encodings = face_recognition.face_encodings(rgb, [face_location])
+                    encoding = None
+                    if self._embedder is not None:
+                        try:
+                            encoding = self._embedder.align_and_embed(
+                                processed, landmarks
+                            )
+                        except Exception:
+                            encoding = None
+                    encodings = [encoding] if encoding is not None else []
                     # Exactly one immutable registry snapshot is used per recognition.
                     model_snapshot = self._model_registry.current_snapshot()
                     self._apply_recognition(
@@ -577,9 +596,27 @@ class CameraSession:
                 self._last_alert = False
             self.last_face_seen_at = current_time
             if encodings and model_snapshot.encoding_count:
-                distances = face_recognition.face_distance(
-                    model_snapshot.encodings, encodings[0]
-                )
+                if model_snapshot.metric == "cosine":
+                    distances = np.asarray(
+                        [
+                            cosine_distance(encodings[0], known)
+                            for known in model_snapshot.encodings
+                        ],
+                        dtype=np.float64,
+                    )
+                else:
+                    distances = np.asarray(
+                        [
+                            float(
+                                np.linalg.norm(
+                                    np.asarray(encodings[0], dtype=np.float64)
+                                    - np.asarray(known, dtype=np.float64)
+                                )
+                            )
+                            for known in model_snapshot.encodings
+                        ],
+                        dtype=np.float64,
+                    )
                 best_index = int(np.argmin(distances))
                 distance = float(distances[best_index])
                 is_match = distance < self._config.threshold

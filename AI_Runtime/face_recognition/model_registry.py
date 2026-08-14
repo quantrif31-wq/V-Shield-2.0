@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-import pickle
-import hashlib
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+
+from template_store import (
+    TemplateEncodingError,
+    TemplateStoreError,
+    TemplateStructureError,
+    checksum_of_file,
+    load_templates,
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +24,7 @@ class ModelDescriptor:
     subject_id: str
     checksum: str
     encoding_count: int
+    metric: str = "euclidean"
 
 
 @dataclass(frozen=True)
@@ -37,6 +44,7 @@ class RegistrySnapshot:
     encodings: tuple[np.ndarray, ...] = field(repr=False)
     successful_file_count: int = 0
     encoding_count: int = 0
+    metric: str = "cosine"
     errors: tuple[ModelLoadError, ...] = ()
 
 
@@ -90,12 +98,21 @@ class FaceModelRegistry:
             (
                 path
                 for path in self._model_directory.iterdir()
-                if path.name.lower().endswith(".pkl")
+                if path.name.lower().endswith((".pkl", ".json"))
             ),
             key=lambda path: path.name,
         )
 
+        # SFace JSON templates (cosine) are the active format. Legacy dlib .pkl
+        # files are only loaded when no JSON template exists, so embeddings are
+        # never compared across incompatible metric spaces.
+        has_json = any(path.suffix.lower() == ".json" for path in model_paths)
+        active_metric = "cosine" if has_json else "euclidean"
+
         for model_path in model_paths:
+            file_metric = "cosine" if model_path.suffix.lower() == ".json" else "euclidean"
+            if file_metric != active_metric:
+                continue
             safe_path = self._validated_model_path(model_path)
             if safe_path is None:
                 errors.append(
@@ -108,10 +125,27 @@ class FaceModelRegistry:
                 continue
 
             try:
-                checksum = self._sha256(safe_path)
-                with safe_path.open("rb") as model_stream:
-                    raw_encodings = pickle.load(model_stream)
-            except Exception:
+                checksum = checksum_of_file(safe_path)
+                vectors, _metadata = load_templates(safe_path)
+            except TemplateEncodingError:
+                errors.append(
+                    ModelLoadError(
+                        file_name=model_path.name,
+                        error_code="MODEL_ENCODING_INVALID",
+                        message="Model file contains an invalid face encoding.",
+                    )
+                )
+                continue
+            except TemplateStructureError:
+                errors.append(
+                    ModelLoadError(
+                        file_name=model_path.name,
+                        error_code="MODEL_STRUCTURE_INVALID",
+                        message="Model file contains no usable face encodings.",
+                    )
+                )
+                continue
+            except TemplateStoreError:
                 errors.append(
                     ModelLoadError(
                         file_name=model_path.name,
@@ -121,19 +155,9 @@ class FaceModelRegistry:
                 )
                 continue
 
-            if not isinstance(raw_encodings, (list, tuple)):
-                errors.append(
-                    ModelLoadError(
-                        file_name=model_path.name,
-                        error_code="MODEL_STRUCTURE_INVALID",
-                        message="Model file must contain a list or tuple of encodings.",
-                    )
-                )
-                continue
-
             immutable_encodings: list[np.ndarray] = []
             invalid_encoding = False
-            for raw_encoding in raw_encodings:
+            for raw_encoding in vectors:
                 try:
                     encoding = np.asarray(raw_encoding)
                     if (
@@ -144,7 +168,6 @@ class FaceModelRegistry:
                     ):
                         raise ValueError("invalid encoding")
                     contiguous = np.ascontiguousarray(encoding)
-                    # A bytes-backed array cannot be made writable by callers.
                     immutable = np.frombuffer(
                         contiguous.tobytes(),
                         dtype=contiguous.dtype,
@@ -164,6 +187,7 @@ class FaceModelRegistry:
                 )
                 continue
 
+            metric = file_metric
             subject_id = self._subject_id_from_path(model_path)
             descriptors.append(
                 ModelDescriptor(
@@ -171,13 +195,15 @@ class FaceModelRegistry:
                     subject_id=subject_id,
                     checksum=checksum,
                     encoding_count=len(immutable_encodings),
+                    metric=metric,
                 )
             )
             encodings.extend(immutable_encodings)
             subject_ids.extend(subject_id for _ in immutable_encodings)
 
         return self._make_snapshot(
-            version, descriptors, subject_ids, encodings, errors
+            version, descriptors, subject_ids, encodings, errors,
+            metric=active_metric,
         )
 
     def reload(self) -> ReloadResult:
@@ -222,7 +248,7 @@ class FaceModelRegistry:
         except (OSError, ValueError):
             return None
 
-        if not resolved.is_file() or resolved.suffix.lower() != ".pkl":
+        if not resolved.is_file() or resolved.suffix.lower() not in (".pkl", ".json"):
             return None
         return resolved
 
@@ -231,14 +257,6 @@ class FaceModelRegistry:
         parts = model_path.stem.split("_")
         return parts[1] if len(parts) > 1 else model_path.stem
 
-    @staticmethod
-    def _sha256(model_path: Path) -> str:
-        digest = hashlib.sha256()
-        with model_path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-
     def _make_snapshot(
         self,
         version: int,
@@ -246,6 +264,8 @@ class FaceModelRegistry:
         subject_ids: list[str],
         encodings: list[np.ndarray],
         errors: list[ModelLoadError],
+        *,
+        metric: str = "cosine",
     ) -> RegistrySnapshot:
         return RegistrySnapshot(
             version=version,
@@ -256,5 +276,6 @@ class FaceModelRegistry:
             encodings=tuple(encodings),
             successful_file_count=len(descriptors),
             encoding_count=len(encodings),
+            metric=metric,
             errors=tuple(errors),
         )

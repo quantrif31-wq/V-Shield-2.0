@@ -128,6 +128,8 @@ runtime/face-data/**
 !runtime/face-data/models/failed/
 !runtime/face-data/manifests/
 !runtime/face-data/**/.gitkeep
+runtime/face-models/**
+!runtime/face-models/.gitkeep
 
 # ----- Local tools / bridge binaries -----
 AI_Project/cam/go2rtc_win64/

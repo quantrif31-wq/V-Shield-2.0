@@ -139,6 +139,22 @@ public sealed class FaceRecognitionClient : IFaceRecognitionClient
             JsonContent.Create(new FaceLiveEnrollRequest(subjectId, images), options: RequestJsonOptions),
             cancellationToken);
 
+    public Task<FaceRuntimeResponse> GuidedEnrollStartAsync(string streamUrl, string? poseMode, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, "enrollments/guided/start",
+            JsonContent.Create(new FaceGuidedEnrollStartRequest(streamUrl, poseMode), options: RequestJsonOptions),
+            cancellationToken);
+
+    public Task<FaceRuntimeResponse> GuidedEnrollProgressAsync(CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Get, "enrollments/guided/progress", null, cancellationToken);
+
+    public Task<FaceRuntimeResponse> GuidedEnrollStopAsync(CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, "enrollments/guided/stop", null, cancellationToken);
+
+    public Task<FaceRuntimeResponse> GuidedEnrollConfirmAsync(string subjectId, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, "enrollments/guided/confirm",
+            JsonContent.Create(new FaceGuidedEnrollConfirmRequest(subjectId), options: RequestJsonOptions),
+            cancellationToken);
+
     private static string CameraPath(string cameraId, string operation)
     {
         var validCameraId = FaceCameraIdValidator.Validate(cameraId);

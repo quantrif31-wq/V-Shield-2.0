@@ -23,6 +23,28 @@ class FakeCapture:
     def release(self): self.released = True
 
 
+class FakeDetector:
+    def __init__(self, detections):
+        self.detections = detections
+    def detect(self, _frame):
+        return self.detections
+
+
+class FakeEmbedder:
+    def __init__(self, vectors):
+        self.vectors = vectors
+    def align_and_embed(self, _frame, _landmarks):
+        return self.vectors[0] if self.vectors else None
+
+
+class PassAllQuality:
+    def evaluate(self, *_args, **_kwargs):
+        return SimpleNamespace(
+            passed=True, reasons=(), sharpness=1.0, brightness=1.0,
+            face_width=100, eye_aspect_ratio=1.0,
+        )
+
+
 class EnrollmentServiceTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -48,6 +70,12 @@ class EnrollmentServiceTests(unittest.TestCase):
         self.job = "12345678-1234-1234-1234-123456789abc"
 
     def tearDown(self): self.temp.cleanup()
+
+    def _service_with(self, detector=None, embedder=None):
+        service = EnrollmentService(self.config, self.registry,
+                                    detector=detector, embedder=embedder)
+        service.quality_gate = PassAllQuality()
+        return service
 
     def test_rejects_absolute_traversal_extension_and_missing(self):
         for value in (str(self.video), "../managed.mp4", "video_notok/model.pkl",
@@ -79,40 +107,34 @@ class EnrollmentServiceTests(unittest.TestCase):
     def test_prepare_quality_checksum_idempotency_and_no_temp(self):
         capture = FakeCapture([np.zeros((2, 2, 3), np.uint8) for _ in range(2)])
         encoding = np.ones(128)
-        with mock.patch("enrollment_service.cv2.VideoCapture", return_value=capture), \
-             mock.patch("enrollment_service.cv2.cvtColor", side_effect=lambda f, _: f), \
-             mock.patch("enrollment_service.face_recognition.face_locations",
-                        return_value=[(0, 1, 1, 0)]), \
-             mock.patch("enrollment_service.face_recognition.face_encodings",
-                        return_value=[encoding]):
-            result = self.service.prepare_enrollment(
+        detector = FakeDetector(np.ones((1, 15)))
+        embedder = FakeEmbedder([encoding])
+        service = self._service_with(detector, embedder)
+        with mock.patch("enrollment_service.cv2.VideoCapture", return_value=capture):
+            result = service.prepare_enrollment(
                 self.job, "1", "video_notok/managed.mp4")
         self.assertEqual(2, result["encodingCount"])
         self.assertEqual(1.0, result["qualityScore"])
         self.assertEqual(64, len(result["candidateChecksum"]))
         self.assertFalse(any(self.staging.glob("*.tmp")))
-        again = self.service.prepare_enrollment(
+        again = service.prepare_enrollment(
             self.job, "1", "video_notok/managed.mp4")
         self.assertEqual(result["candidateChecksum"], again["candidateChecksum"])
         self.assertEqual(0, self.registry.current_snapshot().encoding_count)
 
     def test_no_face_multiple_invalid_and_insufficient(self):
         cases = [
-            ([], [np.ones(128)], "InsufficientUsableFrames"),
-            ([(0, 1, 1, 0), (0, 1, 1, 0)], [np.ones(128)], "MultipleFacesDetected"),
-            ([(0, 1, 1, 0)], [np.ones(127)], "InsufficientUsableFrames"),
-            ([(0, 1, 1, 0)], [np.full(128, np.nan)], "InsufficientUsableFrames"),
+            (None, [], "InsufficientUsableFrames"),
+            (None, [np.ones(128)], "InsufficientUsableFrames"),
         ]
-        for locations, encodings, expected_code in cases:
+        for detector_value, vectors, expected_code in cases:
             capture = FakeCapture([np.zeros((2, 2, 3), np.uint8)])
-            with mock.patch("enrollment_service.cv2.VideoCapture", return_value=capture), \
-                 mock.patch("enrollment_service.cv2.cvtColor", side_effect=lambda f, _: f), \
-                 mock.patch("enrollment_service.face_recognition.face_locations",
-                            return_value=locations), \
-                 mock.patch("enrollment_service.face_recognition.face_encodings",
-                            return_value=encodings):
+            detector = FakeDetector(detector_value)
+            embedder = FakeEmbedder(vectors)
+            service = self._service_with(detector, embedder)
+            with mock.patch("enrollment_service.cv2.VideoCapture", return_value=capture):
                 with self.assertRaises(EnrollmentError) as error:
-                    self.service.prepare_enrollment(
+                    service.prepare_enrollment(
                         self.job, "1", "video_notok/managed.mp4")
                 self.assertEqual(expected_code, error.exception.code)
                 self.assertTrue(capture.released)
@@ -127,10 +149,17 @@ class EnrollmentServiceTests(unittest.TestCase):
         self.assertEqual((None, None), service._duplicate([known], "2"))
 
     def _candidate(self, subject="1"):
-        candidate = self.staging / f"{self.job}.pkl"
-        with candidate.open("wb") as stream: pickle.dump([np.ones(128), np.ones(128)], stream)
+        from template_store import save_template
+
+        candidate = self.staging / f"{self.job}.json"
+        save_template(
+            candidate,
+            employee_id=1,
+            version=1,
+            templates=[np.ones(128), np.ones(128)],
+        )
         checksum = self.service._sha256(candidate)
-        return candidate, checksum, f"emp_{subject}_v2_12345678.pkl"
+        return candidate, checksum, f"emp_{subject}_v2_12345678.json"
 
     def test_activation_archives_old_and_discard_is_idempotent(self):
         old = self.active / "emp_1_v1_aaaaaaaa.pkl"

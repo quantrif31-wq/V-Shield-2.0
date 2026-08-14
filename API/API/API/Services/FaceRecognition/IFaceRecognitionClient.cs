@@ -59,9 +59,19 @@ public interface IFaceRecognitionClient
         throw new NotSupportedException();
     Task<FaceRuntimeResponse> LiveEnrollAsync(string subjectId, IReadOnlyList<string> images, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+    Task<FaceRuntimeResponse> GuidedEnrollStartAsync(string streamUrl, string? poseMode, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    Task<FaceRuntimeResponse> GuidedEnrollProgressAsync(CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    Task<FaceRuntimeResponse> GuidedEnrollStopAsync(CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+    Task<FaceRuntimeResponse> GuidedEnrollConfirmAsync(string subjectId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }
 
 public sealed record FacePrepareEnrollmentRequest(string SubjectId, string SourceReference);
 public sealed record FaceActivateEnrollmentRequest(
     string SubjectId, int Version, string ExpectedChecksum, string ExpectedModelFileName);
 public sealed record FaceLiveEnrollRequest(string SubjectId, IReadOnlyList<string> Images);
+public sealed record FaceGuidedEnrollStartRequest(string StreamUrl, string? PoseMode = null);
+public sealed record FaceGuidedEnrollConfirmRequest(string SubjectId);

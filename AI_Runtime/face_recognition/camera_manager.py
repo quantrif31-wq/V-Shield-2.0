@@ -51,12 +51,16 @@ class CameraManager:
         *,
         session_factory: Callable[..., CameraSession] = CameraSession,
         capture_factory: Callable[[str], Any] | None = None,
+        detector: Any | None = None,
+        embedder: Any | None = None,
     ) -> None:
         self._model_registry = model_registry
         self._config = config
         self._max_cameras = config.max_cameras
         self._session_factory = session_factory
         self._capture_factory = capture_factory
+        self._detector = detector
+        self._embedder = embedder
         self._sessions: dict[str, CameraSession] = {}
         self._lock = threading.RLock()
 
@@ -93,6 +97,8 @@ class CameraManager:
                     self._model_registry,
                     self._config,
                     capture_factory=self._capture_factory,
+                    detector=self._detector,
+                    embedder=self._embedder,
                 )
                 self._sessions[clean_id] = session
             return session
@@ -120,6 +126,8 @@ class CameraManager:
                     self._model_registry,
                     self._config,
                     capture_factory=self._capture_factory,
+                    detector=self._detector,
+                    embedder=self._embedder,
                 )
                 self._sessions[clean_id] = session
             elif not session.enabled:

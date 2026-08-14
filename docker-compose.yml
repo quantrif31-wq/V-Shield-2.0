@@ -177,10 +177,24 @@ services:
       FACE_MODEL_STAGING_DIR: /data/face/models/staging
       FACE_MODEL_ARCHIVE_DIR: /data/face/models/archive
       FACE_MODEL_FAILED_DIR: /data/face/models/failed
+      FACE_DETECTOR_MODEL: /data/face-models/face_detection_yunet_2023mar.onnx
+      FACE_EMBEDDER_MODEL: /data/face-models/face_recognition_sface_2021dec.onnx
+      FACE_LANDMARKER_MODEL: /data/face-models/face_landmarker.task
+      FACE_PREFER_GPU: "true"
+      FACE_GPU_DEVICE_ID: "0"
+      FACE_THRESHOLD: "${FACE_THRESHOLD:-0.35}"
     volumes:
       - ./:/workspace/V-Shield
       - ./runtime/face-data/input:/data/face/input:ro
       - ./runtime/face-data/models:/data/face/models
+      - ./runtime/face-models:/data/face-models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     expose:
       - "5001"
     healthcheck:

@@ -23,13 +23,30 @@ DEFAULT_JPEG_QUALITY = 80
 DEFAULT_API_PORT = 5001
 DEFAULT_HEADLESS_MODE = True
 DEFAULT_MAX_CAMERAS = 2
-DEFAULT_ENROLLMENT_MIN_ENCODINGS = 10
+DEFAULT_ENROLLMENT_MIN_ENCODINGS = 5
 DEFAULT_ENROLLMENT_MAX_FRAMES = 300
 DEFAULT_ENROLLMENT_FRAME_INTERVAL = 3
 DEFAULT_ENROLLMENT_DUPLICATE_THRESHOLD = 0.35
 DEFAULT_ENROLLMENT_MAX_VIDEO_BYTES = 50 * 1024 * 1024
 DEFAULT_EVENT_BUFFER_SIZE = 500
 DEFAULT_EVENT_RETENTION_SECONDS = 3600
+DEFAULT_DETECTOR_PATH = "runtime/face-models/face_detection_yunet_2023mar.onnx"
+DEFAULT_EMBEDDER_PATH = "runtime/face-models/face_recognition_sface_2021dec.onnx"
+DEFAULT_LANDMARK_PATH = "runtime/face-models/face_landmarker.task"
+DEFAULT_QUALITY_MIN_SHARPNESS = 30.0
+DEFAULT_QUALITY_MIN_BRIGHTNESS = 60.0
+DEFAULT_QUALITY_MAX_BRIGHTNESS = 220.0
+DEFAULT_QUALITY_MIN_FACE_WIDTH = 80
+DEFAULT_QUALITY_MIN_EAR = 0.18
+DEFAULT_ENROLLMENT_POSE_MIN_FRAMES = 2
+DEFAULT_ENROLL_INTERVAL = 0.12
+DEFAULT_ENROLLMENT_POSE_MODE = "auto"
+DEFAULT_ENROLLMENT_AUTO_TARGET = 6
+DEFAULT_ENROLLMENT_AUTO_DEDUP_THRESHOLD = 0.15
+DEFAULT_ENROLLMENT_YAW_THRESHOLD = 10.0
+DEFAULT_ENROLLMENT_PITCH_THRESHOLD = 6.0
+DEFAULT_ENROLLMENT_ANGLE_FRAMES = 1
+DEFAULT_ENROLLMENT_MAX_SECONDS = 120
 
 
 class FaceRuntimeConfigError(ValueError):
@@ -100,6 +117,22 @@ def _parse_float(
     if minimum is not None and value < minimum:
         raise FaceRuntimeConfigError(f"{name} must be greater than or equal to {minimum}")
     return value
+
+
+def _parse_mode(
+    env: Mapping[str, str],
+    name: str,
+    default: str,
+) -> str:
+    raw = env.get(name)
+    if raw is None or not raw.strip():
+        return default
+    value = raw.strip().lower()
+    if value in {"auto", "easy", "simple", "full"}:
+        return value
+    raise FaceRuntimeConfigError(
+        f"{name} must be one of: auto, easy, simple, full"
+    )
 
 
 def _parse_bool(
@@ -203,6 +236,26 @@ class FaceRuntimeConfig:
     service_token: str | None = field(default=None, repr=False)
     api_port: int = DEFAULT_API_PORT
     headless_mode: bool = DEFAULT_HEADLESS_MODE
+    detector_path: Path | None = None
+    embedder_path: Path | None = None
+    landmark_path: Path | None = None
+    prefer_gpu: bool = True
+    gpu_device_id: int = 0
+    face_quality_min_sharpness: float = DEFAULT_QUALITY_MIN_SHARPNESS
+    face_quality_min_brightness: float = DEFAULT_QUALITY_MIN_BRIGHTNESS
+    face_quality_max_brightness: float = DEFAULT_QUALITY_MAX_BRIGHTNESS
+    face_quality_min_face_width: int = DEFAULT_QUALITY_MIN_FACE_WIDTH
+    face_quality_min_eye_aspect_ratio: float = DEFAULT_QUALITY_MIN_EAR
+    enrollment_pose_min_frames: int = DEFAULT_ENROLLMENT_POSE_MIN_FRAMES
+    enroll_interval: float = DEFAULT_ENROLL_INTERVAL
+    total_pose_bins: int = 9
+    enrollment_pose_mode: str = DEFAULT_ENROLLMENT_POSE_MODE
+    enrollment_auto_target: int = DEFAULT_ENROLLMENT_AUTO_TARGET
+    enrollment_auto_dedup_threshold: float = DEFAULT_ENROLLMENT_AUTO_DEDUP_THRESHOLD
+    enrollment_yaw_threshold: float = DEFAULT_ENROLLMENT_YAW_THRESHOLD
+    enrollment_pitch_threshold: float = DEFAULT_ENROLLMENT_PITCH_THRESHOLD
+    enrollment_angle_frames: int = DEFAULT_ENROLLMENT_ANGLE_FRAMES
+    enrollment_max_seconds: float = DEFAULT_ENROLLMENT_MAX_SECONDS
 
     @classmethod
     def from_env(
@@ -370,4 +423,70 @@ class FaceRuntimeConfig:
             service_token=token if token else None,
             api_port=_parse_int(source, "PORT", DEFAULT_API_PORT, minimum=1, maximum=65535),
             headless_mode=_parse_bool(source, "HEADLESS_MODE", DEFAULT_HEADLESS_MODE),
+            detector_path=_parse_path(
+                source,
+                "FACE_DETECTOR_MODEL",
+                repo_root / DEFAULT_DETECTOR_PATH,
+                base_dir=repo_root,
+            ),
+            embedder_path=_parse_path(
+                source,
+                "FACE_EMBEDDER_MODEL",
+                repo_root / DEFAULT_EMBEDDER_PATH,
+                base_dir=repo_root,
+            ),
+            landmark_path=_parse_path(
+                source,
+                "FACE_LANDMARKER_MODEL",
+                repo_root / DEFAULT_LANDMARK_PATH,
+                base_dir=repo_root,
+            ),
+            prefer_gpu=_parse_bool(source, "FACE_PREFER_GPU", True),
+            gpu_device_id=_parse_int(
+                source, "FACE_GPU_DEVICE_ID", 0, minimum=0
+            ),
+            face_quality_min_sharpness=_parse_float(
+                source, "FACE_QUALITY_MIN_SHARPNESS",
+                DEFAULT_QUALITY_MIN_SHARPNESS, minimum=0.0),
+            face_quality_min_brightness=_parse_float(
+                source, "FACE_QUALITY_MIN_BRIGHTNESS",
+                DEFAULT_QUALITY_MIN_BRIGHTNESS, minimum=0.0),
+            face_quality_max_brightness=_parse_float(
+                source, "FACE_QUALITY_MAX_BRIGHTNESS",
+                DEFAULT_QUALITY_MAX_BRIGHTNESS, minimum=0.0),
+            face_quality_min_face_width=_parse_int(
+                source, "FACE_QUALITY_MIN_FACE_WIDTH",
+                DEFAULT_QUALITY_MIN_FACE_WIDTH, minimum=1),
+            face_quality_min_eye_aspect_ratio=_parse_float(
+                source, "FACE_QUALITY_MIN_EYE_ASPECT_RATIO",
+                DEFAULT_QUALITY_MIN_EAR, minimum=0.0),
+            enrollment_pose_min_frames=_parse_int(
+                source, "FACE_ENROLLMENT_POSE_MIN_FRAMES",
+                DEFAULT_ENROLLMENT_POSE_MIN_FRAMES, minimum=1),
+            enroll_interval=_parse_float(
+                source, "FACE_ENROLL_INTERVAL",
+                DEFAULT_ENROLL_INTERVAL, minimum=0.05),
+            total_pose_bins=_parse_int(
+                source, "FACE_TOTAL_POSE_BINS", 9, minimum=1),
+            enrollment_pose_mode=_parse_mode(
+                source, "FACE_ENROLLMENT_POSE_MODE",
+                DEFAULT_ENROLLMENT_POSE_MODE),
+            enrollment_auto_target=_parse_int(
+                source, "FACE_ENROLLMENT_AUTO_TARGET",
+                DEFAULT_ENROLLMENT_AUTO_TARGET, minimum=3),
+            enrollment_auto_dedup_threshold=_parse_float(
+                source, "FACE_ENROLLMENT_AUTO_DEDUP_THRESHOLD",
+                DEFAULT_ENROLLMENT_AUTO_DEDUP_THRESHOLD, minimum=0.0),
+            enrollment_yaw_threshold=_parse_float(
+                source, "FACE_ENROLLMENT_YAW_THRESHOLD",
+                DEFAULT_ENROLLMENT_YAW_THRESHOLD, minimum=1.0),
+            enrollment_pitch_threshold=_parse_float(
+                source, "FACE_ENROLLMENT_PITCH_THRESHOLD",
+                DEFAULT_ENROLLMENT_PITCH_THRESHOLD, minimum=1.0),
+            enrollment_angle_frames=_parse_int(
+                source, "FACE_ENROLLMENT_ANGLE_FRAMES",
+                DEFAULT_ENROLLMENT_ANGLE_FRAMES, minimum=1),
+            enrollment_max_seconds=_parse_float(
+                source, "FACE_ENROLLMENT_MAX_SECONDS",
+                DEFAULT_ENROLLMENT_MAX_SECONDS, minimum=5.0),
         )

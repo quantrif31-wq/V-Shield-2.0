@@ -5,20 +5,29 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-import pickle
 import re
 import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import cv2
-import face_recognition
 import numpy as np
+
+from face_detector import FaceDetector
+from face_quality import FaceQualityGate, QualityResult
+from pose_guide import PoseGuide, PoseSample, euler_from_matrix
+from template_store import (
+    TemplateStoreError,
+    checksum_of_file,
+    cosine_distance,
+    load_templates,
+    save_template,
+)
 
 
 JOB_ID = re.compile(r"^[0-9a-fA-F-]{32,36}$")
 SUBJECT_ID = re.compile(r"^[1-9][0-9]{0,9}$")
-MODEL_NAME = re.compile(r"^emp_([1-9][0-9]{0,9})_v([1-9][0-9]*)_([0-9a-f]{8})\.pkl$")
+MODEL_NAME = re.compile(r"^emp_([1-9][0-9]{0,9})_v([1-9][0-9]*)_([0-9a-f]{8})\.(pkl|json)$")
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi"}
 
 
@@ -47,15 +56,71 @@ class PrepareResult:
 
 
 class EnrollmentService:
-    def __init__(self, config, registry):
+    def __init__(self, config, registry, *, detector=None, embedder=None,
+                 landmark_service=None):
         self.config = config
         self.registry = registry
         self._lock = threading.RLock()
+        self.detector = detector
+        self.embedder = embedder
+        self.landmark_service = landmark_service
+        self.quality_gate = FaceQualityGate(
+            min_sharpness=getattr(config, "face_quality_min_sharpness", 30.0),
+            min_brightness=getattr(config, "face_quality_min_brightness", 60.0),
+            max_brightness=getattr(config, "face_quality_max_brightness", 220.0),
+            min_face_width=getattr(config, "face_quality_min_face_width", 80),
+            min_eye_aspect_ratio=getattr(config, "face_quality_min_eye_aspect_ratio", 0.18),
+        )
+        self.pose_guide = PoseGuide(
+            min_frames_per_bin=getattr(config, "enrollment_pose_min_frames", 3),
+        )
+
+    def _detect_and_embed(
+        self, frame_bgr: np.ndarray
+    ) -> list[dict]:
+        """Detect exactly one face and return its SFace embedding + pose.
+
+        Returns a list of dicts with ``vector`` and ``pose``. An empty list
+        means no single usable face was found in the frame.
+        """
+        if self.detector is None or self.embedder is None:
+            return []
+        detections = self.detector.detect(frame_bgr)
+        if detections is None or len(detections) != 1:
+            return []
+        detection = detections[0]
+        bbox = FaceDetector.box_from_detection(detection)
+        landmarks = FaceDetector.landmarks_from_detection(detection)
+        try:
+            vector = self.embedder.align_and_embed(frame_bgr, landmarks)
+        except Exception:
+            return []
+        array = np.asarray(vector, dtype=np.float64)
+        if array.shape != (128,) or not np.all(np.isfinite(array)):
+            return []
+
+        pose = None
+        if self.landmark_service is not None:
+            pose = self._estimate_pose(frame_bgr)
+        return [{"vector": array, "pose": pose, "bbox": bbox, "landmarks": landmarks}]
+
+    def _estimate_pose(self, frame_bgr: np.ndarray) -> dict | None:
+        try:
+            _, matrix = self.landmark_service.estimate(frame_bgr)
+        except Exception:
+            return None
+        if matrix is None:
+            return None
+        try:
+            yaw, pitch, roll = euler_from_matrix(matrix)
+        except Exception:
+            return None
+        return {"yaw": float(yaw), "pitch": float(pitch), "roll": float(roll)}
 
     def prepare_enrollment(self, job_id: str, subject_id: str, source_reference: str):
         self._validate_job_subject(job_id, subject_id)
         source = self._source_path(source_reference)
-        candidate = self.config.model_staging_dir / f"{job_id.lower()}.pkl"
+        candidate = self.config.model_staging_dir / f"{job_id.lower()}.json"
         if candidate.exists():
             encodings = self._read_candidate(candidate)
             return self._result_for_existing(candidate, encodings)
@@ -67,6 +132,8 @@ class EnrollmentService:
         total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         processed = usable = no_face = multiple = invalid = 0
         encodings: list[np.ndarray] = []
+        pose_samples: list[dict] = []
+        quality_rejected: dict[str, int] = {}
         frame_index = 0
         try:
             while processed < self.config.enrollment_max_frames:
@@ -77,23 +144,26 @@ class EnrollmentService:
                 if (frame_index - 1) % self.config.enrollment_frame_interval:
                     continue
                 processed += 1
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                locations = face_recognition.face_locations(rgb, model="hog")
-                if not locations:
+                samples = self._detect_and_embed(frame)
+                if not samples:
                     no_face += 1
                     continue
-                if len(locations) != 1:
-                    multiple += 1
-                    continue
-                values = face_recognition.face_encodings(rgb, locations)
-                if len(values) != 1:
-                    invalid += 1
-                    continue
-                value = np.asarray(values[0], dtype=np.float64)
+                sample = samples[0]
+                value = np.asarray(sample["vector"], dtype=np.float64)
                 if value.shape != (128,) or not np.all(np.isfinite(value)):
                     invalid += 1
                     continue
+                quality = self.quality_gate.evaluate(
+                    frame, sample["bbox"], sample["landmarks"]
+                )
+                if not quality.passed:
+                    for reason in quality.reasons:
+                        quality_rejected[reason] = quality_rejected.get(reason, 0) + 1
+                    invalid += 1
+                    continue
                 encodings.append(value)
+                if sample["pose"] is not None:
+                    pose_samples.append(sample["pose"])
                 usable += 1
         finally:
             capture.release()
@@ -116,21 +186,26 @@ class EnrollmentService:
                 duplicateDistance=duplicate_distance)
 
         self.config.model_staging_dir.mkdir(parents=True, exist_ok=True)
-        temporary = candidate.with_suffix(".tmp")
         try:
-            with temporary.open("xb") as stream:
-                pickle.dump(encodings, stream, protocol=pickle.HIGHEST_PROTOCOL)
-                stream.flush()
-                os.fsync(stream.fileno())
-            self._read_candidate(temporary)
-            os.replace(temporary, candidate)
+            save_template(
+                candidate,
+                employee_id=int(subject_id),
+                version=1,
+                templates=encodings,
+                quality_scores=[1.0] * len(encodings),
+                pose_metadata=self._pose_metadata(pose_samples),
+                created_at=_utc_now(),
+            )
+            self._read_candidate(candidate)
         finally:
-            temporary.unlink(missing_ok=True)
+            candidate.with_suffix(".json.tmp").unlink(missing_ok=True)
         checksum = self._sha256(candidate)
         score = round(usable / processed, 6) if processed else 0.0
-        return asdict(PrepareResult(
+        result = asdict(PrepareResult(
             candidate.name, checksum, total, processed, usable, no_face,
             multiple, invalid, len(encodings), score))
+        result["qualityRejections"] = quality_rejected
+        return result
 
     def activate_candidate(self, job_id, subject_id, version,
                            expected_checksum, expected_model_file_name):
@@ -138,7 +213,7 @@ class EnrollmentService:
         match = MODEL_NAME.fullmatch(expected_model_file_name or "")
         if not match or match.group(1) != subject_id or int(match.group(2)) != int(version):
             raise EnrollmentError("InvalidModelName", "Expected model name is invalid.", 400)
-        candidate = self.config.model_staging_dir / f"{job_id.lower()}.pkl"
+        candidate = self.config.model_staging_dir / f"{job_id.lower()}.json"
         active = self.config.model_dir / expected_model_file_name
         with self._lock:
             snapshot = self.registry.current_snapshot()
@@ -178,16 +253,15 @@ class EnrollmentService:
     def discard_candidate(self, job_id: str):
         if not JOB_ID.fullmatch(job_id or ""):
             raise EnrollmentError("InvalidJobId", "Job ID is invalid.", 400)
-        (self.config.model_staging_dir / f"{job_id.lower()}.pkl").unlink(missing_ok=True)
+        (self.config.model_staging_dir / f"{job_id.lower()}.json").unlink(missing_ok=True)
         return {"success": True}
 
     def enroll_from_images(self, subject_id: str, images) -> dict:
         """Enroll a subject directly from a batch of face images (base64/bytes).
 
-        Reuses the exact encoding format (128-d float arrays) produced by
-        face_recognition so live enrollment is fully compatible with the
-        recognition pipeline. The model is written atomically into the active
-        model directory and the registry is reloaded immediately.
+        Reuses the SFace embedding format (128-d cosine) produced by the
+        recognition pipeline. The JSON template is written atomically into the
+        active model directory and the registry is reloaded immediately.
         """
         if not SUBJECT_ID.fullmatch(subject_id or ""):
             raise EnrollmentError("InvalidSubjectId", "Subject ID is invalid.", 400)
@@ -197,30 +271,35 @@ class EnrollmentService:
             raise EnrollmentError("InvalidImages", "Image batch is too large.", 400)
 
         encodings: list[np.ndarray] = []
+        pose_samples: list[dict] = []
         no_face = multiple = invalid = 0
+        quality_rejected: dict[str, int] = {}
         for raw in images:
             try:
                 img = self._decode_image(raw)
             except Exception:
                 invalid += 1
                 continue
-            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            locations = face_recognition.face_locations(rgb, model="hog")
-            if not locations:
+            samples = self._detect_and_embed(img)
+            if not samples:
                 no_face += 1
                 continue
-            if len(locations) != 1:
-                multiple += 1
-                continue
-            values = face_recognition.face_encodings(rgb, locations)
-            if len(values) != 1:
-                invalid += 1
-                continue
-            value = np.asarray(values[0], dtype=np.float64)
+            sample = samples[0]
+            value = np.asarray(sample["vector"], dtype=np.float64)
             if value.shape != (128,) or not np.all(np.isfinite(value)):
                 invalid += 1
                 continue
+            quality = self.quality_gate.evaluate(
+                img, sample["bbox"], sample["landmarks"]
+            )
+            if not quality.passed:
+                for reason in quality.reasons:
+                    quality_rejected[reason] = quality_rejected.get(reason, 0) + 1
+                invalid += 1
+                continue
             encodings.append(value)
+            if sample["pose"] is not None:
+                pose_samples.append(sample["pose"])
 
         if len(encodings) < self.config.enrollment_min_encodings:
             raise EnrollmentError(
@@ -249,17 +328,21 @@ class EnrollmentService:
             old_path = self.config.model_dir / old.file_name if old else None
             archive = (self.config.model_archive_dir / f"live-{old.file_name}") if old else None
 
-            payload = pickle.dumps(encodings, protocol=pickle.HIGHEST_PROTOCOL)
-            file_name = self._next_model_name(subject_id, payload)
+            file_name = self._next_model_name(subject_id, encodings)
             active = self.config.model_dir / file_name
             if active.exists():
                 raise EnrollmentError(
                     "ModelAlreadyExists", "Target model already exists.", 409)
             try:
-                with active.open("xb") as stream:
-                    stream.write(payload)
-                    stream.flush()
-                    os.fsync(stream.fileno())
+                save_template(
+                    active,
+                    employee_id=int(subject_id),
+                    version=self._model_version_from_name(file_name),
+                    templates=encodings,
+                    quality_scores=[1.0] * len(encodings),
+                    pose_metadata=self._pose_metadata(pose_samples),
+                    created_at=_utc_now(),
+                )
                 if old_path:
                     os.replace(old_path, archive)
                 reload_result = self.registry.reload()
@@ -290,7 +373,110 @@ class EnrollmentService:
                 self.registry.reload()
                 raise
 
-    def _next_model_name(self, subject_id: str, payload: bytes) -> str:
+    def activate_live_model(
+        self,
+        subject_id: str,
+        encodings: list[np.ndarray],
+        pose_metadata: dict | None = None,
+    ) -> dict:
+        """Activate a captured multi-pose template for a subject.
+
+        Used by the guided enrollment flow: writes a JSON template into the
+        active model directory and reloads the registry atomically.
+        """
+        if not SUBJECT_ID.fullmatch(subject_id or ""):
+            raise EnrollmentError(
+                "InvalidSubjectId",
+                "Mã đối tượng không hợp lệ. Vui lòng nhập mã số (không bắt đầu bằng số 0).",
+                400)
+        if not isinstance(encodings, (list, tuple)) or not encodings:
+            raise EnrollmentError("InvalidImages", "Template vectors are required.", 400)
+
+        cleaned: list[np.ndarray] = []
+        for value in encodings:
+            array = np.asarray(value, dtype=np.float64)
+            if array.shape != (128,) or not np.all(np.isfinite(array)):
+                raise EnrollmentError("InvalidImages", "Template vector is invalid.", 400)
+            cleaned.append(array)
+
+        if len(cleaned) < self.config.enrollment_min_encodings:
+            raise EnrollmentError(
+                "InsufficientUsableFrames",
+                f"Only {len(cleaned)} usable samples; need at least "
+                f"{self.config.enrollment_min_encodings}.",
+                422,
+                encodingCount=len(cleaned))
+
+        duplicate_subject, duplicate_distance = self._duplicate(cleaned, subject_id)
+        if duplicate_subject is not None:
+            raise EnrollmentError(
+                "DuplicateIdentity",
+                f"Face matches existing subject {duplicate_subject} "
+                f"(distance {duplicate_distance:.6f}).",
+                409,
+                duplicateSubjectId=duplicate_subject,
+                duplicateDistance=duplicate_distance)
+
+        with self._lock:
+            snapshot = self.registry.current_snapshot()
+            old = next((m for m in snapshot.model_files if m.subject_id == subject_id), None)
+            old_path = self.config.model_dir / old.file_name if old else None
+            archive = (self.config.model_archive_dir / f"guided-{old.file_name}") if old else None
+
+            file_name = self._next_model_name(subject_id, cleaned)
+            active = self.config.model_dir / file_name
+            if active.exists():
+                raise EnrollmentError(
+                    "ModelAlreadyExists", "Target model already exists.", 409)
+            try:
+                save_template(
+                    active,
+                    employee_id=int(subject_id),
+                    version=self._model_version_from_name(file_name),
+                    templates=cleaned,
+                    quality_scores=[1.0] * len(cleaned),
+                    pose_metadata=pose_metadata or {},
+                    created_at=_utc_now(),
+                )
+                if old_path:
+                    os.replace(old_path, archive)
+                reload_result = self.registry.reload()
+                if not reload_result.success:
+                    raise EnrollmentError(
+                        "RegistryReloadFailed", "Registry rejected activation.", 500)
+                descriptor = next(
+                    (m for m in reload_result.current_snapshot.model_files
+                     if m.file_name == file_name),
+                    None)
+                if descriptor is None:
+                    raise EnrollmentError(
+                        "RegistryReloadFailed", "Registry rejected activation.", 500)
+                return {
+                    **self._activation_result(descriptor, reload_result.current_snapshot.version),
+                    "encodingCount": len(cleaned),
+                    "message": "Guided enrollment activated.",
+                }
+            except Exception:
+                if active.exists():
+                    active.unlink()
+                if archive and archive.exists() and old_path:
+                    os.replace(archive, old_path)
+                self.registry.reload()
+                raise
+
+    @staticmethod
+    def _pose_metadata(pose_samples: list[dict]) -> dict:
+        if not pose_samples:
+            return {}
+        yaws = [sample["yaw"] for sample in pose_samples]
+        pitches = [sample["pitch"] for sample in pose_samples]
+        return {
+            "yaw_range": [round(min(yaws), 2), round(max(yaws), 2)],
+            "pitch_range": [round(min(pitches), 2), round(max(pitches), 2)],
+            "sample_count": len(pose_samples),
+        }
+
+    def _next_model_name(self, subject_id: str, encodings: list[np.ndarray]) -> str:
         snapshot = self.registry.current_snapshot()
         current = next(
             (m for m in snapshot.model_files if m.subject_id == subject_id), None)
@@ -299,8 +485,17 @@ class EnrollmentService:
             match = MODEL_NAME.fullmatch(current.file_name or "")
             if match:
                 next_version = int(match.group(2)) + 1
-        short_hash = hashlib.sha256(payload).hexdigest()[:8]
-        return f"emp_{subject_id}_v{next_version}_{short_hash}.pkl"
+        short_hash = hashlib.sha256(
+            _encodings_bytes(encodings)
+        ).hexdigest()[:8]
+        return f"emp_{subject_id}_v{next_version}_{short_hash}.json"
+
+    @staticmethod
+    def _model_version_from_name(file_name: str) -> int:
+        match = MODEL_NAME.fullmatch(file_name or "")
+        if match:
+            return int(match.group(2))
+        return 1
 
     @staticmethod
     def _decode_image(raw) -> np.ndarray:
@@ -362,7 +557,15 @@ class EnrollmentService:
             for known_subject, known in zip(snapshot.subject_ids, snapshot.encodings):
                 if known_subject == subject_id:
                     continue
-                distance = float(np.linalg.norm(candidate - known))
+                if snapshot.metric == "cosine":
+                    distance = cosine_distance(candidate, known)
+                else:
+                    distance = float(
+                        np.linalg.norm(
+                            np.asarray(candidate, dtype=np.float64)
+                            - np.asarray(known, dtype=np.float64)
+                        )
+                    )
                 if distance < best:
                     best_subject, best = known_subject, distance
         if best_subject is not None and best < self.config.enrollment_duplicate_threshold:
@@ -378,13 +581,14 @@ class EnrollmentService:
 
     @staticmethod
     def _read_candidate(path):
-        with path.open("rb") as stream:
-            values = pickle.load(stream)
-        if not isinstance(values, (list, tuple)) or not values:
+        try:
+            vectors, _metadata = load_templates(path)
+        except TemplateStoreError as exc:
+            raise EnrollmentError("CandidateInvalid", "Candidate model is invalid.", 422) from exc
+        if not vectors:
             raise EnrollmentError("CandidateInvalid", "Candidate model is invalid.", 422)
         result = []
-        for value in values:
-            array = np.asarray(value)
+        for array in vectors:
             if array.shape != (128,) or not np.all(np.isfinite(array)):
                 raise EnrollmentError("CandidateInvalid", "Candidate model is invalid.", 422)
             result.append(array)
@@ -404,8 +608,14 @@ class EnrollmentService:
 
     @staticmethod
     def _sha256(path):
-        digest = hashlib.sha256()
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
+        return checksum_of_file(path)
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _encodings_bytes(encodings: list[np.ndarray]) -> bytes:
+    return b"".join(np.asarray(vector, dtype=np.float32).tobytes() for vector in encodings)

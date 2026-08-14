@@ -89,27 +89,37 @@
           </div>
 
           <div class="config-row">
-            <label>
-              Camera đã lưu
-              <select v-model="selectedRuntimeCameraId" class="filter-select" @change="handleConfiguredCameraChange">
-                <option value="">Chế độ nhập thủ công</option>
-                <option
-                  v-for="item in savedConfigurations"
-                  :key="item.runtimeCameraId"
-                  :value="item.runtimeCameraId"
+            <label class="field-label">Tìm kiếm camera</label>
+            <div class="search-box">
+              <input
+                v-model="cameraSearch"
+                type="text"
+                class="form-input ip-input"
+                placeholder="Nhập tên / ID camera để tìm..."
+                :disabled="loading"
+                @focus="cameraOpen = true"
+                @blur="cameraOpen = false"
+              />
+              <div v-if="cameraOpen && cameraDropdownMatches.length" class="dropdown">
+                <div
+                  v-for="cam in cameraDropdownMatches"
+                  :key="cam.cameraId"
+                  class="dropdown-item"
+                  @mousedown.prevent
+                  @click="selectCamera(cam)"
                 >
-                  {{ item.cameraName }} ({{ item.runtimeCameraId }})
-                </option>
-              </select>
-            </label>
+                  <span class="dropdown-item-name">{{ cam.cameraName }}</span>
+                  <span class="dropdown-item-meta">ID: {{ cam.cameraId }}{{ cam.gateName ? ' · ' + cam.gateName : '' }}</span>
+                </div>
+              </div>
+              <div v-else-if="camerasLoading" class="dropdown-hint">Đang tải camera...</div>
+              <div v-else-if="cameraOpen && !allCameras.length" class="dropdown-hint">Chưa có camera nào trong hệ thống.</div>
+            </div>
           </div>
 
           <div v-if="selectedConfiguration" class="config-meta-box">
-            <div class="meta-item"><span>Mã Runtime:</span> <strong>{{ selectedConfiguration.runtimeCameraId }}</strong></div>
-            <div class="meta-item"><span>Làn:</span> <strong>{{ selectedConfiguration.laneName || selectedConfiguration.laneId || "-----" }}</strong></div>
-            <div class="meta-item"><span>Trạng thái mong muốn:</span> <strong class="badge info">{{ selectedConfiguration.desiredState }}</strong></div>
-            <div class="meta-item"><span>Trạng thái thời gian thực:</span> <strong class="badge info">{{ selectedConfiguration.runtimeStatus }}</strong></div>
-            <div class="meta-item"><span>Trạng thái đồng bộ:</span> <strong class="badge info">{{ selectedConfiguration.lastSyncStatus }}</strong></div>
+            <div class="meta-item"><span>Camera đã cấu hình:</span> <strong>{{ selectedConfiguration.cameraName }}</strong></div>
+            <div class="meta-item"><span>Trạng thái:</span> <strong class="badge info">{{ selectedConfiguration.runtimeStatus }}</strong></div>
             <div class="meta-item auto-restore-row">
               <label class="auto-restore">
                 <input
@@ -121,23 +131,9 @@
                 Tự động khôi phục (Auto restore)
               </label>
             </div>
-            <button class="btn btn-primary btn-sm btn-reconcile" :disabled="loading" @click="handleManualReconcile">
-              Đồng bộ ngay
-            </button>
             <div v-if="selectedConfiguration.lastSyncError" class="sync-error-text">
               {{ selectedConfiguration.lastSyncError }}
             </div>
-          </div>
-
-          <div class="control-panel-inputs">
-            <label class="field-label" v-if="!selectedConfiguration">Địa chỉ IP / Stream URL Camera</label>
-            <input
-              v-model="cameraIp"
-              type="text"
-              class="form-input ip-input"
-              placeholder="Nhập URL camera / stream URL..."
-              :disabled="loading || !!selectedConfiguration"
-            />
           </div>
 
           <div class="control-actions-grid">
@@ -422,125 +418,195 @@
       <div class="panel-head flex-head">
         <div>
           <span class="panel-kicker">Đăng ký mẫu</span>
-          <h2 class="panel-title">Quét khuôn mặt để thu thập mẫu nhận diện</h2>
+          <h2 class="panel-title">Đăng ký khuôn mặt</h2>
           <p class="panel-subtitle">
-            Bật webcam, quét khuôn mặt từ nhiều góc, sau đó lưu mẫu vào Face Runtime
-            để nhận diện thật trên camera.
+            Chọn camera, nhấn Bắt đầu, rồi quay đầu nhẹ theo hướng dẫn tới khi đủ 5 góc.
           </p>
         </div>
-        <span class="badge info">Cần tối thiểu 10 khung có khuôn mặt rõ</span>
+        <span v-if="enrollStep !== 'capture'" class="badge info">5 góc: thẳng · trái · phải · lên · xuống</span>
+        <span v-else class="badge warn">Đã thu: {{ guidedSamples }} mẫu · {{ guidedDurationText }}</span>
       </div>
 
       <div class="enroll-grid">
         <div class="enroll-preview-col">
-          <div class="enroll-video-wrapper">
-            <video
-              v-if="enrollStream"
-              ref="enrollVideoRef"
+          <div class="enroll-video-wrapper" :class="enrollOverlayClass">
+            <iframe
+              v-if="directCameraUrl"
+              :key="'enroll-preview-' + directCameraKey"
+              :src="directCameraUrl"
               class="enroll-video"
-              autoplay
-              playsinline
-              muted
-            ></video>
+              title="Xem trước camera"
+              allow="autoplay; fullscreen"
+              frameborder="0"
+            ></iframe>
             <div v-else class="enroll-video-off">
-              Bấm "Mở camera" để bật webcam
-            </div>
-          </div>
-
-          <div class="enroll-controls">
-            <label class="field-label">Thiết bị camera</label>
-            <select v-model="enrollDeviceId" class="filter-select" @change="handleEnrollDeviceChange" :disabled="enrollCapturing">
-              <option value="">Camera mặc định</option>
-              <option v-for="device in enrollDevices" :key="device.deviceId" :value="device.deviceId">
-                {{ device.label || device.deviceId }}
-              </option>
-            </select>
-
-            <div class="enroll-button-row">
-              <button class="btn btn-secondary" @click="initEnrollCamera" :disabled="enrollCapturing || !!enrollStream">
-                {{ enrollStream ? "Camera đang bật" : "Mở camera" }}
-              </button>
-              <button class="btn btn-primary" @click="handleStartEnroll" :disabled="!enrollStream || enrollCapturing || enrollSending">
-                Bắt đầu thu thập
-              </button>
-              <button class="btn btn-outline" @click="handleStopEnroll" :disabled="!enrollCapturing">
-                Dừng
-              </button>
+              Chọn camera ở ô bên phải để xem preview
             </div>
 
-            <div v-if="enrollCapturing" class="enroll-progress">
-              <div class="enroll-progress-track">
-                <div class="enroll-progress-bar" :style="{ width: enrollProgressPercent + '%' }"></div>
+            <div v-if="enrollStep === 'capture' && guidedErrorMessage" class="guided-error-banner">
+              ⚠ {{ guidedErrorMessage }}
+            </div>
+
+            <div v-if="enrollStep === 'capture'" class="guided-overlay">
+              <div class="guided-arrow" :class="enrollArrowClass">{{ enrollArrowGlyph }}</div>
+              <div class="guided-prompt">{{ guidedGuidance }}</div>
+            </div>
+
+            <div v-if="enrollStep === 'capture'" class="guided-grid">
+              <div
+                v-for="bin in guidedGridBins"
+                :key="bin.key"
+                class="guided-cell"
+                :class="bin.class"
+              >
+                {{ bin.label }}
               </div>
-              <span>Đã thu: {{ enrollFrames.length }} / {{ enrollTarget }} khung</span>
-            </div>
-
-            <div v-if="enrollStreamError" class="service-error-box alert-danger-soft">
-              {{ enrollStreamError }}
             </div>
           </div>
         </div>
 
         <div class="enroll-form-col">
-          <label class="field-label">Mã nhân viên (Employee ID)</label>
-          <input
-            v-model.trim="enrollSubjectId"
-            type="number"
-            min="1"
-            class="form-input"
-            placeholder="VD: 1001"
-            :disabled="enrollSending"
-          />
-
-          <label class="field-label">Tên hiển thị (tùy chọn)</label>
-          <input
-            v-model.trim="enrollDisplayName"
-            type="text"
-            class="form-input"
-            placeholder="VD: Nguyễn Văn A"
-            :disabled="enrollSending"
-          />
-
-          <div class="enroll-submit-row">
-            <button
-              class="btn btn-primary"
-              :disabled="!enrollFrames.length || enrollSending || enrollCapturing"
-              @click="handleSubmitEnroll"
-            >
-              {{ enrollSending ? "Đang tạo model..." : "Hoàn tất & Lưu mẫu nhận diện" }}
-            </button>
-            <button
-              class="btn btn-outline"
-              :disabled="!enrollFrames.length || enrollSending || enrollCapturing"
-              @click="resetEnroll"
-            >
-              Xóa khung đã thu
-            </button>
-          </div>
-
-          <div v-if="enrollError" class="service-error-box alert-danger-soft">
-            {{ enrollError }}
-          </div>
-
-          <div v-if="enrollResult" class="enroll-result alert-success-soft">
-            <div><span>Mã nhân viên:</span> <strong>{{ enrollResult.subjectId }}</strong></div>
-            <div><span>Số mẫu dùng được:</span> <strong>{{ enrollResult.encodingCount }}</strong></div>
-            <div><span>File model:</span> <strong class="font-mono">{{ enrollResult.modelFileName }}</strong></div>
-            <div><span>Phiên bản registry:</span> <strong>v{{ enrollResult.registryVersion }}</strong></div>
-            <div class="enroll-result-hint">
-              Đã kích hoạt model. Chuyển sang tab "Giám sát FaceID", bật camera rồi quét để kiểm tra nhận diện thật.
+          <template v-if="enrollStep !== 'done'">
+            <label class="field-label">Camera</label>
+            <div class="search-box">
+              <input
+                v-model="cameraSearch"
+                type="text"
+                class="form-input"
+                placeholder="Nhập tên / ID camera để tìm..."
+                :disabled="enrollStep === 'capture'"
+                @focus="cameraOpen = true"
+                @blur="cameraOpen = false"
+              />
+              <div v-if="cameraOpen && cameraDropdownMatches.length" class="dropdown">
+                <div
+                  v-for="cam in cameraDropdownMatches"
+                  :key="cam.cameraId"
+                  class="dropdown-item"
+                  @mousedown.prevent
+                  @click="selectEnrollCamera(cam)"
+                >
+                  <span class="dropdown-item-name">{{ cam.cameraName }}</span>
+                  <span class="dropdown-item-meta">ID: {{ cam.cameraId }}{{ cam.gateName ? ' · ' + cam.gateName : '' }}</span>
+                </div>
+              </div>
+              <div v-else-if="camerasLoading" class="dropdown-hint">Đang tải camera...</div>
+              <div v-else-if="cameraOpen && !allCameras.length" class="dropdown-hint">Chưa có camera nào.</div>
             </div>
-          </div>
 
-          <div v-if="enrollFrames.length" class="enroll-thumbs">
-            <img
-              v-for="(frame, index) in enrollFrames"
-              :key="index"
-              :src="frame"
-              class="enroll-thumb"
-              alt="Mẫu khuôn mặt"
+            <div v-if="selectedEnrollCamera" class="enroll-source-badge ok">
+              <span>Camera:</span> <strong>{{ selectedEnrollCamera.cameraName }}</strong>
+              <span class="enroll-source-id">({{ selectedEnrollCamera.cameraId }})</span>
+            </div>
+
+            <div v-if="enrollStep === 'capture'" class="enroll-progress-box">
+              <div class="enroll-progress-label">
+                <span>Còn thiếu {{ guidedMissingAngles.length }}/5 góc:</span>
+                <strong>{{ guidedMissingAngleText || 'Đã đủ 5 góc!' }}</strong>
+              </div>
+              <div class="enroll-progress-track">
+                <div class="enroll-progress-bar" :style="{ width: enrollProgressPercent + '%' }"></div>
+              </div>
+              <div class="enroll-progress-hint">
+                Đã đủ 5 góc — có thể bấm Xác nhận, hoặc quay tiếp để cải thiện mẫu.
+              </div>
+            </div>
+
+            <div class="enroll-button-row">
+              <button
+                v-if="enrollStep !== 'capture'"
+                class="btn btn-primary enroll-big-btn"
+                :disabled="!selectedEnrollCamera || enrollSending"
+                @click="handleStartGuidedEnroll"
+              >
+                {{ enrollSending ? "Đang chuẩn bị..." : "Bắt đầu đăng ký" }}
+              </button>
+              <button
+                v-else
+                class="btn btn-outline"
+                @click="handleStopGuidedEnroll"
+              >
+                Dừng
+              </button>
+              <button
+                v-if="enrollStep === 'capture' && guidedAnglesComplete"
+                class="btn btn-primary enroll-big-btn"
+                :disabled="enrollSending"
+                @click="openConfirmEnroll"
+              >
+                Xác nhận & gán đối tượng
+              </button>
+              <button
+                v-if="enrollStep !== 'capture' && selectedEnrollCamera"
+                class="btn btn-outline"
+                @click="clearEnrollCamera"
+                :disabled="enrollSending"
+              >
+                Bỏ chọn
+              </button>
+            </div>
+
+            <div v-if="enrollError" class="service-error-box alert-danger-soft">
+              {{ enrollError }}
+            </div>
+          </template>
+
+          <template v-else>
+            <h3 class="enroll-done-title">Đã thu đủ 5 góc ✓</h3>
+            <p class="enroll-done-hint">Nhập mã đối tượng để gắn mẫu nhận diện:</p>
+
+            <label class="field-label">{{ enrollSubjectType === 'employee' ? 'Mã nhân viên (Employee ID)' : 'Mã khách (Guest ID)' }}</label>
+            <input
+              v-model.trim="enrollSubjectId"
+              type="number"
+              min="1"
+              class="form-input"
+              :placeholder="enrollSubjectType === 'employee' ? 'VD: 1001' : 'VD: 9001'"
+              :disabled="enrollSending"
             />
-          </div>
+
+            <label v-if="enrollSubjectType === 'guest'" class="field-label">Tên khách (tùy chọn)</label>
+            <input
+              v-if="enrollSubjectType === 'guest'"
+              v-model.trim="enrollDisplayName"
+              type="text"
+              class="form-input"
+              placeholder="VD: Nguyễn Văn A"
+              :disabled="enrollSending"
+            />
+
+            <div class="enroll-submit-row">
+              <button
+                class="btn btn-primary enroll-big-btn"
+                :disabled="!enrollSubjectId || enrollSending"
+                @click="handleConfirmGuidedEnroll"
+              >
+                {{ enrollSending ? "Đang lưu mẫu..." : "Xác nhận & lưu mẫu" }}
+              </button>
+              <button
+                class="btn btn-outline"
+                :disabled="enrollSending"
+                @click="resetGuidedEnroll"
+              >
+                Làm lại
+              </button>
+            </div>
+
+            <div v-if="enrollError" class="service-error-box alert-danger-soft">
+              {{ enrollError }}
+            </div>
+
+            <div v-if="enrollResult" class="enroll-result alert-success-soft">
+              <div><span>Đối tượng:</span> <strong>{{ enrollSubjectType === 'employee' ? 'Nhân viên' : 'Khách' }} {{ enrollResult.subjectId }}</strong></div>
+              <div><span>Số mẫu dùng được:</span> <strong>{{ enrollResult.encodingCount }}</strong></div>
+              <div><span>File model:</span> <strong class="font-mono">{{ enrollResult.modelFileName }}</strong></div>
+              <div><span>Phiên bản registry:</span> <strong>v{{ enrollResult.registryVersion }}</strong></div>
+              <div class="enroll-result-hint">
+                Đã lưu mẫu nhận diện. Chuyển sang tab "Giám sát FaceID" để quét thử.
+              </div>
+              <button class="btn btn-primary btn-sm enroll-again-btn" @click="resetGuidedEnroll">Thu thập mẫu khác</button>
+            </div>
+          </template>
         </div>
       </div>
     </section>
@@ -560,7 +626,8 @@ import {
   normalizeFaceApiError,
   shouldStopFacePolling
 } from "../services/faceApi"
-import { ensureCameraRegistered } from "../services/cameraRuntimeApi"
+import { ensureCameraRegistered, getCameras } from "../services/cameraRuntimeApi"
+import { guidedStart, guidedProgress, guidedStop, guidedConfirm } from "../services/guidedEnrollmentApi"
 import {
   getFaceCameraConfigurations,
   updateFaceCameraConfiguration,
@@ -607,6 +674,11 @@ export default {
       previewRunning: false,
       loading: false,
 
+      allCameras: [],
+      cameraSearch: "",
+      cameraOpen: false,
+      camerasLoading: false,
+
       employeeId: "",
       trackingActive: false,
       identityConfirmed: false,
@@ -649,17 +721,26 @@ export default {
       decisionSummary: {},
 
       activeTab: "monitor",
-      enrollStream: null,
-      enrollDevices: [],
-      enrollDeviceId: "",
-      enrollStreamError: "",
+      enrollStep: "idle", // idle | capture | done
+      selectedEnrollCamera: null,
+      guidedProgress: 0,
+      guidedTotal: 5,
+      guidedGuidance: "",
+      guidedStatus: "idle",
+      guidedFaceState: "none", // none | single | multiple
+      guidedCoveredAngles: [],
+      guidedMissingAngles: [],
+      guidedAnglesComplete: false,
+      guidedSamples: 0,
+      guidedDurationMs: 0,
+      guidedBins: [],
+      guidedGridBins: [],
+      guidedPollTimer: null,
+      guidedArrow: "none",
+      enrollSubjectType: "employee",
       enrollSubjectId: "",
       enrollDisplayName: "",
-      enrollCapturing: false,
       enrollSending: false,
-      enrollFrames: [],
-      enrollTarget: 30,
-      enrollTimer: null,
       enrollResult: null,
       enrollError: "",
 
@@ -726,13 +807,80 @@ export default {
     },
 
     enrollProgressPercent() {
-      if (!this.enrollTarget) return 0
-      return Math.min(100, Math.round((this.enrollFrames.length / this.enrollTarget) * 100))
+      if (!this.guidedTotal) return 0
+      return Math.min(100, Math.round((this.guidedProgress / this.guidedTotal) * 100))
+    },
+
+    guidedMissingAngleText() {
+      if (!this.guidedMissingAngles.length) return ""
+      const labels = {
+        straight: "Thẳng",
+        left: "Trái",
+        right: "Phải",
+        up: "Lên",
+        down: "Xuống"
+      }
+      return this.guidedMissingAngles.map(a => labels[a] || a).join(", ")
+    },
+
+    guidedDurationText() {
+      const seconds = Math.round(this.guidedDurationMs / 1000)
+      return `${seconds}s`
+    },
+
+    cameraDropdownMatches() {
+      const keyword = String(this.cameraSearch || "").trim().toLowerCase()
+      let list = Array.isArray(this.allCameras) ? this.allCameras : []
+      if (keyword) {
+        list = list.filter(cam =>
+          String(cam.cameraName || "").toLowerCase().includes(keyword) ||
+          String(cam.cameraId || "").includes(keyword)
+        )
+      }
+      return list.slice(0, 5)
+    },
+
+    guidedOverlayClass() {
+      if (this.enrollStep !== "capture") return "overlay-off"
+      // Red border when no face or multiple faces; green when exactly one.
+      if (this.guidedFaceState === "none" || this.guidedFaceState === "multiple") {
+        return "overlay-danger"
+      }
+      if (this.guidedAnglesComplete) return "overlay-ok"
+      return "overlay-wait"
+    },
+
+    guidedErrorMessage() {
+      if (this.enrollStep !== "capture") return ""
+      if (this.guidedFaceState === "none") {
+        return "Không phát hiện khuôn mặt — hãy bước vào trước camera"
+      }
+      if (this.guidedFaceState === "multiple") {
+        return "Phát hiện nhiều khuôn mặt — chỉ để lại 1 người trong khung"
+      }
+      return ""
+    },
+
+    enrollArrowClass() {
+      if (this.guidedArrow === "left") return "arrow-left"
+      if (this.guidedArrow === "right") return "arrow-right"
+      if (this.guidedArrow === "up") return "arrow-up"
+      if (this.guidedArrow === "down") return "arrow-down"
+      return "arrow-center"
+    },
+
+    enrollArrowGlyph() {
+      if (this.guidedArrow === "left") return "◀"
+      if (this.guidedArrow === "right") return "▶"
+      if (this.guidedArrow === "up") return "▲"
+      if (this.guidedArrow === "down") return "▼"
+      return "●"
     }
   },
 
   async mounted() {
     this.destroyed = false
+    await this.loadAllCameras()
     await this.loadSavedConfigurations()
     if (!this.selectedConfiguration || this.selectedConfiguration.runtimeEnabled) {
       await this.loadCurrentStatus()
@@ -756,7 +904,7 @@ export default {
     this.stopResultLoop()
     this.stopEventHistoryLoop()
     this.resetDirectPreview()
-    this.releaseEnrollCamera()
+    this.stopGuidedPolling()
   },
 
   activated() {
@@ -775,11 +923,53 @@ export default {
     // Pausing for keep-alive: stop timers but keep state
     this.stopResultLoop()
     this.stopEventHistoryLoop()
-    this.handleStopEnroll()
-    this.releaseEnrollCamera()
+    this.stopGuidedPolling()
   },
 
   methods: {
+    async loadAllCameras() {
+      if (this.destroyed) return
+      this.camerasLoading = true
+      try {
+        const list = await getCameras()
+        this.allCameras = Array.isArray(list) ? list : []
+      } catch (error) {
+        console.warn("Không tải được danh sách camera:", error)
+        this.allCameras = []
+      } finally {
+        this.camerasLoading = false
+      }
+    },
+
+    async selectCamera(cam) {
+      if (!cam) return
+      this.cameraIp = cam.streamUrl || cam.urlView || ""
+      this.cameraSearch = cam.cameraName || ""
+      this.cameraOpen = false
+      // Detect whether this camera matches a saved Face configuration.
+      const match = this.savedConfigurations.find(
+        item => item.cameraId === cam.cameraId || item.cameraName === cam.cameraName
+      )
+      if (match) {
+        this.selectedRuntimeCameraId = match.runtimeCameraId
+      } else {
+        this.selectedRuntimeCameraId = ""
+      }
+      // Register + open preview via go2rtc.
+      try {
+        const camera = await ensureCameraRegistered({
+          cameraName: cam.cameraName || "Face Monitor Camera",
+          cameraType: "Face",
+          streamUrl: cam.streamUrl || cam.urlView || "",
+        })
+        if (camera?.urlView) {
+          this.mountRegisteredPreview(camera, cam.streamUrl || "")
+        }
+      } catch (e) {
+        console.warn("selectCamera preview error:", e)
+      }
+      this.message = `Đã chọn camera: ${cam.cameraName || ""} (ID: ${cam.cameraId || ""})`
+    },
     async loadRecognitionEvents() {
       if (this.destroyed) return
       try {
@@ -1386,138 +1576,172 @@ export default {
     switchTab(tab) {
       this.activeTab = tab
       if (tab === "monitor") {
-        this.handleStopEnroll()
-        this.releaseEnrollCamera()
+        this.handleStopGuidedEnroll()
       }
     },
 
-    async loadEnrollDevices() {
+    async selectEnrollCamera(cam) {
+      if (!cam) return
+      this.selectedEnrollCamera = cam
+      this.cameraSearch = cam.cameraName || ""
+      this.cameraOpen = false
+      this.enrollError = ""
+      const ip = cam.streamUrl || cam.urlView || ""
+      if (!ip) return
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices()
-        this.enrollDevices = devices.filter(device => device.kind === "videoinput")
-      } catch (error) {
-        console.warn("Không thể liệt kê camera:", error)
-      }
-    },
-
-    async initEnrollCamera() {
-      this.enrollStreamError = ""
-      if (!navigator.mediaDevices?.getUserMedia) {
-        this.enrollStreamError = "Trình duyệt không hỗ trợ webcam."
-        return
-      }
-      try {
-        await this.loadEnrollDevices()
-        const constraints = {
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            ...(this.enrollDeviceId ? { deviceId: { exact: this.enrollDeviceId } } : {})
-          },
-          audio: false
-        }
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
-        this.releaseEnrollCamera()
-        this.enrollStream = stream
-        this.$nextTick(() => {
-          const video = this.$refs.enrollVideoRef
-          if (video) {
-            video.srcObject = stream
-            video.play().catch(() => {})
-          }
+        const camera = await ensureCameraRegistered({
+          cameraName: cam.cameraName || "Face Enroll Camera",
+          cameraType: "Face",
+          streamUrl: ip,
         })
-      } catch (error) {
-        this.enrollStreamError = "Không thể mở webcam: " + (error?.message || "lỗi không xác định")
-      }
-    },
-
-    async handleEnrollDeviceChange() {
-      if (!this.enrollStream) return
-      await this.initEnrollCamera()
-    },
-
-    releaseEnrollCamera() {
-      if (this.enrollStream) {
-        this.enrollStream.getTracks().forEach(track => track.stop())
-        this.enrollStream = null
-      }
-    },
-
-    captureEnrollFrame() {
-      const video = this.$refs.enrollVideoRef
-      if (!video || !video.videoWidth) return false
-
-      const width = Math.min(640, video.videoWidth || 640)
-      const height = Math.max(1, Math.round(width * (video.videoHeight / video.videoWidth)))
-
-      if (!this._enrollCanvas) {
-        this._enrollCanvas = document.createElement("canvas")
-      }
-      this._enrollCanvas.width = width
-      this._enrollCanvas.height = height
-      const context = this._enrollCanvas.getContext("2d")
-      context.drawImage(video, 0, 0, width, height)
-
-      const imageData = context.getImageData(0, 0, width, height).data
-      if (this._enrollPrevData) {
-        let diff = 0
-        for (let index = 0; index < imageData.length; index += 4000) {
-          diff += Math.abs(imageData[index] - this._enrollPrevData[index])
+        if (camera?.urlView) {
+          this.mountRegisteredPreview(camera, ip)
         }
-        if (diff < 30) return false
+      } catch (e) {
+        this.enrollError = e?.message || "Không thể mở preview camera."
       }
-      this._enrollPrevData = imageData
-      this.enrollFrames.push(this._enrollCanvas.toDataURL("image/jpeg", 0.85))
-      return true
     },
 
-    handleStartEnroll() {
-      if (!this.enrollStream) return
-      this.enrollFrames = []
-      this.enrollResult = null
-      this.enrollError = ""
-      this.enrollStreamError = ""
-      this._enrollPrevData = null
-      this.enrollCapturing = true
-      this.captureEnrollFrame()
-      this.enrollTimer = setInterval(() => {
-        if (this.destroyed) return
-        this.captureEnrollFrame()
-        if (this.enrollFrames.length >= this.enrollTarget) {
-          this.handleStopEnroll()
-        }
-      }, 250)
+    clearEnrollCamera() {
+      this.selectedEnrollCamera = null
+      this.cameraSearch = ""
+      this.resetDirectPreview()
     },
 
-    handleStopEnroll() {
-      if (this.enrollTimer) {
-        clearInterval(this.enrollTimer)
-        this.enrollTimer = null
-      }
-      this.enrollCapturing = false
-    },
-
-    resetEnroll() {
-      this.enrollFrames = []
-      this.enrollResult = null
-      this.enrollError = ""
-      this._enrollPrevData = null
-    },
-
-    async handleSubmitEnroll() {
-      if (!this.enrollSubjectId) {
-        this.enrollError = "Vui lòng nhập mã nhân viên (Employee ID)."
+    async handleStartGuidedEnroll() {
+      if (!this.selectedEnrollCamera) {
+        this.enrollError = "Vui lòng chọn camera trước."
         return
       }
-      if (!this.enrollFrames.length) {
-        this.enrollError = "Chưa có khung hình nào được thu thập."
+      const ip = this.selectedEnrollCamera.streamUrl || ""
+      if (!ip) {
+        this.enrollError = "Camera chưa có stream URL."
         return
       }
 
+      this.enrollError = ""
+      this.enrollResult = null
       this.enrollSending = true
-      this.enrollError = ""
       try {
-        const res = await liveEnroll(this.enrollSubjectId, this.enrollFrames)
+        const res = await guidedStart({ streamUrl: ip })
+        if (!res?.success) throw new Error(res?.message || "Không bắt đầu được.")
+        this.enrollStep = "capture"
+        this.guidedStatus = "running"
+        this.guidedGuidance = "Đang khởi động..."
+        this.guidedFaceState = "none"
+        this.guidedProgress = 0
+        this.guidedTotal = 5
+        this.guidedCoveredAngles = []
+        this.guidedMissingAngles = ["straight", "left", "right", "up", "down"]
+        this.guidedAnglesComplete = false
+        this.guidedSamples = 0
+        this.guidedDurationMs = 0
+        this.guidedBins = []
+        this.guidedGridBins = this.buildGuidedGrid([])
+        this.guidedArrow = "none"
+        this.startGuidedPolling()
+      } catch (e) {
+        this.enrollError = e?.message || e?.response?.data?.message || "Không thể bắt đầu thu thập."
+      } finally {
+        this.enrollSending = false
+      }
+    },
+
+    startGuidedPolling() {
+      this.stopGuidedPolling()
+      this.guidedPollTimer = setInterval(async () => {
+        if (this.destroyed) return
+        if (this.enrollStep !== "capture") {
+          this.stopGuidedPolling()
+          return
+        }
+        try {
+          const res = await guidedProgress()
+          const snap = res?.snapshot || {}
+          this.guidedStatus = snap.status || "running"
+          this.guidedGuidance = snap.guidance || ""
+          this.guidedFaceState = snap.faceState || "none"
+          this.guidedProgress = Number(snap.progress || 0)
+          this.guidedTotal = Number(snap.totalAngles || 5)
+          this.guidedCoveredAngles = snap.coveredAngles || []
+          this.guidedMissingAngles = snap.missingAngles || []
+          this.guidedAnglesComplete = !!snap.anglesComplete
+          this.guidedSamples = Number(snap.samplesCollected || 0)
+          this.guidedDurationMs = Number(snap.durationMs || 0)
+          this.guidedGridBins = this.buildGuidedGrid(snap.coveredAngles || [])
+          this.guidedArrow = this.inferArrow(snap.guidance || "")
+          if (snap.status === "error") {
+            this.stopGuidedPolling()
+            this.enrollStep = "idle"
+            this.enrollError = snap.lastError || "Lỗi khi thu thập mẫu."
+          }
+        } catch (e) {
+          if (this.enrollStep !== "capture") return
+          this.enrollError = e?.response?.data?.message || e?.message || "Mất kết nối khi thu thập."
+        }
+      }, 400)
+    },
+
+    stopGuidedPolling() {
+      if (this.guidedPollTimer) {
+        clearInterval(this.guidedPollTimer)
+        this.guidedPollTimer = null
+      }
+    },
+
+    buildGuidedGrid(covered) {
+      const order = ["straight", "left", "right", "up", "down"]
+      const labels = {
+        straight: "Thẳng",
+        left: "Trái",
+        right: "Phải",
+        up: "Lên",
+        down: "Xuống"
+      }
+      return order.map(key => ({
+        key,
+        label: labels[key],
+        class: covered.includes(key) ? "cell-ok" : "cell-wait"
+      }))
+    },
+
+    inferArrow(guidance) {
+      const text = String(guidance || "").toLowerCase()
+      if (text.includes("phải")) return "right"
+      if (text.includes("trái")) return "left"
+      if (text.includes("lên") || text.includes("ngẩng")) return "up"
+      if (text.includes("xuống") || text.includes("cúi")) return "down"
+      return "none"
+    },
+
+    async handleStopGuidedEnroll() {
+      this.stopGuidedPolling()
+      try {
+        await guidedStop()
+      } catch (e) {
+        console.warn("guidedStop warning:", e)
+      }
+      this.enrollStep = "idle"
+      this.guidedStatus = "idle"
+    },
+
+    openConfirmEnroll() {
+      // Stop recording, then show the subject-assignment form.
+      this.handleStopGuidedEnroll()
+      this.enrollStep = "done"
+      this.enrollError = ""
+    },
+
+    async handleConfirmGuidedEnroll() {
+      if (!this.enrollSubjectId) {
+        this.enrollError = "Vui lòng nhập mã đối tượng."
+        return
+      }
+      this.enrollError = ""
+      this.enrollSending = true
+      try {
+        const res = await guidedConfirm(this.enrollSubjectId)
+        if (!res?.success) throw new Error(res?.message || "Không lưu được mẫu.")
         this.enrollResult = {
           subjectId: this.enrollSubjectId,
           encodingCount: res?.encodingCount ?? "-----",
@@ -1525,21 +1749,35 @@ export default {
           registryVersion: res?.registryVersion ?? "-----",
           message: res?.message || ""
         }
-        this.enrollFrames = []
-        this._enrollPrevData = null
-        this.enrollSubjectId = ""
-        this.enrollDisplayName = ""
-      } catch (error) {
-        const normalized = normalizeFaceApiError(error)
-        let message = normalized.message
-        const details = normalized.details
-        if (details && (details.noFaceCount !== undefined || details.encodingCount !== undefined)) {
-          message += ` (khung dùng được: ${details.encodingCount ?? 0}, không có mặt: ${details.noFaceCount ?? 0}, nhiều mặt: ${details.multipleFaceCount ?? 0}, lỗi: ${details.invalidFrameCount ?? 0})`
-        }
-        this.enrollError = message
+        this.stopGuidedPolling()
+      } catch (e) {
+        this.enrollError = e?.response?.data?.message || e?.message || "Không thể lưu mẫu nhận diện."
       } finally {
         this.enrollSending = false
       }
+    },
+
+    resetGuidedEnroll() {
+      this.stopGuidedPolling()
+      this.enrollStep = "idle"
+      this.guidedStatus = "idle"
+      this.guidedProgress = 0
+      this.guidedTotal = 5
+      this.guidedFaceState = "none"
+      this.guidedCoveredAngles = []
+      this.guidedMissingAngles = []
+      this.guidedAnglesComplete = false
+      this.guidedSamples = 0
+      this.guidedDurationMs = 0
+      this.guidedBins = []
+      this.guidedGridBins = []
+      this.guidedGuidance = ""
+      this.enrollError = ""
+      this.enrollResult = null
+      this.enrollSubjectId = ""
+      this.enrollDisplayName = ""
+      this.enrollSubjectType = "employee"
+      this.resetDirectPreview()
     }
   }
 }
@@ -1739,6 +1977,62 @@ export default {
 .control-panel-inputs {
   margin-bottom: 16px;
   text-align: left;
+}
+
+.search-box { position: relative; }
+
+.dropdown {
+  position: absolute;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdown-item:last-child { border-bottom: none; }
+
+.dropdown-item:hover { background: var(--bg-input); }
+
+.dropdown-item-name {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dropdown-item-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dropdown-hint {
+  position: absolute;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .field-label {
@@ -2016,7 +2310,7 @@ export default {
 
 .enroll-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.6fr);
   gap: 20px;
   margin-top: 16px;
 }
@@ -2037,17 +2331,94 @@ export default {
 
 .enroll-video-wrapper {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
   background: #000;
   border-radius: var(--border-radius, 12px);
   overflow: hidden;
   position: relative;
+  border: 3px solid var(--border-color);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.enroll-video-wrapper.overlay-wait {
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.35);
+}
+
+.enroll-video-wrapper.overlay-ok {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.35);
+}
+
+.enroll-video-wrapper.overlay-danger {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.45);
+}
+
+.guided-error-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(220, 38, 38, 0.9);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: center;
+  max-width: 90%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.enroll-progress-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.enroll-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.enroll-progress-label span {
+  color: var(--text-secondary);
+}
+
+.enroll-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.enroll-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-primary);
+  transition: width 200ms ease;
+}
+
+.enroll-progress-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
 }
 
 .enroll-video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -2069,30 +2440,32 @@ export default {
   margin-top: 12px;
 }
 
-.enroll-progress {
-  margin-top: 12px;
+.enroll-big-btn {
+  min-height: 48px;
+  font-size: 1rem;
+  flex: 1;
 }
 
-.enroll-progress-track {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-
-.enroll-progress-bar {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent-primary);
-  transition: width 200ms ease;
-}
-
-.enroll-progress span {
+.enroll-source-badge {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
   font-size: 0.85rem;
-  color: var(--text-secondary);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enroll-source-badge.ok {
+  background: rgba(80, 190, 130, 0.1);
+  border: 1px solid rgba(80, 190, 130, 0.3);
+  color: var(--accent-success);
+}
+
+.enroll-source-id {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .enroll-submit-row {
@@ -2132,19 +2505,173 @@ export default {
   color: var(--accent-success);
 }
 
-.enroll-thumbs {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
+.enroll-again-btn {
+  margin-top: 6px;
+  align-self: flex-start;
 }
 
-.enroll-thumb {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 6px;
+.enroll-done-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent-success);
+}
+
+.enroll-done-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.subject-type-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pose-mode-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pose-mode-btn {
+  flex: 1;
+  min-height: 38px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pose-mode-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+.pose-mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pose-mode-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.subject-type-btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.subject-type-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+/* Guided overlay */
+.guided-overlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.guided-arrow {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(2, 6, 23, 0.65);
+  border: 3px solid var(--text-muted);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.guided-arrow.arrow-left { border-color: #eab308; color: #eab308; }
+.guided-arrow.arrow-right { border-color: #eab308; color: #eab308; }
+.guided-arrow.arrow-up { border-color: #eab308; color: #eab308; }
+.guided-arrow.arrow-down { border-color: #eab308; color: #eab308; }
+
+.guided-prompt {
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.78);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: center;
+  border: 2px solid #eab308;
+}
+
+.guided-grid {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  background: rgba(2, 6, 23, 0.7);
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.guided-cell {
+  min-width: 64px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  border: 2px solid var(--border-color);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.guided-cell.cell-wait {
+  border-color: #eab308;
+  color: #eab308;
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.guided-cell.cell-ok {
+  border-color: #22c55e;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.guided-progress-text {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.7);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.5);
 }
 </style>

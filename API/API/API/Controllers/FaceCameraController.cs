@@ -157,6 +157,48 @@ public class FaceCameraController : ControllerBase
             cancellationToken);
     }
 
+    [HttpPost("guided/start")]
+    public Task<IActionResult> GuidedEnrollStart(
+        [FromBody] FaceGuidedEnrollStartRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.StreamUrl))
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new { message = "Vui lòng chọn camera để bắt đầu thu thập mẫu." }));
+        }
+
+        return ProxyAsync(
+            token => _faceRecognitionClient.GuidedEnrollStartAsync(
+                request.StreamUrl, request.PoseMode, token),
+            cancellationToken);
+    }
+
+    [HttpGet("guided/progress")]
+    public Task<IActionResult> GuidedEnrollProgress(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GuidedEnrollProgressAsync, cancellationToken);
+
+    [HttpPost("guided/stop")]
+    public Task<IActionResult> GuidedEnrollStop(CancellationToken cancellationToken) =>
+        ProxyAsync(_faceRecognitionClient.GuidedEnrollStopAsync, cancellationToken);
+
+    [HttpPost("guided/confirm")]
+    public Task<IActionResult> GuidedEnrollConfirm(
+        [FromBody] FaceGuidedEnrollConfirmRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.SubjectId))
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new { message = "Vui lòng nhập mã đối tượng để xác nhận." }));
+        }
+
+        return ProxyAsync(
+            token => _faceRecognitionClient.GuidedEnrollConfirmAsync(
+                request.SubjectId, token),
+            cancellationToken);
+    }
+
     private async Task<IActionResult> ProxyAsync(
         Func<CancellationToken, Task<FaceRuntimeResponse>> operation,
         CancellationToken cancellationToken)

@@ -6,7 +6,7 @@
 > Mang file này qua máy có RTX 3060 để thực hiện.
 
 - **Ngày:** 2026-08
-- **Trạng thái:** Kế hoạch (chưa code)
+- **Trạng thái:** Giai đoạn 1 đã triển khai & kiểm chứng trên RTX 3050 + Docker Desktop GPU (2026-08-12)
 - **Stack:** YuNet (MIT) + MediaPipe (Apache-2.0) + eDifFIQA (CC-BY-4.0) + **SFace (Apache-2.0)** + Silent-Face-Anti-Spoofing (Apache-2.0)
 
 ---
@@ -201,17 +201,22 @@ docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi
 
 ### 4.4 requirements.txt (face-runtime mới)
 ```
-opencv-python-headless==4.10.0.84
-onnxruntime-gpu==1.18.1        # CUDA 12.x
+opencv-contrib-python-headless==4.10.0.84   # YuNet qua cv2.FaceDetectorYN
+onnxruntime-gpu==1.18.1        # LƯU Ý: bản 1.18.1 build cho CUDA 11.8 + cuDNN 8
 numpy==1.26.4
 Flask==3.1.3
 flask-cors==6.0.2
-mediapipe==0.10.14             # FaceLandmarker (pose)
-pyodbc==5.1.0                  # giữ cho enrollment worker
+pyodbc==5.3.0                  # giữ cho enrollment worker
 scipy==1.13.1
 ```
 > **Bỏ:** dlib, face-recognition, face-recognition-models
 > **Lưu ý:** không cài `onnxruntime` (CPU) song song — sẽ rơi về CPU
+> **Kiểm chứng thực tế (Giai đoạn 1, RTX 3050):** wheel `onnxruntime-gpu==1.18.1`
+> đòi `libcublasLt.so.11` + `libcudnn.so.8` → base image phải là
+> `nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04` (KHÔNG phải CUDA 12 như ghi ở
+> 4.1/4.3). Muốn CUDA 12 phải nâng `onnxruntime-gpu` lên bản mới hơn.
+> OpenCV contrib (chứa `FaceDetectorYN`/`FaceRecognizerSF`) thay cho `opencv-python`
+> gốc vì YuNet dùng qua `cv2.FaceDetectorYN`.
 
 ### 4.5 Tải model (copy vào `runtime/face-models/`)
 | File | Nguồn | License |
@@ -255,17 +260,92 @@ AI_Runtime/face_recognition/
 - [ ] Clone repo, tạo branch `feature/faceid-sface`
 
 ### Giai đoạn 1 — Thay lõi detect+embed (2-3 ngày)
-- [ ] Viết `face_detector.py` (YuNet + CSRT)
-- [ ] Viết `face_embedder.py` (SFace, ONNX CUDA)
-- [ ] Sửa `camera_session.py`: dùng YuNet+SFace thay dlib
-- [ ] Sửa `model_registry.py`: đọc template JSON
-- [ ] Test đơn vị: detect 1 người, embed ổn định, cosine đúng
+- [x] Viết `face_detector.py` (YuNet + CSRT)
+- [x] Viết `face_embedder.py` (SFace, ONNX CUDA)
+- [x] Sửa `camera_session.py`: dùng YuNet+SFace thay dlib
+- [x] Sửa `model_registry.py`: đọc template JSON
+- [x] Test đơn vị: detect 1 người, embed ổn định, cosine đúng
+
+> **Kết quả GĐ1 (2026-08-12, máy RTX 3050 + Docker Desktop):** 94/94 unit test
+> pass, SFace chạy `CUDAExecutionProvider`, YuNet detect face thật (lena.jpg),
+> SFace embed 128-d L2, template JSON v2 lưu/đọc đúng, cosine match xác nhận
+> subject với distance 0.0, backward-compat đọc `.pkl` legacy giữ nguyên
+> (metric euclidean). API contract (`/api/health`, `/api/models`,
+> `/api/enrollments/live`, `/api/cameras/*`) không đổi.
 
 ### Giai đoạn 2 — Pose hướng dẫn + quality (2-3 ngày)
-- [ ] Viết `pose_guide.py` (MediaPipe + state machine quay đầu)
-- [ ] Viết `face_quality.py` (blur/sáng/mắt mở/kích thước + eDifFIQA)
-- [ ] Tích hợp vào `enrollment_service.py`
+- [x] Viết `pose_guide.py` (MediaPipe + state machine quay đầu)
+- [x] Viết `face_quality.py` (blur/sáng/mắt mở/kích thước)
+- [x] Tích hợp vào `enrollment_service.py`
 - [ ] Test: đăng ký 1 người bằng webcam, xem overlay hướng dẫn tiếng Việt
+
+> **Kết quả GĐ2 (2026-08-12, RTX 3050):** `pose_guide.py` dùng MediaPipe
+> FaceLandmarker (478 điểm + transformation matrix) → tách yaw/pitch/roll,
+> state machine 3x3 coverage với lời nhắc tiếng Việt. `face_quality.py` lọc
+> mờ/tối/quá xa. Tích hợp vào enrollment: mỗi frame phải qua quality gate,
+> pose metadata (yaw/pitch range) lưu vào template JSON. Kiểm chứng: lena matrix
+> → yaw=7.8/pitch=-18.9 khớp pose_metadata; sim quay đầu → coverage 9/9.
+> 103/103 unit test pass. MediaPipe cài qua `--no-deps` + `protobuf<5` để tránh
+> xung đột với opencv headless.
+>
+> **Bổ sung guided enrollment (2026-08-13):** `guided_enrollment.py` mới —
+> session thu mẫu realtime: chọn camera → nhấn Bắt đầu → hệ thống tự nhận biết
+> người quay đúng từng góc (YuNet + MediaPipe pose + SFace embed) qua lưới 3x3,
+> đủ 9 góc thì `complete` → gán cho Nhân viên/Khách → `confirm` tạo template
+> JSON gắn đối tượng. Routes: `POST/GET/POST/POST
+> /api/enrollments/guided/{start,progress,stop,confirm}` + ASP.NET proxy
+> `/api/FaceCamera/guided/*`. Frontend tab Thu thập: 1 ô tìm cam (gợi ý ≤5),
+> preview to, overlay hướng dẫn viền vàng (chờ) / xanh (đúng), lưới 9 ô, sau đó
+> chọn loại đối tượng + mã → xác nhận. 104/104 test pass.
+>
+> **Chế độ ít góc cho người già (2026-08-13):** thêm `poseMode` easy (3 góc:
+> thẳng/trái/phải), simple (5 góc), full (9 góc). Ngưỡng yaw ±12°, pitch ±8°
+> (quay nhẹ ~15° là đạt). Pose ước tính bằng solvePnP từ 5 landmark YuNet —
+> bất biến góc lắp camera nghiêng. Frontend có nút chọn chế độ + hướng dẫn.
+> 105/105 test pass.
+>
+> **Chế độ Nhanh mặc định (2026-08-13):** thay vì bắt quay đầu, mặc định
+> `poseMode=auto` — người chỉ nhìn thẳng vào camera vài giây, hệ thống tự thu
+> 6 mẫu (dedup chỉ bỏ frame đóng băng, không chặn người đứng yên), `confirm`
+> cần ≥5. Bỏ chọn chế độ trên UI (1 luồng thẳng: chọn cam → Bắt đầu → nhìn
+> thẳng → nhập mã → Xác nhận). Lỗi 400 `InvalidSubjectId` có message rõ
+> (mã không bắt đầu bằng 0). 106/106 test pass.
+>
+> **Kiểm chứng E2E bằng video (2026-08-14):** tải video người thật (intel
+> sample-videos) làm datatest, tự chỉnh thông số tới khi đăng ký + quét OK.
+> **Phát hiện bug quan trọng:** feed SFace qua `(x-127.5)/128` là SAI — model
+> đã có layer chuẩn hóa nội tại, chuẩn hóa 2 lần làm mọi embedding sụp về gần
+> giống nhau → false-positive 100%. Sửa `face_embedder.py` feed raw 0..255
+> BGR/NCHW. Kết quả: quét người khác 0/1719 frame (trước 1719/1719 sai), cùng
+> người median 0.16 (82% < 0.5), đăng ký auto 6/6 complete. Thông số cuối:
+> auto target 6, min_encodings 5, threshold 0.35. Toàn bộ chạy GPU RTX 3050.
+>
+> **Cơ chế video liền mạch + 5 góc (2026-08-14):** bỏ chụp 1-2 tấm theo góc.
+> `guided_enrollment.py` viết lại: thu frame liên tục khi đúng 1 khuôn mặt,
+> tự động tạm dừng khi không có mặt hoặc ≥2 mặt (viền đỏ + thông báo), tự
+> tiếp tục khi đúng 1 mặt. Phân loại 5 góc (thẳng/trái/phải/lên/xuống) theo
+> yaw/pitch ngưỡng 10°/6°, cover góc khi đạt, hiển thị góc còn thiếu. Đủ 5
+> góc vẫn tiếp tục thu tới khi người bấm Xác nhận. Giới hạn 60s → báo lỗi
+> yêu cầu quay lại. Confirm kiểm tra: đã nhập mã chưa (400 nếu chưa), đủ mẫu
+> chưa (422), đủ 5 góc chưa (422), rồi mới activate template. Frontend:
+> viền đỏ/không mặt/nhiều mặt, banner lỗi trên preview, lưới 5 góc tiếng
+> Việt, nút "Xác nhận & gán đối tượng" hiện khi đủ góc. 108/108 test pass.
+>
+> **Test thật bằng video internet cắt ghép (2026-08-14):** cắt đoạn 1 người
+> duy nhất quay đủ 5 góc từ video intel sample (walking2 f901-f1033) →
+> `runtime/test-data/datatest_enroll.mp4` (thu thập) + `datatest_scan.mp4`
+> (nhận diện, cửa sổ chồng lấp). **Kết quả qua API proxy thật:**
+> - THU THẬP: video loop cover đủ 5 góc (up,left,down,straight,right) →
+>   confirm → template `emp_1001` (47 encodings, cosine) ✓
+> - NHẬN DIỆN: cùng người 92/92 match (best 0.038, median 0.09); người khác
+> (lena 0.736, headpose 0.819) đều NO MATCH ✓
+> Ngưỡng 0.35 tách biệt rõ (cùng 0.09 vs khác 0.74+).
+>
+> **Thời gian linh hoạt (2026-08-14):** nâng `FACE_ENROLLMENT_MAX_SECONDS` 60→120s.
+> Timeout chỉ chặn session CHƯA đủ 5 góc. Khi đã cover đủ 5 góc, không còn giới
+> hạn thời gian — người có thể quay thêm và bấm Xác nhận bất cứ lúc nào.
+> Chuyển hóa data luôn ~7ms (mẫu chặn ≤60 trong bộ nhớ), không phụ thuộc thời
+> gian quay. 109/109 test pass.
 
 ### Giai đoạn 3 — Liveness + template store (2 ngày)
 - [ ] Viết `liveness.py` (Silent-FAS, convert onnx)

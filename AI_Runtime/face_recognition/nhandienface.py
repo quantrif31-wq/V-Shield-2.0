@@ -23,6 +23,10 @@ from camera_manager import (
     CameraNotFoundError,
     validate_camera_id,
 )
+from face_detector import FaceDetector, FaceDetectorError
+from face_embedder import FaceEmbedder, FaceEmbedderError
+from guided_enrollment import GuidedEnrollmentError, GuidedEnrollmentSession
+from landmark_service import LandmarkService, LandmarkServiceError
 from model_registry import FaceModelRegistry
 from runtime_config import FaceRuntimeConfig
 from enrollment_service import EnrollmentError, EnrollmentService
@@ -49,7 +53,42 @@ CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 print("Loading face models...")
 print("Face model directory:", CONFIG.model_dir)
 model_registry = FaceModelRegistry(CONFIG.model_dir)
-enrollment_service = EnrollmentService(CONFIG, model_registry)
+
+detector = None
+embedder = None
+landmark_service = None
+if CONFIG.detector_path is not None:
+    try:
+        detector = FaceDetector(CONFIG.detector_path)
+        print("YuNet detector loaded from:", CONFIG.detector_path)
+    except FaceDetectorError as error:
+        print("WARNING: face detector unavailable ->", error)
+if CONFIG.embedder_path is not None:
+    try:
+        embedder = FaceEmbedder(
+            CONFIG.embedder_path,
+            prefer_gpu=CONFIG.prefer_gpu,
+            gpu_device_id=CONFIG.gpu_device_id,
+        )
+        print("SFace embedder loaded from:", CONFIG.embedder_path)
+        print("SFace backend:", embedder.backend)
+    except FaceEmbedderError as error:
+        print("WARNING: face embedder unavailable ->", error)
+if CONFIG.landmark_path is not None:
+    try:
+        landmark_service = LandmarkService(CONFIG.landmark_path)
+        print("MediaPipe FaceLandmarker loaded from:", CONFIG.landmark_path)
+    except LandmarkServiceError as error:
+        print("WARNING: face landmarker unavailable ->", error)
+
+enrollment_service = EnrollmentService(
+    CONFIG, model_registry, detector=detector, embedder=embedder,
+    landmark_service=landmark_service,
+)
+guided_enrollment = GuidedEnrollmentSession(
+    CONFIG, detector=detector, embedder=embedder,
+    landmark_service=landmark_service,
+)
 initial_model_snapshot = model_registry.current_snapshot()
 print("Loaded models:", initial_model_snapshot.successful_file_count)
 print("Total encodings:", initial_model_snapshot.encoding_count)
@@ -60,7 +99,9 @@ for model_error in initial_model_snapshot.errors:
         f"{model_error.message}"
     )
 
-camera_manager = CameraManager(model_registry, CONFIG)
+camera_manager = CameraManager(
+    model_registry, CONFIG, detector=detector, embedder=embedder
+)
 camera_manager.ensure_session("default")
 stop_event = threading.Event()
 
@@ -614,6 +655,93 @@ def revoke_subject_model(subject_id):
     except Exception:
         return jsonify({"failureCode": "RevokeFailed",
                         "message": "Model revocation failed."}), 500
+
+
+def guided_enrollment_error_response(error: GuidedEnrollmentError):
+    return jsonify({"success": False, "failureCode": error.code,
+                    "message": str(error), **error.details}), error.status_code
+
+
+@app.post("/api/enrollments/guided/start")
+def guided_start():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"failureCode": "InvalidRequest", "message": "JSON body required."}), 400
+    stream_url = str(payload.get("streamUrl", "") or "").strip()
+    pose_mode = str(payload.get("poseMode", "") or "").strip() or None
+    try:
+        guided_enrollment.start(stream_url, pose_mode=pose_mode)
+        return jsonify({
+            "success": True,
+            "sessionId": guided_enrollment.session_id,
+            "snapshot": guided_enrollment.snapshot(),
+        }), 200
+    except GuidedEnrollmentError as error:
+        return guided_enrollment_error_response(error)
+    except Exception:
+        return jsonify({"failureCode": "GuidedStartFailed",
+                        "message": "Guided enrollment start failed."}), 500
+
+
+@app.get("/api/enrollments/guided/progress")
+def guided_progress():
+    try:
+        return jsonify({
+            "success": True,
+            "snapshot": guided_enrollment.snapshot(),
+        }), 200
+    except Exception:
+        return jsonify({"failureCode": "GuidedProgressFailed",
+                        "message": "Guided enrollment progress failed."}), 500
+
+
+@app.post("/api/enrollments/guided/stop")
+def guided_stop():
+    try:
+        guided_enrollment.stop()
+        return jsonify({"success": True, "message": "Guided enrollment stopped."}), 200
+    except Exception:
+        return jsonify({"failureCode": "GuidedStopFailed",
+                        "message": "Guided enrollment stop failed."}), 500
+
+
+@app.post("/api/enrollments/guided/confirm")
+def guided_confirm():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"failureCode": "InvalidRequest", "message": "JSON body required."}), 400
+    subject_id = str(payload.get("subjectId", "") or "").strip()
+    try:
+        snapshot = guided_enrollment.snapshot()
+        if not subject_id:
+            raise GuidedEnrollmentError(
+                "MissingSubjectId",
+                "Chưa chọn đối tượng. Vui lòng nhập mã nhân viên hoặc khách trước khi xác nhận.",
+                400)
+        if snapshot["samplesCollected"] < CONFIG.enrollment_min_encodings:
+            raise GuidedEnrollmentError(
+                "InsufficientUsableFrames",
+                f"Chỉ thu được {snapshot['samplesCollected']} mẫu; cần tối thiểu "
+                f"{CONFIG.enrollment_min_encodings}. Hãy tiếp tục quay.", 422)
+        if not snapshot["anglesComplete"]:
+            missing = snapshot["missingAngles"]
+            raise GuidedEnrollmentError(
+                "InsufficientAngles",
+                f"Chưa đủ 5 góc. Còn thiếu: {', '.join(missing)}. Hãy quay theo hướng dẫn.",
+                422)
+        vectors = guided_enrollment.captured_vectors()
+        result = enrollment_service.activate_live_model(
+            subject_id, vectors, guided_enrollment.captured_pose_metadata())
+        guided_enrollment.stop()
+        guided_enrollment.status = "idle"
+        return jsonify({"success": True, **result}), 200
+    except GuidedEnrollmentError as error:
+        return guided_enrollment_error_response(error)
+    except EnrollmentError as error:
+        return enrollment_error_response(error)
+    except Exception:
+        return jsonify({"failureCode": "GuidedConfirmFailed",
+                        "message": "Guided enrollment confirm failed."}), 500
 
 
 def debug_view_loop() -> None:
