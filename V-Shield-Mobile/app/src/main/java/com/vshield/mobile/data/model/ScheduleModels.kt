@@ -2,18 +2,14 @@ package com.vshield.mobile.data.model
 
 import com.google.gson.annotations.SerializedName
 
-data class ScheduleResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("data") val data: List<ScheduleItem>?
-)
-
 data class ScheduleItem(
     @SerializedName("scheduleId") val scheduleId: Int?,
-    @SerializedName("date") val date: String,
+    @SerializedName("employeeId") val employeeId: Int?,
+    @SerializedName("shiftId") val shiftId: Int?,
     @SerializedName("shiftName") val shiftName: String,
-    @SerializedName("startTime") val startTime: String?,
-    @SerializedName("endTime") val endTime: String?,
-    @SerializedName("location") val location: String?,
+    @SerializedName("shiftStartTime") val startTime: String?,
+    @SerializedName("shiftEndTime") val endTime: String?,
+    @SerializedName("workDate") val date: String,
     @SerializedName("status") val status: String?,
     @SerializedName("note") val note: String?
 )

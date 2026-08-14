@@ -144,7 +144,7 @@ fun LeaveScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = request.leaveTypeName ?: "Nghỉ phép",
+                                    text = request.leaveType ?: "Nghỉ phép",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )

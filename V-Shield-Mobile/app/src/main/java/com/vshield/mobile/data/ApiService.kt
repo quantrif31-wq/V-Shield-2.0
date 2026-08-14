@@ -12,10 +12,10 @@ interface ApiService {
     suspend fun refresh(@Body request: RefreshTokenRequest): Response<LoginResponse>
 
     @GET("api/employees/me")
-    suspend fun getMyProfile(): Response<ApiResponse<EmployeeInfo>>
+    suspend fun getMyProfile(): Response<EmployeeInfo>
 
-    @GET("api/employees/lookup")
-    suspend fun lookupEmployees(@Query("q") query: String): Response<EmployeeLookupResponse>
+    @GET("api/employees")
+    suspend fun lookupEmployees(@Query("search") query: String): Response<List<EmployeeInfo>>
 
     @POST("api/dynamic-qr/my")
     suspend fun getMyQr(): Response<QrResponse>
@@ -23,35 +23,32 @@ interface ApiService {
     @GET("api/dynamic-qr/mobile-bootstrap")
     suspend fun getMyOfflineQrBootstrap(): Response<OfflineQrBootstrapResponse>
 
-    @GET("api/vehicles/my-vehicles")
-    suspend fun getMyVehicles(): Response<MyVehiclesResponse>
+    @GET("api/vehicles/employee/{employeeId}")
+    suspend fun getMyVehicles(@Path("employeeId") employeeId: Int): Response<List<VehicleInfo>>
 
     @GET("api/vehicle-delegations/outgoing")
-    suspend fun getOutgoingDelegations(): Response<DelegationListResponse>
+    suspend fun getOutgoingDelegations(): Response<List<DelegationInfo>>
 
     @GET("api/vehicle-delegations/incoming")
-    suspend fun getIncomingDelegations(): Response<DelegationListResponse>
+    suspend fun getIncomingDelegations(): Response<List<DelegationInfo>>
 
     @POST("api/vehicle-delegations")
-    suspend fun createDelegation(@Body request: CreateDelegationRequest): Response<DelegationResponse>
+    suspend fun createDelegation(@Body request: CreateDelegationRequest): Response<DelegationInfo>
 
-    @PUT("api/vehicle-delegations/{id}/approve")
-    suspend fun approveDelegation(@Path("id") id: Int): Response<DelegationResponse>
+    @PATCH("api/vehicle-delegations/{id}/approve")
+    suspend fun approveDelegation(@Path("id") id: Int): Response<DelegationActionResponse>
 
-    @PUT("api/vehicle-delegations/{id}/reject")
-    suspend fun rejectDelegation(@Path("id") id: Int): Response<DelegationResponse>
+    @PATCH("api/vehicle-delegations/{id}/reject")
+    suspend fun rejectDelegation(@Path("id") id: Int): Response<DelegationActionResponse>
 
     @GET("api/leave-requests/my")
-    suspend fun getMyLeaveRequests(): Response<LeaveRequestResponse>
+    suspend fun getMyLeaveRequests(): Response<List<LeaveRequestInfo>>
 
     @POST("api/leave-requests")
-    suspend fun createLeaveRequest(@Body request: CreateLeaveRequest): Response<ApiResponse<EmptyData>>
+    suspend fun createLeaveRequest(@Body request: CreateLeaveRequest): Response<LeaveRequestInfo>
 
-    @GET("api/leave-requests/leave-types")
-    suspend fun getLeaveTypes(): Response<LeaveTypeResponse>
-
-    @GET("api/schedules/my")
-    suspend fun getMySchedule(): Response<ScheduleResponse>
+    @GET("api/work-schedules/employee/{employeeId}")
+    suspend fun getMySchedule(@Path("employeeId") employeeId: Int): Response<List<ScheduleItem>>
 
     @GET("api/chat/contacts")
     suspend fun getChatContacts(): Response<ContactsResponse>

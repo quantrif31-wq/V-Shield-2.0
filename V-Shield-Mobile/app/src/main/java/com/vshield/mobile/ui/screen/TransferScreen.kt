@@ -287,7 +287,7 @@ private fun CreateDelegationDialog(
     vehicles: List<com.vshield.mobile.data.model.VehicleInfo>,
     onDismiss: () -> Unit,
     onLookup: (String) -> Unit,
-    employeeLookup: List<com.vshield.mobile.data.model.EmployeeLookup>,
+    employeeLookup: List<com.vshield.mobile.data.model.EmployeeInfo>,
     onSubmit: (vehicleId: Int, toEmployeeId: Int, reason: String) -> Unit
 ) {
     var selectedVehicleId by remember { mutableIntStateOf(0) }

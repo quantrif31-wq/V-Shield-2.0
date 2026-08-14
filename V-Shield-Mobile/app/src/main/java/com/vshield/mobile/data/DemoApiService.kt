@@ -92,7 +92,8 @@ object DemoApiService : ApiService {
     private val leaveRequests = mutableListOf(
         LeaveRequestInfo(
             leaveRequestId = 487,
-            leaveTypeName = "AnnualLeave",
+            employeeId = DEMO_EMPLOYEE_ID,
+            leaveType = "AnnualLeave",
             startDate = "2026-08-13",
             endDate = "2026-08-13",
             reason = "Nghỉ phép cá nhân",
@@ -101,7 +102,8 @@ object DemoApiService : ApiService {
         ),
         LeaveRequestInfo(
             leaveRequestId = 486,
-            leaveTypeName = "SickLeave",
+            employeeId = DEMO_EMPLOYEE_ID,
+            leaveType = "SickLeave",
             startDate = "2026-07-30",
             endDate = "2026-07-31",
             reason = "Nghỉ ốm",
@@ -110,7 +112,8 @@ object DemoApiService : ApiService {
         ),
         LeaveRequestInfo(
             leaveRequestId = 485,
-            leaveTypeName = "PersonalLeave",
+            employeeId = DEMO_EMPLOYEE_ID,
+            leaveType = "PersonalLeave",
             startDate = "2026-07-20",
             endDate = "2026-07-21",
             reason = "Việc gia đình",
@@ -120,10 +123,10 @@ object DemoApiService : ApiService {
     )
 
     private val leaveTypes = listOf(
-        LeaveType(1, "AnnualLeave", "Nghỉ phép năm"),
-        LeaveType(2, "SickLeave", "Nghỉ ốm"),
-        LeaveType(3, "PersonalLeave", "Nghỉ phép cá nhân"),
-        LeaveType(4, "UnpaidLeave", "Nghỉ không lương")
+        LeaveType(1, "AnnualLeave"),
+        LeaveType(2, "SickLeave"),
+        LeaveType(3, "PersonalLeave"),
+        LeaveType(4, "UnpaidLeave")
     )
 
     private val conversations = mutableListOf(
@@ -382,11 +385,11 @@ object DemoApiService : ApiService {
             employeeId = 5734,
             fullName = "Tran Thi Binh 001",
             email = "employee001@vshield-demo.vn",
-            phoneNumber = "0985458942",
+            phone = "0985458942",
             positionName = "Manager",
             departmentName = "Security Operations",
             status = true,
-            avatarUrl = null
+            faceImageUrl = null
         )
     )
 
@@ -414,8 +417,8 @@ object DemoApiService : ApiService {
     )
 
     private val myVehicles = listOf(
-        VehicleInfo(vehicleId = 3126, licensePlate = "29A-10000", vehicleTypeName = "Truck", vehicleTypeId = 4, color = null, brand = null, status = "Active"),
-        VehicleInfo(vehicleId = 3210, licensePlate = "29B12345", vehicleTypeName = "Car", vehicleTypeId = 2, color = "White", brand = "Toyota", status = "Active")
+        VehicleInfo(vehicleId = 3126, licensePlate = "29A-10000", vehicleTypeName = "Truck", vehicleTypeId = 4, employeeId = DEMO_EMPLOYEE_ID, employeeFullName = null, description = null),
+        VehicleInfo(vehicleId = 3210, licensePlate = "29B12345", vehicleTypeName = "Car", vehicleTypeId = 2, employeeId = DEMO_EMPLOYEE_ID, employeeFullName = null, description = null)
     )
 
     private fun demoLoginData(username: String): LoginData = LoginData(
@@ -458,11 +461,12 @@ object DemoApiService : ApiService {
             val shift = shifts[offset % shifts.size]
             ScheduleItem(
                 scheduleId = 1000 + offset,
-                date = date.toString(),
+                employeeId = DEMO_EMPLOYEE_ID,
+                shiftId = null,
                 shiftName = shift.first,
                 startTime = shift.second,
                 endTime = shift.third,
-                location = if (shift.first.startsWith("Factory")) "Nhà máy 1 - Khu sản xuất" else "Tòa nhà văn phòng",
+                date = date.toString(),
                 status = "Scheduled",
                 note = null
             )
@@ -479,15 +483,25 @@ object DemoApiService : ApiService {
     override suspend fun refresh(request: RefreshTokenRequest): Response<LoginData> =
         Response.success(demoLoginData(DEMO_USERNAME))
 
-    override suspend fun getMyProfile(): Response<ApiResponse<EmployeeInfo>> =
-        Response.success(ApiResponse(true, null, employees.first()))
+    override suspend fun getMyProfile(): Response<EmployeeInfo> =
+        Response.success(employees.first())
 
-    override suspend fun lookupEmployees(query: String): Response<EmployeeLookupResponse> {
+    override suspend fun lookupEmployees(query: String): Response<List<EmployeeInfo>> {
         val q = query.trim().lowercase()
         val result = contacts
             .filter { q.isBlank() || it.fullName.lowercase().contains(q) || it.departmentName?.lowercase()?.contains(q) == true }
-            .map { EmployeeLookup(it.employeeId, it.fullName, it.departmentName) }
-        return Response.success(EmployeeLookupResponse(true, result))
+            .map {
+                EmployeeInfo(
+                    employeeId = it.employeeId,
+                    fullName = it.fullName,
+                    email = it.email,
+                    phone = it.phone,
+                    positionName = it.positionName,
+                    departmentName = it.departmentName,
+                    status = true
+                )
+            }
+        return Response.success(result)
     }
 
     override suspend fun getMyQr(): Response<QrResponse> =
@@ -509,85 +523,79 @@ object DemoApiService : ApiService {
             )
         )
 
-    override suspend fun getMyVehicles(): Response<MyVehiclesResponse> =
-        Response.success(MyVehiclesResponse(true, myVehicles))
+    override suspend fun getMyVehicles(employeeId: Int): Response<List<VehicleInfo>> =
+        Response.success(myVehicles)
 
-    override suspend fun getOutgoingDelegations(): Response<DelegationListResponse> =
-        Response.success(DelegationListResponse(true, delegations.filter { it.fromEmployeeId == DEMO_EMPLOYEE_ID }, null))
+    override suspend fun getOutgoingDelegations(): Response<List<DelegationInfo>> =
+        Response.success(delegations.filter { it.fromEmployeeId == DEMO_EMPLOYEE_ID })
 
-    override suspend fun getIncomingDelegations(): Response<DelegationListResponse> =
-        Response.success(DelegationListResponse(true, delegations.filter { it.toEmployeeId == DEMO_EMPLOYEE_ID }, null))
+    override suspend fun getIncomingDelegations(): Response<List<DelegationInfo>> =
+        Response.success(delegations.filter { it.toEmployeeId == DEMO_EMPLOYEE_ID })
 
-    override suspend fun createDelegation(request: CreateDelegationRequest): Response<DelegationResponse> {
+    override suspend fun createDelegation(request: CreateDelegationRequest): Response<DelegationInfo> {
         val vehicle = myVehicles.find { it.vehicleId == request.vehicleId }
         val target = contacts.find { it.employeeId == request.toEmployeeId }
-        delegations.add(
-            0,
-            DelegationInfo(
-                delegationId = nextDelegationId++,
-                vehicleId = request.vehicleId,
-                licensePlate = vehicle?.licensePlate,
-                fromEmployeeId = DEMO_EMPLOYEE_ID,
-                fromEmployeeName = "Tran Thi Binh 001",
-                toEmployeeId = request.toEmployeeId,
-                toEmployeeName = target?.fullName ?: "NV#${request.toEmployeeId}",
-                reason = request.reason,
-                status = "Pending",
-                createdAt = isoFormatter.format(Instant.now()),
-                approvedAt = null
-            )
+        val delegation = DelegationInfo(
+            delegationId = nextDelegationId++,
+            vehicleId = request.vehicleId,
+            licensePlate = vehicle?.licensePlate,
+            fromEmployeeId = DEMO_EMPLOYEE_ID,
+            fromEmployeeName = "Tran Thi Binh 001",
+            toEmployeeId = request.toEmployeeId,
+            toEmployeeName = target?.fullName ?: "NV#${request.toEmployeeId}",
+            reason = request.reason,
+            status = "Pending",
+            createdAt = isoFormatter.format(Instant.now()),
+            approvedAt = null
         )
-        return Response.success(DelegationResponse(true, "Tạo ủy quyền thành công (demo)", null))
+        delegations.add(0, delegation)
+        return Response.success(delegation)
     }
 
-    override suspend fun approveDelegation(id: Int): Response<DelegationResponse> {
+    override suspend fun approveDelegation(id: Int): Response<DelegationActionResponse> {
         val item = delegations.find { it.delegationId == id }
         if (item == null) {
-            return Response.success(DelegationResponse(false, "Không tìm thấy yêu cầu ủy quyền", null))
+            return Response.error(404, okhttp3.ResponseBody.create(null, "Không tìm thấy yêu cầu ủy quyền"))
         }
         val index = delegations.indexOf(item)
         delegations[index] = item.copy(
             status = "Approved",
             approvedAt = isoFormatter.format(Instant.now())
         )
-        return Response.success(DelegationResponse(true, "Đã duyệt ủy quyền (demo)", delegations[index]))
+        return Response.success(DelegationActionResponse("Đã duyệt ủy quyền (demo)"))
     }
 
-    override suspend fun rejectDelegation(id: Int): Response<DelegationResponse> {
+    override suspend fun rejectDelegation(id: Int): Response<DelegationActionResponse> {
         val item = delegations.find { it.delegationId == id }
         if (item == null) {
-            return Response.success(DelegationResponse(false, "Không tìm thấy yêu cầu ủy quyền", null))
+            return Response.error(404, okhttp3.ResponseBody.create(null, "Không tìm thấy yêu cầu ủy quyền"))
         }
         val index = delegations.indexOf(item)
         delegations[index] = item.copy(status = "Rejected")
-        return Response.success(DelegationResponse(true, "Đã từ chối ủy quyền (demo)", delegations[index]))
+        return Response.success(DelegationActionResponse("Đã từ chối ủy quyền (demo)"))
     }
 
-    override suspend fun getMyLeaveRequests(): Response<LeaveRequestResponse> =
-        Response.success(LeaveRequestResponse(true, leaveRequests, null))
+    override suspend fun getMyLeaveRequests(): Response<List<LeaveRequestInfo>> =
+        Response.success(leaveRequests)
 
-    override suspend fun createLeaveRequest(request: CreateLeaveRequest): Response<ApiResponse<EmptyData>> {
-        val type = leaveTypes.find { it.leaveTypeId == request.leaveTypeId }
-        leaveRequests.add(
-            0,
-            LeaveRequestInfo(
-                leaveRequestId = nextLeaveId++,
-                leaveTypeName = type?.typeName ?: "LeaveType#${request.leaveTypeId}",
-                startDate = request.startDate,
-                endDate = request.endDate,
-                reason = request.reason,
-                status = "Pending",
-                createdAt = isoFormatter.format(Instant.now())
-            )
+    override suspend fun createLeaveRequest(request: CreateLeaveRequest): Response<LeaveRequestInfo> {
+        val type = leaveTypes.find { it.typeName == request.leaveType }
+        val item = LeaveRequestInfo(
+            leaveRequestId = nextLeaveId++,
+            employeeId = request.employeeId,
+            leaveType = type?.typeName ?: request.leaveType,
+            startDate = request.startDate,
+            endDate = request.endDate,
+            reason = request.reason,
+            status = "Pending",
+            createdAt = isoFormatter.format(Instant.now())
         )
-        return Response.success(ApiResponse(true, null, null))
+        leaveRequests.add(0, item)
+        return Response.success(item)
     }
 
-    override suspend fun getLeaveTypes(): Response<LeaveTypeResponse> =
-        Response.success(LeaveTypeResponse(true, leaveTypes))
-
-    override suspend fun getMySchedule(): Response<ScheduleResponse> =
-        Response.success(ScheduleResponse(true, demoSchedule()))
+    override suspend fun getMySchedule(employeeId: Int): Response<List<ScheduleItem>> =
+        Response.success(demoSchedule())
 
     override suspend fun getChatContacts(): Response<ContactsResponse> =
         Response.success(ContactsResponse(true, contacts))

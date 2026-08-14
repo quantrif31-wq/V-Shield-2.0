@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vshield.mobile.data.RetrofitClient
+import com.vshield.mobile.data.TokenManager
 import com.vshield.mobile.data.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,7 @@ data class TransferUiState(
     val vehicles: List<VehicleInfo> = emptyList(),
     val outgoingDelegations: List<DelegationInfo> = emptyList(),
     val incomingDelegations: List<DelegationInfo> = emptyList(),
-    val employeeLookup: List<EmployeeLookup> = emptyList(),
+    val employeeLookup: List<EmployeeInfo> = emptyList(),
     val selectedTab: Int = 0,
     val error: String? = null,
     val successMessage: String? = null
@@ -25,19 +26,22 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(TransferUiState())
     val uiState: StateFlow<TransferUiState> = _uiState
 
+    private fun currentEmployeeId(): Int = TokenManager(getApplication()).getEmployeeId()
+
     fun loadData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val vehiclesResp = RetrofitClient.apiService.getMyVehicles()
+                val employeeId = currentEmployeeId()
+                val vehiclesResp = RetrofitClient.apiService.getMyVehicles(employeeId)
                 val outgoingResp = RetrofitClient.apiService.getOutgoingDelegations()
                 val incomingResp = RetrofitClient.apiService.getIncomingDelegations()
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    vehicles = vehiclesResp.body()?.data ?: emptyList(),
-                    outgoingDelegations = outgoingResp.body()?.data ?: emptyList(),
-                    incomingDelegations = incomingResp.body()?.data ?: emptyList()
+                    vehicles = vehiclesResp.body() ?: emptyList(),
+                    outgoingDelegations = outgoingResp.body() ?: emptyList(),
+                    incomingDelegations = incomingResp.body() ?: emptyList()
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -53,7 +57,7 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
             try {
                 val resp = RetrofitClient.apiService.lookupEmployees(query)
                 _uiState.value = _uiState.value.copy(
-                    employeeLookup = resp.body()?.data ?: emptyList()
+                    employeeLookup = resp.body() ?: emptyList()
                 )
             } catch (_: Exception) { }
         }
@@ -66,7 +70,7 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
                 val resp = RetrofitClient.apiService.createDelegation(
                     CreateDelegationRequest(vehicleId, toEmployeeId, reason)
                 )
-                if (resp.isSuccessful && resp.body()?.success == true) {
+                if (resp.isSuccessful) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         successMessage = "Ủy quyền xe thành công"
@@ -75,7 +79,7 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = resp.body()?.message ?: "Ủy quyền thất bại"
+                        error = "Ủy quyền thất bại (${resp.code()})"
                     )
                 }
             } catch (e: Exception) {
@@ -91,12 +95,12 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 val resp = RetrofitClient.apiService.approveDelegation(id)
-                if (resp.isSuccessful && resp.body()?.success == true) {
+                if (resp.isSuccessful) {
                     _uiState.value = _uiState.value.copy(successMessage = "Đã duyệt ủy quyền")
                     loadData()
                 } else {
                     _uiState.value = _uiState.value.copy(
-                        error = resp.body()?.message ?: "Duyệt thất bại"
+                        error = "Duyệt thất bại (${resp.code()})"
                     )
                 }
             } catch (e: Exception) {
@@ -109,12 +113,12 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 val resp = RetrofitClient.apiService.rejectDelegation(id)
-                if (resp.isSuccessful && resp.body()?.success == true) {
+                if (resp.isSuccessful) {
                     _uiState.value = _uiState.value.copy(successMessage = "Đã từ chối ủy quyền")
                     loadData()
                 } else {
                     _uiState.value = _uiState.value.copy(
-                        error = resp.body()?.message ?: "Từ chối thất bại"
+                        error = "Từ chối thất bại (${resp.code()})"
                     )
                 }
             } catch (e: Exception) {

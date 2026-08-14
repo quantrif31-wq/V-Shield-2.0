@@ -248,7 +248,7 @@ fun ProfileScreen(
                             )
                         }
 
-                        uiState.profile?.phoneNumber?.let {
+                        uiState.profile?.phone?.let {
                             ProfileInfoRow(
                                 icon = Icons.Filled.Phone,
                                 label = "So dien thoai",
@@ -455,13 +455,5 @@ private fun ScheduleRow(schedule: ScheduleItem) {
             style = MaterialTheme.typography.bodyMedium,
             color = Gray600
         )
-        if (!schedule.location.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = schedule.location,
-                style = MaterialTheme.typography.bodySmall,
-                color = Gray600
-            )
-        }
     }
 }
