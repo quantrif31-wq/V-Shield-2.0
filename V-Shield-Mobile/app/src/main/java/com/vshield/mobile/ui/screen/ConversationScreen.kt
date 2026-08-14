@@ -18,12 +18,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.vshield.mobile.data.model.ChatMessageInfo
 import com.vshield.mobile.data.model.ConversationInfo
 import com.vshield.mobile.viewmodel.ChatViewModel
@@ -32,7 +36,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun ConversationScreen(
     conversationId: Int,
@@ -43,6 +47,14 @@ fun ConversationScreen(
     val uiState by chatViewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+
+    val callPermissionsState = rememberMultiplePermissionsState(
+        listOf(
+            android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO
+        )
+    )
 
     var messageText by remember { mutableStateOf("") }
 
@@ -97,7 +109,11 @@ fun ConversationScreen(
                     if (otherParticipants.size == 1) {
                         IconButton(onClick = {
                             val target = otherParticipants.first()
-                            onStartCall(target.employeeId, target.fullName)
+                            if (callPermissionsState.allPermissionsGranted) {
+                                onStartCall(target.employeeId, target.fullName)
+                            } else {
+                                callPermissionsState.launchMultiplePermissionRequest()
+                            }
                         }) {
                     Icon(Icons.Filled.Phone, contentDescription = "Gọi")
                         }

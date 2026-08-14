@@ -8,11 +8,14 @@ import com.vshield.mobile.data.ChatSignalRClient
 import com.vshield.mobile.data.RetrofitClient
 import com.vshield.mobile.data.TokenManager
 import com.vshield.mobile.data.model.*
+import com.vshield.mobile.webrtc.WebRTCManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import org.webrtc.IceCandidate
+import org.webrtc.VideoTrack
 
 data class ChatUiState(
     val isConnected: Boolean = false,
@@ -26,6 +29,11 @@ data class ChatUiState(
     val typingUser: String? = null,
     val callState: ChatCallState = ChatCallState.Idle,
     val myEmployeeId: Int = 0,
+    val localVideoTrack: VideoTrack? = null,
+    val remoteVideoTrack: VideoTrack? = null,
+    val isMicMuted: Boolean = false,
+    val isCameraOff: Boolean = false,
+    val callError: String? = null,
     val error: String? = null
 )
 
@@ -36,6 +44,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private var signalRClient: ChatSignalRClient? = null
     private var typingJob: Job? = null
+    private var webrtcManager: WebRTCManager? = null
+    private var pendingIceCandidates = mutableListOf<IceCandidate>()
+    private var pendingOfferSdp: String? = null
 
     fun initialize() {
         val token = RetrofitClient.getToken()
@@ -127,32 +138,95 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         client.onIncomingCall = { call ->
-            if (call.fromFullName != null) {
-                _uiState.value = _uiState.value.copy(
-                    callState = ChatCallState.Incoming(
-                        fromEmployeeId = call.fromEmployeeId,
-                        fromFullName = call.fromFullName,
-                        conversationId = call.conversationId
-                    )
-                )
-            }
+            handleIncomingCallSignal(call)
         }
 
         client.onCallResponse = { resp ->
-            val current = _uiState.value
-            if (current.callState is ChatCallState.Outgoing) {
-                _uiState.value = current.copy(
-                    callState = ChatCallState.Connected(
-                        withEmployeeId = resp.fromEmployeeId,
-                        withFullName = resp.fromFullName ?: ""
-                    )
-                )
-            }
+            handleCallResponseSignal(resp)
         }
 
         client.onCallEnded = {
             _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
+            closeWebRtc()
         }
+    }
+
+    private fun handleIncomingCallSignal(call: SignalRCallInfo) {
+        val current = _uiState.value
+        when (call.signalingType) {
+            "offer" -> {
+                pendingOfferSdp = call.signalingData
+                _uiState.value = current.copy(
+                    callState = ChatCallState.Incoming(
+                        fromEmployeeId = call.fromEmployeeId,
+                        fromFullName = call.fromFullName ?: "Cuộc gọi đến",
+                        conversationId = call.conversationId,
+                        offerSdp = call.signalingData
+                    )
+                )
+            }
+            "ice" -> {
+                val candidate = parseIceCandidate(call.signalingData)
+                if (candidate != null) {
+                    if (webrtcManager?.hasPeerConnection() == true) {
+                        webrtcManager?.addIceCandidate(candidate)
+                    } else {
+                        pendingIceCandidates.add(candidate)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleCallResponseSignal(resp: SignalRCallResponse) {
+        when (resp.signalingType) {
+            "answer" -> {
+                resp.signalingData?.let { webrtcManager?.handleRemoteAnswer(it) }
+            }
+            "ice" -> {
+                val candidate = parseIceCandidate(resp.signalingData)
+                if (candidate != null) {
+                    if (webrtcManager?.hasPeerConnection() == true) {
+                        webrtcManager?.addIceCandidate(candidate)
+                    } else {
+                        pendingIceCandidates.add(candidate)
+                    }
+                }
+            }
+            "accepted" -> {
+                val current = _uiState.value
+                if (current.callState is ChatCallState.Outgoing) {
+                    _uiState.value = current.copy(
+                        callState = ChatCallState.Connected(
+                            withEmployeeId = resp.fromEmployeeId,
+                            withFullName = resp.fromFullName ?: current.callState.toFullName
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun parseIceCandidate(json: String?): IceCandidate? {
+        if (json.isNullOrBlank()) return null
+        return try {
+            val obj = com.google.gson.JsonParser.parseString(json).asJsonObject
+            val sdpMid = obj.get("sdpMid")?.asString ?: "0"
+            val sdpMLineIndex = obj.get("sdpMLineIndex")?.asInt ?: 0
+            val candidate = obj.get("candidate")?.asString ?: return null
+            IceCandidate(sdpMid, sdpMLineIndex, candidate)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun buildIceCandidateJson(candidate: IceCandidate): String {
+        val obj = com.google.gson.JsonObject().apply {
+            addProperty("sdpMid", candidate.sdpMid ?: "0")
+            addProperty("sdpMLineIndex", candidate.sdpMLineIndex)
+            addProperty("candidate", candidate.sdp)
+        }
+        return obj.toString()
     }
 
     fun loadConversations() {
@@ -278,26 +352,71 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startCall(targetEmployeeId: Int, targetFullName: String, conversationId: Int?) {
-        _uiState.value = _uiState.value.copy(
+        val current = _uiState.value
+        _uiState.value = current.copy(
             callState = ChatCallState.Outgoing(
                 toEmployeeId = targetEmployeeId,
                 toFullName = targetFullName,
                 conversationId = conversationId
-            )
+            ),
+            callError = null
         )
-        signalRClient?.callUser(targetEmployeeId, "offer", "{\"type\":\"offer\"}", conversationId)
+
+        if (BuildConfig.DEMO_MODE) {
+            signalRClient?.callUser(targetEmployeeId, "offer", "demo-offer", conversationId)
+            return
+        }
+
+        val manager = ensureWebRtcManager()
+        manager.initialize()
+        if (!manager.createPeerConnection()) {
+            _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo peer")
+            return
+        }
+        if (!manager.setupLocalMedia()) {
+            _uiState.value = _uiState.value.copy(callError = "Không thể bật camera/mic")
+            return
+        }
+        manager.createOffer()
+        pendingIceCandidates.clear()
+        signalRClient?.callUser(targetEmployeeId, "offer", "", conversationId)
     }
 
     fun acceptCall() {
         val state = _uiState.value.callState
-        if (state is ChatCallState.Incoming) {
+        if (state !is ChatCallState.Incoming) return
+
+        if (BuildConfig.DEMO_MODE) {
+            signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
             _uiState.value = _uiState.value.copy(
                 callState = ChatCallState.Connected(
                     withEmployeeId = state.fromEmployeeId,
                     withFullName = state.fromFullName
                 )
             )
-            signalRClient?.callResponse(state.fromEmployeeId, "answer", "{\"type\":\"answer\"}")
+            return
+        }
+
+        val manager = ensureWebRtcManager()
+        manager.initialize()
+        if (!manager.createPeerConnection()) {
+            _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo peer")
+            return
+        }
+        if (!manager.setupLocalMedia()) {
+            _uiState.value = _uiState.value.copy(callError = "Không thể bật camera/mic")
+            return
+        }
+
+        pendingIceCandidates.forEach { manager.addIceCandidate(it) }
+        pendingIceCandidates.clear()
+
+        val offer = state.offerSdp ?: pendingOfferSdp
+        if (offer != null && offer.isNotBlank()) {
+            manager.handleRemoteOffer(offer)
+            signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
+        } else {
+            _uiState.value = _uiState.value.copy(callError = "Không nhận được offer")
         }
     }
 
@@ -305,8 +424,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val state = _uiState.value.callState
         if (state is ChatCallState.Incoming) {
             signalRClient?.callResponse(state.fromEmployeeId, "reject", "")
-            _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
         }
+        closeWebRtc()
+        _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
     }
 
     fun endCall() {
@@ -314,18 +434,124 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         when (state) {
             is ChatCallState.Incoming -> {
                 signalRClient?.endCall(state.fromEmployeeId, state.conversationId)
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
             }
             is ChatCallState.Outgoing -> {
                 signalRClient?.endCall(state.toEmployeeId, state.conversationId)
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
             }
             is ChatCallState.Connected -> {
                 signalRClient?.endCall(state.withEmployeeId, null)
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
             }
             else -> {}
         }
+        closeWebRtc()
+        _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
+    }
+
+    fun toggleMic() {
+        val muted = !_uiState.value.isMicMuted
+        webrtcManager?.setAudioEnabled(!muted)
+        _uiState.value = _uiState.value.copy(isMicMuted = muted)
+    }
+
+    fun toggleCamera() {
+        val off = !_uiState.value.isCameraOff
+        webrtcManager?.setVideoEnabled(!off)
+        _uiState.value = _uiState.value.copy(isCameraOff = off)
+    }
+
+    fun switchCamera() {
+        webrtcManager?.switchCamera()
+    }
+
+    fun clearCallError() {
+        _uiState.value = _uiState.value.copy(callError = null)
+    }
+
+    private fun ensureWebRtcManager(): WebRTCManager {
+        val existing = webrtcManager
+        if (existing != null) return existing
+
+        val manager = WebRTCManager(getApplication())
+        webrtcManager = manager
+        manager.listener = object : WebRTCManager.Listener {
+            override fun onOfferCreated(sdp: String) {
+                val current = _uiState.value
+                val state = current.callState
+                if (state is ChatCallState.Outgoing) {
+                    signalRClient?.callUser(state.toEmployeeId, "offer", sdp, state.conversationId)
+                }
+            }
+
+            override fun onAnswerCreated(sdp: String) {
+                val current = _uiState.value
+                val state = current.callState
+                val targetId = when (state) {
+                    is ChatCallState.Incoming -> state.fromEmployeeId
+                    is ChatCallState.Connected -> state.withEmployeeId
+                    is ChatCallState.Outgoing -> state.toEmployeeId
+                    else -> 0
+                }
+                if (targetId > 0) {
+                    signalRClient?.callResponse(targetId, "answer", sdp)
+                }
+            }
+
+            override fun onIceCandidate(candidate: IceCandidate) {
+                val current = _uiState.value
+                val state = current.callState
+                val json = buildIceCandidateJson(candidate)
+                when (state) {
+                    is ChatCallState.Outgoing -> {
+                        signalRClient?.callUser(state.toEmployeeId, "ice", json, state.conversationId)
+                    }
+                    is ChatCallState.Incoming -> {
+                        signalRClient?.callResponse(state.fromEmployeeId, "ice", json)
+                    }
+                    is ChatCallState.Connected -> {
+                        signalRClient?.callResponse(state.withEmployeeId, "ice", json)
+                    }
+                    else -> {}
+                }
+            }
+
+            override fun onLocalVideo(videoTrack: VideoTrack) {
+                _uiState.value = _uiState.value.copy(localVideoTrack = videoTrack)
+            }
+
+            override fun onRemoteVideo(videoTrack: VideoTrack) {
+                _uiState.value = _uiState.value.copy(remoteVideoTrack = videoTrack)
+            }
+
+            override fun onConnectionStateChanged(state: String) {
+                val current = _uiState.value
+                if (state == "CONNECTED" && current.callState is ChatCallState.Outgoing) {
+                    _uiState.value = current.copy(
+                        callState = ChatCallState.Connected(
+                            withEmployeeId = current.callState.toEmployeeId,
+                            withFullName = current.callState.toFullName
+                        )
+                    )
+                }
+            }
+
+            override fun onError(message: String) {
+                _uiState.value = _uiState.value.copy(callError = message)
+            }
+        }
+        return manager
+    }
+
+    private fun closeWebRtc() {
+        webrtcManager?.close()
+        webrtcManager = null
+        pendingIceCandidates.clear()
+        pendingOfferSdp = null
+        _uiState.value = _uiState.value.copy(
+            localVideoTrack = null,
+            remoteVideoTrack = null,
+            isMicMuted = false,
+            isCameraOff = false
+        )
     }
 
     fun totalUnreadCount(): Int = _uiState.value.conversations.sumOf { it.unreadCount }

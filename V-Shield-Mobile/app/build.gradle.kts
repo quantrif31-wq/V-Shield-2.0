@@ -78,6 +78,8 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
 
+    implementation("io.github.webrtc-sdk:android:144.7559.12")
+
     implementation("com.google.zxing:core:3.5.3")
 
     implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")

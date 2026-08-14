@@ -146,7 +146,8 @@ sealed class ChatCallState {
     data class Incoming(
         val fromEmployeeId: Int,
         val fromFullName: String,
-        val conversationId: Int?
+        val conversationId: Int?,
+        val offerSdp: String? = null
     ) : ChatCallState()
     data class Outgoing(
         val toEmployeeId: Int,
