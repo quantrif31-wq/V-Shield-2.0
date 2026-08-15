@@ -758,10 +758,11 @@ class CameraSession:
                     self._capture_track_intruder_locked(tid)
             del self._tracks[tid]
 
-        # 6) Publish faces array for the UI.
+        # 6) Publish faces array for the UI (all live tracks, not only those
+        # seen this exact frame, so a detector miss does not flash the face).
         self.faces = []
         primary_confirmed = None
-        for tid in track_ids:
+        for tid in list(self._tracks.keys()):
             t = self._tracks.get(tid)
             if t is None:
                 continue
@@ -791,7 +792,8 @@ class CameraSession:
             self._last_face_crop = primary_confirmed.get("crop_b64")
             self.last_face_seen_at = now
         else:
-            first = self._tracks.get(track_ids[0]) if track_ids else None
+            remaining = list(self._tracks.keys())
+            first = self._tracks.get(remaining[0]) if remaining else None
             if first is not None:
                 self._tracking_active = True
                 self._identity_confirmed = False
