@@ -1,5 +1,6 @@
 using API.Data;
 using API.Models;
+using API.Services;
 using API.Services.AccessPolicyComparison;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,11 +20,25 @@ public class FaceGateController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
     private readonly ILegacyGateAccessEvaluator _legacyEvaluator;
+    private readonly IZoneTransitService _zoneTransitService;
+    private readonly EvidenceCaptureService _evidenceCapture;
 
-    public FaceGateController(ApplicationDbContext db, ILegacyGateAccessEvaluator legacyEvaluator)
+    public FaceGateController(
+        ApplicationDbContext db,
+        ILegacyGateAccessEvaluator legacyEvaluator,
+        IZoneTransitService zoneTransitService,
+        EvidenceCaptureService evidenceCapture)
     {
         _db = db;
         _legacyEvaluator = legacyEvaluator;
+        _zoneTransitService = zoneTransitService;
+        _evidenceCapture = evidenceCapture;
+    }
+
+    private static int? _cameraIdAsInt(string? cameraId)
+    {
+        if (string.IsNullOrWhiteSpace(cameraId)) return null;
+        return int.TryParse(cameraId, out var id) ? id : null;
     }
 
     private int? GetCurrentUserId()
@@ -169,34 +184,34 @@ public class FaceGateController : ControllerBase
                 ? await _db.Gates.AsNoTracking().FirstOrDefaultAsync(g => g.GateId == request.GateId, cancellationToken)
                 : null;
 
-            // Ghi ZoneTransit (FaceAI) để hệ thống chấm công suy ra check-in/check-out.
-            var lane = request.LaneId.HasValue
-                ? await _db.Lanes.AsNoTracking().FirstOrDefaultAsync(l => l.LaneId == request.LaneId, cancellationToken)
-                : null;
-            int? zoneId = null;
-            if (lane?.AccessPointId is { } apId)
-            {
-                zoneId = await _db.AccessPoints.AsNoTracking()
-                    .Where(a => a.AccessPointId == apId)
-                    .Select(a => a.SecurityZoneId)
-                    .FirstOrDefaultAsync(cancellationToken);
-            }
-            zoneId ??= await _db.SecurityZones.AsNoTracking()
-                .Where(z => z.IsActive)
-                .Select(z => (int?)z.SecurityZoneId)
-                .FirstOrDefaultAsync(cancellationToken) ?? 0;
+            var direction = string.Equals(request.Direction, "OUT", StringComparison.OrdinalIgnoreCase) ? "OUT" : "IN";
 
-            var transit = new ZoneTransit
+            // Ghi AccessLog để xuất hiện trong lịch sử thông hành (/access-logs),
+            // sau đó suy ra ZoneTransit để chấm công (giống luồng QR / gate).
+            var log = new AccessLog
             {
+                Timestamp = DateTime.Now,
+                Direction = direction,
+                GateId = request.GateId,
+                CameraId = _cameraIdAsInt(request.CameraId),
                 EmployeeId = request.EmployeeId,
-                SecurityZoneId = zoneId.Value,
-                Timestamp = DateTime.UtcNow,
-                Direction = string.Equals(request.Direction, "OUT", StringComparison.OrdinalIgnoreCase) ? "OUT" : "IN",
-                Source = ZoneTransitSources.FaceAi,
-                IsAutoDerived = false
+                ResultStatus = "SUCCESS",
+                IsBypass = false,
+                Note = $"FaceID xác nhận thành công. {request.EmployeeName ?? ""} được phép vào cổng {gate?.GateName ?? ""}."
             };
-            _db.ZoneTransits.Add(transit);
+            _db.AccessLogs.Add(log);
             await _db.SaveChangesAsync(cancellationToken);
+
+            var sourceRef = $"access-log/{log.LogId}";
+            log.CapturedFaceCropUrl = await _evidenceCapture.CaptureBase64Async(
+                request.FaceCropBase64, "face-crop", sourceRef, createdByUserId: request.EmployeeId);
+            log.CapturedFaceImageUrl ??= log.CapturedFaceCropUrl;
+            log.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(
+                request.SnapshotBase64, "snapshot", sourceRef, createdByUserId: request.EmployeeId)
+                ?? log.CapturedFaceCropUrl;
+            await _db.SaveChangesAsync(cancellationToken);
+
+            await _zoneTransitService.ProcessAccessLogAsync(log.LogId);
 
             return Ok(new
             {
@@ -210,6 +225,10 @@ public class FaceGateController : ControllerBase
         }
 
         // denied / blacklist / unknown -> intruder
+        var reason = string.Equals(request.Decision, "blacklist", StringComparison.OrdinalIgnoreCase)
+            ? FaceIntruderReasons.Blacklist
+            : request.EmployeeId > 0 ? FaceIntruderReasons.Denied : FaceIntruderReasons.Unknown;
+
         var intruder = new FaceIntruder
         {
             CameraId = request.CameraId,
@@ -217,9 +236,7 @@ public class FaceGateController : ControllerBase
             GateName = request.GateName,
             EmployeeId = request.EmployeeId > 0 ? request.EmployeeId : null,
             EmployeeName = request.EmployeeName,
-            Reason = string.Equals(request.Decision, "blacklist", StringComparison.OrdinalIgnoreCase)
-                ? FaceIntruderReasons.Blacklist
-                : request.EmployeeId > 0 ? FaceIntruderReasons.Denied : FaceIntruderReasons.Unknown,
+            Reason = reason,
             ReasonDetail = request.ReasonDetail,
             Distance = request.Distance,
             SnapshotBase64 = request.SnapshotBase64,
@@ -227,6 +244,24 @@ public class FaceGateController : ControllerBase
             OccurredAtUtc = DateTime.UtcNow
         };
         _db.FaceIntruders.Add(intruder);
+
+        // Cũng ghi AccessLog FAILED để thấy trong lịch sử thông hành.
+        if (request.EmployeeId > 0)
+        {
+            var failLog = new AccessLog
+            {
+                Timestamp = DateTime.Now,
+                Direction = string.Equals(request.Direction, "OUT", StringComparison.OrdinalIgnoreCase) ? "OUT" : "IN",
+                GateId = request.GateId,
+                CameraId = _cameraIdAsInt(request.CameraId),
+                EmployeeId = request.EmployeeId,
+                ResultStatus = reason == FaceIntruderReasons.Blacklist ? "FAILED_BLACKLIST" : "FAILED_DENIED",
+                IsBypass = false,
+                Note = $"FaceID từ chối. {request.ReasonDetail ?? request.GateName ?? ""}"
+            };
+            _db.AccessLogs.Add(failLog);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new { success = true, decision = intruder.Reason, intruderId = intruder.Id });
