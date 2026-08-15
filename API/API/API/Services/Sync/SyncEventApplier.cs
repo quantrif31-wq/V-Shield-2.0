@@ -251,12 +251,48 @@ public class SyncEventApplier
         ApplyScalarValues(entityInstance, entity, includePrimaryKey: existing == null);
         if (existing == null)
         {
+            var isCentralInsert = string.Equals(syncEvent.SourceSystem, "Central", StringComparison.OrdinalIgnoreCase);
+            if (isCentralInsert)
+            {
+                await SaveWithIdentityInsertAsync<TEntity>(async () => await SaveEntityWithIdentityInsertAsync(entityInstance, cancellationToken), cancellationToken);
+                return primaryKeySelector(entityInstance)?.ToString();
+            }
+
             NormalizeGeneratedPrimaryKeyForInsert(entityInstance, syncEvent);
             _db.Set<TEntity>().Add(entityInstance);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
         return primaryKeySelector(entityInstance)?.ToString();
+    }
+
+    private async Task SaveEntityWithIdentityInsertAsync<TEntity>(TEntity entityInstance, CancellationToken cancellationToken) where TEntity : class
+    {
+        _db.Set<TEntity>().Add(entityInstance);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SaveWithIdentityInsertAsync<TEntity>(Func<Task> saveAction, CancellationToken cancellationToken) where TEntity : class
+    {
+        var entityType = _db.Model.FindEntityType(typeof(TEntity));
+        var tableName = entityType?.GetTableName();
+        if (string.IsNullOrWhiteSpace(tableName))
+        {
+            await saveAction();
+            return;
+        }
+
+        await _db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await _db.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT [{tableName}] ON", cancellationToken);
+            await saveAction();
+            await _db.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT [{tableName}] OFF", cancellationToken);
+        }
+        finally
+        {
+            await _db.Database.CloseConnectionAsync();
+        }
     }
 
     private void NormalizeGeneratedPrimaryKeyForInsert<TEntity>(TEntity entityInstance, SyncEventDto syncEvent, bool forceResetGeneratedKey = false) where TEntity : class
