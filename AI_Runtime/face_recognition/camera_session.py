@@ -29,6 +29,34 @@ def _legacy_timestamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _loc_to_box(loc: tuple[int, int, int, int]) -> dict[str, int]:
+    top, right, bottom, left = loc
+    return {
+        "top": int(top), "right": int(right), "bottom": int(bottom),
+        "left": int(left), "width": int(right - left), "height": int(bottom - top),
+    }
+
+
+def _iou(a: dict[str, int] | None, b: tuple[int, int, int, int]) -> float:
+    if not a:
+        return 0.0
+    top, right, bottom, left = b
+    xa1, ya1 = float(a.get("left", 0)), float(a.get("top", 0))
+    xa2, ya2 = float(a.get("right", 0)), float(a.get("bottom", 0))
+    xb1, yb1 = float(left), float(top)
+    xb2, yb2 = float(right), float(bottom)
+    ix1, iy1 = max(xa1, xb1), max(ya1, yb1)
+    ix2, iy2 = min(xa2, xb2), min(ya2, yb2)
+    iw, ih = max(0.0, ix2 - ix1), max(0.0, iy2 - iy1)
+    inter = iw * ih
+    a_area = max(0.0, xa2 - xa1) * max(0.0, ya2 - ya1)
+    b_area = max(0.0, xb2 - xb1) * max(0.0, yb2 - yb1)
+    union = a_area + b_area - inter
+    if union <= 0:
+        return 0.0
+    return inter / union
+
+
 class CameraSessionConflictError(RuntimeError):
     """Raised when an active camera is started with a different stream URL."""
 
@@ -84,6 +112,9 @@ class CameraSession:
         self.intruders: list[dict[str, Any]] = []
         self._intruder_keys: set[tuple] = set()
         self._max_faces = int(getattr(config, "enrollment_auto_target", 6) or 6)
+        # Session-based multi-face tracking: track_id -> state dict.
+        self._tracks: dict[str, dict[str, Any]] = {}
+        self._next_track_id = 1
 
         self.session_lock = threading.RLock()
         self.frame_lock = threading.Lock()
@@ -525,7 +556,6 @@ class CameraSession:
                         self._store_display(generation, display)
                         stop_event.wait(0.03)
                         continue
-                    last_recognition_at = self.last_recognition_at
 
                 current_time = time.time()
                 detections = (
@@ -533,33 +563,10 @@ class CameraSession:
                     if self._detector is not None
                     else None
                 )
-                if detections is not None and len(detections):
-                    faces_info = self._build_faces_locked(
-                        processed, detections, last_recognition_at, current_time)
-                    if faces_info:
-                        primary = faces_info[0]
-                        if current_time - last_recognition_at > self._config.encode_interval:
-                            model_snapshot = self._model_registry.current_snapshot()
-                            primary_enc = primary.get("encoding")
-                            self._apply_recognition(
-                                generation,
-                                current_time,
-                                processed,
-                                primary["location"],
-                                primary["crop"],
-                                primary["snapshot"],
-                                primary["crop_b64"],
-                                [primary_enc] if primary_enc is not None else [],
-                                model_snapshot,
-                            )
-                        else:
-                            self._mark_face_seen(
-                                generation, current_time,
-                                primary["location"], primary["snapshot"],
-                                primary["crop_b64"],
-                            )
-                else:
-                    self._apply_no_face(generation, current_time)
+                with self.session_lock:
+                    if self._is_current_locked(generation):
+                        self._update_tracks_locked(
+                            processed, detections, current_time, generation)
 
                 with self.session_lock:
                     if not self._is_current_locked(generation):
@@ -582,293 +589,238 @@ class CameraSession:
                 except Exception:
                     pass
                 stop_event.wait(0.5)
-            with self.session_lock:
-                if not self._is_current_locked(generation):
-                    return
-            frame, frame_at = self.latest_frame_copy()
-            if frame is None:
-                stop_event.wait(0.03)
-                continue
-            if frame_at != last_frame_at:
-                last_frame_at = frame_at
-                fps_counter += 1
-            processed = self._preprocess(frame)
-            if processed is None:
-                stop_event.wait(0.01)
-                continue
 
-            with self.session_lock:
-                if not self._is_current_locked(generation):
-                    return
-                if self._scan_locked:
-                    display = self._draw_overlay_locked(processed)
-                    self._store_display(generation, display)
-                    stop_event.wait(0.03)
-                    continue
-                last_recognition_at = self.last_recognition_at
-
-            current_time = time.time()
-            detections = (
-                self._detector.detect(processed)
-                if self._detector is not None
-                else None
-            )
-            if detections is not None and len(detections):
-                faces_info = self._build_faces_locked(
-                    processed, detections, last_recognition_at, current_time)
-                if faces_info:
-                    primary = faces_info[0]
-                    if current_time - last_recognition_at > self._config.encode_interval:
-                        model_snapshot = self._model_registry.current_snapshot()
-                        primary_enc = primary.get("encoding")
-                        self._apply_recognition(
-                            generation,
-                            current_time,
-                            processed,
-                            primary["location"],
-                            primary["crop"],
-                            primary["snapshot"],
-                            primary["crop_b64"],
-                            [primary_enc] if primary_enc is not None else [],
-                            model_snapshot,
-                        )
-                    else:
-                        self._mark_face_seen(
-                            generation, current_time,
-                            primary["location"], primary["snapshot"],
-                            primary["crop_b64"],
-                        )
-            else:
-                self._apply_no_face(generation, current_time)
-
-            with self.session_lock:
-                if not self._is_current_locked(generation):
-                    return
-                display = self._draw_overlay_locked(processed)
-                if time.time() - fps_started >= 1:
-                    self._fps = fps_counter
-                    fps_counter = 0
-                    fps_started = time.time()
-                    self._publish_state_locked(fps=self._fps)
-            self._store_display(generation, display)
-            stop_event.wait(0.01)
-
-    def _build_faces_locked(
-        self,
-        processed: np.ndarray,
-        detections: np.ndarray,
-        last_recognition_at: float,
-        current_time: float,
-    ) -> list[dict[str, Any]]:
-        """Encode every detected face and expose a `faces` array for the UI.
-
-        Each face carries its own bbox, match status and distance so the frontend
-        can draw a green/red box per person. The primary face (largest bounding
-        box, i.e. closest to camera) keeps driving the single-face lock/confirm
-        state for backward compatibility.
-        """
-        snapshot_b64 = self._image_to_base64(processed)
-        do_encode = current_time - last_recognition_at > self._config.encode_interval
-        built: list[dict[str, Any]] = []
-        det_limit = min(len(detections), max(1, self._max_faces))
-        for i in range(det_limit):
-            detection = detections[i]
-            face_location = FaceDetector.box_from_detection(detection)
-            landmarks = FaceDetector.landmarks_from_detection(detection)
-            face_crop = self._crop_face(processed, face_location)
-            crop_b64 = self._image_to_base64(face_crop)
-            area = max(0, face_location[1] - face_location[3]) * \
-                max(0, face_location[2] - face_location[0])
-            entry: dict[str, Any] = {
-                "location": face_location,
-                "crop": face_crop,
-                "snapshot": snapshot_b64,
-                "crop_b64": crop_b64,
-                "id": f"face_{i}",
-                "bbox": {
-                    "top": int(face_location[0]),
-                    "right": int(face_location[1]),
-                    "bottom": int(face_location[2]),
-                    "left": int(face_location[3]),
-                    "width": int(face_location[1] - face_location[3]),
-                    "height": int(face_location[2] - face_location[0]),
-                },
-                "area": area,
-                "subject_id": None,
-                "employee_id": None,
-                "distance": None,
-                "match": False,
-                "encoding": None,
-            }
-            if do_encode and self._embedder is not None:
-                try:
-                    vector = self._embedder.align_and_embed(processed, landmarks)
-                    if vector is not None:
-                        arr = np.asarray(vector, dtype=np.float64)
-                        if arr.shape == (128,) and np.all(np.isfinite(arr)):
-                            entry["encoding"] = arr
-                except Exception:
-                    entry["encoding"] = None
-            built.append(entry)
-
-        # Closest face (largest box) first = primary.
-        built.sort(key=lambda f: f["area"], reverse=True)
-
-        # Match each encoded face against the immutable registry snapshot.
-        snapshot = self._model_registry.current_snapshot()
-        if do_encode and snapshot.encoding_count:
-            for entry in built:
-                vec = entry.get("encoding")
-                if vec is None:
-                    continue
-                if snapshot.metric == "cosine":
-                    distances = np.asarray(
-                        [cosine_distance(vec, known) for known in snapshot.encodings],
-                        dtype=np.float64,
-                    )
-                else:
-                    distances = np.asarray(
-                        [
-                            float(np.linalg.norm(np.asarray(vec) - np.asarray(known)))
-                            for known in snapshot.encodings
-                        ],
-                        dtype=np.float64,
-                    )
-                best_index = int(np.argmin(distances))
-                distance = float(distances[best_index])
-                entry["distance"] = distance
-                entry["match"] = distance < self._config.threshold
-                if entry["match"]:
-                    entry["subject_id"] = snapshot.subject_ids[best_index]
-                    entry["employee_id"] = snapshot.subject_ids[best_index]
-
-        # Publish the current multi-face set (excluding encodings, keep it light).
-        with self.session_lock:
-            prev = {f.get("id"): f for f in self._last_face_entries if f.get("id")}
-            now = []
-            for f in built:
-                fid = f.get("id")
-                entry = {
-                    "id": fid,
-                    "bbox": f["bbox"],
-                    "employee_id": f["employee_id"],
-                    "distance": f["distance"],
-                    "match": f["match"],
-                }
-                # Hold the last known identity when this frame skipped embedding.
-                if not entry["match"] and fid is not None and fid in prev:
-                    p = prev[fid]
-                    if p.get("employee_id"):
-                        entry["employee_id"] = p["employee_id"]
-                        entry["match"] = True
-                        entry["distance"] = p.get("distance")
-                now.append(entry)
-            self.faces = now
-            self._last_face_entries = [
-                {"id": f.get("id"), "employee_id": f.get("employee_id"),
-                 "distance": f.get("distance"), "match": f.get("match")}
-                for f in built
-            ]
-            try:
-                self._publish_state_locked()
-            except Exception:
-                pass
-        return built
-
-    def _apply_recognition(
-        self, generation: int, current_time: float, frame: np.ndarray,
-        face_location: tuple[int, int, int, int], face_crop: np.ndarray | None,
-        snapshot_b64: str | None, crop_b64: str | None,
-        encodings: list[np.ndarray], model_snapshot: Any,
+    def _update_tracks_locked(
+        self, processed, detections, current_time, generation,
     ) -> None:
-        with self.session_lock:
-            if not self._is_current_locked(generation):
-                return
-            self._set_face_box_locked(face_location)
-            self._last_snapshot = snapshot_b64
-            self._last_face_crop = crop_b64
-            if not self._tracking_active:
+        """Session-based multi-face tracking.
+
+        Each detected face is matched to an existing track by IoU. A track keeps
+        its bbox/identity across frames; once confirmed it stops re-embedding to
+        save GPU. A track that leaves the camera for track_lost_timeout ends its
+        session. During track_grace_seconds a new face is only 'tracking'
+        (never red) so it has time to be recognized.
+        """
+        if not self._is_current_locked(generation):
+            return
+        now = current_time
+        config = self._config
+        snapshot_b64 = self._image_to_base64(processed)
+        grace = float(getattr(config, "track_grace_seconds", 2.0))
+        lost_t = float(getattr(config, "track_lost_timeout", 2.0))
+        embed_i = float(getattr(config, "track_embed_interval", 0.15))
+        confirm_n = int(getattr(config, "track_confirm_frames", 3))
+
+        # 1) Build detection boxes.
+        dets = []
+        if detections is not None and len(detections):
+            limit = min(len(detections), max(1, self._max_faces))
+            for i in range(limit):
+                d = detections[i]
+                loc = FaceDetector.box_from_detection(detections[i])
+                lm = FaceDetector.landmarks_from_detection(detections[i])
+                dets.append({
+                    "loc": loc,
+                    "landmarks": lm,
+                    "crop": self._crop_face(processed, loc),
+                    "area": max(0, loc[1]-loc[3]) * max(0, loc[2]-loc[0]),
+                })
+        dets.sort(key=lambda x: x["area"], reverse=True)
+
+        # 2) Match detections to existing tracks (greedy IoU).
+        used = set()
+        matched = {}  # track_id -> detection idx
+        track_ids = list(self._tracks.keys())
+        for det_i, det in enumerate(dets):
+            best_tid = None
+            best_iou = 0.30
+            for tid in track_ids:
+                if tid in used:
+                    continue
+                t = self._tracks[tid]
+                iou = _iou(t["bbox"], det["loc"])
+                if iou >= best_iou:
+                    best_iou = iou
+                    best_tid = tid
+            if best_tid is not None:
+                used.add(best_tid)
+                matched[best_tid] = det_i
+
+        # 3) Update matched tracks + create new ones.
+        live_tracks = []
+        for det_i, det in enumerate(dets):
+            tid = None
+            for tid_candidate, used_i in matched.items():
+                if used_i == det_i:
+                    tid = tid_candidate
+                    break
+            if tid is None:
+                tid = f"t{self._next_track_id}"
+                self._next_track_id += 1
+                self._tracks[tid] = {
+                    "bbox": _loc_to_box(det["loc"]),
+                    "first_seen": now,
+                    "last_seen": now,
+                    "last_embed_at": 0.0,
+                    "confirm_count": 0,
+                    "subject_id": None,
+                    "status": "new",  # new -> tracking -> confirmed / intruder
+                    "distance": None,
+                    "crop_b64": self._image_to_base64(det["crop"]),
+                    "snapshot_b64": snapshot_b64,
+                }
+            t = self._tracks[tid]
+            t["bbox"] = _loc_to_box(det["loc"])
+            t["last_seen"] = now
+            t["crop_b64"] = self._image_to_base64(det["crop"])
+            t["snapshot_b64"] = snapshot_b64
+
+            # Grace: no red during the first grace seconds. After grace, if the
+            # face still has no identity at all -> mark intruder (red) so the UI
+            # alerts; a face with a pending match keeps tracking to confirm.
+            age = now - t["first_seen"]
+            if t["status"] == "new":
+                if age >= grace:
+                    t["status"] = "tracking"
+            elif t["status"] == "tracking":
+                if age >= grace and t.get("subject_id") is None:
+                    t["status"] = "intruder"
+
+            # Embed only unconfirmed tracks at a faster interval.
+            if t["status"] not in ("confirmed", "intruder"):
+                if now - t["last_embed_at"] >= embed_i:
+                    enc = None
+                    if self._embedder is not None:
+                        try:
+                            enc = self._embedder.align_and_embed(
+                                processed, det["landmarks"])
+                        except Exception:
+                            enc = None
+                    t["last_embed_at"] = now
+                    t["_enc"] = enc
+
+            live_tracks.append(tid)
+
+        # 4) Recognize tracks that have a fresh embedding.
+        model_snapshot = self._model_registry.current_snapshot()
+        for tid in live_tracks:
+            t = self._tracks[tid]
+            enc = t.get("_enc")
+            if enc is None:
+                continue
+            if not model_snapshot.encoding_count:
+                continue
+            if model_snapshot.metric == "cosine":
+                dists = np.asarray(
+                    [cosine_distance(enc, k) for k in model_snapshot.encodings],
+                    dtype=np.float64)
+            else:
+                dists = np.asarray(
+                    [float(np.linalg.norm(np.asarray(enc)-np.asarray(k)))
+                     for k in model_snapshot.encodings], dtype=np.float64)
+            best = int(np.argmin(dists))
+            distance = float(dists[best])
+            t["distance"] = distance
+            if distance < self._config.threshold:
+                if t.get("subject_id") == model_snapshot.subject_ids[best]:
+                    t["confirm_count"] += 1
+                else:
+                    t["confirm_count"] = 1
+                    t["subject_id"] = model_snapshot.subject_ids[best]
+                if t["confirm_count"] >= confirm_n:
+                    t["status"] = "confirmed"
+            else:
+                if t.get("subject_id") is not None:
+                    t["confirm_count"] = 0
+                    t["subject_id"] = None
+            t.pop("_enc", None)
+
+        # 5) Tracks that were not seen this frame -> close their session.
+        closed = []
+        for tid in list(self._tracks.keys()):
+            t = self._tracks[tid]
+            if now - t["last_seen"] > lost_t:
+                closed.append(tid)
+        for tid in closed:
+            t = self._tracks[tid]
+            if t.get("status") == "confirmed":
+                self._emit_event_locked("Recognized", t.get("subject_id"),
+                                        t.get("distance"), model_snapshot, None)
+            elif t.get("status") not in ("confirmed",):
+                # Intruder: unknown or denied identity left the camera.
+                self._capture_track_intruder_locked(tid)
+            del self._tracks[tid]
+
+        # 6) Publish faces array for the UI.
+        self.faces = []
+        primary_confirmed = None
+        for tid in track_ids:
+            t = self._tracks.get(tid)
+            if t is None:
+                continue
+            self.faces.append({
+                "id": tid,
+                "bbox": t["bbox"],
+                "employee_id": t.get("subject_id"),
+                "distance": t.get("distance"),
+                "match": t.get("status") == "confirmed",
+                "status": t.get("status", "new"),
+            })
+            if t.get("status") == "confirmed" and primary_confirmed is None:
+                primary_confirmed = t
+
+        # Backward-compatible scalar state = first confirmed track (or first).
+        if primary_confirmed is not None:
+            self._tracking_active = True
+            self._identity_confirmed = True
+            self.confirmed_subject_id = primary_confirmed.get("subject_id")
+            self.confirmed_frames = primary_confirmed.get("confirm_count", 0)
+            self._last_distance = primary_confirmed.get("distance")
+            self._last_face_match = True
+            self._last_face_box = primary_confirmed.get("bbox")
+            self._last_snapshot = primary_confirmed.get("snapshot_b64")
+            self._last_face_crop = primary_confirmed.get("crop_b64")
+            self.last_face_seen_at = now
+        else:
+            first = self._tracks.get(track_ids[0]) if track_ids else None
+            if first is not None:
                 self._tracking_active = True
                 self._identity_confirmed = False
-                self.confirmed_frames = 0
-                self.cooldown_state["distance_buffer"].clear()
-                self.cooldown_state["tracking_started_at"] = current_time
-                self.cooldown_state["alert_triggered"] = False
-                self._last_timeout = False
-                self._last_alert = False
-            self.last_face_seen_at = current_time
-            if encodings and model_snapshot.encoding_count:
-                if model_snapshot.metric == "cosine":
-                    distances = np.asarray(
-                        [
-                            cosine_distance(encodings[0], known)
-                            for known in model_snapshot.encodings
-                        ],
-                        dtype=np.float64,
-                    )
-                else:
-                    distances = np.asarray(
-                        [
-                            float(
-                                np.linalg.norm(
-                                    np.asarray(encodings[0], dtype=np.float64)
-                                    - np.asarray(known, dtype=np.float64)
-                                )
-                            )
-                            for known in model_snapshot.encodings
-                        ],
-                        dtype=np.float64,
-                    )
-                best_index = int(np.argmin(distances))
-                distance = float(distances[best_index])
-                is_match = distance < self._config.threshold
-                self.cooldown_state["distance_buffer"].append(distance)
-                self._last_distance = float(
-                    sum(self.cooldown_state["distance_buffer"])
-                    / len(self.cooldown_state["distance_buffer"])
-                )
-                self._last_face_match = bool(is_match)
-                if is_match:
-                    self.confirmed_frames += 1
-                    self.confirmed_subject_id = model_snapshot.subject_ids[best_index]
-                else:
-                    self.confirmed_frames = 0
-                    self._identity_confirmed = False
-                    self.confirmed_subject_id = None
-                if (
-                    self.confirmed_frames >= self._config.confirm_frames
-                    and not self._identity_confirmed
-                ):
-                    self._identity_confirmed = True
-                    self._lock_result_locked("confirmed", frame, face_crop)
-                    descriptor = next(
-                        (item for item in model_snapshot.model_files
-                         if item.subject_id == self.confirmed_subject_id),
-                        None)
-                    self._emit_event_locked(
-                        "Recognized", self.confirmed_subject_id,
-                        self._last_distance, model_snapshot, descriptor)
-            else:
-                self._last_face_match = False
-                self.confirmed_subject_id = None
-                self._last_distance = None
-            self.last_recognition_at = current_time
-            self._apply_timeouts_locked(current_time, frame, face_crop)
-            self._publish_state_locked()
+                self.confirmed_subject_id = first.get("subject_id")
+                self.confirmed_frames = first.get("confirm_count", 0)
+                self._last_distance = first.get("distance")
+                self._last_face_match = first.get("status") == "confirmed"
+                self._last_face_box = first.get("bbox")
+                self._last_snapshot = first.get("snapshot_b64")
+                self._last_face_crop = first.get("crop_b64")
+                self.last_face_seen_at = now
+        self._publish_state_locked()
 
-    def _mark_face_seen(
-        self, generation: int, current_time: float,
-        face_location: tuple[int, int, int, int],
-        snapshot_b64: str | None, crop_b64: str | None,
-    ) -> None:
-        with self.session_lock:
-            if not self._is_current_locked(generation):
+    def _capture_track_intruder_locked(self, tid: str) -> None:
+        """Record a track that left the camera as an intruder (unknown/denied)."""
+        t = self._tracks.get(tid)
+        if t is None:
+            return
+        try:
+            import hashlib
+            key_raw = (t.get("crop_b64") or t.get("snapshot_b64") or "")[:200]
+            key = hashlib.sha256(key_raw.encode("utf-8", "ignore")).hexdigest()[:24]
+            if key in self._intruder_keys:
                 return
-            self._set_face_box_locked(face_location)
-            self._last_snapshot = snapshot_b64
-            self._last_face_crop = crop_b64
-            self.last_face_seen_at = current_time
-            self._publish_state_locked()
+            self._intruder_keys.add(key)
+            self.intruders.append({
+                "id": key,
+                "reason": "timeout",
+                "capturedAtUtc": _utc_now(),
+                "snapshot": t.get("snapshot_b64"),
+                "faceCrop": t.get("crop_b64"),
+                "employee_id": t.get("subject_id"),
+                "distance": t.get("distance"),
+            })
+            if len(self.intruders) > 200:
+                self.intruders = self.intruders[-200:]
+        except Exception:
+            pass
 
     def _apply_no_face(self, generation: int, current_time: float) -> None:
         with self.session_lock:
@@ -1028,6 +980,7 @@ class CameraSession:
         self._last_snapshot = None
         self._last_face_crop = None
         self.faces = []
+        self._tracks = {}
         self._fps = 0
         self._message = reason
         self._publish_state_locked()
@@ -1066,7 +1019,7 @@ class CameraSession:
     def _draw_overlay_locked(self, frame: np.ndarray) -> np.ndarray:
         display = frame.copy()
 
-        # Draw every live face: green when matched, red when unknown/intruder.
+        # Draw every live face: green confirmed, yellow tracking, red intruder.
         faces = list(getattr(self, "faces", []) or [])
         for face in faces:
             box = face.get("bbox")
@@ -1074,8 +1027,13 @@ class CameraSession:
                 continue
             left, top = int(box.get("left", 0)), int(box.get("top", 0))
             right, bottom = int(box.get("right", 0)), int(box.get("bottom", 0))
-            matched = bool(face.get("match"))
-            color = (0, 255, 0) if matched else (0, 0, 255)
+            status = face.get("status", "new")
+            if status == "confirmed":
+                color = (0, 255, 0)
+            elif status == "intruder":
+                color = (0, 0, 255)
+            else:
+                color = (0, 255, 255)  # tracking / grace (yellow)
             cv2.rectangle(display, (left, top), (right, bottom), color, 2)
             label = str(face.get("employee_id") or "???")
             cv2.putText(

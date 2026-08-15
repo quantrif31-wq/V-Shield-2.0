@@ -38,6 +38,10 @@ DEFAULT_QUALITY_MIN_BRIGHTNESS = 60.0
 DEFAULT_QUALITY_MAX_BRIGHTNESS = 220.0
 DEFAULT_QUALITY_MIN_FACE_WIDTH = 80
 DEFAULT_QUALITY_MIN_EAR = 0.18
+DEFAULT_TRACK_GRACE_SECONDS = 2.0
+DEFAULT_TRACK_LOST_TIMEOUT = 2.0
+DEFAULT_TRACK_EMBED_INTERVAL = 0.15
+DEFAULT_TRACK_CONFIRM_FRAMES = 3
 DEFAULT_ENROLLMENT_POSE_MIN_FRAMES = 2
 DEFAULT_ENROLL_INTERVAL = 0.12
 DEFAULT_ENROLLMENT_POSE_MODE = "auto"
@@ -247,6 +251,10 @@ class FaceRuntimeConfig:
     face_quality_min_face_width: int = DEFAULT_QUALITY_MIN_FACE_WIDTH
     face_quality_min_eye_aspect_ratio: float = DEFAULT_QUALITY_MIN_EAR
     enrollment_pose_min_frames: int = DEFAULT_ENROLLMENT_POSE_MIN_FRAMES
+    track_grace_seconds: float = DEFAULT_TRACK_GRACE_SECONDS
+    track_lost_timeout: float = DEFAULT_TRACK_LOST_TIMEOUT
+    track_embed_interval: float = DEFAULT_TRACK_EMBED_INTERVAL
+    track_confirm_frames: int = DEFAULT_TRACK_CONFIRM_FRAMES
     enroll_interval: float = DEFAULT_ENROLL_INTERVAL
     total_pose_bins: int = 9
     enrollment_pose_mode: str = DEFAULT_ENROLLMENT_POSE_MODE
@@ -460,6 +468,18 @@ class FaceRuntimeConfig:
             face_quality_min_eye_aspect_ratio=_parse_float(
                 source, "FACE_QUALITY_MIN_EYE_ASPECT_RATIO",
                 DEFAULT_QUALITY_MIN_EAR, minimum=0.0),
+            track_grace_seconds=_parse_float(
+                source, "FACE_TRACK_GRACE_SECONDS",
+                DEFAULT_TRACK_GRACE_SECONDS, minimum=0.0),
+            track_lost_timeout=_parse_float(
+                source, "FACE_TRACK_LOST_TIMEOUT",
+                DEFAULT_TRACK_LOST_TIMEOUT, minimum=0.1),
+            track_embed_interval=_parse_float(
+                source, "FACE_TRACK_EMBED_INTERVAL",
+                DEFAULT_TRACK_EMBED_INTERVAL, minimum=0.05),
+            track_confirm_frames=_parse_int(
+                source, "FACE_TRACK_CONFIRM_FRAMES",
+                DEFAULT_TRACK_CONFIRM_FRAMES, minimum=1),
             enrollment_pose_min_frames=_parse_int(
                 source, "FACE_ENROLLMENT_POSE_MIN_FRAMES",
                 DEFAULT_ENROLLMENT_POSE_MIN_FRAMES, minimum=1),
