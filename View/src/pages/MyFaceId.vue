@@ -11,6 +11,27 @@
       </span>
     </header>
 
+    <div v-if="status && status.hasFaceId" class="replace-warning">
+      <strong>⚠ Bạn đang có Face ID.</strong>
+      Đăng ký mới sẽ <em>gỡ bản cũ</em> và thay bằng bản vừa quay.
+      <button class="btn btn-outline btn-sm" @click="confirmReplace = true">Gỡ bản cũ & đăng ký mới</button>
+    </div>
+
+    <div v-if="confirmReplace" class="modal-backdrop" @click.self="confirmReplace = false">
+      <div class="modal-box">
+        <h3>Gỡ Face ID cũ?</h3>
+        <p>
+          Bạn đang có Face ID (file: <code>{{ status.modelFileName }}</code>,
+          {{ status.encodingCount || 0 }} mẫu, v{{ status.version || '---' }}).
+        </p>
+        <p>Đăng ký mới sẽ <strong>thay thế bản cũ</strong> — bản cũ không còn dùng để nhận diện.</p>
+        <div class="modal-actions">
+          <button class="btn btn-primary" @click="confirmReplace = false; startEnrollFlow()">Đồng ý, bắt đầu quay</button>
+          <button class="btn btn-outline" @click="confirmReplace = false">Hủy</button>
+        </div>
+      </div>
+    </div>
+
     <div class="faceid-grid">
       <div class="faceid-preview">
         <div class="video-wrapper" :class="overlayClass">
@@ -65,6 +86,9 @@
           <div class="meta"><span>File:</span> <strong>{{ status.modelFileName || '---' }}</strong></div>
           <div class="meta"><span>Số mẫu:</span> <strong>{{ status.encodingCount || '---' }}</strong></div>
           <div class="meta"><span>Phiên bản:</span> <strong>v{{ status.version || '---' }}</strong></div>
+          <button class="btn btn-outline btn-sm remove-btn" :disabled="removing" @click="removeFaceId">
+            {{ removing ? 'Đang gỡ...' : 'Gỡ Face ID' }}
+          </button>
         </div>
 
         <div v-else class="result-box">
@@ -97,7 +121,7 @@
 </template>
 
 <script>
-import { getMyFaceStatus, enrollSelf } from "../services/faceEnrollmentApi"
+import { getMyFaceStatus, enrollSelf, deleteMyFaceId } from "../services/faceEnrollmentApi"
 import { loadLandmarker, detectFace } from "../services/faceLandmarker"
 import { PoseGuideClient } from "../services/poseGuideClient"
 
@@ -121,7 +145,9 @@ export default {
       guidedProgress: 0,
       guidedComplete: false,
       gridCells: [],
-      arrow: "none"
+      arrow: "none",
+      confirmReplace: false,
+      removing: false
     }
   },
 
@@ -206,6 +232,15 @@ export default {
     },
 
     async startCapture() {
+      if (!this.streamActive) return
+      if (this.status?.hasFaceId && !this.confirmReplace) {
+        this.confirmReplace = true
+        return
+      }
+      this.startEnrollFlow()
+    },
+
+    async startEnrollFlow() {
       if (!this.streamActive) return
       this.loadingModel = true
       this.error = ""
@@ -305,6 +340,22 @@ export default {
       if (text.includes("lên") || text.includes("ngẩng")) return "up"
       if (text.includes("xuống") || text.includes("cúi")) return "down"
       return "none"
+    },
+
+    async removeFaceId() {
+      if (!window.confirm("Gỡ Face ID hiện tại? Bản cũ sẽ không còn dùng để nhận diện.")) return
+      this.removing = true
+      this.error = ""
+      this.successMsg = ""
+      try {
+        const res = await deleteMyFaceId()
+        this.status = { ...this.status, hasFaceId: false, modelFileName: null }
+        this.successMsg = res?.message || "Đã gỡ Face ID."
+      } catch (e) {
+        this.error = e?.response?.data?.message || e?.message || "Gỡ Face ID thất bại."
+      } finally {
+        this.removing = false
+      }
     },
 
     async submit() {
@@ -427,4 +478,29 @@ export default {
 .submit-btn { min-height: 46px; font-size: 1rem; }
 .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .thumb { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
+
+.replace-warning {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 16px; border-radius: 10px;
+  background: rgba(234,179,8,0.12); border: 1px solid rgba(234,179,8,0.4);
+  color: var(--text-primary); font-size: 0.92rem;
+}
+.replace-warning em { font-style: italic; }
+.replace-warning .btn { margin-left: auto; }
+.remove-btn { margin-top: 12px; color: var(--accent-danger); border-color: rgba(220,38,38,0.4); }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(2,6,23,0.6); display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal-box {
+  background: var(--bg-primary); border: 1px solid var(--border-color);
+  border-radius: 14px; padding: 22px; max-width: 440px; width: 100%;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+}
+.modal-box h3 { margin: 0 0 10px; font-size: 1.15rem; }
+.modal-box p { margin: 6px 0; font-size: 0.92rem; color: var(--text-secondary); }
+.modal-box code { background: var(--bg-input); padding: 1px 6px; border-radius: 6px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 </style>

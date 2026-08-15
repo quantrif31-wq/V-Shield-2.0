@@ -11,3 +11,8 @@ export async function enrollSelf(images) {
   const res = await http.post(`${BASE_PATH}/enroll-self`, { images })
   return res.data
 }
+
+export async function deleteMyFaceId() {
+  const res = await http.delete(`${BASE_PATH}/self-face-id`)
+  return res.data
+}

@@ -64,6 +64,57 @@ public class FaceEnrollmentController : ControllerBase
     }
 
     /// <summary>
+    /// Gỡ Face ID của tài khoản đang đăng nhập (chỉ bản Active). Không xóa
+    /// mẫu vật lý, chỉ chuyển trạng thái về Archived để dừng nhận diện.
+    /// </summary>
+    [HttpDelete("self-face-id")]
+    public async Task<IActionResult> DeleteMyFaceId(CancellationToken cancellationToken)
+    {
+        var employeeId = await ResolveCurrentEmployeeIdAsync(cancellationToken);
+        if (employeeId == null)
+        {
+            return BadRequest(new
+            {
+                message = "Tài khoản chưa gắn với nhân viên. Liên hệ quản trị viên để được cấu hình."
+            });
+        }
+
+        var active = await _context.EmployeeFaceModels
+            .Where(m => m.EmployeeId == employeeId.Value && m.Status == FaceModelLifecycleStatuses.Active)
+            .ToListAsync(cancellationToken);
+
+        if (active.Count == 0)
+        {
+            return Ok(new { success = true, removed = false, message = "Bạn chưa có Face ID." });
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var item in active)
+        {
+            item.Status = FaceModelLifecycleStatuses.Archived;
+            item.ArchivedAtUtc = now;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Xóa model vật lý khỏi registry face-runtime để dừng nhận diện ngay.
+        var revoke = await _faceRecognitionClient.RevokeSubjectModelAsync(
+            employeeId.Value.ToString(), cancellationToken);
+        var revoked = revoke != null && (int)revoke.StatusCode is >= 200 and < 300;
+
+        return Ok(new
+        {
+            success = true,
+            removed = true,
+            removedCount = active.Count,
+            runtimeRevoked = revoked,
+            message = revoked
+                ? "Đã gỡ Face ID. Bạn có thể đăng ký mới bất cứ lúc nào."
+                : "Đã gỡ Face ID trong hệ thống, nhưng runtime chưa xác nhận. Thử lại nếu cần."
+        });
+    }
+
+    /// <summary>
     /// Đăng ký Face ID bằng một loạt ảnh khuôn mặt (webcam thiết bị).
     /// EmployeeId được lấy tự động từ tài khoản đang đăng nhập.
     /// </summary>
