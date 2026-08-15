@@ -627,6 +627,20 @@ class CameraSession:
                 })
         dets.sort(key=lambda x: x["area"], reverse=True)
 
+        # 1b) Dedupe overlapping detections (YuNet occasionally returns two
+        # boxes for one face) -> keep the larger box only.
+        dedup = []
+        for det in dets:
+            dup = False
+            for k in range(len(dedup)):
+                prev = dedup[k]
+                if _iou(_loc_to_box(prev["loc"]), det["loc"]) >= 0.6:
+                    dup = True
+                    break
+            if not dup:
+                dedup.append(det)
+        dets = dedup
+
         # 2) Match detections to existing tracks (greedy IoU).
         used = set()
         matched = {}  # track_id -> detection idx
@@ -670,7 +684,11 @@ class CameraSession:
                 tcx = (tb.get("left", 0) + tb.get("right", 0)) / 2.0
                 tcy = (tb.get("top", 0) + tb.get("bottom", 0)) / 2.0
                 dist = ((dcx - tcx) ** 2 + (dcy - tcy) ** 2) ** 0.5
-                limit = max(1.5 * dsize, 120.0)
+                # Confirmed tracks get a much wider follow window so a fast
+                # move never drops green back to a fresh yellow track.
+                limit = max(2.5 * dsize, 180.0)
+                if t.get("status") == "confirmed":
+                    limit = max(limit, 320.0)
                 if dist < limit and dist < best_dist:
                     best_dist = dist
                     best_tid = tid
@@ -772,10 +790,14 @@ class CameraSession:
             t.pop("_enc", None)
 
         # 5) Tracks that were not seen this frame -> close their session.
+        # Confirmed tracks are kept much longer: a blink or slight head turn
+        # must not drop green back to a fresh yellow re-identify.
+        confirmed_lost = max(lost_t, 6.0)
         closed = []
         for tid in list(self._tracks.keys()):
             t = self._tracks[tid]
-            if now - t["last_seen"] > lost_t:
+            threshold = confirmed_lost if t.get("status") == "confirmed" else lost_t
+            if now - t["last_seen"] > threshold:
                 closed.append(tid)
         for tid in closed:
             t = self._tracks[tid]
