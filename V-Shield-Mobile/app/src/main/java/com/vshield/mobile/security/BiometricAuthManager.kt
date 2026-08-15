@@ -33,6 +33,10 @@ class BiometricAuthManager(private val context: Context) {
             if (supportsFaceUnlock(packageManager)) {
                 add(BiometricCapability(BiometricType.FACE, "Khuon mat"))
             }
+
+            if (isDeviceCredentialReady()) {
+                add(BiometricCapability(BiometricType.GENERIC, "Pin / Mat khau"))
+            }
         }
 
         if (capabilities.isNotEmpty()) {
@@ -40,23 +44,35 @@ class BiometricAuthManager(private val context: Context) {
         }
 
         return if (isBiometricReady()) {
-            listOf(BiometricCapability(BiometricType.GENERIC, "Sinh trac hoc"))
+            listOf(BiometricCapability(BiometricType.GENERIC, "Khoa dien thoai"))
         } else {
             emptyList()
         }
+    }
+
+    fun isDeviceCredentialReady(): Boolean {
+        val biometricManager = BiometricManager.from(context)
+        return biometricManager.canAuthenticate(
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun isBiometricReady(): Boolean {
         val biometricManager = BiometricManager.from(context)
         val canWeak = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
         val canStrong = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-        return canWeak == BiometricManager.BIOMETRIC_SUCCESS || canStrong == BiometricManager.BIOMETRIC_SUCCESS
+        val canDeviceCredential = biometricManager.canAuthenticate(
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        )
+        return canWeak == BiometricManager.BIOMETRIC_SUCCESS ||
+            canStrong == BiometricManager.BIOMETRIC_SUCCESS ||
+            canDeviceCredential == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun authenticate(
         activity: FragmentActivity,
-        title: String = "Xac thuc sinh trac hoc",
-        subtitle: String = "Dung van tay hoac khuon mat de dang nhap nhanh",
+        title: String = "Xac thuc de mo ung dung",
+        subtitle: String = "Dung Pin, van tay hoac khuon mat de mo nhanh",
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -140,13 +156,24 @@ class BiometricAuthManager(private val context: Context) {
     }
 
     private fun buildPromptInfo(title: String, subtitle: String): BiometricPrompt.PromptInfo {
+        val allowDeviceCredential = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && isDeviceCredentialReady()
+
         val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setNegativeButtonText("Huy")
+
+        if (!allowDeviceCredential) {
+            builder.setNegativeButtonText("Huy")
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            builder.setAllowedAuthenticators(AUTHENTICATOR)
+            val allowed = if (allowDeviceCredential) {
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL or
+                    BiometricManager.Authenticators.BIOMETRIC_WEAK
+            } else {
+                BiometricManager.Authenticators.BIOMETRIC_WEAK
+            }
+            builder.setAllowedAuthenticators(allowed)
         }
         return builder.build()
     }

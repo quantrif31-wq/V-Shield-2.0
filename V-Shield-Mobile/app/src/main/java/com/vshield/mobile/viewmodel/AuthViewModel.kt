@@ -110,45 +110,37 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
                     primeOfflineQrCache()
 
-                    if (capabilities.isNotEmpty() &&
-                        hasRestorableSession &&
-                        !secureStorage.isBiometricEnabled()
-                    ) {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isLoggedIn = false,
-                            isOfflineMode = false,
-                            biometricCapabilities = capabilities,
-                            enabledBiometricTypes = secureStorage.getEnabledBiometricTypes(),
-                            hasBiometricSession = false,
-                            canEnterOffline = secureStorage.hasOfflineSession(),
-                            offlineDisplayName = secureStorage.getOfflineUserSession()?.fullName,
-                            pendingBiometricSetupUsername = username,
-                            pendingBiometricTypes = emptySet(),
-                            lastUsername = secureStorage.getLastUsername(),
-                            showBiometricSetupDialog = true,
-                            awaitingBiometricEnrollment = false
+                    // Auto-remember the account: if the phone has a device lock
+                    // (PIN/pattern/password) or biometric, enable quick login so the
+                    // next launch only asks for the phone's unlock method.
+                    val autoEnabled = if (capabilities.isNotEmpty() && hasRestorableSession) {
+                        secureStorage.enableBiometricForSession(
+                            username = username,
+                            types = capabilities.map { it.type }.toSet()
                         )
+                        true
                     } else {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isLoggedIn = true,
-                            isOfflineMode = false,
-                            biometricCapabilities = capabilities,
-                            enabledBiometricTypes = secureStorage.getEnabledBiometricTypes(),
-                            hasBiometricSession = secureStorage.isBiometricEnabled() && hasRestorableSession,
-                            canEnterOffline = secureStorage.hasOfflineSession(),
-                            offlineDisplayName = secureStorage.getOfflineUserSession()?.fullName,
-                            lastUsername = secureStorage.getLastUsername(),
-                            pendingBiometricSetupUsername = null,
-                            pendingBiometricTypes = emptySet(),
-                            showBiometricSetupDialog = false,
-                            awaitingBiometricEnrollment = false,
-                            shouldAutoPromptBiometricLogin = false,
-                            isBiometricPromptActive = false
-                        )
-                        startInactivityTimer()
+                        false
                     }
+
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isLoggedIn = true,
+                        isOfflineMode = false,
+                        biometricCapabilities = capabilities,
+                        enabledBiometricTypes = secureStorage.getEnabledBiometricTypes(),
+                        hasBiometricSession = autoEnabled && hasRestorableSession,
+                        canEnterOffline = secureStorage.hasOfflineSession(),
+                        offlineDisplayName = secureStorage.getOfflineUserSession()?.fullName,
+                        lastUsername = secureStorage.getLastUsername(),
+                        pendingBiometricSetupUsername = null,
+                        pendingBiometricTypes = emptySet(),
+                        showBiometricSetupDialog = false,
+                        awaitingBiometricEnrollment = false,
+                        shouldAutoPromptBiometricLogin = false,
+                        isBiometricPromptActive = false
+                    )
+                    startInactivityTimer()
                 },
                 onFailure = {
                     val cachedOfflineUser = secureStorage.getOfflineUserSession()
