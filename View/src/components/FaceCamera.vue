@@ -66,15 +66,15 @@
               <div class="placeholder-text">Chọn cổng + camera, bấm Bắt đầu</div>
             </div>
 
-            <!-- Multi-face overlay: green allowed / red intruder -->
+            <!-- Multi-face overlay: green confirmed / yellow tracking / red intruder -->
             <div
               v-for="(f, idx) in liveFaces"
               :key="idx"
               class="face-box"
-              :class="f.allowed ? 'box-ok' : 'box-denied'"
+              :class="faceBoxClass(f)"
               :style="faceBoxStyle(f)"
             >
-              <span class="face-id" :class="f.allowed ? 'id-ok' : 'id-denied'">
+              <span class="face-id" :class="faceIdClass(f)">
                 {{ f.employee_id ? prefixId(f.employee_id, f.known) : '???' }}
               </span>
             </div>
@@ -279,8 +279,21 @@ export default {
       return (this.faces || []).map(f => ({
         ...f,
         allowed: !!f.match,
-        known: !!f.employee_id
+        known: !!f.employee_id,
+        status: f.status || (f.match ? "confirmed" : "intruder")
       }))
+    },
+
+    faceBoxClass(f) {
+      if (f.status === "confirmed") return "box-ok"
+      if (f.status === "intruder") return "box-denied"
+      return "box-pending"
+    },
+
+    faceIdClass(f) {
+      if (f.status === "confirmed") return "id-ok"
+      if (f.status === "intruder") return "id-denied"
+      return "id-pending"
     },
 
     detectionLabel() {
@@ -772,8 +785,10 @@ export default {
 
 .face-box { position: absolute; border: 2px solid #22c55e; border-radius: 6px; pointer-events: none; z-index: 5; transition: border-color 120ms ease; }
 .face-box.box-denied { border-color: #dc2626; }
+.face-box.box-pending { border-color: #eab308; }
 .face-id { position: absolute; top: -26px; left: -2px; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; background: rgba(34,197,94,0.9); color: #fff; }
 .face-id.id-denied { background: rgba(220,38,38,0.9); }
+.face-id.id-pending { background: rgba(234,179,8,0.9); }
 
 .stage-info { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
 .info-card { padding: 18px; border-radius: 16px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
