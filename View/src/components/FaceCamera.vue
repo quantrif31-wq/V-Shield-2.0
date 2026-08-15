@@ -1,144 +1,193 @@
-<template>
+﻿<template>
   <div class="face-page animate-in">
     <header class="face-header">
       <div class="face-header-titles">
-        <span class="face-kicker">Giám sát an ninh</span>
-        <h1 class="face-title">Nhận diện khuôn mặt</h1>
+        <span class="face-kicker">Kiá»ƒm soÃ¡t ra vÃ o</span>
+        <h1 class="face-title">Nháº­n diá»‡n khuÃ´n máº·t Â· Cá»•ng {{ activeGateName || 'â€”' }}</h1>
       </div>
-      <div class="face-status-pill" v-if="activeCameraName">
-        <span class="pill-dot" :class="cameraRunning ? 'dot-on' : 'dot-off'"></span>
-        <span>{{ cameraRunning ? 'Đang quét' : 'Sẵn sàng' }}</span>
+      <div class="face-header-actions">
+        <button class="tab-btn" :class="{ active: tab === 'scan' }" @click="tab = 'scan'">QuÃ©t</button>
+        <button class="tab-btn" :class="{ active: tab === 'intruders' }" @click="tab = 'intruders'">
+          Káº» xÃ¢m nháº­p <span v-if="intruderCount" class="tab-badge">{{ intruderCount }}</span>
+        </button>
+        <span class="status-pill" :class="cameraRunning ? 'on' : 'off'">
+          <i class="dot"></i>{{ cameraRunning ? 'Äang quÃ©t' : 'Sáºµn sÃ ng' }}
+        </span>
       </div>
     </header>
 
-    <!-- Control bar -->
-    <div class="control-bar">
-      <div class="camera-picker">
-        <label class="picker-label">Camera</label>
-        <div class="picker-control">
-          <input
-            v-model="cameraSearch"
-            type="text"
-            class="picker-input"
-            placeholder="Chọn hoặc tìm camera..."
+    <!-- ============ TAB QUÃ‰T ============ -->
+    <template v-if="tab === 'scan'">
+      <div class="control-bar">
+        <div class="gate-picker">
+          <label class="field-label">Chá»n cá»•ng</label>
+          <select
+            class="gate-select"
+            v-model="selectedGateId"
             :disabled="loading"
-            @focus="cameraOpen = true"
-            @blur="cameraOpen = false"
-            @keydown.enter.prevent="applyTypedCamera"
-          />
-          <div v-if="cameraOpen && cameraDropdownMatches.length" class="picker-dropdown">
-            <div
-              v-for="cam in cameraDropdownMatches"
-              :key="cam.cameraId"
-              class="picker-option"
-              @mousedown.prevent
-              @click="selectCamera(cam)"
-            >
-              <div class="option-name">{{ cam.cameraName }}</div>
-              <div class="option-meta">ID {{ cam.cameraId }}{{ cam.gateName ? ' · ' + cam.gateName : '' }}</div>
+            @change="onGateChange"
+          >
+            <option :value="null" disabled>â€” Chá»n cá»•ng â€”</option>
+            <option v-for="g in gates" :key="g.gateId" :value="g.gateId">
+              {{ g.gateName }}{{ g.location ? ' Â· ' + g.location : '' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="camera-picker">
+          <label class="field-label">Camera</label>
+          <select
+            class="gate-select"
+            v-model="cameraSearch"
+            :disabled="loading"
+            @change="onCameraChange"
+          >
+            <option :value="''" disabled>â€” Chá»n camera â€”</option>
+            <option v-for="cam in allCameras" :key="cam.cameraId" :value="cam.cameraName">
+              {{ cam.cameraName }} Â· {{ cam.cameraId }}
+            </option>
+          </select>
+        </div>
+
+        <div class="control-actions">
+          <button class="btn btn-primary start-btn" :disabled="loading || !cameraIp" @click="handleStartOrReset">
+            <span v-if="loading" class="btn-spinner"></span>
+            <span>{{ loading ? 'Äang xá»­ lÃ½â€¦' : (cameraRunning ? 'Reset' : 'Báº¯t Ä‘áº§u') }}</span>
+          </button>
+          <button class="btn btn-outline stop-btn" :disabled="loading || !cameraRunning" @click="handleTurnOff">Dá»«ng</button>
+        </div>
+      </div>
+
+      <div class="main-stage">
+        <div class="stage-video">
+          <div ref="videoWrapperRef" class="video-frame" :class="cameraRunning ? 'frame-live' : 'frame-idle'"
+               @dblclick="handleDoubleClick">
+            <iframe
+              v-if="previewRunning && directCameraUrl"
+              :key="directCameraKey"
+              :src="directCameraUrl"
+              class="video"
+              title="Camera"
+              allow="autoplay; fullscreen"
+              frameborder="0"
+            ></iframe>
+            <div v-else class="video-placeholder">
+              <div class="placeholder-icon">â—‰</div>
+              <div class="placeholder-text">Chá»n cá»•ng + camera, báº¥m Báº¯t Ä‘áº§u</div>
             </div>
+
+            <!-- Multi-face overlay: green allowed / red intruder -->
+            <div
+              v-for="(f, idx) in liveFaces"
+              :key="idx"
+              class="face-box"
+              :class="f.allowed ? 'box-ok' : 'box-denied'"
+              :style="faceBoxStyle(f)"
+            >
+              <span class="face-id" :class="f.allowed ? 'id-ok' : 'id-denied'">
+                {{ f.employee_id ? prefixId(f.employee_id, f.known) : '???' }}
+              </span>
+            </div>
+
+            <div v-if="cameraRunning && !previewRunning" class="video-toast">Äang káº¿t ná»‘iâ€¦</div>
           </div>
-          <div v-else-if="cameraOpen && camerasLoading" class="picker-hint">Đang tải camera…</div>
-          <div v-else-if="cameraOpen && !allCameras.length" class="picker-hint">Chưa có camera.</div>
+        </div>
+
+        <aside class="stage-info">
+          <section class="info-card">
+            <h2 class="info-title">Káº¿t quáº£</h2>
+            <div class="big-id" :class="identityConfirmed ? 'id-hit' : 'id-empty'">
+              {{ confirmedEmployeeId || 'â€” â€” â€” â€”' }}
+            </div>
+            <div class="id-caption">MÃ£ nhÃ¢n viÃªn Ä‘Ã£ xÃ¡c nháº­n</div>
+
+            <div class="info-row"><span>Tráº¡ng thÃ¡i</span><span class="value" :class="'val-' + detectionState">{{ detectionLabel }}</span></div>
+            <div class="info-row"><span>Äá»™ khá»›p</span><span class="value">{{ distanceText }}</span></div>
+            <div class="info-row"><span>GÆ°Æ¡ng máº·t trong khung</span><span class="value">{{ liveFaces.length }}</span></div>
+            <div class="info-row"><span>Cá»•ng</span><span class="value">{{ activeGateName || 'â€”' }}</span></div>
+            <div class="info-row"><span>FPS</span><span class="value">{{ fps }}</span></div>
+            <div class="info-row" v-if="lastUpdate"><span>Cáº­p nháº­t</span><span class="value dim">{{ lastUpdate }}</span></div>
+          </section>
+
+          <section class="info-card" v-if="liveFaces.length">
+            <h2 class="info-title">GÆ°Æ¡ng máº·t trong khung</h2>
+            <div v-for="(f, i) in liveFaces" :key="'f' + i" class="face-mini" :class="f.allowed ? 'mini-ok' : 'mini-denied'">
+              <span>{{ f.employee_id ? prefixId(f.employee_id, f.known) : '???' }}</span>
+              <span class="mini-dist">{{ f.distance != null ? f.distance.toFixed(3) : 'â€”' }}</span>
+            </div>
+          </section>
+
+          <div v-if="faceServiceError" class="error-box">{{ faceServiceError.message }}</div>
+          <div v-if="message && !faceServiceError" class="toast-box">{{ message }}</div>
+        </aside>
+      </div>
+    </template>
+
+    <!-- ============ TAB Káºº XÃ‚M NHáº¬P ============ -->
+    <template v-else>
+      <div class="intruder-toolbar">
+        <div class="filter-chips">
+          <button class="chip" :class="{ active: intruderFilter === '' }" @click="loadIntruders('')">Táº¥t cáº£</button>
+          <button class="chip" :class="{ active: intruderFilter === 'unknown' }" @click="loadIntruders('unknown')">KhÃ´ng nháº­n diá»‡n</button>
+          <button class="chip" :class="{ active: intruderFilter === 'denied' }" @click="loadIntruders('denied')">Tá»« chá»‘i</button>
+          <button class="chip" :class="{ active: intruderFilter === 'blacklist' }" @click="loadIntruders('blacklist')">Danh sÃ¡ch Ä‘en</button>
+        </div>
+        <button class="btn btn-outline" :disabled="intruders.length === 0" @click="clearAllIntruders">XÃ³a táº¥t cáº£</button>
+      </div>
+
+      <div v-if="intruders.length === 0" class="empty-state">
+        <div class="empty-icon">ðŸ›¡</div>
+        <div>ChÆ°a cÃ³ káº» xÃ¢m nháº­p nÃ o Ä‘Æ°á»£c ghi nháº­n.</div>
+      </div>
+
+      <div class="intruder-grid" v-else>
+        <div v-for="item in intruders" :key="item.id" class="intruder-card" :class="'card-' + item.reason">
+          <div class="intruder-photo">
+            <img v-if="item.faceCropBase64" :src="item.faceCropBase64" alt="Káº» xÃ¢m nháº­p" />
+            <img v-else-if="item.snapshotBase64" :src="item.snapshotBase64" alt="Snapshot" />
+            <div v-else class="photo-empty">KhÃ´ng cÃ³ áº£nh</div>
+            <span class="intruder-badge" :class="'badge-' + item.reason">{{ badgeLabel(item.reason) }}</span>
+          </div>
+          <div class="intruder-body">
+            <div class="intruder-title">
+              {{ item.employeeName || (item.employeeId ? 'NV-' + item.employeeId : '#' + (item.id || item.cameraId || '')) }}
+            </div>
+            <div class="intruder-meta">
+              <span v-if="item.reason === 'blacklist'">âš  {{ item.reasonDetail || 'Danh sÃ¡ch Ä‘en' }}</span>
+              <span v-else-if="item.reason === 'denied'">â›” {{ item.reasonDetail || 'KhÃ´ng cÃ³ quyá»n vÃ o cá»•ng' }}</span>
+              <span v-else>ðŸ‘¤ KhÃ´ng nháº­n diá»‡n Ä‘Æ°á»£c</span>
+            </div>
+            <div class="intruder-foot">
+              <span>{{ item.gateName || 'Cá»•ng â€”' }}</span>
+              <span>{{ fmtTime(item.occurredAtUtc) }}</span>
+            </div>
+            <button class="btn btn-outline btn-sm intruder-del" @click="deleteOneIntruder(item.id)">XÃ³a</button>
+          </div>
         </div>
       </div>
+    </template>
 
-      <div class="control-actions">
-        <button
-          class="btn btn-primary start-btn"
-          :disabled="loading || (!selectedConfiguration && !cameraIp.trim())"
-          @click="handleStartOrReset"
-        >
-          <span v-if="loading" class="btn-spinner"></span>
-          <span>{{ loading ? 'Đang xử lý…' : (cameraRunning ? 'Reset phiên' : 'Bắt đầu') }}</span>
-        </button>
-        <button
-          class="btn btn-outline stop-btn"
-          :disabled="loading || !cameraRunning"
-          @click="handleTurnOff"
-        >
-          Dừng
-        </button>
-      </div>
-    </div>
-
-    <!-- Main stage -->
-    <div class="main-stage">
-      <div class="stage-video">
-        <div
-          ref="videoWrapperRef"
-          class="video-frame"
-          :class="cameraRunning ? 'frame-live' : 'frame-idle'"
-          @dblclick="handleDoubleClick"
-          @contextmenu="handleRightClick"
-        >
-          <iframe
-            v-if="previewRunning && directCameraUrl"
-            :key="directCameraKey"
-            :src="directCameraUrl"
-            class="video"
-            title="Camera"
-            allow="autoplay; fullscreen"
-            frameborder="0"
-            @load="handleDirectPreviewLoaded"
-          ></iframe>
-          <div v-else class="video-placeholder">
-            <div class="placeholder-icon">◉</div>
-            <div class="placeholder-text">{{ activeCameraName ? 'Chờ bắt đầu quét…' : 'Chọn camera và bấm Bắt đầu' }}</div>
-          </div>
-
-          <div v-if="cameraRunning && !previewRunning" class="video-toast">Đang kết nối…</div>
+    <!-- ===== POPUP XÃC NHáº¬N Máº¬T KHáº¨U (Ä‘á»•i cá»•ng) ===== -->
+    <div v-if="showPasswordModal" class="modal-backdrop" @click.self="showPasswordModal = false">
+      <div class="modal-box">
+        <h3>Äá»•i cá»•ng</h3>
+        <p>Nháº­p láº¡i máº­t kháº©u cá»§a báº¡n Ä‘á»ƒ xÃ¡c nháº­n chuyá»ƒn sang cá»•ng <strong>{{ pendingGateName }}</strong>.</p>
+        <input
+          v-model="passwordInput"
+          type="password"
+          class="modal-input"
+          placeholder="Máº­t kháº©u"
+          @keydown.enter="confirmPassword"
+          autofocus
+        />
+        <div v-if="passwordError" class="error-box modal-error">{{ passwordError }}</div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" :disabled="passwordVerifying || !passwordInput" @click="confirmPassword">
+            {{ passwordVerifying ? 'Äang xÃ¡c thá»±câ€¦' : 'XÃ¡c nháº­n' }}
+          </button>
+          <button class="btn btn-outline" :disabled="passwordVerifying" @click="showPasswordModal = false">Há»§y</button>
         </div>
       </div>
-
-      <!-- Live result panel -->
-      <aside class="stage-info">
-        <section class="info-card">
-          <h2 class="info-title">Kết quả nhận diện</h2>
-
-          <div class="big-id" :class="identityConfirmed ? 'id-hit' : 'id-empty'">
-            {{ employeeId || '— — — —' }}
-          </div>
-          <div class="id-caption">Mã nhân viên</div>
-
-          <div class="info-row">
-            <span>Trạng thái</span>
-            <span class="value" :class="'val-' + detectionState">{{ detectionLabel }}</span>
-          </div>
-          <div class="info-row">
-            <span>Độ khớp</span>
-            <span class="value">{{ distanceText }} <small class="dim">(ngưỡng 0.35)</small></span>
-          </div>
-          <div class="info-row">
-            <span>Số lần xác nhận</span>
-            <span class="value">{{ confirmCount }}</span>
-          </div>
-          <div class="info-row">
-            <span>Khung hình</span>
-            <span class="value">{{ bboxText }}</span>
-          </div>
-          <div class="info-row">
-            <span>FPS</span>
-            <span class="value">{{ fps }}</span>
-          </div>
-
-          <div class="info-row" v-if="lastUpdate">
-            <span>Cập nhật</span>
-            <span class="value dim">{{ lastUpdate }}</span>
-          </div>
-        </section>
-
-        <section class="info-card evidence-card" v-if="lockedSnapshot || lockedFaceCrop">
-          <h2 class="info-title">Ảnh chụp</h2>
-          <div class="evidence-grid">
-            <img v-if="lockedSnapshot" :src="lockedSnapshot" class="evidence-img" alt="Toàn khung" />
-            <img v-if="lockedFaceCrop" :src="lockedFaceCrop" class="evidence-img" alt="Crop khuôn mặt" />
-          </div>
-        </section>
-
-        <div v-if="faceServiceError" class="error-box">{{ faceServiceError.message }}</div>
-        <div v-if="message && !faceServiceError" class="toast-box">{{ message }}</div>
-      </aside>
     </div>
   </div>
 </template>
@@ -160,58 +209,70 @@ import {
   startConfiguredFaceCamera,
   stopConfiguredFaceCamera
 } from "../services/faceCameraConfigurationApi"
+import {
+  getFaceGates,
+  verifyFaceGatePassword,
+  checkGateAccess,
+  recordFaceGateResult,
+  getFaceIntruders,
+  deleteFaceIntruder
+} from "../services/faceGateApi"
 import { captureError, recordMetric } from "../services/observability"
 
 export default {
   name: "FaceIdSecurity",
 
   props: {
-    cameraId: {
-      type: String,
-      default: "monitoring-face-camera"
-    },
-    laneId: {
-      type: String,
-      default: null
-    }
+    cameraId: { type: String, default: "monitoring-face-camera" },
+    laneId: { type: String, default: null }
   },
 
   data() {
     return {
+      tab: "scan",
+      // gate
+      gates: [],
+      selectedGateId: null,
+      activeGateName: "",
+      showPasswordModal: false,
+      pendingGateId: null,
+      pendingGateName: "",
+      passwordInput: "",
+      passwordError: "",
+      passwordVerifying: false,
+
+      // camera
       cameraIp: "",
-      savedConfigurations: [],
-      selectedRuntimeCameraId: "",
       currentIp: "",
-      activeCameraName: "",
+      allCameras: [],
+      cameraSearch: "",
       cameraRunning: false,
       cameraConnected: false,
       previewRunning: false,
       loading: false,
 
-      allCameras: [],
-      cameraSearch: "",
-      cameraOpen: false,
-      camerasLoading: false,
-
+      // recognition
       employeeId: "",
+      confirmedEmployeeId: "",
       trackingActive: false,
       identityConfirmed: false,
       faceMatch: false,
       confirmCount: 0,
       distance: null,
       bbox: null,
-      timeoutState: false,
-      alert: false,
-
-      lockedSnapshot: "",
-      lockedFaceCrop: "",
+      faces: [],
       scanLocked: false,
       lockReason: "",
-
       fps: 0,
       message: "",
       lastUpdate: "",
       faceServiceError: null,
+
+      // intruders
+      intruders: [],
+      intruderCount: 0,
+      intruderFilter: "",
+      intruderTimer: null,
 
       directCameraUrl: "",
       directCameraSourceUrl: "",
@@ -219,41 +280,37 @@ export default {
       previewHealthy: false,
       previewRetryCount: 0,
       previewRetryTimer: null,
-
       resultTimer: null,
       busyResult: false,
-      isFetchingLockedImages: false,
       destroyed: false
     }
   },
 
   computed: {
-    selectedConfiguration() {
-      return this.savedConfigurations.find(
-        item => item.runtimeCameraId === this.selectedRuntimeCameraId
-      ) || null
-    },
-
     activeCameraId() {
-      return this.selectedRuntimeCameraId || this.cameraId
+      return this.cameraId
     },
 
-    bboxText() {
-      if (!this.bbox) return "— — — —"
-      return `L ${this.bbox.left} · T ${this.bbox.top} · R ${this.bbox.right} · B ${this.bbox.bottom}`
+    liveFaces() {
+      // Normalize faces: each has bbox {left,top,right,bottom} in processed frame (480 wide, height scaled)
+      return (this.faces || []).map(f => ({
+        ...f,
+        allowed: !!f.match,
+        known: !!f.employee_id
+      }))
     },
 
     detectionLabel() {
       if (this.scanLocked) {
-        if (this.lockReason === "confirmed") return "Đã xác nhận danh tính"
-        if (this.lockReason === "timeout") return "Hết thời gian chờ"
-        if (this.lockReason === "alert") return "Cảnh báo"
-        return "Đã khóa"
+        if (this.lockReason === "confirmed") return "ÄÃ£ xÃ¡c nháº­n danh tÃ­nh"
+        if (this.lockReason === "timeout") return "Háº¿t thá»i gian chá»"
+        if (this.lockReason === "alert") return "Cáº£nh bÃ¡o"
+        return "ÄÃ£ khÃ³a"
       }
       if (!this.trackingActive) return "Idle"
-      if (this.identityConfirmed) return "Đã nhận diện"
-      if (this.faceMatch) return "Đang xác minh"
-      return "Chưa nhận diện"
+      if (this.identityConfirmed) return "ÄÃ£ nháº­n diá»‡n"
+      if (this.faceMatch) return "Äang xÃ¡c minh"
+      return "ChÆ°a nháº­n diá»‡n"
     },
 
     detectionState() {
@@ -265,179 +322,153 @@ export default {
     },
 
     distanceText() {
-      const num = Number(this.distance)
-      if (Number.isNaN(num)) return "— — — —"
-      return num.toFixed(4)
-    },
-
-    cameraDropdownMatches() {
-      const keyword = String(this.cameraSearch || "").trim().toLowerCase()
-      let list = Array.isArray(this.allCameras) ? this.allCameras : []
-      if (keyword) {
-        list = list.filter(cam =>
-          String(cam.cameraName || "").toLowerCase().includes(keyword) ||
-          String(cam.cameraId || "").includes(keyword)
-        )
-      }
-      return list.slice(0, 50)
+      const n = Number(this.distance)
+      if (Number.isNaN(n)) return "â€” â€” â€” â€”"
+      return n.toFixed(4)
     }
   },
 
   async mounted() {
     this.destroyed = false
-    await this.loadAllCameras()
-    await this.loadSavedConfigurations()
-    if (!this.selectedConfiguration || this.selectedConfiguration.runtimeEnabled) {
-      await this.loadCurrentStatus()
-    }
-    if (this.selectedConfiguration?.previewUrl && !this.previewRunning) {
-      this.mountRegisteredPreview({ urlView: this.selectedConfiguration.previewUrl }, "")
-    }
-    if (this.cameraRunning) {
-      this.startResultLoop()
-    }
+    await Promise.all([this.loadGates(), this.loadAllCameras()])
+    await this.loadCurrentStatus()
+    if (this.cameraRunning) this.startResultLoop()
+    await this.loadIntruders("")
+    this.startIntruderLoop()
   },
 
   beforeUnmount() {
     this.destroyed = true
     this.stopResultLoop()
+    this.stopIntruderLoop()
     this.resetDirectPreview()
   },
 
-  activated() {
-    this.destroyed = false
-    if (this.cameraRunning) {
-      if (this.currentIp && !this.previewRunning) {
-        this.mountDirectPreview(this.currentIp)
-      }
-      this.startResultLoop()
-    }
-  },
-
-  deactivated() {
-    this.stopResultLoop()
-  },
-
   methods: {
+    // ---------- helpers ----------
+    prefixId(id, known) {
+      return known ? `NV-${id}` : `KH-${id}`
+    },
+    fmtTime(v) {
+      if (!v) return ""
+      try {
+        const d = new Date(v)
+        return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
+      } catch { return v }
+    },
+    badgeLabel(reason) {
+      return { unknown: "KhÃ´ng nháº­n diá»‡n", denied: "Tá»« chá»‘i", blacklist: "Danh sÃ¡ch Ä‘en" }[reason] || reason
+    },
+    faceBoxStyle(f) {
+      const b = f.bbox || {}
+      const w = 480
+      const h = 270
+      const leftPct = (b.left / w) * 100
+      const topPct = (b.top / h) * 100
+      const widthPct = ((b.right - b.left) / w) * 100
+      const heightPct = ((b.bottom - b.top) / h) * 100
+      return { left: leftPct + "%", top: topPct + "%", width: widthPct + "%", height: heightPct + "%" }
+    },
+
+    // ---------- gates ----------
+    async loadGates() {
+      try {
+        const res = await getFaceGates()
+        this.gates = Array.isArray(res?.gates) ? res.gates : []
+      } catch (e) {
+        console.warn("load gates error:", e)
+      }
+    },
+
+    onGateChange() {
+      const gate = this.gates.find(g => g.gateId === this.selectedGateId)
+      if (!gate) return
+      this.pendingGateId = gate.gateId
+      this.pendingGateName = gate.gateName
+      this.passwordInput = ""
+      this.passwordError = ""
+      this.showPasswordModal = true
+    },
+
+    async confirmPassword() {
+      this.passwordVerifying = true
+      this.passwordError = ""
+      try {
+        await verifyFaceGatePassword(this.passwordInput)
+        this.activeGateName = this.pendingGateName
+        this.showPasswordModal = false
+        this.passwordInput = ""
+        this.message = `ÄÃ£ chá»n cá»•ng ${this.pendingGateName}. Nháº¥n Báº¯t Ä‘áº§u Ä‘á»ƒ quÃ©t.`
+        // Reset session when switching gate
+        this.stopResultLoop()
+        this.clearResultStateOnly()
+        this.resetDirectPreview()
+        this.cameraRunning = false
+      } catch (e) {
+        this.passwordError = e?.response?.data?.message || e?.message || "Máº­t kháº©u khÃ´ng Ä‘Ãºng."
+      } finally {
+        this.passwordVerifying = false
+      }
+    },
+
+    // ---------- camera ----------
     async loadAllCameras() {
-      if (this.destroyed) return
-      this.camerasLoading = true
       try {
         const list = await getCameras()
         this.allCameras = Array.isArray(list) ? list : []
-      } catch (error) {
-        console.warn("Không tải được danh sách camera:", error)
+      } catch (e) {
+        console.warn("load cameras error:", e)
         this.allCameras = []
-      } finally {
-        this.camerasLoading = false
       }
     },
 
-    async loadSavedConfigurations() {
-      try {
-        const overview = await getFaceCameraConfigurations()
-        this.savedConfigurations = Array.isArray(overview?.configurations)
-          ? overview.configurations
-          : []
-        if (!this.selectedRuntimeCameraId && this.savedConfigurations.length) {
-          this.selectedRuntimeCameraId = this.savedConfigurations[0].runtimeCameraId
-        }
-        const cfg = this.selectedConfiguration
-        if (cfg) {
-          this.activeCameraName = cfg.cameraName
-          this.cameraSearch = cfg.cameraName
-          this.cameraIp = cfg.streamUrlMasked || ""
-        }
-      } catch (error) {
-        this.handleFaceServiceError(error, { polling: true })
-      }
-    },
-
-    async selectCamera(cam) {
+    async onCameraChange() {
+      const cam = (this.allCameras || []).find(c => c.cameraName === this.cameraSearch)
       if (!cam) return
       this.cameraIp = cam.streamUrl || cam.urlView || ""
-      this.cameraSearch = cam.cameraName || ""
-      this.activeCameraName = cam.cameraName || ""
-      this.cameraOpen = false
-
-      const match = this.savedConfigurations.find(
-        item => item.cameraId === cam.cameraId || item.cameraName === cam.cameraName
-      )
-      this.selectedRuntimeCameraId = match ? match.runtimeCameraId : ""
-
+      try {
+        const camera = await ensureCameraRegistered({
+          cameraName: cam.cameraName,
+          cameraType: "Face",
+          streamUrl: cam.streamUrl || cam.urlView || "",
+        })
+        if (camera?.urlView) this.mountRegisteredPreview(camera, cam.streamUrl || "")
+      } catch (e) {
+        console.warn("camera preview error:", e)
+      }
       this.stopResultLoop()
       this.clearResultStateOnly()
       this.resetDirectPreview()
       this.cameraRunning = false
-
-      try {
-        const camera = await ensureCameraRegistered({
-          cameraName: cam.cameraName || "Face Monitor Camera",
-          cameraType: "Face",
-          streamUrl: cam.streamUrl || cam.urlView || "",
-        })
-        if (camera?.urlView) {
-          this.mountRegisteredPreview(camera, cam.streamUrl || "")
-        }
-      } catch (e) {
-        console.warn("selectCamera preview error:", e)
-      }
-      this.message = `Đã chọn camera ${cam.cameraName || cam.cameraId}`
-    },
-
-    applyTypedCamera() {
-      const kw = String(this.cameraSearch || "").trim().toLowerCase()
-      const found = (Array.isArray(this.allCameras) ? this.allCameras : [])
-        .find(cam => String(cam.cameraName || "").toLowerCase() === kw ||
-                      String(cam.cameraId || "").toLowerCase() === kw)
-      if (found) {
-        this.selectCamera(found)
-      }
+      this.message = `ÄÃ£ chá»n camera ${cam.cameraName}`
     },
 
     async handleStartOrReset() {
-      const initializationStartedAt = performance.now()
-      const ip = (this.cameraIp || this.currentIp || "").trim()
-      if (!this.selectedConfiguration && !ip) {
-        alert("Vui lòng chọn camera trước")
-        return
-      }
+      const ip = (this.cameraIp || "").trim()
+      if (!ip) { alert("Vui lÃ²ng chá»n camera trÆ°á»›c"); return }
+      if (!this.activeGateName) { alert("Vui lÃ²ng chá»n cá»•ng trÆ°á»›c"); return }
 
+      const startedAt = performance.now()
       try {
         this.loading = true
-        if (!this.selectedConfiguration) {
+        if (!this.previewRunning) {
           const camera = await ensureCameraRegistered({
-            cameraName: this.activeCameraName || "Face Monitor Camera",
+            cameraName: this.cameraSearch || "Face Monitor Camera",
             cameraType: "Face",
             streamUrl: ip,
           })
-          this.currentIp = ip
-          if (!this.previewRunning) {
-            this.mountRegisteredPreview(camera, ip)
-          }
+          this.mountRegisteredPreview(camera, ip)
         }
 
         this.clearResultStateOnly()
 
         if (!this.cameraRunning) {
           this.stopResultLoop()
-          const res = this.selectedConfiguration
-            ? await startConfiguredFaceCamera(this.activeCameraId)
-            : await startCamera(this.activeCameraId, ip, this.laneId)
+          const res = await startCamera(this.activeCameraId, ip, this.laneId)
           this.clearFaceServiceError()
-          if (!this.selectedConfiguration && !res?.success) {
-            alert(res?.message || "Không thể khởi tạo phiên nhận diện")
-            return
-          }
+          if (!res?.success) { alert(res?.message || "KhÃ´ng thá»ƒ báº¯t Ä‘áº§u"); return }
           this.cameraRunning = true
-          this.currentIp = ip || this.currentIp
-          this.message = res?.configuration
-            ? "Đã bắt đầu quét"
-            : (res.message || "Đã bắt đầu quét")
-
-          if (this.selectedConfiguration?.previewUrl && !this.previewRunning) {
-            this.mountRegisteredPreview({ urlView: this.selectedConfiguration.previewUrl }, "")
-          }
+          this.message = "ÄÃ£ báº¯t Ä‘áº§u quÃ©t"
           await this.refreshResult()
           this.startResultLoop()
           return
@@ -445,16 +476,14 @@ export default {
 
         const res = await resetCamera(this.activeCameraId)
         this.clearFaceServiceError()
-        this.message = res?.message || "Đã reset phiên"
+        this.message = res?.message || "ÄÃ£ reset phiÃªn"
         await this.refreshResult()
-        if (!this.resultTimer) {
-          this.startResultLoop()
-        }
+        if (!this.resultTimer) this.startResultLoop()
       } catch (e) {
-        captureError(e, "camera_initialization_failure", { component: "FaceCamera" })
+        captureError(e, "face_gate_start_failure", { component: "FaceCamera" })
         this.handleFaceServiceError(e)
       } finally {
-        recordMetric("camera_initialization", performance.now() - initializationStartedAt, { component: "FaceCamera" })
+        recordMetric("face_gate_start", performance.now() - startedAt, { component: "FaceCamera" })
         this.loading = false
       }
     },
@@ -464,23 +493,12 @@ export default {
         this.loading = true
         this.stopResultLoop()
         try {
-          const res = this.selectedConfiguration
-            ? await stopConfiguredFaceCamera(this.activeCameraId)
-            : await stopCamera(this.activeCameraId)
+          const res = await stopCamera(this.activeCameraId)
           this.clearFaceServiceError()
-          this.message = res?.message || "Đã dừng quét"
-          if (this.selectedConfiguration) {
-            await this.loadSavedConfigurations()
-          }
+          this.message = res?.message || "ÄÃ£ dá»«ng quÃ©t"
         } catch (e) {
-          if (e?.status === 404) {
-            this.clearFaceServiceError()
-            this.message = "Camera đã dừng"
-            this.hardResetUiState()
-            this.resetDirectPreview()
-            return
-          }
-          this.handleFaceServiceError(e)
+          if (e?.status === 404) { this.clearFaceServiceError(); this.message = "Camera Ä‘Ã£ dá»«ng" }
+          else this.handleFaceServiceError(e)
         }
         this.hardResetUiState()
         this.resetDirectPreview()
@@ -496,21 +514,8 @@ export default {
         const res = await getCameraStatus(this.activeCameraId)
         this.clearFaceServiceError()
         await this.applyRealtimeState(res, false)
-        if (this.currentIp) {
-          this.cameraIp = this.currentIp
-        }
-        if (this.currentIp) {
-          const camera = await ensureCameraRegistered({
-            cameraName: "Face Monitor Camera",
-            cameraType: "Face",
-            streamUrl: this.currentIp,
-          })
-          this.mountRegisteredPreview(camera, this.currentIp)
-        } else {
-          this.resetDirectPreview()
-        }
-        if (this.cameraRunning) {
-          await this.fetchLockedImagesIfNeeded(true)
+        if (this.currentIp && !this.previewRunning) {
+          this.mountDirectPreview(this.currentIp)
         }
       } catch (e) {
         this.handleFaceServiceError(e, { polling: true })
@@ -529,108 +534,141 @@ export default {
 
     async applyRealtimeState(res, allowTurnOffReset = true) {
       if (!res || this.destroyed) return
-      const incomingCameraEnabled = !!res.camera_enabled
-
-      this.cameraRunning = incomingCameraEnabled
+      this.cameraRunning = !!res.camera_enabled
       this.cameraConnected = !!res.camera_connected
-      this.currentIp = res.ip || this.currentIp
-
-      this.employeeId = res.employee_id || ""
+      this.confirmedEmployeeId = res.employee_id || ""
       this.trackingActive = !!res.tracking_active
       this.identityConfirmed = !!res.identity_confirmed
       this.faceMatch = !!res.face_match
       this.confirmCount = Number(res.confirm_count || 0)
       this.distance = res.distance ?? null
       this.bbox = res.bbox || null
-      this.timeoutState = !!res.timeout
-      this.alert = !!res.alert
-
+      this.faces = Array.isArray(res.faces) ? res.faces : []
       this.scanLocked = !!res.scan_locked
       this.lockReason = res.lock_reason || ""
-
       this.fps = Number(res.fps || 0)
       this.message = res.message || ""
       this.lastUpdate = res.last_update || ""
 
-      if (!this.scanLocked) {
-        this.lockedSnapshot = ""
-        this.lockedFaceCrop = ""
-      }
+      // Gate access + attendance/intruder per face
+      await this.resolveFaces()
 
-      if (!incomingCameraEnabled && allowTurnOffReset) {
+      if (!this.cameraRunning && allowTurnOffReset) {
         this.stopResultLoop()
         this.hardResetUiState()
-        return
-      }
-
-      if (this.scanLocked) {
-        await this.fetchLockedImagesIfNeeded(false)
       }
     },
 
-    async fetchLockedImagesIfNeeded(force = false) {
-      if (this.destroyed) return
+    async resolveFaces() {
       if (!this.cameraRunning) return
-      if (!this.scanLocked && !force) {
-        this.lockedSnapshot = ""
-        this.lockedFaceCrop = ""
-        return
-      }
-      if (this.isFetchingLockedImages) return
-
-      this.isFetchingLockedImages = true
-      try {
-        const res = await getLockedImages(this.activeCameraId)
-        this.clearFaceServiceError()
-        if (res?.scan_locked) {
-          this.lockedSnapshot = res.locked_snapshot || ""
-          this.lockedFaceCrop = res.locked_face_crop || ""
-        } else {
-          this.lockedSnapshot = ""
-          this.lockedFaceCrop = ""
+      // For each recognized face, check gate access and record result.
+      const seen = new Set()
+      for (const f of this.faces || []) {
+        if (!f.employee_id || seen.has(f.employee_id)) continue
+        seen.add(f.employee_id)
+        const empId = Number(f.employee_id)
+        const gateId = this.selectedGateId || null
+        try {
+          const acc = await checkGateAccess(empId, gateId)
+          if (acc?.success) {
+            const decision = acc.blacklist ? "blacklist"
+              : acc.allowed === true ? "allowed"
+              : acc.allowed === false ? "denied" : "unknown"
+            await recordFaceGateResult({
+              decision,
+              employeeId: empId,
+              employeeName: acc.employeeName,
+              gateId,
+              gateName: this.activeGateName,
+              laneId: this.laneId,
+              cameraId: this.activeCameraId,
+              reasonDetail: acc.blacklistReason || acc.reason,
+              distance: f.distance ?? null
+            })
+            if (decision === "denied" || decision === "blacklist" || decision === "unknown") {
+              await this.loadIntruderCount()
+            }
+          }
+        } catch (e) {
+          console.warn("resolve face access error:", e)
         }
-      } catch (e) {
-        this.handleFaceServiceError(e, { polling: true })
-      } finally {
-        this.isFetchingLockedImages = false
       }
     },
 
+    // ---------- intruders ----------
+    async loadIntruders(filter) {
+      this.intruderFilter = filter
+      try {
+        const res = await getFaceIntruders({ reason: filter || undefined, page: 1, pageSize: 100 })
+        this.intruders = Array.isArray(res?.items) ? res.items : []
+        this.intruderCount = Number(res?.total || this.intruders.length)
+      } catch (e) {
+        console.warn("load intruders error:", e)
+      }
+    },
+
+    async loadIntruderCount() {
+      try {
+        const res = await getFaceIntruders({ page: 1, pageSize: 1 })
+        this.intruderCount = Number(res?.total || 0)
+      } catch (e) { /* ignore */ }
+    },
+
+    async deleteOneIntruder(id) {
+      try {
+        await deleteFaceIntruder(id)
+        await this.loadIntruders(this.intruderFilter)
+      } catch (e) {
+        console.warn("delete intruder error:", e)
+      }
+    },
+
+    async clearAllIntruders() {
+      if (!window.confirm("XÃ³a táº¥t cáº£ káº» xÃ¢m nháº­p?")) return
+      const ids = this.intruders.map(i => i.id)
+      for (const id of ids) {
+        try { await deleteFaceIntruder(id) } catch (e) { /* continue */ }
+      }
+      await this.loadIntruders(this.intruderFilter)
+    },
+
+    startIntruderLoop() {
+      this.stopIntruderLoop()
+      this.intruderTimer = setInterval(() => {
+        if (this.destroyed) return
+        this.loadIntruderCount()
+      }, 5000)
+    },
+
+    stopIntruderLoop() {
+      if (this.intruderTimer) { clearInterval(this.intruderTimer); this.intruderTimer = null }
+    },
+
+    // ---------- polling ----------
     startResultLoop() {
       this.stopResultLoop()
       this.resultTimer = setInterval(async () => {
-        if (this.destroyed) return
-        if (!this.cameraRunning) return
-        if (this.busyResult) return
+        if (this.destroyed || !this.cameraRunning || this.busyResult) return
         this.busyResult = true
-        try {
-          await this.refreshResult()
-        } finally {
-          this.busyResult = false
-        }
+        try { await this.refreshResult() } finally { this.busyResult = false }
       }, 500)
     },
 
     stopResultLoop() {
-      if (this.resultTimer) {
-        clearInterval(this.resultTimer)
-        this.resultTimer = null
-      }
+      if (this.resultTimer) { clearInterval(this.resultTimer); this.resultTimer = null }
       this.busyResult = false
     },
 
     clearResultStateOnly() {
       this.employeeId = ""
+      this.confirmedEmployeeId = ""
       this.trackingActive = false
       this.identityConfirmed = false
       this.faceMatch = false
       this.confirmCount = 0
       this.distance = null
       this.bbox = null
-      this.timeoutState = false
-      this.alert = false
-      this.lockedSnapshot = ""
-      this.lockedFaceCrop = ""
+      this.faces = []
       this.scanLocked = false
       this.lockReason = ""
       this.fps = 0
@@ -641,36 +679,26 @@ export default {
     hardResetUiState() {
       this.cameraRunning = false
       this.cameraConnected = false
-      this.currentIp = ""
       this.clearResultStateOnly()
     },
 
-    clearFaceServiceError() {
-      this.faceServiceError = null
-    },
+    clearFaceServiceError() { this.faceServiceError = null },
 
     handleFaceServiceError(error, { polling = false } = {}) {
       const normalized = normalizeFaceApiError(error)
       if (normalized.cancelled || this.destroyed) return
       this.faceServiceError = { code: normalized.code, message: normalized.message }
       this.cameraConnected = false
-      if (shouldStopFacePolling(normalized)) {
-        this.stopResultLoop()
-      }
-      if (!polling) {
-        alert(normalized.message)
-      }
+      if (shouldStopFacePolling(normalized)) this.stopResultLoop()
+      if (!polling) alert(normalized.message)
     },
 
     mountDirectPreview(url) {
-      const cleanUrl = String(url || "").trim()
-      if (!cleanUrl) return
-      if (this.previewRetryTimer) {
-        clearTimeout(this.previewRetryTimer)
-        this.previewRetryTimer = null
-      }
-      this.directCameraSourceUrl = cleanUrl
-      this.directCameraUrl = this.buildDirectCameraUrl(cleanUrl)
+      const clean = String(url || "").trim()
+      if (!clean) return
+      if (this.previewRetryTimer) { clearTimeout(this.previewRetryTimer); this.previewRetryTimer = null }
+      this.directCameraSourceUrl = clean
+      this.directCameraUrl = this.buildDirectCameraUrl(clean)
       this.directCameraKey += 1
       this.previewHealthy = false
       this.previewRetryCount = 0
@@ -678,10 +706,7 @@ export default {
     },
 
     resetDirectPreview() {
-      if (this.previewRetryTimer) {
-        clearTimeout(this.previewRetryTimer)
-        this.previewRetryTimer = null
-      }
+      if (this.previewRetryTimer) { clearTimeout(this.previewRetryTimer); this.previewRetryTimer = null }
       this.directCameraUrl = ""
       this.directCameraSourceUrl = ""
       this.directCameraKey += 1
@@ -694,7 +719,6 @@ export default {
       const previewUrl = String(camera?.urlView || "").trim()
       const directWebUrl = /^https?:\/\//i.test(sourceUrl || "") ? String(sourceUrl).trim() : ""
       let browserUrl = previewUrl || directWebUrl
-
       if (previewUrl) {
         try {
           const parsed = new URL(previewUrl, window.location.origin)
@@ -702,14 +726,9 @@ export default {
             parsed.searchParams.set("mode", "mse,webrtc")
             browserUrl = parsed.toString()
           }
-        } catch {
-          browserUrl = previewUrl
-        }
+        } catch { browserUrl = previewUrl }
       }
-
-      if (!browserUrl) {
-        throw new Error("Camera chưa có URL preview cho trình duyệt.")
-      }
+      if (!browserUrl) throw new Error("Camera chÆ°a cÃ³ URL preview.")
       this.mountDirectPreview(browserUrl)
     },
 
@@ -720,24 +739,6 @@ export default {
       return `${raw}${sep}t=${Date.now()}`
     },
 
-    handleDirectPreviewLoaded() {
-      this.previewHealthy = true
-      this.previewRetryCount = 0
-    },
-
-    handleDirectPreviewError() {
-      this.previewHealthy = false
-      this.message = "Không nhận được hình ảnh camera. Kiểm tra địa chỉ và go2rtc."
-      if (!this.previewRunning || !this.directCameraSourceUrl || this.previewRetryCount >= 1) return
-      this.previewRetryCount += 1
-      this.previewRetryTimer = setTimeout(() => {
-        this.previewRetryTimer = null
-        if (!this.previewRunning || !this.directCameraSourceUrl) return
-        this.directCameraUrl = this.buildDirectCameraUrl(this.directCameraSourceUrl)
-        this.directCameraKey += 1
-      }, 1500)
-    },
-
     async handleDoubleClick() {
       try {
         const el = this.$refs.videoWrapperRef
@@ -745,327 +746,114 @@ export default {
         if (!document.fullscreenElement) {
           if (el.requestFullscreen) await el.requestFullscreen()
           else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen()
-          else if (el.msRequestFullscreen) await el.msRequestFullscreen()
         } else {
           if (document.exitFullscreen) await document.exitFullscreen()
           else if (document.webkitExitFullscreen) await document.webkitExitFullscreen()
-          else if (document.msExitFullscreen) await document.msExitFullscreen()
         }
-      } catch (error) {
-        console.warn("Fullscreen error:", error)
-      }
-    },
-
-    handleRightClick(event) {
-      event?.preventDefault?.()
+      } catch (e) { console.warn("fullscreen:", e) }
     }
   }
 }
 </script>
 
 <style scoped>
-.face-page {
-  padding: 20px 24px 28px;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1560px;
-  margin: 0 auto;
-}
+.face-page { padding: 20px 24px 28px; min-height: 100%; display: flex; flex-direction: column; gap: 18px; max-width: 1560px; margin: 0 auto; }
 
-/* Header */
-.face-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-}
-.face-kicker {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-secondary, #94a3b8);
-}
-.face-title {
-  margin: 4px 0 0;
-  font-size: clamp(24px, 3vw, 32px);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-.face-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-secondary, #475569);
-}
-.pill-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-.dot-on { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
-.dot-off { background: #94a3b8; }
+.face-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.face-kicker { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-secondary, #94a3b8); }
+.face-title { margin: 4px 0 0; font-size: clamp(24px, 3vw, 32px); font-weight: 900; letter-spacing: -0.02em; }
+.face-header-actions { display: flex; align-items: center; gap: 10px; }
+.tab-btn { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border-color, #e2e8f0); background: var(--bg-primary, #fff); font-weight: 700; cursor: pointer; font-size: 0.88rem; position: relative; }
+.tab-btn.active { background: var(--accent-primary, #2563eb); color: #fff; border-color: var(--accent-primary, #2563eb); }
+.tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 0.7rem; margin-left: 4px; padding: 0 4px; }
+.status-pill { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); font-size: 0.82rem; font-weight: 700; }
+.status-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; }
+.status-pill.on .dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
 
-/* Control bar */
-.control-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding: 14px 18px;
-  border-radius: 16px;
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
-}
-.camera-picker {
-  flex: 1 1 260px;
-  min-width: 240px;
-}
-.picker-label {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary, #64748b);
-  margin-bottom: 6px;
-}
-.picker-control { position: relative; }
-.picker-input {
-  width: 100%;
-  padding: 11px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color, #cbd5e1);
-  background: var(--bg-input, #f8fafc);
-  font-size: 0.95rem;
-  outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-.picker-input:focus {
-  border-color: var(--accent-primary, #2563eb);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
-}
-.picker-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0; right: 0;
-  z-index: 40;
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 12px;
-  max-height: 280px;
-  overflow-y: auto;
-  box-shadow: 0 12px 32px rgba(15,23,42,0.18);
-}
-.picker-option {
-  padding: 10px 14px;
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-.picker-option:hover { background: var(--bg-hover, #f1f5f9); }
-.option-name { font-weight: 700; font-size: 0.92rem; }
-.option-meta { font-size: 0.78rem; color: var(--text-secondary, #64748b); margin-top: 2px; }
-.picker-hint { padding: 10px 14px; font-size: 0.85rem; color: var(--text-secondary, #64748b); }
-
-.control-actions {
-  display: flex;
-  gap: 10px;
-}
-.start-btn {
-  min-width: 150px;
-  padding: 11px 22px;
-  font-size: 0.98rem;
-  font-weight: 800;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.stop-btn {
-  padding: 11px 20px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  border-radius: 12px;
-}
-.btn-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255,255,255,0.4);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
+.control-bar { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; padding: 14px 18px; border-radius: 16px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+.gate-picker, .camera-picker { flex: 1 1 220px; min-width: 200px; }
+.field-label { display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary, #64748b); margin-bottom: 6px; }
+.gate-select { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border-color, #cbd5e1); background: var(--bg-input, #f8fafc); font-size: 0.95rem; outline: none; }
+.gate-select:focus { border-color: var(--accent-primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+.control-actions { display: flex; gap: 10px; }
+.start-btn { min-width: 140px; padding: 11px 20px; font-size: 0.98rem; font-weight: 800; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.stop-btn { padding: 11px 18px; font-size: 0.95rem; font-weight: 700; border-radius: 12px; }
+.btn-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Main stage */
-.main-stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 18px;
-  flex: 1;
-  min-height: 0;
-}
-@media (max-width: 980px) {
-  .main-stage { grid-template-columns: 1fr; }
-}
-
-.stage-video {
-  min-height: 0;
-  display: flex;
-}
-.video-frame {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  min-height: 360px;
-  border-radius: 18px;
-  overflow: hidden;
-  background: #0b1120;
-  border: 1px solid var(--border-color, #1e293b);
-  transition: box-shadow 200ms ease, border-color 200ms ease;
-  cursor: crosshair;
-}
-.video-frame.frame-live {
-  border-color: rgba(34,197,94,0.6);
-  box-shadow: 0 0 0 3px rgba(34,197,94,0.12), 0 20px 50px rgba(0,0,0,0.25);
-}
-.video {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-.video-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #64748b;
-}
+.main-stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; flex: 1; min-height: 0; }
+@media (max-width: 980px) { .main-stage { grid-template-columns: 1fr; } }
+.stage-video { min-height: 0; display: flex; }
+.video-frame { position: relative; width: 100%; aspect-ratio: 16/9; min-height: 360px; border-radius: 18px; overflow: hidden; background: #0b1120; border: 1px solid var(--border-color, #1e293b); transition: box-shadow 200ms ease, border-color 200ms ease; }
+.video-frame.frame-live { border-color: rgba(34,197,94,0.6); box-shadow: 0 0 0 3px rgba(34,197,94,0.12), 0 20px 50px rgba(0,0,0,0.25); }
+.video { width: 100%; height: 100%; border: 0; display: block; }
+.video-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #64748b; }
 .placeholder-icon { font-size: 46px; opacity: 0.5; }
 .placeholder-text { font-size: 0.95rem; font-weight: 600; }
-.video-toast {
-  position: absolute;
-  top: 14px; left: 50%;
-  transform: translateX(-50%);
-  background: rgba(2,6,23,0.8);
-  color: #fff;
-  padding: 8px 18px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
+.video-toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: rgba(2,6,23,0.8); color: #fff; padding: 8px 18px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
 
-/* Info panel */
-.stage-info {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 0;
-  overflow-y: auto;
-}
-.info-card {
-  padding: 18px;
-  border-radius: 16px;
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
-}
-.info-title {
-  margin: 0 0 14px;
-  font-size: 0.85rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary, #64748b);
-}
-.big-id {
-  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 2.1rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--bg-input, #f1f5f9);
-  border: 1px solid var(--border-color, #e2e8f0);
-  text-align: center;
-  transition: all 200ms ease;
-}
-.big-id.id-hit {
-  background: rgba(34,197,94,0.12);
-  border-color: rgba(34,197,94,0.5);
-  color: #16a34a;
-}
+/* face overlay boxes */
+.face-box { position: absolute; border: 2px solid #22c55e; border-radius: 6px; pointer-events: none; z-index: 5; transition: border-color 120ms ease; }
+.face-box.box-denied { border-color: #dc2626; }
+.face-id { position: absolute; top: -26px; left: -2px; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; background: rgba(34,197,94,0.9); color: #fff; }
+.face-id.id-denied { background: rgba(220,38,38,0.9); }
+
+.stage-info { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
+.info-card { padding: 18px; border-radius: 16px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+.info-title { margin: 0 0 14px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary, #64748b); }
+.big-id { font-family: "JetBrains Mono", Consolas, monospace; font-size: 2.1rem; font-weight: 900; letter-spacing: 0.02em; padding: 10px 14px; border-radius: 12px; background: var(--bg-input, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); text-align: center; transition: all 200ms ease; }
+.big-id.id-hit { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.5); color: #16a34a; }
 .big-id.id-empty { color: var(--text-secondary, #94a3b8); }
-.id-caption {
-  text-align: center;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-secondary, #64748b);
-  margin-top: 6px;
-  margin-bottom: 14px;
-}
-.info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border-color, #eef2f7);
-  font-size: 0.88rem;
-}
+.id-caption { text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-secondary, #64748b); margin-top: 6px; margin-bottom: 14px; }
+.info-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-color, #eef2f7); font-size: 0.88rem; }
 .info-row > span:first-child { color: var(--text-secondary, #64748b); }
 .info-row .value { font-weight: 800; }
 .value.val-hit { color: #16a34a; }
 .value.val-locked { color: #dc2626; }
 .value.val-verify { color: #eab308; }
 .value.val-track { color: #2563eb; }
-.value.dim { color: var(--text-secondary, #94a3b8); font-weight: 600; font-size: 0.82rem; }
-.dim { color: var(--text-secondary, #94a3b8); }
+.value.dim { color: var(--text-secondary, #94a3b8); font-weight: 600; }
 
-.evidence-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.evidence-img {
-  width: 100%;
-  aspect-ratio: 1/1;
-  object-fit: cover;
-  border-radius: 10px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: #0b1120;
-}
+.face-mini { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border-color, #eef2f7); font-size: 0.85rem; font-weight: 700; }
+.face-mini.mini-ok { color: #16a34a; }
+.face-mini.mini-denied { color: #dc2626; }
+.mini-dist { font-weight: 600; color: var(--text-secondary, #94a3b8); }
 
-.error-box {
-  padding: 11px 14px;
-  border-radius: 12px;
-  background: rgba(220,38,38,0.08);
-  border: 1px solid rgba(220,38,38,0.3);
-  color: var(--accent-danger, #dc2626);
-  font-weight: 700;
-  font-size: 0.88rem;
-}
-.toast-box {
-  padding: 11px 14px;
-  border-radius: 12px;
-  background: var(--bg-input, #f1f5f9);
-  border: 1px solid var(--border-color, #e2e8f0);
-  color: var(--text-secondary, #475569);
-  font-size: 0.88rem;
-}
+.error-box { padding: 11px 14px; border-radius: 12px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: var(--accent-danger, #dc2626); font-weight: 700; font-size: 0.88rem; }
+.toast-box { padding: 11px 14px; border-radius: 12px; background: var(--bg-input, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); color: var(--text-secondary, #475569); font-size: 0.88rem; }
+
+/* intruders tab */
+.intruder-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border-color, #e2e8f0); background: var(--bg-primary, #fff); font-weight: 700; font-size: 0.84rem; cursor: pointer; }
+.chip.active { background: var(--accent-primary, #2563eb); color: #fff; border-color: var(--accent-primary, #2563eb); }
+.empty-state { padding: 60px 20px; text-align: center; color: var(--text-secondary, #94a3b8); font-size: 1rem; }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+.intruder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.intruder-card { border-radius: 14px; overflow: hidden; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+.intruder-card.card-unknown { border-top: 4px solid #64748b; }
+.intruder-card.card-denied { border-top: 4px solid #dc2626; }
+.intruder-card.card-blacklist { border-top: 4px solid #7c3aed; }
+.intruder-photo { position: relative; height: 160px; background: #0b1120; overflow: hidden; }
+.intruder-photo img { width: 100%; height: 100%; object-fit: cover; }
+.photo-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.9rem; }
+.intruder-badge { position: absolute; top: 8px; left: 8px; padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; color: #fff; }
+.badge-unknown { background: #64748b; }
+.badge-denied { background: #dc2626; }
+.badge-blacklist { background: #7c3aed; }
+.intruder-body { padding: 12px 14px; }
+.intruder-title { font-weight: 800; font-size: 1rem; }
+.intruder-meta { font-size: 0.82rem; color: var(--text-secondary, #64748b); margin-top: 4px; }
+.intruder-foot { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text-secondary, #94a3b8); margin-top: 8px; }
+.intruder-del { margin-top: 10px; width: 100%; font-size: 0.82rem; color: var(--accent-danger, #dc2626); border-color: rgba(220,38,38,0.35); }
+
+/* modal */
+.modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal-box { background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 14px; padding: 22px; max-width: 420px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
+.modal-box h3 { margin: 0 0 10px; font-size: 1.15rem; }
+.modal-box p { margin: 6px 0 14px; font-size: 0.92rem; color: var(--text-secondary, #64748b); }
+.modal-input { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border-color, #cbd5e1); background: var(--bg-input, #f8fafc); font-size: 0.95rem; outline: none; }
+.modal-input:focus { border-color: var(--accent-primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+.modal-error { margin-top: 10px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 </style>

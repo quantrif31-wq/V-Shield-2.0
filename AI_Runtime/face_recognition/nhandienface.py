@@ -295,6 +295,22 @@ def api_camera_specific_locked_images(camera_id: str):
         return _error_payload(error)
 
 
+@app.get("/api/cameras/<camera_id>/intruders")
+def api_camera_specific_intruders(camera_id: str):
+    try:
+        return jsonify(camera_manager.get_intruders(camera_id)), 200
+    except Exception as error:
+        return _error_payload(error)
+
+
+@app.delete("/api/cameras/<camera_id>/intruders")
+def api_camera_clear_intruders(camera_id: str):
+    try:
+        return jsonify(camera_manager.clear_intruders(camera_id)), 200
+    except Exception as error:
+        return _error_payload(error)
+
+
 @app.get("/api/cameras/<camera_id>/events")
 def api_camera_specific_events(camera_id: str):
     try:

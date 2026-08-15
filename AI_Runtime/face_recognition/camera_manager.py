@@ -162,6 +162,12 @@ class CameraManager:
     def get_locked_images(self, camera_id: str) -> dict[str, Any]:
         return self.get_session(camera_id).locked_image_result()
 
+    def get_intruders(self, camera_id: str) -> dict[str, Any]:
+        return self.get_session(camera_id).intruder_result()
+
+    def clear_intruders(self, camera_id: str) -> dict[str, Any]:
+        return self.get_session(camera_id).clear_intruders()
+
     def get_events(self, camera_id: str, *, after_sequence: int = 0,
                    session_generation: int | None = None,
                    limit: int = 100) -> dict[str, Any]:

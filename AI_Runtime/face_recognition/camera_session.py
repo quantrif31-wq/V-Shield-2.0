@@ -78,6 +78,13 @@ class CameraSession:
             "face_crop": None,
         }
 
+        # Multi-face: live faces in the current frame + intruder captures.
+        self.faces: list[dict[str, Any]] = []
+        self._last_face_entries: list[dict[str, Any]] = []
+        self.intruders: list[dict[str, Any]] = []
+        self._intruder_keys: set[tuple] = set()
+        self._max_faces = int(getattr(config, "enrollment_auto_target", 6) or 6)
+
         self.session_lock = threading.RLock()
         self.frame_lock = threading.Lock()
         # OpenCV/FFmpeg can segfault when release() races with a blocking read().
@@ -269,6 +276,7 @@ class CameraSession:
             "distance": snapshot["distance"],
             "last_seen": snapshot["last_seen"],
             "bbox": snapshot["bbox"],
+            "faces": snapshot.get("faces") or [],
             "timeout": snapshot["timeout"],
             "alert": snapshot["alert"],
             "scan_locked": snapshot["scan_locked"],
@@ -493,6 +501,87 @@ class CameraSession:
         fps_started = time.time()
         last_frame_at = 0.0
         while not stop_event.is_set():
+            try:
+                with self.session_lock:
+                    if not self._is_current_locked(generation):
+                        return
+                frame, frame_at = self.latest_frame_copy()
+                if frame is None:
+                    stop_event.wait(0.03)
+                    continue
+                if frame_at != last_frame_at:
+                    last_frame_at = frame_at
+                    fps_counter += 1
+                processed = self._preprocess(frame)
+                if processed is None:
+                    stop_event.wait(0.01)
+                    continue
+
+                with self.session_lock:
+                    if not self._is_current_locked(generation):
+                        return
+                    if self._scan_locked:
+                        display = self._draw_overlay_locked(processed)
+                        self._store_display(generation, display)
+                        stop_event.wait(0.03)
+                        continue
+                    last_recognition_at = self.last_recognition_at
+
+                current_time = time.time()
+                detections = (
+                    self._detector.detect(processed)
+                    if self._detector is not None
+                    else None
+                )
+                if detections is not None and len(detections):
+                    faces_info = self._build_faces_locked(
+                        processed, detections, last_recognition_at, current_time)
+                    if faces_info:
+                        primary = faces_info[0]
+                        if current_time - last_recognition_at > self._config.encode_interval:
+                            model_snapshot = self._model_registry.current_snapshot()
+                            primary_enc = primary.get("encoding")
+                            self._apply_recognition(
+                                generation,
+                                current_time,
+                                processed,
+                                primary["location"],
+                                primary["crop"],
+                                primary["snapshot"],
+                                primary["crop_b64"],
+                                [primary_enc] if primary_enc is not None else [],
+                                model_snapshot,
+                            )
+                        else:
+                            self._mark_face_seen(
+                                generation, current_time,
+                                primary["location"], primary["snapshot"],
+                                primary["crop_b64"],
+                            )
+                else:
+                    self._apply_no_face(generation, current_time)
+
+                with self.session_lock:
+                    if not self._is_current_locked(generation):
+                        return
+                    display = self._draw_overlay_locked(processed)
+                    if time.time() - fps_started >= 1:
+                        self._fps = fps_counter
+                        fps_counter = 0
+                        fps_started = time.time()
+                        self._publish_state_locked(fps=self._fps)
+                self._store_display(generation, display)
+                stop_event.wait(0.01)
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                try:
+                    with self.session_lock:
+                        self._message = "Recognition loop error"
+                        self._publish_state_locked()
+                except Exception:
+                    pass
+                stop_event.wait(0.5)
             with self.session_lock:
                 if not self._is_current_locked(generation):
                     return
@@ -525,39 +614,30 @@ class CameraSession:
                 else None
             )
             if detections is not None and len(detections):
-                detection = detections[0]
-                face_location = FaceDetector.box_from_detection(detection)
-                landmarks = FaceDetector.landmarks_from_detection(detection)
-                face_crop = self._crop_face(processed, face_location)
-                snapshot_b64 = self._image_to_base64(processed)
-                crop_b64 = self._image_to_base64(face_crop)
-                if current_time - last_recognition_at > self._config.encode_interval:
-                    encoding = None
-                    if self._embedder is not None:
-                        try:
-                            encoding = self._embedder.align_and_embed(
-                                processed, landmarks
-                            )
-                        except Exception:
-                            encoding = None
-                    encodings = [encoding] if encoding is not None else []
-                    # Exactly one immutable registry snapshot is used per recognition.
-                    model_snapshot = self._model_registry.current_snapshot()
-                    self._apply_recognition(
-                        generation,
-                        current_time,
-                        processed,
-                        face_location,
-                        face_crop,
-                        snapshot_b64,
-                        crop_b64,
-                        encodings,
-                        model_snapshot,
-                    )
-                else:
-                    self._mark_face_seen(
-                        generation, current_time, face_location, snapshot_b64, crop_b64
-                    )
+                faces_info = self._build_faces_locked(
+                    processed, detections, last_recognition_at, current_time)
+                if faces_info:
+                    primary = faces_info[0]
+                    if current_time - last_recognition_at > self._config.encode_interval:
+                        model_snapshot = self._model_registry.current_snapshot()
+                        primary_enc = primary.get("encoding")
+                        self._apply_recognition(
+                            generation,
+                            current_time,
+                            processed,
+                            primary["location"],
+                            primary["crop"],
+                            primary["snapshot"],
+                            primary["crop_b64"],
+                            [primary_enc] if primary_enc is not None else [],
+                            model_snapshot,
+                        )
+                    else:
+                        self._mark_face_seen(
+                            generation, current_time,
+                            primary["location"], primary["snapshot"],
+                            primary["crop_b64"],
+                        )
             else:
                 self._apply_no_face(generation, current_time)
 
@@ -572,6 +652,128 @@ class CameraSession:
                     self._publish_state_locked(fps=self._fps)
             self._store_display(generation, display)
             stop_event.wait(0.01)
+
+    def _build_faces_locked(
+        self,
+        processed: np.ndarray,
+        detections: np.ndarray,
+        last_recognition_at: float,
+        current_time: float,
+    ) -> list[dict[str, Any]]:
+        """Encode every detected face and expose a `faces` array for the UI.
+
+        Each face carries its own bbox, match status and distance so the frontend
+        can draw a green/red box per person. The primary face (largest bounding
+        box, i.e. closest to camera) keeps driving the single-face lock/confirm
+        state for backward compatibility.
+        """
+        snapshot_b64 = self._image_to_base64(processed)
+        do_encode = current_time - last_recognition_at > self._config.encode_interval
+        built: list[dict[str, Any]] = []
+        det_limit = min(len(detections), max(1, self._max_faces))
+        for i in range(det_limit):
+            detection = detections[i]
+            face_location = FaceDetector.box_from_detection(detection)
+            landmarks = FaceDetector.landmarks_from_detection(detection)
+            face_crop = self._crop_face(processed, face_location)
+            crop_b64 = self._image_to_base64(face_crop)
+            area = max(0, face_location[1] - face_location[3]) * \
+                max(0, face_location[2] - face_location[0])
+            entry: dict[str, Any] = {
+                "location": face_location,
+                "crop": face_crop,
+                "snapshot": snapshot_b64,
+                "crop_b64": crop_b64,
+                "id": f"face_{i}",
+                "bbox": {
+                    "top": int(face_location[0]),
+                    "right": int(face_location[1]),
+                    "bottom": int(face_location[2]),
+                    "left": int(face_location[3]),
+                    "width": int(face_location[1] - face_location[3]),
+                    "height": int(face_location[2] - face_location[0]),
+                },
+                "area": area,
+                "subject_id": None,
+                "employee_id": None,
+                "distance": None,
+                "match": False,
+                "encoding": None,
+            }
+            if do_encode and self._embedder is not None:
+                try:
+                    vector = self._embedder.align_and_embed(processed, landmarks)
+                    if vector is not None:
+                        arr = np.asarray(vector, dtype=np.float64)
+                        if arr.shape == (128,) and np.all(np.isfinite(arr)):
+                            entry["encoding"] = arr
+                except Exception:
+                    entry["encoding"] = None
+            built.append(entry)
+
+        # Closest face (largest box) first = primary.
+        built.sort(key=lambda f: f["area"], reverse=True)
+
+        # Match each encoded face against the immutable registry snapshot.
+        snapshot = self._model_registry.current_snapshot()
+        if do_encode and snapshot.encoding_count:
+            for entry in built:
+                vec = entry.get("encoding")
+                if vec is None:
+                    continue
+                if snapshot.metric == "cosine":
+                    distances = np.asarray(
+                        [cosine_distance(vec, known) for known in snapshot.encodings],
+                        dtype=np.float64,
+                    )
+                else:
+                    distances = np.asarray(
+                        [
+                            float(np.linalg.norm(np.asarray(vec) - np.asarray(known)))
+                            for known in snapshot.encodings
+                        ],
+                        dtype=np.float64,
+                    )
+                best_index = int(np.argmin(distances))
+                distance = float(distances[best_index])
+                entry["distance"] = distance
+                entry["match"] = distance < self._config.threshold
+                if entry["match"]:
+                    entry["subject_id"] = snapshot.subject_ids[best_index]
+                    entry["employee_id"] = snapshot.subject_ids[best_index]
+
+        # Publish the current multi-face set (excluding encodings, keep it light).
+        with self.session_lock:
+            prev = {f.get("id"): f for f in self._last_face_entries if f.get("id")}
+            now = []
+            for f in built:
+                fid = f.get("id")
+                entry = {
+                    "id": fid,
+                    "bbox": f["bbox"],
+                    "employee_id": f["employee_id"],
+                    "distance": f["distance"],
+                    "match": f["match"],
+                }
+                # Hold the last known identity when this frame skipped embedding.
+                if not entry["match"] and fid is not None and fid in prev:
+                    p = prev[fid]
+                    if p.get("employee_id"):
+                        entry["employee_id"] = p["employee_id"]
+                        entry["match"] = True
+                        entry["distance"] = p.get("distance")
+                now.append(entry)
+            self.faces = now
+            self._last_face_entries = [
+                {"id": f.get("id"), "employee_id": f.get("employee_id"),
+                 "distance": f.get("distance"), "match": f.get("match")}
+                for f in built
+            ]
+            try:
+                self._publish_state_locked()
+            except Exception:
+                pass
+        return built
 
     def _apply_recognition(
         self, generation: int, current_time: float, frame: np.ndarray,
@@ -672,6 +874,9 @@ class CameraSession:
         with self.session_lock:
             if not self._is_current_locked(generation):
                 return
+            if self.faces:
+                self.faces = []
+                self._publish_state_locked()
             if (
                 self._tracking_active
                 and not self._scan_locked
@@ -721,6 +926,54 @@ class CameraSession:
             self.locked_images["face_crop"] = self._image_to_base64(face_crop)
         if reason in {"timeout", "alert"}:
             self._emit_event_locked("Unknown", None, self._last_distance, None, None)
+            self._capture_intruder_locked(reason)
+
+    def _capture_intruder_locked(self, reason: str) -> None:
+        """Record an intruder capture (unknown/unauthorized face) for review."""
+        if self._scan_locked and reason in {"timeout", "alert"}:
+            try:
+                snapshot = self.locked_images.get("snapshot")
+                crop = self.locked_images.get("face_crop")
+                if not snapshot and not crop:
+                    return
+                key = None
+                # Deduplicate by image content hash so each intruder is one card.
+                raw = snapshot or crop
+                if raw:
+                    import hashlib
+                    key = hashlib.sha256(str(raw).encode("utf-8", "ignore")).hexdigest()[:24]
+                if key and key in self._intruder_keys:
+                    return
+                if key:
+                    self._intruder_keys.add(key)
+                self.intruders.append({
+                    "id": key or str(uuid.uuid4())[:24],
+                    "reason": reason,
+                    "capturedAtUtc": _utc_now(),
+                    "snapshot": snapshot,
+                    "faceCrop": crop,
+                    "employee_id": None,
+                    "distance": self._last_distance,
+                })
+                if len(self.intruders) > 200:
+                    self.intruders = self.intruders[-200:]
+            except Exception:
+                pass
+
+    def intruder_result(self) -> dict[str, Any]:
+        with self.session_lock:
+            return {
+                "success": True,
+                "count": len(self.intruders),
+                "intruders": list(self.intruders),
+            }
+
+    def clear_intruders(self) -> dict[str, Any]:
+        with self.session_lock:
+            count = len(self.intruders)
+            self.intruders = []
+            self._intruder_keys = set()
+            return {"success": True, "cleared": count}
 
     def _emit_event_locked(
         self, event_type: str, subject_id: str | None, distance: float | None,
@@ -774,6 +1027,7 @@ class CameraSession:
         )
         self._last_snapshot = None
         self._last_face_crop = None
+        self.faces = []
         self._fps = 0
         self._message = reason
         self._publish_state_locked()
@@ -788,6 +1042,7 @@ class CameraSession:
             "distance": self._last_distance,
             "last_seen": self.last_face_seen_at if self.last_face_seen_at > 0 else None,
             "bbox": self._last_face_box,
+            "faces": list(self.faces),
             "timeout": self._last_timeout,
             "alert": self._last_alert,
             "scan_locked": self._scan_locked,
@@ -810,9 +1065,28 @@ class CameraSession:
 
     def _draw_overlay_locked(self, frame: np.ndarray) -> np.ndarray:
         display = frame.copy()
-        if self._last_face_box is not None:
+
+        # Draw every live face: green when matched, red when unknown/intruder.
+        faces = list(getattr(self, "faces", []) or [])
+        for face in faces:
+            box = face.get("bbox")
+            if not box:
+                continue
+            left, top = int(box.get("left", 0)), int(box.get("top", 0))
+            right, bottom = int(box.get("right", 0)), int(box.get("bottom", 0))
+            matched = bool(face.get("match"))
+            color = (0, 255, 0) if matched else (0, 0, 255)
+            cv2.rectangle(display, (left, top), (right, bottom), color, 2)
+            label = str(face.get("employee_id") or "???")
+            cv2.putText(
+                display, label, (left, max(10, top - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2,
+            )
+
+        # Primary single-face box overlay kept for compatibility.
+        if self._last_face_box is not None and not faces:
             box = self._last_face_box
-            color = (0, 255, 255) if self._scan_locked else (0, 255, 0)
+            color = (0, 255, 0) if self._last_face_match else (0, 0, 255)
             cv2.rectangle(
                 display, (box["left"], box["top"]),
                 (box["right"], box["bottom"]), color, 2,
