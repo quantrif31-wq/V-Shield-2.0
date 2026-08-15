@@ -666,6 +666,7 @@ class CameraSession:
                     "subject_id": None,
                     "status": "new",  # new -> tracking -> confirmed / intruder
                     "distance": None,
+                    "intruder_captured": False,
                     "crop_b64": self._image_to_base64(det["crop"]),
                     "snapshot_b64": snapshot_b64,
                 }
@@ -685,6 +686,9 @@ class CameraSession:
             elif t["status"] == "tracking":
                 if age >= grace and t.get("subject_id") is None:
                     t["status"] = "intruder"
+                    if not t.get("intruder_captured"):
+                        t["intruder_captured"] = True
+                        self._capture_track_intruder_locked(tid)
 
             # Embed only unconfirmed tracks at a faster interval.
             if t["status"] not in ("confirmed", "intruder"):
@@ -747,8 +751,11 @@ class CameraSession:
                 self._emit_event_locked("Recognized", t.get("subject_id"),
                                         t.get("distance"), model_snapshot, None)
             elif t.get("status") not in ("confirmed",):
-                # Intruder: unknown or denied identity left the camera.
-                self._capture_track_intruder_locked(tid)
+                # Intruder: unknown or denied identity. Already recorded when it
+                # turned red; capture only once if it leaves before that.
+                if not t.get("intruder_captured"):
+                    t["intruder_captured"] = True
+                    self._capture_track_intruder_locked(tid)
             del self._tracks[tid]
 
         # 6) Publish faces array for the UI.
