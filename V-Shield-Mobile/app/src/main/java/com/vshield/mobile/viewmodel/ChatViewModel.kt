@@ -155,6 +155,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val current = _uiState.value
         when (call.signalingType) {
             "offer" -> {
+                if (call.signalingData.isNullOrBlank()) return
                 pendingOfferSdp = call.signalingData
                 _uiState.value = current.copy(
                     callState = ChatCallState.Incoming(
@@ -379,7 +380,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         manager.createOffer()
         pendingIceCandidates.clear()
-        signalRClient?.callUser(targetEmployeeId, "offer", "", conversationId)
     }
 
     fun acceptCall() {

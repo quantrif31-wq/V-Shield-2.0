@@ -88,6 +88,6 @@ public class ChatRelayHub : Hub
     /// <summary>Signal forwarded from an AreaNode for a target on Central (or another node).</summary>
     public async Task RelaySignal(RelaySignal signal)
     {
-        await _gateway.RelaySignalAsync(signal);
+        await _gateway.RelaySignalAsync(signal, excludeNodeConnectionId: Context.ConnectionId);
     }
 }
