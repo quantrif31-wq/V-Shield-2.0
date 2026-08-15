@@ -16,6 +16,7 @@ android {
 
         buildConfigField("String", "API_BASE_URL", "\"https://v-shield.site\"")
         buildConfigField("Boolean", "DEMO_MODE", "false")
+        buildConfigField("Boolean", "BYPASS_MFA", "true")
     }
 
     buildTypes {

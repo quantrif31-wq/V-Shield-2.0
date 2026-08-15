@@ -57,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vshield.mobile.BuildConfig
 import com.vshield.mobile.security.BiometricType
 import com.vshield.mobile.security.toDisplayText
 import com.vshield.mobile.ui.component.ErrorDialog
@@ -317,22 +318,24 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
-                        value = mfaCode,
-                        onValueChange = { mfaCode = it.filter(Char::isDigit).take(6) },
-                        label = { Text("Ma xac thuc 2 lop") },
-                        leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
-                        supportingText = {
-                            Text("Nhap 6 so tu Authenticator neu tai khoan cua ban dang bat MFA.")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.NumberPassword,
-                            imeAction = ImeAction.Done
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                    if (!BuildConfig.BYPASS_MFA) {
+                        OutlinedTextField(
+                            value = mfaCode,
+                            onValueChange = { mfaCode = it.filter(Char::isDigit).take(6) },
+                            label = { Text("Ma xac thuc 2 lop") },
+                            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
+                            supportingText = {
+                                Text("Nhap 6 so tu Authenticator neu tai khoan cua ban dang bat MFA.")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.NumberPassword,
+                                imeAction = ImeAction.Done
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
 
                     if (uiState.hasBiometricHardware) {
                         Spacer(modifier = Modifier.height(10.dp))
