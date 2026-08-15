@@ -284,18 +284,6 @@ export default {
       }))
     },
 
-    faceBoxClass(f) {
-      if (f.status === "confirmed") return "box-ok"
-      if (f.status === "intruder") return "box-denied"
-      return "box-pending"
-    },
-
-    faceIdClass(f) {
-      if (f.status === "confirmed") return "id-ok"
-      if (f.status === "intruder") return "id-denied"
-      return "id-pending"
-    },
-
     detectionLabel() {
       if (this.scanLocked) {
         if (this.lockReason === "confirmed") return "Đã xác nhận danh tính"
@@ -341,6 +329,18 @@ export default {
   },
 
   methods: {
+    faceBoxClass(f) {
+      if (f.status === "confirmed") return "box-ok"
+      if (f.status === "intruder") return "box-denied"
+      return "box-pending"
+    },
+
+    faceIdClass(f) {
+      if (f.status === "confirmed") return "id-ok"
+      if (f.status === "intruder") return "id-denied"
+      return "id-pending"
+    },
+
     prefixId(id, known) {
       return known ? `NV-${id}` : `KH-${id}`
     },
@@ -571,7 +571,7 @@ export default {
               employeeName: acc.employeeName,
               gateId,
               gateName: this.activeGateName,
-              laneId: this.laneId,
+              laneId: this.laneId ? Number(this.laneId) : null,
               cameraId: this.activeCameraId,
               reasonDetail: acc.blacklistReason || acc.reason,
               distance: f.distance ?? null
