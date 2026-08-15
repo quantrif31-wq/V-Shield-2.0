@@ -229,6 +229,8 @@ export default {
 
       // đã ghi nhận thông hành 1 lần cho track này (tránh lặp mỗi poll)
       recordedTrackIds: new Set(),
+      // cache kết quả check-access theo empId:gateId (tránh gọi API mỗi poll)
+      accessCache: {},
 
       // intruders
       intruders: [],
@@ -312,14 +314,14 @@ export default {
     // không có quyền; yellow = đang nhận diện / đang xác minh quyền.
     faceBoxClass(f) {
       if (f.status === "confirmed" && f.accessState === "allowed") return "box-ok"
-      if (f.status === "confirmed" && (f.accessState === "denied" || f.accessState === "blacklist")) return "box-denied"
+      if (f.status === "confirmed" && (f.accessState === "denied" || f.accessState === "blacklist" || f.accessState === "unknown")) return "box-denied"
       if (f.status === "intruder") return "box-denied"
       return "box-pending"
     },
 
     faceIdClass(f) {
       if (f.status === "confirmed" && f.accessState === "allowed") return "id-ok"
-      if (f.status === "confirmed" && (f.accessState === "denied" || f.accessState === "blacklist")) return "id-denied"
+      if (f.status === "confirmed" && (f.accessState === "denied" || f.accessState === "blacklist" || f.accessState === "unknown")) return "id-denied"
       if (f.status === "intruder") return "id-denied"
       return "id-pending"
     },
@@ -547,17 +549,14 @@ export default {
 
     async resolveFaces() {
       if (!this.cameraRunning) return
-      const accCache = new Map()
       for (const f of this.faces || []) {
         const trackId = f.id || f.track_id || (f.employee_id ? "emp-" + f.employee_id : null)
         const isIntruder = f.status === "intruder" || (!f.employee_id && f.status !== "new")
 
-        // Chỉ ghi nhận 1 lần cho mỗi track (1 lần 1 phiên), tránh lặp mỗi poll.
-        if (trackId && this.recordedTrackIds.has(trackId)) continue
-
         if (!f.employee_id) {
-          // Intruder không nhận diện được -> ghi nhận xâm nhập kèm ảnh.
+          // Intruder không nhận diện được -> ghi nhận xâm nhập kèm ảnh (1 lần/track).
           if (!isIntruder) continue
+          if (!trackId || this.recordedTrackIds.has(trackId)) continue
           try {
             await recordFaceGateResult({
               decision: "unknown",
@@ -572,7 +571,7 @@ export default {
               snapshotBase64: f.snapshot_b64 || null,
               faceCropBase64: f.crop_b64 || null
             })
-            if (trackId) this.recordedTrackIds.add(trackId)
+            this.recordedTrackIds.add(trackId)
             await this.loadIntruderCount()
           } catch (e) {
             console.warn("record unknown intruder error:", e)
@@ -583,35 +582,37 @@ export default {
         const empId = Number(f.employee_id)
         const gateId = this.selectedGateId || null
         const cacheKey = `${empId}:${gateId || ""}`
-        let acc = accCache.get(cacheKey)
+        let acc = this.accessCache[cacheKey]
         try {
           if (!acc) {
             acc = await checkGateAccess(empId, gateId)
-            accCache.set(cacheKey, acc)
+            this.accessCache[cacheKey] = acc
           }
           if (acc?.success) {
-            const decision = acc.blacklist ? "blacklist"
-              : acc.allowed === true ? "allowed"
-              : acc.allowed === false ? "denied" : "unknown"
+            // Luôn cập nhật accessState để màu overlay đúng mỗi poll.
             f.accessState = acc.blacklist ? "blacklist"
               : acc.allowed === true ? "allowed"
               : acc.allowed === false ? "denied" : "unknown"
-            await recordFaceGateResult({
-              decision,
-              employeeId: empId,
-              employeeName: acc.employeeName,
-              gateId,
-              gateName: this.activeGateName,
-              laneId: this.laneId ? Number(this.laneId) : null,
-              cameraId: this.activeCameraId,
-              reasonDetail: acc.blacklistReason || acc.reason,
-              distance: f.distance ?? null,
-              snapshotBase64: f.snapshot_b64 || null,
-              faceCropBase64: f.crop_b64 || null
-            })
-            if (trackId) this.recordedTrackIds.add(trackId)
-            if (decision !== "allowed") {
-              await this.loadIntruderCount()
+            // Ghi nhận thông hành 1 lần cho mỗi track.
+            if (trackId && !this.recordedTrackIds.has(trackId)) {
+              const decision = f.accessState
+              await recordFaceGateResult({
+                decision,
+                employeeId: empId,
+                employeeName: acc.employeeName,
+                gateId,
+                gateName: this.activeGateName,
+                laneId: this.laneId ? Number(this.laneId) : null,
+                cameraId: this.activeCameraId,
+                reasonDetail: acc.blacklistReason || acc.reason,
+                distance: f.distance ?? null,
+                snapshotBase64: f.snapshot_b64 || null,
+                faceCropBase64: f.crop_b64 || null
+              })
+              this.recordedTrackIds.add(trackId)
+              if (decision !== "allowed") {
+                await this.loadIntruderCount()
+              }
             }
           }
         } catch (e) {
@@ -701,6 +702,7 @@ export default {
       this.message = ""
       this.lastUpdate = ""
       this.recordedTrackIds = new Set()
+      this.accessCache = {}
     },
 
     hardResetUiState() {
