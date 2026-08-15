@@ -1,5 +1,6 @@
 using API.Data;
 using API.Models;
+using API.Services.ChatRelay;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +13,19 @@ public class ChatHub : Hub
 {
     private readonly ApplicationDbContext _db;
     private readonly ILogger<ChatHub> _logger;
+    private readonly ChatPresenceRegistry _presenceRegistry;
+    private readonly ChatRelayGateway _relayGateway;
 
-    public ChatHub(ApplicationDbContext db, ILogger<ChatHub> logger)
+    public ChatHub(
+        ApplicationDbContext db,
+        ILogger<ChatHub> logger,
+        ChatPresenceRegistry presenceRegistry,
+        ChatRelayGateway relayGateway)
     {
         _db = db;
         _logger = logger;
+        _presenceRegistry = presenceRegistry;
+        _relayGateway = relayGateway;
     }
 
     private int GetEmployeeId()
@@ -30,6 +39,8 @@ public class ChatHub : Hub
         var empId = GetEmployeeId();
         if (empId > 0)
         {
+            _presenceRegistry.Add(empId);
+
             var convIds = await _db.ChatParticipants
                 .Where(p => p.EmployeeId == empId)
                 .Select(p => $"conv_{p.ConversationId}")
@@ -41,6 +52,16 @@ public class ChatHub : Hub
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{empId}");
         }
         await base.OnConnectedAsync();
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var empId = GetEmployeeId();
+        if (empId > 0)
+        {
+            _presenceRegistry.Remove(empId);
+        }
+        await base.OnDisconnectedAsync(exception);
     }
 
     public async Task<object?> SendMessage(int conversationId, string content, string messageType = "Text", string? signalingData = null, string? clientMessageId = null)
@@ -186,14 +207,32 @@ public class ChatHub : Hub
 
         if (callerName == null) return;
 
-        await Clients.Group($"user_{targetEmployeeId}").SendAsync("IncomingCall", new
+        if (_presenceRegistry.IsOnline(targetEmployeeId))
         {
-            fromEmployeeId = empId,
-            fromFullName = callerName,
-            signalingType,
-            signalingData,
-            conversationId
-        });
+            await Clients.Group($"user_{targetEmployeeId}").SendAsync("IncomingCall", new
+            {
+                fromEmployeeId = empId,
+                fromFullName = callerName,
+                signalingType,
+                signalingData,
+                conversationId
+            });
+            return;
+        }
+
+        if (_relayGateway.IsEnabled)
+        {
+            await _relayGateway.RelaySignalAsync(new RelaySignal
+            {
+                Kind = RelaySignalKind.IncomingCall,
+                TargetEmployeeId = targetEmployeeId,
+                FromEmployeeId = empId,
+                FromFullName = callerName,
+                SignalingType = signalingType,
+                SignalingData = signalingData,
+                ConversationId = conversationId
+            });
+        }
     }
 
     /// <summary>
@@ -209,13 +248,30 @@ public class ChatHub : Hub
             .Select(e => e.FullName)
             .FirstOrDefaultAsync();
 
-        await Clients.Group($"user_{targetEmployeeId}").SendAsync("CallResponse", new
+        if (_presenceRegistry.IsOnline(targetEmployeeId))
         {
-            fromEmployeeId = empId,
-            fromFullName = responderName,
-            signalingType,
-            signalingData
-        });
+            await Clients.Group($"user_{targetEmployeeId}").SendAsync("CallResponse", new
+            {
+                fromEmployeeId = empId,
+                fromFullName = responderName,
+                signalingType,
+                signalingData
+            });
+            return;
+        }
+
+        if (_relayGateway.IsEnabled)
+        {
+            await _relayGateway.RelaySignalAsync(new RelaySignal
+            {
+                Kind = RelaySignalKind.CallResponse,
+                TargetEmployeeId = targetEmployeeId,
+                FromEmployeeId = empId,
+                FromFullName = responderName,
+                SignalingType = signalingType,
+                SignalingData = signalingData
+            });
+        }
     }
 
     public async Task EndCall(int targetEmployeeId, int? conversationId = null)
@@ -223,10 +279,25 @@ public class ChatHub : Hub
         var empId = GetEmployeeId();
         if (empId <= 0) return;
 
-        await Clients.Group($"user_{targetEmployeeId}").SendAsync("CallEnded", new
+        if (_presenceRegistry.IsOnline(targetEmployeeId))
         {
-            fromEmployeeId = empId,
-            conversationId
-        });
+            await Clients.Group($"user_{targetEmployeeId}").SendAsync("CallEnded", new
+            {
+                fromEmployeeId = empId,
+                conversationId
+            });
+            return;
+        }
+
+        if (_relayGateway.IsEnabled)
+        {
+            await _relayGateway.RelaySignalAsync(new RelaySignal
+            {
+                Kind = RelaySignalKind.CallEnded,
+                TargetEmployeeId = targetEmployeeId,
+                FromEmployeeId = empId,
+                ConversationId = conversationId
+            });
+        }
     }
 }

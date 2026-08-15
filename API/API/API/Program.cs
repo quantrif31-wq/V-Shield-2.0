@@ -176,6 +176,15 @@ namespace API
             builder.Services.AddScoped<CentralSyncService>();
             builder.Services.AddScoped<RemoteFaceEnrollmentQueueService>();
             builder.Services.AddSingleton<SyncRealtimeNotifier>();
+            builder.Services.AddSingleton<API.Services.ChatRelay.ChatPresenceRegistry>();
+            builder.Services.AddSingleton<API.Services.ChatRelay.ChatRelayNodeRegistry>();
+            builder.Services.AddSingleton<API.Services.ChatRelay.AreaNodeChatRelayWorker>();
+            builder.Services.AddSingleton<API.Services.ChatRelay.ChatRelayGateway>();
+            if (!builder.Environment.IsEnvironment("Testing"))
+            {
+                builder.Services.AddHostedService(serviceProvider =>
+                    serviceProvider.GetRequiredService<API.Services.ChatRelay.AreaNodeChatRelayWorker>());
+            }
             builder.Services.AddScoped<IRoutingService, RoutingService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.ExcelFileParser>();
@@ -502,6 +511,7 @@ namespace API
             app.MapHub<EmployeeStatsHub>("/hubs/employee-stats").RequireAuthorization();
             app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
             app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
+            app.MapHub<ChatRelayHub>("/hubs/chat-relay").AllowAnonymous();
             app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" })).AllowAnonymous();
             app.MapGet("/health/live", () => Results.Ok(new
             {
