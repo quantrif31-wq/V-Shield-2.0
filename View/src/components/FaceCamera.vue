@@ -2,49 +2,39 @@
   <div class="face-page animate-in">
     <header class="face-header">
       <div class="face-header-titles">
-        <span class="face-kicker">Kiá»ƒm soÃ¡t ra vÃ o</span>
-        <h1 class="face-title">Nháº­n diá»‡n khuÃ´n máº·t Â· Cá»•ng {{ activeGateName || 'â€”' }}</h1>
+        <span class="face-kicker">Kiểm soát ra vào</span>
+        <h1 class="face-title">Nhận diện khuôn mặt · Cổng {{ activeGateName || '—' }}</h1>
       </div>
       <div class="face-header-actions">
-        <button class="tab-btn" :class="{ active: tab === 'scan' }" @click="tab = 'scan'">QuÃ©t</button>
+        <button class="tab-btn" :class="{ active: tab === 'scan' }" @click="tab = 'scan'">Quét</button>
         <button class="tab-btn" :class="{ active: tab === 'intruders' }" @click="tab = 'intruders'">
-          Káº» xÃ¢m nháº­p <span v-if="intruderCount" class="tab-badge">{{ intruderCount }}</span>
+          Kẻ xâm nhập <span v-if="intruderCount" class="tab-badge">{{ intruderCount }}</span>
         </button>
         <span class="status-pill" :class="cameraRunning ? 'on' : 'off'">
-          <i class="dot"></i>{{ cameraRunning ? 'Äang quÃ©t' : 'Sáºµn sÃ ng' }}
+          <i class="dot"></i>{{ cameraRunning ? 'Đang quét' : 'Sẵn sàng' }}
         </span>
       </div>
     </header>
 
-    <!-- ============ TAB QUÃ‰T ============ -->
+    <!-- ============ TAB QUÉT ============ -->
     <template v-if="tab === 'scan'">
       <div class="control-bar">
         <div class="gate-picker">
-          <label class="field-label">Chá»n cá»•ng</label>
-          <select
-            class="gate-select"
-            v-model="selectedGateId"
-            :disabled="loading"
-            @change="onGateChange"
-          >
-            <option :value="null" disabled>â€” Chá»n cá»•ng â€”</option>
+          <label class="field-label">Chọn cổng</label>
+          <select class="gate-select" v-model="selectedGateId" :disabled="loading" @change="onGateChange">
+            <option :value="null" disabled>— Chọn cổng —</option>
             <option v-for="g in gates" :key="g.gateId" :value="g.gateId">
-              {{ g.gateName }}{{ g.location ? ' Â· ' + g.location : '' }}
+              {{ g.gateName }}{{ g.location ? ' · ' + g.location : '' }}
             </option>
           </select>
         </div>
 
         <div class="camera-picker">
           <label class="field-label">Camera</label>
-          <select
-            class="gate-select"
-            v-model="cameraSearch"
-            :disabled="loading"
-            @change="onCameraChange"
-          >
-            <option :value="''" disabled>â€” Chá»n camera â€”</option>
+          <select class="gate-select" v-model="cameraSearch" :disabled="loading" @change="onCameraChange">
+            <option value="" disabled>— Chọn camera —</option>
             <option v-for="cam in allCameras" :key="cam.cameraId" :value="cam.cameraName">
-              {{ cam.cameraName }} Â· {{ cam.cameraId }}
+              {{ cam.cameraName }} · {{ cam.cameraId }}
             </option>
           </select>
         </div>
@@ -52,9 +42,9 @@
         <div class="control-actions">
           <button class="btn btn-primary start-btn" :disabled="loading || !cameraIp" @click="handleStartOrReset">
             <span v-if="loading" class="btn-spinner"></span>
-            <span>{{ loading ? 'Äang xá»­ lÃ½â€¦' : (cameraRunning ? 'Reset' : 'Báº¯t Ä‘áº§u') }}</span>
+            <span>{{ loading ? 'Đang xử lý…' : (cameraRunning ? 'Reset' : 'Bắt đầu') }}</span>
           </button>
-          <button class="btn btn-outline stop-btn" :disabled="loading || !cameraRunning" @click="handleTurnOff">Dá»«ng</button>
+          <button class="btn btn-outline stop-btn" :disabled="loading || !cameraRunning" @click="handleTurnOff">Dừng</button>
         </div>
       </div>
 
@@ -72,8 +62,8 @@
               frameborder="0"
             ></iframe>
             <div v-else class="video-placeholder">
-              <div class="placeholder-icon">â—‰</div>
-              <div class="placeholder-text">Chá»n cá»•ng + camera, báº¥m Báº¯t Ä‘áº§u</div>
+              <div class="placeholder-icon">◉</div>
+              <div class="placeholder-text">Chọn cổng + camera, bấm Bắt đầu</div>
             </div>
 
             <!-- Multi-face overlay: green allowed / red intruder -->
@@ -89,31 +79,31 @@
               </span>
             </div>
 
-            <div v-if="cameraRunning && !previewRunning" class="video-toast">Äang káº¿t ná»‘iâ€¦</div>
+            <div v-if="cameraRunning && !previewRunning" class="video-toast">Đang kết nối…</div>
           </div>
         </div>
 
         <aside class="stage-info">
           <section class="info-card">
-            <h2 class="info-title">Káº¿t quáº£</h2>
+            <h2 class="info-title">Kết quả</h2>
             <div class="big-id" :class="identityConfirmed ? 'id-hit' : 'id-empty'">
-              {{ confirmedEmployeeId || 'â€” â€” â€” â€”' }}
+              {{ confirmedEmployeeId || '— — — —' }}
             </div>
-            <div class="id-caption">MÃ£ nhÃ¢n viÃªn Ä‘Ã£ xÃ¡c nháº­n</div>
+            <div class="id-caption">Mã nhân viên đã xác nhận</div>
 
-            <div class="info-row"><span>Tráº¡ng thÃ¡i</span><span class="value" :class="'val-' + detectionState">{{ detectionLabel }}</span></div>
-            <div class="info-row"><span>Äá»™ khá»›p</span><span class="value">{{ distanceText }}</span></div>
-            <div class="info-row"><span>GÆ°Æ¡ng máº·t trong khung</span><span class="value">{{ liveFaces.length }}</span></div>
-            <div class="info-row"><span>Cá»•ng</span><span class="value">{{ activeGateName || 'â€”' }}</span></div>
+            <div class="info-row"><span>Trạng thái</span><span class="value" :class="'val-' + detectionState">{{ detectionLabel }}</span></div>
+            <div class="info-row"><span>Độ khớp</span><span class="value">{{ distanceText }}</span></div>
+            <div class="info-row"><span>Gương mặt trong khung</span><span class="value">{{ liveFaces.length }}</span></div>
+            <div class="info-row"><span>Cổng</span><span class="value">{{ activeGateName || '—' }}</span></div>
             <div class="info-row"><span>FPS</span><span class="value">{{ fps }}</span></div>
-            <div class="info-row" v-if="lastUpdate"><span>Cáº­p nháº­t</span><span class="value dim">{{ lastUpdate }}</span></div>
+            <div class="info-row" v-if="lastUpdate"><span>Cập nhật</span><span class="value dim">{{ lastUpdate }}</span></div>
           </section>
 
           <section class="info-card" v-if="liveFaces.length">
-            <h2 class="info-title">GÆ°Æ¡ng máº·t trong khung</h2>
+            <h2 class="info-title">Gương mặt trong khung</h2>
             <div v-for="(f, i) in liveFaces" :key="'f' + i" class="face-mini" :class="f.allowed ? 'mini-ok' : 'mini-denied'">
               <span>{{ f.employee_id ? prefixId(f.employee_id, f.known) : '???' }}</span>
-              <span class="mini-dist">{{ f.distance != null ? f.distance.toFixed(3) : 'â€”' }}</span>
+              <span class="mini-dist">{{ f.distance != null ? f.distance.toFixed(3) : '—' }}</span>
             </div>
           </section>
 
@@ -123,29 +113,29 @@
       </div>
     </template>
 
-    <!-- ============ TAB Káºº XÃ‚M NHáº¬P ============ -->
+    <!-- ============ TAB KẺ XÂM NHẬP ============ -->
     <template v-else>
       <div class="intruder-toolbar">
         <div class="filter-chips">
-          <button class="chip" :class="{ active: intruderFilter === '' }" @click="loadIntruders('')">Táº¥t cáº£</button>
-          <button class="chip" :class="{ active: intruderFilter === 'unknown' }" @click="loadIntruders('unknown')">KhÃ´ng nháº­n diá»‡n</button>
-          <button class="chip" :class="{ active: intruderFilter === 'denied' }" @click="loadIntruders('denied')">Tá»« chá»‘i</button>
-          <button class="chip" :class="{ active: intruderFilter === 'blacklist' }" @click="loadIntruders('blacklist')">Danh sÃ¡ch Ä‘en</button>
+          <button class="chip" :class="{ active: intruderFilter === '' }" @click="loadIntruders('')">Tất cả</button>
+          <button class="chip" :class="{ active: intruderFilter === 'unknown' }" @click="loadIntruders('unknown')">Không nhận diện</button>
+          <button class="chip" :class="{ active: intruderFilter === 'denied' }" @click="loadIntruders('denied')">Từ chối</button>
+          <button class="chip" :class="{ active: intruderFilter === 'blacklist' }" @click="loadIntruders('blacklist')">Danh sách đen</button>
         </div>
-        <button class="btn btn-outline" :disabled="intruders.length === 0" @click="clearAllIntruders">XÃ³a táº¥t cáº£</button>
+        <button class="btn btn-outline" :disabled="intruders.length === 0" @click="clearAllIntruders">Xóa tất cả</button>
       </div>
 
       <div v-if="intruders.length === 0" class="empty-state">
-        <div class="empty-icon">ðŸ›¡</div>
-        <div>ChÆ°a cÃ³ káº» xÃ¢m nháº­p nÃ o Ä‘Æ°á»£c ghi nháº­n.</div>
+        <div class="empty-icon">🛡</div>
+        <div>Chưa có kẻ xâm nhập nào được ghi nhận.</div>
       </div>
 
       <div class="intruder-grid" v-else>
         <div v-for="item in intruders" :key="item.id" class="intruder-card" :class="'card-' + item.reason">
           <div class="intruder-photo">
-            <img v-if="item.faceCropBase64" :src="item.faceCropBase64" alt="Káº» xÃ¢m nháº­p" />
+            <img v-if="item.faceCropBase64" :src="item.faceCropBase64" alt="Kẻ xâm nhập" />
             <img v-else-if="item.snapshotBase64" :src="item.snapshotBase64" alt="Snapshot" />
-            <div v-else class="photo-empty">KhÃ´ng cÃ³ áº£nh</div>
+            <div v-else class="photo-empty">Không có ảnh</div>
             <span class="intruder-badge" :class="'badge-' + item.reason">{{ badgeLabel(item.reason) }}</span>
           </div>
           <div class="intruder-body">
@@ -153,39 +143,33 @@
               {{ item.employeeName || (item.employeeId ? 'NV-' + item.employeeId : '#' + (item.id || item.cameraId || '')) }}
             </div>
             <div class="intruder-meta">
-              <span v-if="item.reason === 'blacklist'">âš  {{ item.reasonDetail || 'Danh sÃ¡ch Ä‘en' }}</span>
-              <span v-else-if="item.reason === 'denied'">â›” {{ item.reasonDetail || 'KhÃ´ng cÃ³ quyá»n vÃ o cá»•ng' }}</span>
-              <span v-else>ðŸ‘¤ KhÃ´ng nháº­n diá»‡n Ä‘Æ°á»£c</span>
+              <span v-if="item.reason === 'blacklist'">⚠ {{ item.reasonDetail || 'Danh sách đen' }}</span>
+              <span v-else-if="item.reason === 'denied'">⛔ {{ item.reasonDetail || 'Không có quyền vào cổng' }}</span>
+              <span v-else>👤 Không nhận diện được</span>
             </div>
             <div class="intruder-foot">
-              <span>{{ item.gateName || 'Cá»•ng â€”' }}</span>
+              <span>{{ item.gateName || 'Cổng —' }}</span>
               <span>{{ fmtTime(item.occurredAtUtc) }}</span>
             </div>
-            <button class="btn btn-outline btn-sm intruder-del" @click="deleteOneIntruder(item.id)">XÃ³a</button>
+            <button class="btn btn-outline btn-sm intruder-del" @click="deleteOneIntruder(item.id)">Xóa</button>
           </div>
         </div>
       </div>
     </template>
 
-    <!-- ===== POPUP XÃC NHáº¬N Máº¬T KHáº¨U (Ä‘á»•i cá»•ng) ===== -->
+    <!-- ===== POPUP XÁC NHẬN MẬT KHẨU (đổi cổng) ===== -->
     <div v-if="showPasswordModal" class="modal-backdrop" @click.self="showPasswordModal = false">
       <div class="modal-box">
-        <h3>Äá»•i cá»•ng</h3>
-        <p>Nháº­p láº¡i máº­t kháº©u cá»§a báº¡n Ä‘á»ƒ xÃ¡c nháº­n chuyá»ƒn sang cá»•ng <strong>{{ pendingGateName }}</strong>.</p>
-        <input
-          v-model="passwordInput"
-          type="password"
-          class="modal-input"
-          placeholder="Máº­t kháº©u"
-          @keydown.enter="confirmPassword"
-          autofocus
-        />
+        <h3>Đổi cổng</h3>
+        <p>Nhập lại mật khẩu của bạn để xác nhận chuyển sang cổng <strong>{{ pendingGateName }}</strong>.</p>
+        <input v-model="passwordInput" type="password" class="modal-input" placeholder="Mật khẩu"
+               @keydown.enter="confirmPassword" autofocus />
         <div v-if="passwordError" class="error-box modal-error">{{ passwordError }}</div>
         <div class="modal-actions">
           <button class="btn btn-primary" :disabled="passwordVerifying || !passwordInput" @click="confirmPassword">
-            {{ passwordVerifying ? 'Äang xÃ¡c thá»±câ€¦' : 'XÃ¡c nháº­n' }}
+            {{ passwordVerifying ? 'Đang xác thực…' : 'Xác nhận' }}
           </button>
-          <button class="btn btn-outline" :disabled="passwordVerifying" @click="showPasswordModal = false">Há»§y</button>
+          <button class="btn btn-outline" :disabled="passwordVerifying" @click="showPasswordModal = false">Hủy</button>
         </div>
       </div>
     </div>
@@ -292,7 +276,6 @@ export default {
     },
 
     liveFaces() {
-      // Normalize faces: each has bbox {left,top,right,bottom} in processed frame (480 wide, height scaled)
       return (this.faces || []).map(f => ({
         ...f,
         allowed: !!f.match,
@@ -302,15 +285,15 @@ export default {
 
     detectionLabel() {
       if (this.scanLocked) {
-        if (this.lockReason === "confirmed") return "ÄÃ£ xÃ¡c nháº­n danh tÃ­nh"
-        if (this.lockReason === "timeout") return "Háº¿t thá»i gian chá»"
-        if (this.lockReason === "alert") return "Cáº£nh bÃ¡o"
-        return "ÄÃ£ khÃ³a"
+        if (this.lockReason === "confirmed") return "Đã xác nhận danh tính"
+        if (this.lockReason === "timeout") return "Hết thời gian chờ"
+        if (this.lockReason === "alert") return "Cảnh báo"
+        return "Đã khóa"
       }
       if (!this.trackingActive) return "Idle"
-      if (this.identityConfirmed) return "ÄÃ£ nháº­n diá»‡n"
-      if (this.faceMatch) return "Äang xÃ¡c minh"
-      return "ChÆ°a nháº­n diá»‡n"
+      if (this.identityConfirmed) return "Đã nhận diện"
+      if (this.faceMatch) return "Đang xác minh"
+      return "Chưa nhận diện"
     },
 
     detectionState() {
@@ -323,7 +306,7 @@ export default {
 
     distanceText() {
       const n = Number(this.distance)
-      if (Number.isNaN(n)) return "â€” â€” â€” â€”"
+      if (Number.isNaN(n)) return "— — — —"
       return n.toFixed(4)
     }
   },
@@ -345,19 +328,17 @@ export default {
   },
 
   methods: {
-    // ---------- helpers ----------
     prefixId(id, known) {
       return known ? `NV-${id}` : `KH-${id}`
     },
     fmtTime(v) {
       if (!v) return ""
       try {
-        const d = new Date(v)
-        return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
+        return new Date(v).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
       } catch { return v }
     },
     badgeLabel(reason) {
-      return { unknown: "KhÃ´ng nháº­n diá»‡n", denied: "Tá»« chá»‘i", blacklist: "Danh sÃ¡ch Ä‘en" }[reason] || reason
+      return { unknown: "Không nhận diện", denied: "Từ chối", blacklist: "Danh sách đen" }[reason] || reason
     },
     faceBoxStyle(f) {
       const b = f.bbox || {}
@@ -398,14 +379,13 @@ export default {
         this.activeGateName = this.pendingGateName
         this.showPasswordModal = false
         this.passwordInput = ""
-        this.message = `ÄÃ£ chá»n cá»•ng ${this.pendingGateName}. Nháº¥n Báº¯t Ä‘áº§u Ä‘á»ƒ quÃ©t.`
-        // Reset session when switching gate
+        this.message = `Đã chọn cổng ${this.pendingGateName}. Nhấn Bắt đầu để quét.`
         this.stopResultLoop()
         this.clearResultStateOnly()
         this.resetDirectPreview()
         this.cameraRunning = false
       } catch (e) {
-        this.passwordError = e?.response?.data?.message || e?.message || "Máº­t kháº©u khÃ´ng Ä‘Ãºng."
+        this.passwordError = e?.response?.data?.message || e?.message || "Mật khẩu không đúng."
       } finally {
         this.passwordVerifying = false
       }
@@ -440,13 +420,13 @@ export default {
       this.clearResultStateOnly()
       this.resetDirectPreview()
       this.cameraRunning = false
-      this.message = `ÄÃ£ chá»n camera ${cam.cameraName}`
+      this.message = `Đã chọn camera ${cam.cameraName}`
     },
 
     async handleStartOrReset() {
       const ip = (this.cameraIp || "").trim()
-      if (!ip) { alert("Vui lÃ²ng chá»n camera trÆ°á»›c"); return }
-      if (!this.activeGateName) { alert("Vui lÃ²ng chá»n cá»•ng trÆ°á»›c"); return }
+      if (!ip) { alert("Vui lòng chọn camera trước"); return }
+      if (!this.activeGateName) { alert("Vui lòng chọn cổng trước"); return }
 
       const startedAt = performance.now()
       try {
@@ -466,9 +446,9 @@ export default {
           this.stopResultLoop()
           const res = await startCamera(this.activeCameraId, ip, this.laneId)
           this.clearFaceServiceError()
-          if (!res?.success) { alert(res?.message || "KhÃ´ng thá»ƒ báº¯t Ä‘áº§u"); return }
+          if (!res?.success) { alert(res?.message || "Không thể bắt đầu"); return }
           this.cameraRunning = true
-          this.message = "ÄÃ£ báº¯t Ä‘áº§u quÃ©t"
+          this.message = "Đã bắt đầu quét"
           await this.refreshResult()
           this.startResultLoop()
           return
@@ -476,7 +456,7 @@ export default {
 
         const res = await resetCamera(this.activeCameraId)
         this.clearFaceServiceError()
-        this.message = res?.message || "ÄÃ£ reset phiÃªn"
+        this.message = res?.message || "Đã reset phiên"
         await this.refreshResult()
         if (!this.resultTimer) this.startResultLoop()
       } catch (e) {
@@ -495,9 +475,9 @@ export default {
         try {
           const res = await stopCamera(this.activeCameraId)
           this.clearFaceServiceError()
-          this.message = res?.message || "ÄÃ£ dá»«ng quÃ©t"
+          this.message = res?.message || "Đã dừng quét"
         } catch (e) {
-          if (e?.status === 404) { this.clearFaceServiceError(); this.message = "Camera Ä‘Ã£ dá»«ng" }
+          if (e?.status === 404) { this.clearFaceServiceError(); this.message = "Camera đã dừng" }
           else this.handleFaceServiceError(e)
         }
         this.hardResetUiState()
@@ -550,7 +530,6 @@ export default {
       this.message = res.message || ""
       this.lastUpdate = res.last_update || ""
 
-      // Gate access + attendance/intruder per face
       await this.resolveFaces()
 
       if (!this.cameraRunning && allowTurnOffReset) {
@@ -561,7 +540,6 @@ export default {
 
     async resolveFaces() {
       if (!this.cameraRunning) return
-      // For each recognized face, check gate access and record result.
       const seen = new Set()
       for (const f of this.faces || []) {
         if (!f.employee_id || seen.has(f.employee_id)) continue
@@ -585,7 +563,7 @@ export default {
               reasonDetail: acc.blacklistReason || acc.reason,
               distance: f.distance ?? null
             })
-            if (decision === "denied" || decision === "blacklist" || decision === "unknown") {
+            if (decision !== "allowed") {
               await this.loadIntruderCount()
             }
           }
@@ -624,7 +602,7 @@ export default {
     },
 
     async clearAllIntruders() {
-      if (!window.confirm("XÃ³a táº¥t cáº£ káº» xÃ¢m nháº­p?")) return
+      if (!window.confirm("Xóa tất cả kẻ xâm nhập?")) return
       const ids = this.intruders.map(i => i.id)
       for (const id of ids) {
         try { await deleteFaceIntruder(id) } catch (e) { /* continue */ }
@@ -728,7 +706,7 @@ export default {
           }
         } catch { browserUrl = previewUrl }
       }
-      if (!browserUrl) throw new Error("Camera chÆ°a cÃ³ URL preview.")
+      if (!browserUrl) throw new Error("Camera chưa có URL preview.")
       this.mountDirectPreview(browserUrl)
     },
 
@@ -792,7 +770,6 @@ export default {
 .placeholder-text { font-size: 0.95rem; font-weight: 600; }
 .video-toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: rgba(2,6,23,0.8); color: #fff; padding: 8px 18px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
 
-/* face overlay boxes */
 .face-box { position: absolute; border: 2px solid #22c55e; border-radius: 6px; pointer-events: none; z-index: 5; transition: border-color 120ms ease; }
 .face-box.box-denied { border-color: #dc2626; }
 .face-id { position: absolute; top: -26px; left: -2px; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; background: rgba(34,197,94,0.9); color: #fff; }
@@ -822,7 +799,6 @@ export default {
 .error-box { padding: 11px 14px; border-radius: 12px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: var(--accent-danger, #dc2626); font-weight: 700; font-size: 0.88rem; }
 .toast-box { padding: 11px 14px; border-radius: 12px; background: var(--bg-input, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); color: var(--text-secondary, #475569); font-size: 0.88rem; }
 
-/* intruders tab */
 .intruder-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border-color, #e2e8f0); background: var(--bg-primary, #fff); font-weight: 700; font-size: 0.84rem; cursor: pointer; }
@@ -847,7 +823,6 @@ export default {
 .intruder-foot { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--text-secondary, #94a3b8); margin-top: 8px; }
 .intruder-del { margin-top: 10px; width: 100%; font-size: 0.82rem; color: var(--accent-danger, #dc2626); border-color: rgba(220,38,38,0.35); }
 
-/* modal */
 .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(2,6,23,0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal-box { background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 14px; padding: 22px; max-width: 420px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
 .modal-box h3 { margin: 0 0 10px; font-size: 1.15rem; }
