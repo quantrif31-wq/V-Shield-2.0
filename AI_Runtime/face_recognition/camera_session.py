@@ -790,14 +790,12 @@ class CameraSession:
             t.pop("_enc", None)
 
         # 5) Tracks that were not seen this frame -> close their session.
-        # Confirmed tracks are kept much longer: a blink or slight head turn
-        # must not drop green back to a fresh yellow re-identify.
-        confirmed_lost = max(lost_t, 6.0)
+        # Any face (confirmed/intruder/tracking) ends its session ~2s after it
+        # disappears, releasing resources for that session.
         closed = []
         for tid in list(self._tracks.keys()):
             t = self._tracks[tid]
-            threshold = confirmed_lost if t.get("status") == "confirmed" else lost_t
-            if now - t["last_seen"] > threshold:
+            if now - t["last_seen"] > lost_t:
                 closed.append(tid)
         for tid in closed:
             t = self._tracks[tid]
