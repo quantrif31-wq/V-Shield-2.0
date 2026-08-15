@@ -646,6 +646,38 @@ class CameraSession:
                 used.add(best_tid)
                 matched[best_tid] = det_i
 
+        # 2b) Detections not matched by IoU still follow a nearby live track by
+        # center distance (fast motion, blinking, occlusion). Confirmed tracks
+        # are preferred so an already-identified person keeps green instead of
+        # spawning a fresh yellow track and re-identifying from scratch.
+        used_dets = set(used)  # det indices already matched by IoU
+        for det_i, det in enumerate(dets):
+            if det_i in used_dets:
+                continue
+            top, right, bottom, left = det["loc"]
+            dcx = (left + right) / 2.0
+            dcy = (top + bottom) / 2.0
+            dsize = max(1.0, (right - left) + (bottom - top)) / 2.0
+            best_tid = None
+            best_dist = float("inf")
+            for tid in track_ids:
+                if tid in matched:
+                    continue
+                t = self._tracks[tid]
+                if now - t["last_seen"] > lost_t:
+                    continue  # đã quá hạn đóng, không kéo lại
+                tb = t["bbox"]
+                tcx = (tb.get("left", 0) + tb.get("right", 0)) / 2.0
+                tcy = (tb.get("top", 0) + tb.get("bottom", 0)) / 2.0
+                dist = ((dcx - tcx) ** 2 + (dcy - tcy) ** 2) ** 0.5
+                limit = max(1.5 * dsize, 120.0)
+                if dist < limit and dist < best_dist:
+                    best_dist = dist
+                    best_tid = tid
+            if best_tid is not None:
+                used_dets.add(det_i)
+                matched[best_tid] = det_i
+
         # 3) Update matched tracks + create new ones.
         live_tracks = []
         for det_i, det in enumerate(dets):
