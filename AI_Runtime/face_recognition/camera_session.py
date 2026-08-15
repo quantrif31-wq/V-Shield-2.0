@@ -772,6 +772,8 @@ class CameraSession:
                 "distance": t.get("distance"),
                 "match": t.get("status") == "confirmed",
                 "status": t.get("status", "new"),
+                "crop_b64": t.get("crop_b64"),
+                "snapshot_b64": t.get("snapshot_b64"),
             })
             if t.get("status") == "confirmed" and primary_confirmed is None:
                 primary_confirmed = t

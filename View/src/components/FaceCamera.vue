@@ -66,7 +66,7 @@
               <div class="placeholder-text">Chọn cổng + camera, bấm Bắt đầu</div>
             </div>
 
-            <!-- Multi-face overlay: green confirmed / yellow tracking / red intruder -->
+            <!-- Multi-face overlay: green allowed / yellow verifying / red intruder or denied -->
             <div
               v-for="(f, idx) in liveFaces"
               :key="idx"
@@ -75,41 +75,16 @@
               :style="faceBoxStyle(f)"
             >
               <span class="face-id" :class="faceIdClass(f)">
-                {{ f.employee_id ? prefixId(f.employee_id, f.known) : '???' }}
+                {{ faceLabel(f) }}
               </span>
             </div>
 
             <div v-if="cameraRunning && !previewRunning" class="video-toast">Đang kết nối…</div>
+
+            <div v-if="faceServiceError" class="face-error-float">{{ faceServiceError.message }}</div>
+            <div v-else-if="message" class="face-toast-float">{{ message }}</div>
           </div>
         </div>
-
-        <aside class="stage-info">
-          <section class="info-card">
-            <h2 class="info-title">Kết quả</h2>
-            <div class="big-id" :class="identityConfirmed ? 'id-hit' : 'id-empty'">
-              {{ confirmedEmployeeId || '— — — —' }}
-            </div>
-            <div class="id-caption">Mã nhân viên đã xác nhận</div>
-
-            <div class="info-row"><span>Trạng thái</span><span class="value" :class="'val-' + detectionState">{{ detectionLabel }}</span></div>
-            <div class="info-row"><span>Độ khớp</span><span class="value">{{ distanceText }}</span></div>
-            <div class="info-row"><span>Gương mặt trong khung</span><span class="value">{{ liveFaces.length }}</span></div>
-            <div class="info-row"><span>Cổng</span><span class="value">{{ activeGateName || '—' }}</span></div>
-            <div class="info-row"><span>FPS</span><span class="value">{{ fps }}</span></div>
-            <div class="info-row" v-if="lastUpdate"><span>Cập nhật</span><span class="value dim">{{ lastUpdate }}</span></div>
-          </section>
-
-          <section class="info-card" v-if="liveFaces.length">
-            <h2 class="info-title">Gương mặt trong khung</h2>
-            <div v-for="(f, i) in liveFaces" :key="'f' + i" class="face-mini" :class="f.allowed ? 'mini-ok' : 'mini-denied'">
-              <span>{{ f.employee_id ? prefixId(f.employee_id, f.known) : '???' }}</span>
-              <span class="mini-dist">{{ f.distance != null ? f.distance.toFixed(3) : '—' }}</span>
-            </div>
-          </section>
-
-          <div v-if="faceServiceError" class="error-box">{{ faceServiceError.message }}</div>
-          <div v-if="message && !faceServiceError" class="toast-box">{{ message }}</div>
-        </aside>
       </div>
     </template>
 
@@ -280,7 +255,8 @@ export default {
         ...f,
         allowed: !!f.match,
         known: !!f.employee_id,
-        status: f.status || (f.match ? "confirmed" : "intruder")
+        status: f.status || (f.match ? "confirmed" : "intruder"),
+        accessState: f.accessState || null
       }))
     },
 
@@ -329,16 +305,31 @@ export default {
   },
 
   methods: {
+    // Green = được phép thông hành qua cổng; red = không nhận diện được hoặc
+    // không có quyền; yellow = đang nhận diện / đang xác minh quyền.
     faceBoxClass(f) {
-      if (f.status === "confirmed") return "box-ok"
+      if (f.status === "confirmed" && f.accessState === "allowed") return "box-ok"
+      if (f.status === "confirmed" && (f.accessState === "denied" || f.accessState === "blacklist")) return "box-denied"
       if (f.status === "intruder") return "box-denied"
       return "box-pending"
     },
 
     faceIdClass(f) {
-      if (f.status === "confirmed") return "id-ok"
+      if (f.status === "confirmed" && f.accessState === "allowed") return "id-ok"
+      if (f.status === "confirmed" && (f.accessState === "denied" || f.accessState === "blacklist")) return "id-denied"
       if (f.status === "intruder") return "id-denied"
       return "id-pending"
+    },
+
+    faceLabel(f) {
+      if (f.status === "confirmed" && f.employee_id) {
+        const who = this.prefixId(f.employee_id, f.known)
+        if (f.accessState === "allowed") return who + " ✓"
+        if (f.accessState === "denied") return who + " ✕"
+        if (f.accessState === "blacklist") return who + " 🚫"
+        return who + " …"
+      }
+      return "???"
     },
 
     prefixId(id, known) {
@@ -554,15 +545,24 @@ export default {
     async resolveFaces() {
       if (!this.cameraRunning) return
       const seen = new Set()
+      const accCache = new Map()
       for (const f of this.faces || []) {
         if (!f.employee_id || seen.has(f.employee_id)) continue
         seen.add(f.employee_id)
         const empId = Number(f.employee_id)
         const gateId = this.selectedGateId || null
+        const cacheKey = `${empId}:${gateId || ""}`
+        let acc = accCache.get(cacheKey)
         try {
-          const acc = await checkGateAccess(empId, gateId)
+          if (!acc) {
+            acc = await checkGateAccess(empId, gateId)
+            accCache.set(cacheKey, acc)
+          }
           if (acc?.success) {
             const decision = acc.blacklist ? "blacklist"
+              : acc.allowed === true ? "allowed"
+              : acc.allowed === false ? "denied" : "unknown"
+            f.accessState = acc.blacklist ? "blacklist"
               : acc.allowed === true ? "allowed"
               : acc.allowed === false ? "denied" : "unknown"
             await recordFaceGateResult({
@@ -574,7 +574,9 @@ export default {
               laneId: this.laneId ? Number(this.laneId) : null,
               cameraId: this.activeCameraId,
               reasonDetail: acc.blacklistReason || acc.reason,
-              distance: f.distance ?? null
+              distance: f.distance ?? null,
+              snapshotBase64: f.snapshot_b64 || null,
+              faceCropBase64: f.crop_b64 || null
             })
             if (decision !== "allowed") {
               await this.loadIntruderCount()
@@ -582,6 +584,7 @@ export default {
           }
         } catch (e) {
           console.warn("resolve face access error:", e)
+          f.accessState = "unknown"
         }
       }
     },
@@ -772,16 +775,17 @@ export default {
 .btn-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.main-stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; flex: 1; min-height: 0; }
-@media (max-width: 980px) { .main-stage { grid-template-columns: 1fr; } }
-.stage-video { min-height: 0; display: flex; }
-.video-frame { position: relative; width: 100%; aspect-ratio: 16/9; min-height: 360px; border-radius: 18px; overflow: hidden; background: #0b1120; border: 1px solid var(--border-color, #1e293b); transition: box-shadow 200ms ease, border-color 200ms ease; }
+.main-stage { flex: 1; min-height: 0; display: flex; }
+.stage-video { min-height: 0; flex: 1; display: flex; }
+.video-frame { position: relative; width: 100%; aspect-ratio: 16/9; min-height: 420px; border-radius: 18px; overflow: hidden; background: #0b1120; border: 1px solid var(--border-color, #1e293b); transition: box-shadow 200ms ease, border-color 200ms ease; }
 .video-frame.frame-live { border-color: rgba(34,197,94,0.6); box-shadow: 0 0 0 3px rgba(34,197,94,0.12), 0 20px 50px rgba(0,0,0,0.25); }
 .video { width: 100%; height: 100%; border: 0; display: block; }
 .video-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #64748b; }
 .placeholder-icon { font-size: 46px; opacity: 0.5; }
 .placeholder-text { font-size: 0.95rem; font-weight: 600; }
 .video-toast { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: rgba(2,6,23,0.8); color: #fff; padding: 8px 18px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
+.face-error-float { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 90%; padding: 10px 16px; border-radius: 10px; background: rgba(220,38,38,0.92); color: #fff; font-weight: 700; font-size: 0.85rem; z-index: 6; }
+.face-toast-float { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 90%; padding: 10px 16px; border-radius: 10px; background: rgba(2,6,23,0.8); color: #e2e8f0; font-weight: 600; font-size: 0.85rem; z-index: 6; }
 
 .face-box { position: absolute; border: 2px solid #22c55e; border-radius: 6px; pointer-events: none; z-index: 5; transition: border-color 120ms ease; }
 .face-box.box-denied { border-color: #dc2626; }
@@ -789,30 +793,6 @@ export default {
 .face-id { position: absolute; top: -26px; left: -2px; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; background: rgba(34,197,94,0.9); color: #fff; }
 .face-id.id-denied { background: rgba(220,38,38,0.9); }
 .face-id.id-pending { background: rgba(234,179,8,0.9); }
-
-.stage-info { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
-.info-card { padding: 18px; border-radius: 16px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
-.info-title { margin: 0 0 14px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary, #64748b); }
-.big-id { font-family: "JetBrains Mono", Consolas, monospace; font-size: 2.1rem; font-weight: 900; letter-spacing: 0.02em; padding: 10px 14px; border-radius: 12px; background: var(--bg-input, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); text-align: center; transition: all 200ms ease; }
-.big-id.id-hit { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.5); color: #16a34a; }
-.big-id.id-empty { color: var(--text-secondary, #94a3b8); }
-.id-caption { text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-secondary, #64748b); margin-top: 6px; margin-bottom: 14px; }
-.info-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-color, #eef2f7); font-size: 0.88rem; }
-.info-row > span:first-child { color: var(--text-secondary, #64748b); }
-.info-row .value { font-weight: 800; }
-.value.val-hit { color: #16a34a; }
-.value.val-locked { color: #dc2626; }
-.value.val-verify { color: #eab308; }
-.value.val-track { color: #2563eb; }
-.value.dim { color: var(--text-secondary, #94a3b8); font-weight: 600; }
-
-.face-mini { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border-color, #eef2f7); font-size: 0.85rem; font-weight: 700; }
-.face-mini.mini-ok { color: #16a34a; }
-.face-mini.mini-denied { color: #dc2626; }
-.mini-dist { font-weight: 600; color: var(--text-secondary, #94a3b8); }
-
-.error-box { padding: 11px 14px; border-radius: 12px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: var(--accent-danger, #dc2626); font-weight: 700; font-size: 0.88rem; }
-.toast-box { padding: 11px 14px; border-radius: 12px; background: var(--bg-input, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); color: var(--text-secondary, #475569); font-size: 0.88rem; }
 
 .intruder-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
