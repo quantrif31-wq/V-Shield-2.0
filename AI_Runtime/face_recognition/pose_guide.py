@@ -55,25 +55,26 @@ class PoseGuideState:
 def euler_from_matrix(matrix: np.ndarray) -> tuple[float, float, float]:
     """Extract (yaw, pitch, roll) in degrees from a MediaPipe 4x4 transform.
 
-    Uses the standard rotation-matrix to Euler angle decomposition. The matrix
-    layout matches MediaPipe's ``faceTransformationMatrixes`` output where the
-    upper-left 3x3 block is the rotation.
+    Verified empirically against MediaPipe ``faceTransformationMatrixes``:
+    rotating the input image (a pure roll) must move ``roll`` and leave ``yaw``
+    near zero. The correct decomposition uses the raw rotation block (no
+    transpose) with yaw/roll swapped relative to the naive formula — otherwise
+    head turns (yaw) and head tilts (roll) are reported backwards.
     """
     rotation = np.asarray(matrix, dtype=np.float64).reshape(4, 4)[:3, :3]
-    # MediaPipe transforms are column-vector based; transpose to row-vector form.
-    r = rotation.T
+    r = rotation
 
     sy = math.sqrt(r[0, 0] ** 2 + r[1, 0] ** 2)
     singular = sy < 1e-6
 
     if not singular:
         pitch = math.atan2(-r[2, 0], sy)
-        yaw = math.atan2(r[1, 0], r[0, 0])
-        roll = math.atan2(r[2, 1], r[2, 2])
+        roll = math.atan2(r[1, 0], r[0, 0])
+        yaw = math.atan2(r[2, 1], r[2, 2])
     else:
         pitch = math.atan2(-r[2, 0], sy)
-        yaw = math.atan2(-r[1, 2], r[1, 1])
-        roll = 0.0
+        roll = math.atan2(-r[1, 2], r[1, 1])
+        yaw = 0.0
 
     return (
         math.degrees(yaw),
