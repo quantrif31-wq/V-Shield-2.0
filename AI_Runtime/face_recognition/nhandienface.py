@@ -59,11 +59,7 @@ embedder = None
 landmark_service = None
 if CONFIG.detector_path is not None:
     try:
-        detector = FaceDetector(
-            CONFIG.detector_path,
-            score_threshold=0.72,
-            nms_threshold=0.3,
-        )
+        detector = FaceDetector(CONFIG.detector_path)
         print("YuNet detector loaded from:", CONFIG.detector_path)
     except FaceDetectorError as error:
         print("WARNING: face detector unavailable ->", error)
