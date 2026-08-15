@@ -207,31 +207,26 @@ public class ChatHub : Hub
 
         if (callerName == null) return;
 
+        var signal = new RelaySignal
+        {
+            Kind = RelaySignalKind.IncomingCall,
+            TargetEmployeeId = targetEmployeeId,
+            FromEmployeeId = empId,
+            FromFullName = callerName,
+            SignalingType = signalingType,
+            SignalingData = signalingData,
+            ConversationId = conversationId
+        };
+
         if (_presenceRegistry.IsOnline(targetEmployeeId))
         {
-            await Clients.Group($"user_{targetEmployeeId}").SendAsync("IncomingCall", new
-            {
-                fromEmployeeId = empId,
-                fromFullName = callerName,
-                signalingType,
-                signalingData,
-                conversationId
-            });
+            await _relayGateway.BroadcastCallSignalAsync(signal);
             return;
         }
 
         if (_relayGateway.IsEnabled)
         {
-            await _relayGateway.RelaySignalAsync(new RelaySignal
-            {
-                Kind = RelaySignalKind.IncomingCall,
-                TargetEmployeeId = targetEmployeeId,
-                FromEmployeeId = empId,
-                FromFullName = callerName,
-                SignalingType = signalingType,
-                SignalingData = signalingData,
-                ConversationId = conversationId
-            });
+            await _relayGateway.RelaySignalAsync(signal);
         }
     }
 
@@ -257,10 +252,8 @@ public class ChatHub : Hub
                 signalingType,
                 signalingData
             });
-            return;
         }
-
-        if (_relayGateway.IsEnabled)
+        else if (_relayGateway.IsEnabled)
         {
             await _relayGateway.RelaySignalAsync(new RelaySignal
             {
@@ -271,6 +264,23 @@ public class ChatHub : Hub
                 SignalingType = signalingType,
                 SignalingData = signalingData
             });
+        }
+
+        // Call answered/rejected on THIS device: tell the same employee's other
+        // devices (and the other backend via relay) to stop ringing.
+        if (string.Equals(signalingType, "accepted", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(signalingType, "reject", StringComparison.OrdinalIgnoreCase))
+        {
+            await Clients.OthersInGroup($"user_{empId}").SendAsync("CallEnded", new
+            {
+                fromEmployeeId = empId,
+                conversationId = (int?)null
+            });
+
+            if (_relayGateway.IsEnabled)
+            {
+                await _relayGateway.NotifyCallHandledElsewhereAsync(empId, null);
+            }
         }
     }
 

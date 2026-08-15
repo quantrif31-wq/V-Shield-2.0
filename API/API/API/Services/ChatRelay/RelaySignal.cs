@@ -4,7 +4,8 @@ public enum RelaySignalKind
 {
     IncomingCall,
     CallResponse,
-    CallEnded
+    CallEnded,
+    CallHandledElsewhere
 }
 
 /// <summary>

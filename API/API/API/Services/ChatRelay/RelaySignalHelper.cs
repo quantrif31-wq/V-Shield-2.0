@@ -11,6 +11,7 @@ public static class RelaySignalHelper
         RelaySignalKind.IncomingCall => "IncomingCall",
         RelaySignalKind.CallResponse => "CallResponse",
         RelaySignalKind.CallEnded => "CallEnded",
+        RelaySignalKind.CallHandledElsewhere => "CallEnded",
         _ => "IncomingCall"
     };
 
@@ -32,6 +33,11 @@ public static class RelaySignalHelper
             signalingData = signal.SignalingData
         },
         RelaySignalKind.CallEnded => new
+        {
+            fromEmployeeId = signal.FromEmployeeId,
+            conversationId = signal.ConversationId
+        },
+        RelaySignalKind.CallHandledElsewhere => new
         {
             fromEmployeeId = signal.FromEmployeeId,
             conversationId = signal.ConversationId
