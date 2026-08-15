@@ -246,9 +246,10 @@ public class FaceGateController : ControllerBase
         _db.FaceIntruders.Add(intruder);
 
         // Cũng ghi AccessLog FAILED để thấy trong lịch sử thông hành.
+        AccessLog? failLog = null;
         if (request.EmployeeId > 0)
         {
-            var failLog = new AccessLog
+            failLog = new AccessLog
             {
                 Timestamp = DateTime.Now,
                 Direction = string.Equals(request.Direction, "OUT", StringComparison.OrdinalIgnoreCase) ? "OUT" : "IN",
@@ -263,6 +264,18 @@ public class FaceGateController : ControllerBase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Lưu ảnh evidence (nếu có) cho intruder + AccessLog FAILED.
+        if (failLog != null && !string.IsNullOrWhiteSpace(request.FaceCropBase64))
+        {
+            var sourceRef = $"access-log/{failLog.LogId}";
+            failLog.CapturedFaceCropUrl = await _evidenceCapture.CaptureBase64Async(
+                request.FaceCropBase64, "face-crop", sourceRef, createdByUserId: request.EmployeeId);
+            failLog.CapturedSnapshotUrl = await _evidenceCapture.CaptureBase64Async(
+                request.SnapshotBase64, "snapshot", sourceRef, createdByUserId: request.EmployeeId)
+                ?? failLog.CapturedFaceCropUrl;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
 
         return Ok(new { success = true, decision = intruder.Reason, intruderId = intruder.Id });
     }

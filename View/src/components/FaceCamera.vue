@@ -227,6 +227,9 @@ export default {
       lastUpdate: "",
       faceServiceError: null,
 
+      // đã ghi nhận thông hành 1 lần cho track này (tránh lặp mỗi poll)
+      recordedTrackIds: new Set(),
+
       // intruders
       intruders: [],
       intruderCount: 0,
@@ -544,11 +547,39 @@ export default {
 
     async resolveFaces() {
       if (!this.cameraRunning) return
-      const seen = new Set()
       const accCache = new Map()
       for (const f of this.faces || []) {
-        if (!f.employee_id || seen.has(f.employee_id)) continue
-        seen.add(f.employee_id)
+        const trackId = f.id || f.track_id || (f.employee_id ? "emp-" + f.employee_id : null)
+        const isIntruder = f.status === "intruder" || (!f.employee_id && f.status !== "new")
+
+        // Chỉ ghi nhận 1 lần cho mỗi track (1 lần 1 phiên), tránh lặp mỗi poll.
+        if (trackId && this.recordedTrackIds.has(trackId)) continue
+
+        if (!f.employee_id) {
+          // Intruder không nhận diện được -> ghi nhận xâm nhập kèm ảnh.
+          if (!isIntruder) continue
+          try {
+            await recordFaceGateResult({
+              decision: "unknown",
+              employeeId: 0,
+              employeeName: null,
+              gateId: this.selectedGateId || null,
+              gateName: this.activeGateName,
+              laneId: this.laneId ? Number(this.laneId) : null,
+              cameraId: this.activeCameraId,
+              reasonDetail: "Không nhận diện được khuôn mặt",
+              distance: f.distance ?? null,
+              snapshotBase64: f.snapshot_b64 || null,
+              faceCropBase64: f.crop_b64 || null
+            })
+            if (trackId) this.recordedTrackIds.add(trackId)
+            await this.loadIntruderCount()
+          } catch (e) {
+            console.warn("record unknown intruder error:", e)
+          }
+          continue
+        }
+
         const empId = Number(f.employee_id)
         const gateId = this.selectedGateId || null
         const cacheKey = `${empId}:${gateId || ""}`
@@ -578,6 +609,7 @@ export default {
               snapshotBase64: f.snapshot_b64 || null,
               faceCropBase64: f.crop_b64 || null
             })
+            if (trackId) this.recordedTrackIds.add(trackId)
             if (decision !== "allowed") {
               await this.loadIntruderCount()
             }
@@ -668,6 +700,7 @@ export default {
       this.fps = 0
       this.message = ""
       this.lastUpdate = ""
+      this.recordedTrackIds = new Set()
     },
 
     hardResetUiState() {

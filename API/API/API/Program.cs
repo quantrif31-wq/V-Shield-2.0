@@ -490,9 +490,14 @@ namespace API
                     context.Request.Path.StartsWithSegments("/uploads", StringComparison.OrdinalIgnoreCase);
                 var isRecordedVideo =
                     context.Request.Path.StartsWithSegments("/uploads/recordings", StringComparison.OrdinalIgnoreCase);
+                // Bằng chứng FaceID/evidence là ảnh <img> trong trang, không kèm
+                // header token nên cho public (giống ảnh demo QR đang dùng).
+                var isEvidenceImage =
+                    context.Request.Path.StartsWithSegments("/uploads/evidence", StringComparison.OrdinalIgnoreCase);
 
                 if (isSensitiveUpload &&
                     !isRecordedVideo &&
+                    !isEvidenceImage &&
                     context.User?.Identity?.IsAuthenticated != true)
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;

@@ -146,7 +146,9 @@ server {
     proxy_buffering off;
   }
 
-  location /uploads/ {
+  # ^~ keeps this prefix match from losing to the .js/.jpg static rule below,
+  # so evidence images are proxied to the API instead of 404'd from html root.
+  location ^~ /uploads/ {
     proxy_pass ${API_PROXY_BASE}/uploads/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
