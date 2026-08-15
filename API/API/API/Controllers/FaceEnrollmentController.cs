@@ -6,6 +6,7 @@ using API.Services.FaceRecognition;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace API.Controllers;
 
@@ -67,6 +68,7 @@ public class FaceEnrollmentController : ControllerBase
     /// EmployeeId được lấy tự động từ tài khoản đang đăng nhập.
     /// </summary>
     [HttpPost("enroll-self")]
+    [RequestSizeLimit(60 * 1024 * 1024)]
     public async Task<IActionResult> EnrollSelf(
         [FromBody] FaceEnrollmentSelfRequest request,
         CancellationToken cancellationToken)
@@ -129,6 +131,7 @@ public class FaceEnrollmentController : ControllerBase
     /// xử lý qua cơ chế sync. Dùng khi backend chạy ở VPS (không có AI).
     /// </summary>
     [HttpPost("submit-remote")]
+    [RequestSizeLimit(60 * 1024 * 1024)]
     public async Task<IActionResult> SubmitRemote(
         [FromBody] FaceEnrollmentSelfRequest request,
         CancellationToken cancellationToken)

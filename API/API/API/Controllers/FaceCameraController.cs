@@ -147,6 +147,7 @@ public class FaceCameraController : ControllerBase
     }
 
     [HttpPost("enroll-live")]
+    [RequestSizeLimit(60 * 1024 * 1024)]
     public Task<IActionResult> LiveEnroll(
         [FromBody] FaceLiveEnrollRequest request,
         CancellationToken cancellationToken)
