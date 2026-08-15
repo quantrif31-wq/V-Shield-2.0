@@ -612,18 +612,25 @@ class CameraSession:
         confirm_n = int(getattr(config, "track_confirm_frames", 3))
 
         # 1) Build detection boxes.
+        min_face_w = int(getattr(config, "face_quality_min_face_width", 80))
         dets = []
         if detections is not None and len(detections):
             limit = min(len(detections), max(1, self._max_faces))
             for i in range(limit):
-                d = detections[i]
                 loc = FaceDetector.box_from_detection(detections[i])
                 lm = FaceDetector.landmarks_from_detection(detections[i])
+                if loc is None:
+                    continue
+                top, right, bottom, left = loc
+                face_w = int(right) - int(left)
+                face_h = int(bottom) - int(top)
+                if face_w < min_face_w or face_h < min_face_w:
+                    continue
                 dets.append({
                     "loc": loc,
                     "landmarks": lm,
                     "crop": self._crop_face(processed, loc),
-                    "area": max(0, loc[1]-loc[3]) * max(0, loc[2]-loc[0]),
+                    "area": max(0, int(right)-int(left)) * max(0, int(bottom)-int(top)),
                 })
         dets.sort(key=lambda x: x["area"], reverse=True)
 
@@ -707,6 +714,17 @@ class CameraSession:
 
         # 4) Recognize tracks that have a fresh embedding.
         model_snapshot = self._model_registry.current_snapshot()
+        # Với nhiều người trong khung, cần nhiều frame xác nhận hơn để tránh
+        # nhầm lẫn giữa các khuôn mặt giống nhau.
+        active_count = sum(
+            1 for tid in live_tracks
+            if self._tracks[tid].get("status") not in ("confirmed", "intruder")
+        )
+        effective_confirm = confirm_n
+        if active_count >= 2:
+            effective_confirm = max(confirm_n, int(confirm_n * 1.6) + 1)
+        margin = 0.02  # gap giữa best vs second-best để chống nhầm 2 người
+
         for tid in live_tracks:
             t = self._tracks[tid]
             enc = t.get("_enc")
@@ -722,16 +740,28 @@ class CameraSession:
                 dists = np.asarray(
                     [float(np.linalg.norm(np.asarray(enc)-np.asarray(k)))
                      for k in model_snapshot.encodings], dtype=np.float64)
-            best = int(np.argmin(dists))
+            if len(dists) == 0:
+                continue
+            order = np.argsort(dists)
+            best = int(order[0])
             distance = float(dists[best])
+            # Second-best khác subject (không phải encoding khác của cùng 1 người).
+            second = None
+            for idx in order[1:]:
+                if model_snapshot.subject_ids[int(idx)] != model_snapshot.subject_ids[best]:
+                    second = float(dists[int(idx)])
+                    break
+            if second is None:
+                second = distance + 1.0
             t["distance"] = distance
-            if distance < self._config.threshold:
+            # Chỉ tin khi best rõ ràng hơn hẳn người gần thứ 2 (chống nhầm 2 người).
+            if distance < self._config.threshold and (second - distance) >= margin:
                 if t.get("subject_id") == model_snapshot.subject_ids[best]:
                     t["confirm_count"] += 1
                 else:
                     t["confirm_count"] = 1
                     t["subject_id"] = model_snapshot.subject_ids[best]
-                if t["confirm_count"] >= confirm_n:
+                if t["confirm_count"] >= effective_confirm:
                     t["status"] = "confirmed"
             else:
                 if t.get("subject_id") is not None:
