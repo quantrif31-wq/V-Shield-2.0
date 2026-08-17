@@ -64,6 +64,15 @@ bin/
 obj/
 TestResults/
 
+# ----- Test coverage reports -----
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+cobertura.xml
+coverage.json
+
 # ----- Native / packaged outputs -----
 *.exe
 *.dll

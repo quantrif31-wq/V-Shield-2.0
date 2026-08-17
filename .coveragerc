@@ -1,0 +1,17 @@
+[run]
+source =
+    AI_Runtime/face_recognition
+    scripts
+omit =
+    */tests/*
+    */examples/*
+    */docs/*
+    */setup.py
+    */face_recognition/face_recognition/*
+
+[report]
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+fail_under = 30

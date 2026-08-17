@@ -11,7 +11,20 @@ export default defineConfig(({ mode }) => {
       environment: "jsdom",
       css: true,
       include: ["src/**/*.{test,spec}.{js,ts}"],
-      exclude: ["e2e/**", "node_modules/**", "dist/**"]
+      exclude: ["e2e/**", "node_modules/**", "dist/**"],
+      coverage: {
+        provider: "v8",
+        all: true,
+        include: ["src/**"],
+        exclude: ["src/**/__tests__/**", "src/main.js", "src/assets/**"],
+        reporter: ["text", "text-summary", "html", "lcov"],
+        thresholds: {
+          lines: 70,
+          functions: 70,
+          branches: 60,
+          statements: 70
+        }
+      }
     },
     build: {
       chunkSizeWarningLimit: 600,

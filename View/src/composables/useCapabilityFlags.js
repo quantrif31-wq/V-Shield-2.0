@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { authState } from '../../stores/auth'
+import { authState } from '../stores/auth'
 
 const userRole = computed(() => authState.user?.role)
 

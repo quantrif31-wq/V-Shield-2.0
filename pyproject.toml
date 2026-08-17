@@ -1,0 +1,10 @@
+[tool.pytest.ini_options]
+testpaths = [
+    "AI_Runtime/face_recognition/tests",
+    "scripts/tests",
+]
+pythonpath = [
+    "AI_Runtime/face_recognition",
+    "scripts",
+]
+addopts = "--cov --cov-branch --cov-report=term-missing --cov-report=html --cov-report=xml"
