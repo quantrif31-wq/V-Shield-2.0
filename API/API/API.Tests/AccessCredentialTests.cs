@@ -76,7 +76,7 @@ public sealed class AccessCredentialTests
         await db.SaveChangesAsync();
         var service = Service(db);
         var result = await service.CreateAsync(new(
-            1, "Card", "CARD-00001234", null, null, Now.AddDays(1), "Test"), default);
+            1, "Card", "CARD-00001234", null, null, DateTime.UtcNow.AddDays(1), "Test"), default);
         var stored = await db.AccessCredentials.SingleAsync();
         Assert.Equal("Card", stored.CredentialType);
         Assert.NotNull(stored.IdentifierHash);
@@ -173,7 +173,9 @@ public sealed class AccessCredentialTests
     };
     private static ApplicationDbContext Database() => new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"credential-{Guid.NewGuid():N}").Options);
+            .UseInMemoryDatabase($"credential-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options);
     private static AccessCredentialService Service(ApplicationDbContext db) => new(
         db, new AccessCredentialStateEvaluator(),
         new AccessCredentialIdentifierProtector(new()

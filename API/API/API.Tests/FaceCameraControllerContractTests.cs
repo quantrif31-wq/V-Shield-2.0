@@ -5,11 +5,13 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using API.Controllers;
+using API.Data;
 using API.Services;
 using API.Services.FaceRecognition;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
@@ -318,7 +320,14 @@ public sealed class FaceCameraControllerContractTests
     }
 
     private static FaceCameraController CreateController(StubClient client) =>
-        new(client)
+        new(
+            client,
+            new ApplicationDbContext(
+                new DbContextOptionsBuilder<ApplicationDbContext>()
+                    .UseInMemoryDatabase($"facecamera-{Guid.NewGuid():N}")
+                    .ConfigureWarnings(w => w.Ignore(
+                        Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options))
         {
             ControllerContext = new ControllerContext
             {

@@ -87,7 +87,9 @@ public sealed class FaceAccessDecisionTests
     public void Model_EnforcesOneDecisionPerEventAndComparisonWithNoActionForeignKeys()
     {
         using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"decision-model-{Guid.NewGuid():N}").Options);
+            .UseInMemoryDatabase($"decision-model-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options);
         var entity = db.Model.FindEntityType(typeof(FaceAccessDecision))!;
         Assert.True(entity.GetIndexes().Single(x =>
             x.Properties.Single().Name == nameof(FaceAccessDecision.FaceRecognitionEventId)).IsUnique);
@@ -101,7 +103,9 @@ public sealed class FaceAccessDecisionTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddDbContext<ApplicationDbContext>(x =>
-            x.UseInMemoryDatabase("face-access-decisions", root));
+            x.UseInMemoryDatabase("face-access-decisions", root)
+                .ConfigureWarnings(w => w.Ignore(
+                    Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)));
         services.AddSingleton(new FaceAccessPolicyComparisonOptions {
             BatchSize = 100, MaxParallelism = 2, EvaluationVersion = 1,
             TimeZoneId = "Asia/Ho_Chi_Minh"

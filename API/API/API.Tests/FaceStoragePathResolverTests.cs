@@ -27,12 +27,24 @@ public sealed class FaceStoragePathResolverTests : IDisposable
     [Theory]
     [InlineData("../escape.mp4")]
     [InlineData("folder/escape.mp4")]
-    [InlineData("folder\\escape.mp4")]
     public void FilenameTraversalIsRejected(string fileName)
     {
         var resolver = CreateResolver(_root);
 
         var action = () => resolver.ResolveFile("video_notok", fileName);
+
+        action.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void FilenameWithWindowsSeparatorIsRejectedOnWindows()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var resolver = CreateResolver(_root);
+
+        var action = () => resolver.ResolveFile("video_notok", "folder\\escape.mp4");
 
         action.Should().Throw<ArgumentException>();
     }

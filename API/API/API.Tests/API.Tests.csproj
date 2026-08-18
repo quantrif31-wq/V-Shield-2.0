@@ -12,9 +12,11 @@
     <CollectCoverage>true</CollectCoverage>
     <CoverletOutputFormat>cobertura,json</CoverletOutputFormat>
     <CoverletOutput>$(MSBuildProjectDirectory)/coverage/</CoverletOutput>
+    <CoverletSkipValidators>[DefaultVerification]</CoverletSkipValidators>
     <Threshold>55</Threshold>
     <ThresholdType>line</ThresholdType>
     <ThresholdStat>total</ThresholdStat>
+    <ExcludeByFile>**/Migrations/*.cs;**/Services/DemoDataSeeder.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>

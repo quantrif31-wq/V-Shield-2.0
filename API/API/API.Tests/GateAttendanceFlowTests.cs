@@ -99,6 +99,8 @@ public sealed class GateAttendanceFlowTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase($"gate-attendance-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         return new ApplicationDbContext(options);
     }

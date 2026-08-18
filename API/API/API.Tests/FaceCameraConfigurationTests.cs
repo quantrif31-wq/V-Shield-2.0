@@ -241,6 +241,8 @@ public sealed class FaceCameraConfigurationTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase($"face-config-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         return new ApplicationDbContext(options);
     }

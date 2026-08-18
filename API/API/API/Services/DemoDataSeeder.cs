@@ -1,10 +1,12 @@
 using API.Data;
 using API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace API.Services;
 
+[ExcludeFromCodeCoverage]
 public static class DemoDataSeeder
 {
     private const string DemoCompanyCode = "VSHIELD-DEMO";

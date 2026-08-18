@@ -87,7 +87,10 @@ public sealed class FaceRecognitionEventCollectorTests
         var databaseName = $"recognition-events-{Guid.NewGuid():N}";
         services.AddLogging();
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseInMemoryDatabase(databaseName, databaseRoot));
+            options
+                .UseInMemoryDatabase(databaseName, databaseRoot)
+                .ConfigureWarnings(w => w.Ignore(
+                    Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)));
         services.AddSingleton(runtime);
         services.AddSingleton(new FaceRecognitionEventOptions());
         services.AddSingleton<FaceRecognitionEventCollector>();

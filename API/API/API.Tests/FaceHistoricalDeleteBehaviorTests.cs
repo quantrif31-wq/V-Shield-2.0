@@ -87,5 +87,7 @@ public sealed class FaceHistoricalDeleteBehaviorTests
 
     private static ApplicationDbContext Database() => new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"historical-delete-{Guid.NewGuid():N}").Options);
+            .UseInMemoryDatabase($"historical-delete-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options);
 }

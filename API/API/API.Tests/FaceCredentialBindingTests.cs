@@ -210,7 +210,9 @@ public sealed class FaceCredentialBindingTests
 
     private static ApplicationDbContext Database() => new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"face-binding-{Guid.NewGuid():N}").Options);
+            .UseInMemoryDatabase($"face-binding-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options);
 
     private static FaceCredentialBindingService Service(ApplicationDbContext db) => new(
         db, new AccessCredentialStateEvaluator(), new TestUser());

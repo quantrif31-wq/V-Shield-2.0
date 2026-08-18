@@ -22,7 +22,10 @@ public sealed class SecurityWebApplicationFactory : WebApplicationFactory<API.Pr
         {
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseInMemoryDatabase(_databaseName, _databaseRoot));
+                options
+                    .UseInMemoryDatabase(_databaseName, _databaseRoot)
+                    .ConfigureWarnings(w => w.Ignore(
+                        Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)));
 
             using var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();

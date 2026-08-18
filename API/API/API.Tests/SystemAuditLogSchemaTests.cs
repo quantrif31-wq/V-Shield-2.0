@@ -33,5 +33,7 @@ public sealed class SystemAuditLogSchemaTests
 
     private static ApplicationDbContext Database() => new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"audit-schema-{Guid.NewGuid():N}").Options);
+            .UseInMemoryDatabase($"audit-schema-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options);
 }

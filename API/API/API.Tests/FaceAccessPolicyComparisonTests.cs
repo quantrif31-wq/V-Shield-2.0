@@ -121,7 +121,9 @@ public sealed class FaceAccessPolicyComparisonTests
         var root = new InMemoryDatabaseRoot();
         services.AddLogging();
         services.AddDbContext<ApplicationDbContext>(x =>
-            x.UseInMemoryDatabase("comparison-processor", root));
+            x.UseInMemoryDatabase("comparison-processor", root)
+                .ConfigureWarnings(w => w.Ignore(
+                    Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)));
         services.AddSingleton(Options());
         services.AddScoped<ILegacyGateAccessEvaluator, LegacyGateAccessEvaluator>();
         services.AddScoped<IEnterpriseAccessPolicyEvaluator, EnterpriseAccessPolicyEvaluator>();
@@ -185,7 +187,9 @@ public sealed class FaceAccessPolicyComparisonTests
     private static ApplicationDbContext Database()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase($"policy-comparison-{Guid.NewGuid():N}").Options;
+            .UseInMemoryDatabase($"policy-comparison-{Guid.NewGuid():N}")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options;
         return new ApplicationDbContext(options);
     }
 

@@ -1892,10 +1892,34 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
     [Fact]
     public async Task AdminLogin_RequiresTotpSetup_ThenAcceptsTotp()
     {
+        const int userId = 3001;
+        const string username = "setup.admin";
+        const string password = "Admin@12345";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (!db.AppUsers.Any(user => user.UserId == userId))
+            {
+                db.AppUsers.Add(new API.Models.AppUser
+                {
+                    UserId = userId,
+                    Username = username,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                    FullName = "Setup Admin",
+                    Role = "Admin",
+                    IsActive = true,
+                    TokenVersion = 0,
+                    CreatedAt = DateTime.UtcNow
+                });
+                db.SaveChanges();
+            }
+        }
+
         var setupResponse = await _client.PostAsJsonAsync("/api/Auth/login", new
         {
-            username = "admin.test",
-            password = "Admin@12345"
+            username,
+            password
         });
 
         Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
@@ -1908,8 +1932,8 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var code = GenerateTotpCode(secret);
         var loginResponse = await _client.PostAsJsonAsync("/api/Auth/login", new
         {
-            username = "admin.test",
-            password = "Admin@12345",
+            username,
+            password,
             mfaCode = code
         });
 
@@ -1925,6 +1949,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         const int userId = 2001;
         const string username = "recovery.admin";
         const string password = "Admin@12345";
+        string? secret = null;
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -1932,7 +1957,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
             if (!db.AppUsers.Any(user => user.UserId == userId))
             {
                 var totp = scope.ServiceProvider.GetRequiredService<TotpService>();
-                var secret = totp.GenerateSecret();
+                secret = totp.GenerateSecret();
                 db.AppUsers.Add(new API.Models.AppUser
                 {
                     UserId = userId,
@@ -1949,10 +1974,16 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
                 });
                 db.SaveChanges();
             }
+            else
+            {
+                var totp = scope.ServiceProvider.GetRequiredService<TotpService>();
+                var existing = db.AppUsers.Single(user => user.UserId == userId);
+                secret = totp.UnprotectSecret(existing.MfaSecretProtected!);
+            }
         }
 
         using var authenticated = CreateClientWithBearer(CreateJwtToken(userId, username, "Admin"));
-        await GrantStepUpAsync(authenticated, password);
+        await GrantStepUpAsync(authenticated, password, GenerateTotpCode(secret!));
         var codesResponse = await authenticated.PostAsJsonAsync("/api/Auth/mfa/recovery-codes", new { count = 4 });
         Assert.Equal(HttpStatusCode.OK, codesResponse.StatusCode);
         var codes = await ReadJsonAsync(codesResponse);
@@ -2083,7 +2114,7 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         }
     }
 
-    private static async Task GrantStepUpAsync(HttpClient authenticated, string password = "Admin@12345")
+    private static async Task GrantStepUpAsync(HttpClient authenticated, string password = "Admin@12345", string? mfaCode = null)
     {
         var startResponse = await authenticated.PostAsJsonAsync("/api/Auth/step-up/start", new
         {
@@ -2097,7 +2128,8 @@ public class SecurityBoundaryTests : IClassFixture<SecurityWebApplicationFactory
         var verifyResponse = await authenticated.PostAsJsonAsync("/api/Auth/step-up/verify", new
         {
             sessionId,
-            password
+            password,
+            mfaCode
         });
         Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
 

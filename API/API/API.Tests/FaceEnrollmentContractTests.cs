@@ -48,6 +48,8 @@ public sealed class FaceEnrollmentContractTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlServer("Server=(local);Database=model-only;Trusted_Connection=True;TrustServerCertificate=True")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         using var db = new ApplicationDbContext(options);
         var job = db.Model.FindEntityType(typeof(FaceEnrollmentJob))!;
@@ -66,6 +68,8 @@ public sealed class FaceEnrollmentContractTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlServer("Server=(local);Database=model-only;Trusted_Connection=True;TrustServerCertificate=True")
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         using var db = new ApplicationDbContext(options);
         var foreignKeys = db.Model.FindEntityType(typeof(FaceEnrollmentJob))!.GetForeignKeys();
@@ -90,7 +94,9 @@ public sealed class FaceEnrollmentContractTests
     public async Task Recovery_FinalizesRuntimeActivationWithoutCreatingAnotherVersion()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options;
         await using var db = new ApplicationDbContext(options);
         db.Employees.Add(new Employee { EmployeeId = 7, FullName = "Recovery Test" });
         db.EmployeeFaceModels.Add(new EmployeeFaceModel {
@@ -131,7 +137,9 @@ public sealed class FaceEnrollmentContractTests
     public async Task Create_RequiresManagedVideoOwnershipAndBlocksSecondActiveJob()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(
+                Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning)).Options;
         await using var db = new ApplicationDbContext(options);
         db.Employees.AddRange(
             new Employee { EmployeeId = 1, FullName = "One", Status = true },
@@ -186,6 +194,7 @@ public sealed class FaceEnrollmentContractTests
     private sealed class DummyStorage : IFaceStoragePathResolver
     {
         public string InputRoot => Path.GetTempPath();
+        public string ModelActiveDir => Path.Combine(Path.GetTempPath(), "models", "active");
         public string ResolveDirectory(string directoryName) => Path.GetTempPath();
         public string ResolveFile(string directoryName, string fileName) => Path.Combine(Path.GetTempPath(), fileName);
     }
