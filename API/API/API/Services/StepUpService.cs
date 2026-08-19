@@ -74,8 +74,10 @@ public class StepUpService : IStepUpService
             return await Fail(session, now, "Mật khẩu không đúng.");
         }
 
-        // Bước 2: MFA chỉ bắt buộc khi logic đăng nhập yêu cầu (tôn trọng cấu hình bypass)
-        var mfaRequired = _authService.RequiresMfa(user);
+        // Bước 2: MFA chỉ bắt buộc khi tài khoản thực sự đã kích hoạt MFA.
+        // Chính sách theo vai trò (RequiresMfa) áp dụng cho đăng nhập; ở bước xác thực lại,
+        // không thể đòi mã MFA cho tài khoản chưa cấu hình MFA.
+        var mfaRequired = _authService.RequiresMfa(user) && user.MfaEnabled;
         if (mfaRequired)
         {
             if (string.IsNullOrWhiteSpace(user.MfaSecretProtected))

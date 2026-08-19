@@ -261,11 +261,16 @@ class CameraManagerTests(unittest.TestCase):
         session, _ = self.manager.start_session("generation", "fake://one")
         old_generation = session.generation
         self.manager.reset_session("generation")
-        session._mark_face_seen(
-            old_generation, time.time(), (1, 5, 5, 1), "old-frame", "old-face"
+        session.update_recognition_state(
+            identity_confirmed=True,
+            employee_id=42,
+            confirm_count=5,
         )
         self.assertIsNone(session.result()["last_snapshot"])
         self.assertNotEqual(old_generation, session.generation)
+        with session.session_lock:
+            self.assertTrue(session._is_current_locked(session.generation))
+            self.assertFalse(session._is_current_locked(old_generation))
 
     def test_manager_reads_are_not_blocked_by_slow_camera_open(self):
         opening = threading.Event()
