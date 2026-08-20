@@ -49,7 +49,7 @@
                 </span>
               </div>
 
-              <div class="cam-preview" :class="`state-${cameraVisualState('qr', lane)}`">
+              <div class="cam-preview" :class="`state-${cameraVisualState('qr', lane)}${autoCamClass(lane)}`">
                 <iframe
                   v-if="lane.qr.previewRunning && lane.qr.directCameraUrl"
                   :key="lane.qr.directCameraKey"
@@ -79,7 +79,7 @@
                   <button
                     type="button"
                     class="cam-refresh-btn"
-                    :disabled="lane.loading || !lane.qr.cameraIp.trim()"
+                    :disabled="autoActive || lane.loading || !lane.qr.cameraIp.trim()"
                     :aria-label="
                       lane.loading ? 'Đang xử lý' : lane.qr.cameraRunning ? 'Đọc lại QR' : 'Đọc QR'
                     "
@@ -160,6 +160,7 @@
                   Đã khóa QR, đang xác thực...
                 </div>
               </div>
+              <div v-if="lane.auto.error" class="auto-error-banner">{{ lane.auto.error }}</div>
             </div>
           </div>
 
@@ -175,7 +176,7 @@
                 </span>
               </div>
 
-              <div class="cam-preview" :class="`state-${cameraVisualState('plate', lane)}`">
+              <div class="cam-preview" :class="`state-${cameraVisualState('plate', lane)}${autoCamClass(lane)}`">
                 <iframe
                   v-if="lane.plate.previewRunning && lane.plate.directCameraUrl"
                   :key="lane.plate.directCameraKey"
@@ -205,7 +206,7 @@
                   <button
                     type="button"
                     class="cam-refresh-btn"
-                    :disabled="lane.loading || !lane.plate.cameraIp.trim()"
+                    :disabled="autoActive || lane.loading || !lane.plate.cameraIp.trim()"
                     :aria-label="
                       lane.loading
                         ? 'Đang xử lý'
@@ -261,57 +262,44 @@
                   {{ cameraVisualText("plate", lane) }}
                 </div>
               </div>
+              <div v-if="lane.auto.error" class="auto-error-banner">{{ lane.auto.error }}</div>
             </div>
           </div>
         </template>
       </div>
     </div>
 
-    <div class="ops-dock" role="toolbar" aria-label="Điều khiển nhanh">
-      <div class="ops-dock-grid">
-        <div class="ops-dock-center">
-          <div
-            v-for="lane in lanes"
-            :key="lane.id + '-dock-actions'"
-            class="lane-action-group"
+    <div class="ops-dock" role="toolbar" aria-label="Chế độ tự động">
+      <div class="ops-dock-auto">
+        <div class="ops-dock-auto-main">
+          <button
+            type="button"
+            class="btn btn-auto"
+            :class="{ running: autoActive }"
+            :disabled="autoStarting"
+            @click="toggleAutoMonitor"
           >
-            <div class="lane-action-title">{{ lane.name }}</div>
-            <div class="lane-action-btns" role="group" :aria-label="`Thao tác ${lane.name}`">
-              <button
-                class="btn btn-dock btn-main"
-                :disabled="lane.loading || !lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()"
-                @click="readAllLane(lane)"
-              >
-                {{
-                  lane.loading ? "Đang xử lý..." : laneAnyRunning(lane) ? "Quét lại cả hai" : "Quét cả hai"
-                }}
-              </button>
-
-              <button
-                class="btn btn-dock btn-confirm"
-                :disabled="
-                  lane.loading ||
-                    (!lane.qr.employeeId && !lane.qr.guestId) ||
-                    !lane.plate.confirmedPlate
-                "
-                @click="confirmLane(lane)"
-              >
-                Xác nhận
-              </button>
-              <button
-                class="btn btn-dock btn-decision"
-                :disabled="
-                  lane.loading ||
-                    (!lane.qr.employeeId && !lane.qr.guestId && !lane.plate.confirmedPlate)
-                "
-                @click="openDecisionDrawer(lane)"
-              >
-                Quyết định
-              </button>
-            </div>
-          </div>
+            <span v-if="autoStarting" class="btn-auto-spinner" aria-hidden="true"></span>
+            {{ autoStarting ? "Đang khởi động..." : (autoActive ? "Dừng" : "Bắt đầu") }}
+          </button>
+          <span class="auto-status-text">
+            {{
+              autoActive
+                ? "Đang tự động quét liên tục: QR + biển số, quyết định và lưu nhật ký 1 lần mỗi phiên."
+                : "Nhấn Bắt đầu để chạy nhận diện tự động. Preview camera vẫn hoạt động khi Dừng."
+            }}
+          </span>
         </div>
-
+        <div class="ops-dock-auto-lanes">
+          <span
+            v-for="lane in lanes"
+            :key="lane.id + '-auto-state'"
+            class="auto-lane-chip"
+            :class="autoChipClass(lane)"
+          >
+            {{ lane.name }}: {{ autoStatusText(lane) }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -602,6 +590,61 @@
     :timestamp="auditToast.timestamp"
     @dismiss="dismissAuditToast"
   />
+
+  <!-- Simulation Harness (only with ?simulate=1 or vshield_sim=1) -->
+  <div v-if="simEnable" class="sim-panel">
+    <div class="sim-panel-head" @click="simState.expanded = !simState.expanded">
+      <span class="sim-badge">SIM</span>
+      <span>Mô phỏng auto-monitor</span>
+      <span class="sim-caret">{{ simState.expanded ? '▼' : '▲' }}</span>
+    </div>
+    <div v-if="simState.expanded" class="sim-panel-body">
+      <div class="sim-row">
+        <label>Nhân viên (backend thật)</label>
+        <button @click="simGenerateQr" :disabled="simState.empName">Tạo QR thật</button>
+        <span v-if="simState.empName" class="sim-ok">{{ simState.empName }} (emp {{ simState.empEmployeeId }})</span>
+      </div>
+      <div class="sim-row">
+        <label>Làn mục tiêu</label>
+        <select :value="simState.targetLane" @change="simSetTargetLane($event.target.value)">
+          <option value="lane1">Làn 1 (IN)</option>
+          <option value="lane2">Làn 2 (OUT)</option>
+        </select>
+        <button @click="simSyncLaneConfig" title="Tự mapping cổng/làn thật từ backend vào 2 làn">Đồng bộ cổng/làn</button>
+        <span v-if="simState.laneSynced" class="sim-ok">đã map</span>
+      </div>
+      <div class="sim-row">
+        <label>Kịch bản</label>
+        <button @click="simRunScenario(simState.targetLane, 'allow')">ALLOW (plate mới)</button>
+        <button class="sim-btn-danger" @click="simRunScenario(simState.targetLane, 'deny')">DENY (plate ngoài)</button>
+      </div>
+      <div class="sim-row">
+        <label>QR thủ công</label>
+        <button v-if="!simState.qr1" @click="simToggleQr('lane1', true)">Bật QR L1</button>
+        <button v-else @click="simToggleQr('lane1', false)">Tắt QR L1</button>
+        <button v-if="!simState.qr2" @click="simToggleQr('lane2', true)">Bật QR L2</button>
+        <button v-else @click="simToggleQr('lane2', false)">Tắt QR L2</button>
+      </div>
+      <div class="sim-row">
+        <label>Plate gắn/bỏ</label>
+        <input v-model="simState.injectPlate" placeholder="59K-12345" />
+        <button @click="simSetPlate(simState.targetLane, simState.injectPlate)">Gắn</button>
+        <button @click="simClearPlate(simState.targetLane)">Bỏ</button>
+        <button @click="simMakeAllowPlate" title="Sinh plate mới ngẫu nhiên">Random mới</button>
+      </div>
+      <div class="sim-row">
+        <label>DENY: xe thuộc emp khác</label>
+        <button @click="simRefreshForeign">Nạp từ DB</button>
+        <button @click="simUseForeign" :disabled="!simState.foreignPlate">Gắn plate deny</button>
+        <span v-if="simState.foreignPlate" class="sim-warn">{{ simState.foreignPlate }} → emp {{ simState.foreignOwner }}</span>
+      </div>
+      <div class="sim-row">
+        <button @click="simResetAll">Reset giả lập</button>
+        <button @click="simState.logText = ''">Xoá log</button>
+      </div>
+      <pre class="sim-log">{{ simState.logText }}</pre>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -624,6 +667,7 @@ import {
 } from "../services/dynamicQrScannerApi"
 import { PLATE_API_BASE_URL } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
+import { isSimMode, installSimulation } from "../services/simulationHarness"
 import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
 import { authState, hasRole } from "../stores/auth"
 import DecisionDrawer from "./shared/DecisionDrawer.vue"
@@ -753,6 +797,30 @@ function createPlateModule() {
   }
 }
 
+function createAutoModule() {
+  return {
+    on: false,
+    status: "idle",
+    sessionId: 0,
+    deciding: false,
+    saved: false,
+    decideCooldownUntil: 0,
+    decidedAt: 0,
+    flash: "",
+    flashUntil: 0,
+    flashTimer: null,
+    error: "",
+    errorUntil: 0,
+    qrValue: "",
+    qrSeenAt: 0,
+    qrLostAt: 0,
+    plateValue: "",
+    plateSeenAt: 0,
+    plateLostAt: 0,
+    plateCooldownUntil: 0
+  }
+}
+
 export default {
   name: "VShieldGateMinimalQr",
   components: { DecisionDrawer, StepUpModal, AuditReceiptToast },
@@ -774,7 +842,8 @@ export default {
   loading: false,
   plateApi: plateLane1Api,
   qr: createQrModule("WEB_SCANNER_GATE_01"),
-  plate: createPlateModule()
+  plate: createPlateModule(),
+  auto: createAutoModule()
 },
 {
   id: "lane2",
@@ -787,12 +856,18 @@ export default {
   loading: false,
   plateApi: plateLane2Api,
   qr: createQrModule("WEB_SCANNER_GATE_02"),
-  plate: createPlateModule()
+  plate: createPlateModule(),
+  auto: createAutoModule()
 }
       ],
       opsDrawerOpen: false,
       opsActiveLaneId: "lane1",
       topbarCompact: true,
+      autoActive: false,
+      autoStarting: false,
+      autoTimer: null,
+      simEnable: false,
+      simState: null,
       settingsQrBusy: false,
       settingsPlateBusy: false,
       settingsCameraSimulatorBusy: false,
@@ -905,6 +980,10 @@ export default {
 
   async mounted() {
   document.body.classList.add("gate-transit-compact")
+  if (isSimMode()) {
+    this.simEnable = true
+    installSimulation(this)
+  }
   await this.loadCameraList()
   await this.fetchUserZones()
 
@@ -918,6 +997,11 @@ export default {
 
   beforeUnmount() {
     document.body.classList.remove("gate-transit-compact")
+    this.autoActive = false
+    if (this.autoTimer) {
+      clearInterval(this.autoTimer)
+      this.autoTimer = null
+    }
     for (const lane of this.lanes) {
       lane.qr.destroyed = true
       lane.plate.destroyed = true
@@ -951,10 +1035,15 @@ export default {
         this.startPlateLoop(lane)
       }
     }
+    if (this.autoActive) this.startAutoMonitor()
   },
 
   deactivated() {
     document.body.classList.remove("gate-transit-compact")
+    if (this.autoTimer) {
+      clearInterval(this.autoTimer)
+      this.autoTimer = null
+    }
     for (const lane of this.lanes) {
       this.stopQrLoops(lane)
       this.stopPlateLoop(lane)
@@ -2473,6 +2562,348 @@ else {
       plate.busyResult = false
     },
 
+    // ================= AUTO MONITOR =================
+
+    toggleAutoMonitor() {
+      if (this.autoActive) {
+        this.stopAutoMonitor()
+      } else {
+        this.startAutoMonitor()
+      }
+    },
+
+    async startAutoMonitor() {
+      if (this.autoActive && this.autoTimer) return
+      this.autoActive = true
+      this.autoStarting = true
+      try {
+        for (const lane of this.lanes) {
+          lane.auto.on = true
+          lane.auto.sessionId = Date.now()
+          await this.setupAutoLaneQr(lane)
+        }
+        this.autoTimer = setInterval(() => {
+          for (const lane of this.lanes) this.autoTick(lane)
+        }, 350)
+      } finally {
+        this.autoStarting = false
+      }
+    },
+
+    async stopAutoMonitor() {
+      if (!this.autoActive) return
+      this.autoActive = false
+      if (this.autoTimer) {
+        clearInterval(this.autoTimer)
+        this.autoTimer = null
+      }
+      for (const lane of this.lanes) {
+        await this.teardownAutoLane(lane)
+      }
+    },
+
+    async setupAutoLaneQr(lane) {
+      if (!lane.qr.cameraIp.trim()) {
+        lane.auto.error = "Chưa cấu hình camera QR cho làn này"
+        return
+      }
+      try {
+        await this.restartQrSession(lane, "Tự động đang quét QR...")
+      } catch (e) {
+        lane.auto.error = e?.message || "Không khởi động được quét QR"
+      }
+    },
+
+    async teardownAutoLane(lane) {
+      const auto = lane.auto
+      auto.on = false
+      if (auto.flashTimer) {
+        clearTimeout(auto.flashTimer)
+        auto.flashTimer = null
+      }
+      auto.flash = ""
+      auto.flashUntil = 0
+      auto.error = ""
+      auto.errorUntil = 0
+      auto.qrValue = ""
+      auto.plateValue = ""
+      auto.status = "idle"
+
+      try {
+        await this.stopLaneQrScanner(lane)
+      } catch (e) {
+        console.warn("stopLaneQrScanner auto", e)
+      }
+      this.stopQrLoops(lane)
+      if (lane.qr.resultTimer) {
+        clearInterval(lane.qr.resultTimer)
+        lane.qr.resultTimer = null
+      }
+      lane.qr.pollingBusy = false
+      lane.qr.verifying = false
+      lane.qr.decodeBusy = false
+      this.clearQrState(lane.qr)
+      lane.qr.cameraRunning = false
+
+      this.stopPlateLoop(lane)
+      try {
+        await lane.plateApi.turnOffCamera()
+      } catch (e) {
+        console.warn("turnOffCamera auto", e)
+      }
+      this.clearPlateState(lane.plate)
+      lane.plate.cameraRunning = false
+    },
+
+    async autoTick(lane) {
+      const auto = lane.auto
+      if (!auto.on || !this.autoActive || lane.loading) return
+      const now = Date.now()
+      const qr = lane.qr
+      const plate = lane.plate
+
+      if (!plate.cameraRunning && !auto.plateValue) {
+        const acquired = await this.tryAcquirePlateForLane(lane)
+        if (!acquired || !plate.cameraRunning) return
+      }
+
+      const qrIdentity = String(qr.employeeId || qr.guestId || "").trim()
+      const plateValue = String(plate.confirmedPlate || "").trim()
+
+      if (qrIdentity) {
+        if (auto.qrValue !== qrIdentity) auto.qrValue = qrIdentity
+        auto.qrSeenAt = now
+        auto.qrLostAt = 0
+      } else if (auto.qrValue) {
+        if (!auto.qrLostAt) auto.qrLostAt = now
+      }
+
+      if (plateValue) {
+        if (auto.plateValue !== plateValue) auto.plateValue = plateValue
+        auto.plateSeenAt = now
+        auto.plateLostAt = 0
+      } else if (auto.plateValue) {
+        if (!auto.plateLostAt) auto.plateLostAt = now
+      }
+
+      if (auto.qrValue && auto.qrLostAt && now - auto.qrLostAt >= 2000) {
+        auto.qrValue = ""
+        auto.qrSeenAt = 0
+        auto.qrLostAt = 0
+      }
+
+      if (auto.plateValue && auto.plateLostAt && now - auto.plateLostAt >= 2000) {
+        this.releaseAutoSession(lane, "Biển số rời khỏi vùng quét")
+        return
+      }
+
+      if (auto.qrValue && auto.plateValue && !auto.saved && !auto.deciding) {
+        if (now >= auto.decideCooldownUntil) {
+          await this.autoDecideSession(lane)
+        }
+      }
+    },
+
+    releaseAutoSession(lane, reason) {
+      const auto = lane.auto
+      if (!auto.on) return
+      auto.sessionId += 1
+      auto.saved = false
+      auto.status = "idle"
+      auto.flash = ""
+      auto.flashUntil = 0
+      auto.error = ""
+      auto.errorUntil = 0
+      auto.qrValue = ""
+      auto.qrSeenAt = 0
+      auto.qrLostAt = 0
+      auto.plateValue = ""
+      auto.plateSeenAt = 0
+      auto.plateLostAt = 0
+      this.clearQrState(lane.qr)
+      this.clearPlateState(lane.plate)
+      lane.qr.sessionLocked = false
+      this.kickoffQrScan(lane).catch(() => {})
+      lane.plateApi.resetCameraState().catch(() => {})
+    },
+
+    async tryAcquirePlateForLane(lane) {
+      if (!lane.auto.on) return false
+      if (lane.plate.cameraRunning) return true
+      if (Date.now() < lane.auto.plateCooldownUntil) return false
+
+      const holder = this.lanes.find(
+        (x) => x.id !== lane.id && x.plate.cameraRunning && x.plate.sessionId > 0
+      )
+      if (holder) {
+        const h = holder.auto
+        const holderBusy =
+          h.plateValue ||
+          h.status === "deciding" ||
+          h.status === "decided" ||
+          (h.decidedAt && Date.now() - h.decidedAt < 1500)
+        if (holderBusy) return false
+      }
+
+      try {
+        this.releaseOtherPlateLanes(lane)
+        this.stopPlateLoop(lane)
+        const res = await lane.plateApi.turnOnCamera(
+          lane.plate.currentIp || lane.plate.cameraIp
+        )
+        if (res?.success || res?.session_id) {
+          lane.plate.cameraRunning = true
+          lane.plate.sessionId = Number(res.session_id || 0)
+          lane.plate.lastAppliedSessionId = lane.plate.sessionId
+          lane.plate.currentIp = lane.plate.currentIp || lane.plate.cameraIp
+          lane.plate.scanActive = true
+          this.startPlateLoop(lane)
+          return true
+        }
+        lane.plate.cameraRunning = false
+        lane.auto.plateCooldownUntil = Date.now() + 5000
+        lane.auto.error = res?.message || "Không khởi tạo được biển số"
+        return false
+      } catch (e) {
+        lane.plate.cameraRunning = false
+        lane.auto.plateCooldownUntil = Date.now() + 5000
+        lane.auto.error =
+          e?.response?.data?.message ||
+          e?.message ||
+          "Không kết nối được Python biển số"
+        return false
+      }
+    },
+
+    async autoDecideSession(lane) {
+      const auto = lane.auto
+      const qr = lane.qr
+      const plate = lane.plate
+
+      const licensePlate = String(plate.confirmedPlate || "").trim()
+      const isGuest = !!qr.guestId
+      const employeeId = Number(qr.employeeId || 0)
+      const visitorDetailId = Number(qr.guestId || 0)
+
+      if (!licensePlate) return
+      if (!isGuest && !employeeId) return
+
+      auto.deciding = true
+      auto.status = "deciding"
+      auto.flash = ""
+      auto.flashUntil = 0
+
+      try {
+        const payload = {
+          LicensePlate: licensePlate,
+          GateId: lane.gateId,
+          LaneId: lane.laneId,
+          Direction: lane.direction,
+          CameraId: lane.cameraId,
+          CredentialType: "QR",
+          PlateSnapshotBase64: plate.lockedSnapshot || null,
+          PlateCropBase64: plate.lockedPlateCrop || null,
+          QrSnapshotBase64: qr.lockedSnapshot || null
+        }
+        if (isGuest) {
+          payload.VisitorDetailId = visitorDetailId
+          payload.QrPayload = qr.qrPayload || qr.activeSessionPayload || ""
+        } else {
+          payload.EmployeeId = employeeId
+        }
+
+        const res = isGuest ? await scanGuest(payload) : await scanGate(payload)
+        const data = res?.data || {}
+        const ok = !!data?.success
+
+        auto.saved = true
+        auto.status = "decided"
+        auto.decidedAt = Date.now()
+
+        if (ok) {
+          this.flashLane(lane, "allow", "")
+          this.showAuditToast(
+            "success",
+            "Thông hành tự động",
+            `${licensePlate} được phép qua.`,
+            data?.receiptId || data?.logId ? `RCP-${data.logId || data.receiptId || Date.now()}` : `RCP-${Date.now()}`
+          )
+        } else {
+          this.flashLane(lane, "deny", data?.message || "Từ chối thông hành")
+          this.showAuditToast(
+            "warning",
+            "Từ chối tự động",
+            `${licensePlate}: ${data?.message || "Không được phép"}`,
+            `RCP-${Date.now()}`
+          )
+        }
+      } catch (e) {
+        const status = Number(e?.response?.status || 0)
+        const message =
+          e?.response?.data?.message || e?.message || "Xử lý thất bại"
+
+        if (status === 409) {
+          auto.saved = true
+          auto.status = "decided"
+          auto.decidedAt = Date.now()
+          this.flashLane(lane, "deny", message)
+          this.showAuditToast("danger", "Từ chối tự động", `${licensePlate}: ${message}`, `RCP-${Date.now()}`)
+        } else {
+          auto.saved = false
+          auto.status = "idle"
+          auto.decideCooldownUntil = Date.now() + 3000
+          this.flashLane(lane, "deny", message)
+        }
+      } finally {
+        auto.deciding = false
+      }
+    },
+
+    flashLane(lane, type, errorMsg) {
+      const auto = lane.auto
+      const now = Date.now()
+      auto.flash = type
+      auto.flashUntil = now + 1700
+      auto.error = ""
+      auto.errorUntil = 0
+      if (type === "deny" && errorMsg) {
+        auto.error = errorMsg
+        auto.errorUntil = now + 8000
+      }
+      if (auto.flashTimer) clearTimeout(auto.flashTimer)
+      auto.flashTimer = setTimeout(() => {
+        if (auto.flashUntil <= Date.now()) auto.flash = ""
+      }, 1800)
+    },
+
+    autoCamClass(lane) {
+      const auto = lane.auto
+      if (auto.flash === "allow") return " flash-allow"
+      if (auto.flash === "deny") return " flash-deny"
+      return ""
+    },
+
+    autoStatusText(lane) {
+      const auto = lane.auto
+      if (!auto.on) return "chờ"
+      if (auto.error) return "có lỗi"
+      if (auto.status === "deciding") return "đang quyết định"
+      if (auto.status === "decided") return auto.flash === "deny" ? "từ chối" : "đã cho qua"
+      if (auto.qrValue && auto.plateValue) return "đủ thông tin"
+      if (auto.qrValue) return "đã đọc QR"
+      if (auto.plateValue) return "đã đọc biển"
+      return "đang quét"
+    },
+
+    autoChipClass(lane) {
+      const auto = lane.auto
+      if (auto.status === "decided") return auto.flash === "deny" ? "deny" : "allow"
+      if (auto.error) return "error"
+      if (auto.qrValue && auto.plateValue) return "ready"
+      if (auto.qrValue || auto.plateValue) return "seen"
+      return ""
+    },
+
     startPlateLoop(lane) {
       this.stopPlateLoop(lane)
 
@@ -3459,7 +3890,7 @@ selectCamera(cam, lane, type) {
   gap: 0;
   min-height: 0;
   flex: 1;
-  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(136px + env(safe-area-inset-bottom, 0px));
   position: relative;
   z-index: 3;
 }
@@ -3505,7 +3936,7 @@ selectCamera(cam, lane, type) {
   border-radius: 18px;
   box-shadow: 0 14px 40px rgba(15, 23, 42, 0.13);
   backdrop-filter: blur(14px);
-  max-height: 92px;
+  max-height: none;
   overflow: hidden;
 }
 
@@ -3586,6 +4017,117 @@ selectCamera(cam, lane, type) {
   font-size: 12px;
   font-weight: 800;
   border-radius: 10px;
+}
+
+.ops-dock-auto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ops-dock-auto-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.btn-auto {
+  min-height: 44px;
+  height: auto;
+  padding: 0 28px;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  border-radius: 12px;
+  border: 2px solid #0f8290;
+  background: #0f8290;
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 130, 144, 0.22);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.btn-auto:hover:not(:disabled) {
+  background: #0c6f7a;
+  transform: translateY(-1px);
+}
+
+.btn-auto.running {
+  background: #dc2626;
+  border-color: #b91c1c;
+}
+
+.btn-auto:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-auto-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(248, 250, 252, 0.4);
+  border-top-color: #f8fafc;
+  animation: cam-toolbar-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.auto-status-text {
+  max-width: 460px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #475569;
+}
+
+.ops-dock-auto-lanes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.auto-lane-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.auto-lane-chip.seen {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.auto-lane-chip.ready {
+  background: #93c5fd;
+  color: #1e3a8a;
+}
+
+.auto-lane-chip.allow {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.auto-lane-chip.deny {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.auto-lane-chip.error {
+  background: #fed7aa;
+  color: #9a3412;
 }
 
 .ops-drawer-root {
@@ -4300,6 +4842,47 @@ selectCamera(cam, lane, type) {
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
 }
 
+.cam-preview.flash-allow {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.6), 0 0 22px rgba(34, 197, 94, 0.55) !important;
+  animation: cam-flash-allow-pulse 0.28s ease 4;
+}
+
+.cam-preview.flash-deny {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.65), 0 0 22px rgba(239, 68, 68, 0.6) !important;
+  animation: cam-flash-deny-pulse 0.28s ease 4;
+}
+
+@keyframes cam-flash-allow-pulse {
+  0% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.65), 0 0 26px rgba(34, 197, 94, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.95), 0 0 34px rgba(34, 197, 94, 0.8); }
+  100% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.65), 0 0 26px rgba(34, 197, 94, 0.6); }
+}
+
+@keyframes cam-flash-deny-pulse {
+  0% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.7), 0 0 26px rgba(239, 68, 68, 0.65); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.98), 0 0 34px rgba(239, 68, 68, 0.85); }
+  100% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.7), 0 0 26px rgba(239, 68, 68, 0.65); }
+}
+
+.auto-error-banner {
+  position: absolute;
+  left: 14px;
+  top: 44px;
+  right: 14px;
+  z-index: 12;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(185, 28, 28, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
 .result-pill.state-idle {
   background: #e2e8f0;
   color: #334155;
@@ -4440,5 +5023,127 @@ selectCamera(cam, lane, type) {
 
 .dropdown-item:hover {
   background: #eee;
+}
+
+.sim-panel {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1200;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  background: #1e2430;
+  color: #e8e8e8;
+  border: 1px solid #3a4253;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+}
+
+.sim-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #3a4253;
+  user-select: none;
+}
+
+.sim-badge {
+  background: #f59e0b;
+  color: #111;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 5px;
+  letter-spacing: 1px;
+}
+
+.sim-caret {
+  margin-left: auto;
+}
+
+.sim-panel-body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.sim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sim-row label {
+  width: 100%;
+  color: #9aa4b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+}
+
+.sim-row button {
+  background: #2c3547;
+  color: #e8e8e8;
+  border: 1px solid #46506a;
+  border-radius: 6px;
+  padding: 4px 9px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.sim-row button:hover:not(:disabled) {
+  background: #3a455c;
+}
+
+.sim-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sim-btn-danger {
+  border-color: #b2544a !important;
+  color: #ff8f87 !important;
+}
+
+.sim-row input,
+.sim-row select {
+  background: #14181f;
+  color: #e8e8e8;
+  border: 1px solid #3a4253;
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 12px;
+  max-width: 130px;
+}
+
+.sim-ok {
+  color: #4ade80;
+}
+
+.sim-warn {
+  color: #fbbf24;
+}
+
+.sim-log {
+  background: #10141b;
+  border: 1px solid #2c3547;
+  border-radius: 6px;
+  padding: 6px 8px;
+  min-height: 48px;
+  max-height: 130px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  color: #aab4c8;
+  margin: 0;
 }
 </style>
