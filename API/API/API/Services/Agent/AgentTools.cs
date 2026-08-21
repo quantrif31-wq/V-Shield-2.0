@@ -10,7 +10,7 @@ public sealed class AgentTools : IReadOnlyCollection<IAgentTool>
 {
     private readonly Dictionary<string, IAgentTool> _tools;
 
-    public AgentTools(MemoryService memory)
+    public AgentTools(MemoryService memory, AgentLlmClient llm)
     {
         _tools = new Dictionary<string, IAgentTool>(StringComparer.OrdinalIgnoreCase);
         var all = new IAgentTool[]
@@ -20,7 +20,7 @@ public sealed class AgentTools : IReadOnlyCollection<IAgentTool>
             new GetPersonTool(),
             new GetOrgRelationTool(),
             new ResolveGreetingTool(),
-            new DraftEmailTool(),
+            new DraftEmailTool(llm),
             new SaveNoteTool(memory),
             new GetNoteTool(memory)
         };
@@ -440,33 +440,88 @@ internal sealed class ResolveGreetingTool : IAgentTool
     }
 }
 
-// ---------- draft_email ----------
+// ---------- draft_email (skill soạn email chuyên nghiệp) ----------
 internal sealed class DraftEmailTool : IAgentTool
 {
+    private readonly AgentLlmClient _llm;
+    public DraftEmailTool(AgentLlmClient llm) => _llm = llm;
+
     public string Name => "draft_email";
-    public string Description => "Tạo một bản nháp email (chưa gửi). Người dùng sẽ xem và bấm Gửi trên màn hình. Chỉ soạn nháp, tuyệt đối không tự gửi. Trả về draftId để tham chiếu.";
+    public string Description => "SOẠN EMAIL CHUẨN DOANH NGHIỆP. Gọi sau khi đã có đủ thông tin: người nhận (qua search_people/get_person) + cách xưng hô (qua resolve_greeting) + mục đích/nội dung từ người dùng. " +
+        "Skill sẽ tự viết thân email chuyên nghiệp (chủ đề, lời chào, thân bài, lời kết, chữ ký) theo chuẩn công sở 2026 và tạo bản nháp (chưa gửi). Người dùng sẽ xem và bấm Gửi trên màn hình. " +
+        "Truyền đầy đủ: to, purpose (mục đích), content (nội dung người dùng cung cấp - có thể rỗng), recipientInfo (hồ sơ/xưng hô người nhận), tone, contentMode (polish/verbatim).";
+
     public JsonObject ParametersSchema => new()
     {
         ["type"] = "object",
         ["properties"] = new JsonObject
         {
-            ["to"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = "Danh sách email người nhận" },
-            ["subject"] = new JsonObject { ["type"] = "string", ["description"] = "Tiêu đề email" },
-            ["body"] = new JsonObject { ["type"] = "string", ["description"] = "Nội dung email đầy đủ (có lời chào mở đầu, thân bài, lời chào kết, chữ ký)" }
+            ["to"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = "Email người nhận" },
+            ["purpose"] = new JsonObject { ["type"] = "string", ["description"] = "Mục đích email (vd: xin nghỉ phép, đề xuất, xác nhận...)" },
+            ["content"] = new JsonObject { ["type"] = "string", ["description"] = "Nội dung/ý người dùng cung cấp (có thể rỗng; nếu user nói 'giữ nguyên' thì bắt buộc truyền nguyên văn + contentMode=verbatim)" },
+            ["recipientInfo"] = new JsonObject { ["type"] = "string", ["description"] = "Tóm tắt người nhận: tên, chức vụ, phòng ban, giới tính/tuổi, lời chào gợi ý (từ resolve_greeting)" },
+            ["tone"] = new JsonObject { ["type"] = "string", ["description"] = "trang-trong (mặc định) / than-thien / khan-truong / trung-tinh" },
+            ["contentMode"] = new JsonObject { ["type"] = "string", ["description"] = "polish (viết lại cho chuẩn) / verbatim (giữ nguyên nội dung user)" },
+            ["cc"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = "Email CC (tùy chọn)" }
         },
-        ["required"] = new JsonArray("to", "subject", "body"),
+        ["required"] = new JsonArray("to", "purpose"),
         ["additionalProperties"] = false
     };
 
     public async Task<string> ExecuteAsync(AgentToolContext ctx, JsonObject args, CancellationToken ct)
     {
         var to = ToolHelpers.GetStringArray(args, "to").Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
-        var subject = ToolHelpers.GetString(args, "subject").Trim();
-        var body = ToolHelpers.GetString(args, "body").Trim();
+        var cc = ToolHelpers.GetStringArray(args, "cc").Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+        var purpose = ToolHelpers.GetString(args, "purpose").Trim();
+        var content = ToolHelpers.GetString(args, "content").Trim();
+        var recipientInfo = ToolHelpers.GetString(args, "recipientInfo").Trim();
+        var tone = ToolHelpers.GetString(args, "tone").Trim();
+        var contentMode = ToolHelpers.GetString(args, "contentMode").Trim().ToLowerInvariant();
 
         if (to.Length == 0) return ToolHelpers.Json(new { error = "Chưa có người nhận (to)." });
-        if (string.IsNullOrWhiteSpace(subject)) return ToolHelpers.Json(new { error = "Chưa có tiêu đề." });
-        if (string.IsNullOrWhiteSpace(body)) return ToolHelpers.Json(new { error = "Chưa có nội dung." });
+        if (string.IsNullOrWhiteSpace(purpose)) return ToolHelpers.Json(new { error = "Chưa có mục đích (purpose)." });
+
+        var senderName = "";
+        var senderPosition = "";
+        var senderDept = "";
+        if (ctx.EmployeeId is int empId)
+        {
+            var emp = await ctx.Db.Employees
+                .Include(e => e.Position).Include(e => e.Department)
+                .FirstOrDefaultAsync(e => e.EmployeeId == empId, ct);
+            if (emp != null)
+            {
+                senderName = emp.FullName ?? "";
+                senderPosition = emp.Position?.Name ?? "";
+                senderDept = emp.Department?.Name ?? "";
+            }
+        }
+
+        string subject;
+        string bodyFull;
+
+        if (contentMode == "verbatim" && !string.IsNullOrWhiteSpace(content))
+        {
+            // giữ nguyên nội dung người dùng
+            subject = string.IsNullOrWhiteSpace(purpose) ? "Email công việc" : purpose;
+            bodyFull = content;
+        }
+        else
+        {
+            var compose = await ComposeAsync(purpose, content, recipientInfo, tone, senderName, senderPosition, senderDept, ct);
+            if (compose == null)
+            {
+                // fallback: vẫn tạo nháp từ content thô nếu có
+                subject = purpose;
+                bodyFull = string.IsNullOrWhiteSpace(content) ? $"[CẦN BỔ SUNG NỘI DUNG] - {purpose}" : content;
+            }
+            else
+            {
+                subject = compose.Subject;
+                bodyFull = string.Join("\n\n", new[] { compose.Greeting, compose.Body, compose.Closing, compose.Signature }
+                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+            }
+        }
 
         var draft = new AgentDraft
         {
@@ -476,14 +531,88 @@ internal sealed class DraftEmailTool : IAgentTool
             Status = "Draft",
             To = string.Join(";", to),
             Subject = subject,
-            Body = body,
+            Body = bodyFull,
             CreatedAt = DateTime.Now
         };
         ctx.Db.AgentDrafts.Add(draft);
         await ctx.Db.SaveChangesAsync(ct);
 
-        return ToolHelpers.Json(new { ok = true, draftId = draft.AgentDraftId, to, subject, body });
+        return ToolHelpers.Json(new { ok = true, draftId = draft.AgentDraftId, to, subject, body = bodyFull });
     }
+
+    private sealed record ComposeResult(string Subject, string Greeting, string Body, string Closing, string Signature);
+
+    private async Task<ComposeResult?> ComposeAsync(
+        string purpose, string content, string recipientInfo, string tone,
+        string senderName, string senderPosition, string senderDept, CancellationToken ct)
+    {
+        var userPrompt =
+            $"Nhiệm vụ: viết một email doanh nghiệp.\n" +
+            $"- Mục đích: {purpose}\n" +
+            $"- Người gửi: {senderName} ({(string.IsNullOrWhiteSpace(senderPosition) ? "chưa rõ chức vụ" : senderPosition)})" +
+            (string.IsNullOrWhiteSpace(senderDept) ? "" : $" - {senderDept}") + "\n" +
+            (string.IsNullOrWhiteSpace(recipientInfo) ? "" : $"- Người nhận: {recipientInfo}\n") +
+            (string.IsNullOrWhiteSpace(content) ? "" : $"- Nội dung người dùng cung cấp: {content}\n") +
+            $"- Giọng văn: {tone}.\n\n" +
+            "Chỉ trả về JSON đúng định dạng: {\"subject\":\"...\",\"greeting\":\"...\",\"body\":\"...\",\"closing\":\"...\",\"signature\":\"...\"}. Không thêm gì khác.";
+
+        var messages = new List<object>
+        {
+            new { role = "system", content = EmailWritingGuide.Playbook + "\n\n" + EmailWritingGuide.FewShot },
+            new { role = "user", content = userPrompt }
+        };
+
+        var resp = await _llm.CompleteAsync(messages, null, maxTokens: 1400, cancellationToken: ct);
+        if (resp.IsError || string.IsNullOrWhiteSpace(resp.Content)) return null;
+
+        var parsed = TryParseJson(resp.Content);
+        if (parsed == null)
+        {
+            // thử lại 1 lần với yêu cầu nghiêm ngặt hơn
+            messages.Add(new { role = "assistant", content = resp.Content });
+            messages.Add(new { role = "user", content = "Phản hồi trước không đúng định dạng JSON. Chỉ trả về JSON đúng định dạng như đã yêu cầu." });
+            resp = await _llm.CompleteAsync(messages, null, maxTokens: 1400, cancellationToken: ct);
+            if (resp.IsError || string.IsNullOrWhiteSpace(resp.Content)) return null;
+            parsed = TryParseJson(resp.Content);
+        }
+
+        if (parsed == null) return null;
+
+        return new ComposeResult(
+            parsed.Subject ?? purpose,
+            parsed.Greeting ?? "",
+            parsed.Body ?? content,
+            parsed.Closing ?? "",
+            parsed.Signature ?? "");
+    }
+
+    private static ComposeResult? TryParseJson(string text)
+    {
+        var t = text.Trim();
+        if (t.StartsWith("```")) t = t.Trim('`', '\n', ' ');
+        var start = t.IndexOf('{');
+        var end = t.LastIndexOf('}');
+        if (start < 0 || end <= start) return null;
+        t = t.Substring(start, end - start + 1);
+        try
+        {
+            using var doc = JsonDocument.Parse(t);
+            var root = doc.RootElement;
+            return new ComposeResult(
+                Get(root, "subject"),
+                Get(root, "greeting"),
+                Get(root, "body"),
+                Get(root, "closing"),
+                Get(root, "signature"));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string Get(JsonElement root, string key)
+        => root.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 }
 
 // ---------- notes (bộ nhớ ngắn hạn) ----------
