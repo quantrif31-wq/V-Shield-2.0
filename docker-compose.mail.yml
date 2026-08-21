@@ -1,54 +1,48 @@
 # ============================================================
-#  MAIL SERVER TỰ HOST (self-hosted mail) - cho production VPS
-#  Image: Mailu (Postfix + Dovecot + Webmail + Admin API)
+#  MAIL SERVER TỰ HOST - Poste.io (1 container: SMTP+IMAP+Webmail+Admin)
+#  Dùng cho production VPS (self-hosted company mail).
 #
 #  CÁCH DÙNG (cấu hình 1 lần trên VPS):
-#   1. Trỏ DNS domain của bạn (vd: v-shield.site):
-#        - A        mail.<domain>       -> IP VPS
-#        - MX       <domain>            -> mail.<domain>
+#   1. DNS (bạn phải thêm tại nhà cung cấp DNS domain):
+#        - A        mail.<domain> -> IP VPS
+#        - MX       <domain>      -> mail.<domain> (prio 10)
 #        - SPF      TXT v=spf1 a mx ip4:<IP> ~all
-#        - DKIM     TXT dkim._domainkey.<domain>  (lấy key khi khởi động Mailu)
-#        - DMARC    TXT _dmarc.<domain> v=DMARC1; p=none; rua=mailto:postmaster@<domain>
-#        - PTR      (reverse DNS của IP VPS) -> mail.<domain>   (yêu cầu nhà cung cấp VPS)
-#   2. docker compose -f docker-compose.mail.yml up -d
-#   3. Tạo tài khoản gửi (vd: noreply@<domain>) qua giao diện admin :8080
-#   4. Sửa .env: MAIL_HOST=mailu, MAIL_PORT=587, MAIL_USER=noreply@<domain>,
-#      MAIL_PASSWORD=..., MAIL_ENABLE_SSL=false (STARTTLS) rồi docker compose up -d api
+#        - DMARC    TXT _dmarc.<domain> v=DMARC1; p=none
+#        - DKIM     key sinh trong admin :8080 (bảng Virtual domains -> dkim)
+#        - PTR      reverse IP -> mail.<domain> (đặt tại nhà cung cấp VPS)
+#   2. docker compose -f docker-compose.mail.yml --env-file .env.mail up -d
+#   3. Admin/webmail: http://<IP>:8080  (đăng nhập admin@domain / POSTE_ADMIN_PASS)
+#   4. Sửa .env.vps: MAIL_HOST=mailu, MAIL_PORT=587,
+#      MAIL_USER=admin@<domain>, MAIL_PASSWORD=<POSTE_ADMIN_PASS>,
+#      MAIL_ENABLE_SSL=false (STARTTLS) -> docker compose up -d api
 #
-#  LƯU Ý QUAN TRỌNG:
-#   - Để mail tới Gmail/Outlook KHÔNG vào spam cần IP sạch + đủ SPF/DKIM/DMARC/PTR.
-#     IP cloud VPS thường bị block -> cân nhắc dùng SMTP relay (SES/Mailgun/SendGrid)
-#     cho chiều GỬI, vẫn giữ mailbox tự host cho chiều NHẬN.
-#   - KHÔNG chạy file này trên máy local (cần mở port 25/587/993, xung đột).
-#     Local dev dùng MailHog (đã cấu hình sẵn trong .env).
+#  LƯU Ý: để mail tới Gmail/Outlook vào Inbox cần đủ SPF/DKIM/DMARC/PTR +
+#  IP sạch; VPS cloud thường bị đánh giá thấp -> có thể vào Spam vài tuần đầu.
 # ============================================================
 
 services:
   mailu:
-    image: mailu/nginx:2.0
+    image: analogic/poste.io:latest
     container_name: vshield-mailu
     restart: unless-stopped
+    hostname: mail.${MAIL_DOMAIN:-v-shield.site}
     networks:
       - default
     environment:
-      DOMAIN: "${MAIL_DOMAIN:-v-shield.site}"
-      HOSTNAMES: "mail.${MAIL_DOMAIN:-v-shield.site}"
-      POSTMASTER: "postmaster@${MAIL_DOMAIN:-v-shield.site}"
-      SECRET_KEY: "${MAILU_SECRET_KEY:-change-me-please}"
-      TZ: "${TZ:-Asia/Ho_Chi_Minh}"
-      WEBMAIL: "rainloop"
-      INITIAL_ADMIN_ACCOUNT: "${MAILU_ADMIN_USER:-admin@${MAIL_DOMAIN:-v-shield.site}}"
-      INITIAL_ADMIN_DOMAIN: "${MAIL_DOMAIN:-v-shield.site}"
-      INITIAL_ADMIN_PW: "${MAILU_ADMIN_PASSWORD:-AdminMail@2026}"
-      # gửi mail hệ thống (api dùng tài khoản này):
-      # tạo thêm tài khoản gửi qua admin sau khi khởi động
+      HOSTNAME: mail.${MAIL_DOMAIN:-v-shield.site}
+      POSTE_ADMIN_USER: "${MAILU_ADMIN_USER:-admin@${MAIL_DOMAIN:-v-shield.site}}"
+      POSTE_ADMIN_PASS: "${MAILU_ADMIN_PASSWORD:-AdminMail@2026}"
+      DISABLE_CLAMAV: "false"
     ports:
       - "25:25"
+      - "110:110"
+      - "143:143"
       - "465:465"
       - "587:587"
       - "993:993"
       - "995:995"
-      - "8080:80"   # webmail + admin quản trị (tránh xung đột Caddy port 80)
+      - "8080:80"    # admin + webmail (tránh xung đột Caddy port 80)
+      - "8443:443"
     volumes:
       - mailu_data:/data
 
