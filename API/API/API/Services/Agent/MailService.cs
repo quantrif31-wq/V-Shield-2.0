@@ -14,6 +14,8 @@ public class MailOptions
     public bool AllowExternal { get; set; } = false;
     /// <summary>Domain email công ty (vd: v-shield.site). Cấu hình 1 lần trên VPS.</summary>
     public string Domain { get; set; } = "";
+    /// <summary>Bỏ qua validate chứng chỉ SSL cho mail server tự host (self-signed).</summary>
+    public bool SkipCertificateValidation { get; set; } = false;
 }
 
 public sealed record MailMessage(
@@ -52,6 +54,10 @@ public class MailService : IMailService
         try
         {
             using var client = new MailKit.Net.Smtp.SmtpClient();
+            if (_options.SkipCertificateValidation)
+            {
+                client.ServerCertificateValidationCallback = (s, cert, chain, errors) => true;
+            }
             await client.ConnectAsync(_options.Host, _options.Port, _options.EnableSsl, cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(_options.User))
