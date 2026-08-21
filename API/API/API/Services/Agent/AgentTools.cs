@@ -511,15 +511,36 @@ internal sealed class DraftEmailTool : IAgentTool
             var compose = await ComposeAsync(purpose, content, recipientInfo, tone, senderName, senderPosition, senderDept, ct);
             if (compose == null)
             {
-                // fallback: vẫn tạo nháp từ content thô nếu có
+                // fallback: vẫn tạo nháp có CẤU TRÚC đầy đủ (chào + nội dung + kết + chữ ký)
                 subject = purpose;
-                bodyFull = string.IsNullOrWhiteSpace(content) ? $"[CẦN BỔ SUNG NỘI DUNG] - {purpose}" : content;
+                var fbGreeting = DefaultGreeting(recipientInfo);
+                var fbBody = string.IsNullOrWhiteSpace(content) ? $"[CẦN BỔ SUNG NỘI DUNG] - {purpose}" : content;
+                bodyFull = string.Join("\n\n", new[] { fbGreeting, fbBody, "Trân trọng,", BuildSignature(senderName, senderPosition, senderDept) }
+                    .Where(s => !string.IsNullOrWhiteSpace(s)));
             }
             else
             {
-                subject = compose.Subject;
-                bodyFull = string.Join("\n\n", new[] { compose.Greeting, compose.Body, compose.Closing, compose.Signature }
-                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+                var body = compose.Body;
+                // nếu body quá ngắn so với nội dung người dùng -> thử viết lại đầy đủ hơn 1 lần
+                if ((string.IsNullOrWhiteSpace(body) || body.Length < 100) && !string.IsNullOrWhiteSpace(content))
+                {
+                    var retry = await ComposeAsync(purpose, content, recipientInfo, tone + ", viet day du hon, dai hon, nhieu doan hon", senderName, senderPosition, senderDept, ct);
+                    if (retry != null && !string.IsNullOrWhiteSpace(retry.Body) && retry.Body.Length > (body?.Length ?? 0))
+                    {
+                        compose = retry;
+                        body = retry.Body;
+                    }
+                }
+                // Đảm bảo đủ 5 phần — nếu model bỏ sót thì điền default phía server
+                var greeting = !string.IsNullOrWhiteSpace(compose.Greeting) ? compose.Greeting : DefaultGreeting(recipientInfo);
+                var closing = !string.IsNullOrWhiteSpace(compose.Closing) ? compose.Closing : "Trân trọng,";
+                var signature = !string.IsNullOrWhiteSpace(compose.Signature) ? compose.Signature : BuildSignature(senderName, senderPosition, senderDept);
+                if (string.IsNullOrWhiteSpace(body) || body.Length < 40)
+                {
+                    body = string.IsNullOrWhiteSpace(content) ? body : content;
+                }
+                subject = !string.IsNullOrWhiteSpace(compose.Subject) ? compose.Subject : purpose;
+                bodyFull = string.Join("\n\n", new[] { greeting, body, closing, signature }.Where(s => !string.IsNullOrWhiteSpace(s)));
             }
         }
 
@@ -547,13 +568,15 @@ internal sealed class DraftEmailTool : IAgentTool
         string senderName, string senderPosition, string senderDept, CancellationToken ct)
     {
         var userPrompt =
-            $"Nhiệm vụ: viết một email doanh nghiệp.\n" +
+            $"Nhiệm vụ: viết một email doanh nghiệp ĐẦY ĐỦ 5 PHẦN theo đúng cấu trúc mẫu.\n" +
             $"- Mục đích: {purpose}\n" +
             $"- Người gửi: {senderName} ({(string.IsNullOrWhiteSpace(senderPosition) ? "chưa rõ chức vụ" : senderPosition)})" +
             (string.IsNullOrWhiteSpace(senderDept) ? "" : $" - {senderDept}") + "\n" +
             (string.IsNullOrWhiteSpace(recipientInfo) ? "" : $"- Người nhận: {recipientInfo}\n") +
             (string.IsNullOrWhiteSpace(content) ? "" : $"- Nội dung người dùng cung cấp: {content}\n") +
             $"- Giọng văn: {tone}.\n\n" +
+            "QUAN TRỌNG: cả 5 trường subject, greeting, body, closing, signature ĐỀU BẮT BUỘC KHÔNG ĐƯỢC RỖNG. " +
+            "body phải là thân bài ít nhất 2-3 đoạn ngắn, có lời chào mở đầu rõ ràng. " +
             "Chỉ trả về JSON đúng định dạng: {\"subject\":\"...\",\"greeting\":\"...\",\"body\":\"...\",\"closing\":\"...\",\"signature\":\"...\"}. Không thêm gì khác.";
 
         var messages = new List<object>
@@ -613,6 +636,26 @@ internal sealed class DraftEmailTool : IAgentTool
 
     private static string Get(JsonElement root, string key)
         => root.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static string DefaultGreeting(string recipientInfo)
+    {
+        if (!string.IsNullOrWhiteSpace(recipientInfo))
+        {
+            // ưu tiên lời chào đã resolve (vd "Kính gửi Bà Hùng,") nếu có trong recipientInfo
+            var m = System.Text.RegularExpressions.Regex.Match(recipientInfo, @"(Kính gửi|Chào|Thưa)[^,\n]*");
+            if (m.Success) return m.Value.TrimEnd() + ",";
+        }
+        return "Kính gửi,";
+    }
+
+    private static string BuildSignature(string senderName, string senderPosition, string senderDept)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(senderName)) parts.Add(senderName);
+        if (!string.IsNullOrWhiteSpace(senderPosition)) parts.Add(senderPosition);
+        if (!string.IsNullOrWhiteSpace(senderDept)) parts.Add(senderDept);
+        return string.Join("\n", parts);
+    }
 }
 
 // ---------- notes (bộ nhớ ngắn hạn) ----------
