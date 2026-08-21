@@ -36,8 +36,6 @@ services:
       POSTMASTER: "postmaster@${MAIL_DOMAIN:-v-shield.site}"
       SECRET_KEY: "${MAILU_SECRET_KEY:-change-me-please}"
       TZ: "${TZ:-Asia/Ho_Chi_Minh}"
-      # API + admin (web quản trị mail): http://<ip>:8080
-      ADMIN_PORT: "8080"
       WEBMAIL: "rainloop"
       INITIAL_ADMIN_ACCOUNT: "${MAILU_ADMIN_USER:-admin@${MAIL_DOMAIN:-v-shield.site}}"
       INITIAL_ADMIN_DOMAIN: "${MAIL_DOMAIN:-v-shield.site}"
@@ -50,7 +48,7 @@ services:
       - "587:587"
       - "993:993"
       - "995:995"
-      - "8080:8080"
+      - "8080:80"   # webmail + admin quản trị (tránh xung đột Caddy port 80)
     volumes:
       - mailu_data:/data
 
