@@ -431,6 +431,17 @@ namespace API
                     limiter.QueueLimit = 0;
                     limiter.AutoReplenishment = true;
                 });
+                // Riêng luồng gửi xe QR: generate + verify + scan = 3 request/lượt.
+                // Trần cao (600/phút) để không nghẽn cổng lúc cao điểm; có thể chỉnh qua RateLimits__QrOpsPermitLimit.
+                var qrOpsPermitLimit = builder.Configuration["RateLimits:QrOpsPermitLimit"];
+                var qrPermit = int.TryParse(qrOpsPermitLimit, out var qp) && qp > 0 ? qp : 600;
+                options.AddFixedWindowLimiter("qr-ops", limiter =>
+                {
+                    limiter.Window = TimeSpan.FromMinutes(1);
+                    limiter.PermitLimit = qrPermit;
+                    limiter.QueueLimit = 0;
+                    limiter.AutoReplenishment = true;
+                });
             });
             var app = builder.Build();
             if (args.Length > 0 &&

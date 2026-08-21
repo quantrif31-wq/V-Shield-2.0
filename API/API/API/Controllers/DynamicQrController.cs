@@ -194,7 +194,7 @@ public class DynamicQrController : ControllerBase
         /// - KHÔNG trả OTP raw ra ngoài payload QR
         /// </summary>
         [HttpPost("generate")]
-        [EnableRateLimiting("ops")]
+        [EnableRateLimiting("qr-ops")]
         [RequireOperationalTask("qr-access")]
         public async Task<IActionResult> GenerateDynamicQr([FromBody] GenerateDynamicQrRequest request)
         {
@@ -282,7 +282,7 @@ public class DynamicQrController : ControllerBase
         /// => Miễn còn thời gian hiệu lực thì được dùng nhiều lần
         /// </summary>
         [HttpPost("verify")]
-        [EnableRateLimiting("ops")]
+        [EnableRateLimiting("qr-ops")]
         [RequireOperationalTask("qr-access")]
         public async Task<IActionResult> VerifyDynamicQr([FromBody] VerifyDynamicQrRequest request)
         {

@@ -38,7 +38,7 @@ namespace API.Controllers
         /// Chỉ giao dịch thành công mới tạo ZoneTransit và cập nhật Attendance.
         /// </summary>
         [HttpPost("scan")]
-        [EnableRateLimiting("ops")]
+        [EnableRateLimiting("qr-ops")]
         public async Task<IActionResult> ScanVehicle([FromBody] GateTransitScanRequest request)
         {
             if (request == null)
@@ -302,7 +302,7 @@ namespace API.Controllers
             }
         }
         [HttpPost("scan-guest")]
-        [EnableRateLimiting("ops")]
+        [EnableRateLimiting("qr-ops")]
         public async Task<IActionResult> ScanGuest([FromBody] GateTransitScanRequest request)
         {
             if (request == null)
