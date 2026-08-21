@@ -60,6 +60,7 @@ services:
       VSHIELD_AI_ENDPOINT: "${VSHIELD_AI_ENDPOINT:-https://api.deepseek.com/chat/completions}"
       VSHIELD_AI_API_KEY: "${VSHIELD_AI_API_KEY:-}"
       AiProvider__Model: "${VSHIELD_AI_MODEL:-deepseek-v4-flash}"
+      VSHIELD_EMAIL_MODEL: "${VSHIELD_EMAIL_MODEL:-deepseek-v4-pro}"
       Mail__Host: "${MAIL_HOST:-}"
       Mail__Port: "${MAIL_PORT:-587}"
       Mail__User: "${MAIL_USER:-}"
@@ -69,10 +70,14 @@ services:
       Mail__EnableSsl: "${MAIL_ENABLE_SSL:-true}"
       Mail__AllowExternal: "${MAIL_ALLOW_EXTERNAL:-false}"
       Mail__Domain: "${MAIL_DOMAIN:-}"
+      Mail__CompanyName: "${MAIL_COMPANY_NAME:-V-Shield}"
+      Mail__LogoUrl: "${MAIL_LOGO_URL:-}"
+      MAIL_LOG_PATH: "${MAIL_LOG_PATH:-/var/mailu-logs/log/s6/haraka-outbound}"
     expose:
       - "5107"
     volumes:
       - vshield_data_protection:/var/app/data-protection
+      - vshield_mailu_data:/var/mailu-logs:ro
       - ./runtime/face-data/input:/app/wwwroot/uploads/VideoFace
     depends_on:
       db:
@@ -141,6 +146,8 @@ services:
 volumes:
   vshield_mssql_data:
   vshield_data_protection:
+  vshield_mailu_data:
+    external: true
 
 networks:
   face-backend:

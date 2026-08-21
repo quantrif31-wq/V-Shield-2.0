@@ -351,6 +351,7 @@ namespace API
             builder.Services.AddScoped<API.Services.Agent.AgentTools>();
             builder.Services.AddScoped<API.Services.Agent.AgentRunner>();
             builder.Services.AddScoped<API.Services.Agent.CompanyEmailService>();
+            builder.Services.AddHostedService<API.Services.Agent.MailDeliveryTracker>();
             builder.Services.AddSignalR();
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>

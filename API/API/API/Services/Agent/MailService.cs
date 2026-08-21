@@ -16,6 +16,10 @@ public class MailOptions
     public string Domain { get; set; } = "";
     /// <summary>Bỏ qua validate chứng chỉ SSL cho mail server tự host (self-signed).</summary>
     public bool SkipCertificateValidation { get; set; } = false;
+    /// <summary>Tên công ty (chữ ký email).</summary>
+    public string CompanyName { get; set; } = "";
+    /// <summary>URL logo công ty (chữ ký email).</summary>
+    public string LogoUrl { get; set; } = "";
 }
 
 public sealed record MailMessage(

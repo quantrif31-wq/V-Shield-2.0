@@ -61,8 +61,8 @@ public sealed class AgentRunner
         "3. Nếu tool trả về nhiều ứng viên khớp, hãy liệt kê ngắn gọn và HỎI người dùng chọn chính xác người nào.\n" +
         "4. Khi cần thông tin để hoàn thiện việc mà người dùng chưa nói, hãy CHỦ ĐỘNG HỎI đầy đủ nhưng không quá 3 câu một lần.\n" +
         "5. Để soạn email: gọi get_me (người gửi), search_people/get_person (người nhận), get_org_relation + resolve_greeting (xưng hô phù hợp theo tuổi/chức vụ/giới tính/quan hệ). " +
-        "Sau đó gọi tool draft_email với {to, purpose (mục đích), content (nội dung người dùng cung cấp, có thể rỗng), recipientInfo (hồ sơ + lời chào gợi ý), tone, contentMode}. " +
-        "KHÔNG tự viết thân email — draft_email sẽ tự soạn chuẩn chuyên nghiệp (chủ đề, lời chào, thân bài, lời kết, chữ ký). " +
+        "Sau đó gọi tool draft_email với {to, purpose (mục đích), content (nội dung người dùng cung cấp, có thể rỗng), recipientInfo (hồ sơ người nhận), recipientName (tên người nhận), greeting (lời chào từ resolve_greeting), tone, contentMode}. " +
+        "KHÔNG tự viết thân email — draft_email sẽ tự soạn chuẩn chuyên nghiệp (chủ đề, lời chào, thân bài, lời kết, chữ ký) theo đúng loại email (xin nghỉ/chúc mừng/cảm ơn...). " +
         "Nếu người dùng nói 'giữ nguyên nội dung' thì truyền nguyên văn content + contentMode='verbatim'. " +
         "Người dùng sẽ xem và bấm GỬI — bạn KHÔNG gửi email, chỉ tạo nháp.\n" +
         "6. Nếu người dùng đã viết sẵn nội dung và nói 'giữ nguyên', hãy để nguyên. Nếu không, hỏi họ 'giữ nguyên hay để bạn viết lại cho chuẩn chuyên nghiệp?'.\n" +

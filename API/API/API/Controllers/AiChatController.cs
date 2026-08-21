@@ -148,7 +148,7 @@ public class AiChatController : ControllerBase
             });
         }
 
-        var bodyHtml = ToHtml((draft.Subject ?? ""), (draft.Body ?? ""));
+        var bodyHtml = ToHtml(draft.Body ?? "");
         string? fromEmail = null, fromName = null;
         if (actor.EmployeeId is int empId)
         {
@@ -179,7 +179,44 @@ public class AiChatController : ControllerBase
         await _db.SaveChangesAsync(HttpContext.RequestAborted);
 
         _logger.LogInformation("Agent gửi email #{DraftId} cho user {User} tới {To}", draft.AgentDraftId, actor.UserId, draft.To);
+        await LearnToneAsync(actor, draft, HttpContext.RequestAborted);
         return Ok(new { success = true, message = "Đã gửi email.", messageId = result.MessageId });
+    }
+
+    /// <summary>Học giọng văn của người gửi từ email vừa gửi (tone profile) — dùng cho các lần soạn sau.</summary>
+    private async Task LearnToneAsync(AgentActor actor, API.Models.AgentDraft draft, CancellationToken ct)
+    {
+        try
+        {
+            var llm = HttpContext.RequestServices.GetRequiredService<AgentLlmClient>();
+            var messages = new List<object>
+            {
+                new { role = "system", content =
+                    "Bạn là công cụ phân tích GIỌNG VĂN. Đọc email rồi tóm tắt giọng văn người viết trong 1 câu ngắn (≤ 120 ký tự): " +
+                    "mức trang trọng, độ dài câu, cách xưng hô (anh/chị/em/ông/bà), có kính ngữ không. Ví dụ: 'Trang trọng, câu vừa, xưng em - gọi anh/chị, dùng kính ngữ Trân trọng.'" },
+                new { role = "user", content = $"Chủ đề: {draft.Subject}\nNội dung:\n{draft.Body}" }
+            };
+            var resp = await llm.CompleteAsync(messages, null, maxTokens: 200, cancellationToken: ct);
+            if (resp.IsError || string.IsNullOrWhiteSpace(resp.Content)) return;
+
+            var summary = resp.Content.Trim();
+            var key = $"agent.tone.{actor.UserId}";
+            var cfg = await _db.SystemConfigs.FirstOrDefaultAsync(c => c.Key == key, ct);
+            if (cfg == null)
+            {
+                _db.SystemConfigs.Add(new API.Models.SystemConfig { Key = key, Value = summary, UpdatedAtUtc = DateTime.UtcNow });
+            }
+            else
+            {
+                cfg.Value = summary;
+                cfg.UpdatedAtUtc = DateTime.UtcNow;
+            }
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Học tone email thất bại");
+        }
     }
 
     /// <summary>AI viết lại nháp theo yêu cầu (trang trọng hơn, ngắn gọn hơn, giữ nguyên...).</summary>
@@ -257,10 +294,24 @@ public class AiChatController : ControllerBase
     private static string[] ToArray(string? joined)
         => (joined ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
 
-    private static string ToHtml(string subject, string body)
+    private string ToHtml(string body)
     {
-        var escaped = System.Net.WebUtility.HtmlEncode(body).Replace("\n", "<br/>");
-        return $"<html><body>{escaped}</body></html>";
+        var paragraphs = body.Replace("\r\n", "\n")
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => $"<p>{System.Net.WebUtility.HtmlEncode(p).Replace("\n", "<br/>")}</p>");
+        var logo = string.IsNullOrWhiteSpace(_mailOptions.LogoUrl)
+            ? ""
+            : $"<img src=\"{System.Net.WebUtility.HtmlEncode(_mailOptions.LogoUrl)}\" alt=\"logo\" style=\"max-height:40px;margin-bottom:10px;border:0;\" />";
+        var company = string.IsNullOrWhiteSpace(_mailOptions.CompanyName)
+            ? ""
+            : $"<div style=\"color:#6b7280;font-size:12px;margin-top:4px;\">{System.Net.WebUtility.HtmlEncode(_mailOptions.CompanyName)}</div>";
+        return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body " +
+            "style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1f2937;line-height:1.6;margin:0;padding:0;background:#f3f4f6;\">" +
+            "<div style=\"max-width:640px;margin:24px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:24px;\">" +
+            logo + string.Concat(paragraphs) +
+            "<div style=\"margin-top:20px;padding-top:14px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;\">" +
+            "Email này được gửi tự động bởi <b>Trợ lý V-Shield</b>." + company +
+            "</div></div></body></html>";
     }
 }
 

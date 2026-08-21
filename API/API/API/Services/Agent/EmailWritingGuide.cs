@@ -75,4 +75,38 @@ Phạm Văn Thành
 Trưởng nhóm - Phòng Kỹ thuật
 V-Shield
 """;
+
+    public static string DetectType(string purpose)
+    {
+        var p = (purpose ?? "").ToLowerInvariant();
+        if (ContainsAny(p, "xin nghi", "nghi phep", "nghi lam", "xin tu chuc", "tu chuc", "nghi viec", "resign")) return "xin-nghi";
+        if (ContainsAny(p, "chuc mung", "chuc mừng", "mung", "congrat")) return "chuc-mung";
+        if (ContainsAny(p, "cam on", "cảm ơn", "thank")) return "cam-on";
+        if (ContainsAny(p, "xin loi", "xin lỗi", "apolog")) return "xin-loi";
+        if (ContainsAny(p, "tu choi", "từ chối", "decline")) return "tu-choi";
+        if (ContainsAny(p, "de xuat", "đề xuất", "de nghi", "proposal")) return "de-xuat";
+        if (ContainsAny(p, "thong bao", "thông báo", "announce")) return "thong-bao";
+        if (ContainsAny(p, "moi hop", "mời họp", "moi tham du", "invit")) return "moi-hop";
+        if (ContainsAny(p, "hop tac", "hợp tác", "phoi hop", "collab")) return "hop-tac";
+        if (ContainsAny(p, "gop y", "góp ý", "phan hoi", "feedback")) return "gop-y";
+        return "khac";
+    }
+
+    public static string TypeGuidance(string type) => type switch
+    {
+        "xin-nghi" => "Loại: XIN NGHỈ / TỪ CHỨC. Mở đầu nêu rõ việc xin nghỉ + ngày + lý do ngắn gọn; cam kết bàn giao đầy đủ; xin phê duyệt có thời hạn. Giọng trang trọng, khiêm nhường.",
+        "chuc-mung" => "Loại: CHÚC MỪNG. Mở đầu chúc mừng chân thành + nêu thành tựu/chức vụ mới; bày tỏ niềm vui và sự tin tưởng; chúc thành công và sẵn sàng hỗ trợ. Giọng ấm áp nhưng trang trọng.",
+        "cam-on" => "Loại: CẢM ƠN. Mở đầu cảm ơn cụ thể (ai, vì việc gì); nêu ý nghĩa/giá trị; thể hiện sự trân trọng và sẵn sàng đáp lại. Giọng chân thành, ngắn gọn.",
+        "xin-loi" => "Loại: XIN LỖI. Mở đầu thừa nhận + xin lỗi rõ ràng; giải thích nguyên nhân ngắn gọn, khách quan; đề xuất cách khắc phục/bù đắp cụ thể. Giọng chân thành, không bao biện.",
+        "tu-choi" => "Loại: TỪ CHỐI. Mở đầu cảm ơn lời đề nghị; từ chối khéo léo kèm lý do; giữ quan hệ tốt, không hứa hẹn mơ hồ. Giọng lịch sự, tế nhị.",
+        "de-xuat" => "Loại: ĐỀ XUẤT. Mở đầu nêu vấn đề/ngữ cảnh; đề xuất giải pháp kèm chi phí, thời gian, lợi ích; xin phê duyệt có thời hạn. Giọng thuyết phục, có số liệu cụ thể.",
+        "thong-bao" => "Loại: THÔNG BÁO. Mở đầu nêu rõ nội dung; nêu thời gian + đối tượng ảnh hưởng; hướng dẫn hành động tiếp theo. Giọng rõ ràng, trung tính.",
+        "moi-hop" => "Loại: MỜI HỌP. Mở đầu lời mời; nêu thời gian, địa điểm/link, nội dung, người tham dự; đề nghị xác nhận tham dự. Giọng lịch sự, đầy đủ thông tin.",
+        "hop-tac" => "Loại: HỢP TÁC. Mở đầu giới thiệu bản thân/bộ phận; đề xuất phối hợp + mục tiêu chung; đề xuất bước tiếp theo cụ thể. Giọng cởi mở, chuyên nghiệp.",
+        "gop-y" => "Loại: GÓP Ý. Mở đầu ghi nhận điểm tốt; nêu góp ý cụ thể, mang tính xây dựng; đề xuất hướng cải thiện. Giọng tôn trọng, xây dựng.",
+        _ => "Loại: THƯ CÔNG VIỆC CHUNG. Cấu trúc chuẩn: mở đầu lý do → chi tiết → hành động rõ ràng → cảm ơn."
+    };
+
+    private static bool ContainsAny(string text, params string[] keywords)
+        => keywords.Any(k => text.Contains(k, StringComparison.OrdinalIgnoreCase));
 }

@@ -167,8 +167,16 @@ public class AreaNodeSyncWorker : BackgroundService
         {
             foreach (var envelope in payload.Events)
             {
-                var appliedId = await syncEventApplier.ApplyAsync(envelope.Event, cancellationToken);
-                await realtimeNotifier.PublishAsync(envelope.Event.AggregateType, appliedId ?? envelope.Event.AggregateId, "Upsert", "Central", cancellationToken);
+                string? appliedId = null;
+                try
+                {
+                    appliedId = await syncEventApplier.ApplyAsync(envelope.Event, cancellationToken);
+                    await realtimeNotifier.PublishAsync(envelope.Event.AggregateType, appliedId ?? envelope.Event.AggregateId, "Upsert", "Central", cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipping bootstrap sync event {AggregateType}/{AggregateId}.", envelope.Event.AggregateType, envelope.Event.AggregateId);
+                }
             }
         }
         finally
@@ -436,8 +444,17 @@ public class AreaNodeSyncWorker : BackgroundService
                     continue;
                 }
 
-                var appliedId = await syncEventApplier.ApplyAsync(envelope.Event, cancellationToken);
-                await realtimeNotifier.PublishAsync(envelope.Event.AggregateType, appliedId ?? envelope.Event.AggregateId, "Upsert", envelope.Event.SourceSystem, cancellationToken);
+                string? appliedId = null;
+                try
+                {
+                    appliedId = await syncEventApplier.ApplyAsync(envelope.Event, cancellationToken);
+                    await realtimeNotifier.PublishAsync(envelope.Event.AggregateType, appliedId ?? envelope.Event.AggregateId, "Upsert", envelope.Event.SourceSystem, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // 1 event lỗi không được chặn sequence, tránh pull lại vô hạn.
+                    _logger.LogWarning(ex, "Skipping downstream sync event {AggregateType}/{AggregateId}.", envelope.Event.AggregateType, envelope.Event.AggregateId);
+                }
                 maxAppliedSequence = Math.Max(maxAppliedSequence, envelope.OutboxEventId);
             }
         }

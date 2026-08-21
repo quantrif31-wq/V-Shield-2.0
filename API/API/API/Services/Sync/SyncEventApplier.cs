@@ -632,11 +632,26 @@ public class SyncEventApplier
                 participant,
                 syncEvent,
                 forceResetGeneratedKey: !string.Equals(syncEvent.SourceSystem, "AreaNode", StringComparison.OrdinalIgnoreCase));
+            if (!await ConversationExistsAsync(participant.ConversationId, cancellationToken))
+            {
+                // Conversation cha chưa tồn tại (event đến lệch thứ tự) -> bỏ qua, tránh FK violation.
+                return null;
+            }
             _db.ChatParticipants.Add(participant);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
         return participant.ParticipantId.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private async Task<bool> ConversationExistsAsync(int conversationId, CancellationToken cancellationToken)
+    {
+        if (conversationId <= 0)
+        {
+            return false;
+        }
+
+        return await _db.ChatConversations.AnyAsync(item => item.ConversationId == conversationId, cancellationToken);
     }
 
     private async Task<ChatMessage?> FindChatMessageAsync(Dictionary<string, JsonElement> fields, CancellationToken cancellationToken)
@@ -716,6 +731,11 @@ public class SyncEventApplier
                 message,
                 syncEvent,
                 forceResetGeneratedKey: !string.Equals(syncEvent.SourceSystem, "AreaNode", StringComparison.OrdinalIgnoreCase));
+            if (!await ConversationExistsAsync(message.ConversationId, cancellationToken))
+            {
+                // Conversation cha chưa tồn tại (event đến lệch thứ tự) -> bỏ qua, tránh FK violation.
+                return null;
+            }
             _db.ChatMessages.Add(message);
         }
 

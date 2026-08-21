@@ -51,6 +51,7 @@ public sealed class AgentLlmClient
         List<object>? tools,
         int maxTokens,
         string? toolChoice = null,
+        string? model = null,
         CancellationToken cancellationToken = default)
     {
         if (!IsAvailable())
@@ -64,7 +65,7 @@ public sealed class AgentLlmClient
 
         var payload = new Dictionary<string, object?>
         {
-            ["model"] = _options.Model,
+            ["model"] = string.IsNullOrWhiteSpace(model) ? _options.Model : model,
             ["stream"] = false,
             ["temperature"] = 0.6,
             ["max_tokens"] = maxTokens,
