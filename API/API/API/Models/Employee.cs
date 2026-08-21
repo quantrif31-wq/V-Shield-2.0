@@ -25,6 +25,9 @@ public partial class Employee
     [StringLength(100)]
     public string? Email { get; set; }
 
+    [StringLength(100)]
+    public string? CompanyEmail { get; set; }
+
     [Column("FaceImageURL")]
     [StringLength(300)]
     public string? FaceImageUrl { get; set; }
@@ -33,6 +36,17 @@ public partial class Employee
 
     [StringLength(40)]
     public string LifecycleStatus { get; set; } = EmployeeLifecycleStates.Active;
+
+    [StringLength(30)]
+    public string? EmployeeCode { get; set; }
+
+    public DateTime? DateOfBirth { get; set; }
+
+    [StringLength(20)]
+    public string? Gender { get; set; }
+
+    [StringLength(20)]
+    public string? CCCD { get; set; }
 
     public int? PrimarySiteId { get; set; }
 

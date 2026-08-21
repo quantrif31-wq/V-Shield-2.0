@@ -69,7 +69,6 @@ const CameraArchive = () => import('../pages/CameraArchive.vue')
 const ExportApprovalQueue = () => import('../pages/ExportApprovalQueue.vue')
 const RedactionQueue = () => import('../pages/RedactionQueue.vue')
 const ComplianceReports = () => import('../pages/ComplianceReports.vue')
-const GuideViewer = () => import('../pages/GuideViewer.vue')
 const LostFoundDashboard = () => import('../pages/LostFoundDashboard.vue')
 const Chat = () => import('../pages/Chat.vue')
 const RolePermissions = () => import('../pages/RolePermissions.vue')
@@ -200,7 +199,6 @@ const routes = [
             { path: 'redaction-queue', name: 'RedactionQueue', component: RedactionQueue, meta: { allowedRoles: ['Admin'], taskKey: 'evidence-mgmt' } },
             { path: 'compliance-reports', name: 'ComplianceReports', component: ComplianceReports, meta: { allowedRoles: ['Admin'], taskKey: 'evidence-mgmt' } },
             { path: 'about-project', name: 'AboutProject', component: AboutProject },
-            { path: 'guide', name: 'GuideViewer', component: GuideViewer },
             { path: 'event-timeline', redirect: { path: '/soc-console', query: { tab: 'timeline' } }, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring' } },
             { path: 'lane-dashboard', redirect: { path: '/gate-transit-monitor' }, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'gate-transit' } },
             { path: 'lost-found', name: 'LostFoundDashboard', component: LostFoundDashboard, meta: { allowedRoles: ['Admin', 'BaoVe', 'LeTan'], taskKey: 'lost-found' } },

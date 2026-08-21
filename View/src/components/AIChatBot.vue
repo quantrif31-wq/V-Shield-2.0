@@ -3,100 +3,173 @@
     <button
       v-if="!chatOpen"
       class="chat-fab"
-      :class="{ pulse: !hasInteracted, dragging: dragState.active }"
+      :class="{ 'has-unread': hasUnread }"
       :style="fabStyle"
       aria-label="Mở trợ lý AI"
       @pointerdown="startDrag"
       @click="handleFabClick"
     >
-      <svg class="fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      <svg class="fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+        <path d="M12 3a9 9 0 019 9c0 4.97-4.03 9-9 9a8.7 8.7 0 01-3.8-.87L3 21l.9-3.2A8.8 8.8 0 013 12a9 9 0 019-9z"/>
+        <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke-linecap="round"/>
       </svg>
-      <span class="fab-badge">AI</span>
+      <span class="fab-badge" v-if="!hasInteracted">AI</span>
     </button>
 
     <Transition name="chat-slide">
-      <div v-if="chatOpen" class="chat-dialog">
+      <div v-if="chatOpen" class="chat-panel" :class="{ 'is-streaming': streaming }">
+        <!-- Header -->
         <div class="chat-header">
-          <div class="chat-header-left">
-            <div class="chat-avatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                <rect x="3" y="11" width="18" height="10" rx="2"/>
-                <circle cx="12" cy="16" r="1.5"/>
-                <path d="M7 11V7a5 5 0 0110 0v4"/>
-              </svg>
-            </div>
-            <div>
-              <span class="chat-header-title">Trợ lý V-Shield</span>
-              <div class="chat-header-status">
-                <span class="status-dot"></span>
-                <span>Sẵn sàng hỗ trợ</span>
-              </div>
+          <div class="chat-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M12 3a9 9 0 019 9c0 4.97-4.03 9-9 9a8.7 8.7 0 01-3.8-.87L3 21l.9-3.2A8.8 8.8 0 013 12a9 9 0 019-9z"/>
+              <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="chat-header-info">
+            <span class="chat-header-title">Trợ lý V-Shield</span>
+            <div class="chat-header-status">
+              <span class="status-dot" :class="{ live: !streaming }"></span>
+              <span>{{ streaming ? 'Đang trả lời…' : (connected ? 'DeepSeek · trực tuyến' : 'Chưa kết nối AI') }}</span>
             </div>
           </div>
-          <button class="chat-close" aria-label="Đóng chat" @click="closeChat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <div class="chat-header-actions">
+            <button class="icon-btn" title="Xoá hội thoại" aria-label="Xoá hội thoại" @click="clearChat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
+                <path d="M10 11v6M14 11v6"/>
+              </svg>
+            </button>
+            <button class="icon-btn" title="Đóng chat" aria-label="Đóng chat" @click="closeChat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
+        <!-- Messages -->
         <div ref="messagesRef" class="chat-messages" @click="handleMsgClick">
-          <div
-            v-for="msg in messages"
-            :key="msg.id"
-            class="chat-msg"
-            :class="msg.role"
-          >
-            <div v-if="msg.role === 'ai'" class="msg-avatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                <rect x="3" y="11" width="18" height="10" rx="2"/>
-                <circle cx="12" cy="16" r="1.5"/>
-                <path d="M7 11V7a5 5 0 0110 0v4"/>
+          <div v-if="messages.length === 0" class="chat-welcome">
+            <div class="welcome-orb">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 3a9 9 0 019 9c0 4.97-4.03 9-9 9a8.7 8.7 0 01-3.8-.87L3 21l.9-3.2A8.8 8.8 0 013 12a9 9 0 019-9z"/>
+                <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke-linecap="round"/>
               </svg>
             </div>
-            <div class="msg-bubble" v-html="msg.text"></div>
+            <h3 class="welcome-title">Chào bạn 👋</h3>
+            <p class="welcome-text">Mình là trợ lý AI của V-Shield. Hỏi mình bất cứ điều gì về vận hành, gửi xe QR, nhân sự hay an ninh.</p>
           </div>
 
-          <div v-if="isTyping" class="chat-msg ai">
+          <div v-for="msg in messages" :key="msg.id" class="chat-msg" :class="msg.role">
+            <div v-if="msg.role === 'ai'" class="msg-avatar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M12 3a9 9 0 019 9c0 4.97-4.03 9-9 9a8.7 8.7 0 01-3.8-.87L3 21l.9-3.2A8.8 8.8 0 013 12a9 9 0 019-9z"/>
+              </svg>
+            </div>
+            <div class="msg-bubble" :class="{ error: msg.error }">
+              <div class="msg-text" v-html="renderMarkdown(msg.text)"></div>
+              <div v-if="msg.error" class="msg-error-row">
+                <button class="retry-btn" @click.stop="retryLast">Thử lại</button>
+              </div>
+              <div v-if="msg.role === 'ai' && msg.text && !msg.error" class="msg-meta">
+                <button class="copy-btn" title="Sao chép" @click.stop="copyText(msg.text)">Sao chép</button>
+                <span class="msg-time">{{ formatTime(msg.ts) }}</span>
+              </div>
+              <span v-if="streaming && msg.id === currentStreamId" class="stream-caret"></span>
+            </div>
+          </div>
+
+          <div v-if="streaming && !currentStreamId" class="chat-msg ai">
             <div class="msg-avatar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                <rect x="3" y="11" width="18" height="10" rx="2"/>
-                <circle cx="12" cy="16" r="1.5"/>
-                <path d="M7 11V7a5 5 0 0110 0v4"/>
+                <path d="M12 3a9 9 0 019 9c0 4.97-4.03 9-9 9a8.7 8.7 0 01-3.8-.87L3 21l.9-3.2A8.8 8.8 0 013 12a9 9 0 019-9z"/>
               </svg>
             </div>
             <div class="msg-bubble typing">
-              <span class="typing-dot"></span>
-              <span class="typing-dot"></span>
-              <span class="typing-dot"></span>
+              <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
             </div>
           </div>
         </div>
 
-        <div v-if="showSuggestions && !isTyping" class="chat-suggestions">
-          <button
-            v-for="suggestion in suggestions"
-            :key="suggestion.id"
-            class="suggestion-chip"
-            @click="sendSuggestion(suggestion)"
-          >
-            <span class="suggestion-icon">{{ suggestion.icon }}</span>
-            <span>{{ suggestion.label }}</span>
+        <!-- Agent activity (agent đang làm việc) -->
+        <div v-if="agentSteps.length" class="agent-activity" :class="{ working: isAgentWorking() }">
+          <div class="agent-activity-header">
+            <span class="agent-orb" :class="{ spinning: isAgentWorking() }"></span>
+            <span class="agent-activity-title">{{ isAgentWorking() ? 'Agent đang làm việc' : 'Agent đã hoàn thành' }}</span>
+            <span class="agent-activity-count">{{ agentSteps.length }} bước</span>
+            <button class="agent-collapse" :title="activityCollapsed ? 'Xem chi tiết' : 'Thu gọn'" @click="activityCollapsed = !activityCollapsed">
+              {{ activityCollapsed ? '▾' : '▴' }}
+            </button>
+          </div>
+          <div v-if="!activityCollapsed" class="agent-steps">
+            <div v-for="(s, i) in agentSteps" :key="i" class="agent-step" :class="{ done: s.status === 'done', active: s.status === 'running', fail: s.ok === false }">
+              <span class="step-icon">
+                <span v-if="s.status === 'running'" class="step-spinner"></span>
+                <span v-else-if="s.ok === false" class="step-x">✕</span>
+                <span v-else class="step-check">✓</span>
+              </span>
+              <span class="step-skill" :title="s.tool">{{ skillIcon(s.tool) }}</span>
+              <span class="step-label">{{ s.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Draft email (agent soạn) -->
+        <div v-if="drafts.length" class="chat-drafts">
+          <div v-for="d in drafts" :key="d.id" class="draft-card">
+            <div class="draft-header">
+              <span class="draft-title">📧 Email nháp #{{ d.id }}</span>
+              <button class="draft-close" title="Đóng nháp" @click="removeDraft(d)">✕</button>
+            </div>
+            <input v-model="d.to" class="draft-input" placeholder="Người nhận (email, cách nhau dấu ;)" />
+            <input v-model="d.subject" class="draft-input" placeholder="Tiêu đề" />
+            <textarea v-model="d.body" class="draft-textarea" placeholder="Nội dung" rows="6"></textarea>
+            <div class="draft-actions">
+              <button class="draft-btn primary" :disabled="d.sending" @click="sendDraft(d)">
+                {{ d.sending ? 'Đang gửi…' : 'Gửi' }}
+              </button>
+              <button class="draft-btn" :disabled="d.refining" @click="refineDraft(d, 'Viết lại cho chuẩn chuyên nghiệp, trang trọng, giữ nguyên ý.')">Viết lại</button>
+              <button class="draft-btn" :disabled="d.refining" @click="refineDraft(d, 'Viết ngắn gọn hơn, súc tích.')">Ngắn gọn</button>
+            </div>
+            <div v-if="d.result" class="draft-result" :class="{ ok: d.sent }">{{ d.result }}</div>
+            <div v-if="d.refineMsg" class="draft-result">{{ d.refineMsg }}</div>
+          </div>
+        </div>
+
+        <!-- Suggestions -->
+        <div v-if="messages.length <= 1 && !streaming" class="chat-suggestions">
+          <button v-for="s in suggestions" :key="s.id" class="suggestion-chip" @click="sendSuggestion(s)">
+            <span class="suggestion-icon">{{ s.icon }}</span>
+            <span>{{ s.label }}</span>
           </button>
         </div>
 
+        <!-- Input -->
         <div class="chat-input-bar">
-          <input
+          <textarea
             v-model="inputText"
-            type="text"
-            placeholder="Nhập câu hỏi..."
-            :disabled="isTyping"
-            @keydown.enter.prevent="sendMessage"
+            ref="inputRef"
+            rows="1"
+            :placeholder="streaming ? 'AI đang trả lời…' : 'Hỏi trợ lý V-Shield…'"
+            :disabled="streaming"
+            @keydown.enter.exact.prevent="sendMessage"
+            @keydown.enter.shift.prevent="insertNewline"
+            @input="autogrow"
           />
           <button
+            v-if="streaming"
+            class="chat-send-btn stop"
+            aria-label="Dừng"
+            @click="stopStream"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <button
+            v-else
             class="chat-send-btn"
-            :disabled="!inputText.trim() || isTyping"
+            :disabled="!inputText.trim()"
+            aria-label="Gửi"
             @click="sendMessage"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -104,526 +177,854 @@
             </svg>
           </button>
         </div>
+        <div class="chat-footer-note">
+          <span v-if="!connected">AI chưa được cấu hình — liên hệ quản trị viên.</span>
+          <span v-else>AI có thể sai sót — hãy kiểm tra thông tin quan trọng.</span>
+        </div>
       </div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { API_BASE_URL } from '../config/api.js'
 
 const router = useRouter()
 const route = useRoute()
+
+const AUTH_TOKEN_KEY = 'v_shield_token'
+const STORE_KEY = 'vshield_ai_chat_v2'
+const THREAD_KEY = 'vshield_ai_thread'
+const DRAFTS_KEY = 'vshield_ai_drafts'
+
 const chatOpen = ref(false)
 const messages = ref([])
 const inputText = ref('')
-const isTyping = ref(false)
+const streaming = ref(false)
 const hasInteracted = ref(false)
-const showSuggestions = ref(true)
+const connected = ref(true)
+const currentStreamId = ref(null)
+const controller = ref(null)
 const messagesRef = ref(null)
-const fabOffset = ref({ x: 0, y: 0 })
-const dragState = ref({
-  active: false,
-  pointerId: null,
-  startX: 0,
-  startY: 0,
-  originX: 0,
-  originY: 0,
-  moved: false
-})
+const inputRef = ref(null)
+const threadId = ref(sessionStorage.getItem(THREAD_KEY) || '')
+const drafts = ref([])
+const statusText = ref('')
+const agentSteps = ref([])
+const activityCollapsed = ref(false)
 
-const fabStyle = computed(() => ({
-  transform: `translate(${fabOffset.value.x}px, ${fabOffset.value.y}px)`
-}))
+// FAB drag
+const fabStyle = ref({})
+const dragState = ref({ active: false, startX: 0, startY: 0, x: 0, y: 0 })
 
 const suggestions = [
-  { id: 'guide', icon: '📖', label: 'Hướng dẫn sử dụng phần mềm', text: 'Hướng dẫn tôi sử dụng phần mềm V-Shield' },
-  { id: 'admin', icon: '🔐', label: 'Admin có thể làm gì?', text: 'Tôi là Admin, tôi có thể làm gì trên V-Shield?' },
-  { id: 'baove', icon: '🛡️', label: 'Bảo vệ cần làm gì?', text: 'Tôi là Bảo vệ, cần làm những gì khi trực cổng?' },
-  { id: 'reception', icon: '🛎️', label: 'Lễ tân cần biết', text: 'Tôi là Lễ tân, cần dùng V-Shield như thế nào?' },
-  { id: 'quanly', icon: '📊', label: 'Quản lý vận hành', text: 'Tôi là Quản lý, các chức năng dành cho tôi?' },
-  { id: 'manual', icon: '⌨️', label: 'Xử lý khi QR lỗi', text: 'Làm thế nào để xử lý thủ công khi QR hoặc camera lỗi?' },
+  { id: 'huongdan', icon: '🧭', label: 'Hướng dẫn dùng V-Shield', text: 'Hướng dẫn tôi cách sử dụng V-Shield một cách tổng quan.' },
+  { id: 'guixe', icon: '🚗', label: 'Quy trình gửi xe QR', text: 'Trình bày quy trình gửi xe bằng QR ở cổng ra vào từng bước.' },
+  { id: 'baove', icon: '🛡️', label: 'Bảo vệ trực cổng', text: 'Bảo vệ cần làm những gì khi trực cổng và xác thực ra vào?' },
+  { id: 'qrloi', icon: '⚙️', label: 'Xử lý khi QR/camera lỗi', text: 'Làm sao để xử lý thủ công khi QR hoặc camera gặp sự cố?' },
+  { id: 'taoqrdong', icon: '🔳', label: 'Tạo QR động', text: 'Cách tạo QR động cho nhân viên và kiểm tra giá trị của nó.' },
+  { id: 'chamcong', icon: '📊', label: 'Chấm công ra vào', text: 'Chấm công được ghi nhận như thế nào khi xe ra vào cổng?' }
 ]
 
-function addMessage(role, text) {
-  messages.value.push({
-    id: Date.now() + Math.random(),
-    role,
-    text,
-    timestamp: new Date()
+const hasUnread = computed(() => messages.value.length === 0 && hasInteracted.value === false && chatOpen.value === false)
+
+// ---------- markdown (safe) ----------
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function renderInline(text) {
+  let t = esc(text)
+  t = t.replace(/^(#{1,3})\s+(.+)$/gm, (m, h, body) => `<h${Math.min(h.length + 2, 4)}>${body}</h${Math.min(h.length + 2, 4)}>`)
+  t = t.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+  t = t.replace(/^[ \t]*[-*]\s+(.+)$/gm, '<span class="li">• $1</span>')
+  t = t.replace(/^[ \t]*(\d+)\.\s+(.+)$/gm, '<span class="li">$1. $2</span>')
+  t = t.replace(/\n{2,}/g, '<br><br>')
+  t = t.replace(/\n/g, '<br>')
+  return t
+}
+
+function renderMarkdown(src) {
+  if (!src) return ''
+  const parts = String(src).split(/```(\w*)\n?([\s\S]*?)```/g)
+  let html = ''
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 3 === 0) html += renderInline(parts[i])
+    else if (i % 3 === 2) html += `<pre><code>${esc(parts[i].trim())}</code></pre>`
+  }
+  return html
+}
+
+// ---------- chat actions ----------
+function token() {
+  return sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || ''
+}
+
+function addMessage(role, text, extra = {}) {
+  const msg = { id: 'm' + Date.now() + Math.random().toString(36).slice(2, 7), role, text, ts: Date.now(), ...extra }
+  messages.value.push(msg)
+  persist()
+  scrollDown()
+  return msg
+}
+
+function scrollDown() {
+  nextTick(() => {
+    const el = messagesRef.value
+    if (el) el.scrollTop = el.scrollHeight
   })
 }
 
-async function scrollToBottom() {
-  await nextTick()
-  if (messagesRef.value) {
-    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-  }
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function resetFabPosition() {
-  fabOffset.value = { x: 0, y: 0 }
-  dragState.value = {
-    active: false,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    originX: 0,
-    originY: 0,
-    moved: false
-  }
-}
-
-function openChat() {
-  resetFabPosition()
-  chatOpen.value = true
+async function sendMessage() {
+  const text = inputText.value.trim()
+  if (!text || streaming.value) return
   hasInteracted.value = true
-  if (messages.value.length === 0) {
-    addMessage('ai', 'Xin chào! Tôi là <strong>Trợ lý V-Shield</strong>. Tôi có thể giúp bạn:<br>• 📖 Hướng dẫn sử dụng toàn bộ hệ thống<br>• 🔐 Giải thích chức năng theo vai trò<br>• ❌ Trả lời câu hỏi thường gặp<br><br>Bạn muốn tìm hiểu điều gì trước?')
+  inputText.value = ''
+  autogrow()
+
+  addMessage('user', text)
+
+  streaming.value = true
+  connected.value = true
+  statusText.value = 'Đang xử lý…'
+  currentStreamId.value = null
+  controller.value = new AbortController()
+  agentSteps.value = [{ tool: 'thinking', label: 'Đang phân tích yêu cầu…', status: 'running' }]
+  activityCollapsed.value = false
+
+  const aiMsg = addMessage('ai', '', { id: null })
+  aiMsg.id = 'm' + Date.now() + Math.random().toString(36).slice(2, 7)
+  currentStreamId.value = aiMsg.id
+  scrollDown()
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/ai-chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token()}`
+      },
+      body: JSON.stringify({ threadId: threadId.value || undefined, message: text }),
+      signal: controller.value.signal
+    })
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let done = false
+
+    while (!done) {
+      const { done: rd, value } = await reader.read()
+      if (rd) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl
+      while ((nl = buffer.indexOf('\n')) !== -1) {
+        let line = buffer.slice(0, nl).trim()
+        buffer = buffer.slice(nl + 1)
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (data === '[DONE]') { done = true; break }
+        if (!data) continue
+        try {
+          const j = JSON.parse(data)
+          if (j.type === 'tool_start') {
+            finishRunningSteps()
+            agentSteps.value.push({ tool: j.tool, label: j.label, status: 'running' })
+            statusText.value = j.label
+            scrollDown()
+          }
+          if (j.type === 'tool_done') {
+            const idx = [...agentSteps.value].reverse().findIndex((s) => s.tool === j.tool && s.status === 'running')
+            if (idx >= 0) {
+              const real = agentSteps.value.length - 1 - idx
+              agentSteps.value[real].status = 'done'
+              agentSteps.value[real].ok = j.ok !== false
+              if (j.label) agentSteps.value[real].label = j.label
+            }
+          }
+          if (j.status) statusText.value = j.status
+          if (j.token) {
+            aiMsg.text += j.token
+            finishRunningSteps('Đã soạn xong câu trả lời.')
+            statusText.value = ''
+            scrollDown()
+          }
+          if (j.threadId) {
+            threadId.value = j.threadId
+            sessionStorage.setItem(THREAD_KEY, j.threadId)
+          }
+          if (j.draft && j.draft.id) upsertDraft(j.draft)
+          if (j.error) {
+            aiMsg.error = true
+            aiMsg.text = aiMsg.text || j.error
+            connected.value = false
+            finishRunningSteps('Có lỗi xảy ra.')
+            done = true
+          }
+          if (j.done) { done = true }
+        } catch {}
+      }
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      aiMsg.error = true
+      aiMsg.text = aiMsg.text || `Không kết nối được AI. ${e.message}`
+      connected.value = false
+    } else {
+      aiMsg.text = aiMsg.text || '(đã dừng)'
+    }
+  } finally {
+    streaming.value = false
+    statusText.value = ''
+    currentStreamId.value = null
+    controller.value = null
+    persist()
+    scrollDown()
   }
-  scrollToBottom()
 }
 
-function closeChat() {
-  chatOpen.value = false
+function upsertDraft(d) {
+  const i = drafts.value.findIndex((x) => x.id === d.id)
+  if (i >= 0) drafts.value[i] = { ...drafts.value[i], ...d, sending: false, sent: false, refineMsg: '' }
+  else drafts.value.push({ ...d, sending: false, sent: false, refineMsg: '' })
+  persistDrafts()
+  scrollDown()
 }
 
-function startDrag(event) {
-  if (chatOpen.value) return
-
-  dragState.value = {
-    active: true,
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    originX: fabOffset.value.x,
-    originY: fabOffset.value.y,
-    moved: false
-  }
-
-  event.currentTarget?.setPointerCapture?.(event.pointerId)
-  window.addEventListener('pointermove', onDragMove)
-  window.addEventListener('pointerup', endDrag)
-  window.addEventListener('pointercancel', endDrag)
+function finishRunningSteps(label) {
+  let changed = false
+  agentSteps.value.forEach((s) => {
+    if (s.status === 'running') {
+      s.status = 'done'
+      if (label) s.label = label
+      changed = true
+    }
+  })
+  if (changed) scrollDown()
 }
 
-function onDragMove(event) {
-  if (!dragState.value.active || event.pointerId !== dragState.value.pointerId) return
+function skillIcon(tool) {
+  return (
+    {
+      search_people: '🔍',
+      get_person: '👤',
+      get_me: '🧑‍💼',
+      get_org_relation: '🏢',
+      resolve_greeting: '🤝',
+      draft_email: '📧',
+      save_note: '📝',
+      get_note: '📖',
+      thinking: '🧠'
+    }[tool] || '⚙️'
+  )
+}
 
-  const deltaX = event.clientX - dragState.value.startX
-  const deltaY = event.clientY - dragState.value.startY
+function isAgentWorking() {
+  return agentSteps.value.some((s) => s.status === 'running')
+}
 
-  if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-    dragState.value.moved = true
-  }
+function persistDrafts() {
+  try { sessionStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts.value.map((d) => ({ id: d.id, to: d.to, subject: d.subject, body: d.body })))) } catch {}
+}
 
-  const maxRight = Math.max(window.innerWidth - 92, 0)
-  const maxBottom = Math.max(window.innerHeight - 92, 0)
-
-  fabOffset.value = {
-    x: Math.min(Math.max(dragState.value.originX + deltaX, -maxRight), 24),
-    y: Math.min(Math.max(dragState.value.originY + deltaY, -maxBottom), 24)
+async function sendDraft(d) {
+  if (d.sending) return
+  d.sending = true
+  d.result = ''
+  try {
+    const res = await fetch(`${API_BASE_URL}/ai-chat/send-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ draftId: d.id, to: d.to, subject: d.subject, body: d.body })
+    })
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`)
+    d.sent = true
+    d.result = j.message || 'Đã gửi.'
+  } catch (e) {
+    d.result = 'Lỗi gửi: ' + e.message
+  } finally {
+    d.sending = false
   }
 }
 
-function endDrag(event) {
-  if (dragState.value.pointerId !== null && event.pointerId !== dragState.value.pointerId) return
-
-  dragState.value.active = false
-  dragState.value.pointerId = null
-  window.removeEventListener('pointermove', onDragMove)
-  window.removeEventListener('pointerup', endDrag)
-  window.removeEventListener('pointercancel', endDrag)
+async function refineDraft(d, instruction) {
+  d.refining = true
+  d.refineMsg = ''
+  try {
+    const res = await fetch(`${API_BASE_URL}/ai-chat/refine-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ draftId: d.id, instruction })
+    })
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`)
+    if (j.draft) {
+      d.to = j.draft.to || d.to
+      d.subject = j.draft.subject
+      d.body = j.draft.body
+    }
+    d.refineMsg = 'Đã viết lại.'
+  } catch (e) {
+    d.refineMsg = 'Lỗi: ' + e.message
+  } finally {
+    d.refining = false
+  }
 }
 
-function handleFabClick() {
-  if (dragState.value.moved) {
-    dragState.value.moved = false
-    return
-  }
-
-  openChat()
+function removeDraft(d) {
+  drafts.value = drafts.value.filter((x) => x.id !== d.id)
+  persistDrafts()
 }
 
-async function simulateTyping(callback) {
-  isTyping.value = true
-  showSuggestions.value = false
-  await scrollToBottom()
-  await new Promise(r => setTimeout(r, 600 + Math.random() * 400))
-  await callback()
-  isTyping.value = false
-  showSuggestions.value = true
-  await scrollToBottom()
+function stopStream() {
+  if (controller.value) controller.value.abort()
 }
 
-function handleGuideResponse(userMessage) {
-  const msg = userMessage.toLowerCase()
-
-  if (msg.includes('huong dan') || msg.includes('cach dung') || msg.includes('su dung') || msg.includes('bat dau')) {
-    addMessage('ai', `📖 <strong>Hướng dẫn sử dụng V-Shield</strong><br><br>V-Shield là nền tảng kiểm soát ra vào thông minh với đầy đủ tính năng:<br><br>👉 <a href="/guide" class="chat-link">Mở Hướng dẫn sử dụng đầy đủ →</a><br><br>Trong hướng dẫn có:<br>• ✅ Tổng quan hệ thống<br>• ✅ Luồng hoạt động cho từng vai trò<br>• ✅ Danh mục tất cả trang chức năng<br>• ✅ Chi tiết nút bấm, ô nhập liệu từng màn hình<br>• ✅ Câu hỏi thường gặp`)
-    return
+function retryLast() {
+  const lastUser = [...messages.value].reverse().find((m) => m.role === 'user')
+  // bỏ lượt AI lỗi
+  const idx = messages.value.findIndex((m) => m.role === 'ai' && m.error)
+  if (idx >= 0) messages.value.splice(idx, 1)
+  if (lastUser) {
+    inputText.value = lastUser.text
+    sendMessage()
   }
-
-  if (msg.includes('admin') || msg.includes('quan tri')) {
-    addMessage('ai', `🔐 <strong>Quyền hạn của Admin</strong><br><br>Admin có <strong>toàn quyền</strong> trên hệ thống V-Shield:<br><br>• 📊 Dashboard tổng quan & AI Intelligence<br>• 📹 Giám sát camera, QR động, biển số<br>• 👥 Quản lý nhân sự, tài khoản, phân quyền<br>• 🚗 Quản lý phương tiện, chấm công<br>• 🏢 Quản lý khách, nhà thầu, watchlist<br>• ⚙️ Cấu hình camera, thiết bị, policy<br>• 🔒 SOC, Evidence, Compliance, Retention<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
-    return
-  }
-
-  if (msg.includes('bao ve') || msg.includes('baove') || msg.includes('truc cong')) {
-    addMessage('ai', `🛡️ <strong>Quyền hạn của Bảo vệ</strong><br><br>Bảo vệ có thể truy cập các chức năng:<br><br>• 📹 Giám sát camera trực tiếp<br>• 🔍 Tra cứu lịch sử vào/ra<br>• 📱 Xác thực QR động + biển số<br>• 🚪 Điều phối thông hành, cho qua thủ công có truy vết<br>• 🏪 Reception check-in khách<br>• ⚠️ Gửi yêu cầu xử lý ngoại lệ và duress<br>• 📋 Watchlist, Lane dashboard, Barrier<br><br>👉 <a href="/guide" class="chat-link">Xem luồng công việc chi tiết →</a>`)
-    return
-  }
-
-  if (msg.includes('le tan') || msg.includes('reception')) {
-    addMessage('ai', `🛎️ <strong>Quyền hạn của Lễ tân</strong><br><br>Lễ tân có thể sử dụng:<br><br>• 🏪 Đón tiếp và check-in khách tại quầy<br>• 🔎 Tra cứu khách còn trong khuôn viên hay đã quá giờ<br>• 🎒 Tìm đồ thất lạc và theo dõi việc trao trả<br>• 🚗 Kiểm tra xe khách còn trong bãi không<br>• 🛡️ Gọi Bảo vệ hỗ trợ khi có tình huống phát sinh<br>• 📋 Xem các màn hình cần thiết để hỗ trợ khách nhanh chóng<br><br>👉 <a href="/guide" class="chat-link">Xem hướng dẫn cho Lễ tân →</a>`)
-    return
-  }
-
-  if (msg.includes('quan ly') || msg.includes('quanly') || msg.includes('manager')) {
-    addMessage('ai', `📊 <strong>Quyền hạn của Quản lý</strong><br><br>Quản lý có thể:<br><br>• 📊 Dashboard tổng quan<br>• 📹 Giám sát camera & lịch sử<br>• 🚗 Quản lý phương tiện<br>• 📋 Báo cáo chấm công<br>• 🏢 Danh mục hệ thống<br>• ⚠️ Xem và xử lý ngoại lệ<br><br>👉 <a href="/guide" class="chat-link">Xem chi tiết trong Hướng dẫn →</a>`)
-    return
-  }
-
-  if (msg.includes('thu cong') || msg.includes('camera loi') || msg.includes('qr loi') || msg.includes('khong doc')) {
-    addMessage('ai', `⌨️ <strong>Vận hành thủ công tại cổng</strong><br><br>1. Mở <a href="/gate-transit-monitor" class="chat-link">Trung tâm điều hành (Control Room)</a><br>2. Chọn làn và mở bảng quyết định<br>3. Chọn "Vận hành thủ công"<br>4. Nhập họ tên hoặc biển số, lý do xác minh<br>5. Xác nhận cho qua<br><br>Hệ thống sẽ tạo sự kiện MANUAL_PASS cùng người thao tác và lý do để hậu kiểm.`)
-    return
-  }
-
-  if (msg.includes('qr') || msg.includes('ma')) {
-    addMessage('ai', `📱 <strong>QR động</strong><br><br>QR động là mã QR thay đổi theo chu kỳ (mặc định 30s), tăng cường bảo mật.<br><br><strong>Người dùng được cấp quyền:</strong> Đăng nhập → mở trang QR → giữ màn hình để quét tại cổng.<br><br><strong>Admin:</strong> Vào Tạo QR động, nhập Employee ID, bấm "Phát QR realtime".<br><br>👉 Vào <a href="/dynamic-qr-generator" class="chat-link">Tạo QR động</a> ngay.`)
-    return
-  }
-
-  if (msg.includes('cam on') || msg.includes('thank')) {
-    addMessage('ai', 'Không có gì! Nếu cần thêm thông tin, bạn có thể:<br><br>• 📖 Xem <a href="/guide" class="chat-link">Hướng dẫn đầy đủ</a><br>• ❓ Đặt câu hỏi khác cho tôi<br>• 📧 Liên hệ Admin hệ thống')
-    return
-  }
-
-  addMessage('ai', `Xin chào! Tôi có thể giúp gì cho bạn?<br><br>Hãy thử các gợi ý bên dưới hoặc gõ câu hỏi của bạn:<br>• "Hướng dẫn sử dụng V-Shield"<br>• "Admin có thể làm gì?"<br>• "Bảo vệ cần làm gì?"<br>• "Cách tạo QR động"<br>• "Xử lý thế nào khi QR lỗi?"`)
 }
 
-function sendSuggestion(suggestion) {
-  addMessage('user', suggestion.text)
-  showSuggestions.value = false
-  simulateTyping(() => handleGuideResponse(suggestion.text))
+function sendSuggestion(s) {
+  inputText.value = s.text
+  sendMessage()
 }
 
-function handleMsgClick(event) {
-  const link = event.target.closest('a[href]')
-  if (!link) return
-  const href = link.getAttribute('href')
-  if (href && href.startsWith('/')) {
-    event.preventDefault()
+function clearChat() {
+  if (streaming.value) stopStream()
+  messages.value = []
+  drafts.value = []
+  agentSteps.value = []
+  statusText.value = ''
+  threadId.value = ''
+  sessionStorage.removeItem(THREAD_KEY)
+  sessionStorage.removeItem(DRAFTS_KEY)
+  persist()
+}
+
+function copyText(text) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text)
+}
+
+function insertNewline() {
+  const el = inputRef.value
+  if (el) el.value = inputText.value
+  autogrow()
+}
+
+function autogrow() {
+  const el = inputRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px'
+}
+
+function handleMsgClick(e) {
+  const a = e.target.closest('a')
+  if (!a) return
+  const href = a.getAttribute('href')
+  if (href && href.startsWith('/') && !href.startsWith('//')) {
+    e.preventDefault()
     closeChat()
     router.push(href)
   }
 }
 
-watch(() => route.path, () => {
-  if (chatOpen.value) closeChat()
-})
-
-async function sendMessage() {
-  const text = inputText.value.trim()
-  if (!text || isTyping.value) return
-
-  inputText.value = ''
-  addMessage('user', text)
-  showSuggestions.value = false
-  await simulateTyping(() => handleGuideResponse(text))
+function persist() {
+  try { sessionStorage.setItem(STORE_KEY, JSON.stringify(messages.value)) } catch {}
 }
 
-onUnmounted(() => {
-  window.removeEventListener('pointermove', onDragMove)
-  window.removeEventListener('pointerup', endDrag)
-  window.removeEventListener('pointercancel', endDrag)
+function openChat() {
+  chatOpen.value = true
+  hasInteracted.value = true
+  nextTick(scrollDown)
+}
+function closeChat() {
+  chatOpen.value = false
+}
+
+function handleFabClick(e) {
+  if (dragState.active) return
+  openChat()
+}
+
+function startDrag(e) {
+  const btn = e.currentTarget
+  dragState.value = { active: true, startX: e.clientX, startY: e.clientY, x: 0, y: 0 }
+  btn.setPointerCapture(e.pointerId)
+}
+
+function onMove(e) {
+  if (!dragState.value.active) return
+  const dx = e.clientX - dragState.value.startX
+  const dy = e.clientY - dragState.value.startY
+  if (Math.abs(dx) + Math.abs(dy) < 4) return
+  dragState.value.active = false
+  hasInteracted.value = true
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const x = Math.min(Math.max(8, dragState.value.x + dx), vw - 64)
+  const y = Math.min(Math.max(8, dragState.value.y + dy), vh - 64)
+  dragState.value.x = x
+  dragState.value.y = y
+  fabStyle.value = { right: 'auto', bottom: 'auto', left: x + 'px', top: y + 'px' }
+}
+
+function onUp() {
+  dragState.value.active = false
+}
+
+// ---------- lifecycle ----------
+onMounted(() => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || '[]')
+    if (Array.isArray(saved) && saved.length) messages.value = saved
+  } catch {}
+  try {
+    const savedDrafts = JSON.parse(sessionStorage.getItem(DRAFTS_KEY) || '[]')
+    if (Array.isArray(savedDrafts) && savedDrafts.length) {
+      drafts.value = savedDrafts.map((d) => ({ ...d, sending: false, sent: false, refineMsg: '' }))
+    }
+  } catch {}
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('pointermove', onMove)
+  window.removeEventListener('pointerup', onUp)
+  if (controller.value) controller.value.abort()
+})
+
+watch(
+  () => route.path,
+  () => {
+    if (chatOpen.value) closeChat()
+  }
+)
 </script>
 
 <style scoped>
 .ai-chatbot {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
   z-index: 9999;
-  font-family: var(--font-body);
+  right: 24px;
+  bottom: 24px;
+  pointer-events: none;
 }
 
+/* ---------- FAB ---------- */
 .chat-fab {
-  position: relative;
-  width: 60px;
-  height: 60px;
+  pointer-events: auto;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   border: none;
-  background: var(--accent-gradient);
-  color: #fff;
-  cursor: grab;
-  box-shadow: 0 8px 28px rgba(15,124,130,0.28);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  color: #fff;
+  background: radial-gradient(120% 120% at 30% 20%, #6d5cff, #4f46e5 55%, #9333ea);
+  box-shadow: 0 10px 30px rgba(99, 91, 255, 0.45);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  animation: fabPulse 2.6s ease-in-out infinite;
   touch-action: none;
-  user-select: none;
 }
-
-.chat-fab:hover {
-  transform: translate(var(--fab-offset-x, 0), var(--fab-offset-y, 0)) translateY(-2px) scale(1.04);
-  box-shadow: 0 12px 36px rgba(15,124,130,0.35);
-}
-
-.chat-fab.dragging {
-  cursor: grabbing;
-  transition: box-shadow var(--transition-fast);
-}
-
-.chat-fab.pulse {
-  animation: fabPulse 2.5s ease-in-out infinite;
-}
-
-@keyframes fabPulse {
-  0%, 100% { box-shadow: 0 8px 28px rgba(15,124,130,0.28); }
-  50% { box-shadow: 0 8px 36px rgba(15,124,130,0.48), 0 0 0 12px rgba(84,196,211,0.08); }
-}
-
-.fab-icon { width: 26px; height: 26px; }
-
-.fab-badge {
+.chat-fab:hover { transform: scale(1.06); box-shadow: 0 14px 36px rgba(99, 91, 255, 0.55); }
+.chat-fab:active { transform: scale(0.96); }
+.chat-fab .fab-icon { width: 27px; height: 27px; }
+.chat-fab .fab-badge {
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--accent-danger);
+  background: #22c55e;
   color: #fff;
-  font-size: 0.65rem;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(195,81,70,0.3);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 10px 30px rgba(99, 91, 255, 0.45), 0 0 0 0 rgba(99, 91, 255, 0.35); }
+  50% { box-shadow: 0 10px 30px rgba(99, 91, 255, 0.45), 0 0 0 14px rgba(99, 91, 255, 0); }
 }
 
-.chat-dialog {
+/* ---------- Panel ---------- */
+.chat-panel {
+  pointer-events: auto;
   position: absolute;
-  bottom: 0;
   right: 0;
-  width: 380px;
-  max-height: 600px;
-  height: min(600px, calc(100vh - 100px));
+  bottom: 0;
+  width: min(400px, calc(100vw - 20px));
+  height: min(620px, calc(100vh - 90px));
   display: flex;
   flex-direction: column;
-  background: var(--bg-card-strong);
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
-  box-shadow: var(--shadow-xl);
   overflow: hidden;
-  backdrop-filter: var(--glass-blur);
+  border-radius: 22px;
+  background: rgba(20, 22, 34, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  color: #e8eaf2;
 }
 
 .chat-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.28), rgba(147, 51, 234, 0.16));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
-
-.chat-header-left { display: flex; align-items: center; gap: 10px; }
-
 .chat-avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  flex: none;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(15,124,130,0.12), rgba(84,196,211,0.08));
-  color: var(--accent-primary);
+  color: #fff;
+  background: linear-gradient(135deg, #6d5cff, #9333ea);
+  box-shadow: 0 6px 16px rgba(99, 91, 255, 0.4);
 }
-
-.chat-avatar svg { width: 20px; height: 20px; }
-.chat-header-title { display: block; font-size: 0.96rem; font-weight: 700; color: var(--text-primary); }
-.chat-header-status { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 0 3px rgba(20,134,109,0.12); }
-.chat-header-status span { font-size: 0.76rem; color: var(--text-muted); }
-
-.chat-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+.chat-avatar svg { width: 23px; height: 23px; }
+.chat-header-info { flex: 1; min-width: 0; }
+.chat-header-title { display: block; font-weight: 700; font-size: 14.5px; letter-spacing: 0.2px; }
+.chat-header-status { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #9aa3b8; margin-top: 2px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; }
+.status-dot.live { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); animation: dotPulse 2s infinite; }
+@keyframes dotPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+.chat-header-actions { display: flex; gap: 6px; }
+.icon-btn {
+  width: 32px; height: 32px;
+  border-radius: 9px;
   border: none;
-  background: rgba(0,0,0,0.04);
-  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.07);
+  color: #c6cbd9;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
+  display: flex; align-items: center; justify-content: center;
 }
+.icon-btn:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.icon-btn svg { width: 16px; height: 16px; }
 
-.chat-close:hover { background: rgba(195,81,70,0.1); color: var(--accent-danger); }
-.chat-close svg { width: 18px; height: 18px; }
-
+/* ---------- Messages ---------- */
 .chat-messages {
   flex: 1;
-  min-height: 0;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 14px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   scroll-behavior: smooth;
 }
+.chat-messages::-webkit-scrollbar { width: 6px; }
+.chat-messages::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 3px; }
 
-.chat-messages::-webkit-scrollbar { width: 4px; }
-.chat-messages::-webkit-scrollbar-thumb { background: rgba(61,93,118,0.2); border-radius: 999px; }
-
-.chat-msg { display: flex; gap: 8px; max-width: 92%; }
-.chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
-.chat-msg.ai { align-self: flex-start; }
-
-.msg-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(15,124,130,0.1);
-  color: var(--accent-primary);
-  font-size: 0.7rem;
+.chat-welcome { text-align: center; padding: 18px 10px 6px; }
+.welcome-orb {
+  width: 62px; height: 62px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  background: radial-gradient(120% 120% at 30% 20%, #6d5cff, #9333ea);
+  box-shadow: 0 12px 30px rgba(99, 91, 255, 0.45);
 }
+.welcome-orb svg { width: 32px; height: 32px; }
+.welcome-title { font-size: 16px; margin: 0 0 6px; }
+.welcome-text { font-size: 12.5px; color: #9aa3b8; line-height: 1.55; margin: 0 auto; max-width: 280px; }
 
-.msg-avatar svg { width: 14px; height: 14px; }
-
+.chat-msg { display: flex; gap: 9px; align-items: flex-end; }
+.chat-msg.user { justify-content: flex-end; }
+.msg-avatar {
+  width: 28px; height: 28px; flex: none;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #6d5cff, #9333ea);
+}
+.msg-avatar svg { width: 16px; height: 16px; }
 .msg-bubble {
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 0.88rem;
+  max-width: 84%;
+  padding: 10px 13px;
+  border-radius: 16px;
+  font-size: 13.5px;
   line-height: 1.55;
+  position: relative;
   word-break: break-word;
 }
-
 .chat-msg.ai .msg-bubble {
-  background: rgba(236,244,246,0.72);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-bottom-left-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom-left-radius: 6px;
 }
-
 .chat-msg.user .msg-bubble {
-  background: var(--accent-gradient);
+  background: linear-gradient(135deg, #4f46e5, #6d5cff);
   color: #fff;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 6px;
 }
-
-.msg-bubble :deep(a) { color: var(--accent-primary); font-weight: 600; text-decoration: underline; }
-.chat-msg.user .msg-bubble :deep(a) { color: #fff; text-decoration: underline; }
-
-.typing { display: flex; align-items: center; gap: 4px; padding: 14px 20px !important; }
-
-.typing-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(15,124,130,0.4);
-  animation: typingBounce 1.2s ease-in-out infinite;
+.msg-bubble.error { border-color: rgba(248, 113, 113, 0.45); }
+.msg-bubble :deep(pre) {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 10px;
+  padding: 10px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 12px;
 }
-
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typingBounce {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-6px); }
+.msg-bubble :deep(code) {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 12px;
 }
+.msg-bubble :deep(pre code) { background: none; padding: 0; }
+.msg-bubble :deep(a) { color: #a5b4fc; text-decoration: underline; }
+.msg-bubble :deep(h3), .msg-bubble :deep(h4) { margin: 10px 0 4px; font-size: 14px; }
+.msg-bubble :deep(.li) { display: block; }
+.msg-error-row { margin-top: 8px; }
+.retry-btn {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.msg-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; opacity: 0; transition: opacity 0.15s; }
+.msg-bubble:hover .msg-meta { opacity: 1; }
+.copy-btn { background: none; border: none; color: #9aa3b8; font-size: 11px; cursor: pointer; padding: 0; }
+.copy-btn:hover { color: #e0e4ee; }
+.msg-time { font-size: 10.5px; color: #6b7280; }
+.stream-caret {
+  display: inline-block;
+  width: 8px; height: 14px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  border-radius: 2px;
+  background: #a5b4fc;
+  animation: caretBlink 0.8s step-end infinite;
+}
+@keyframes caretBlink { 50% { opacity: 0; } }
 
+/* typing */
+.typing { display: flex; gap: 4px; align-items: center; padding: 14px 16px; }
+.typing-dot { width: 7px; height: 7px; border-radius: 50%; background: #9aa3b8; animation: bounce 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-5px); opacity: 1; } }
+
+/* ---------- Suggestions ---------- */
 .chat-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 16px 12px;
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
+  gap: 7px;
+  padding: 0 14px 10px;
 }
-
 .suggestion-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cdd3e1;
   border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
+  padding: 6px 11px;
+  font-size: 12px;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background 0.15s, border-color 0.15s;
+}
+.suggestion-chip:hover { background: rgba(109, 92, 255, 0.2); border-color: rgba(109, 92, 255, 0.45); }
+.suggestion-icon { font-size: 12px; }
+
+/* ---------- Input ---------- */
+.chat-input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+.chat-input-bar textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8eaf2;
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  max-height: 140px;
+  outline: none;
+  font-family: inherit;
+}
+.chat-input-bar textarea:focus { border-color: rgba(109, 92, 255, 0.6); }
+.chat-input-bar textarea:disabled { opacity: 0.6; }
+.chat-send-btn {
+  width: 40px; height: 40px; flex: none;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5, #6d5cff);
+  color: #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 16px rgba(99, 91, 255, 0.35);
+  transition: transform 0.12s, opacity 0.15s;
+}
+.chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-send-btn:not(:disabled):hover { transform: scale(1.05); }
+.chat-send-btn.stop { background: #ef4444; box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
+.chat-send-btn svg { width: 18px; height: 18px; }
+.chat-footer-note { padding: 0 14px 8px; font-size: 10.5px; color: #6b7280; text-align: center; }
+
+/* ---------- Transition ---------- */
+.chat-slide-enter-active, .chat-slide-leave-active { transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.8, 0.3, 1); transform-origin: bottom right; }
+.chat-slide-enter-from, .chat-slide-leave-to { opacity: 0; transform: translateY(14px) scale(0.96); }
+
+@media (max-width: 480px) {
+  .ai-chatbot { right: 12px; bottom: 12px; }
+  .chat-panel { width: calc(100vw - 24px); height: calc(100vh - 100px); }
 }
 
-.suggestion-chip:hover { border-color: var(--border-color-hover); background: rgba(15,124,130,0.06); color: var(--accent-primary); }
-.suggestion-icon { font-size: 0.9rem; }
-
-.chat-input-bar {
+/* ---------- Agent activity (agent đang làm việc) ---------- */
+.agent-activity {
+  margin: 0 12px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(165, 180, 252, 0.28);
+  background: linear-gradient(160deg, rgba(79, 70, 229, 0.16), rgba(147, 51, 234, 0.08));
+  overflow: hidden;
+}
+.agent-activity.working { border-color: rgba(165, 180, 252, 0.5); box-shadow: 0 0 0 1px rgba(99, 91, 255, 0.15); }
+.agent-activity-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px 14px;
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
+  padding: 9px 12px;
 }
-
-.chat-input-bar input {
-  flex: 1;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  outline: none;
-  transition: border-color var(--transition-fast);
+.agent-orb {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+  flex: none;
 }
+.agent-orb.spinning {
+  background: #a5b4fc;
+  box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.25);
+  animation: orbPulse 1.1s ease-in-out infinite;
+}
+@keyframes orbPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.agent-activity-title { font-size: 12px; font-weight: 700; color: #c7d2fe; flex: 1; }
+.agent-activity-count { font-size: 10.5px; color: #8b93a8; }
+.agent-collapse { background: none; border: none; color: #9aa3b8; cursor: pointer; font-size: 12px; padding: 0 2px; }
+.agent-collapse:hover { color: #fff; }
 
-.chat-input-bar input:focus { border-color: rgba(15,124,130,0.36); box-shadow: 0 0 0 3px rgba(84,196,211,0.12); }
-.chat-input-bar input::placeholder { color: var(--text-muted); }
-
-.chat-send-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  border: none;
-  background: var(--accent-gradient);
-  color: #fff;
-  cursor: pointer;
+.agent-steps {
+  padding: 2px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agent-step {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
+  gap: 8px;
+  font-size: 12px;
+  color: #b9c1d4;
+  line-height: 1.35;
 }
-
-.chat-send-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
-.chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.chat-send-btn svg { width: 18px; height: 18px; }
-
-.chat-slide-enter-active,
-.chat-slide-leave-active { transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
-
-.chat-slide-enter-from,
-.chat-slide-leave-to { opacity: 0; transform: translateY(20px) scale(0.94); }
-
-@media (max-width: 480px) {
-  .ai-chatbot { bottom: 0; right: 0; left: 0; }
-  .chat-dialog { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; height: calc(100vh - 60px); max-height: none; border-radius: 20px 20px 0 0; }
+.agent-step .step-icon { width: 15px; flex: none; display: flex; justify-content: center; }
+.step-spinner {
+  width: 11px; height: 11px;
+  border: 2px solid rgba(165, 180, 252, 0.3);
+  border-top-color: #a5b4fc;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
+.step-check { color: #22c55e; font-size: 12px; }
+.step-x { color: #f87171; font-size: 12px; }
+.agent-step.active { color: #e0e7ff; }
+.agent-step.active .step-label { color: #e0e7ff; font-weight: 600; }
+.agent-step.fail .step-label { color: #fca5a5; }
+.step-skill { flex: none; font-size: 12px; }
+.step-label { word-break: break-word; }
+
+.chat-drafts { padding: 0 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+.draft-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.draft-header { display: flex; align-items: center; justify-content: space-between; }
+.draft-title { font-size: 12px; font-weight: 700; color: #c7d2fe; }
+.draft-close { background: none; border: none; color: #9aa3b8; cursor: pointer; font-size: 13px; }
+.draft-close:hover { color: #fff; }
+.draft-input {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e8eaf2;
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  outline: none;
+}
+.draft-input:focus { border-color: rgba(109, 92, 255, 0.6); }
+.draft-textarea {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e8eaf2;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+}
+.draft-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.draft-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #dfe3ec;
+  border-radius: 9px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.draft-btn.primary { background: linear-gradient(135deg, #4f46e5, #6d5cff); border: none; color: #fff; }
+.draft-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.draft-result { font-size: 11.5px; color: #f59e0b; }
+.draft-result.ok { color: #2ecc71; }
 </style>

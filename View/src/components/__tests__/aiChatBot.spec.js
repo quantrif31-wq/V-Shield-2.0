@@ -6,15 +6,26 @@ import AIChatBot from '../AIChatBot.vue'
 
 let router
 
-beforeEach(async () => {
-  Object.defineProperty(window, 'addEventListener', { writable: true, value: vi.fn() })
-  Object.defineProperty(window, 'removeEventListener', { writable: true, value: vi.fn() })
+function sseResponse(chunks) {
+  let i = 0
+  const reader = {
+    async read() {
+      if (i < chunks.length) {
+        return { done: false, value: new TextEncoder().encode(chunks[i++]) }
+      }
+      return { done: true, value: undefined }
+    },
+    releaseLock() {}
+  }
+  return { ok: true, status: 200, body: { getReader: () => reader } }
+}
+
+beforeEach(() => {
+  sessionStorage.clear()
   router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/guide', component: { template: '<div>guide</div>' } },
       { path: '/gate-transit-monitor', component: { template: '<div>monitor</div>' } },
-      { path: '/dynamic-qr-generator', component: { template: '<div>qr</div>' } },
       { path: '/', component: { template: '<div>home</div>' } },
     ],
   })
@@ -28,103 +39,152 @@ function mountChat() {
   return mount(AIChatBot, { global: { plugins: [router] } })
 }
 
-describe('AIChatBot.vue', () => {
-  it('shows the fab and opens the chat with a welcome message', async () => {
+describe('AIChatBot.vue (AI thật)', () => {
+  it('shows the fab and opens the chat', async () => {
     const wrapper = mountChat()
     expect(wrapper.find('.chat-fab').exists()).toBe(true)
     await wrapper.find('.chat-fab').trigger('click')
     expect(wrapper.vm.chatOpen).toBe(true)
-    expect(wrapper.vm.messages.length).toBe(1)
-    expect(wrapper.vm.messages[0].role).toBe('ai')
     expect(wrapper.vm.hasInteracted).toBe(true)
   })
 
-  it('does not duplicate the welcome message when reopening', async () => {
+  it('shows the welcome hero when there are no messages', async () => {
     const wrapper = mountChat()
     await wrapper.find('.chat-fab').trigger('click')
-    await wrapper.find('.chat-close').trigger('click')
-    expect(wrapper.vm.chatOpen).toBe(false)
-    await wrapper.find('.chat-fab').trigger('click')
-    expect(wrapper.vm.messages.length).toBe(1)
+    expect(wrapper.find('.chat-welcome').exists()).toBe(true)
+    expect(wrapper.vm.messages.length).toBe(0)
   })
 
-  it('answers a guide question through handleGuideResponse', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('huong dan su dung phan mem V-Shield')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Hướng dẫn sử dụng V-Shield')
-  })
+  it('sends a message, calls the AI stream endpoint and renders the streamed reply', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        sseResponse([
+          'data: {"status":"Đang tìm người..."}\n\n',
+          'data: {"token":"Xin chào"}\n\n',
+          'data: {"token":" **bạn**"}\n\n',
+          'data: {"token":" hôm nay."}\n\n',
+          'data: {"done":true,"threadId":"thread-1"}\n\n'
+        ])
+      )
+    vi.stubGlobal('fetch', fetchMock)
 
-  it('answers an admin question', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('Tôi là Admin, tôi có thể làm gì?')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Quyền hạn của Admin')
-  })
-
-  it('answers a guard question', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('bao ve can lam gi khi truc cong')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Quyền hạn của Bảo vệ')
-  })
-
-  it('answers a reception question', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('le tan can dung V-Shield the nao')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Quyền hạn của Lễ tân')
-  })
-
-  it('answers a manager question', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('quan ly van hanh')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Quyền hạn của Quản lý')
-  })
-
-  it('answers manual operation questions', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('lam the nao khi camera loi')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Vận hành thủ công')
-  })
-
-  it('answers qr questions and thanks', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('cach tao qr dong')
-    expect(wrapper.vm.messages[wrapper.vm.messages.length - 1].text).toContain('QR động')
-    wrapper.vm.handleGuideResponse('cam on ban')
-    expect(wrapper.vm.messages[wrapper.vm.messages.length - 1].text).toContain('Không có gì')
-  })
-
-  it('falls back to the generic assistant reply for unknown questions', () => {
-    const wrapper = mountChat()
-    wrapper.vm.handleGuideResponse('thời tiết hôm nay thế nào ?!@#')
-    const last = wrapper.vm.messages[wrapper.vm.messages.length - 1]
-    expect(last.text).toContain('Tôi có thể giúp gì')
-  })
-
-  it('sends a message and routes from a guide link', async () => {
     const wrapper = mountChat()
     await wrapper.find('.chat-fab').trigger('click')
-    wrapper.vm.inputText = 'huong dan su dung'
+    wrapper.vm.inputText = 'xin chào'
     await wrapper.vm.sendMessage()
-    const ai = wrapper.vm.messages.find((m) => m.role === 'ai' && m.text.includes('Hướng dẫn'))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, opts] = fetchMock.mock.calls[0]
+    expect(url).toContain('/api/ai-chat/stream')
+    expect(opts.method).toBe('POST')
+    expect(opts.headers.Authorization).toBe('Bearer ')
+    const body = JSON.parse(opts.body)
+    expect(body.message).toBe('xin chào')
+    expect(body.threadId).toBeUndefined()
+
+    const ai = wrapper.vm.messages.find((m) => m.role === 'ai')
     expect(ai).toBeTruthy()
-    const link = wrapper.find('.msg-bubble a')
-    await link.trigger('click')
-    await new Promise((r) => setTimeout(r, 0))
-    expect(wrapper.vm.chatOpen).toBe(false)
-    expect(router.currentRoute.value.path).toBe('/guide')
+    expect(ai.text).toContain('Xin chào')
+    expect(ai.text).toContain('bạn')
+    expect(ai.text).toContain('hôm nay')
+    expect(wrapper.vm.streaming).toBe(false)
+    expect(wrapper.vm.threadId).toBe('thread-1')
   })
 
-  it('ignores non-link clicks inside the messages area', async () => {
+  it('shows an editable email draft composer when the agent emits a draft event', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        sseResponse([
+          'data: {"status":"Đang soạn email..."}\n\n',
+          'data: {"draft":{"id":7,"to":["c@company.local"],"subject":"Đơn xin nghỉ","body":"Kính gửi anh Hùng,\\n\\nEm xin nghỉ 1 ngày."}}\n\n',
+          'data: {"done":true,"threadId":"abc-123"}\n\n'
+        ])
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountChat()
+    await wrapper.find('.chat-fab').trigger('click')
+    wrapper.vm.inputText = 'soạn email xin nghỉ'
+    await wrapper.vm.sendMessage()
+
+    expect(wrapper.vm.drafts.length).toBe(1)
+    expect(wrapper.vm.drafts[0].subject).toBe('Đơn xin nghỉ')
+    expect(wrapper.vm.threadId).toBe('abc-123')
+    expect(wrapper.find('.draft-card').exists()).toBe(true)
+    expect(wrapper.find('.draft-textarea').element.value).toContain('Kính gửi anh Hùng')
+  })
+
+  it('sendDraft calls the send endpoint with the draft content', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ success: true, message: 'Đã gửi.' }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountChat()
+    const d = { id: 7, to: ['a@x.vn'], subject: 'S', body: 'B', sending: false, sent: false, refineMsg: '' }
+    wrapper.vm.drafts.push(d)
+    await wrapper.vm.sendDraft(d)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, opts] = fetchMock.mock.calls[0]
+    expect(url).toContain('/api/ai-chat/send-draft')
+    expect(JSON.parse(opts.body).draftId).toBe(7)
+    expect(d.sent).toBe(true)
+  })
+
+  it('renders markdown safely (escapes raw HTML)', () => {
+    const wrapper = mountChat()
+    const html = wrapper.vm.renderMarkdown('Xin chào **đậm** và `code`\n\n<script>alert(1)</script>')
+    expect(html).toContain('<strong>đậm</strong>')
+    expect(html).toContain('<code>code</code>')
+    expect(html).not.toContain('<script>')
+  })
+
+  it('shows an error message when the stream returns an error event', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(sseResponse(['data: {"error":"AI chưa được cấu hình."}\n\n']))
+    )
+    const wrapper = mountChat()
+    await wrapper.find('.chat-fab').trigger('click')
+    wrapper.vm.inputText = 'hỏi gì đó'
+    await wrapper.vm.sendMessage()
+    const ai = wrapper.vm.messages.find((m) => m.role === 'ai')
+    expect(ai.error).toBe(true)
+  })
+
+  it('stopStream aborts the fetch', async () => {
+    const abortSpy = { abort: vi.fn() }
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})))
+    const wrapper = mountChat()
+    await wrapper.find('.chat-fab').trigger('click')
+    wrapper.vm.controller = abortSpy
+    wrapper.vm.streaming = true
+    wrapper.vm.stopStream()
+    expect(abortSpy.abort).toHaveBeenCalled()
+  })
+
+  it('clearChat empties messages and stops streaming', async () => {
+    const wrapper = mountChat()
+    await wrapper.find('.chat-fab').trigger('click')
+    wrapper.vm.messages.push({ id: '1', role: 'user', text: 'a', ts: 1 })
+    wrapper.vm.clearChat()
+    expect(wrapper.vm.messages.length).toBe(0)
+  })
+
+  it('routes on internal link click and closes the chat', async () => {
     const wrapper = mountChat()
     wrapper.vm.openChat()
-    const event = { target: document.createElement('div'), preventDefault: vi.fn() }
-    await wrapper.vm.handleMsgClick(event)
-    expect(event.preventDefault).not.toHaveBeenCalled()
+    const anchor = document.createElement('a')
+    anchor.setAttribute('href', '/gate-transit-monitor')
+    const event = { target: anchor, preventDefault: vi.fn() }
+    wrapper.vm.handleMsgClick(event)
+    expect(event.preventDefault).toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(router.currentRoute.value.path).toBe('/gate-transit-monitor')
+    expect(wrapper.vm.chatOpen).toBe(false)
   })
 
   it('does not push a route for external links', async () => {
@@ -133,61 +193,35 @@ describe('AIChatBot.vue', () => {
     const pushSpy = vi.spyOn(router, 'push')
     const anchor = document.createElement('a')
     anchor.setAttribute('href', 'https://external.example/x')
-    const event = { target: anchor, preventDefault: vi.fn() }
-    await wrapper.vm.handleMsgClick(event)
-    expect(event.preventDefault).not.toHaveBeenCalled()
+    wrapper.vm.handleMsgClick({ target: anchor, preventDefault: vi.fn() })
     expect(pushSpy).not.toHaveBeenCalled()
   })
 
-  it('drags the fab and updates its offset', async () => {
+  it('drags the fab and updates its style position', () => {
     const wrapper = mountChat()
-    wrapper.vm.startDrag({ pointerId: 1, clientX: 100, clientY: 100, currentTarget: { setPointerCapture: vi.fn() } })
+    wrapper.vm.startDrag({ clientX: 100, clientY: 100, currentTarget: { setPointerCapture: vi.fn() } })
     expect(wrapper.vm.dragState.active).toBe(true)
-    expect(window.addEventListener).toHaveBeenCalled()
-    const move = window.addEventListener.mock.calls.find(([name]) => name === 'pointermove')[1]
-    move({ pointerId: 1, clientX: 160, clientY: 140 })
-    expect(wrapper.vm.dragState.moved).toBe(true)
-    expect(wrapper.vm.fabOffset).toEqual({ x: 24, y: 24 })
-    const up = window.addEventListener.mock.calls.find(([name]) => name === 'pointerup')[1]
-    up({ pointerId: 1 })
+    wrapper.vm.onMove({ clientX: 200, clientY: 160 })
     expect(wrapper.vm.dragState.active).toBe(false)
-    await wrapper.vm.handleFabClick()
-    expect(wrapper.vm.chatOpen).toBe(false)
-  })
-
-  it('ignores moves from a different pointer', () => {
-    const wrapper = mountChat()
-    wrapper.vm.startDrag({ pointerId: 3, clientX: 10, clientY: 10, currentTarget: { setPointerCapture: vi.fn() } })
-    const move = window.addEventListener.mock.calls.find(([name]) => name === 'pointermove')[1]
-    move({ pointerId: 99, clientX: 200, clientY: 200 })
-    expect(wrapper.vm.fabOffset).toEqual({ x: 0, y: 0 })
-    const up = window.addEventListener.mock.calls.find(([name]) => name === 'pointerup')[1]
-    up({ pointerId: 3 })
-  })
-
-  it('clicks without dragging to open the chat', async () => {
-    const wrapper = mountChat()
-    const fab = wrapper.find('.chat-fab')
-    await fab.trigger('pointerdown', { pointerId: 2 })
-    wrapper.vm.startDrag({ pointerId: 2, clientX: 10, clientY: 10, currentTarget: { setPointerCapture: vi.fn() } })
-    const up = window.addEventListener.mock.calls.find(([name]) => name === 'pointerup')[1]
-    up({ pointerId: 2 })
-    await fab.trigger('click')
-    expect(wrapper.vm.chatOpen).toBe(true)
+    expect(wrapper.vm.fabStyle.left).toContain('px')
+    wrapper.vm.onUp()
+    expect(wrapper.vm.dragState.active).toBe(false)
   })
 
   it('closes the chat on a route change', async () => {
     const wrapper = mountChat()
     await wrapper.find('.chat-fab').trigger('click')
     expect(wrapper.vm.chatOpen).toBe(true)
-    await router.push('/guide')
+    await router.push('/gate-transit-monitor')
     await router.isReady()
     expect(wrapper.vm.chatOpen).toBe(false)
   })
 
   it('cleans up event listeners on unmount', () => {
+    const removeSpy = vi.fn()
+    vi.stubGlobal('removeEventListener', removeSpy)
     const wrapper = mountChat()
     wrapper.unmount()
-    expect(window.removeEventListener).toHaveBeenCalled()
+    expect(removeSpy).toHaveBeenCalled()
   })
 })

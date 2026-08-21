@@ -1,0 +1,63 @@
+# ============================================================
+#  MAIL SERVER TỰ HOST (self-hosted mail) - cho production VPS
+#  Image: Mailu (Postfix + Dovecot + Webmail + Admin API)
+#
+#  CÁCH DÙNG (cấu hình 1 lần trên VPS):
+#   1. Trỏ DNS domain của bạn (vd: v-shield.site):
+#        - A        mail.<domain>       -> IP VPS
+#        - MX       <domain>            -> mail.<domain>
+#        - SPF      TXT v=spf1 a mx ip4:<IP> ~all
+#        - DKIM     TXT dkim._domainkey.<domain>  (lấy key khi khởi động Mailu)
+#        - DMARC    TXT _dmarc.<domain> v=DMARC1; p=none; rua=mailto:postmaster@<domain>
+#        - PTR      (reverse DNS của IP VPS) -> mail.<domain>   (yêu cầu nhà cung cấp VPS)
+#   2. docker compose -f docker-compose.mail.yml up -d
+#   3. Tạo tài khoản gửi (vd: noreply@<domain>) qua giao diện admin :8080
+#   4. Sửa .env: MAIL_HOST=mailu, MAIL_PORT=587, MAIL_USER=noreply@<domain>,
+#      MAIL_PASSWORD=..., MAIL_ENABLE_SSL=false (STARTTLS) rồi docker compose up -d api
+#
+#  LƯU Ý QUAN TRỌNG:
+#   - Để mail tới Gmail/Outlook KHÔNG vào spam cần IP sạch + đủ SPF/DKIM/DMARC/PTR.
+#     IP cloud VPS thường bị block -> cân nhắc dùng SMTP relay (SES/Mailgun/SendGrid)
+#     cho chiều GỬI, vẫn giữ mailbox tự host cho chiều NHẬN.
+#   - KHÔNG chạy file này trên máy local (cần mở port 25/587/993, xung đột).
+#     Local dev dùng MailHog (đã cấu hình sẵn trong .env).
+# ============================================================
+
+services:
+  mailu:
+    image: mailu/nginx:2.0
+    container_name: vshield-mailu
+    restart: unless-stopped
+    networks:
+      - default
+    environment:
+      DOMAIN: "${MAIL_DOMAIN:-v-shield.site}"
+      HOSTNAMES: "mail.${MAIL_DOMAIN:-v-shield.site}"
+      POSTMASTER: "postmaster@${MAIL_DOMAIN:-v-shield.site}"
+      SECRET_KEY: "${MAILU_SECRET_KEY:-change-me-please}"
+      TZ: "${TZ:-Asia/Ho_Chi_Minh}"
+      # API + admin (web quản trị mail): http://<ip>:8080
+      ADMIN_PORT: "8080"
+      WEBMAIL: "rainloop"
+      INITIAL_ADMIN_ACCOUNT: "${MAILU_ADMIN_USER:-admin@${MAIL_DOMAIN:-v-shield.site}}"
+      INITIAL_ADMIN_DOMAIN: "${MAIL_DOMAIN:-v-shield.site}"
+      INITIAL_ADMIN_PW: "${MAILU_ADMIN_PASSWORD:-AdminMail@2026}"
+      # gửi mail hệ thống (api dùng tài khoản này):
+      # tạo thêm tài khoản gửi qua admin sau khi khởi động
+    ports:
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "993:993"
+      - "995:995"
+      - "8080:8080"
+    volumes:
+      - mailu_data:/data
+
+volumes:
+  mailu_data:
+
+networks:
+  default:
+    name: v-shield-20_default
+    external: true

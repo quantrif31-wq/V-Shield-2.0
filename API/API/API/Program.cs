@@ -338,6 +338,19 @@ namespace API
                 client.Timeout = TimeSpan.FromSeconds(35);
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/json");
             });
+            builder.Services.AddHttpClient("AiChat", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(180);
+            });
+            builder.Services.Configure<API.Services.Agent.MailOptions>(
+                builder.Configuration.GetSection(API.Services.Agent.MailOptions.SectionName));
+            builder.Services.AddSingleton<API.Services.Agent.AgentLlmClient>();
+            builder.Services.AddSingleton<API.Services.Agent.IMailService, API.Services.Agent.MailService>();
+            builder.Services.AddScoped<API.Services.Agent.MemoryService>();
+            builder.Services.AddScoped<API.Services.Agent.AgentAuditService>();
+            builder.Services.AddScoped<API.Services.Agent.AgentTools>();
+            builder.Services.AddScoped<API.Services.Agent.AgentRunner>();
+            builder.Services.AddScoped<API.Services.Agent.CompanyEmailService>();
             builder.Services.AddSignalR();
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
@@ -473,6 +486,7 @@ namespace API
             {
                 EnsureSeedAdminUser(app.Services, builder.Configuration, app.Environment);
                 DemoDataSeeder.EnsureSeeded(app.Services, builder.Configuration, app.Environment);
+                EnsureCompanyEmailBackfill(app.Services);
                 EnsureGo2RtcRuntimeSynchronized(app.Services);
             }
 
@@ -819,6 +833,21 @@ namespace API
             if (index + 1 >= args.Length || !int.TryParse(args[index + 1], out var value) || value <= 0)
                 throw new InvalidOperationException($"{name} requires a positive integer.");
             return value;
+        }
+
+        private static void EnsureCompanyEmailBackfill(IServiceProvider services)
+        {
+            ExecuteSqlStartupAction("backfill company email", () =>
+            {
+                using var scope = services.CreateScope();
+                var mailOptions = scope.ServiceProvider
+                    .GetRequiredService<Microsoft.Extensions.Options.IOptions<API.Services.Agent.MailOptions>>().Value;
+                if (string.IsNullOrWhiteSpace(mailOptions.Domain)) return;
+
+                var companyEmailService = scope.ServiceProvider.GetRequiredService<API.Services.Agent.CompanyEmailService>();
+                companyEmailService.EnsureBackfillAsync(mailOptions.Domain, CancellationToken.None)
+                    .GetAwaiter().GetResult();
+            });
         }
 
         private static void EnsureSeedAdminUser(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)

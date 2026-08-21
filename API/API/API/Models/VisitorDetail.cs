@@ -17,6 +17,10 @@ public class VisitorDetail
 
     [StringLength(20)]
     public string? IdCardNumber { get; set; }
+
+    [StringLength(100)]
+    public string? CompanyEmail { get; set; }
+
     public string? ExpectedFaceImage { get; set; }
 
     [ForeignKey("RegistrationId")]
