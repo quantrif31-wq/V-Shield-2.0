@@ -165,3 +165,8 @@ __MACOSX/
 
 # ----- Local setup recording artifacts (large, machine-specific) -----
 video_setup_metadata/
+
+# ----- Local test/runtime artifacts -----
+API/API/API.Tests/AI_Runtime/
+api-final.txt
+tests/qr-parking-sim/qr-test-report.json
