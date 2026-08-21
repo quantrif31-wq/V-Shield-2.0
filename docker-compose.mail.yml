@@ -57,5 +57,5 @@ volumes:
 
 networks:
   default:
-    name: v-shield-20_default
+    name: ${MAIL_NETWORK:-v-shield-20_default}
     external: true
