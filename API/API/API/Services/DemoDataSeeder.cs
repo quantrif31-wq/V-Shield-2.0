@@ -2840,6 +2840,11 @@ public static class DemoDataSeeder
             .Distinct()
             .ToList();
 
+        if (db.UEBAProfiles.Any())
+        {
+            return;
+        }
+
         if (employeeIds.Count == 0)
         {
             return;
