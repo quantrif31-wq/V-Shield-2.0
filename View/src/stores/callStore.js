@@ -1,4 +1,4 @@
-﻿import { reactive, shallowRef } from 'vue'
+import { reactive, shallowRef, watch } from 'vue'
 import { authState } from './auth'
 import * as chatApi from '../services/chatApi'
 import { playIncomingRingtone, playOutgoingDialTone, playCallEndTone, stopAllTones } from '../services/callAudio'
@@ -41,20 +41,31 @@ let durationTimer = null
 let isListenerInitialized = false
 
 export function initGlobalCallListener() {
-  if (isListenerInitialized) return
-  isListenerInitialized = true
+  if (!isListenerInitialized) {
+    isListenerInitialized = true
 
-  chatApi.onIncomingCall((data) => {
-    handleIncomingCall(data)
-  })
+    chatApi.onIncomingCall((data) => {
+      handleIncomingCall(data)
+    })
 
-  chatApi.onCallResponse((data) => {
-    handleCallResponse(data)
-  })
+    chatApi.onCallResponse((data) => {
+      handleCallResponse(data)
+    })
 
-  chatApi.onCallEnded((data) => {
-    handleCallEnded(data)
-  })
+    chatApi.onCallEnded((data) => {
+      handleCallEnded(data)
+    })
+
+    watch(() => authState.isAuthenticated, (isAuth) => {
+      if (isAuth && authState.token) {
+        void chatApi.connectChatHub(authState.token)
+      }
+    }, { immediate: true })
+  }
+
+  if (authState.isAuthenticated && authState.token) {
+    void chatApi.connectChatHub(authState.token)
+  }
 }
 
 async function initWebRTC(callType) {

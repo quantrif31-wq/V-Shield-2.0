@@ -71,6 +71,7 @@ fun VShieldMainScreen() {
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             notificationViewModel.initialize()
+            chatViewModel.initialize()
             authViewModel.recordUserActivity()
         } else if (currentRoute != Screen.Login.route) {
             navController.navigate(Screen.Login.route) {

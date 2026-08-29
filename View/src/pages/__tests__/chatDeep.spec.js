@@ -78,10 +78,10 @@ describe('ChatPage', () => {
     expect(wrapper.vm.messageText).toBe('')
   })
 
-  it('disconnects the hub on unmount', async () => {
+  it('cleans up local timers on unmount', async () => {
     const wrapper = mount(ChatPage)
     await flushPromises()
     wrapper.unmount()
-    expect(chatApi.disconnectChatHub).toHaveBeenCalled()
+    expect(wrapper.vm.refreshTimer).toBeNull()
   })
 })

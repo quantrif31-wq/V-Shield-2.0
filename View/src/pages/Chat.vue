@@ -239,7 +239,6 @@ export default {
     }
     this.hubUnsubscribers.forEach(unsubscribe => unsubscribe())
     this.hubUnsubscribers = []
-    void chatApi.disconnectChatHub()
   },
   methods: {
     normalizeEmployeeId(value) {

@@ -11,7 +11,15 @@ import org.webrtc.audio.JavaAudioDeviceModule
 class WebRTCManager(private val context: Context) {
 
     companion object {
-        val eglBase: EglBase by lazy { EglBase.create() }
+        private var _eglBase: EglBase? = null
+        val eglBase: EglBase
+            @Synchronized
+            get() {
+                if (_eglBase == null) {
+                    _eglBase = EglBase.create()
+                }
+                return _eglBase!!
+            }
         val eglBaseContext: EglBase.Context get() = eglBase.eglBaseContext
     }
 
@@ -48,7 +56,7 @@ class WebRTCManager(private val context: Context) {
     )
 
     fun initialize() {
-        if (isInitialized) return
+        if (isInitialized && peerConnectionFactory != null) return
         try {
             val initOptions = PeerConnectionFactory.InitializationOptions.builder(context.applicationContext)
                 .setEnableInternalTracer(false)
@@ -58,33 +66,32 @@ class WebRTCManager(private val context: Context) {
             val encoderFactory = DefaultVideoEncoderFactory(eglBaseContext, true, true)
             val decoderFactory = DefaultVideoDecoderFactory(eglBaseContext)
 
-            peerConnectionFactory = PeerConnectionFactory.builder()
+            val builder = PeerConnectionFactory.builder()
                 .setVideoEncoderFactory(encoderFactory)
                 .setVideoDecoderFactory(decoderFactory)
-                .setAudioDeviceModule(createAudioDeviceModule())
-                .createPeerConnectionFactory()
 
+            createAudioDeviceModule()?.let {
+                audioDeviceModule = it
+                builder.setAudioDeviceModule(it)
+            }
+
+            peerConnectionFactory = builder.createPeerConnectionFactory()
             isInitialized = true
         } catch (e: Throwable) {
-            Log.e("WebRTCManager", "WebRTC initialize failed", e)
+            Log.e("WebRTCManager", "WebRTC initialize failed: ${e.message}", e)
             listener?.onError("Không thể khởi tạo WebRTC: ${e.message}")
         }
     }
 
-    private fun createAudioDeviceModule(): AudioDeviceModule {
+    private fun createAudioDeviceModule(): AudioDeviceModule? {
         return try {
-            audioDeviceModule = JavaAudioDeviceModule.builder(context.applicationContext)
-                .setUseHardwareAcousticEchoCanceler(true)
-                .setUseHardwareNoiseSuppressor(true)
-                .createAudioDeviceModule()
-            audioDeviceModule!!
-        } catch (e: Throwable) {
-            Log.w("WebRTCManager", "Hardware audio AEC/NS unavailable, using fallback", e)
-            audioDeviceModule = JavaAudioDeviceModule.builder(context.applicationContext)
+            JavaAudioDeviceModule.builder(context.applicationContext)
                 .setUseHardwareAcousticEchoCanceler(false)
                 .setUseHardwareNoiseSuppressor(false)
                 .createAudioDeviceModule()
-            audioDeviceModule!!
+        } catch (e: Throwable) {
+            Log.w("WebRTCManager", "createAudioDeviceModule warning: ${e.message}")
+            null
         }
     }
 
@@ -94,40 +101,62 @@ class WebRTCManager(private val context: Context) {
         if (peerConnection != null) return true
         val factory = peerConnectionFactory ?: return false
 
-        val config = PeerConnection.RTCConfiguration(iceServers).apply {
-            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
-        }
-
-        val pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
-            override fun onIceCandidate(candidate: IceCandidate) {
-                listener?.onIceCandidate(candidate)
+        try {
+            val config = PeerConnection.RTCConfiguration(iceServers).apply {
+                sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+                continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+                tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED
             }
 
-            override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) {}
-            override fun onSignalingChange(p0: PeerConnection.SignalingState?) {}
-            override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
-                listener?.onConnectionStateChanged(state?.toString() ?: "unknown")
-            }
-            override fun onIceConnectionReceivingChange(p0: Boolean) {}
-            override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {}
-            override fun onAddStream(p0: MediaStream?) {
-                p0?.videoTracks?.firstOrNull()?.let { listener?.onRemoteVideo(it) }
-            }
-            override fun onRemoveStream(p0: MediaStream?) {}
-            override fun onDataChannel(p0: DataChannel?) {}
-            override fun onRenegotiationNeeded() {}
-            override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {
-                val track = receiver?.track()
-                if (track is VideoTrack) {
-                    listener?.onRemoteVideo(track)
+            val pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
+                override fun onIceCandidate(candidate: IceCandidate) {
+                    try {
+                        listener?.onIceCandidate(candidate)
+                    } catch (e: Throwable) {
+                        Log.w("WebRTCManager", "onIceCandidate callback warning: ${e.message}")
+                    }
                 }
-            }
-        })
 
-        if (pc == null) return false
-        peerConnection = pc
-        return true
+                override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) {}
+                override fun onSignalingChange(p0: PeerConnection.SignalingState?) {}
+                override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
+                    try {
+                        listener?.onConnectionStateChanged(state?.toString() ?: "unknown")
+                    } catch (e: Throwable) {
+                        Log.w("WebRTCManager", "onIceConnectionChange warning: ${e.message}")
+                    }
+                }
+                override fun onIceConnectionReceivingChange(p0: Boolean) {}
+                override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {}
+                override fun onAddStream(p0: MediaStream?) {
+                    try {
+                        p0?.videoTracks?.firstOrNull()?.let { listener?.onRemoteVideo(it) }
+                    } catch (e: Throwable) {
+                        Log.w("WebRTCManager", "onAddStream warning: ${e.message}")
+                    }
+                }
+                override fun onRemoveStream(p0: MediaStream?) {}
+                override fun onDataChannel(p0: DataChannel?) {}
+                override fun onRenegotiationNeeded() {}
+                override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {
+                    try {
+                        val track = receiver?.track()
+                        if (track is VideoTrack) {
+                            listener?.onRemoteVideo(track)
+                        }
+                    } catch (e: Throwable) {
+                        Log.w("WebRTCManager", "onAddTrack warning: ${e.message}")
+                    }
+                }
+            })
+
+            if (pc == null) return false
+            peerConnection = pc
+            return true
+        } catch (e: Throwable) {
+            Log.e("WebRTCManager", "createPeerConnection failed: ${e.message}", e)
+            return false
+        }
     }
 
     fun setupLocalMedia(): Boolean {
@@ -145,7 +174,7 @@ class WebRTCManager(private val context: Context) {
             val audioSource = factory.createAudioSource(audioConstraints)
             localAudioTrack = factory.createAudioTrack("audio0", audioSource)
             localAudioTrack?.setEnabled(true)
-            pc.addTrack(localAudioTrack, emptyList())
+            pc.addTrack(localAudioTrack, listOf("vshield_stream"))
 
             try {
                 localVideoSource = factory.createVideoSource(false)
@@ -160,17 +189,17 @@ class WebRTCManager(private val context: Context) {
                     videoCapturer?.startCapture(1280, 720, 30)
                     localVideoTrack = factory.createVideoTrack("video0", localVideoSource)
                     localVideoTrack?.setEnabled(true)
-                    pc.addTrack(localVideoTrack, emptyList())
+                    pc.addTrack(localVideoTrack, listOf("vshield_stream"))
                     localVideoTrack?.let { listener?.onLocalVideo(it) }
                 }
             } catch (e: Throwable) {
-                Log.w("WebRTCManager", "Camera setup failed, proceeding audio-only", e)
+                Log.w("WebRTCManager", "Camera setup failed, proceeding audio-only: ${e.message}")
             }
 
             return true
         } catch (e: Throwable) {
-            Log.e("WebRTCManager", "setupLocalMedia failed", e)
-            listener?.onError("Không thể bật camera/mic: ${e.message}")
+            Log.e("WebRTCManager", "setupLocalMedia failed: ${e.message}", e)
+            listener?.onError("Không thể bật thiết bị âm thanh: ${e.message}")
             return false
         }
     }
@@ -183,7 +212,7 @@ class WebRTCManager(private val context: Context) {
             val back = deviceNames.firstOrNull { enumerator.isBackFacing(it) }
             (front ?: back)?.let { enumerator.createCapturer(it, null) }
         } catch (e: Throwable) {
-            Log.w("WebRTCManager", "camera enumerator failed", e)
+            Log.w("WebRTCManager", "camera enumerator failed: ${e.message}")
             null
         }
     }
@@ -212,7 +241,7 @@ class WebRTCManager(private val context: Context) {
 
             override fun onSetSuccess() {}
             override fun onCreateFailure(p0: String?) {
-                listener?.onError("Không thể tạo offer")
+                listener?.onError("Không thể tạo offer: $p0")
             }
             override fun onSetFailure(p0: String?) {}
         }, constraints)
@@ -228,7 +257,7 @@ class WebRTCManager(private val context: Context) {
             }
             override fun onCreateFailure(p0: String?) {}
             override fun onSetFailure(p0: String?) {
-                listener?.onError("Không thể nhận offer")
+                listener?.onError("Không thể nhận offer: $p0")
             }
         }, desc)
     }
@@ -254,7 +283,7 @@ class WebRTCManager(private val context: Context) {
 
             override fun onSetSuccess() {}
             override fun onCreateFailure(p0: String?) {
-                listener?.onError("Không thể tạo answer")
+                listener?.onError("Không thể tạo answer: $p0")
             }
             override fun onSetFailure(p0: String?) {}
         }, constraints)
@@ -268,7 +297,7 @@ class WebRTCManager(private val context: Context) {
             override fun onSetSuccess() {}
             override fun onCreateFailure(p0: String?) {}
             override fun onSetFailure(p0: String?) {
-                listener?.onError("Không thể nhận answer")
+                listener?.onError("Không thể nhận answer: $p0")
             }
         }, desc)
     }

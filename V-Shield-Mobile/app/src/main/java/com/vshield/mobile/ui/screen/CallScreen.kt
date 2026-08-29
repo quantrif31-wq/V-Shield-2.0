@@ -161,6 +161,7 @@ fun CallOverlay(chatViewModel: ChatViewModel) {
 
 @Composable
 private fun VideoSurfaceView(videoTrack: VideoTrack?, isMirror: Boolean, modifier: Modifier = Modifier) {
+    if (videoTrack == null) return
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
@@ -172,31 +173,29 @@ private fun VideoSurfaceView(videoTrack: VideoTrack?, isMirror: Boolean, modifie
                     setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                     setEnableHardwareScaler(true)
                 } catch (e: Throwable) {
-                    Log.w("VideoSurfaceView", "SurfaceViewRenderer init warning: ${e.message}")
+                    Log.w("VideoSurfaceView", "SurfaceViewRenderer init: ${e.message}")
                 }
                 try {
-                    videoTrack?.addSink(this)
+                    videoTrack.addSink(this)
                 } catch (e: Throwable) {
-                    Log.w("VideoSurfaceView", "Initial addSink warning: ${e.message}")
+                    Log.w("VideoSurfaceView", "Initial addSink: ${e.message}")
                 }
             }
         },
         update = { view ->
             try {
-                videoTrack?.let { track ->
-                    track.removeSink(view)
-                    track.addSink(view)
-                }
+                videoTrack.removeSink(view)
+                videoTrack.addSink(view)
             } catch (e: Throwable) {
-                Log.w("VideoSurfaceView", "update addSink warning: ${e.message}")
+                Log.w("VideoSurfaceView", "update sink: ${e.message}")
             }
         },
         onRelease = { view ->
             try {
-                videoTrack?.removeSink(view)
+                videoTrack.removeSink(view)
                 view.release()
             } catch (e: Throwable) {
-                Log.w("VideoSurfaceView", "onRelease warning: ${e.message}")
+                Log.w("VideoSurfaceView", "onRelease: ${e.message}")
             }
         }
     )
@@ -269,6 +268,7 @@ private fun OutgoingCallScreen(
                 Icon(
                     Icons.Default.CallEnd,
                     contentDescription = "Hủy cuộc gọi",
+                    tint = Color.White,
                     modifier = Modifier.size(32.dp)
                 )
             }
