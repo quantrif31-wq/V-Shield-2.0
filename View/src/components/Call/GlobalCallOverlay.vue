@@ -1,37 +1,64 @@
 ﻿<template>
   <div v-if="callState.state !== 'idle'" class="global-call-root">
-    <!-- 1. INCOMING CALL MODAL (Zalo Style) -->
-    <transition name="call-pop">
-      <div v-if="callState.state === 'incoming'" class="call-overlay-backdrop">
-        <div class="incoming-call-box">
-          <div class="caller-avatar-wrapper">
-            <div class="pulse-ring ring-1"></div>
-            <div class="pulse-ring ring-2"></div>
-            <div class="caller-avatar" :style="{ background: getAvatarColor(callState.fromFullName) }">
+    <!-- 1. INCOMING CALL BANNER (Zalo-Style Non-Intrusive Floating Card) -->
+    <transition name="zalo-slide-down">
+      <div v-if="callState.state === 'incoming' && !isIncomingBannerDismissed" class="zalo-incoming-banner-wrapper">
+        <div class="zalo-incoming-card shadow-elevated">
+          <div class="banner-avatar-col">
+            <div class="avatar-ring-pulse"></div>
+            <div class="banner-avatar" :style="{ background: getAvatarColor(callState.fromFullName) }">
               {{ (callState.fromFullName || 'V').charAt(0).toUpperCase() }}
             </div>
           </div>
-          <h2 class="caller-name">{{ callState.fromFullName }}</h2>
-          <div class="call-type-tag">
-            <i :class="callState.callType === 'video' ? 'fas fa-video' : 'fas fa-phone-alt'"></i>
-            <span>{{ callState.callType === 'video' ? 'Cuộc gọi Video Face-to-Face...' : 'Cuộc gọi thoại HD...' }}</span>
+
+          <div class="banner-info-col">
+            <div class="banner-eyebrow">
+              <span class="pulse-indicator-dot"></span>
+              <span>Cuộc gọi đến...</span>
+            </div>
+            <h3 class="banner-caller-name">{{ callState.fromFullName }}</h3>
+            <div class="banner-call-type">
+              <svg v-if="callState.callType === 'video'" class="type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              <svg v-else class="type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+              </svg>
+              <span>{{ callState.callType === 'video' ? 'Cuộc gọi Video Face-to-Face' : 'Cuộc gọi Thoại HD' }}</span>
+            </div>
           </div>
 
-          <div class="call-buttons-row">
-            <button class="action-btn btn-decline" @click="rejectCall" title="Từ chối cuộc gọi">
-              <i class="fas fa-phone-slash"></i>
-              <span>Từ chối</span>
+          <div class="banner-actions-col">
+            <button class="zalo-btn btn-decline" @click="rejectCall" title="Từ chối cuộc gọi">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M16.5 16.5l-1.27 1.27a16 16 0 01-6-6L10.5 10.5"></path>
+                <path d="M10.6 5.3A2 2 0 0112 5h7a2 2 0 012 2v3a2 2 0 01-2 2h-1"></path>
+                <path d="M2 4.27a2 2 0 012-1.27h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91"></path>
+              </svg>
             </button>
-            <button class="action-btn btn-answer" @click="acceptCall" title="Trả lời">
-              <i :class="callState.callType === 'video' ? 'fas fa-video' : 'fas fa-phone'"></i>
-              <span>Trả lời</span>
+            <button class="zalo-btn btn-answer" @click="handleAccept" title="Trả lời ngay">
+              <svg v-if="callState.callType === 'video'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
+                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+              </svg>
+            </button>
+            <button class="zalo-btn btn-ignore" @click="dismissBanner" title="Tiếp tục làm việc (Ẩn thông báo)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
           </div>
         </div>
       </div>
     </transition>
 
-    <!-- 2. OUTGOING CALL MODAL -->
+    <!-- 2. OUTGOING CALLING DIALOG -->
     <transition name="call-pop">
       <div v-if="callState.state === 'calling'" class="call-overlay-backdrop">
         <div class="outgoing-call-box">
@@ -43,18 +70,22 @@
           </div>
           <h2 class="caller-name">{{ callState.targetFullName }}</h2>
           <div class="call-type-tag">
-            <i class="fas fa-spinner fa-spin"></i>
+            <span class="spinner-ring"></span>
             <span>Đang đổ chuông...</span>
           </div>
 
-          <!-- Video preview if video call -->
           <div v-if="callState.callType === 'video'" class="outgoing-video-preview">
             <video ref="outgoingPreviewRef" autoplay playsinline muted></video>
           </div>
 
           <div class="call-buttons-row">
             <button class="action-btn btn-decline" @click="endCall" title="Hủy cuộc gọi">
-              <i class="fas fa-phone-slash"></i>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="22" height="22">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M16.5 16.5l-1.27 1.27a16 16 0 01-6-6L10.5 10.5"></path>
+                <path d="M10.6 5.3A2 2 0 0112 5h7a2 2 0 012 2v3a2 2 0 01-2 2h-1"></path>
+                <path d="M2 4.27a2 2 0 012-1.27h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91"></path>
+              </svg>
               <span>Hủy</span>
             </button>
           </div>
@@ -74,8 +105,13 @@
               <span class="call-duration-text">{{ formatCallDuration(callState.callDuration) }}</span>
             </div>
             <div class="call-top-actions">
-              <button class="icon-btn-ghost" @click="togglePip" title="Thu nhỏ góc màn hình">
-                <i class="fas fa-compress-alt"></i>
+              <button class="icon-btn-ghost" @click="togglePip" title="Thu nhỏ góc màn hình để tiếp tục làm việc">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                  <polyline points="4 14 10 14 10 20"></polyline>
+                  <polyline points="20 10 14 10 14 4"></polyline>
+                  <line x1="14" y1="10" x2="21" y2="3"></line>
+                  <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
               </button>
             </div>
           </div>
@@ -88,7 +124,12 @@
                 <video ref="localVideoRef" class="local-pip-screen" autoplay playsinline muted></video>
               </div>
               <div v-else class="local-pip-box camera-off-placeholder">
-                <i class="fas fa-video-slash"></i>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                  <path d="M21 21l-3.34-3.34L16 16.5 7.5 8 3 3.5"></path>
+                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
                 <span>Camera đã tắt</span>
               </div>
             </template>
@@ -112,19 +153,53 @@
           <!-- Controls Bar -->
           <div class="call-controls-island">
             <button class="ctrl-btn" :class="{ 'is-active': callState.isMuted }" @click="toggleMic" :title="callState.isMuted ? 'Bật Mic' : 'Tắt Mic'">
-              <i :class="callState.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone'"></i>
+              <svg v-if="callState.isMuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"></path>
+                <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path>
+                <path d="M19 10v2a7 7 0 01-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
             </button>
 
             <button v-if="callState.callType === 'video'" class="ctrl-btn" :class="{ 'is-active': callState.isVideoOff }" @click="toggleCamera" :title="callState.isVideoOff ? 'Bật Camera' : 'Tắt Camera'">
-              <i :class="callState.isVideoOff ? 'fas fa-video-slash' : 'fas fa-video'"></i>
+              <svg v-if="callState.isVideoOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M21 21l-3.34-3.34L16 16.5 7.5 8 3 3.5"></path>
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
             </button>
 
             <button class="ctrl-btn" :class="{ 'is-active': callState.isSpeakerMuted }" @click="toggleSpeaker" :title="callState.isSpeakerMuted ? 'Bật Loa' : 'Tắt Loa'">
-              <i :class="callState.isSpeakerMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up'"></i>
+              <svg v-if="callState.isSpeakerMuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <line x1="23" y1="9" x2="17" y2="15"></line>
+                <line x1="17" y1="9" x2="23" y2="15"></line>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"></path>
+              </svg>
             </button>
 
             <button class="ctrl-btn btn-hangup-large" @click="endCall" title="Kết thúc cuộc gọi">
-              <i class="fas fa-phone-slash"></i>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="26" height="26">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M16.5 16.5l-1.27 1.27a16 16 0 01-6-6L10.5 10.5"></path>
+                <path d="M10.6 5.3A2 2 0 0112 5h7a2 2 0 012 2v3a2 2 0 01-2 2h-1"></path>
+                <path d="M2 4.27a2 2 0 012-1.27h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91"></path>
+              </svg>
             </button>
           </div>
         </div>
@@ -133,24 +208,36 @@
 
     <!-- 4. FLOATING MINI PiP BUBBLE (When Minimized) -->
     <div v-if="callState.state === 'connected' && callState.isPip" class="floating-pip-bubble animate-in">
-      <div class="pip-media-container" @click="togglePip">
+      <div class="pip-media-container" @click="togglePip" title="Nhấp để mở rộng Face-to-Face">
         <video v-if="callState.callType === 'video'" ref="remoteVideoPipRef" class="pip-video-preview" autoplay playsinline></video>
         <div v-else class="pip-audio-preview">
-          <i class="fas fa-phone-alt"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+          </svg>
         </div>
         <div class="pip-info-badge">
           <span class="dot"></span> {{ formatCallDuration(callState.callDuration) }}
         </div>
       </div>
       <div class="pip-controls">
-        <button class="pip-btn" :class="{ muted: callState.isMuted }" @click.stop="toggleMic">
-          <i :class="callState.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone'"></i>
+        <button class="pip-btn" :class="{ muted: callState.isMuted }" @click.stop="toggleMic" :title="callState.isMuted ? 'Bật mic' : 'Tắt mic'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path>
+          </svg>
         </button>
-        <button class="pip-btn pip-btn-expand" @click.stop="togglePip" title="Mở rộng">
-          <i class="fas fa-expand-alt"></i>
+        <button class="pip-btn pip-btn-expand" @click.stop="togglePip" title="Mở rộng Face-to-Face">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
         </button>
         <button class="pip-btn pip-btn-end" @click.stop="endCall" title="Ngắt kết nối">
-          <i class="fas fa-phone-slash"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="13" height="13">
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+            <path d="M16.5 16.5l-1.27 1.27a16 16 0 01-6-6L10.5 10.5"></path>
+          </svg>
         </button>
       </div>
     </div>
@@ -179,10 +266,25 @@ const localVideoRef = ref(null)
 const remoteAudioRef = ref(null)
 const outgoingPreviewRef = ref(null)
 const remoteVideoPipRef = ref(null)
+const isIncomingBannerDismissed = ref(false)
 
 onMounted(() => {
   initGlobalCallListener()
 })
+
+watch(() => callState.state, (newState) => {
+  if (newState === 'incoming') {
+    isIncomingBannerDismissed.value = false
+  }
+})
+
+function dismissBanner() {
+  isIncomingBannerDismissed.value = true
+}
+
+function handleAccept() {
+  acceptCall()
+}
 
 watch(localMediaStream, (stream) => {
   nextTick(() => {
@@ -242,6 +344,159 @@ function getAvatarColor(name) {
   z-index: 10000;
 }
 
+/* ========================================= */
+/* ZALO-STYLE NON-BLOCKING INCOMING BANNER   */
+/* ========================================= */
+.zalo-incoming-banner-wrapper {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  z-index: 10005;
+  pointer-events: none;
+}
+
+.zalo-incoming-card {
+  pointer-events: auto;
+  width: 380px;
+  background: var(--surface-raised, #ffffff);
+  border: 1px solid var(--border-focus, rgba(15, 124, 130, 0.35));
+  border-radius: 20px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(15, 124, 130, 0.15);
+  backdrop-filter: blur(12px);
+  animation: zalo-bounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.banner-avatar-col {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.avatar-ring-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid #10b981;
+  opacity: 0.8;
+  animation: ring-pulse 1.8s ease-out infinite;
+}
+
+.banner-info-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pulse-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.banner-caller-name {
+  margin: 2px 0 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.banner-call-type {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.banner-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.zalo-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.zalo-btn:hover {
+  transform: scale(1.08);
+  filter: brightness(1.1);
+}
+
+.zalo-btn.btn-decline {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+
+.zalo-btn.btn-answer {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.zalo-btn.btn-ignore {
+  background: var(--surface-subtle, #f1f5f9);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-subtle);
+}
+
+.zalo-btn.btn-ignore:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+/* ========================================= */
+/* OUTGOING CALL BACKDROP & CARD             */
+/* ========================================= */
 .call-overlay-backdrop {
   position: fixed;
   inset: 0;
@@ -253,10 +508,6 @@ function getAvatarColor(name) {
   z-index: 10001;
 }
 
-/* ========================================= */
-/* INCOMING & OUTGOING CARDS                 */
-/* ========================================= */
-.incoming-call-box,
 .outgoing-call-box {
   background: var(--surface-raised, #ffffff);
   color: var(--text-primary);
@@ -264,7 +515,7 @@ function getAvatarColor(name) {
   border-radius: 28px;
   padding: 40px 32px;
   width: 90%;
-  max-width: 420px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -275,20 +526,20 @@ function getAvatarColor(name) {
 
 .caller-avatar-wrapper {
   position: relative;
-  width: 96px;
-  height: 96px;
-  margin-bottom: 24px;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .caller-avatar {
-  width: 96px;
-  height: 96px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   color: #ffffff;
-  font-size: 40px;
+  font-size: 36px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -306,18 +557,9 @@ function getAvatarColor(name) {
   animation: ring-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
-.ring-2 {
-  animation-delay: 0.7s;
-}
-
-@keyframes ring-pulse {
-  0% { transform: scale(1); opacity: 0.9; }
-  100% { transform: scale(1.6); opacity: 0; }
-}
-
 .caller-name {
   margin: 0 0 6px;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 
@@ -327,7 +569,16 @@ function getAvatarColor(name) {
   gap: 8px;
   font-size: 14px;
   color: var(--text-muted);
-  margin-bottom: 32px;
+  margin-bottom: 28px;
+}
+
+.spinner-ring {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .outgoing-video-preview {
@@ -357,18 +608,14 @@ function getAvatarColor(name) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 16px 26px;
+  gap: 6px;
+  padding: 14px 28px;
   border-radius: 20px;
   border: none;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s, filter 0.2s;
-}
-
-.action-btn i {
-  font-size: 26px;
 }
 
 .action-btn:hover {
@@ -380,12 +627,6 @@ function getAvatarColor(name) {
   background: #ef4444;
   color: #ffffff;
   box-shadow: 0 8px 20px rgba(239, 68, 68, 0.35);
-}
-
-.btn-answer {
-  background: #10b981;
-  color: #ffffff;
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
 }
 
 /* ========================================= */
@@ -467,6 +708,7 @@ function getAvatarColor(name) {
 
 .icon-btn-ghost:hover {
   background: rgba(255, 255, 255, 0.18);
+  transform: scale(1.05);
 }
 
 .call-viewport {
@@ -562,7 +804,7 @@ function getAvatarColor(name) {
 }
 
 .call-controls-island {
-  padding: 20px 24px;
+  padding: 18px 24px;
   background: rgba(15, 23, 42, 0.95);
   display: flex;
   justify-content: center;
@@ -573,13 +815,12 @@ function getAvatarColor(name) {
 }
 
 .ctrl-btn {
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   border: none;
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  font-size: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -600,8 +841,8 @@ function getAvatarColor(name) {
 .btn-hangup-large {
   background: #ef4444;
   color: #ffffff;
-  width: 60px;
-  height: 60px;
+  width: 58px;
+  height: 58px;
   box-shadow: 0 10px 24px rgba(239, 68, 68, 0.4);
 }
 
@@ -650,7 +891,6 @@ function getAvatarColor(name) {
   align-items: center;
   justify-content: center;
   color: #38bdf8;
-  font-size: 32px;
 }
 
 .pip-info-badge {
@@ -689,7 +929,6 @@ function getAvatarColor(name) {
   border: none;
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  font-size: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -702,6 +941,20 @@ function getAvatarColor(name) {
 
 .pip-btn-end {
   background: #ef4444;
+}
+
+@keyframes zalo-bounce {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes ring-pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes call-scale-up {

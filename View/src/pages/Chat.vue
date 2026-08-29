@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="chat-container animate-in">
     <div class="chat-realtime-status chat-realtime-global" :class="`is-${hubStatus}`" role="status" aria-live="polite">
       <span class="status-dot" aria-hidden="true"></span>
@@ -12,8 +12,10 @@
       <div class="sidebar-tabs">
         <button :class="{ active: activeTab === 'conversations' }" @click="activeTab = 'conversations'">Hội thoại</button>
         <button :class="{ active: activeTab === 'contacts' }" @click="activeTab = 'contacts'">Danh bạ</button>
-        <button v-if="activeTab === 'contacts'" style="margin-left:auto;padding:8px 10px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--accent-primary);" @click="showFilters = !showFilters">
-          <i class="fas fa-filter"></i>
+        <button v-if="activeTab === 'contacts'" style="margin-left:auto;padding:8px 10px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--accent-primary);" @click="showFilters = !showFilters" title="Bộ lọc">
+          <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
         </button>
       </div>
 
@@ -76,10 +78,15 @@
         </div>
         <div class="chat-header-actions">
           <button class="btn-icon" @click="triggerCall('audio')" title="Gọi thoại HD">
-            <i class="fas fa-phone"></i>
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+            </svg>
           </button>
           <button class="btn-icon btn-video-call" @click="triggerCall('video')" title="Gọi Video Face-to-Face">
-            <i class="fas fa-video"></i>
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
           </button>
         </div>
       </div>
@@ -94,13 +101,20 @@
             </template>
             <template v-else-if="msg.messageType === 'CallOffer' || msg.messageType === 'CallAnswer'">
               <div class="call-info">
-                <i class="fas fa-phone"></i>
+                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+                </svg>
                 <span>{{ msg.content || (msg.messageType === 'CallOffer' ? 'Cuộc gọi đến' : 'Đã trả lời') }}</span>
               </div>
             </template>
             <template v-else-if="msg.messageType === 'CallEnd'">
               <div class="call-info">
-                <i class="fas fa-phone-slash"></i>
+                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                  <path d="M16.5 16.5l-1.27 1.27a16 16 0 01-6-6L10.5 10.5"></path>
+                  <path d="M10.6 5.3A2 2 0 0112 5h7a2 2 0 012 2v3a2 2 0 01-2 2h-1"></path>
+                  <path d="M2 4.27a2 2 0 012-1.27h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91"></path>
+                </svg>
                 <span>{{ msg.content || 'Cuộc gọi kết thúc' }}</span>
               </div>
             </template>
@@ -115,15 +129,20 @@
       <div class="chat-input">
         <input v-model="messageText" placeholder="Nhập tin nhắn..."
           @keydown.enter="sendMessage" @input="onTyping" />
-        <button @click="sendMessage" :disabled="!messageText.trim()">
-          <i class="fas fa-paper-plane"></i>
+        <button @click="sendMessage" :disabled="!messageText.trim()" title="Gửi tin nhắn">
+          <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
         </button>
       </div>
     </div>
 
     <div class="chat-main chat-empty" v-else>
       <div class="empty-state-large">
-        <i class="fas fa-comments"></i>
+        <svg class="svg-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path>
+        </svg>
         <p>Chọn một hội thoại hoặc liên hệ để bắt đầu chat</p>
       </div>
     </div>

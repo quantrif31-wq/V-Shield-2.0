@@ -1,4 +1,4 @@
-package com.vshield.mobile.webrtc
+﻿package com.vshield.mobile.webrtc
 
 import android.content.Context
 import android.os.Handler
@@ -9,6 +9,11 @@ import org.webrtc.audio.AudioDeviceModule
 import org.webrtc.audio.JavaAudioDeviceModule
 
 class WebRTCManager(private val context: Context) {
+
+    companion object {
+        val eglBase: EglBase by lazy { EglBase.create() }
+        val eglBaseContext: EglBase.Context get() = eglBase.eglBaseContext
+    }
 
     interface Listener {
         fun onOfferCreated(sdp: String)
@@ -38,34 +43,20 @@ class WebRTCManager(private val context: Context) {
 
     private val iceServers = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
+        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+        PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer()
     )
-
-    private lateinit var rootEglBase: EglBase
 
     fun initialize() {
         if (isInitialized) return
         try {
-            try {
-                System.loadLibrary("jingle_peerconnection_so")
-            } catch (e: Throwable) {
-                Log.w("WebRTCManager", "loadLibrary jingle_peerconnection_so failed, trying alternative", e)
-                try {
-                    System.loadLibrary("jingle_peerconnection")
-                } catch (e2: Throwable) {
-                    listener?.onError("Không load được thư viện WebRTC native")
-                    return
-                }
-            }
-
-            rootEglBase = EglBase.create()
-            val encoderFactory = DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true)
-            val decoderFactory = DefaultVideoDecoderFactory(rootEglBase.eglBaseContext)
-
-            val initOptions = PeerConnectionFactory.InitializationOptions.builder(context)
+            val initOptions = PeerConnectionFactory.InitializationOptions.builder(context.applicationContext)
                 .setEnableInternalTracer(false)
                 .createInitializationOptions()
             PeerConnectionFactory.initialize(initOptions)
+
+            val encoderFactory = DefaultVideoEncoderFactory(eglBaseContext, true, true)
+            val decoderFactory = DefaultVideoDecoderFactory(eglBaseContext)
 
             peerConnectionFactory = PeerConnectionFactory.builder()
                 .setVideoEncoderFactory(encoderFactory)
@@ -74,18 +65,27 @@ class WebRTCManager(private val context: Context) {
                 .createPeerConnectionFactory()
 
             isInitialized = true
-        } catch (e: Exception) {
-            Log.e("WebRTCManager", "init failed", e)
+        } catch (e: Throwable) {
+            Log.e("WebRTCManager", "WebRTC initialize failed", e)
             listener?.onError("Không thể khởi tạo WebRTC: ${e.message}")
         }
     }
 
     private fun createAudioDeviceModule(): AudioDeviceModule {
-        audioDeviceModule = JavaAudioDeviceModule.builder(context)
-            .setUseHardwareAcousticEchoCanceler(true)
-            .setUseHardwareNoiseSuppressor(true)
-            .createAudioDeviceModule()
-        return audioDeviceModule!!
+        return try {
+            audioDeviceModule = JavaAudioDeviceModule.builder(context.applicationContext)
+                .setUseHardwareAcousticEchoCanceler(true)
+                .setUseHardwareNoiseSuppressor(true)
+                .createAudioDeviceModule()
+            audioDeviceModule!!
+        } catch (e: Throwable) {
+            Log.w("WebRTCManager", "Hardware audio AEC/NS unavailable, using fallback", e)
+            audioDeviceModule = JavaAudioDeviceModule.builder(context.applicationContext)
+                .setUseHardwareAcousticEchoCanceler(false)
+                .setUseHardwareNoiseSuppressor(false)
+                .createAudioDeviceModule()
+            audioDeviceModule!!
+        }
     }
 
     fun hasPeerConnection(): Boolean = peerConnection != null
@@ -94,9 +94,10 @@ class WebRTCManager(private val context: Context) {
         if (peerConnection != null) return true
         val factory = peerConnectionFactory ?: return false
 
-        val config = PeerConnection.RTCConfiguration(iceServers)
-        config.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-        config.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+        val config = PeerConnection.RTCConfiguration(iceServers).apply {
+            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+        }
 
         val pc = factory.createPeerConnection(config, object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
@@ -137,28 +138,37 @@ class WebRTCManager(private val context: Context) {
             val audioConstraints = MediaConstraints().apply {
                 mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
                 mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
             }
 
             val audioSource = factory.createAudioSource(audioConstraints)
             localAudioTrack = factory.createAudioTrack("audio0", audioSource)
-
-            localVideoSource = factory.createVideoSource(false)
-            videoCapturer = createCameraCapturer()
-            videoCapturer?.initialize(
-                SurfaceTextureHelper.create("VideoCaptureThread", rootEglBase.eglBaseContext),
-                context.applicationContext,
-                localVideoSource?.capturerObserver
-            )
-            videoCapturer?.startCapture(1280, 720, 30)
-            localVideoTrack = factory.createVideoTrack("video0", localVideoSource)
-            localVideoTrack?.setEnabled(true)
-
+            localAudioTrack?.setEnabled(true)
             pc.addTrack(localAudioTrack, emptyList())
-            pc.addTrack(localVideoTrack, emptyList())
 
-            listener?.onLocalVideo(localVideoTrack!!)
+            try {
+                localVideoSource = factory.createVideoSource(false)
+                videoCapturer = createCameraCapturer()
+                if (videoCapturer != null) {
+                    val surfaceTextureHelper = SurfaceTextureHelper.create("VideoCaptureThread", eglBaseContext)
+                    videoCapturer?.initialize(
+                        surfaceTextureHelper,
+                        context.applicationContext,
+                        localVideoSource?.capturerObserver
+                    )
+                    videoCapturer?.startCapture(1280, 720, 30)
+                    localVideoTrack = factory.createVideoTrack("video0", localVideoSource)
+                    localVideoTrack?.setEnabled(true)
+                    pc.addTrack(localVideoTrack, emptyList())
+                    localVideoTrack?.let { listener?.onLocalVideo(it) }
+                }
+            } catch (e: Throwable) {
+                Log.w("WebRTCManager", "Camera setup failed, proceeding audio-only", e)
+            }
+
             return true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e("WebRTCManager", "setupLocalMedia failed", e)
             listener?.onError("Không thể bật camera/mic: ${e.message}")
             return false
@@ -172,8 +182,8 @@ class WebRTCManager(private val context: Context) {
             val front = deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
             val back = deviceNames.firstOrNull { enumerator.isBackFacing(it) }
             (front ?: back)?.let { enumerator.createCapturer(it, null) }
-        } catch (e: Exception) {
-            Log.e("WebRTCManager", "camera enumerator failed", e)
+        } catch (e: Throwable) {
+            Log.w("WebRTCManager", "camera enumerator failed", e)
             null
         }
     }
@@ -284,16 +294,35 @@ class WebRTCManager(private val context: Context) {
         signalingThreadHandler.post {
             try {
                 videoCapturer?.stopCapture()
-            } catch (_: Exception) {}
-            videoCapturer?.dispose()
+            } catch (_: Throwable) {}
+            try {
+                videoCapturer?.dispose()
+            } catch (_: Throwable) {}
             videoCapturer = null
+
+            try {
+                localVideoTrack?.dispose()
+            } catch (_: Throwable) {}
             localVideoTrack = null
+
+            try {
+                localAudioTrack?.dispose()
+            } catch (_: Throwable) {}
             localAudioTrack = null
-            localVideoSource?.dispose()
+
+            try {
+                localVideoSource?.dispose()
+            } catch (_: Throwable) {}
             localVideoSource = null
-            peerConnection?.close()
+
+            try {
+                peerConnection?.close()
+            } catch (_: Throwable) {}
             peerConnection = null
-            audioDeviceModule?.release()
+
+            try {
+                audioDeviceModule?.release()
+            } catch (_: Throwable) {}
             audioDeviceModule = null
         }
     }

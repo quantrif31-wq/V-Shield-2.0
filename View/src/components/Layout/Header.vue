@@ -24,6 +24,38 @@
         </div>
 
         <div class="header-right" ref="dropdownRootRef">
+            <!-- Active Incoming / In-Call Indicator Pill (Zalo Style) -->
+            <div v-if="callState.state === 'incoming'" class="header-call-pill incoming-call-pill">
+                <span class="call-pulse-ring"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="call-icon-ringing" width="16" height="16">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+                </svg>
+                <div class="call-pill-text">
+                    <strong>{{ callState.fromFullName }}</strong>
+                    <span>Đang gọi...</span>
+                </div>
+                <div class="call-pill-actions">
+                    <button type="button" class="btn-pill-action accept" @click.stop="acceptCall" title="Trả lời">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-pill-action decline" @click.stop="rejectCall" title="Từ chối">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div v-else-if="callState.state === 'connected'" class="header-call-pill active-call-pill" @click="togglePip" title="Nhấp để mở rộng cuộc gọi">
+                <span class="active-dot"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
+                </svg>
+                <span>{{ formatCallDuration(callState.callDuration) }}</span>
+            </div>
+
             <div class="header-chip status-chip" :class="`status-${highestActiveSeverity}`">
                 <span class="chip-dot"></span>
                 <span>{{ statusChipLabel }}</span>
@@ -261,6 +293,7 @@ import { enterpriseApi } from '../../services/enterpriseSecurityApi'
 import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
 import { socApi } from '../../services/socApi'
 import { usePreferences } from '../../composables/usePreferences'
+import { callState, acceptCall, rejectCall, togglePip, formatCallDuration } from '../../stores/callStore'
 
 defineProps({
     collapsed: Boolean,
@@ -1591,5 +1624,125 @@ watch(
         width: 100%;
         justify-content: center;
     }
+}
+
+/* ========================================= */
+/* HEADER CALL PILLS (Zalo-Style Ringing)   */
+/* ========================================= */
+.header-call-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    user-select: none;
+}
+
+.incoming-call-pill {
+    background: #10b981;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+    animation: pill-glow 1.5s infinite;
+}
+
+.call-pulse-ring {
+    position: absolute;
+    inset: -3px;
+    border-radius: 999px;
+    border: 2px solid #10b981;
+    opacity: 0.8;
+    animation: ring-pulse 1.8s ease-out infinite;
+}
+
+.call-icon-ringing {
+    animation: call-vibrate 0.6s ease-in-out infinite;
+}
+
+.call-pill-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+    max-width: 110px;
+}
+
+.call-pill-text strong {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.call-pill-text span {
+    font-size: 10px;
+    opacity: 0.9;
+}
+
+.call-pill-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+}
+
+.btn-pill-action {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+.btn-pill-action:hover {
+    transform: scale(1.15);
+}
+
+.btn-pill-action.accept {
+    background: #ffffff;
+    color: #10b981;
+}
+
+.btn-pill-action.decline {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.active-call-pill {
+    background: rgba(15, 124, 130, 0.15);
+    border: 1px solid var(--border-focus, #0f7c82);
+    color: var(--accent-primary, #0f7c82);
+}
+
+.active-call-pill:hover {
+    background: rgba(15, 124, 130, 0.25);
+    transform: scale(1.03);
+}
+
+.active-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+
+@keyframes call-vibrate {
+    0%, 100% { transform: rotate(0deg); }
+    20%, 60% { transform: rotate(-15deg); }
+    40%, 80% { transform: rotate(15deg); }
+}
+
+@keyframes pill-glow {
+    0%, 100% { box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 4px 22px rgba(16, 185, 129, 0.8); }
 }
 </style>

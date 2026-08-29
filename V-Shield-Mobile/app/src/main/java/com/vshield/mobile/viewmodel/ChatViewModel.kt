@@ -353,76 +353,84 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startCall(targetEmployeeId: Int, targetFullName: String, conversationId: Int?) {
-        val current = _uiState.value
-        _uiState.value = current.copy(
-            callState = ChatCallState.Outgoing(
-                toEmployeeId = targetEmployeeId,
-                toFullName = targetFullName,
-                conversationId = conversationId
-            ),
-            callError = null
-        )
+        try {
+            val current = _uiState.value
+            _uiState.value = current.copy(
+                callState = ChatCallState.Outgoing(
+                    toEmployeeId = targetEmployeeId,
+                    toFullName = targetFullName,
+                    conversationId = conversationId
+                ),
+                callError = null
+            )
 
-        if (BuildConfig.DEMO_MODE) {
-            signalRClient?.callUser(targetEmployeeId, "offer", "demo-offer", conversationId)
-            return
-        }
+            if (BuildConfig.DEMO_MODE) {
+                signalRClient?.callUser(targetEmployeeId, "offer", "demo-offer", conversationId)
+                return
+            }
 
-        val manager = ensureWebRtcManager()
-        manager.initialize()
-        if (!manager.createPeerConnection()) {
-            _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo peer")
-            return
+            val manager = ensureWebRtcManager()
+            manager.initialize()
+            if (!manager.createPeerConnection()) {
+                _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo kết nối thoại")
+                return
+            }
+            if (!manager.setupLocalMedia()) {
+                _uiState.value = _uiState.value.copy(callError = "Không thể bật thiết bị âm thanh")
+                return
+            }
+            manager.createOffer()
+            pendingIceCandidates.clear()
+        } catch (e: Throwable) {
+            _uiState.value = _uiState.value.copy(callError = "Lỗi cuộc gọi: ${e.message}")
         }
-        if (!manager.setupLocalMedia()) {
-            _uiState.value = _uiState.value.copy(callError = "Không thể bật camera/mic")
-            return
-        }
-        manager.createOffer()
-        pendingIceCandidates.clear()
     }
 
     fun acceptCall() {
-        val state = _uiState.value.callState
-        if (state !is ChatCallState.Incoming) return
+        try {
+            val state = _uiState.value.callState
+            if (state !is ChatCallState.Incoming) return
 
-        if (BuildConfig.DEMO_MODE) {
-            signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
-            _uiState.value = _uiState.value.copy(
-                callState = ChatCallState.Connected(
-                    withEmployeeId = state.fromEmployeeId,
-                    withFullName = state.fromFullName
+            if (BuildConfig.DEMO_MODE) {
+                signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
+                _uiState.value = _uiState.value.copy(
+                    callState = ChatCallState.Connected(
+                        withEmployeeId = state.fromEmployeeId,
+                        withFullName = state.fromFullName
+                    )
                 )
-            )
-            return
-        }
+                return
+            }
 
-        val manager = ensureWebRtcManager()
-        manager.initialize()
-        if (!manager.createPeerConnection()) {
-            _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo peer")
-            return
-        }
-        if (!manager.setupLocalMedia()) {
-            _uiState.value = _uiState.value.copy(callError = "Không thể bật camera/mic")
-            return
-        }
+            val manager = ensureWebRtcManager()
+            manager.initialize()
+            if (!manager.createPeerConnection()) {
+                _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo kết nối thoại")
+                return
+            }
+            if (!manager.setupLocalMedia()) {
+                _uiState.value = _uiState.value.copy(callError = "Không thể bật thiết bị âm thanh")
+                return
+            }
 
-        pendingIceCandidates.forEach { manager.addIceCandidate(it) }
-        pendingIceCandidates.clear()
+            pendingIceCandidates.forEach { manager.addIceCandidate(it) }
+            pendingIceCandidates.clear()
 
-        val offer = state.offerSdp ?: pendingOfferSdp
-        if (offer != null && offer.isNotBlank()) {
-            manager.handleRemoteOffer(offer)
-            signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
-            _uiState.value = _uiState.value.copy(
-                callState = ChatCallState.Connected(
-                    withEmployeeId = state.fromEmployeeId,
-                    withFullName = state.fromFullName
+            val offer = state.offerSdp ?: pendingOfferSdp
+            if (offer != null && offer.isNotBlank()) {
+                manager.handleRemoteOffer(offer)
+                signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
+                _uiState.value = _uiState.value.copy(
+                    callState = ChatCallState.Connected(
+                        withEmployeeId = state.fromEmployeeId,
+                        withFullName = state.fromFullName
+                    )
                 )
-            )
-        } else {
-            _uiState.value = _uiState.value.copy(callError = "Không nhận được offer")
+            } else {
+                _uiState.value = _uiState.value.copy(callError = "Không nhận được tín hiệu offer")
+            }
+        } catch (e: Throwable) {
+            _uiState.value = _uiState.value.copy(callError = "Lỗi nhận cuộc gọi: ${e.message}")
         }
     }
 
