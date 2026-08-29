@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="chat-container animate-in">
     <div class="chat-realtime-status chat-realtime-global" :class="`is-${hubStatus}`" role="status" aria-live="polite">
       <span class="status-dot" aria-hidden="true"></span>
@@ -6,6 +6,8 @@
       <span v-if="hubLastUpdated">· Cập nhật {{ formatTime(hubLastUpdated) }}</span>
       <span v-if="hubStatus !== 'live'">· Tin nhắn vẫn được gửi qua API</span>
     </div>
+
+    <!-- SIDEBAR -->
     <div class="chat-sidebar">
       <div class="sidebar-tabs">
         <button :class="{ active: activeTab === 'conversations' }" @click="activeTab = 'conversations'">Hội thoại</button>
@@ -65,6 +67,7 @@
       </div>
     </div>
 
+    <!-- MAIN CHAT AREA -->
     <div class="chat-main" v-if="selectedConvId">
       <div class="chat-header">
         <div class="chat-header-info">
@@ -72,10 +75,10 @@
           <span class="chat-header-members">{{ currentConvParticipants }}</span>
         </div>
         <div class="chat-header-actions">
-          <button class="btn-icon" @click="startCall('audio')" title="Gọi thoại">
+          <button class="btn-icon" @click="triggerCall('audio')" title="Gọi thoại HD">
             <i class="fas fa-phone"></i>
           </button>
-          <button class="btn-icon" @click="startCall('video')" title="Gọi video">
+          <button class="btn-icon btn-video-call" @click="triggerCall('video')" title="Gọi Video Face-to-Face">
             <i class="fas fa-video"></i>
           </button>
         </div>
@@ -92,13 +95,13 @@
             <template v-else-if="msg.messageType === 'CallOffer' || msg.messageType === 'CallAnswer'">
               <div class="call-info">
                 <i class="fas fa-phone"></i>
-                <span>{{ msg.messageType === 'CallOffer' ? 'Cuộc gọi đến' : 'Đã trả lời' }}</span>
+                <span>{{ msg.content || (msg.messageType === 'CallOffer' ? 'Cuộc gọi đến' : 'Đã trả lời') }}</span>
               </div>
             </template>
             <template v-else-if="msg.messageType === 'CallEnd'">
               <div class="call-info">
                 <i class="fas fa-phone-slash"></i>
-                <span>Cuộc gọi kết thúc</span>
+                <span>{{ msg.content || 'Cuộc gọi kết thúc' }}</span>
               </div>
             </template>
             <div class="message-time">{{ formatTime(msg.sentAt) }}</div>
@@ -130,6 +133,7 @@
 <script>
 import { authState } from '../stores/auth'
 import * as chatApi from '../services/chatApi'
+import { startCall } from '../stores/callStore'
 
 export default {
   name: 'ChatPage',
@@ -308,7 +312,7 @@ export default {
       this.refreshTimer = setInterval(async () => {
         await this.loadData()
         await this.refreshSelectedConversation()
-      }, 3000)
+      }, 4000)
     },
     async connectSignalR() {
       this.hubUnsubscribers.push(chatApi.onChatConnectionState((state) => {
@@ -321,10 +325,7 @@ export default {
         this.hubUnsubscribers.push(
           chatApi.onMessage(this.handleNewMessage),
           chatApi.onTyping(this.handleTyping),
-          chatApi.onRead(this.handleRead),
-          chatApi.onIncomingCall(this.handleIncomingCall),
-          chatApi.onCallResponse(this.handleCallResponse),
-          chatApi.onCallEnded(this.handleCallEnded),
+          chatApi.onRead(this.handleRead)
         )
       } catch (e) {
         console.error('Failed to connect chat hub', e)
@@ -386,19 +387,22 @@ export default {
         })
       }
     },
-    handleIncomingCall(data) {
-      if (confirm(`Cuộc gọi từ ${data.fromFullName}. Trả lời?`)) {
-        this.acceptCall(data)
-      } else {
-        chatApi.endCall(data.fromEmployeeId, data.conversationId)
-      }
+
+    // Trigger Zalo-style Calling via Global Call Store
+    triggerCall(type) {
+      if (!this.selectedConvId) return
+      const participants = this.conversations.find(c => c.conversationId === this.selectedConvId)?.participants || []
+      const target = participants.find(p => !this.isSameEmployee(p.employeeId, this.myEmployeeId))
+      if (!target) return
+
+      startCall({
+        targetEmployeeId: target.employeeId,
+        targetFullName: target.fullName,
+        type,
+        conversationId: this.selectedConvId,
+      })
     },
-    handleCallResponse(data) {
-      this.showToast(`${data.fromFullName} đã trả lời cuộc gọi`)
-    },
-    handleCallEnded(data) {
-      this.showToast('Cuộc gọi kết thúc')
-    },
+
     async selectConversation(conv) {
       this.selectedConvId = conv.conversationId
       this.currentConvTitle = conv.title || this.getParticipantNames(conv)
@@ -480,22 +484,6 @@ export default {
       }
     },
     onSearch() { },
-    async startCall(type) {
-      if (!this.selectedConvId) return
-      const participants = this.conversations.find(c => c.conversationId === this.selectedConvId)?.participants || []
-      const target = participants.find(p => !this.isSameEmployee(p.employeeId, this.myEmployeeId))
-      if (!target) return
-
-      const signalingData = JSON.stringify({ type, conversationId: this.selectedConvId })
-      await chatApi.callUser(target.employeeId, 'CallOffer', signalingData, this.selectedConvId)
-      await chatApi.sendMessage(this.selectedConvId,
-        `Cuộc gọi ${type === 'video' ? 'video' : 'thoại'} bắt đầu`,
-        'CallOffer', signalingData)
-    },
-    async acceptCall(data) {
-      await chatApi.callResponse(data.fromEmployeeId, 'CallAnswer',
-        JSON.stringify({ accepted: true }))
-    },
     getInitials(conv) {
       const name = conv.title || this.getParticipantNames(conv)
       return name.charAt(0).toUpperCase()
@@ -524,9 +512,6 @@ export default {
     scrollToBottom() {
       const container = this.$refs.messagesContainer
       if (container) container.scrollTop = container.scrollHeight
-    },
-    showToast(msg) {
-      alert(msg)
     }
   }
 }
@@ -793,6 +778,10 @@ export default {
   color: var(--accent-primary);
   border-color: var(--border-focus);
   transform: translateY(-1px);
+}
+
+.btn-video-call:hover {
+  color: #10b981;
 }
 
 .messages-container {

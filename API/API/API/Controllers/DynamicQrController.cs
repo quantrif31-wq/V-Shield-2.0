@@ -32,6 +32,30 @@ public class DynamicQrController : ControllerBase
             _visitorQrService = visitorQrService;
         }
 
+        private async Task<int?> ResolveCurrentEmployeeIdAsync()
+        {
+            var employeeIdClaim = User.FindFirst("employeeId")?.Value;
+            if (int.TryParse(employeeIdClaim, out var employeeId) && employeeId > 0)
+            {
+                return employeeId;
+            }
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+            if (int.TryParse(userIdClaim, out var userId))
+            {
+                var user = await _context.AppUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+                if (user?.EmployeeId != null)
+                {
+                    return user.EmployeeId.Value;
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Tự tạo QR động cho chính nhân viên đang đăng nhập.
         /// </summary>
@@ -39,8 +63,8 @@ public class DynamicQrController : ControllerBase
         [EnableRateLimiting("ops")]
         public async Task<IActionResult> GetMyDynamicQr()
         {
-            var employeeIdClaim = User.FindFirst("employeeId")?.Value;
-            if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out var employeeId))
+            var employeeId = await ResolveCurrentEmployeeIdAsync();
+            if (!employeeId.HasValue)
             {
                 return Unauthorized(new
                 {
@@ -50,7 +74,7 @@ public class DynamicQrController : ControllerBase
             }
 
             var employee = await _context.Employees
-                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.Status == true);
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId.Value && x.Status == true);
 
             if (employee == null)
             {
@@ -62,13 +86,13 @@ public class DynamicQrController : ControllerBase
             }
 
             var dynamicQr = await _context.EmployeeDynamicQrs
-                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId.Value);
 
             if (dynamicQr == null)
             {
                 dynamicQr = new EmployeeDynamicQr
                 {
-                    EmployeeId = employeeId,
+                    EmployeeId = employeeId.Value,
                     SecretKey = GenerateBase32Secret(),
                     TimeStepSeconds = 30,
                     Digits = 6,
@@ -121,8 +145,8 @@ public class DynamicQrController : ControllerBase
         [EnableRateLimiting("ops")]
         public async Task<IActionResult> GetMyMobileQrBootstrap()
         {
-            var employeeIdClaim = User.FindFirst("employeeId")?.Value;
-            if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out var employeeId))
+            var employeeId = await ResolveCurrentEmployeeIdAsync();
+            if (!employeeId.HasValue)
             {
                 return Unauthorized(new
                 {
@@ -132,7 +156,7 @@ public class DynamicQrController : ControllerBase
             }
 
             var employee = await _context.Employees
-                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.Status == true);
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId.Value && x.Status == true);
 
             if (employee == null)
             {
@@ -144,13 +168,13 @@ public class DynamicQrController : ControllerBase
             }
 
             var dynamicQr = await _context.EmployeeDynamicQrs
-                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+                .FirstOrDefaultAsync(x => x.EmployeeId == employeeId.Value);
 
             if (dynamicQr == null)
             {
                 dynamicQr = new EmployeeDynamicQr
                 {
-                    EmployeeId = employeeId,
+                    EmployeeId = employeeId.Value,
                     SecretKey = GenerateBase32Secret(),
                     TimeStepSeconds = 30,
                     Digits = 6,

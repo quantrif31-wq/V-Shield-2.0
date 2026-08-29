@@ -12,7 +12,6 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/work-schedules")]
 [Authorize]
-[RequireOperationalTask("metadata")]
 public class WorkSchedulesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -141,6 +140,7 @@ public class WorkSchedulesController : ControllerBase
     }
 
     [HttpPost]
+    [RequireOperationalTask("metadata")]
     public async Task<IActionResult> Create([FromBody] WorkScheduleUpsertRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -182,6 +182,7 @@ public class WorkSchedulesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [RequireOperationalTask("metadata")]
     public async Task<IActionResult> Update(int id, [FromBody] WorkScheduleUpsertRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -234,6 +235,7 @@ public class WorkSchedulesController : ControllerBase
     }
 
     [HttpPatch("{id:int}/cancel")]
+    [RequireOperationalTask("metadata")]
     public async Task<IActionResult> Cancel(int id)
     {
         if (!await EnsureCanManageAsync()) return Forbid();
@@ -252,6 +254,7 @@ public class WorkSchedulesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [RequireOperationalTask("metadata")]
     public async Task<IActionResult> Delete(int id)
     {
         return await Cancel(id);

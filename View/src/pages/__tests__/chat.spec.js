@@ -11,6 +11,12 @@ vi.mock('../../services/chatApi', () => ({
   onMessage: vi.fn(() => () => {}),
   onTyping: vi.fn(() => () => {}),
   onRead: vi.fn(() => () => {}),
+  onIncomingCall: vi.fn(() => () => {}),
+  onCallResponse: vi.fn(() => () => {}),
+  onCallEnded: vi.fn(() => () => {}),
+  callUser: vi.fn(),
+  callResponse: vi.fn(),
+  endCall: vi.fn(),
   onChatConnectionState: vi.fn(() => () => {}),
 }))
 

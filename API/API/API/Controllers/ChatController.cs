@@ -25,7 +25,19 @@ public class ChatController : ControllerBase
     private int GetEmployeeId()
     {
         var claim = User.FindFirst("employeeId")?.Value;
-        return int.TryParse(claim, out var id) ? id : 0;
+        if (int.TryParse(claim, out var id) && id > 0)
+            return id;
+
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value;
+        if (int.TryParse(userIdClaim, out var userId))
+        {
+            var user = _db.AppUsers.AsNoTracking().FirstOrDefault(u => u.UserId == userId);
+            if (user?.EmployeeId != null)
+                return user.EmployeeId.Value;
+        }
+
+        return 0;
     }
 
     /// <summary>

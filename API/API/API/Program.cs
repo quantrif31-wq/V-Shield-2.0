@@ -423,7 +423,10 @@ namespace API
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-                var authPermitLimit = builder.Environment.IsEnvironment("Testing") ? 1000 : 5;
+                var configuredAuthPermit = builder.Configuration["RateLimits:AuthPermitLimit"];
+                var authPermitLimit = int.TryParse(configuredAuthPermit, out var ap) && ap > 0
+                    ? ap
+                    : ((builder.Environment.IsEnvironment("Testing") || builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Docker")) ? 300 : 15);
                 options.AddFixedWindowLimiter("auth", limiter =>
                 {
                     limiter.Window = TimeSpan.FromMinutes(1);

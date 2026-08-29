@@ -12,7 +12,6 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/leave-requests")]
 [Authorize]
-[RequireOperationalTask("approvals")]
 public class LeaveRequestsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -200,6 +199,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpPut("{id:int}/approve")]
+    [RequireOperationalTask("approvals")]
     public async Task<IActionResult> Approve(int id)
     {
         if (!await EnsureCanApproveAsync()) return Forbid();
@@ -258,6 +258,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpPut("{id:int}/reject")]
+    [RequireOperationalTask("approvals")]
     public async Task<IActionResult> Reject(int id, [FromBody] LeaveRequestRejectRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);

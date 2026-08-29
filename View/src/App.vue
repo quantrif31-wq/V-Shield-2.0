@@ -20,6 +20,7 @@
   <router-view />
   <RouteProgress />
   <ToastProvider />
+  <GlobalCallOverlay />
 </template>
 
 <script setup>
@@ -27,6 +28,7 @@ import { onMounted, ref } from 'vue'
 import router from './router'
 import ToastProvider from './components/ui/ToastProvider.vue'
 import RouteProgress from './components/ui/RouteProgress.vue'
+import GlobalCallOverlay from './components/Call/GlobalCallOverlay.vue'
 
 const booted = ref(false)
 

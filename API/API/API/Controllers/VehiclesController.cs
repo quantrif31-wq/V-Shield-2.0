@@ -9,7 +9,6 @@ namespace API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-[RequireOperationalTask("parking")]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleManagementService _vehicleService;
@@ -29,6 +28,7 @@ public class VehiclesController : ControllerBase
     // GET: api/vehicles
     // Lấy danh sách tất cả phương tiện
     [HttpGet]
+    [RequireOperationalTask("parking")]
     public async Task<IActionResult> GetAll()
     {
         var vehicles = await _vehicleService.GetAllAsync();
@@ -38,6 +38,7 @@ public class VehiclesController : ControllerBase
     // GET: api/vehicles/5
     // Lấy phương tiện theo ID
     [HttpGet("{id:int}")]
+    [RequireOperationalTask("parking")]
     public async Task<IActionResult> GetById(int id)
     {
         var vehicle = await _vehicleService.GetByIdAsync(id);
@@ -50,6 +51,7 @@ public class VehiclesController : ControllerBase
     // GET: api/vehicles/license-plate/51A-12345
     // Tra cứu phương tiện theo biển số
     [HttpGet("license-plate/{plate}")]
+    [RequireOperationalTask("parking")]
     public async Task<IActionResult> GetByLicensePlate(string plate)
     {
         var vehicle = await _vehicleService.GetByLicensePlateAsync(plate.ToUpper());
@@ -69,6 +71,8 @@ public class VehiclesController : ControllerBase
     }
 
     // POST: api/vehicles
+    [HttpPost]
+    [RequireOperationalTask("parking")]
     public async Task<IActionResult> Create([FromBody] CreateVehicleDto dto)
     {
         if (!ModelState.IsValid)
@@ -91,6 +95,7 @@ public class VehiclesController : ControllerBase
 
     // PUT: api/vehicles/5
     [HttpPut("{id:int}")]
+    [RequireOperationalTask("parking")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateVehicleDto dto)
     {
         if (!ModelState.IsValid)
@@ -116,6 +121,7 @@ public class VehiclesController : ControllerBase
 
     // DELETE: api/vehicles/5
     [HttpDelete("{id:int}")]
+    [RequireOperationalTask("parking")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _vehicleService.DeleteAsync(id);
