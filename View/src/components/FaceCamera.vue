@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="face-page animate-in">
     <header class="face-header">
       <div class="face-header-titles">
@@ -52,9 +52,16 @@
         <div class="stage-video">
           <div ref="videoWrapperRef" class="video-frame" :class="cameraRunning ? 'frame-live' : 'frame-idle'"
                @dblclick="handleDoubleClick">
+            <img
+              v-if="previewRunning && directCameraUrl && isImageUrl(directCameraUrl)"
+              :key="directCameraKey + '-img'"
+              :src="directCameraUrl"
+              class="video"
+              alt="Camera"
+            />
             <iframe
-              v-if="previewRunning && directCameraUrl"
-              :key="directCameraKey"
+              v-else-if="previewRunning && directCameraUrl"
+              :key="directCameraKey + '-iframe'"
               :src="directCameraUrl"
               class="video"
               title="Camera"
@@ -766,6 +773,23 @@ export default {
       if (!raw) return ""
       const sep = raw.includes("?") ? "&" : "?"
       return `${raw}${sep}t=${Date.now()}`
+    },
+
+    isImageUrl(url) {
+      if (!url || typeof url !== "string") return false
+      const clean = url.split("?")[0].toLowerCase()
+      return (
+        clean.endsWith(".jpg") ||
+        clean.endsWith(".jpeg") ||
+        clean.endsWith(".png") ||
+        clean.endsWith(".webp") ||
+        clean.endsWith("/frame.jpg") ||
+        clean.includes("/qr/frame.jpg") ||
+        clean.includes("/plate/frame.jpg") ||
+        clean.includes("/video_feed") ||
+        clean.startsWith("data:image/") ||
+        clean.endsWith("/snapshot")
+      )
     },
 
     async handleDoubleClick() {

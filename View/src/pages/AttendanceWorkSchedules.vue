@@ -685,8 +685,8 @@ onMounted(async () => {
     gap: 4px;
     padding: 10px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
 }
 
 .bulk-employee-item input {

@@ -88,8 +88,8 @@ http.interceptors.response.use(
 
                     sessionStorage.setItem(AUTH_TOKEN_KEY, nextToken)
                     sessionStorage.setItem(AUTH_REFRESH_TOKEN_KEY, nextRefreshToken)
-                    localStorage.removeItem(AUTH_TOKEN_KEY)
-                    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+                    localStorage.setItem(AUTH_TOKEN_KEY, nextToken)
+                    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, nextRefreshToken)
 
                     originalRequest.headers = originalRequest.headers || {}
                     originalRequest.headers.Authorization = `Bearer ${nextToken}`

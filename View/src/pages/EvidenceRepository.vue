@@ -464,7 +464,7 @@
                             <button class="btn btn-sm btn-secondary" @click="loadCollections">Làm mới</button>
                         </div>
 
-                        <div v-if="showNewCollection" style="margin-bottom:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;">
+                        <div v-if="showNewCollection" style="margin-bottom:12px;padding:12px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-subtle);">
                             <div class="form-group">
                                 <label>Tên bộ sưu tập *</label>
                                 <input v-model="collectionForm.name" class="form-control" placeholder="vd. Vụ việc #2024-001" />
@@ -1031,12 +1031,12 @@ onMounted(async () => {
 <style scoped>
 .repo-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .repo-tabs button { border: 1px solid var(--border-default); background: var(--surface-default); color: var(--text-secondary); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
-.repo-tabs button.active { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+.repo-tabs button.active { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-on-interactive); }
 .policy-composer { margin-bottom: 16px; padding: 16px; border: 1px solid var(--border-subtle); border-radius: 14px; background: linear-gradient(180deg, var(--surface-subtle) 0%, var(--surface-hover) 100%); }
 .form-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .checkbox-row { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--text-secondary); font-size: 13px; }
 .governance-note { margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
-.dry-run-output { max-height: 320px; overflow: auto; background: var(--ink-950); color: var(--text-inverse); border-radius: 12px; padding: 14px; font-size: 12px; }
+.dry-run-output { max-height: 320px; overflow: auto; background: var(--surface-subtle); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; font-size: 12px; font-family: ui-monospace, monospace; }
 .drawer-overlay { display: flex; justify-content: flex-end; }
 .drawer-panel { width: 540px; max-width: 95vw; height: 100vh; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg-card-strong); }
 .drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }

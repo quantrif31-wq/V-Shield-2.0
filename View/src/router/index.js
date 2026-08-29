@@ -341,8 +341,15 @@ router.beforeEach((to, from, next) => {
 router.onError((error, to) => {
   console.error('Router navigation error:', error)
 
-  const message = String(error?.message || '')
-  if (!message.includes(DYNAMIC_IMPORT_ERROR_MARKER)) {
+  const message = String(error?.message || '').toLowerCase()
+  const isChunkError =
+    message.includes('failed to fetch dynamically imported module') ||
+    message.includes('importing a module script failed') ||
+    message.includes('error loading dynamically imported module') ||
+    message.includes('loading chunk') ||
+    message.includes('dynamically imported module')
+
+  if (!isChunkError) {
     return
   }
 

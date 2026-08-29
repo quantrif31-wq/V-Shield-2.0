@@ -20,8 +20,8 @@
   --text-on-interactive: #ffffff;
 
   /* Semantic borders */
-  --border-default: rgba(24, 49, 77, 0.16);
-  --border-subtle: rgba(24, 49, 77, 0.10);
+  --border-default: rgba(24, 49, 77, 0.18);
+  --border-subtle: rgba(24, 49, 77, 0.12);
   --border-strong: rgba(24, 49, 77, 0.28);
   --border-focus: #168e98;
   --border-danger: #b8423a;

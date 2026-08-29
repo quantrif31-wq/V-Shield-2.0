@@ -492,12 +492,16 @@ onMounted(loadAll)
 
 <style scoped>
 .report-page {
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-bottom: 32px;
 }
 
 .dashboard-subtitle {
-    margin-top: 12px;
+    margin-top: 10px;
     max-width: 76ch;
+    line-height: 1.55;
 }
 
 .updated-at {
@@ -509,25 +513,25 @@ onMounted(loadAll)
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
 }
 
 /* KPI cards */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
+    gap: 18px;
 }
 
 .kpi-card {
     display: flex;
-    gap: 14px;
+    gap: 16px;
     align-items: flex-start;
-    padding: 18px;
-    border-radius: 20px;
+    padding: 20px 22px;
+    border-radius: 22px;
     border: 1px solid var(--border-soft);
     background: var(--surface);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
@@ -547,12 +551,14 @@ onMounted(loadAll)
 }
 
 .kpi-icon {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     line-height: 1;
+    padding-top: 2px;
 }
 
 .kpi-body {
     min-width: 0;
+    flex: 1;
 }
 
 .kpi-label {
@@ -564,16 +570,16 @@ onMounted(loadAll)
 
 .kpi-value {
     display: block;
-    margin-top: 6px;
+    margin-top: 8px;
     font-family: var(--font-heading);
-    font-size: 2rem;
+    font-size: 2.1rem;
     line-height: 1;
     color: var(--text-primary);
 }
 
 .kpi-note {
     display: block;
-    margin-top: 6px;
+    margin-top: 8px;
     color: var(--text-muted);
     font-size: 0.78rem;
     line-height: 1.5;
@@ -582,19 +588,19 @@ onMounted(loadAll)
 /* Panel main (line chart) */
 .panel-main {
     border: 1px solid var(--border-soft);
-    border-radius: 20px;
+    border-radius: 22px;
     background: var(--surface);
-    padding: 20px;
-    box-shadow: var(--shadow-sm);
+    padding: 24px 28px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
 }
 
 .panel-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
 .panel-kicker {
@@ -605,13 +611,14 @@ onMounted(loadAll)
 }
 
 .panel-title {
-    margin: 2px 0 0;
-    font-size: 1.05rem;
+    margin: 4px 0 0;
+    font-size: 1.1rem;
+    font-weight: 700;
 }
 
 .legend {
     display: flex;
-    gap: 14px;
+    gap: 16px;
     align-items: center;
     flex-wrap: wrap;
 }
@@ -620,7 +627,7 @@ onMounted(loadAll)
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
 }
 
@@ -673,45 +680,51 @@ onMounted(loadAll)
 .axis-x {
     display: flex;
     justify-content: space-between;
-    margin-top: 4px;
+    margin-top: 8px;
     padding-inline: 6px;
 }
 
 .axis-x span {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: 0.74rem;
 }
 
 /* Mid grid: gate bars + donut */
 .mid-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 18px;
+    gap: 22px;
+}
+
+.ops-grid.two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
 }
 
 .ops-panel {
     border: 1px solid var(--border-soft);
-    border-radius: 20px;
+    border-radius: 22px;
     background: var(--surface);
-    padding: 20px;
-    box-shadow: var(--shadow-sm);
+    padding: 24px 28px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
 }
 
 /* Gate bars */
 .gate-bars {
     display: grid;
-    gap: 10px;
+    gap: 14px;
 }
 
 .gate-row {
     display: grid;
     grid-template-columns: 130px minmax(0, 1fr) 44px;
-    gap: 12px;
+    gap: 14px;
     align-items: center;
 }
 
 .gate-name {
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -835,35 +848,38 @@ onMounted(loadAll)
 /* Heatmap */
 .heatmap {
     display: grid;
-    gap: 6px;
+    gap: 8px;
 }
 
 .heatmap-row {
     display: grid;
-    grid-template-columns: 44px repeat(24, minmax(0, 1fr));
-    gap: 3px;
+    grid-template-columns: 48px repeat(24, minmax(0, 1fr));
+    gap: 4px;
     align-items: center;
 }
 
 .heatmap-header {
-    margin-bottom: 2px;
+    margin-bottom: 6px;
 }
 
 .heatmap-corner,
 .heatmap-hour {
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
+    font-weight: 600;
     text-align: center;
 }
 
 .heatmap-cell {
-    height: 18px;
-    border-radius: 4px;
-    transition: transform 0.12s ease;
+    height: 20px;
+    border-radius: 5px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .heatmap-cell:hover {
-    transform: scale(1.15);
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 2;
 }
 
 .lvl-0 { background: var(--surface-muted); }
@@ -877,17 +893,17 @@ onMounted(loadAll)
 .mini-bars {
     display: flex;
     align-items: flex-end;
-    gap: 4px;
-    height: 120px;
-    padding-top: 8px;
+    gap: 6px;
+    height: 130px;
+    padding-top: 10px;
 }
 
 .mini-bar-col {
     flex: 1;
     min-width: 0;
     display: grid;
-    grid-template-rows: 96px 18px;
-    gap: 4px;
+    grid-template-rows: 100px 20px;
+    gap: 6px;
     text-align: center;
 }
 
@@ -898,8 +914,8 @@ onMounted(loadAll)
 }
 
 .mini-bar-fill {
-    width: 70%;
-    min-height: 3px;
+    width: 65%;
+    min-height: 4px;
     border-radius: 6px 6px 2px 2px;
     background: linear-gradient(180deg, var(--accent-info), var(--accent-primary));
     transition: height 0.3s ease;
@@ -907,7 +923,7 @@ onMounted(loadAll)
 
 .mini-bar-label {
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: 0.68rem;
     white-space: nowrap;
     overflow: hidden;
 }
@@ -915,24 +931,25 @@ onMounted(loadAll)
 .visitor-status-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
+    gap: 10px;
+    margin-top: 18px;
 }
 
 /* Anomaly table */
 .anomaly-table {
-    display: grid;
-    gap: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .anomaly-row {
     display: grid;
     grid-template-columns: 140px minmax(120px, 1fr) 70px minmax(160px, 2fr);
-    gap: 12px;
+    gap: 14px;
     align-items: center;
-    padding: 10px 12px;
-    border-radius: 10px;
-    font-size: 0.84rem;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.86rem;
 }
 
 .anomaly-row:nth-child(odd) {
@@ -943,10 +960,10 @@ onMounted(loadAll)
     background: transparent !important;
     color: var(--text-muted);
     font-weight: 700;
-    font-size: 0.74rem;
+    font-size: 0.76rem;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    padding-bottom: 6px;
+    letter-spacing: 0.04em;
+    padding-bottom: 8px;
 }
 
 .anomaly-note {
@@ -954,9 +971,9 @@ onMounted(loadAll)
 }
 
 .badge {
-    padding: 2px 8px;
+    padding: 3px 10px;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     font-weight: 700;
 }
 
@@ -964,12 +981,12 @@ onMounted(loadAll)
 .out-badge { background: rgba(196, 125, 45, 0.14); color: #c47d2d; }
 
 .alert-danger-bar {
-    padding: 14px 18px;
-    border-radius: 14px;
+    padding: 16px 20px;
+    border-radius: 16px;
     background: rgba(195, 81, 70, 0.1);
     color: var(--accent-danger);
     border: 1px solid rgba(195, 81, 70, 0.25);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
 }
 
 @media (max-width: 1180px) {

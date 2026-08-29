@@ -11,17 +11,34 @@
 </template>
 
 <script setup>
-defineProps({ open: Boolean, title: { type: String, required: true }, eyebrow: { type: String, default: 'Thao tác có kiểm soát' } })
-defineEmits(['close'])
+import { onMounted, onUnmounted, watch } from 'vue'
+
+const props = defineProps({ open: Boolean, title: { type: String, required: true }, eyebrow: { type: String, default: 'Thao tác có kiểm soát' } })
+const emit = defineEmits(['close'])
+
+function handleKeyDown(e) {
+  if (e.key === 'Escape' && props.open) {
+    emit('close')
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <style scoped>
-.action-drawer-overlay { position: fixed; inset: 0; z-index: 390; display: flex; justify-content: flex-end; background: rgba(15,23,42,.48); }
-.action-drawer { width: min(520px,96vw); height: 100%; display: grid; grid-template-rows: auto 1fr auto; background: #fff; box-shadow: -18px 0 40px rgba(15,23,42,.18); }
-header { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:18px 20px; border-bottom:1px solid #e2e8f0; }
-header span { color:#64748b; font-size:12px; text-transform:uppercase; font-weight:800; }
-header h2 { margin:3px 0 0; font-size:20px; color:#172033; }
-header button { width:38px; height:38px; border:1px solid #cbd5e1; background:#fff; font-size:24px; cursor:pointer; }
+.action-drawer-overlay { position: fixed; inset: 0; z-index: 390; display: flex; justify-content: flex-end; background: var(--surface-overlay); }
+.action-drawer { width: min(520px,96vw); height: 100%; display: grid; grid-template-rows: auto 1fr auto; background: var(--surface-default); color: var(--text-primary); box-shadow: var(--shadow-overlay); }
+header { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border-subtle); }
+header span { color:var(--text-muted); font-size:12px; text-transform:uppercase; font-weight:800; }
+header h2 { margin:3px 0 0; font-size:20px; color:var(--text-primary); }
+header button { width:38px; height:38px; border:1px solid var(--border-subtle); background:var(--surface-subtle); color:var(--text-secondary); font-size:24px; border-radius:8px; cursor:pointer; }
+header button:hover { background:var(--surface-hover); }
 main { overflow:auto; padding:20px; }
-footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; }
+footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid var(--border-subtle); background:var(--surface-subtle); }
 </style>

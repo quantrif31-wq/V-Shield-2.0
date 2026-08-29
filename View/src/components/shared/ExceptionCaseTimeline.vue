@@ -163,7 +163,7 @@ function normalizeType(type) {
   border-radius: 50%;
   z-index: 2;
   flex-shrink: 0;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface-default);
 }
 
 .ect-dot--scan { background: #64748b; }
@@ -185,22 +185,22 @@ function normalizeType(type) {
   top: 28px;
   bottom: -6px;
   width: 2px;
-  background: #e2e8f0;
+  background: var(--border-subtle);
   z-index: 1;
 }
 
 .ect-card {
   flex: 1;
   min-width: 0;
-  background: #ffffff;
-  border: 1px solid #e9eef5;
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   overflow: hidden;
   transition: box-shadow 0.15s ease;
 }
 
 .ect-card:hover {
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 .ect-card--allow { border-left: 3px solid #22c55e; }
@@ -221,8 +221,8 @@ function normalizeType(type) {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #f8fafc;
-  border-bottom: 1px solid #f1f5f9;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .ect-badge {

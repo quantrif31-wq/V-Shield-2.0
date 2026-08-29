@@ -1,5 +1,22 @@
 <template>
     <div class="login-page">
+        <div class="login-theme-toggle">
+            <button
+                type="button"
+                class="theme-toggle-btn"
+                :aria-label="isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+                :title="isDark ? 'Giao diện sáng' : 'Giao diện tối'"
+                @click="toggleTheme"
+            >
+                <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/>
+                </svg>
+            </button>
+        </div>
+
         <div class="login-bg" aria-hidden="true">
             <div class="bg-orb orb-a"></div>
             <div class="bg-orb orb-b"></div>
@@ -253,9 +270,11 @@ import QRCode from 'qrcode'
 import { useRoute, useRouter } from 'vue-router'
 import { login } from '../stores/auth'
 import { identityApi } from '../services/identityApi'
+import { usePreferences } from '../composables/usePreferences'
 import BaseButton from '../components/ui/BaseButton.vue'
 import ForcePasswordChange from '../components/auth/ForcePasswordChange.vue'
 
+const { isDark, toggleTheme } = usePreferences()
 const router = useRouter()
 const route = useRoute()
 
@@ -462,8 +481,8 @@ onUnmounted(() => {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(16, 32, 51, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(16, 32, 51, 0.04) 1px, transparent 1px);
+        linear-gradient(color-mix(in srgb, var(--text-primary) 4%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 4%, transparent) 1px, transparent 1px);
     background-size: 44px 44px;
 }
 
@@ -501,7 +520,7 @@ onUnmounted(() => {
     align-self: flex-start;
     padding: 8px 14px;
     border-radius: 999px;
-    background: rgba(15, 124, 130, 0.08);
+    background: rgba(15, 124, 130, 0.12);
     color: var(--accent-primary);
     font-size: 0.78rem;
     font-weight: 700;
@@ -538,8 +557,9 @@ onUnmounted(() => {
 .metric-card {
     padding: 16px;
     border-radius: 20px;
-    border: 1px solid var(--border-color);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(236, 244, 246, 0.86));
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
 }
 
 .metric-card strong {
@@ -742,8 +762,8 @@ onUnmounted(() => {
     align-items: center;
     padding: 7px 11px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     font-size: 0.76rem;
     font-weight: 700;
@@ -794,9 +814,9 @@ onUnmounted(() => {
 }
 
 .input-shell input:focus {
-    border-color: rgba(15, 124, 130, 0.36);
+    border-color: var(--border-focus);
     box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.18);
-    background: rgba(255, 255, 255, 0.98);
+    background: var(--surface-default);
 }
 
 .input-icon {
@@ -891,7 +911,9 @@ onUnmounted(() => {
 .mfa-setup code {
     padding: 8px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--surface-default);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
     font-size: 0.88rem;
 }
 
@@ -989,8 +1011,8 @@ onUnmounted(() => {
 .footer-item {
     padding: 14px 16px;
     border-radius: 18px;
-    background: rgba(236, 244, 246, 0.78);
-    border: 1px solid rgba(24, 49, 77, 0.08);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
 }
 
 .footer-item strong {
@@ -1043,6 +1065,41 @@ onUnmounted(() => {
 }
 .btn-sso:disabled { opacity: 0.6; cursor: not-allowed; }
 .sso-icon { width: 18px; height: 18px; color: var(--text-muted); }
+
+.login-theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+}
+
+.theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-control);
+    background: color-mix(in srgb, var(--surface-default) 90%, transparent);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    backdrop-filter: var(--glass-blur);
+    transition: all var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+    color: var(--accent-primary);
+    border-color: var(--border-focus);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.theme-toggle-btn svg {
+    width: 20px;
+    height: 20px;
+}
 
 @media (max-width: 900px) {
     .login-shell {

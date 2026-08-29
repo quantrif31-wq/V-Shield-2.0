@@ -50,9 +50,16 @@
               </div>
 
               <div class="cam-preview" :class="`state-${cameraVisualState('qr', lane)}${autoCamClass(lane)}`">
+                <img
+                  v-if="lane.qr.previewRunning && lane.qr.directCameraUrl && isImageUrl(lane.qr.directCameraUrl)"
+                  :key="lane.qr.directCameraKey + '-img'"
+                  :src="lane.qr.directCameraUrl"
+                  class="preview-image"
+                  alt="Camera QR"
+                />
                 <iframe
-                  v-if="lane.qr.previewRunning && lane.qr.directCameraUrl"
-                  :key="lane.qr.directCameraKey"
+                  v-else-if="lane.qr.previewRunning && lane.qr.directCameraUrl"
+                  :key="lane.qr.directCameraKey + '-iframe'"
                   :src="lane.qr.directCameraUrl"
                   class="preview-image"
                   style="border: none;"
@@ -177,9 +184,16 @@
               </div>
 
               <div class="cam-preview" :class="`state-${cameraVisualState('plate', lane)}${autoCamClass(lane)}`">
+                <img
+                  v-if="lane.plate.previewRunning && lane.plate.directCameraUrl && isImageUrl(lane.plate.directCameraUrl)"
+                  :key="lane.plate.directCameraKey + '-img'"
+                  :src="lane.plate.directCameraUrl"
+                  class="preview-image"
+                  alt="Camera biển số"
+                />
                 <iframe
-                  v-if="lane.plate.previewRunning && lane.plate.directCameraUrl"
-                  :key="lane.plate.directCameraKey"
+                  v-else-if="lane.plate.previewRunning && lane.plate.directCameraUrl"
+                  :key="lane.plate.directCameraKey + '-iframe'"
                   :src="lane.plate.directCameraUrl"
                   class="preview-image"
                   style="border: none;"
@@ -1788,6 +1802,23 @@ export default {
       const base = String(QR_API_BASE_URL || "").replace(/\/+$/, "")
       const path = raw.replace(/^\/+/, "")
       return `${base}/${path}`
+    },
+
+    isImageUrl(url) {
+      if (!url || typeof url !== "string") return false
+      const clean = url.split("?")[0].toLowerCase()
+      return (
+        clean.endsWith(".jpg") ||
+        clean.endsWith(".jpeg") ||
+        clean.endsWith(".png") ||
+        clean.endsWith(".webp") ||
+        clean.endsWith("/frame.jpg") ||
+        clean.includes("/qr/frame.jpg") ||
+        clean.includes("/plate/frame.jpg") ||
+        clean.includes("/video_feed") ||
+        clean.startsWith("data:image/") ||
+        clean.endsWith("/snapshot")
+      )
     },
 
     async attachQrVideoPreview(laneId, qr) {
@@ -3785,7 +3816,7 @@ selectCamera(cam, lane, type) {
   background: transparent;
   padding: 10px 18px 12px;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  color: #0f172a;
+  color: var(--text-primary);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -3812,8 +3843,8 @@ selectCamera(cam, lane, type) {
   margin-bottom: 5px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(15, 130, 144, 0.1);
-  color: #0f8290;
+  background: rgba(15, 124, 130, 0.12);
+  color: var(--accent-primary);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -3831,17 +3862,18 @@ selectCamera(cam, lane, type) {
   height: 36px;
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid #0f8290;
-  background: #0f8290;
+  border: 1px solid var(--interactive-primary);
+  background: var(--interactive-primary);
   font-size: 13px;
   font-weight: 800;
-  color: #f8fafc;
+  color: var(--text-on-interactive);
   cursor: pointer;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  transition: background-color var(--transition-fast);
 }
 
 .topbar-settings-btn:hover {
-  background: #0c6f7a;
+  background: var(--interactive-primary-hover);
 }
 
 .topbar-toggle {
@@ -3849,17 +3881,18 @@ selectCamera(cam, lane, type) {
   height: 36px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
   font-size: 13px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text-primary);
   cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .topbar-toggle:hover {
-  border-color: #94a3b8;
-  background: #f8fafc;
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
 }
 
 .topbar.compact {
@@ -3872,7 +3905,7 @@ selectCamera(cam, lane, type) {
 
 .topbar-desc {
   margin: 5px 0 0;
-  color: #52677c;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -3882,6 +3915,7 @@ selectCamera(cam, lane, type) {
   line-height: 1.08;
   font-weight: 900;
   letter-spacing: -0.035em;
+  color: var(--text-primary);
 }
 
 .gate-layout {
@@ -3931,13 +3965,14 @@ selectCamera(cam, lane, type) {
   bottom: 10px;
   z-index: 55;
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(203, 213, 225, 0.85);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
   border-radius: 18px;
-  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.13);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(14px);
   max-height: none;
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 .ops-dock-grid {
@@ -3971,7 +4006,7 @@ selectCamera(cam, lane, type) {
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .lane-action-btns {
@@ -3995,19 +4030,20 @@ selectCamera(cam, lane, type) {
   min-height: 34px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #64748b;
-  background: #1e293b;
-  color: #f8fafc;
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
   position: relative;
   z-index: 5;
   pointer-events: auto;
+  transition: background-color var(--transition-fast);
 }
 
 .btn-open-drawer:hover {
-  background: #0f172a;
+  background: var(--surface-hover);
 }
 
 .btn-dock {
@@ -4042,19 +4078,19 @@ selectCamera(cam, lane, type) {
   font-weight: 900;
   letter-spacing: 0.02em;
   border-radius: 12px;
-  border: 2px solid #0f8290;
-  background: #0f8290;
-  color: #f8fafc;
+  border: 2px solid var(--interactive-primary);
+  background: var(--interactive-primary);
+  color: var(--text-on-interactive);
   display: inline-flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(15, 130, 144, 0.22);
+  box-shadow: 0 10px 24px rgba(15, 124, 130, 0.22);
   transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .btn-auto:hover:not(:disabled) {
-  background: #0c6f7a;
+  background: var(--interactive-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -4083,7 +4119,7 @@ selectCamera(cam, lane, type) {
   font-size: 12px;
   line-height: 1.4;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .ops-dock-auto-lanes {
@@ -4101,8 +4137,9 @@ selectCamera(cam, lane, type) {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
 }
 
 .auto-lane-chip.seen {
@@ -4143,7 +4180,7 @@ selectCamera(cam, lane, type) {
 .ops-drawer-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.55);
   pointer-events: auto;
 }
 
@@ -4154,13 +4191,14 @@ selectCamera(cam, lane, type) {
   bottom: 0;
   width: min(440px, 92vw);
   max-width: 100%;
-  background: #ffffff;
-  border-left: 1px solid #e2e8f0;
-  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.12);
+  background: var(--surface-default);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.18);
   display: flex;
   flex-direction: column;
   min-height: 0;
   pointer-events: auto;
+  color: var(--text-primary);
 }
 
 .ops-drawer-head {
@@ -4169,7 +4207,7 @@ selectCamera(cam, lane, type) {
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -4177,7 +4215,7 @@ selectCamera(cam, lane, type) {
   margin: 0;
   font-size: 20px;
   font-weight: 900;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .ops-drawer-close {
@@ -4185,15 +4223,16 @@ selectCamera(cam, lane, type) {
   height: 44px;
   border: none;
   border-radius: 10px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
+  transition: background-color var(--transition-fast);
 }
 
 .ops-drawer-close:hover {
-  background: #e2e8f0;
+  background: var(--surface-hover);
 }
 
 .ops-drawer-tabs {
@@ -4207,18 +4246,19 @@ selectCamera(cam, lane, type) {
   flex: 1;
   min-height: 44px;
   border-radius: 10px;
-  border: 2px solid #e2e8f0;
-  background: #fff;
+  border: 2px solid var(--border-subtle);
+  background: var(--surface-subtle);
   font-size: 15px;
   font-weight: 800;
-  color: #475569;
+  color: var(--text-secondary);
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .ops-drawer-tab.active {
-  border-color: #2563eb;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: var(--border-focus);
+  background: var(--surface-selected);
+  color: var(--accent-primary);
 }
 
 .ops-drawer-body {
@@ -4240,9 +4280,9 @@ selectCamera(cam, lane, type) {
 .lane-controls--drawer.ready {
   padding: 12px;
   border-radius: 14px;
-  border: 2px solid #93c5fd;
-  background: #f8fbff;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.1);
+  border: 2px solid var(--border-focus);
+  background: var(--surface-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
 .lane-controls {
@@ -4291,11 +4331,12 @@ selectCamera(cam, lane, type) {
   margin: 0;
   font-size: 22px;
   font-weight: 800;
+  color: var(--text-primary);
 }
 
 .lane-head p {
   margin: 4px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -4309,13 +4350,15 @@ selectCamera(cam, lane, type) {
 }
 
 .lane-final-status.ok {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+  border: 1px solid var(--status-success-border);
 }
 
 .lane-final-status.wait {
-  background: #fff7ed;
-  color: #c2410c;
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border: 1px solid var(--status-warning-border);
 }
 
 .lane-actions {
@@ -4342,31 +4385,33 @@ selectCamera(cam, lane, type) {
 }
 
 .btn-preview {
-  background: #0f766e;
+  background: var(--accent-primary);
 }
 
 .btn-main {
-  background: #0f8290;
+  background: var(--interactive-primary);
 }
 
 .btn-sub {
-  background: #475569;
+  background: var(--interactive-secondary);
 }
 
 .btn-off {
-  background: #dc2626;
+  background: var(--status-danger-text);
 }
 
 .btn-confirm {
-  background: #111827;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
 }
 
 .btn-decision {
-  background: #b86d23;
+  background: var(--accent-warning);
 }
 
 .btn-decision:hover:not(:disabled) {
-  background: #98581b;
+  opacity: 0.9;
 }
 
 .ip-row {
@@ -4381,22 +4426,25 @@ selectCamera(cam, lane, type) {
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 6px;
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .ip-box input {
   width: 100%;
   height: 36px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-default);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
   border-radius: 10px;
   padding: 0 12px;
   font-size: 14px;
   outline: none;
+  transition: border-color var(--transition-fast);
 }
 
 .ip-box input:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--border-focus) 20%, transparent);
 }
 
 .summary-bar {
@@ -4407,8 +4455,8 @@ selectCamera(cam, lane, type) {
 }
 
 .summary-item {
-  background: #f8fafc;
-  border: 1px solid #e9eef5;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 6px 8px;
 }
@@ -4416,7 +4464,7 @@ selectCamera(cam, lane, type) {
 .summary-item .label {
   display: block;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 6px;
 }
 
@@ -4424,6 +4472,7 @@ selectCamera(cam, lane, type) {
   display: block;
   font-size: 14px;
   font-weight: 800;
+  color: var(--text-primary);
   word-break: break-word;
 }
 
@@ -4433,27 +4482,28 @@ selectCamera(cam, lane, type) {
 }
 
 .plate {
-  color: #15803d;
+  color: var(--status-success-text);
   letter-spacing: 1px;
 }
 
 .ok-text {
-  color: #15803d;
+  color: var(--status-success-text);
 }
 
 .warn-text {
-  color: #c2410c;
+  color: var(--status-warning-text);
 }
 
 .danger-text {
-  color: #b91c1c;
+  color: var(--status-danger-text);
 }
 
 .cam-block {
-  border: 1px solid rgba(203, 213, 225, 0.8);
+  border: 1px solid var(--border-subtle);
   border-radius: 18px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface-default);
+  color: var(--text-primary);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -4461,10 +4511,11 @@ selectCamera(cam, lane, type) {
   width: 100%;
   position: relative;
   z-index: 6;
+  box-shadow: var(--shadow-sm);
 }
 
 .cam-block--hero {
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .cam-head {
@@ -4490,14 +4541,14 @@ selectCamera(cam, lane, type) {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.02em;
-  color: #0f8290;
+  color: var(--accent-primary);
   text-transform: uppercase;
 }
 
 .cam-kind {
   font-size: 14px;
   font-weight: 900;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .mini-status {
@@ -4508,26 +4559,31 @@ selectCamera(cam, lane, type) {
 }
 
 .mini-status.ok {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+  border: 1px solid var(--status-success-border);
 }
 
 .mini-status.wait {
-  background: #fff7ed;
-  color: #c2410c;
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border: 1px solid var(--status-warning-border);
 }
 
 .cam-preview {
   width: 100%;
   flex: 1;
   min-height: 0;
-  background: #0f172a;
+  background: #000000;
   border-radius: 13px;
   overflow: hidden;
   margin-bottom: 7px;
   position: relative;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-subtle);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview-image {
@@ -4536,6 +4592,8 @@ selectCamera(cam, lane, type) {
   object-fit: cover;
   display: block;
   min-height: 0;
+  border: none;
+  background: #000000;
 }
 
 .cam-off {
@@ -4582,11 +4640,11 @@ selectCamera(cam, lane, type) {
 }
 
 .result-hint--seen {
-  color: #9a3412;
+  color: var(--status-warning-text);
 }
 
 .result-hint--waiting {
-  color: #475569;
+  color: var(--text-muted);
 }
 
 .cam-overlay {
@@ -4653,33 +4711,33 @@ selectCamera(cam, lane, type) {
 .drawer-settings-panel {
   margin: 0 0 16px;
   padding: 0 0 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .drawer-settings-title {
   margin: 0 0 8px;
   font-size: 15px;
   font-weight: 900;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .drawer-settings-meta {
   margin: 0 0 8px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   word-break: break-all;
 }
 
 .drawer-settings-meta-sep {
   margin: 0 6px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .drawer-settings-hint {
   margin: 0 0 14px;
   font-size: 12px;
   line-height: 1.45;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .settings-toggle-row {
@@ -4688,7 +4746,7 @@ selectCamera(cam, lane, type) {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .settings-toggle-row:last-of-type {
@@ -4704,14 +4762,14 @@ selectCamera(cam, lane, type) {
   display: block;
   font-size: 14px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .settings-toggle-desc {
   display: block;
   margin-top: 2px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .toggle-switch {
@@ -4720,8 +4778,8 @@ selectCamera(cam, lane, type) {
   width: 50px;
   height: 28px;
   border-radius: 999px;
-  border: 2px solid #cbd5e1;
-  background: #e2e8f0;
+  border: 2px solid var(--border-default);
+  background: var(--surface-subtle);
   cursor: pointer;
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease;
@@ -4766,9 +4824,9 @@ selectCamera(cam, lane, type) {
   min-height: 30px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #334155;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -5008,21 +5066,26 @@ selectCamera(cam, lane, type) {
 
 .dropdown {
   position: absolute;
-  background: white;
-  border: 1px solid #ccc;
+  background: var(--surface-default);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: var(--radius-control, 8px);
   width: 100%;
   max-height: 200px;
   overflow-y: auto;
   z-index: 9999;
+  box-shadow: var(--shadow-md);
 }
 
 .dropdown-item {
-  padding: 8px;
+  padding: 8px 12px;
   cursor: pointer;
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast);
 }
 
 .dropdown-item:hover {
-  background: #eee;
+  background: var(--surface-hover);
 }
 
 .sim-panel {

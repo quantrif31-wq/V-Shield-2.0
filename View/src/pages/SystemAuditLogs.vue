@@ -384,7 +384,7 @@ onMounted(fetchData)
 .detail-label { display: block; color: var(--text-muted); font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
 .detail-block { margin-top: 10px; }
 .block-title { font-weight: 700; margin-bottom: 6px; }
-.code-shell { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 10px 12px; overflow: auto; max-height: 240px; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+.code-shell { background: var(--surface-subtle); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 10px 12px; overflow: auto; max-height: 240px; white-space: pre-wrap; word-break: break-word; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
 .slide-right-enter-active,
 .slide-right-leave-active { transition: transform 0.2s ease, opacity 0.2s ease; }

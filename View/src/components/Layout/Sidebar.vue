@@ -13,7 +13,16 @@
     >
         <div class="sidebar-panel" @click="collapsed && !isMobile && $emit('toggle')">
             <div class="sidebar-top">
-                <div class="sidebar-logo">
+                <div
+                    class="sidebar-logo"
+                    role="button"
+                    :tabindex="isMobile ? -1 : 0"
+                    :aria-label="collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'"
+                    :title="collapsed ? 'Bấm để mở rộng thanh điều hướng' : 'Bấm để thu gọn thanh điều hướng'"
+                    @click.stop="!isMobile && $emit('toggle')"
+                    @keydown.enter.prevent="!isMobile && $emit('toggle')"
+                    @keydown.space.prevent="!isMobile && $emit('toggle')"
+                >
                     <div class="logo-icon">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path
@@ -156,7 +165,7 @@
                             <transition name="fade">
                                 <span v-if="!collapsed" class="nav-copy">
                                     <span class="nav-text">{{ item.label }}</span>
-                                    <span class="nav-hint">{{ item.hint }}</span>
+                                    <span v-if="item.hint" class="nav-hint">{{ item.hint }}</span>
                                 </span>
                             </transition>
                             <transition name="fade">
@@ -193,18 +202,20 @@
                 </button>
             </div>
 
-            <button
-                v-if="!isMobile && !collapsed"
-                type="button"
-                class="sidebar-collapse-btn"
-                aria-label="Thu gọn"
-                @click="$emit('toggle')"
-            >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <path d="M15 18l-6-6 6-6" />
-                </svg>
-            </button>
         </div>
+
+        <button
+            v-if="!isMobile && !collapsed"
+            type="button"
+            class="sidebar-collapse-btn"
+            title="Thu gọn thanh điều hướng"
+            aria-label="Thu gọn thanh điều hướng"
+            @click.stop="$emit('toggle')"
+        >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+            </svg>
+        </button>
     </aside>
 </template>
 
@@ -334,6 +345,7 @@ const canAccessNavigationItem = (item) => {
 const navGroups = ref([
     {
         label: 'Tổng quan',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
         items: [
             {
                 path: '/dashboard',
@@ -347,6 +359,7 @@ const navGroups = ref([
     },
     {
         label: 'Tác nghiệp',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>',
         items: [
             {
                 path: '/monitoring',
@@ -506,6 +519,7 @@ const navGroups = ref([
     },
     {
         label: 'Phê duyệt và Kiểm soát',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
         items: [
             {
                 path: '/exceptions',
@@ -561,6 +575,7 @@ const navGroups = ref([
     },
     {
         label: 'Danh mục',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/></svg>',
         items: [
             {
                 path: '/employees',
@@ -621,6 +636,7 @@ const navGroups = ref([
     },
     {
         label: 'Tra cứu và Báo cáo',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>',
         items: [
             {
                 path: '/access-logs',
@@ -705,6 +721,7 @@ const navGroups = ref([
     },
     {
         label: 'Chấm công',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
         items: [
             {
                 path: '/attendance/records',
@@ -756,6 +773,7 @@ const navGroups = ref([
     },
     {
         label: 'Nhân viên',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0112 0v2"/></svg>',
         items: [
             {
                 path: '/chat',
@@ -817,6 +835,7 @@ const navGroups = ref([
     },
     {
         label: 'Nhân sự',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
         items: [
             {
                 path: '/employees',
@@ -854,6 +873,7 @@ const navGroups = ref([
     },
     {
         label: 'Thiết bị và Hệ thống',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M20 12h2"/><path d="M2 12h2"/></svg>',
         items: [
             {
                 path: '/device-management',
@@ -959,16 +979,24 @@ const HIDDEN_NAV_PATHS = new Set([
     '/locker-manager',
 ])
 
-const visibleGroups = computed(() =>
-    navGroups.value
+const visibleGroups = computed(() => {
+    const seenPaths = new Set()
+    return navGroups.value
         .map((group) => ({
             ...group,
-            items: group.items.filter(
-                (item) => canAccessNavigationItem(item) && !HIDDEN_NAV_PATHS.has(item.path)
-            ),
+            items: group.items.filter((item) => {
+                if (!canAccessNavigationItem(item) || HIDDEN_NAV_PATHS.has(item.path)) {
+                    return false
+                }
+                if (seenPaths.has(item.path)) {
+                    return false
+                }
+                seenPaths.add(item.path)
+                return true
+            }),
         }))
         .filter((group) => group.items.length > 0)
-)
+})
 
 onMounted(async () => {
     document.addEventListener('click', handleSearchOutsideClick)
@@ -1152,7 +1180,7 @@ const refreshFlyoutPosition = () => {
     background: linear-gradient(180deg, var(--bg-sidebar) 0%, var(--bg-sidebar-raised) 100%);
     border: 1px solid var(--sidebar-border);
     border-radius: 28px;
-    box-shadow: 0 30px 60px rgba(7, 16, 27, 0.34);
+    box-shadow: var(--shadow-sm, 0 16px 36px rgba(16, 32, 51, 0.08));
     overflow: visible;
     overflow-y: auto;
 }
@@ -1173,24 +1201,51 @@ const refreshFlyoutPosition = () => {
     overflow: hidden;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 4px 16px rgba(3, 8, 14, 0.45), 0 0 0 1px rgba(84, 196, 211, 0.15);
+    background: var(--surface-default);
+    border: 1.5px solid var(--border-default);
+    box-shadow: var(--shadow-sm);
     transition: all var(--transition-slow);
 }
 
 .sidebar.collapsed .sidebar-panel:hover {
-    box-shadow: 0 6px 24px rgba(3, 8, 14, 0.55), 0 0 0 1.5px rgba(84, 196, 211, 0.3);
-    transform: scale(1.06);
+    background: var(--surface-hover);
+    border-color: var(--border-focus);
+    box-shadow: var(--shadow-md);
+    transform: scale(1.08);
+}
+
+.sidebar.collapsed .sidebar-panel:active {
+    transform: scale(0.96);
 }
 
 .sidebar.collapsed .sidebar-top {
     padding: 0;
     height: 52px;
+    width: 52px;
     justify-content: center;
+    align-items: center;
+}
+
+.sidebar.collapsed .sidebar-logo {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.sidebar.collapsed .sidebar-logo .logo-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    box-shadow: none;
 }
 
 .sidebar.collapsed .sidebar-logo .logo-copy,
-.sidebar.collapsed .sidebar-nav,
-.sidebar.collapsed .sidebar-collapse-btn {
+.sidebar.collapsed .sidebar-nav {
     display: none;
 }
 
@@ -1207,6 +1262,25 @@ const refreshFlyoutPosition = () => {
     align-items: center;
     gap: 14px;
     min-width: 0;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 18px;
+    padding: 6px 8px;
+    margin: -6px -8px;
+    transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.sidebar-logo:hover {
+    background: var(--sidebar-hover);
+}
+
+.sidebar-logo:hover .logo-icon {
+    box-shadow: 0 0 22px rgba(15, 124, 130, 0.3);
+    transform: scale(1.06);
+}
+
+.sidebar-logo:active {
+    transform: scale(0.97);
 }
 
 .logo-icon {
@@ -1214,12 +1288,12 @@ const refreshFlyoutPosition = () => {
     height: 42px;
     flex-shrink: 0;
     border-radius: 14px;
-    background: linear-gradient(135deg, rgba(84, 196, 211, 0.18), rgba(43, 109, 138, 0.28));
-    color: #d7fbff;
+    background: linear-gradient(135deg, rgba(15, 124, 130, 0.12), rgba(43, 109, 138, 0.18));
+    color: var(--accent-primary);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 12px 28px rgba(84, 196, 211, 0.18);
+    box-shadow: 0 12px 28px rgba(15, 124, 130, 0.15);
 }
 
 .logo-icon svg {
@@ -1257,8 +1331,8 @@ const refreshFlyoutPosition = () => {
     justify-content: center;
     border-radius: 12px;
     color: var(--sidebar-text);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
 }
 
 .sidebar-mobile-close svg {
@@ -1305,24 +1379,24 @@ const refreshFlyoutPosition = () => {
     min-height: 46px;
     padding: 0 16px 0 40px;
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
     color: var(--sidebar-text);
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
 .search-shell input::placeholder {
-    color: rgba(188, 209, 218, 0.64);
+    color: var(--text-muted);
 }
 
 .search-shell input:focus {
-    border-color: rgba(84, 196, 211, 0.38);
-    background: rgba(255, 255, 255, 0.07);
-    box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.12);
+    border-color: var(--border-focus);
+    background: var(--surface-default);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--border-focus) 20%, transparent);
 }
 
 .nav-group + .nav-group {
-    margin-top: 18px;
+    margin-top: 12px;
 }
 
 .nav-group {
@@ -1331,11 +1405,11 @@ const refreshFlyoutPosition = () => {
 
 .nav-label {
     display: block;
-    padding: 0 12px 10px;
+    padding: 0 12px 8px;
     color: var(--sidebar-text-muted);
-    font-size: 0.7rem;
+    font-size: 0.74rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
@@ -1344,31 +1418,36 @@ const refreshFlyoutPosition = () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     padding: 8px 12px;
     color: var(--sidebar-text-muted);
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     background: none;
     border: 1px solid transparent;
     border-radius: 12px;
     cursor: pointer;
+    text-align: left;
     transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .nav-label-toggle:hover {
     color: var(--sidebar-text);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--sidebar-hover);
 }
 
 .nav-group.is-open .nav-label-toggle {
-    color: #d6f5ff;
-    background: rgba(84, 196, 211, 0.12);
-    border-color: rgba(84, 196, 211, 0.25);
+    color: var(--accent-primary);
+    background: rgba(15, 124, 130, 0.09);
+    border-color: rgba(15, 124, 130, 0.22);
 }
 
 .nav-label-text {
+    flex: 1;
+    text-align: left;
+    line-height: 1.35;
     pointer-events: none;
 }
 
@@ -1404,10 +1483,10 @@ const refreshFlyoutPosition = () => {
     overscroll-behavior: contain;
     padding: 10px;
     border-radius: 16px;
-    border: 1px solid rgba(84, 196, 211, 0.22);
-    background: rgba(11, 25, 39, 0.97);
-    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
-    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
+    box-shadow: 0 18px 48px rgba(16, 32, 51, 0.16);
+    backdrop-filter: blur(12px);
     z-index: 120;
 }
 
@@ -1416,10 +1495,10 @@ const refreshFlyoutPosition = () => {
     display: flex;
     align-items: center;
     gap: 12px;
-    min-height: 54px;
-    margin: 6px 0;
-    padding: 10px 12px;
-    border-radius: 18px;
+    min-height: 50px;
+    margin: 4px 0;
+    padding: 8px 12px;
+    border-radius: 14px;
     color: var(--sidebar-text-muted);
     transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
     border: 1px solid transparent;
@@ -1433,59 +1512,74 @@ const refreshFlyoutPosition = () => {
 }
 
 .nav-item:hover {
-    transform: translateY(-1px);
+    color: var(--text-primary);
     background: var(--sidebar-hover);
-    color: var(--sidebar-text);
+    border-color: var(--border-subtle);
+    transform: translateX(2px);
 }
 
 .nav-item.active {
+    color: var(--accent-primary);
+    font-weight: 700;
     background: var(--sidebar-active);
     border-color: var(--sidebar-active-border);
-    color: var(--sidebar-text);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: var(--shadow-xs);
 }
 
 .nav-item.active::before {
     content: '';
     position: absolute;
-    left: 7px;
-    top: 10px;
-    bottom: 10px;
+    left: 2px;
+    top: 6px;
+    bottom: 6px;
     width: 3px;
     border-radius: 999px;
-    background: #8ceaf4;
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px rgba(15, 124, 130, 0.35);
 }
 
 .nav-icon {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: var(--text-muted);
+    transition: color 0.18s ease;
 }
 
-.nav-icon :deep(svg) {
-    width: 100%;
-    height: 100%;
+.nav-item:hover .nav-icon {
+    color: var(--accent-primary);
+}
+
+.nav-item.active .nav-icon {
+    color: var(--accent-primary);
 }
 
 .nav-copy {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    flex: 1;
 }
 
 .nav-text {
-    color: currentColor;
-    font-size: 0.92rem;
-    font-weight: 600;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: inherit;
+    line-height: 1.25;
+}
+
+.nav-item.active .nav-text {
+    font-weight: 700;
+    color: var(--accent-primary);
 }
 
 .nav-hint {
-    color: rgba(188, 209, 218, 0.68);
-    font-size: 0.74rem;
+    font-size: 0.68rem;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1493,11 +1587,12 @@ const refreshFlyoutPosition = () => {
 
 .nav-badge {
     margin-left: auto;
-    padding: 4px 10px;
+    padding: 2px 7px;
     border-radius: 999px;
-    background: rgba(84, 196, 211, 0.15);
-    color: #b6f6ff;
-    font-size: 0.72rem;
+    background: var(--status-info-bg);
+    color: var(--status-info-text);
+    border: 1px solid var(--status-info-border);
+    font-size: 0.68rem;
     font-weight: 700;
     flex-shrink: 0;
 }
@@ -1505,34 +1600,47 @@ const refreshFlyoutPosition = () => {
 .sidebar-collapse-btn {
     position: absolute;
     top: 50%;
-    right: -17px;
+    right: -15px;
     transform: translateY(-50%);
-    z-index: 110;
-    width: 34px;
-    height: 34px;
+    z-index: 120;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-sidebar-raised);
-    border: 1px solid var(--sidebar-border);
-    color: var(--sidebar-text-muted);
+    background: var(--surface-default);
+    border: 1.5px solid var(--border-default);
+    color: var(--accent-primary);
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(3, 8, 14, 0.4), 0 0 0 1px rgba(84, 196, 211, 0.08);
-    transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-fast);
 }
 
 .sidebar-collapse-btn:hover {
-    background: var(--bg-sidebar);
-    color: #d6f5ff;
-    box-shadow: 0 6px 20px rgba(3, 8, 14, 0.5), 0 0 0 1px rgba(84, 196, 211, 0.2);
-    transform: translateY(-50%) scale(1.08);
+    background: var(--surface-hover);
+    border-color: var(--border-focus);
+    color: var(--accent-primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-50%) scale(1.12);
+}
+
+.sidebar-collapse-btn:active {
+    transform: translateY(-50%) scale(0.96);
 }
 
 .sidebar-collapse-btn svg {
     width: 16px;
     height: 16px;
     transition: transform var(--transition-slow);
+}
+
+.sidebar-collapse-btn.collapsed {
+    right: -13px;
+    background: var(--interactive-primary);
+    border-color: var(--interactive-primary);
+    color: var(--text-on-interactive);
+    box-shadow: 0 4px 16px rgba(15, 124, 130, 0.35);
 }
 
 .sidebar-collapse-btn.collapsed svg {
@@ -1547,9 +1655,9 @@ const refreshFlyoutPosition = () => {
     z-index: 10;
     border-radius: 18px;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(11, 25, 39, 0.98);
-    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
+    box-shadow: var(--shadow-md);
 }
 
 .dropdown-msg {
@@ -1572,7 +1680,7 @@ const refreshFlyoutPosition = () => {
     padding: 12px 14px;
     text-align: left;
     color: var(--sidebar-text);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-subtle);
     transition: background var(--transition-fast);
 }
 
@@ -1581,7 +1689,7 @@ const refreshFlyoutPosition = () => {
 }
 
 .dropdown-item:hover {
-    background: rgba(84, 196, 211, 0.08);
+    background: var(--sidebar-hover);
 }
 
 .result-icon {
@@ -1592,8 +1700,8 @@ const refreshFlyoutPosition = () => {
     align-items: center;
     justify-content: center;
     border-radius: 12px;
-    color: #c2f8ff;
-    background: rgba(84, 196, 211, 0.12);
+    color: var(--status-info-text);
+    background: var(--status-info-bg);
 }
 
 .result-icon svg {
@@ -1624,8 +1732,8 @@ const refreshFlyoutPosition = () => {
 .result-badge {
     padding: 4px 9px;
     border-radius: 999px;
-    background: rgba(93, 227, 199, 0.12);
-    color: #9ff4e2;
+    background: var(--status-success-bg);
+    color: var(--status-success-text);
     font-size: 0.7rem;
     font-weight: 700;
 }
@@ -1701,5 +1809,116 @@ const refreshFlyoutPosition = () => {
     .sidebar-collapse-btn {
         display: none;
     }
+}
+
+/* Dark theme overrides */
+:global(:root[data-theme='dark']) .sidebar-panel {
+    box-shadow: 0 30px 60px rgba(7, 16, 27, 0.34);
+}
+
+:global(:root[data-theme='dark']) .sidebar.collapsed .sidebar-panel {
+    background: linear-gradient(135deg, #0f324d, #144863);
+    border: 1.5px solid rgba(84, 196, 211, 0.55);
+    box-shadow: 0 4px 18px rgba(3, 8, 14, 0.45), 0 0 0 2px rgba(84, 196, 211, 0.18);
+}
+
+:global(:root[data-theme='dark']) .sidebar.collapsed .sidebar-panel:hover {
+    background: linear-gradient(135deg, #124164, #0f7c82);
+    border-color: #b8f7ff;
+}
+
+:global(:root[data-theme='dark']) .logo-icon {
+    background: linear-gradient(135deg, rgba(84, 196, 211, 0.18), rgba(43, 109, 138, 0.28));
+    color: #d7fbff;
+    box-shadow: 0 12px 28px rgba(84, 196, 211, 0.18);
+}
+
+:global(:root[data-theme='dark']) .sidebar-mobile-close {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+:global(:root[data-theme='dark']) .nav-flyout {
+    border: 1px solid rgba(84, 196, 211, 0.22);
+    background: rgba(11, 25, 39, 0.97);
+    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
+}
+
+:global(:root[data-theme='dark']) .nav-label-toggle:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+:global(:root[data-theme='dark']) .nav-group.is-open .nav-label-toggle {
+    color: #d6f5ff;
+    background: rgba(84, 196, 211, 0.12);
+    border-color: rgba(84, 196, 211, 0.25);
+}
+
+:global(:root[data-theme='dark']) .nav-item:hover {
+    color: #e2e8f0;
+    background: rgba(56, 189, 248, 0.08);
+    border-color: rgba(56, 189, 248, 0.14);
+}
+
+:global(:root[data-theme='dark']) .nav-item.active {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.32) 0%, rgba(56, 189, 248, 0.18) 100%);
+    border-color: rgba(56, 189, 248, 0.35);
+    box-shadow: 0 3px 12px rgba(6, 182, 212, 0.14);
+}
+
+:global(:root[data-theme='dark']) .nav-item.active::before {
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+}
+
+:global(:root[data-theme='dark']) .nav-item.active .nav-text {
+    color: #ffffff;
+}
+
+:global(:root[data-theme='dark']) .nav-item:hover .nav-icon,
+:global(:root[data-theme='dark']) .nav-item.active .nav-icon {
+    color: #38bdf8;
+}
+
+:global(:root[data-theme='dark']) .nav-badge {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+:global(:root[data-theme='dark']) .sidebar-collapse-btn {
+    background: #14354d;
+    border: 1.5px solid rgba(84, 196, 211, 0.6);
+    color: #54c4d3;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(84, 196, 211, 0.12);
+}
+
+:global(:root[data-theme='dark']) .sidebar-collapse-btn:hover {
+    background: #0f7c82;
+    border-color: #b8f7ff;
+    color: #ffffff;
+    box-shadow: 0 4px 18px rgba(84, 196, 211, 0.45), 0 0 0 4px rgba(84, 196, 211, 0.25);
+}
+
+:global(:root[data-theme='dark']) .sidebar-collapse-btn.collapsed {
+    background: #0f7c82;
+    border-color: #b8f7ff;
+    color: #ffffff;
+    box-shadow: 0 4px 16px rgba(84, 196, 211, 0.4), 0 0 0 3px rgba(84, 196, 211, 0.2);
+}
+
+:global(:root[data-theme='dark']) .search-dropdown {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(11, 25, 39, 0.98);
+    box-shadow: 0 18px 40px rgba(3, 8, 14, 0.45);
+}
+
+:global(:root[data-theme='dark']) .dropdown-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+:global(:root[data-theme='dark']) .dropdown-item:hover {
+    background: rgba(84, 196, 211, 0.08);
 }
 </style>

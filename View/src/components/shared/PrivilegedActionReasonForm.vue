@@ -129,7 +129,7 @@ export default {
 }
 .parf-textarea {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
@@ -137,30 +137,32 @@ export default {
   outline: none;
   resize: vertical;
   min-height: 64px;
-  background: #fff;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 .parf-textarea:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  border-color: var(--border-focus);
+  background: var(--surface-default);
+  box-shadow: 0 0 0 3px rgba(84, 196, 211, 0.16);
 }
 .parf-textarea--small {
   min-height: 44px;
 }
 .parf-error {
-  border-color: #ef4444;
+  border-color: var(--border-danger);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 .parf-error-text {
   margin: 0;
   font-size: 12px;
-  color: #dc2626;
+  color: var(--status-danger-text);
   font-weight: 600;
 }
 .parf-responsibility {
   padding: 12px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
   border-radius: 10px;
 }
 .parf-checkbox-label {
@@ -176,16 +178,16 @@ export default {
   flex-shrink: 0;
   -webkit-appearance: none;
   appearance: none;
-  border: 2px solid #cbd5e1;
+  border: 2px solid var(--border-subtle);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface-subtle);
   cursor: pointer;
   position: relative;
   transition: all 0.15s ease;
 }
 .parf-checkbox-label input[type="checkbox"]:checked {
-  border-color: #ea580c;
-  background: #ea580c;
+  border-color: var(--accent-warning);
+  background: var(--accent-warning);
 }
 .parf-checkbox-label input[type="checkbox"]:checked::after {
   content: '';

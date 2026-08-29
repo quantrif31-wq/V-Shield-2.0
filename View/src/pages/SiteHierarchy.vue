@@ -1506,7 +1506,7 @@ onMounted(loadAll)
 .hero-stat {
   padding: 16px 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface-default);
   border: 1px solid var(--border-default);
 }
 

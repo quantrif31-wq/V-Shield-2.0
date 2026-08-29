@@ -133,6 +133,19 @@ export default {
       if (val) this.reset()
     },
   },
+  mounted() {
+    this._onKeyDown = (e) => {
+      if (e.key === 'Escape' && this.visible) {
+        this.handleCancel()
+      }
+    }
+    window.addEventListener('keydown', this._onKeyDown)
+  },
+  beforeUnmount() {
+    if (this._onKeyDown) {
+      window.removeEventListener('keydown', this._onKeyDown)
+    }
+  },
   methods: {
     reset() {
       this.reason = ''
@@ -204,9 +217,11 @@ export default {
 }
 .sum-dialog {
   width: min(480px, 92vw);
-  background: #ffffff;
+  background: var(--surface-default);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
   border-radius: 16px;
-  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.3);
+  box-shadow: var(--shadow-overlay);
   overflow: hidden;
 }
 .sum-header {
@@ -214,21 +229,21 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 18px 20px 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .sum-title {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .sum-close {
   width: 36px;
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
   font-size: 22px;
   cursor: pointer;
   display: flex;
@@ -236,7 +251,7 @@ export default {
   justify-content: center;
 }
 .sum-close:hover {
-  background: #e2e8f0;
+  background: var(--surface-hover);
 }
 .sum-body {
   padding: 16px 20px 20px;
@@ -244,9 +259,9 @@ export default {
 .sum-context {
   margin-bottom: 16px;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--surface-subtle);
   border-radius: 10px;
-  border: 1px solid #e9eef5;
+  border: 1px solid var(--border-subtle);
 }
 .sum-badge {
   display: inline-block;
@@ -258,20 +273,20 @@ export default {
   letter-spacing: 0.04em;
   margin-bottom: 8px;
 }
-.sum-badge--low { background: #dcfce7; color: #166534; }
-.sum-badge--medium { background: #fef3c7; color: #92400e; }
-.sum-badge--high { background: #fee2e2; color: #991b1b; }
-.sum-badge--critical { background: #fce7f3; color: #9d174d; }
+.sum-badge--low { background: var(--status-success-bg); color: var(--status-success-text); }
+.sum-badge--medium { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.sum-badge--high { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.sum-badge--critical { background: var(--status-danger-bg); color: var(--status-danger-text); }
 .sum-action-name {
   margin: 0 0 4px;
   font-size: 16px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .sum-action-desc {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 .sum-alert {
   padding: 10px 14px;
@@ -281,9 +296,9 @@ export default {
   margin-bottom: 12px;
 }
 .sum-alert--danger {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  border: 1px solid var(--status-danger-border);
 }
 .sum-field {
   margin-bottom: 14px;
@@ -292,22 +307,24 @@ export default {
   display: block;
   font-size: 13px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 .sum-input {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
   outline: none;
-  background: #fff;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 .sum-input:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  border-color: var(--border-focus);
+  background: var(--surface-default);
+  box-shadow: 0 0 0 3px rgba(84, 196, 211, 0.16);
 }
 .sum-textarea {
   resize: vertical;
@@ -325,7 +342,7 @@ export default {
 .sum-verify-hint {
   margin: 0 0 14px;
   font-size: 14px;
-  color: #475569;
+  color: var(--text-muted);
 }
 .sum-actions {
   display: flex;
@@ -350,27 +367,30 @@ export default {
   cursor: not-allowed;
 }
 .sum-btn--primary {
-  background: #2563eb;
-  color: #fff;
+  background: var(--interactive-primary);
+  color: var(--text-on-interactive);
   width: 100%;
   justify-content: center;
 }
 .sum-btn--primary:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--interactive-primary-hover);
 }
 .sum-btn--danger {
-  background: #dc2626;
-  color: #fff;
+  background: var(--status-danger-text);
+  color: var(--text-on-interactive);
 }
 .sum-btn--danger:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--status-danger-text);
+  opacity: 0.9;
 }
 .sum-btn--ghost {
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
 }
 .sum-btn--ghost:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 .sum-success {
   text-align: center;
@@ -380,7 +400,7 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--accent-success, #14866d);
   color: #fff;
   font-size: 28px;
   display: flex;
@@ -391,7 +411,7 @@ export default {
 .sum-success-text {
   font-size: 15px;
   font-weight: 700;
-  color: #166534;
+  color: var(--status-success-text);
   margin: 0;
 }
 </style>

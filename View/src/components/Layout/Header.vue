@@ -817,7 +817,7 @@ watch(
     gap: 18px;
     padding: 16px 22px;
     border-radius: 26px;
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--border-subtle);
     background: var(--bg-header);
     backdrop-filter: var(--glass-blur);
     box-shadow: var(--shadow-sm);
@@ -825,7 +825,7 @@ watch(
 }
 
 .app-header.collapsed {
-    left: 0;
+    left: 86px;
 }
 
 .header-left {
@@ -843,7 +843,7 @@ watch(
     justify-content: center;
     border-radius: 14px;
     border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.76);
+    background: var(--surface-default);
     color: var(--text-secondary);
     flex-shrink: 0;
     cursor: pointer;
@@ -851,8 +851,8 @@ watch(
 }
 
 .menu-toggle:hover {
-    background: rgba(255, 255, 255, 0.92);
-    border-color: rgba(84, 196, 211, 0.3);
+    background: var(--surface-hover);
+    border-color: var(--border-focus);
 }
 
 .menu-toggle svg {
@@ -908,7 +908,7 @@ watch(
     padding: 0 16px;
     border-radius: 999px;
     border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.74);
+    background: var(--surface-default);
     color: var(--text-secondary);
 }
 
@@ -988,7 +988,7 @@ watch(
     justify-content: center;
     border-radius: 16px;
     border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.78);
+    background: var(--surface-default);
     color: var(--text-secondary);
     transition: border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -996,7 +996,7 @@ watch(
 .header-action:hover {
     transform: translateY(-1px);
     border-color: var(--border-color-hover);
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--surface-hover);
 }
 
 .header-action svg {
@@ -1069,7 +1069,7 @@ watch(
     padding: 0 14px 0 8px;
     border-radius: 18px;
     border: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--surface-default);
     color: var(--text-primary);
     transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
 }
@@ -1077,7 +1077,7 @@ watch(
 .header-user:hover {
     transform: translateY(-1px);
     border-color: var(--border-color-hover);
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--surface-hover);
 }
 
 .user-avatar {
@@ -1127,9 +1127,10 @@ watch(
     right: 0;
     width: min(380px, calc(100vw - 32px));
     border-radius: 22px;
-    border: 1px solid rgba(255, 255, 255, 0.68);
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
     backdrop-filter: var(--glass-blur);
 }
@@ -1148,7 +1149,7 @@ watch(
     justify-content: space-between;
     gap: 16px;
     padding: 18px 20px 16px;
-    border-bottom: 1px solid rgba(24, 49, 77, 0.08);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .dropdown-header span {
@@ -1228,7 +1229,7 @@ watch(
     align-items: center;
     gap: 14px;
     padding: 20px;
-    border-bottom: 1px solid rgba(24, 49, 77, 0.08);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .dropdown-user-name {
@@ -1297,9 +1298,9 @@ watch(
     gap: 14px;
     padding: 16px 16px 16px 18px;
     border-radius: 18px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(255, 255, 255, 0.88);
-    transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-default);
+    transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
     cursor: pointer;
 }
 
@@ -1309,15 +1310,18 @@ watch(
 
 .notification-item:hover {
     transform: translateY(-1px);
-    background: rgba(240, 248, 250, 0.92);
+    background: var(--surface-hover);
+    border-color: var(--border-default);
+    box-shadow: var(--shadow-xs);
 }
 
 .notification-item.unread {
-    box-shadow: inset 0 0 0 1px rgba(84, 196, 211, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(15, 124, 130, 0.16);
 }
 
 .notification-item.active {
-    border-color: rgba(24, 49, 77, 0.12);
+    border-color: var(--border-focus);
+    background: var(--surface-selected);
 }
 
 .notification-rail {

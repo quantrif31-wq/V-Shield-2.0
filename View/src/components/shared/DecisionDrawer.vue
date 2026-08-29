@@ -240,6 +240,19 @@ export default {
       if (!val) this.resetForm()
     },
   },
+  mounted() {
+    this._onKeyDown = (e) => {
+      if (e.key === 'Escape' && this.visible) {
+        this.handleClose()
+      }
+    }
+    window.addEventListener('keydown', this._onKeyDown)
+  },
+  beforeUnmount() {
+    if (this._onKeyDown) {
+      window.removeEventListener('keydown', this._onKeyDown)
+    }
+  },
   methods: {
     handleClose() {
       if (this.saving) return
@@ -365,38 +378,38 @@ export default {
 .dd-panel {
   width: min(440px, 92vw);
   height: 100%;
-  background: #ffffff;
-  border-left: 1px solid #e2e8f0;
+  background: var(--surface-default);
+  border-left: 1px solid var(--border-subtle);
   box-shadow: -16px 0 40px rgba(15, 23, 42, 0.12);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 .dd-manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-.dd-manual-grid label { display: grid; gap: 5px; color: #334155; font-size: 12px; font-weight: 700; }
-.dd-manual-grid input { width: 100%; min-height: 40px; border: 1px solid #cbd5e1; background: #fff; padding: 8px 10px; color: #0f172a; }
+.dd-manual-grid label { display: grid; gap: 5px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.dd-manual-grid input { width: 100%; min-height: 40px; border: 1px solid var(--border-subtle); background: var(--surface-subtle); padding: 8px 10px; color: var(--text-primary); border-radius: 8px; }
 .dd-manual-full { grid-column: 1 / -1; }
 .dd-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 18px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 .dd-title {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .dd-close {
   width: 36px;
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
   font-size: 22px;
   cursor: pointer;
   display: flex;
@@ -404,79 +417,90 @@ export default {
   justify-content: center;
 }
 .dd-close:hover {
-  background: #e2e8f0;
+  background: var(--surface-hover);
 }
 .dd-body {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 18px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.dd-subject {
-  background: #f8fafc;
-  border: 1px solid #e9eef5;
-  border-radius: 12px;
-  padding: 12px;
+.dd-hero {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
 }
-.dd-subject-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-.dd-subject-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.dd-subject-value {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-  text-align: right;
-  word-break: break-word;
-}
-.dd-subject-value--mono {
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
-  font-size: 13px;
-}
-.dd-subject-value--plate {
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
-  font-size: 15px;
-  color: #15803d;
-  letter-spacing: 1px;
-}
-.dd-subject-value--truncate {
-  max-width: 200px;
+.dd-hero-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background: var(--surface-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
 }
-.dd-subject-badge {
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+.dd-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.dd-badge--emp {
-  background: #dcfce7;
-  color: #166534;
-}
-.dd-badge--guest {
-  background: #dbeafe;
-  color: #1e40af;
-}
-.dd-warnings {
+.dd-hero-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+}
+.dd-hero-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.dd-hero-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.dd-hero-lane {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+.dd-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.dd-badge--critical { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.dd-badge--high { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.dd-badge--medium { background: var(--status-info-bg); color: var(--status-info-text); }
+.dd-badge--low { background: var(--status-success-bg); color: var(--status-success-text); }
+.dd-badge--pending { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.dd-badge--accepted { background: var(--status-info-bg); color: var(--status-info-text); }
+.dd-badge--executed { background: var(--status-success-bg); color: var(--status-success-text); }
+.dd-badge--rejected { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.dd-badge--closed { background: var(--status-neutral-bg); color: var(--status-neutral-text); }
+.dd-badge--category { background: var(--surface-subtle); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.dd-plate {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 2px 6px;
 }
 .dd-warning {
   display: flex;
@@ -488,9 +512,9 @@ export default {
   font-weight: 600;
   line-height: 1.4;
 }
-.dd-warning--critical { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.dd-warning--warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
-.dd-warning--info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.dd-warning--critical { background: var(--status-danger-bg); color: var(--status-danger-text); border: 1px solid var(--status-danger-border); }
+.dd-warning--warn { background: var(--status-warning-bg); color: var(--status-warning-text); border: 1px solid var(--status-warning-border); }
+.dd-warning--info { background: var(--status-info-bg); color: var(--status-info-text); border: 1px solid var(--status-info-border); }
 .dd-warning-icon { font-size: 16px; flex-shrink: 0; }
 .dd-actions-section {
   display: flex;
@@ -502,7 +526,7 @@ export default {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 .dd-action {
@@ -511,16 +535,17 @@ export default {
   gap: 12px;
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface-default);
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
   font-family: inherit;
 }
 .dd-action:hover:not(:disabled) {
-  border-color: #94a3b8;
+  border-color: var(--border-focus);
+  background: var(--surface-hover);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 .dd-action:disabled {
@@ -537,13 +562,13 @@ export default {
   font-size: 16px;
   flex-shrink: 0;
 }
-.dd-action--primary .dd-action-icon { background: #dcfce7; color: #166534; }
-.dd-action--danger .dd-action-icon { background: #fee2e2; color: #991b1b; }
-.dd-action--warning .dd-action-icon { background: #fef3c7; color: #92400e; }
-.dd-action--caution .dd-action-icon { background: #fff7ed; color: #c2410c; }
-.dd-action--duress .dd-action-icon { background: #fce7f3; color: #9d174d; }
-.dd-action--admin .dd-action-icon { background: #eff6ff; color: #1d4ed8; }
-.dd-action--unified .dd-action-icon { background: #fef3c7; color: #b45309; }
+.dd-action--primary .dd-action-icon { background: var(--status-success-bg); color: var(--status-success-text); }
+.dd-action--danger .dd-action-icon { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.dd-action--warning .dd-action-icon { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.dd-action--caution .dd-action-icon { background: var(--status-warning-bg); color: var(--status-warning-text); }
+.dd-action--duress .dd-action-icon { background: var(--status-danger-bg); color: var(--status-danger-text); }
+.dd-action--admin .dd-action-icon { background: var(--status-info-bg); color: var(--status-info-text); }
+.dd-action--unified .dd-action-icon { background: var(--status-warning-bg); color: var(--status-warning-text); }
 .dd-action-text {
   display: flex;
   flex-direction: column;
@@ -551,31 +576,31 @@ export default {
 }
 .dd-action-text strong {
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .dd-action-text small {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .dd-form-section {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-subtle);
   padding: 16px 18px;
   flex-shrink: 0;
-  background: #fafcff;
+  background: var(--surface-subtle);
 }
 .dd-form-head h3 {
   margin: 0 0 12px;
   font-size: 15px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .dd-form-error {
   margin-top: 8px;
   padding: 8px 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--status-danger-border);
   border-radius: 8px;
-  color: #991b1b;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
   font-size: 13px;
   font-weight: 600;
 }
@@ -591,20 +616,29 @@ export default {
   border-radius: 10px;
   font-size: 14px;
   font-weight: 700;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
+  transition: background-color var(--transition-fast, 0.15s ease), border-color var(--transition-fast, 0.15s ease);
 }
 .dd-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .dd-btn--primary {
-  background: #2563eb;
-  color: #fff;
+  background: var(--interactive-primary);
+  color: var(--text-on-interactive);
+}
+.dd-btn--primary:hover:not(:disabled) {
+  background: var(--interactive-primary-hover);
 }
 .dd-btn--ghost {
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--surface-subtle);
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.dd-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 .dd-slide-enter-active,
 .dd-slide-leave-active {

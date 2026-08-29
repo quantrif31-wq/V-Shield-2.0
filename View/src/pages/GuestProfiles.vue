@@ -374,6 +374,10 @@ const fetchRows = async () => {
     const { data } = await getVisitorDirectory(params)
     rows.value = data?.items || []
     total.value = data?.total || 0
+  } catch (err) {
+    console.error('Failed to fetch visitor directory', err)
+    rows.value = []
+    total.value = 0
   } finally {
     isLoading.value = false
   }
@@ -387,8 +391,13 @@ const onImportComplete = (result) => {
 }
 
 const fetchEmployees = async () => {
-  const { data } = await getEmployees({ search: '' })
-  employees.value = Array.isArray(data) ? data : (data?.items || [])
+  try {
+    const { data } = await getEmployees({ search: '' })
+    employees.value = Array.isArray(data) ? data : (data?.items || [])
+  } catch (err) {
+    console.error('Failed to fetch employees', err)
+    employees.value = []
+  }
 }
 
 const fetchFormTemplates = async () => {
@@ -397,6 +406,7 @@ const fetchFormTemplates = async () => {
     formTemplates.value = res.data?.items || []
   } catch (e) {
     console.error('Failed to load form templates', e)
+    formTemplates.value = []
   }
 }
 
@@ -589,7 +599,11 @@ watch(
 )
 
 onMounted(async () => {
-  await Promise.all([fetchRows(), fetchEmployees(), fetchFormTemplates()])
+  try {
+    await Promise.all([fetchRows(), fetchEmployees(), fetchFormTemplates()])
+  } catch (err) {
+    console.error('Error during GuestProfiles onMounted', err)
+  }
   document.addEventListener('click', handleDocumentClick)
 })
 onUnmounted(() => {

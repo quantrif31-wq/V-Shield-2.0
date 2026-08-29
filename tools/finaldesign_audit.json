@@ -1,0 +1,3098 @@
+{
+  "paragraphs": 198,
+  "tables": 36,
+  "sections": 1,
+  "blocks": [
+    {
+      "i": 0,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 1,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 2,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "LỜI MỞ ĐẦU"
+    },
+    {
+      "i": 3,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Trong kỷ nguyên của cuộc Cách mạng Công nghiệp 4.0, sự hội tụ giữa công nghệ trí tuệ nhân tạo (AI), IoT và các thiết bị di động thông minh đã định hình lại các mô hình vận hành và giám sát an ninh doanh nghiệp. Các giải pháp kiểm soát vào ra truyền thống dựa hoàn toàn trên thẻ từ vật lý hoặc kiểm tra thủ công đang dần bộc lộ những lỗ hổng lớn về bảo mật, hiệu quả vận hành và khả năng sẵn sàng trước các sự cố an ninh nghiêm trọng."
+    },
+    {
+      "i": 4,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Xuất phát từ thực trạng đó, dự án V-Shield 2.0 được nghiên cứu và phát triển nhằm mang đến một giải pháp số hóa toàn diện: từ việc tự động hóa kiểm soát các làn xe vào ra thông qua camera AI đọc biển số (ANPR) kết hợp mã QR động, cho tới việc thiết lập một Trung tâm Thao tác An ninh (SOC) thời gian thực và ứng dụng di động bảo vệ cơ động phản ứng nhanh. Báo cáo này trình bày chi tiết từ công đoạn khảo sát yêu cầu khách hàng, phân tích, thiết kế hệ thống cho đến khâu hiện thực và kiểm thử sản phẩm."
+    },
+    {
+      "i": 5,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 6,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 7,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 1: GIỚI THIỆU ĐỀ TÀI"
+    },
+    {
+      "i": 8,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "Giới thiệu dự án"
+    },
+    {
+      "i": 9,
+      "kind": "P",
+      "style": "Normal",
+      "text": "1. Dự án làm cái gì?"
+    },
+    {
+      "i": 10,
+      "kind": "P",
+      "style": "List Paragraph",
+      "text": "Dự án V-Shield 2.0 tập trung nghiên cứu, thiết kế và phát triển Nguyên mẫu Hệ thống Kiểm soát Vào ra Doanh nghiệp & Trung tâm Thao tác An ninh số hóa kết hợp AI & Mobile App."
+    },
+    {
+      "i": 11,
+      "kind": "P",
+      "style": "List Paragraph",
+      "text": "Hệ thống tích hợp toàn diện việc kiểm soát phương tiện và con người tại các cổng/cửa ra vào thông qua công nghệ nhận diện biển số xe (ANPR), đối khớp mã QR động chống gian lận, cùng các giải pháp phần mềm chuyên dụng trên Web và Mobile App nhằm nâng cao khả năng phản ứng nhanh trước các sự cố an ninh doanh nghiệp."
+    },
+    {
+      "i": 12,
+      "kind": "P",
+      "style": "Normal",
+      "text": "2. Bối cảnh và Lý do chọn đề tài (Bối cảnh nào?)"
+    },
+    {
+      "i": 13,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Trong xu thế chuyển đổi số và công nghiệp hóa, các doanh nghiệp, nhà máy, khu công nghiệp và tòa nhà văn phòng đối mặt với các bài toán an ninh ngày càng phức tạp:"
+    },
+    {
+      "i": 14,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hạ tầng rời rạc: Các hệ thống giám sát camera, kiểm soát thẻ từ và quản lý bãi xe hiện nay chủ yếu hoạt động độc lập (silored), không chia sẻ dữ liệu thời gian thực. Điều này gây khó khăn cho việc quản lý tập trung và phát hiện rủi ro chuỗi."
+    },
+    {
+      "i": 15,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Quy trình thủ công và dễ tắc nghẽn: Việc xác minh thủ công tại cổng mất nhiều thời gian, dễ gây ùn ứ vào giờ cao điểm. Đồng thời, khi có sự cố dữ liệu lệch (ví dụ trạng thái bãi xe không khớp thực tế), nhân viên bảo vệ không có cơ chế xử lý ngoại lệ linh hoạt mà vẫn đảm bảo trách nhiệm cá nhân."
+    },
+    {
+      "i": 16,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Thời gian phản ứng sự cố chậm: Khi xảy ra sự cố khẩn cấp (như bảo vệ bị đối tượng xấu ép buộc mở cổng hoặc có xâm nhập trái phép), thiếu một cơ chế cảnh báo tức thời, tự động định tuyến thông báo và báo động lặp liên tục để đánh thức lực lượng tuần tra cơ động."
+    },
+    {
+      "i": 17,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Thiếu tính minh bạch và pháp lý: Các hình ảnh sự cố và nhật ký vận hành dễ bị can thiệp, sửa xóa, dẫn đến việc thiếu bằng chứng số vẹn toàn khi có tranh chấp hoặc thất thoát tài sản."
+    },
+    {
+      "i": 18,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Vì vậy, đề tài V-Shield 2.0 được lựa chọn nhằm giải quyết các thách thức trên thông qua một nền tảng thống nhất, áp dụng kiến trúc Modular Monolith hiện đại, kết hợp AI tại Edge và ứng dụng di động bảo vệ thời gian thực."
+    },
+    {
+      "i": 19,
+      "kind": "P",
+      "style": "Normal",
+      "text": "3. Đối tượng sử dụng hệ thống là những ai?"
+    },
+    {
+      "i": 20,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hệ thống hướng tới các nhóm đối tượng người dùng chính trong một tổ chức/doanh nghiệp:"
+    },
+    {
+      "i": 21,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Quản trị viên (Admin): Cấu hình hệ thống, quản lý thiết bị phần cứng, thiết lập các chính sách bảo mật, quy tắc định tuyến thông báo và giám sát nhật ký kiểm toán."
+    },
+    {
+      "i": 22,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Quản lý an ninh / Nhân sự (QuanLy / NhanSu): Phê duyệt các yêu cầu ngoại lệ, quản lý hồ sơ nhân viên, ca làm việc, duyệt đơn từ nghỉ phép và theo dõi báo cáo chấm công tự động."
+    },
+    {
+      "i": 23,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Nhân viên bảo vệ tại cổng (BaoVe Gate): Trực tiếp vận hành tại các làn (lane) kiểm soát, xử lý các sự kiện vào ra, ghi nhận các trường hợp khẩn cấp, nhập thủ công hoặc thực hiện quyền cho qua có trách nhiệm (Override)."
+    },
+    {
+      "i": 24,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Bảo vệ cơ động / tuần tra (BaoVe Roving): Sử dụng ứng dụng di động Android để nhận tin nhắn cảnh báo khẩn cấp, tham gia xử lý sự cố an ninh hiện trường và trao đổi thông tin với trung tâm SOC."
+    },
+    {
+      "i": 25,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Nhân viên lễ tân (LeTan): Tiếp nhận yêu cầu đăng ký khách, phát hành thẻ khách tạm thời (Visitor Pass)."
+    },
+    {
+      "i": 26,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Cán bộ nhân viên công ty (NhanVien): Đăng ký phương tiện cá nhân, ủy quyền xe cho đồng nghiệp, đăng ký lịch hẹn khách (Pre-registration), nộp đơn xin nghỉ phép và trao đổi thông tin nội bộ."
+    },
+    {
+      "i": 27,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Khách đến liên hệ công tác (Visitor): Đăng ký thông tin trực tuyến từ xa và thực hiện tự check-in tại Kiosk thông minh."
+    },
+    {
+      "i": 28,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "1.2 Ban dự án"
+    },
+    {
+      "i": 29,
+      "kind": "T",
+      "rows": [
+        [
+          "",
+          "Phạm Văn Thành\n- Lập kế hoạch tổng thể và điều phối dự án.\n- Thiết kế kiến trúc Modular Monolith và Cơ sở dữ liệu.\n- Phát triển API Backend (ASP.NET Core 8) & SignalR Hubs.\n- Tích hợp AI ANPR & Edge Engine."
+        ],
+        [
+          "",
+          "Phạm Ngọc Hoài Anh\n- Thiết kế giao diện (UI/UX Mockups) cho hệ thống Web & Mobile.\n- Phát triển giao diện Web Dashboard, Gate Transit bằng Vue 3.\n- Phát triển ứng dụng di động Android Native bằng Kotlin & Jetpack Compose."
+        ],
+        [
+          "",
+          "Bùi Nhật Huy\n- Phân tích quy trình nghiệp vụ và đặc tả yêu cầu hệ thống (SRS).\n- Biên soạn tài liệu hướng dẫn vận hành, hướng dẫn triển khai.\n- Soạn thảo báo cáo tốt nghiệp toàn bộ. "
+        ],
+        [
+          "",
+          "Hà Quang Sang\n- Thiết lập kế hoạch và kịch bản kiểm thử tích hợp, UAT.\n- Thực hiện kiểm thử chức năng, hiệu năng và ghi nhận lỗi.\n- Hỗ trợ đóng gói sản phẩm và kiểm tra chất lượng phần mềm."
+        ]
+      ]
+    },
+    {
+      "i": 30,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 2: KHẢO SÁT – SURVEY"
+    },
+    {
+      "i": 31,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "2.1 Yêu cầu của khách hàng"
+    },
+    {
+      "i": 32,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Thông qua quá trình khảo sát thực tế và phỏng vấn các bên liên quan (Ban Giám đốc, Trưởng phòng An ninh, Lực lượng Bảo vệ và Bộ phận Nhân sự), các yêu cầu đối với hệ thống được tổng hợp như sau:"
+    },
+    {
+      "i": 33,
+      "kind": "P",
+      "style": "Normal",
+      "text": "1. Danh sách chức năng theo vai trò sử dụng (Role-based Requirements)"
+    },
+    {
+      "i": 34,
+      "kind": "T",
+      "rows": [
+        [
+          "Vai trò",
+          "Nhóm chức năng yêu cầu",
+          "Chi tiết chức năng"
+        ],
+        [
+          "Admin",
+          "Quản trị & Hạ tầng",
+          "- Cấu hình hệ thống, phân quyền vai trò người dùng (RBAC).\n- Giám sát sức khỏe hạ tầng thiết bị qua Sơ đồ cây kết nối (Device Topology Map).\n- Kích hoạt chế độ Phong tỏa toàn khu vực (Full Lockdown).\n- Thiết lập Quy tắc định tuyến thông báo thời gian thực (Notification Rules).\n- Tra cứu nhật ký kiểm toán hệ thống (System Audit Logs) để phát hiện thay đổi dữ liệu trái phép."
+        ],
+        [
+          "QuanLy / NhanSu",
+          "Quản lý & Phê duyệt",
+          "- Phê duyệt yêu cầu can thiệp ngoại lệ (Intervention Escalation) từ xa qua web.\n- Quản lý hồ sơ nhân viên, cấu hình ca làm việc và theo dõi báo cáo chấm công tự động.\n- Phê duyệt đơn xin nghỉ phép của nhân viên.\n- Duyệt yêu cầu trích xuất bằng chứng số và thực hiện che mờ thông tin cá nhân (Redaction)."
+        ],
+        [
+          "BaoVe (Gate)",
+          "Vận hành cổng",
+          "- Theo dõi luồng phương tiện qua cổng thời gian thực tích hợp camera trực tiếp.\n- Cho qua đối tượng hợp lệ quét mã QR và biển số xe khớp.\n- Nhập thủ công lý do cho qua khi khách/nhân viên hỏng mã QR.\n- Thực hiện quyền \"Cho qua có trách nhiệm\" (Override) khi lệch trạng thái bãi xe kèm cam kết.\n- Kích hoạt nút báo động cưỡng ép bí mật (Duress Alarm)."
+        ],
+        [
+          "BaoVe (Roving)",
+          "Tuần tra & Phản ứng",
+          "- Nhận thông báo đẩy và báo động khẩn cấp bằng chuông lặp liên tục trên ứng dụng di động Android.\n- Xác nhận xử lý sự cố (Acknowledge) trực tiếp từ điện thoại để ngắt chuông báo động.\n- Chat nội bộ realtime với Ban quản lý và đồng nghiệp để báo cáo hiện trường."
+        ],
+        [
+          "LeTan",
+          "Quản lý khách",
+          "- Tiếp nhận yêu cầu đăng ký khách.\n- Phát hành thẻ khách tạm thời (Visitor Pass) tích hợp khung giờ cho phép."
+        ],
+        [
+          "NhanVien",
+          "Tự phục vụ",
+          "- Khởi tạo mã QR động cá nhân để qua cổng.\n- Đăng ký và ủy quyền sử dụng xe tạm thời cho đồng nghiệp.\n- Tạo lịch đăng ký đón khách trước (Pre-registration).\n- Tạo đơn xin nghỉ phép trên ứng dụng di động."
+        ]
+      ]
+    },
+    {
+      "i": 35,
+      "kind": "P",
+      "style": "Normal",
+      "text": "2. Mô tả các chuỗi chức năng trong các quy trình nghiệp vụ cốt lõi"
+    },
+    {
+      "i": 36,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Quy trình kiểm soát tự động: Đọc biển số và quét QR động -> Gửi backend xác thực -> Mở barie tự động & tạo Receipt ID."
+    },
+    {
+      "i": 37,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Quy trình báo động khẩn cấp: Kích hoạt nút Duress -> Backend ghi nhận cảnh báo cấp Critical -> Gửi SignalR tới SOC Console và Android App -> App phát chuông báo động lặp & rung -> Bảo vệ bấm Acknowledge để tắt."
+    },
+    {
+      "i": 38,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Quy trình bằng chứng số: Chụp ảnh/video sự cố -> Băm SHA-256 vẹn toàn -> Admin duyệt trích xuất -> Làm mờ thông tin cá nhân (blur) -> Xuất file báo cáo & Ghi nhật ký Custody Log."
+    },
+    {
+      "i": 39,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "2.2 Kế hoạch dự án"
+    },
+    {
+      "i": 40,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "CÔNG VIỆC",
+          "BẮT ĐẦU",
+          "KẾT THÚC",
+          "THÀNH VIÊN",
+          "TÌNH TRẠNG",
+          "GHI CHÚ"
+        ],
+        [
+          "1",
+          "Phân tích yêu cầu khách hàng",
+          "Tuần 1",
+          "Tuần 2",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "1.1",
+          "Vẽ sơ đồ tổng quan hệ thống",
+          "Tuần 1",
+          "Tuần 2",
+          "Cả nhóm",
+          "Hoàn thành",
+          "Dùng Draw.io"
+        ],
+        [
+          "1.2",
+          "Vẽ sơ đồ use case",
+          "Tuần 1",
+          "Tuần 2",
+          "Huy, Thành",
+          "Hoàn thành",
+          "Dùng Visio"
+        ],
+        [
+          "1.3",
+          "Xây dựng bản đặc tả yêu cầu hệ thống",
+          "Tuần 1",
+          "Tuần 2",
+          "H.Anh, Huy",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "1.4",
+          "Mô tả các quy trình nghiệp vụ",
+          "Tuần 2",
+          "Tuần 2",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "2",
+          "Thiết kế hệ thống",
+          "Tuần 3",
+          "Tuần 4",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "2.1",
+          "Phác thảo mô hình công nghệ ứng dụng",
+          "Tuần 3",
+          "Tuần 3",
+          "Thành, H.Anh",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "2.2",
+          "Thiết kế giao diện",
+          "Tuần 3",
+          "Tuần 4",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "2.2.1",
+          "Phác thảo sơ đồ tổ chức ứng dụng",
+          "Tuần 3",
+          "Tuần 3",
+          "Thành, H.Anh",
+          "Hoàn thành",
+          "Sitemap"
+        ],
+        [
+          "2.2.2",
+          "Phác thảo layout",
+          "Tuần 3",
+          "Tuần 4",
+          "Sang, Huy",
+          "Hoàn thành",
+          "Layout Web, Mobile"
+        ],
+        [
+          "2.2.3",
+          "Phác thảo các giao diện chức năng",
+          "Tuần 4",
+          "Tuần 4",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "2.3",
+          "Thiết kế dữ liệu",
+          " ",
+          " ",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "2.3.1",
+          "Thiết kế sơ đồ quan hệ thực thể (ERD)",
+          "Tuần 3",
+          "Tuần 4",
+          "Thành",
+          "Hoàn thành",
+          "SQL Server"
+        ],
+        [
+          "2.3.2",
+          "Thiết kế chi tiết thực thể",
+          "Tuần 4",
+          "Tuần 4",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "2.3.3",
+          "Thiết kế sơ đồ lớp (Class Diagram)",
+          "Tuần 4",
+          "Tuần 4",
+          "Huy, H.Anh",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "3",
+          "Thực hiện dự án",
+          "Tuần 5",
+          "Tuần 12",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "3.1",
+          "Thiết kế cơ sở dữ liệu",
+          "Tuần 5",
+          "Tuần 5",
+          "Thành",
+          "Hoàn thành",
+          "Chạy SQL script"
+        ],
+        [
+          "3.2",
+          "Thiết kế giao diện",
+          "Tuần 5",
+          "Tuần 7",
+          "H.Anh, Sang",
+          "Hoàn thành",
+          "HTML/Vue components"
+        ],
+        [
+          "3.3",
+          "Xây dựng thư viện tiện ích cho dự án",
+          "Tuần 5",
+          "Tuần 6",
+          "Thành, Huy",
+          "Hoàn thành",
+          "Helpers, Auth services"
+        ],
+        [
+          "3.4",
+          "Xây dựng các lớp thực thể (Entity Class)",
+          "Tuần 6",
+          "Tuần 7",
+          "Thành, H.Anh",
+          "Hoàn thành",
+          "EF Core"
+        ],
+        [
+          "3.5",
+          "Xây dựng các lớp truy xuất dữ liệu (DAO)",
+          "Tuần 7",
+          "Tuần 8",
+          "Thành",
+          "Hoàn thành",
+          "Repositories/DbContext"
+        ],
+        [
+          "3.6",
+          "Lập trình liên kết các trang web chức năng",
+          "Tuần 8",
+          "Tuần 9",
+          "Cả nhóm",
+          "Hoàn thành",
+          "Routing"
+        ],
+        [
+          "3.7",
+          "Lập trình cho các chức năng nghiệp vụ",
+          "Tuần 9",
+          "Tuần 11",
+          "Cả nhóm",
+          "Hoàn thành",
+          "Business logic, SignalR"
+        ],
+        [
+          "3.8",
+          "Lập trình tổng hợp - thống kê",
+          "Tuần 11",
+          "Tuần 12",
+          "Sang, Thành",
+          "Hoàn thành",
+          "Dashboard"
+        ],
+        [
+          "4",
+          "Kiểm thử",
+          "Tuần 13",
+          "Tuần 13",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "4.1",
+          "Xây dựng kịch bản kiểm thử",
+          "Tuần 13",
+          "Tuần 13",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "4.2",
+          "Thực hiện kiểm thử",
+          "Tuần 13",
+          "Tuần 13",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "4.3",
+          "Lập trình sửa lỗi",
+          "Tuần 13",
+          "Tuần 13",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ],
+        [
+          "5",
+          "Đóng gói và triển khai",
+          "Tuần 14",
+          "Tuần 14",
+          " ",
+          " ",
+          " "
+        ],
+        [
+          "5.1",
+          "Đóng gói sản phẩm",
+          "Tuần 14",
+          "Tuần 14",
+          "Cả nhóm",
+          "Hoàn thành",
+          "Docker images, APK"
+        ],
+        [
+          "5.2",
+          "Viết tài liệu hướng dẫn sử dụng",
+          "Tuần 14",
+          "Tuần 14",
+          "Cả nhóm",
+          "Hoàn thành",
+          " "
+        ]
+      ]
+    },
+    {
+      "i": 41,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 3: PHÂN TÍCH - ANALYSIS"
+    },
+    {
+      "i": 42,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "3.1 Mô hình tổng quan hệ thống"
+    },
+    {
+      "i": 43,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 44,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 3.1. Mô hình tổng quan hệ thống V-Shield 2.0"
+    },
+    {
+      "i": 45,
+      "kind": "P",
+      "style": "Normal",
+      "text": "V-Shield 2.0 là nền tảng kiểm soát vào ra và vận hành an ninh doanh nghiệp. Người dùng truy cập qua Web Admin/SOC, bàn điều khiển tại cổng, ứng dụng Android và kiosk khách. Các kênh gửi yêu cầu HTTPS REST với JWT/RBAC; sự kiện khẩn cấp và trạng thái vận hành được đẩy thời gian thực bằng SignalR. Backend ASP.NET Core 8 được tổ chức theo Modular Monolith, dùng Entity Framework Core và SQL Server, đồng thời tích hợp Edge AI/ANPR, camera, thiết bị QR và barrier."
+    },
+    {
+      "i": 46,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "3.2 Sơ đồ Use Case"
+    },
+    {
+      "i": 47,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.2.1 Tổng quan"
+    },
+    {
+      "i": 48,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 49,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 3.2. Use Case tổng quan"
+    },
+    {
+      "i": 50,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Sơ đồ tổng quan thể hiện actor nào tham gia phân hệ nào, không liệt kê toàn bộ thao tác nhỏ. Admin phụ trách quản trị, thiết bị và bằng chứng; Quản lý/Nhân sự tham gia phê duyệt, HR và SOC; lực lượng bảo vệ vận hành cổng, tiếp nhận cảnh báo và xử lý ngoại lệ; nhân viên, lễ tân và khách sử dụng các luồng tự phục vụ về khách, phương tiện, nghỉ phép và chấm công."
+    },
+    {
+      "i": 51,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.2.2 Gate Transit & SOC"
+    },
+    {
+      "i": 52,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 53,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 3.3. Use Case Gate Transit & SOC"
+    },
+    {
+      "i": 54,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Phạm vi gồm kiểm soát giao dịch qua cổng và vòng đời cảnh báo SOC. Nhân viên bảo vệ tại cổng theo dõi camera, ANPR, QR và quyết định mở barrier. Override chỉ dùng khi luồng bình thường gặp ngoại lệ, bắt buộc ghi lý do và tạo dấu vết trách nhiệm. Duress tạo cảnh báo mức Critical; SOC hoặc bảo vệ cơ động tiếp nhận, acknowledge, được phân công và đóng incident khi đã xử lý."
+    },
+    {
+      "i": 55,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.2.3 Visitor & Employee Self-Service"
+    },
+    {
+      "i": 56,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 57,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 3.4. Use Case Visitor & Employee Self-Service"
+    },
+    {
+      "i": 58,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Sơ đồ mô tả luồng đăng ký khách trước, khách tự khai báo, nhận QR và check-in tại kiosk; lễ tân hoặc quản lý xử lý phê duyệt và phát hành Visitor Pass. Nhân viên đồng thời quản lý phương tiện, ủy quyền xe, tạo yêu cầu nghỉ phép và xem chấm công cá nhân. Ngoại lệ đáng chú ý là QR hết hạn/không hợp lệ, khách thiếu phê duyệt hoặc ủy quyền xe bị từ chối."
+    },
+    {
+      "i": 59,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.2.4 Administration, HR & Evidence"
+    },
+    {
+      "i": 60,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 61,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 3.5. Use Case Administration, HR & Evidence"
+    },
+    {
+      "i": 62,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Phạm vi bao gồm quản trị người dùng/RBAC, topology thiết bị, notification rules, audit logs; nghiệp vụ nhân sự, ca làm việc, chấm công, bất thường và nghỉ phép; cùng kho bằng chứng số. Bằng chứng được đăng ký với SHA-256, kiểm tra tính toàn vẹn, xử lý redaction và xuất sau phê duyệt, đồng thời ghi Chain of Custody. Full Lockdown là thao tác đặc quyền và phải được audit."
+    },
+    {
+      "i": 63,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "3.3 Đặc tả yêu cầu hệ thống (SRS)"
+    },
+    {
+      "i": 64,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.3.1 Gate/SOC Use Cases"
+    },
+    {
+      "i": 65,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-01 - Đăng nhập hệ thống"
+    },
+    {
+      "i": 66,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-01"
+        ],
+        [
+          "Tên Use Case",
+          "Đăng nhập hệ thống"
+        ],
+        [
+          "Actor chính",
+          "Người dùng"
+        ],
+        [
+          "Actor phụ",
+          "Hệ thống xác thực"
+        ],
+        [
+          "Mục tiêu",
+          "Xác thực và cấp phiên JWT theo vai trò"
+        ],
+        [
+          "Trigger",
+          "Người dùng mở màn hình đăng nhập"
+        ],
+        [
+          "Tiền điều kiện",
+          "Tài khoản hoạt động"
+        ],
+        [
+          "Hậu điều kiện",
+          "JWT/refresh token được cấp; quyền được nạp"
+        ],
+        [
+          "Luồng chính",
+          "1. Nhập thông tin;\n2.  hệ thống xác thực; kiểm tra trạng thái/MFA; phát JWT; chuyển tới màn hình theo vai trò"
+        ],
+        [
+          "Luồng thay thế",
+          "MFA hoặc refresh token khi phiên hết hạn"
+        ],
+        [
+          "Ngoại lệ",
+          "Sai thông tin, tài khoản khóa, thiếu quyền"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "AppUser, UserRefreshToken"
+        ],
+        [
+          "Business Rule",
+          "Không lộ lý do xác thực chi tiết; audit thất bại."
+        ]
+      ]
+    },
+    {
+      "i": 67,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-02 - Kiểm soát người/phương tiện vào ra"
+    },
+    {
+      "i": 68,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-02"
+        ],
+        [
+          "Tên Use Case",
+          "Kiểm soát người/phương tiện vào ra"
+        ],
+        [
+          "Actor chính",
+          "Bảo vệ cổng"
+        ],
+        [
+          "Actor phụ",
+          "QR device, ANPR camera, barrier"
+        ],
+        [
+          "Mục tiêu",
+          "Kiểm soát lượt người và phương tiện qua cổng bằng QR, ANPR và chính sách truy cập."
+        ],
+        [
+          "Trigger",
+          "Có lượt tiếp cận cổng"
+        ],
+        [
+          "Tiền điều kiện",
+          "Gate và thiết bị online; subject có dữ liệu"
+        ],
+        [
+          "Hậu điều kiện",
+          "Lượt ra/vào và quyết định Allow/Deny được lưu; barrier chỉ mở khi điều kiện hợp lệ."
+        ],
+        [
+          "Luồng chính",
+          "1. Nhận QR/biển số;\n2.  gọi scan; đối chiếu người-xe-quyền; trả quyết định; mở barrier nếu hợp lệ; ghi AccessLog/ZoneTransit và Receipt ID"
+        ],
+        [
+          "Luồng thay thế",
+          "Tra cứu thủ công subject hoặc biển số"
+        ],
+        [
+          "Ngoại lệ",
+          "QR hết hạn, biển số không khớp, anti-passback/policy từ chối"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "Gate, Vehicle, AccessLog, ZoneTransit"
+        ],
+        [
+          "Business Rule",
+          "Chỉ mở barrier khi quyết định Allow hoặc override hợp lệ."
+        ]
+      ]
+    },
+    {
+      "i": 69,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-03 - Override mở cổng"
+    },
+    {
+      "i": 70,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-03"
+        ],
+        [
+          "Tên Use Case",
+          "Override mở cổng"
+        ],
+        [
+          "Actor chính",
+          "Bảo vệ cổng"
+        ],
+        [
+          "Actor phụ",
+          "Quản lý/SOC"
+        ],
+        [
+          "Mục tiêu",
+          "Cho phép bảo vệ xử lý ngoại lệ tại cổng khi giao dịch bị từ chối nhưng có căn cứ cho qua, đồng thời lưu đầy đủ lý do và trách nhiệm người thực hiện."
+        ],
+        [
+          "Trigger",
+          "Giao dịch bình thường bị từ chối nhưng cần xử lý ngoại lệ"
+        ],
+        [
+          "Tiền điều kiện",
+          "Người dùng có quyền override; gate xác định"
+        ],
+        [
+          "Hậu điều kiện",
+          "Barrier được mở theo override; lý do, actor, timestamp và Receipt ID được lưu vào audit trail."
+        ],
+        [
+          "Luồng chính",
+          "1. Chọn Override;\n2.  nhập lý do; xác nhận trách nhiệm; backend kiểm tra quyền; mở barrier; tạo receipt/audit"
+        ],
+        [
+          "Luồng thay thế",
+          "Quản lý phê duyệt theo policy"
+        ],
+        [
+          "Ngoại lệ",
+          "Thiếu lý do, không đủ quyền, barrier offline"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "AccessLog, ExceptionReason, SystemAuditLog"
+        ],
+        [
+          "Business Rule",
+          "Lý do bắt buộc; không sửa/xóa dấu vết override."
+        ]
+      ]
+    },
+    {
+      "i": 71,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-04 - Kích hoạt Duress Alarm"
+    },
+    {
+      "i": 72,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-04"
+        ],
+        [
+          "Tên Use Case",
+          "Kích hoạt Duress Alarm"
+        ],
+        [
+          "Actor chính",
+          "Bảo vệ cổng"
+        ],
+        [
+          "Actor phụ",
+          "SOC, bảo vệ cơ động"
+        ],
+        [
+          "Mục tiêu",
+          "Phát cảnh báo cưỡng ép bí mật tới SOC và bảo vệ cơ động mà không tạo tín hiệu gây nguy hiểm cho bảo vệ tại cổng."
+        ],
+        [
+          "Trigger",
+          "Người vận hành nhấn Duress"
+        ],
+        [
+          "Tiền điều kiện",
+          "Đã xác định gate và phiên người dùng"
+        ],
+        [
+          "Hậu điều kiện",
+          "Critical Alarm được tạo và phân phối realtime đến SOC/mobile; trạng thái acknowledge được lưu."
+        ],
+        [
+          "Luồng chính",
+          "1. Gửi duress;\n2.  backend ghi sự kiện; tạo Alarm Critical; SignalR đẩy SOC/mobile; app rung/chuông; người nhận acknowledge"
+        ],
+        [
+          "Luồng thay thế",
+          "Gửi kèm vị trí hoặc source device"
+        ],
+        [
+          "Ngoại lệ",
+          "Mất mạng: ghi cục bộ/hiển thị thất bại để gọi kênh dự phòng"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "DuressEvent, Alarm, Notification"
+        ],
+        [
+          "Business Rule",
+          "Duress luôn Critical; không hiển thị phản hồi gây nguy hiểm tại cổng."
+        ]
+      ]
+    },
+    {
+      "i": 73,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-05 - Tiếp nhận và xử lý cảnh báo SOC"
+    },
+    {
+      "i": 74,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-05"
+        ],
+        [
+          "Tên Use Case",
+          "Tiếp nhận và xử lý cảnh báo SOC"
+        ],
+        [
+          "Actor chính",
+          "SOC / Security Manager"
+        ],
+        [
+          "Actor phụ",
+          "Bảo vệ cơ động"
+        ],
+        [
+          "Mục tiêu",
+          "Tiếp nhận, phân công, theo dõi và đóng sự cố an ninh theo một vòng đời xử lý có kiểm soát."
+        ],
+        [
+          "Trigger",
+          "Alarm mới được tạo"
+        ],
+        [
+          "Tiền điều kiện",
+          "SOC online; người dùng có quyền"
+        ],
+        [
+          "Hậu điều kiện",
+          "Alarm/Incident được cập nhật trạng thái, người phụ trách, timeline và kết quả xử lý."
+        ],
+        [
+          "Luồng chính",
+          "1. Nhận realtime;\n2.  mở chi tiết; acknowledge; tạo/gắn incident; assign; comment; thực hiện SOP; close với outcome"
+        ],
+        [
+          "Luồng thay thế",
+          "Chuyển người xử lý hoặc nâng severity"
+        ],
+        [
+          "Ngoại lệ",
+          "Alarm trùng, mất kết nối, thiếu outcome"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "Alarm, Incident, AlarmComment, DispatchTask"
+        ],
+        [
+          "Business Rule",
+          "Mọi thay đổi trạng thái có timestamp và actor."
+        ]
+      ]
+    },
+    {
+      "i": 75,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.3.2 Visitor/Employee Use Cases"
+    },
+    {
+      "i": 76,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-06 - Đăng ký khách trước"
+    },
+    {
+      "i": 77,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-06"
+        ],
+        [
+          "Tên Use Case",
+          "Đăng ký khách trước"
+        ],
+        [
+          "Actor chính",
+          "Nhân viên (Host)"
+        ],
+        [
+          "Actor phụ",
+          "Khách, lễ tân"
+        ],
+        [
+          "Mục tiêu",
+          "Tạo lịch hẹn khách có thời gian, host và thông tin cần thiết trước khi khách đến."
+        ],
+        [
+          "Trigger",
+          "Host tạo lịch hẹn khách"
+        ],
+        [
+          "Tiền điều kiện",
+          "Host đăng nhập và còn hiệu lực"
+        ],
+        [
+          "Hậu điều kiện",
+          "PreRegistration được tạo và khách nhận token/link hoặc QR sau khi đáp ứng điều kiện phê duyệt."
+        ],
+        [
+          "Luồng chính",
+          "1. Nhập khách, thời gian, số lượng/xe;\n2.  tạo link/token; khách khai báo; hệ thống lưu; phát QR/pass sau điều kiện phê duyệt"
+        ],
+        [
+          "Luồng thay thế",
+          "Lễ tân cập nhật trạng thái"
+        ],
+        [
+          "Ngoại lệ",
+          "Token hết hạn, thời gian không hợp lệ, watchlist/risk"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "PreRegistration, GuestProfile, VisitorDetail"
+        ],
+        [
+          "Business Rule",
+          "ExpectedTimeOut sau ExpectedTimeIn; token không tái sử dụng trái phép."
+        ]
+      ]
+    },
+    {
+      "i": 78,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-07 - Visitor/Kiosk Check-in"
+    },
+    {
+      "i": 79,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-07"
+        ],
+        [
+          "Tên Use Case",
+          "Visitor/Kiosk Check-in"
+        ],
+        [
+          "Actor chính",
+          "Khách"
+        ],
+        [
+          "Actor phụ",
+          "Lễ tân, QR device"
+        ],
+        [
+          "Mục tiêu",
+          "Xác thực đăng ký và ghi nhận khách đến tại kiosk hoặc với hỗ trợ của lễ tân."
+        ],
+        [
+          "Trigger",
+          "Khách quét QR tại kiosk"
+        ],
+        [
+          "Tiền điều kiện",
+          "PreRegistration hợp lệ và trong cửa sổ thời gian"
+        ],
+        [
+          "Hậu điều kiện",
+          "Thời điểm check-in được lưu và Visitor Pass được phát khi QR, thời gian và phê duyệt hợp lệ."
+        ],
+        [
+          "Luồng chính",
+          "1. Quét QR;\n2.  verify; hiển thị thông tin tối thiểu; xác nhận check-in; phát Visitor Pass; ghi access"
+        ],
+        [
+          "Luồng thay thế",
+          "Nhờ lễ tân hỗ trợ nhận dạng thủ công"
+        ],
+        [
+          "Ngoại lệ",
+          "QR không hợp lệ/hết hạn, chưa phê duyệt"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "PreRegistration, VisitorDetail, AccessLog"
+        ],
+        [
+          "Business Rule",
+          "Chỉ hiển thị dữ liệu cần thiết; log thời điểm check-in."
+        ]
+      ]
+    },
+    {
+      "i": 80,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-08 - Ủy quyền phương tiện"
+    },
+    {
+      "i": 81,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-08"
+        ],
+        [
+          "Tên Use Case",
+          "Ủy quyền phương tiện"
+        ],
+        [
+          "Actor chính",
+          "Nhân viên sở hữu xe"
+        ],
+        [
+          "Actor phụ",
+          "Nhân viên nhận ủy quyền"
+        ],
+        [
+          "Mục tiêu",
+          "Cho phép chủ xe giao quyền sử dụng phương tiện cho đồng nghiệp theo một yêu cầu có trạng thái rõ ràng."
+        ],
+        [
+          "Trigger",
+          "Chủ xe tạo yêu cầu"
+        ],
+        [
+          "Tiền điều kiện",
+          "Xe thuộc người gửi; hai nhân viên hoạt động"
+        ],
+        [
+          "Hậu điều kiện",
+          "VehicleDelegation được lưu ở trạng thái Pending, Approved, Rejected hoặc Revoked cùng thời điểm phản hồi."
+        ],
+        [
+          "Luồng chính",
+          "1. Chọn xe/người nhận;\n2.  nhập lý do; gửi; người nhận approve; hệ thống áp dụng quyền tạm thời"
+        ],
+        [
+          "Luồng thay thế",
+          "Reject hoặc revoke"
+        ],
+        [
+          "Ngoại lệ",
+          "Trùng ủy quyền, xe không thuộc người gửi"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "Vehicle, VehicleDelegation, Employee"
+        ],
+        [
+          "Business Rule",
+          "Trạng thái Pending/Approved/Rejected/Revoked; lưu thời điểm phản hồi."
+        ]
+      ]
+    },
+    {
+      "i": 82,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "3.3.3 Administration/HR/Evidence Use Cases"
+    },
+    {
+      "i": 83,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-09 - Tạo yêu cầu nghỉ phép"
+    },
+    {
+      "i": 84,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-09"
+        ],
+        [
+          "Tên Use Case",
+          "Tạo yêu cầu nghỉ phép"
+        ],
+        [
+          "Actor chính",
+          "Nhân viên"
+        ],
+        [
+          "Actor phụ",
+          "Quản lý/Nhân sự"
+        ],
+        [
+          "Mục tiêu",
+          "Cho phép nhân viên gửi yêu cầu nghỉ phép và quản lý xử lý trực tuyến."
+        ],
+        [
+          "Trigger",
+          "Nhân viên gửi đơn"
+        ],
+        [
+          "Tiền điều kiện",
+          "Đăng nhập; khoảng ngày hợp lệ"
+        ],
+        [
+          "Hậu điều kiện",
+          "LeaveRequest được lưu với trạng thái và người phê duyệt; kết quả có thể dùng khi tổng hợp công."
+        ],
+        [
+          "Luồng chính",
+          "1. Chọn loại nghỉ;\n2.  nhập ngày/lý do; gửi Pending; approver xem và approve/reject; đồng bộ tính công"
+        ],
+        [
+          "Luồng thay thế",
+          "Nhân viên cancel trước khi duyệt"
+        ],
+        [
+          "Ngoại lệ",
+          "Ngày sai, thiếu lý do, xung đột policy"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "LeaveRequest, Employee, AppUser"
+        ],
+        [
+          "Business Rule",
+          "Lý do bắt buộc; reject cần lý do; audit approver."
+        ]
+      ]
+    },
+    {
+      "i": 85,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-10 - Tính chấm công"
+    },
+    {
+      "i": 86,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-10"
+        ],
+        [
+          "Tên Use Case",
+          "Tính chấm công"
+        ],
+        [
+          "Actor chính",
+          "Nhân sự / Hệ thống"
+        ],
+        [
+          "Actor phụ",
+          "Nhân viên"
+        ],
+        [
+          "Mục tiêu",
+          "Tổng hợp lượt qua vùng và lịch làm việc để tính thời gian làm, đi trễ, về sớm và bất thường."
+        ],
+        [
+          "Trigger",
+          "Chạy derive/recalculate theo ngày"
+        ],
+        [
+          "Tiền điều kiện",
+          "Có Shift/WorkSchedule và ZoneTransit/AccessLog"
+        ],
+        [
+          "Hậu điều kiện",
+          "Attendance được tạo hoặc tính lại; các bất thường thiếu lượt hoặc sai lịch được ghi nhận để rà soát."
+        ],
+        [
+          "Luồng chính",
+          "1. Tập hợp transit;\n2.  xác định check-in/out; tính trễ, về sớm, giờ làm/OT; lưu Attendance; phát hiện anomaly"
+        ],
+        [
+          "Luồng thay thế",
+          "Điều chỉnh có ghi chú hoặc batch"
+        ],
+        [
+          "Ngoại lệ",
+          "Thiếu transit, lịch ca chồng lấn"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "Attendance, Shift, WorkSchedule, ZoneTransit, AttendanceAnomaly"
+        ],
+        [
+          "Business Rule",
+          "Không tự đoán dữ liệu thiếu; điều chỉnh phải có audit."
+        ]
+      ]
+    },
+    {
+      "i": 87,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-11 - Quản lý và Verify Evidence"
+    },
+    {
+      "i": 88,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-11"
+        ],
+        [
+          "Tên Use Case",
+          "Quản lý và Verify Evidence"
+        ],
+        [
+          "Actor chính",
+          "Admin/SOC"
+        ],
+        [
+          "Actor phụ",
+          "Hệ thống lưu trữ"
+        ],
+        [
+          "Mục tiêu",
+          "Đăng ký bằng chứng số, bảo vệ tính toàn vẹn và cho phép kiểm tra lại SHA-256."
+        ],
+        [
+          "Trigger",
+          "Đăng ký hoặc mở bằng chứng"
+        ],
+        [
+          "Tiền điều kiện",
+          "Nguồn tồn tại; người dùng có quyền"
+        ],
+        [
+          "Hậu điều kiện",
+          "Evidence được đăng ký kèm SHA-256 và trạng thái integrity có thể được xác minh lại."
+        ],
+        [
+          "Luồng chính",
+          "1. Đăng ký metadata;\n2.  tính/lưu SHA-256; liên kết Alarm/Incident; verify hash; hiển thị trạng thái; ghi custody"
+        ],
+        [
+          "Luồng thay thế",
+          "Đưa vào collection/legal hold"
+        ],
+        [
+          "Ngoại lệ",
+          "Hash mismatch, file mất, storage lỗi"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "EvidenceItem, EvidenceCollection, ChainOfCustodyEntry"
+        ],
+        [
+          "Business Rule",
+          "Evidence immutable; SHA-256 mismatch phải cảnh báo và audit."
+        ]
+      ]
+    },
+    {
+      "i": 89,
+      "kind": "P",
+      "style": "Normal",
+      "text": "UC-12 - Redaction / Export Evidence"
+    },
+    {
+      "i": 90,
+      "kind": "T",
+      "rows": [
+        [
+          "Thuộc tính",
+          "Nội dung"
+        ],
+        [
+          "Use Case ID",
+          "UC-12"
+        ],
+        [
+          "Tên Use Case",
+          "Redaction / Export Evidence"
+        ],
+        [
+          "Actor chính",
+          "Admin/Quản lý"
+        ],
+        [
+          "Actor phụ",
+          "Người phê duyệt"
+        ],
+        [
+          "Mục tiêu",
+          "Che dữ liệu cá nhân và xuất bằng chứng theo quy trình phê duyệt, bảo toàn hash và Chain of Custody."
+        ],
+        [
+          "Trigger",
+          "Có yêu cầu chia sẻ bằng chứng"
+        ],
+        [
+          "Tiền điều kiện",
+          "Evidence tồn tại và không bị cấm xuất"
+        ],
+        [
+          "Hậu điều kiện",
+          "Bản redacted/export được tạo sau phê duyệt, kèm hash và bản ghi custody tương ứng."
+        ],
+        [
+          "Luồng chính",
+          "1. Tạo redaction;\n2.  phê duyệt; thực hiện/verify bản che; tạo export request; phê duyệt; sinh file/hash/watermark; ghi custody"
+        ],
+        [
+          "Luồng thay thế",
+          "Export collection hoặc từ chối"
+        ],
+        [
+          "Ngoại lệ",
+          "Chưa redaction, thiếu approval, legal hold/policy cấm"
+        ],
+        [
+          "Dữ liệu liên quan",
+          "RedactionRequest, EvidenceExportRequest, ChainOfCustodyEntry"
+        ],
+        [
+          "Business Rule",
+          "Tách vai trò request/approve khi policy yêu cầu; export có hash."
+        ]
+      ]
+    },
+    {
+      "i": 91,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 4: THIẾT KẾ - DESIGN"
+    },
+    {
+      "i": 92,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "4.1 Mô hình công nghệ"
+    },
+    {
+      "i": 93,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 94,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.1. Kiến trúc công nghệ V-Shield 2.0"
+    },
+    {
+      "i": 95,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Lớp trình bày gồm Vue 3 cho Web Admin/SOC và Gate Transit Console, Kotlin Android cho bảo vệ cơ động/nhân viên, cùng Visitor/Kiosk UI. Các client gọi API HTTPS REST, dùng JWT/RBAC để xác thực và phân quyền. SignalR đảm nhiệm cập nhật trạng thái, cảnh báo và điều phối sự cố theo thời gian thực."
+    },
+    {
+      "i": 96,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Backend ASP.NET Core 8 được triển khai theo Modular Monolith với các module nghiệp vụ Auth, Gate Transit, SOC, Visitor, Attendance/HR, Vehicle, Evidence và Notification. Entity Framework Core truy cập SQL Server. Tích hợp thiết bị đi qua các adapter/service cho Edge AI/ANPR, camera, QR và barrier; kiến trúc này không giả định microservices."
+    },
+    {
+      "i": 97,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "4.2 Thiết kế giao diện"
+    },
+    {
+      "i": 98,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "4.2.1 Sitemap"
+    },
+    {
+      "i": 99,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 100,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.2. Sitemap V-Shield 2.0"
+    },
+    {
+      "i": 101,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Sitemap phân tách ba bối cảnh sử dụng: Web Admin/SOC cho vận hành tập trung, mobile cho cảnh báo và tự phục vụ cá nhân, kiosk cho check-in khách. Menu được giới hạn theo chức năng đã thể hiện trong Chương 2, API/source và Chương 5; quyền hiển thị thực tế được lọc bằng RBAC."
+    },
+    {
+      "i": 102,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "4.2.2 Layout"
+    },
+    {
+      "i": 103,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 104,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.3. Wireframe layout 1"
+    },
+    {
+      "i": 105,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 106,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.4. Wireframe layout 2"
+    },
+    {
+      "i": 107,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 108,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.5. Wireframe layout 3"
+    },
+    {
+      "i": 109,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 110,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.6. Wireframe layout 4"
+    },
+    {
+      "i": 111,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Bốn layout ưu tiên tác vụ khác nhau: Web Admin/SOC tối ưu điều hướng và không gian giám sát; Gate Console tập trung quyết định trong vài giây; mobile đặt cảnh báo quan trọng và hành động chính trong vùng dễ chạm; kiosk dùng luồng tuyến tính, chữ lớn và có đường dẫn hỗ trợ thủ công."
+    },
+    {
+      "i": 112,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "4.2.3 Giao diện chức năng"
+    },
+    {
+      "i": 113,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 114,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.7. Giao diện chức năng 1"
+    },
+    {
+      "i": 115,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "Điều khiển",
+          "Sự kiện",
+          "Mô tả hoạt động"
+        ],
+        [
+          "1",
+          "KPI cảnh báo",
+          "Initialize",
+          "Tổng hợp Critical/High theo bộ lọc"
+        ],
+        [
+          "2",
+          "Active Alarm list",
+          "Receive realtime",
+          "Nhận Alarm mới qua SignalR"
+        ],
+        [
+          "3",
+          "Incident Detail",
+          "Select",
+          "Hiển thị nguồn, gate, timeline/evidence"
+        ],
+        [
+          "4",
+          "Acknowledge",
+          "Click",
+          "Xác nhận đã tiếp nhận"
+        ],
+        [
+          "5",
+          "Assign",
+          "Click",
+          "Giao incident cho người xử lý"
+        ],
+        [
+          "6",
+          "Close",
+          "Click",
+          "Đóng với kết quả xử lý"
+        ]
+      ]
+    },
+    {
+      "i": 116,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 117,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.8. Giao diện chức năng 2"
+    },
+    {
+      "i": 118,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "Điều khiển",
+          "Sự kiện",
+          "Mô tả hoạt động"
+        ],
+        [
+          "1",
+          "Camera Live",
+          "Initialize",
+          "Mở luồng camera tại gate"
+        ],
+        [
+          "2",
+          "ANPR Result",
+          "Detect",
+          "Nhận biển số và confidence"
+        ],
+        [
+          "3",
+          "QR Validation",
+          "Scan",
+          "Xác thực trạng thái QR"
+        ],
+        [
+          "4",
+          "Subject Detail",
+          "Select",
+          "Hiển thị nhân viên/khách và phương tiện"
+        ],
+        [
+          "5",
+          "Decision",
+          "Evaluate",
+          "Hiển thị Allow/Deny và lý do"
+        ],
+        [
+          "6",
+          "Open Barrier",
+          "Click",
+          "Mở barrier khi quyết định Allow"
+        ],
+        [
+          "7",
+          "Override",
+          "Click",
+          "Yêu cầu lý do và ghi audit/receipt"
+        ],
+        [
+          "8",
+          "Duress",
+          "Click",
+          "Tạo Critical Alarm kín đáo"
+        ]
+      ]
+    },
+    {
+      "i": 119,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 120,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.9. Giao diện chức năng 3"
+    },
+    {
+      "i": 121,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "Điều khiển",
+          "Sự kiện",
+          "Mô tả hoạt động"
+        ],
+        [
+          "1",
+          "Token/QR",
+          "Scan",
+          "Nhận token đăng ký"
+        ],
+        [
+          "2",
+          "Visitor identity",
+          "Input",
+          "Khai báo/đối chiếu khách"
+        ],
+        [
+          "3",
+          "Host & schedule",
+          "Validate",
+          "Kiểm tra host và cửa sổ thời gian"
+        ],
+        [
+          "4",
+          "Check-in",
+          "Submit",
+          "Ghi nhận khách đến"
+        ],
+        [
+          "5",
+          "Visitor Pass",
+          "Generate",
+          "Hiển thị/phát QR tạm thời"
+        ]
+      ]
+    },
+    {
+      "i": 122,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 123,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.10. Giao diện chức năng 4"
+    },
+    {
+      "i": 124,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "Điều khiển",
+          "Sự kiện",
+          "Mô tả hoạt động"
+        ],
+        [
+          "1",
+          "Critical badge",
+          "Receive",
+          "Hiển thị mức độ Critical"
+        ],
+        [
+          "2",
+          "Alarm title",
+          "Render",
+          "Hiển thị loại Duress Alarm"
+        ],
+        [
+          "3",
+          "Gate / Time / Source",
+          "Render",
+          "Hiển thị vị trí, timestamp và nguồn"
+        ],
+        [
+          "4",
+          "Incident Detail",
+          "Open",
+          "Hiển thị nội dung và hướng dẫn"
+        ],
+        [
+          "5",
+          "Acknowledge",
+          "Tap",
+          "Ghi nhận tiếp nhận và dừng chuông/rung"
+        ],
+        [
+          "6",
+          "Open Incident",
+          "Tap",
+          "Chuyển sang màn hình xử lý sự cố"
+        ]
+      ]
+    },
+    {
+      "i": 125,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 126,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.11. Giao diện chức năng 5"
+    },
+    {
+      "i": 127,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "Điều khiển",
+          "Sự kiện",
+          "Mô tả hoạt động"
+        ],
+        [
+          "1",
+          "KPI cards",
+          "Initialize",
+          "Tổng hợp evidence và yêu cầu chờ xử lý"
+        ],
+        [
+          "2",
+          "Evidence table",
+          "Load",
+          "Tải danh sách theo bộ lọc và quyền"
+        ],
+        [
+          "3",
+          "Detail drawer",
+          "Select",
+          "Hiển thị metadata, hash và custody"
+        ],
+        [
+          "4",
+          "Verify",
+          "Click",
+          "Đối chiếu SHA-256"
+        ],
+        [
+          "5",
+          "Redaction",
+          "Click",
+          "Tạo/duyệt yêu cầu che dữ liệu"
+        ],
+        [
+          "6",
+          "Export",
+          "Click",
+          "Tạo yêu cầu xuất có phê duyệt"
+        ],
+        [
+          "7",
+          "Custody",
+          "Open",
+          "Xem lịch sử truy cập/chuyển giao"
+        ]
+      ]
+    },
+    {
+      "i": 128,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "4.3 Thiết kế dữ liệu"
+    },
+    {
+      "i": 129,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "4.3.1 Mô hình miền dữ liệu"
+    },
+    {
+      "i": 130,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 131,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.12. Mô hình miền dữ liệu V-Shield 2.0"
+    },
+    {
+      "i": 132,
+      "kind": "P",
+      "style": "Normal",
+      "text": "ERD tổng quan chỉ giữ các thực thể cốt lõi có căn cứ trong ApplicationDbContext và model source. Quan hệ nghiệp vụ chính đi từ danh tính nhân viên đến lượt qua cổng, phương tiện/ủy quyền, đăng ký khách, cảnh báo-sự cố và bằng chứng. Các thực thể kỹ thuật mở rộng được lược bỏ để bảo đảm khả năng đọc trên khổ A4."
+    },
+    {
+      "i": 133,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "4.3.2 ERD chi tiết"
+    },
+    {
+      "i": 134,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 135,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.13. ERD chi tiết Access & Vehicle"
+    },
+    {
+      "i": 136,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 137,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.14. ERD chi tiết Visitor & HR"
+    },
+    {
+      "i": 138,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 139,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.15. ERD chi tiết SOC & Evidence"
+    },
+    {
+      "i": 140,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "4.3.3 Chi tiết thực thể"
+    },
+    {
+      "i": 141,
+      "kind": "T",
+      "rows": [
+        [
+          "Thực thể",
+          "Thuộc tính",
+          "Kiểu dữ liệu",
+          "Mô tả",
+          "Ràng buộc"
+        ],
+        [
+          "ZoneTransit",
+          "ZoneTransitId",
+          "int",
+          "Khóa lượt chuyển vùng",
+          "PK"
+        ],
+        [
+          "ZoneTransit",
+          "Direction",
+          "string(10)",
+          "Chiều IN/OUT",
+          "Required, MaxLength(10)"
+        ],
+        [
+          "VehicleDelegation",
+          "Status",
+          "string(20)",
+          "Trạng thái ủy quyền",
+          "Pending/Approved/Rejected/Revoked"
+        ],
+        [
+          "PreRegistration",
+          "ExpectedTimeIn/Out",
+          "datetime",
+          "Cửa sổ dự kiến",
+          "Out sau In"
+        ],
+        [
+          "Attendance",
+          "TotalWorkingHours",
+          "decimal(8,2)",
+          "Tổng giờ làm",
+          "Tính từ transit/schedule"
+        ],
+        [
+          "LeaveRequest",
+          "Reason",
+          "string(2000)",
+          "Lý do nghỉ",
+          "Required"
+        ],
+        [
+          "Alarm",
+          "Severity/State",
+          "string(40)",
+          "Mức độ/trạng thái cảnh báo",
+          "Theo workflow SOC"
+        ],
+        [
+          "Incident",
+          "PrimaryAlarmId",
+          "long?",
+          "Cảnh báo chính",
+          "FK logic, nullable"
+        ],
+        [
+          "EvidenceItem",
+          "HashSha256",
+          "string(128)",
+          "Giá trị băm SHA-256",
+          "MaxLength(128)"
+        ],
+        [
+          "RedactionRequest",
+          "EvidenceItemId",
+          "long",
+          "Bằng chứng cần che",
+          "FK"
+        ],
+        [
+          "ChainOfCustodyEntry",
+          "Action",
+          "string(80)",
+          "Hành động custody",
+          "MaxLength(80)"
+        ]
+      ]
+    },
+    {
+      "i": 142,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Kiểu dữ liệu và ràng buộc trong bảng được lấy từ model C# và Data Annotation/Column(TypeName) hiện có. Các quan hệ không có ForeignKey hoặc Fluent API được chứng minh rõ chỉ được mô tả ở mức liên kết nghiệp vụ, không khẳng định ràng buộc SQL."
+    },
+    {
+      "i": 143,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "4.4 UML Class Diagram - Gate Transit"
+    },
+    {
+      "i": 144,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 145,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hình 4.16. UML Class Diagram module Gate Transit"
+    },
+    {
+      "i": 146,
+      "kind": "P",
+      "style": "Normal",
+      "text": "GateTransitController cung cấp endpoint scan, scan-guest và các truy vấn liên quan đến gate/subject. ZoneTransitService thực hiện kiểm tra nghiệp vụ và ghi nhận lượt di chuyển. ApplicationDbContext đóng vai trò lớp truy cập dữ liệu bằng Entity Framework Core với các DbSet thực tế; dữ liệu được lưu trong SQL Server. Tích hợp ANPR, QR và barrier nằm ở lớp service/adapter thiết bị, phù hợp với kiến trúc ASP.NET Core hiện tại."
+    },
+    {
+      "i": 147,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 5: THỰC HIỆN – IMPLEMENT"
+    },
+    {
+      "i": 148,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "5.1 Database"
+    },
+    {
+      "i": 149,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "5.2 Layout"
+    },
+    {
+      "i": 150,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "5.3 Sơ đồ kiến trúc công nghệ"
+    },
+    {
+      "i": 151,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Tổ chức client"
+    },
+    {
+      "i": 152,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Tổ chức server (Controller, Service, DAO, Entity, Database)"
+    },
+    {
+      "i": 153,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "5.4 Các loại sơ đồ"
+    },
+    {
+      "i": 154,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "5.4.1 Sequence Diagram"
+    },
+    {
+      "i": 155,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Chọn và mô tả đầy đủ một hoạt động tương tác"
+    },
+    {
+      "i": 156,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "5.4.2 Activity Diagram"
+    },
+    {
+      "i": 157,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "5.4.3 Class Diagram"
+    },
+    {
+      "i": 158,
+      "kind": "P",
+      "style": "Heading 2",
+      "text": "5.5 API"
+    },
+    {
+      "i": 159,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "5.5.1 Controllers"
+    },
+    {
+      "i": 160,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 1: AuthController "
+    },
+    {
+      "i": 161,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "POST /api/auth/login",
+          "Thực hiện xác thực thông tin đăng nhập và cấp mã Token JWT.",
+          "Không"
+        ],
+        [
+          "GET /api/auth/profile",
+          "Lấy thông tin chi tiết và danh sách quyền của tài khoản hiện tại.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/auth/login",
+          "Thực hiện xác thực thông tin đăng nhập và cấp mã Token JWT.",
+          "Không"
+        ]
+      ]
+    },
+    {
+      "i": 162,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 2: GateTransitController"
+    },
+    {
+      "i": 163,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "POST /api/gate-transit/simulate",
+          "Mô phỏng quét mã QR & Đọc biển số tại cổng kiểm soát.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/gate-transit/override",
+          "Kích hoạt lệnh ghi đè mở cổng thủ công khi lệch trạng thái xe (yêu cầu Receipt ID).",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/gate-transit/duress",
+          "Kích hoạt báo động cưỡng ép âm thầm từ làn kiểm soát.",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 164,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 3: EnterpriseSocController"
+    },
+    {
+      "i": 165,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "GET /api/\nenterprise/soc/overview",
+          "Lấy thông số tổng quan trạng thái SOC (số lượng cảnh báo mở, SOP đang chạy).",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/\nenterprise/soc/alarms",
+          "Tạo cảnh báo an ninh mới và định tuyến thông báo SignalR.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "PATCH /api/enterprise/\nsoc/alarms/{id}/acknowledge",
+          "Xác nhận đã tiếp nhận và đang xử lý cảnh báo.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "PATCH /api/enterprise/soc/alarms/{id}/close",
+          "Đóng cảnh báo an ninh và ghi nhận ghi chú kết quả.",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 166,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 4: EnterpriseEvidenceController"
+    },
+    {
+      "i": 167,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "GET /api/enterprise\n/evidence/overview",
+          "Xem tổng quan kho bằng chứng (số tệp tin, yêu cầu xuất đang chờ duyệt).",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/enterprise\n/evidence/items",
+          "Đăng ký một tệp tin bằng chứng số mới (lưu hash SHA-256 vào db).",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/enterprise\n/evidence/items\n/{id}/verify-hash",
+          "Kiểm tra tính vẹn toàn bằng cách đối khớp mã băm SHA-256 thực tế với db.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/enterprise\n/evidence\n/redaction/apply",
+          "Thực hiện che mờ khuôn mặt/biển số xe và xuất file bằng chứng an toàn.",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 168,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 5: PreRegistrationController"
+    },
+    {
+      "i": 169,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "POST /api/\npre-registration",
+          "Nhân viên tạo thông tin đăng ký trước lịch hẹn đón khách.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "GET /api\n/pre-registration\n/active",
+          "Lấy danh sách các mã QR lịch hẹn đang hoạt động.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/\npreregistration/\n{id}/approve",
+          "Nhân sự / Lễ tân phê duyệt yêu cầu hẹn gặp của khách.",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 170,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 6: AttendancesController"
+    },
+    {
+      "i": 171,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "GET /api/attendances\n/my-records",
+          "Nhân viên xem lịch sử ghi nhận chấm công của cá nhân.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/attendances\n/calculate",
+          "Quản lý kích hoạt tiến trình tính toán công dựa trên log vào ra cổng.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "GET /api/attendances\n/anomalies",
+          "Liệt kê các bản ghi chấm công có dấu hiệu bất thường (thiếu giờ, sai ca).",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 172,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 173,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Controller 7: LeaveRequestsController"
+    },
+    {
+      "i": 174,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "POST /api/\nleave-requests",
+          "Nhân viên nộp đơn xin nghỉ phép (chọn ngày, lý do nghỉ).",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "GET /api/\nleave-requests\n/pending",
+          "Quản lý lấy danh sách đơn xin nghỉ phép đang chờ duyệt.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "POST /api/\nleave-requests\n/{id}/approve",
+          "Phê duyệt hoặc từ chối đơn xin nghỉ phép.",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 175,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "Controller 8: VehicleDelegationsController"
+    },
+    {
+      "i": 176,
+      "kind": "T",
+      "rows": [
+        [
+          "URL",
+          "Mô tả hoạt động",
+          "Bảo mật"
+        ],
+        [
+          "POST /api/vehicle-delegations",
+          "Khởi tạo đơn ủy quyền phương tiện cho đồng nghiệp khác sử dụng.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "GET /api/vehicle-delegations/my-delegations",
+          "Xem lịch sử các phương tiện đã ủy quyền đi/nhận ủy quyền.",
+          "Đăng nhập (Token JWT)"
+        ],
+        [
+          "DELETE /api/vehicle-delegations/{id}",
+          "Hủy bỏ ủy quyền sử dụng phương tiện trước thời hạn.",
+          "Đăng nhập (Token JWT)"
+        ]
+      ]
+    },
+    {
+      "i": 177,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 178,
+      "kind": "P",
+      "style": "Heading 3",
+      "text": "5.5.2 Servives (Bussiness Logic Layer)"
+    },
+    {
+      "i": 179,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Service 1: AuthService"
+    },
+    {
+      "i": 180,
+      "kind": "T",
+      "rows": [
+        [
+          "Method",
+          "Tham số",
+          "Mô tả hoạt động"
+        ],
+        [
+          "AuthenticateAsync",
+          "string username, string password",
+          "Xác thực tài khoản người dùng và sinh JWT token kèm các Claims phân quyền."
+        ],
+        [
+          "RevokeTokenAsync",
+          "string token",
+          "Hủy hiệu lực của token đăng nhập khi người dùng chọn đăng xuất."
+        ]
+      ]
+    },
+    {
+      "i": 181,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Service 2: ZoneTransitService"
+    },
+    {
+      "i": 182,
+      "kind": "T",
+      "rows": [
+        [
+          "Method",
+          "Tham số",
+          "Mô tả hoạt động"
+        ],
+        [
+          "EvaluateTransitRequestAsync",
+          "string gateId, string cardOrQrData, string plateObserved",
+          "Xác thực tổng hợp: giải mã kiểm tra QR, đối khớp ảnh biển số xe thực tế, kiểm tra phân quyền khu vực cổng."
+        ],
+        [
+          "AuthorizeOverrideAsync",
+          "string gateId, string reason, string guardUserId",
+          "Ghi đè khẩn cấp mở Barie, sinh tài liệu Receipt ID lưu trữ vết kiểm toán."
+        ],
+        [
+          "",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "i": 183,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Service 3: SocIntelligenceService"
+    },
+    {
+      "i": 184,
+      "kind": "T",
+      "rows": [
+        [
+          "Method",
+          "Tham số",
+          "Mô tả hoạt động"
+        ],
+        [
+          "ClassifyAlarmAsync",
+          "long alarmId",
+          "Sử dụng mô hình AI phân tích từ khóa và mô tả sự cố để tự động gắn mức độ nghiêm trọng và loại cảnh báo."
+        ],
+        [
+          "EvaluateIncidentRiskAsync",
+          "long incidentId",
+          "Đánh giá mức độ rủi ro chuỗi của sự vụ dựa trên lịch sử hoạt động xung quanh thiết bị."
+        ]
+      ]
+    },
+    {
+      "i": 185,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Service 4: EvidenceCaptureService"
+    },
+    {
+      "i": 186,
+      "kind": "T",
+      "rows": [
+        [
+          "Method",
+          "Tham số",
+          "Mô tả hoạt động"
+        ],
+        [
+          "CaptureAndHashAsync",
+          "string rawDataPath, string eventType",
+          "Chụp ảnh/video hiện trường từ cam, lưu trữ vào đĩa cứng và thực hiện băm thuật toán SHA-256 ghi nhận vẹn toàn vào cơ sở dữ liệu."
+        ],
+        [
+          "VerifyChainOfCustodyAsync",
+          "long itemId",
+          "Đối soát toàn bộ lịch sử bàn giao (Chain of Custody) để đảm bảo bằng chứng không bị can thiệp trái phép."
+        ]
+      ]
+    },
+    {
+      "i": 187,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Service 5: AttendanceCalculationService"
+    },
+    {
+      "i": 188,
+      "kind": "T",
+      "rows": [
+        [
+          "Method",
+          "Tham số",
+          "Mô tả hoạt động"
+        ],
+        [
+          "CalculateDailyAttendanceAsync",
+          "int employeeId, DateTime date",
+          "Quét log vào ra cổng đầu tiên và cuối cùng trong ngày, đối khớp ca làm việc và tính tổng số giờ công thực tế."
+        ],
+        [
+          "FlagAttendanceAnomalyAsync",
+          "int employeeId, DateTime date",
+          "Gắn nhãn các ngày công thiếu log vào/ra hoặc đi trễ về sớm vượt hạn định."
+        ]
+      ]
+    },
+    {
+      "i": 189,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Service 6: UebaService"
+    },
+    {
+      "i": 190,
+      "kind": "T",
+      "rows": [
+        [
+          "Method",
+          "Tham số",
+          "Mô tả hoạt động"
+        ],
+        [
+          "AnalyzeUserBehaviorAsync",
+          "int employeeId",
+          "Chạy thuật toán chấm điểm rủi ro hành vi của nhân viên dựa trên các hoạt động bất thường (quét cổng sai giờ, truy cập vùng cấm)."
+        ],
+        [
+          "GetAnomalyScoreAsync",
+          "int employeeId",
+          "Lấy điểm rủi ro hành vi hiện tại để hiển thị trên màn hình SOC Console."
+        ]
+      ]
+    },
+    {
+      "i": 191,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 192,
+      "kind": "P",
+      "style": "Normal",
+      "text": "5.6 Các phân hệ chức năng đã hiện thực trên phần mềm"
+    },
+    {
+      "i": 193,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hệ thống V-Shield 2.0 đã được xây dựng và hoàn thiện với các phân hệ chức năng nghiệp vụ doanh nghiệp đa dạng, được tổ chức chặt chẽ từ backend cho tới giao diện web và mobile:"
+    },
+    {
+      "i": 194,
+      "kind": "P",
+      "style": "Normal",
+      "text": "1. Phân hệ giám sát & SOC an ninh (Security Operations Center)"
+    },
+    {
+      "i": 195,
+      "kind": "P",
+      "style": "Normal",
+      "text": "SOC Alarm Console: Trung tâm tiếp nhận và xử lý các cảnh báo an ninh thời gian thực (như cảnh báo duress, đột nhập, thiết bị mất kết nối) thông qua SignalR. Hỗ trợ quy trình xử lý chuẩn bao gồm: xác nhận (acknowledge), bàn giao nhiệm vụ xử lý cho bảo vệ cơ động (assign), ghi chú thảo luận (comments) và đóng sự cố (close)."
+    },
+    {
+      "i": 196,
+      "kind": "P",
+      "style": "Normal",
+      "text": "AI Incident Copilot: Tích hợp trí tuệ nhân tạo (AI) tự động phân tích dữ liệu cảnh báo thô, phân loại mức độ nguy hiểm và đề xuất quy trình thao tác chuẩn (SOP - Standard Operating Procedure) phù hợp cho đội bảo vệ."
+    },
+    {
+      "i": 197,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Device Topology & Health: Giao diện sơ đồ cây mạng lưới thiết bị (cổng, camera AI, barrier, đầu đọc). Hiển thị trực quan trạng thái kết nối (online/offline) và đưa ra chẩn đoán lỗi tự động của hệ thống phần cứng."
+    },
+    {
+      "i": 198,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Emergency Muster (Điểm danh khẩn cấp): Khi kích hoạt chế độ khẩn cấp (như báo cháy), hệ thống tự động xuất danh sách điểm danh và ghi nhận trạng thái an toàn (mustered) của toàn bộ nhân viên tại các điểm tập kết."
+    },
+    {
+      "i": 199,
+      "kind": "P",
+      "style": "Normal",
+      "text": "2. Phân hệ kiểm soát vào ra & điều khiển làn (Gate Transit & Barrier)"
+    },
+    {
+      "i": 200,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Gate Transit Console: Giao diện làm việc chính của bảo vệ tại cổng. Tích hợp hiển thị đồng thời 3 luồng dữ liệu xác minh: nhận diện khuôn mặt (Face ID), nhận diện biển số xe (ANPR) và đối khớp mã QR động."
+    },
+    {
+      "i": 201,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Cơ chế Override (Cho qua có trách nhiệm): Cho phép bảo vệ mở barrier thủ công bằng lệnh ghi đè khi phát hiện lệch trạng thái xe trong bãi (như hệ thống báo bãi đầy nhưng thực tế còn chỗ). Hành vi này yêu cầu ghi lý do ngoại lệ và ký cam kết chịu trách nhiệm cá nhân, hệ thống sẽ tự động tạo Receipt ID để đối soát."
+    },
+    {
+      "i": 202,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Barrier Control & Simulator: Cho phép điều khiển đóng/mở barrier từ xa bằng phần mềm. Tích hợp bộ giả lập thiết bị (Device Simulator) để mô phỏng dữ liệu và tiêm lỗi (Fault Injection) phục vụ kiểm thử."
+    },
+    {
+      "i": 203,
+      "kind": "P",
+      "style": "Normal",
+      "text": "3. Phân hệ quản lý khách (Visitor Management)"
+    },
+    {
+      "i": 204,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Đăng ký trước (Pre-registration): Nhân viên (Host) có thể tạo link đăng ký gửi cho khách để tự khai báo thông tin cá nhân, thời gian và biển số xe trước từ xa. Hệ thống tự động tạo và gửi mã QR tạm thời cho khách qua email/SMS."
+    },
+    {
+      "i": 205,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Kiosk Check-in & Reception: Khách đến công ty có thể tự check-in tại kiosk thông qua quét mã QR hoặc nhận diện khuôn mặt. Nhân viên lễ tân có giao diện quản lý khách lưu trú quá giờ (Overstay) và phê duyệt các yêu cầu check-in trực tiếp."
+    },
+    {
+      "i": 206,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Watchlist & Watchlist Matcher: Quản lý danh sách đen/đối tượng cần cảnh giác. Hệ thống tự động quét và đối khớp thông tin khách đăng ký với danh sách Watchlist để đưa ra cảnh báo sớm cho nhân viên an ninh."
+    },
+    {
+      "i": 207,
+      "kind": "P",
+      "style": "Normal",
+      "text": "4. Phân hệ quản lý nhân sự & chấm công (HR & Attendance)"
+    },
+    {
+      "i": 208,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Attendance System & Shifts: Quản lý ca làm việc (Shifts) linh hoạt cho nhiều phòng ban. Tự động tổng hợp dữ liệu chấm công hàng ngày dựa trên lịch sử quét mã QR/khuôn mặt tại các cổng kiểm soát vào ra."
+    },
+    {
+      "i": 209,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Leave Requests (Quản lý nghỉ phép): Nhân viên tạo đơn xin nghỉ phép trên mobile app. Quản lý nhận thông báo phê duyệt trực tuyến, hệ thống tự động đồng bộ dữ liệu nghỉ phép để khấu trừ khi tổng hợp công."
+    },
+    {
+      "i": 210,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Ủy quyền phương tiện (Vehicle Delegation): Nhân viên có thể ủy quyền xe của mình cho đồng nghiệp sử dụng tạm thời, giúp hệ thống nhận diện biển số đối khớp đúng người điều khiển thực tế, tránh kích hoạt cảnh báo bất thường."
+    },
+    {
+      "i": 211,
+      "kind": "P",
+      "style": "Normal",
+      "text": "5. Phân hệ bằng chứng số & tuân thủ (Evidence & Compliance)"
+    },
+    {
+      "i": 212,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Evidence Repository: Lưu trữ tập trung các hình ảnh, video trích xuất từ camera khi xảy ra sự cố. Mỗi bằng chứng được băm mã hóa SHA-256 ngay khi tạo để đảm bảo tính vẹn toàn pháp lý."
+    },
+    {
+      "i": 213,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Chain of Custody (Chuỗi bảo quản bằng chứng): Ghi nhận nhật ký lịch sử chi tiết mọi thao tác truy cập, duyệt trích xuất hoặc tải về bằng chứng của quản trị viên (Custody Log), làm cơ sở pháp lý."
+    },
+    {
+      "i": 214,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Redaction Queue: Quy trình xử lý che mờ (Blur) khuôn mặt của những người không liên quan và biển số xe trên video/ảnh trước khi xuất file nhằm tuân thủ quy định bảo vệ dữ liệu cá nhân (GDPR/Nghị định 13)."
+    },
+    {
+      "i": 215,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Retention Policy & Legal Hold: Thiết lập thời gian tự động xóa dữ liệu bằng chứng theo chính sách lưu trữ của công ty, hỗ trợ lệnh giữ pháp lý (Legal Hold) đóng băng dữ liệu để phục vụ điều tra."
+    },
+    {
+      "i": 216,
+      "kind": "P",
+      "style": "Normal",
+      "text": "6. Phân tích hành vi bất thường (UEBA - User and Entity Behavior Analytics)"
+    },
+    {
+      "i": 217,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hệ thống tự động phân tích dữ liệu vào ra để phát hiện các hành vi bất thường của nhân viên hoặc thiết bị (như truy cập khu vực cấm, vào ra ngoài giờ làm việc bất thường hoặc đăng nhập đồng thời từ hai địa điểm địa lý xa nhau)."
+    },
+    {
+      "i": 218,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 6: KIỂM THỬ - TESTING"
+    },
+    {
+      "i": 219,
+      "kind": "T",
+      "rows": [
+        [
+          "TT",
+          "CHỨC NĂNG",
+          "DỮ LIỆU MẪU",
+          "KẾT QUẢ MONG ĐỢI",
+          "TÌNH TRẠNG"
+        ],
+        [
+          "1",
+          "Gate Transit",
+          "",
+          "",
+          ""
+        ],
+        [
+          "1.1",
+          "QR hợp lệ",
+          "QR động còn hạn",
+          "Quyết định Allow; ghi AccessLog/Receipt ID",
+          ""
+        ],
+        [
+          "1.2",
+          "ANPR không khớp",
+          "Biển số khác hồ sơ",
+          "Từ chối và hiển thị lý do",
+          ""
+        ],
+        [
+          "1.3",
+          "Override",
+          "Lý do ngoại lệ hợp lệ",
+          "Mở barrier; ghi audit/receipt",
+          ""
+        ],
+        [
+          "1.4",
+          "Duress",
+          "Gate đang hoạt động",
+          "Tạo Alarm Critical và đẩy SignalR",
+          ""
+        ],
+        [
+          "2",
+          "Đăng nhập",
+          "",
+          "",
+          ""
+        ],
+        [
+          "2.1",
+          "Để trống",
+          "",
+          "Yêu cầu nhập",
+          "Đã fix"
+        ],
+        [
+          "2.2",
+          "Sai thông tin",
+          "Sai username/mật khẩu",
+          "Từ chối, không lộ chi tiết nhạy cảm",
+          ""
+        ],
+        [
+          "2.3",
+          "Đăng nhập đúng",
+          "Tài khoản hoạt động",
+          "Cấp JWT và chuyển theo vai trò",
+          ""
+        ],
+        [
+          "2.4",
+          "Phân quyền",
+          "Role BaoVe Gate",
+          "Chỉ hiển thị chức năng được cấp",
+          ""
+        ],
+        [
+          "3",
+          "SOC Alarm",
+          "",
+          "",
+          ""
+        ],
+        [
+          "3.1",
+          "Acknowledge",
+          "Alarm trạng thái New",
+          "Chuyển trạng thái và lưu timestamp",
+          ""
+        ],
+        [
+          "3.2",
+          "Close",
+          "Incident có outcome",
+          "Đóng sự cố và ghi audit",
+          ""
+        ],
+        [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "i": 220,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHẦN 7: ĐÓNG GÓI & TRIỂN KHAI"
+    },
+    {
+      "i": 221,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Đóng gói phía Backend & Web: Sử dụng Docker Compose để đóng gói các service: vshield-api (ASP.NET API), vshield-frontend (Vue Web), vshield-go2rtc (Stream service), cùng các container runtime AI phục vụ chạy local hoặc deploy nhanh lên VPS thông qua file docker-compose.yml."
+    },
+    {
+      "i": 222,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Đóng gói phía Mobile: Sử dụng Gradle đóng gói thành tệp tin APK cài đặt trực tiếp trên thiết bị Android (app-debug.apk)."
+    },
+    {
+      "i": 223,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hướng dẫn khôi phục: File backup CSDL AccessControlDB_HoanChinh.sql có thể khôi phục nhanh thông qua SQL Server Management Studio (SSMS)."
+    },
+    {
+      "i": 224,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 225,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "KẾT LUẬN"
+    },
+    {
+      "i": 226,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Dự án V-Shield 2.0 đã hoàn thành thiết kế và phát triển nguyên mẫu hệ thống kiểm soát vào ra thông minh kết hợp trung tâm điều phối an ninh SOC đáp ứng đầy đủ yêu cầu nghiệp vụ thực tế của khách hàng."
+    },
+    {
+      "i": 227,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Những gì đã làm được: Hệ thống hoạt động mượt mà với độ trễ thấp (SignalR dưới 80ms, nhận diện vào cổng dưới 2 giây), tích hợp báo động lặp liên tục trên di động và cơ chế bảo vệ bằng chứng số SHA-256 hoàn chỉnh."
+    },
+    {
+      "i": 228,
+      "kind": "P",
+      "style": "Normal",
+      "text": "Hướng phát triển: Tích hợp thêm các cảm biến nhiệt độ kiểm soát liveness khuôn mặt chống giả mạo sâu hơn và mở rộng hệ thống sang tích hợp phần mềm nhà thông minh (Smart Building)."
+    },
+    {
+      "i": 229,
+      "kind": "P",
+      "style": "Normal",
+      "text": ""
+    },
+    {
+      "i": 230,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "PHỤ LỤC"
+    },
+    {
+      "i": 231,
+      "kind": "P",
+      "style": "Normal",
+      "text": "…"
+    },
+    {
+      "i": 232,
+      "kind": "P",
+      "style": "Heading 1",
+      "text": "TÀI LIỆU THAM KHẢO"
+    },
+    {
+      "i": 233,
+      "kind": "P",
+      "style": "Normal",
+      "text": "…"
+    }
+  ]
+}

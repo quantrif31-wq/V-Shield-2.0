@@ -538,9 +538,10 @@ export default {
   display: flex;
   height: calc(100vh - 120px);
   background: var(--surface-subtle);
-  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card, 14px);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .chat-sidebar {
@@ -565,7 +566,7 @@ export default {
   cursor: pointer;
   font-size: 14px;
   color: var(--text-muted);
-  transition: all 0.2s;
+  transition: all var(--transition-fast, 0.2s);
 }
 
 .sidebar-tabs button.active {
@@ -586,10 +587,13 @@ export default {
   font-size: 13px;
   outline: none;
   box-sizing: border-box;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
 }
 
 .sidebar-search input:focus {
-  border-color: var(--accent-primary);
+  border-color: var(--border-focus);
+  background: var(--surface-default);
 }
 
 .sidebar-list {
@@ -623,7 +627,7 @@ export default {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #1976D2;
+  background: var(--accent-gradient);
   color: var(--text-on-interactive);
   display: flex;
   align-items: center;
@@ -631,6 +635,7 @@ export default {
   font-weight: 600;
   font-size: 16px;
   flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
 }
 
 .conv-info,
@@ -642,7 +647,7 @@ export default {
 .conv-title,
 .contact-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -673,8 +678,9 @@ export default {
 
 .contact-position {
   font-size: 11px;
-  color: var(--accent-primary);
+  color: var(--status-info-text);
   background: var(--status-info-bg);
+  border: 1px solid var(--status-info-border);
   padding: 1px 6px;
   border-radius: 4px;
 }
@@ -699,6 +705,7 @@ export default {
   border-radius: 6px;
   outline: none;
   background: var(--surface-default);
+  color: var(--text-primary);
 }
 
 .conv-meta {
@@ -715,6 +722,7 @@ export default {
   background: var(--accent-primary);
   color: var(--text-on-interactive);
   font-size: 11px;
+  font-weight: 700;
   border-radius: 10px;
   padding: 2px 7px;
   margin-top: 4px;
@@ -752,6 +760,7 @@ export default {
 .chat-header-info h3 {
   margin: 0;
   font-size: 16px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -770,19 +779,19 @@ export default {
   height: 36px;
   border: 1px solid var(--border-subtle);
   border-radius: 50%;
-  background: none;
+  background: var(--surface-subtle);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  transition: all 0.2s;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast, 0.2s);
 }
 
 .btn-icon:hover {
-  background: var(--surface-selected);
+  background: var(--surface-hover);
   color: var(--accent-primary);
-  border-color: var(--accent-primary);
+  border-color: var(--border-focus);
   transform: translateY(-1px);
 }
 
@@ -822,11 +831,14 @@ export default {
   padding: 10px 14px;
   border-radius: 18px;
   background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   position: relative;
 }
 
 .message-mine .message-bubble {
-  background: #1976D2;
+  background: var(--accent-gradient);
+  border: none;
   color: var(--text-on-interactive);
   border-bottom-right-radius: 4px;
 }
@@ -848,13 +860,14 @@ export default {
 }
 
 .message-mine .message-time {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .call-message {
-  background: #f0f7ff !important;
+  background: var(--status-info-bg) !important;
+  border: 1px solid var(--status-info-border);
   text-align: center;
-  color: #1976D2;
+  color: var(--status-info-text);
 }
 
 .call-info {
@@ -883,7 +896,7 @@ export default {
   gap: 5px;
   color: var(--status-success-text);
 }
-.chat-realtime-global { position: absolute; z-index: 2; right: 16px; top: 8px; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.92); }
+.chat-realtime-global { position: absolute; z-index: 2; right: 16px; top: 8px; padding: 4px 8px; border-radius: 999px; background: var(--surface-raised); border: 1px solid var(--border-subtle); color: var(--text-primary); box-shadow: var(--shadow-xs); }
 
 .chat-realtime-status:not(.is-live) {
   color: var(--status-warning-text);
@@ -900,20 +913,25 @@ export default {
   display: flex;
   padding: 12px 20px;
   border-top: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
   gap: 8px;
 }
 
 .chat-input input {
   flex: 1;
   padding: 10px 16px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
+  background: var(--surface-default);
+  color: var(--text-primary);
   border-radius: 24px;
   font-size: 14px;
   outline: none;
+  transition: border-color var(--transition-fast, 0.15s ease), box-shadow var(--transition-fast, 0.15s ease);
 }
 
 .chat-input input:focus {
-  border-color: var(--accent-primary);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--border-focus) 20%, transparent);
 }
 
 .chat-input button {
@@ -921,24 +939,25 @@ export default {
   height: 42px;
   border: none;
   border-radius: 50%;
-  background: #1976D2;
+  background: var(--accent-gradient);
   color: var(--text-on-interactive);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 6px 14px rgba(15, 124, 130, 0.28);
+  transition: transform var(--transition-fast, 0.2s), box-shadow var(--transition-fast, 0.2s);
 }
 
 .chat-input button:hover:not(:disabled) {
-  background: #1565C0;
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(25, 118, 210, 0.3);
+  box-shadow: 0 8px 18px rgba(15, 124, 130, 0.35);
 }
 
 .chat-input button:disabled {
   background: var(--interactive-disabled);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .empty-state {

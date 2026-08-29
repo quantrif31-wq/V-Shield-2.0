@@ -254,15 +254,15 @@ export default {
   transition: all 0.2s;
 }
 .btn-route {
-  background: #2563eb;
-  color: white;
+  background: var(--interactive-primary);
+  color: var(--text-on-interactive);
 }
-.btn-route:hover { background: #1d4ed8; }
-.btn-route:disabled { background: #93c5fd; cursor: not-allowed; }
+.btn-route:hover { background: var(--interactive-primary-hover); }
+.btn-route:disabled { background: var(--interactive-disabled); cursor: not-allowed; }
 .btn-maps {
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #e0e0e0;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
 }
-.btn-maps:hover { background: #e5e5e5; }
+.btn-maps:hover { background: var(--surface-hover); }
 </style>

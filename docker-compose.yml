@@ -28,11 +28,12 @@ services:
       VSHIELD_JWT_SECRET: "${VSHIELD_JWT_SECRET:-VshieldLocalJwtSecretKey_2026_ChangeMe123}"
       VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:-admin}"
       VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:-AdminLocal@2026}"
+      SeedAdmin__ResetPasswordOnStartup: "true"
       DemoData__Enabled: "${DEMO_DATA_ENABLED:-true}"
       Runtime__Mode: docker
       Security__EnableHttpsRedirection: "false"
       DataProtection__KeyRingPath: "/var/app/data-protection"
-      AppSettings__FrontendUrl: "${APP_FRONTEND_URL:-}"
+      AppSettings__FrontendUrl: "${APP_FRONTEND_URL:-http://localhost:5173}"
       AppSettings__Go2RtcPublicBaseUrl: "${APP_GO2RTC_PUBLIC_BASE_URL:-}"
       AppSettings__AllowCrossOriginGo2RtcFrame: "${APP_ALLOW_CROSS_ORIGIN_GO2RTC_FRAME:-false}"
       AppSettings__AllowedOrigins__0: "http://localhost:5173"

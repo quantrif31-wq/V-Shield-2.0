@@ -35,17 +35,17 @@ defineProps({
 </script>
 
 <style scoped>
-.enterprise-table-shell { overflow: hidden; border: 1px solid #dbe3ea; background: #fff; box-shadow: 0 5px 16px rgba(15,23,42,.05); }
-.enterprise-table-toolbar { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.enterprise-table-shell { overflow: hidden; border: 1px solid var(--border-subtle); background: var(--surface-default); box-shadow: var(--shadow-sm); }
+.enterprise-table-toolbar { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-subtle); }
 .enterprise-table-scroll { overflow: auto; max-width: 100%; }
-table { width: 100%; border-collapse: collapse; background: #fff; color: #172033; }
-th,td { padding: 12px 14px; border-bottom: 1px solid #e7edf2; text-align: left; vertical-align: middle; }
-th { font-size: 12px; font-weight: 800; color: #475569; background: #eef3f7; text-transform: uppercase; }
+table { width: 100%; border-collapse: collapse; background: var(--surface-default); color: var(--text-primary); }
+th,td { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: middle; }
+th { font-size: 12px; font-weight: 800; color: var(--text-muted); background: var(--surface-subtle); text-transform: uppercase; }
 .sticky-header th { position: sticky; top: 0; z-index: 1; }
-tbody tr:hover { background: #f4f8fa; }
+tbody tr:hover { background: var(--surface-hover); }
 .density-compact th,.density-compact td { padding: 8px 10px; }
 .actions-column { width: 1%; white-space: nowrap; text-align: right; }
-.enterprise-table-state { min-height: 150px; display: grid; place-content: center; gap: 5px; text-align: center; color: #64748b; padding: 24px; }
-.enterprise-table-state strong { color: #25364a; }
-.enterprise-table-state--error { color: #b42318; background: #fff7f6; }
+.enterprise-table-state { min-height: 150px; display: grid; place-content: center; gap: 5px; text-align: center; color: var(--text-muted); padding: 24px; }
+.enterprise-table-state strong { color: var(--text-primary); }
+.enterprise-table-state--error { color: var(--status-danger-text); background: var(--status-danger-bg); }
 </style>

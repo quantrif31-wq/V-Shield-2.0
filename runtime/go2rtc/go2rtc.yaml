@@ -1,16 +1,16 @@
 streams:
-  cam11:
+  cam12:
+    - rtsp://admin:L24460D0@192.168.137.223:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
+    - ffmpeg:rtsp://admin:L24460D0@192.168.137.223:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
+    - rtsp://admin:L24460D0@192.168.137.223:554/cam/realmonitor?channel=1&subtype=1
+  cam1013:
     - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
     - ffmpeg:rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
     - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1
-  cam12:
-    - rtsp://admin:L24460D0@192.168.137.35:554/cam/realmonitor?channel=1&subtype=0#transport=tcp
-    - ffmpeg:rtsp://admin:L24460D0@192.168.137.35:554/cam/realmonitor?channel=1&subtype=0#video=mjpeg
-    - rtsp://admin:L24460D0@192.168.137.35:554/cam/realmonitor?channel=1&subtype=0
-  cam13:
-    - rtsp://192.168.137.141:1945/#transport=tcp
-    - ffmpeg:rtsp://192.168.137.141:1945/#video=mjpeg
-    - rtsp://192.168.137.141:1945/
+  cam2014:
+    - rtsp://admin:L2E8D067@192.168.137.123:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
+    - ffmpeg:rtsp://admin:L2E8D067@192.168.137.123:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
+    - rtsp://admin:L2E8D067@192.168.137.123:554/cam/realmonitor?channel=1&subtype=1
 api:
   origin: "*"
 webrtc:

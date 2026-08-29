@@ -1638,7 +1638,7 @@ onMounted(async () => {
 .workspace-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
 .workspace-tabs button { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-soft); background: var(--surface); color: var(--text-secondary); font-weight: 700; transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast); }
 .workspace-tabs button:hover { transform: translateY(-1px); border-color: var(--border-strong); }
-.workspace-tabs button.active { color: #05313b; background: #8ceaf4; border-color: #8ceaf4; }
+.workspace-tabs button.active { color: var(--text-on-interactive); background: var(--interactive-primary); border-color: var(--interactive-primary); }
 .workspace-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .workspace-stat { min-height: 86px; padding: 14px; border-radius: 14px; border: 1px solid var(--border-soft); background: var(--surface-muted); }
 .workspace-stat strong { display: block; font-size: 1.45rem; color: var(--text-primary); }

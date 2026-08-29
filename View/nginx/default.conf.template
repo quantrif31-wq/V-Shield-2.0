@@ -30,7 +30,7 @@ server {
     proxy_set_header X-Forwarded-Host $host;
   }
 
-  location /health/ {
+  location ^~ /health/ {
     proxy_pass ${API_PROXY_BASE}/health/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
@@ -40,7 +40,7 @@ server {
     proxy_set_header X-Forwarded-Host $host;
   }
 
-  location /api/ {
+  location ^~ /api/ {
     proxy_pass ${API_PROXY_BASE}/api/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
@@ -54,7 +54,7 @@ server {
     proxy_buffering off;
   }
 
-  location /hubs/ {
+  location ^~ /hubs/ {
     proxy_pass ${API_PROXY_BASE}/hubs/;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
@@ -70,7 +70,7 @@ server {
     proxy_buffering off;
   }
 
-  location /qr-api/ {
+  location ^~ /qr-api/ {
     # Resolve optional profile services at request time so nginx can still
     # start when the lightweight stack is running without AI containers.
     resolver 127.0.0.11 valid=10s ipv6=off;
@@ -89,7 +89,7 @@ server {
     proxy_buffering off;
   }
 
-  location /qr-api-lane2/ {
+  location ^~ /qr-api-lane2/ {
     resolver 127.0.0.11 valid=10s ipv6=off;
     set $qr_proxy_base_lane2 ${QR_PROXY_BASE_LANE2};
     rewrite ^/qr-api-lane2/(.*)$ /$1 break;
@@ -106,7 +106,7 @@ server {
     proxy_buffering off;
   }
 
-  location /plate-api/ {
+  location ^~ /plate-api/ {
     resolver 127.0.0.11 valid=10s ipv6=off;
     set $plate_proxy_base ${PLATE_PROXY_BASE};
     rewrite ^/plate-api/(.*)$ /$1 break;
@@ -176,5 +176,6 @@ server {
 
   location / {
     try_files $uri $uri/ /index.html;
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
   }
 }

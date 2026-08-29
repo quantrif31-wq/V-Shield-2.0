@@ -715,8 +715,8 @@ onBeforeUnmount(() => {
 .support-card {
     padding: 18px;
     border-radius: 22px;
-    border: 1px solid rgba(24, 49, 77, 0.08);
-    background: rgba(236, 244, 246, 0.64);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
 }
 
 .hero-metric,
@@ -731,7 +731,7 @@ onBeforeUnmount(() => {
 .support-card.accent {
     background:
         linear-gradient(135deg, rgba(15, 124, 130, 0.12), rgba(84, 196, 211, 0.08)),
-        rgba(236, 244, 246, 0.72);
+        var(--surface-subtle);
 }
 
 .hero-metric strong,
@@ -1051,23 +1051,23 @@ onBeforeUnmount(() => {
 .countdown-card.stable {
     background:
         linear-gradient(135deg, rgba(20, 134, 109, 0.1), rgba(84, 196, 211, 0.08)),
-        rgba(236, 244, 246, 0.72);
+        var(--surface-subtle);
 }
 
 .countdown-card.warning {
     background:
         linear-gradient(135deg, rgba(184, 111, 33, 0.12), rgba(216, 155, 55, 0.08)),
-        rgba(236, 244, 246, 0.72);
+        var(--surface-subtle);
 }
 
 .countdown-card.urgent {
     background:
         linear-gradient(135deg, rgba(195, 81, 70, 0.14), rgba(216, 155, 55, 0.08)),
-        rgba(236, 244, 246, 0.72);
+        var(--surface-subtle);
 }
 
 .countdown-card.muted {
-    background: rgba(236, 244, 246, 0.72);
+    background: var(--surface-subtle);
 }
 
 .countdown-track {

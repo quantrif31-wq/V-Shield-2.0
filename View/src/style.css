@@ -31,8 +31,8 @@
   --bg-card-strong: var(--surface-default);
   --bg-card-hover: var(--surface-hover);
   --bg-input: var(--surface-subtle);
-  --bg-sidebar: rgba(12, 27, 42, 0.96);
-  --bg-sidebar-raised: rgba(20, 38, 58, 0.98);
+  --bg-sidebar: rgba(255, 255, 255, 0.96);
+  --bg-sidebar-raised: rgba(246, 250, 251, 0.98);
   --bg-header: rgba(251, 253, 254, 0.78);
   --bg-shell: radial-gradient(circle at top left, rgba(84, 196, 211, 0.16), transparent 36%),
     radial-gradient(circle at top right, rgba(216, 155, 55, 0.12), transparent 26%),
@@ -53,12 +53,12 @@
   /* Text colors are provided by semantic tokens. */
 
   /* Sidebar-specific */
-  --sidebar-text: rgba(239, 247, 248, 0.95);
-  --sidebar-text-muted: rgba(188, 209, 218, 0.75);
-  --sidebar-border: rgba(198, 229, 235, 0.08);
-  --sidebar-hover: rgba(84, 196, 211, 0.1);
-  --sidebar-active: linear-gradient(135deg, rgba(15, 124, 130, 0.22), rgba(43, 109, 138, 0.18));
-  --sidebar-active-border: rgba(84, 196, 211, 0.32);
+  --sidebar-text: var(--text-primary);
+  --sidebar-text-muted: var(--text-muted);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-hover: var(--surface-hover);
+  --sidebar-active: linear-gradient(135deg, rgba(15, 124, 130, 0.12), rgba(43, 109, 138, 0.08));
+  --sidebar-active-border: rgba(15, 124, 130, 0.35);
 
   /* Surface aliases (used in enterprise pages) */
   --surface: var(--surface-default);
@@ -93,6 +93,33 @@
   --transition-fast: 0.18s ease;
   --transition-normal: 0.28s ease;
   --transition-slow: 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-theme='dark'] {
+  --bg-primary: var(--surface-app);
+  --bg-secondary: var(--surface-raised);
+  --bg-card: color-mix(in srgb, var(--surface-default) 92%, transparent);
+  --bg-card-strong: var(--surface-default);
+  --bg-card-hover: var(--surface-hover);
+  --bg-input: var(--surface-subtle);
+  --bg-sidebar: rgba(11, 22, 34, 0.98);
+  --bg-sidebar-raised: rgba(17, 33, 49, 0.98);
+  --bg-header: rgba(18, 33, 49, 0.88);
+  --bg-shell: radial-gradient(circle at top left, rgba(53, 168, 178, 0.14), transparent 36%),
+    radial-gradient(circle at top right, rgba(216, 155, 55, 0.08), transparent 26%),
+    linear-gradient(180deg, #07101a 0%, #0b1622 48%, #0d1b2a 100%);
+  --sidebar-text: rgba(239, 247, 248, 0.95);
+  --sidebar-text-muted: rgba(145, 168, 180, 0.85);
+  --sidebar-border: rgba(190, 220, 228, 0.12);
+  --sidebar-hover: rgba(53, 168, 178, 0.12);
+  --sidebar-active: linear-gradient(135deg, rgba(53, 168, 178, 0.22), rgba(98, 169, 198, 0.18));
+  --sidebar-active-border: rgba(98, 208, 220, 0.32);
+  --border-color: var(--border-subtle);
+  --border-color-strong: var(--border-default);
+  --border-color-hover: rgba(53, 168, 178, 0.35);
+  --border-soft: var(--border-subtle);
+  --surface: var(--surface-default);
+  --surface-muted: var(--surface-subtle);
 }
 
 *,
@@ -325,14 +352,13 @@ a.card:hover {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--surface-default);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--surface-hover);
   border-color: var(--border-color-hover);
 }
 
@@ -352,7 +378,7 @@ a.card:hover {
   color: var(--text-primary);
 }
 .btn-outline:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
   border-color: var(--accent, #3b82f6);
   color: var(--accent, #3b82f6);
 }
@@ -377,14 +403,14 @@ a.card:hover {
   padding: 0;
   border-radius: 14px;
   border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--surface-default);
   color: var(--text-secondary);
 }
 
 .btn-icon:hover {
   color: var(--accent-primary);
   border-color: var(--border-color-hover);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface-hover);
 }
 
 .stats-grid {
@@ -546,12 +572,12 @@ a.card:hover {
   text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-color);
-  background: rgba(236, 244, 246, 0.7);
+  background: var(--surface-subtle);
 }
 
 .data-table td {
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(24, 49, 77, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
 }
 
@@ -560,7 +586,7 @@ a.card:hover {
 }
 
 .data-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--surface-hover);
 }
 
 .data-table tbody tr:last-child td {
@@ -674,9 +700,9 @@ a.card:hover {
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: rgba(15, 124, 130, 0.36);
+  border-color: var(--border-focus);
   box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.18);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface-default);
 }
 
 .search-bar input::placeholder,
@@ -717,9 +743,9 @@ a.card:hover {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 .form-input:focus {
-  border-color: rgba(15, 124, 130, 0.36);
+  border-color: var(--border-focus);
   box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.18);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface-default);
   outline: none;
 }
 .form-input::placeholder {
@@ -744,7 +770,7 @@ a.card:hover {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(16, 32, 51, 0.42);
+  background: var(--surface-overlay);
   backdrop-filter: blur(8px);
   z-index: 1000;
   animation: fadeIn 0.2s ease;
@@ -756,8 +782,8 @@ a.card:hover {
   overflow-y: auto;
   padding: 32px;
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-default);
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.28s ease;
 }
@@ -816,7 +842,7 @@ a.card:hover {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(236, 244, 246, 0.82);
+  background: var(--surface-subtle);
   color: var(--text-secondary);
 }
 
@@ -927,7 +953,7 @@ textarea.input-error {
   height: 38px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--surface-default);
   color: var(--text-secondary);
   transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
 }
@@ -1102,8 +1128,8 @@ textarea.input-error {
 .hero-panel,
 .hero-aside,
 .ops-panel {
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-default);
   border-radius: 28px;
   box-shadow: var(--shadow-sm);
   backdrop-filter: var(--glass-blur);
@@ -1162,8 +1188,8 @@ textarea.input-error {
 .metric-tile {
   padding: 20px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(24, 49, 77, 0.08);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1245,8 +1271,8 @@ textarea.input-error {
 .surface-item {
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid rgba(24, 49, 77, 0.08);
-  background: rgba(236, 244, 246, 0.72);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
 }
 
 .surface-item-title {
@@ -1329,8 +1355,8 @@ textarea.input-error {
 .empty-card {
   padding: 32px 18px;
   border-radius: 18px;
-  border: 1px dashed rgba(24, 49, 77, 0.16);
-  background: rgba(236, 244, 246, 0.52);
+  border: 1px dashed var(--border-subtle);
+  background: var(--surface-subtle);
   color: var(--text-muted);
   text-align: center;
 }
@@ -1353,25 +1379,25 @@ table,
 .table-container,
 .table-wrapper,
 .table-responsive {
-  background-color: #ffffff !important;
+  background-color: var(--surface-default) !important;
 }
 
 table thead,
 .table thead,
 .data-table thead {
-  background-color: #eef3f7 !important;
+  background-color: var(--surface-subtle) !important;
 }
 
 table tbody tr,
 .table tbody tr,
 .data-table tbody tr {
-  background-color: #ffffff;
+  background-color: var(--surface-default);
 }
 
 table tbody tr:hover,
 .table tbody tr:hover,
 .data-table tbody tr:hover {
-  background-color: #f4f8fa !important;
+  background-color: var(--surface-hover) !important;
 }
 
 /* Attendance module: one compact, responsive visual language. */
@@ -1395,9 +1421,9 @@ table tbody tr:hover,
 .attendance-module-page .bento-card {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(24, 49, 77, 0.09);
+  border: 1px solid var(--border-subtle);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--surface-default);
 }
 
 .attendance-module-page .toolbar-shell {
@@ -1484,20 +1510,20 @@ table tbody tr:hover,
 .attendance-module-page .badge.active,
 .attendance-module-page .badge.success,
 .attendance-module-page .status-pill.active {
-  background: rgba(20, 134, 109, 0.11);
-  color: #0f7c65;
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .attendance-module-page .badge.inactive,
 .attendance-module-page .status-pill.inactive {
-  background: rgba(24, 49, 77, 0.07);
-  color: var(--text-muted);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
 }
 
 .attendance-module-page .badge.warning,
 .attendance-module-page .status-pill.warning {
-  background: rgba(216, 155, 55, 0.13);
-  color: #9f621f;
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
 }
 
 .attendance-module-page .empty-card,
@@ -1573,13 +1599,13 @@ table tbody tr:hover,
 
 .unified-ui :is(.panel, .ops-panel, .bento-card, .card, .filter-card, .table-section, .section-card, .hero-panel, .hero-aside) {
   min-width: 0 !important;
-  border: 1px solid rgba(24, 49, 77, 0.09) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 22px !important;
-  box-shadow: 0 14px 36px rgba(24, 49, 77, 0.07) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 .unified-ui :is(.panel, .ops-panel, .bento-card, .card, .filter-card, .table-section, .section-card) {
-  background: rgba(255, 255, 255, 0.96) !important;
+  background: var(--surface-default) !important;
 }
 
 .unified-ui :is(.table-section, .ops-panel) {
@@ -1594,9 +1620,9 @@ table tbody tr:hover,
 .unified-ui :is(.metric-tile, .stat-card, .kpi-card, .summary-card) {
   min-height: 116px;
   border-radius: 22px !important;
-  border-color: rgba(24, 49, 77, 0.08) !important;
-  background: linear-gradient(145deg, #fff, rgba(244, 249, 250, 0.94)) !important;
-  box-shadow: 0 10px 26px rgba(24, 49, 77, 0.055) !important;
+  border: 1px solid var(--border-subtle) !important;
+  background: var(--surface-default) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 .unified-ui :is(.table-toolbar, .toolbar-shell, .filter-toolbar) {
@@ -1604,8 +1630,8 @@ table tbody tr:hover,
   min-width: 0 !important;
   padding: 18px 22px !important;
   gap: 12px !important;
-  border-bottom: 1px solid rgba(24, 49, 77, 0.08) !important;
-  background: rgba(255, 255, 255, 0.98) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  background: var(--surface-default) !important;
 }
 
 .unified-ui :is(.filter-card, .filters) {
@@ -1642,9 +1668,9 @@ table tbody tr:hover,
   .mini-input
 ) {
   min-height: 46px !important;
-  border: 1px solid rgba(24, 49, 77, 0.1) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 14px !important;
-  background-color: #edf4f6 !important;
+  background-color: var(--surface-subtle) !important;
   color: var(--text-primary) !important;
 }
 
@@ -1661,8 +1687,8 @@ table tbody tr:hover,
   .date-input,
   .mini-input
 ):focus {
-  border-color: rgba(15, 124, 130, 0.42) !important;
-  background-color: #fff !important;
+  border-color: var(--border-focus) !important;
+  background-color: var(--surface-default) !important;
   box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.16) !important;
   outline: none !important;
 }
@@ -1673,36 +1699,37 @@ table tbody tr:hover,
   min-width: 0 !important;
   overflow-x: auto !important;
   border-radius: 0 0 18px 18px !important;
-  background: #fff !important;
+  background: var(--surface-default) !important;
 }
 
 .unified-ui :is(.data-table, .sleek-table) {
   width: 100% !important;
   border-collapse: collapse !important;
-  background: #fff !important;
+  background: var(--surface-default) !important;
 }
 
 .unified-ui :is(.data-table, .sleek-table) th {
   padding: 14px 16px !important;
   white-space: nowrap !important;
-  color: #698091 !important;
+  color: var(--text-muted) !important;
   font-size: 0.78rem !important;
   font-weight: 800 !important;
   letter-spacing: 0.075em !important;
   text-transform: uppercase !important;
-  background: #eaf1f5 !important;
-  border-bottom: 1px solid rgba(24, 49, 77, 0.09) !important;
+  background: var(--surface-subtle) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
 }
 
 .unified-ui :is(.data-table, .sleek-table) td {
   padding: 15px 16px !important;
   line-height: 1.45 !important;
-  border-bottom: 1px solid rgba(24, 49, 77, 0.075) !important;
-  background: #fff !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  background: var(--surface-default) !important;
 }
 
 .unified-ui :is(.data-table, .sleek-table) tbody tr:hover td {
-  background: #f4f8fa !important;
+  background: var(--surface-hover) !important;
 }
 
 .unified-ui :is(.badge, .status-pill, .soft-chip) {
@@ -1716,9 +1743,10 @@ table tbody tr:hover,
 .unified-ui :is(.empty-card, .empty-layout, .empty-state) {
   min-height: 120px !important;
   padding: 28px 18px !important;
-  border: 1px dashed rgba(24, 49, 77, 0.14) !important;
+  border: 1px dashed var(--border-subtle) !important;
   border-radius: 18px !important;
-  background: rgba(237, 244, 246, 0.7) !important;
+  background: var(--surface-subtle) !important;
+  color: var(--text-muted) !important;
 }
 
 .unified-ui :is(.pagination-bar, .pagination) {
@@ -1747,29 +1775,35 @@ table tbody tr:hover,
 }
 
 .unified-ui :is(.icon-btn, .btn-icon, .page-btn) {
-  border: 1px solid rgba(24, 49, 77, 0.1) !important;
-  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid var(--border-subtle) !important;
+  background: var(--surface-default) !important;
   color: var(--text-secondary) !important;
 }
 
 .unified-ui :is(.icon-btn, .btn-icon, .page-btn):hover:not(:disabled) {
-  border-color: rgba(15, 124, 130, 0.28) !important;
-  background: #edf7f8 !important;
+  border-color: var(--border-focus) !important;
+  background: var(--surface-hover) !important;
   color: var(--accent-primary) !important;
 }
 
 .unified-ui :is(.tabs, .tab-list, .settings-nav) {
   gap: 7px !important;
   padding: 8px !important;
-  border: 1px solid rgba(24, 49, 77, 0.08) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 18px !important;
-  background: rgba(255, 255, 255, 0.94) !important;
+  background: var(--surface-subtle) !important;
 }
 
 .unified-ui :is(.tab, .settings-tab) {
   min-height: 42px !important;
   border-radius: 12px !important;
   font-weight: 700 !important;
+  color: var(--text-secondary) !important;
+}
+
+.unified-ui :is(.tab.active, .settings-tab.active) {
+  background: var(--surface-default) !important;
+  color: var(--text-primary) !important;
 }
 
 .unified-ui :is(.detail-grid, .form-grid) {
@@ -1779,14 +1813,14 @@ table tbody tr:hover,
 
 .unified-ui :is(.detail-item, .detail-field, .surface-item) {
   min-width: 0 !important;
-  border: 1px solid rgba(24, 49, 77, 0.08) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 16px !important;
-  background: rgba(237, 244, 246, 0.62) !important;
+  background: var(--surface-subtle) !important;
 }
 
 .unified-ui :is(.modal-backdrop, .modal-overlay) {
   padding: 18px !important;
-  background: rgba(16, 32, 51, 0.48) !important;
+  background: var(--surface-overlay) !important;
   backdrop-filter: blur(7px) !important;
 }
 
@@ -1794,10 +1828,11 @@ table tbody tr:hover,
   width: min(100%, 760px) !important;
   max-width: min(94vw, 760px) !important;
   max-height: 90vh !important;
-  border: 1px solid rgba(24, 49, 77, 0.1) !important;
+  border: 1px solid var(--border-subtle) !important;
   border-radius: 22px !important;
-  background: #fff !important;
-  box-shadow: 0 30px 80px rgba(16, 32, 51, 0.24) !important;
+  background: var(--surface-default) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-overlay) !important;
 }
 
 .unified-ui :is(.modern-modal.mini, .modal-panel.compact, .modal-box.compact) {
@@ -1812,7 +1847,7 @@ table tbody tr:hover,
 
 .unified-ui :is(.modal-header, .modal-top) {
   padding: 20px 22px !important;
-  border-bottom: 1px solid rgba(24, 49, 77, 0.08) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
 }
 
 .unified-ui .modal-body {
@@ -1821,7 +1856,7 @@ table tbody tr:hover,
 
 .unified-ui .modal-footer {
   padding: 16px 22px 20px !important;
-  border-top: 1px solid rgba(24, 49, 77, 0.08) !important;
+  border-top: 1px solid var(--border-subtle) !important;
 }
 
 .unified-ui :is(.alert, .notice, .info-banner) {
@@ -1897,14 +1932,14 @@ table tbody tr:hover,
 
 .page-container :is(.panel, .ops-panel, .bento-card, .card, .filter-card, .table-section, .section-card) {
   min-width: 0;
-  border-color: rgba(24, 49, 77, 0.09);
+  border: 1px solid var(--border-subtle);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 14px 36px rgba(24, 49, 77, 0.07);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-container :is(.panel, .ops-panel, .bento-card, .card):hover {
-  border-color: rgba(24, 49, 77, 0.12);
+  border-color: var(--border-default);
 }
 
 .page-container :is(.table-section, .filter-card) {
@@ -1975,9 +2010,9 @@ table tbody tr:hover,
   max-width: none;
   min-width: 0;
   min-height: 46px;
-  border: 1px solid rgba(24, 49, 77, 0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  background-color: rgba(236, 244, 246, 0.72);
+  background-color: var(--surface-subtle);
   color: var(--text-primary);
 }
 
@@ -1992,9 +2027,9 @@ table tbody tr:hover,
   .date-input,
   .mini-input
 ):focus {
-  border-color: rgba(15, 124, 130, 0.36);
+  border-color: var(--border-focus);
   box-shadow: 0 0 0 4px rgba(84, 196, 211, 0.16);
-  background-color: #fff;
+  background-color: var(--surface-default);
   outline: none;
 }
 
@@ -2021,12 +2056,12 @@ table tbody tr:hover,
 .page-container :is(.data-table, .sleek-table) th {
   padding: 14px 16px;
   white-space: nowrap;
-  color: #698091;
+  color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.075em;
   text-transform: uppercase;
-  background: #eef3f7;
+  background: var(--surface-subtle);
 }
 
 .page-container :is(.data-table, .sleek-table) td {
@@ -2036,7 +2071,7 @@ table tbody tr:hover,
 }
 
 .page-container :is(.data-table, .sleek-table) tbody tr:hover {
-  background: #f4f8fa;
+  background: var(--surface-hover);
 }
 
 .page-container :is(.action-cell, .row-actions, .action-menu) {
@@ -2064,10 +2099,10 @@ table tbody tr:hover,
 
 .page-container :is(.metric-tile, .stat-card, .kpi-card, .summary-card) {
   min-width: 0;
-  border: 1px solid rgba(24, 49, 77, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 28px rgba(24, 49, 77, 0.055);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-container :is(.empty-card, .empty-layout, .empty-state) {
@@ -2077,9 +2112,9 @@ table tbody tr:hover,
   align-items: center;
   justify-content: center;
   padding: 28px 18px;
-  border: 1px dashed rgba(24, 49, 77, 0.14);
+  border: 1px dashed var(--border-subtle);
   border-radius: 18px;
-  background: rgba(236, 244, 246, 0.46);
+  background: var(--surface-subtle);
   color: var(--text-muted);
   text-align: center;
 }
@@ -2098,10 +2133,10 @@ table tbody tr:hover,
 .page-container .modal {
   max-width: min(94vw, 760px);
   max-height: min(90vh, 860px);
-  border: 1px solid rgba(24, 49, 77, 0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 30px 80px rgba(16, 32, 51, 0.22);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-overlay);
 }
 
 @media (max-width: 900px) {

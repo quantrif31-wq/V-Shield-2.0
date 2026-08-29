@@ -37,21 +37,81 @@
     <div class="grid">
       <div v-for="cam in activeCams" :key="cam.cameraId" class="cam-card">
         <div class="cam-head">
-          <span>{{ cam.cameraName }}</span>
-          <span class="status" :class="isHealthy(cam.cameraId) ? 'ok' : 'wait'">
-            {{ isHealthy(cam.cameraId) ? "TRỰC TIẾP" : "ĐANG TẢI..." }}
+          <span class="cam-title">{{ cam.cameraName }}</span>
+          <span class="status" :class="getStatusClass(cam.cameraId)">
+            <span class="status-indicator" :class="getStatusClass(cam.cameraId)"></span>
+            {{ getStatusLabel(cam.cameraId) }}
           </span>
         </div>
 
         <div class="cam-preview">
-          <iframe
-            v-if="resolvedPreviewUrl(cam)"
+          <!-- Hiển thị img khi luồng là ảnh/frame.jpg để tràn hết 100% khung camera -->
+          <img
+            v-if="isHealthy(cam.cameraId) && resolvedPreviewUrl(cam) && isImageUrl(resolvedPreviewUrl(cam))"
             :src="resolvedPreviewUrl(cam)"
             class="preview"
+            alt="Camera realtime stream"
+            @load="onLoad(cam.cameraId)"
+            @error="onError(cam.cameraId)"
+          />
+          <!-- Hiển thị iframe stream khi luồng là WebRTC/MSE/HTML -->
+          <iframe
+            v-else-if="isHealthy(cam.cameraId) && resolvedPreviewUrl(cam)"
+            :src="resolvedPreviewUrl(cam)"
+            class="preview"
+            allow="autoplay; fullscreen"
             @load="onLoad(cam.cameraId)"
             @error="onError(cam.cameraId)"
           ></iframe>
-          <div v-else class="cam-off">Camera tắt</div>
+
+          <!-- Fallback CCTV Placeholder khi luồng bị 404, 502, mất kết nối hoặc camera tắt -->
+          <div v-else class="cctv-placeholder" :class="{ 'is-checking': isChecking(cam.cameraId) }">
+            <div class="cctv-grid-pattern"></div>
+            <div class="cctv-scanline"></div>
+            <div class="cctv-crosshair top-left"></div>
+            <div class="cctv-crosshair top-right"></div>
+            <div class="cctv-crosshair bottom-left"></div>
+            <div class="cctv-crosshair bottom-right"></div>
+            
+            <div class="cctv-content">
+              <div class="cctv-icon-wrap">
+                <svg v-if="!isChecking(cam.cameraId)" class="cctv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <path d="M23 7l-7 5 7 5V7z" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  <line x1="2" y1="2" x2="22" y2="22" stroke="var(--status-danger-text, #ef4444)" stroke-width="2.2" />
+                </svg>
+                <div v-else class="cctv-spinner"></div>
+              </div>
+
+              <div class="cctv-info">
+                <div class="cctv-state-badge" :class="isChecking(cam.cameraId) ? 'state-checking' : 'state-offline'">
+                  {{ isChecking(cam.cameraId) ? 'ĐANG KẾT NỐI LUỒNG...' : 'MẤT TÍN HIỆU (NO SIGNAL)' }}
+                </div>
+                <h4 class="cctv-cam-name">{{ cam.cameraName }}</h4>
+                <p class="cctv-reason">
+                  {{ getErrorMessage(cam.cameraId) || 'Không nhận được tín hiệu hình ảnh từ camera' }}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                class="cctv-retry-btn"
+                :disabled="isChecking(cam.cameraId)"
+                @click="retryStream(cam.cameraId)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="retry-icon">
+                  <path d="M23 4v6h-6" />
+                  <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+                </svg>
+                <span>{{ isChecking(cam.cameraId) ? 'Đang kiểm tra...' : 'Thử kết nối lại' }}</span>
+              </button>
+            </div>
+            
+            <div class="cctv-timestamp">
+              <span>CAM ID: {{ cam.cameraId }}</span>
+              <span>NO SIGNAL · V-SHIELD VMS</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -61,18 +121,24 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from "vue"
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { getCameras, toggleRecording } from "../services/cameraRuntimeApi"
 
 const cameras = ref([])
 const selectedMap = reactive({})
 const showSettings = ref(false)
-const previewHealthById = reactive({})
+const previewStatusById = reactive({}) // 'checking' | 'online' | 'offline' | 'off'
+const previewErrorById = reactive({})
 const previewSeedById = reactive({})
 
+let autoProbeInterval = null
+
 const initPreviewState = (cameraId) => {
-  if (!Object.prototype.hasOwnProperty.call(previewHealthById, cameraId)) {
-    previewHealthById[cameraId] = false
+  if (!Object.prototype.hasOwnProperty.call(previewStatusById, cameraId)) {
+    previewStatusById[cameraId] = 'checking'
+  }
+  if (!Object.prototype.hasOwnProperty.call(previewErrorById, cameraId)) {
+    previewErrorById[cameraId] = ''
   }
   if (!Object.prototype.hasOwnProperty.call(previewSeedById, cameraId)) {
     previewSeedById[cameraId] = Date.now()
@@ -85,6 +151,23 @@ const normalizeUrl = (value) => {
   return trimmed || ""
 }
 
+const isImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false
+  const clean = url.split('?')[0].toLowerCase()
+  return (
+    clean.endsWith('.jpg') ||
+    clean.endsWith('.jpeg') ||
+    clean.endsWith('.png') ||
+    clean.endsWith('.webp') ||
+    clean.endsWith('/frame.jpg') ||
+    clean.includes('/qr/frame.jpg') ||
+    clean.includes('/plate/frame.jpg') ||
+    clean.includes('/video_feed') ||
+    clean.startsWith('data:image/') ||
+    clean.endsWith('/snapshot')
+  )
+}
+
 const resolvedPreviewUrl = (cam) => {
   const base = normalizeUrl(cam?.urlView)
   if (!base) return ""
@@ -93,14 +176,110 @@ const resolvedPreviewUrl = (cam) => {
   return `${base}${sep}t=${previewSeedById[cam.cameraId]}`
 }
 
-const isHealthy = (cameraId) => !!previewHealthById[cameraId]
+const isHealthy = (cameraId) => previewStatusById[cameraId] === 'online'
+const isChecking = (cameraId) => previewStatusById[cameraId] === 'checking'
+const getErrorMessage = (cameraId) => previewErrorById[cameraId] || ''
+
+const getStatusClass = (cameraId) => {
+  const status = previewStatusById[cameraId]
+  if (status === 'online') return 'ok'
+  if (status === 'checking') return 'wait'
+  return 'off'
+}
+
+const getStatusLabel = (cameraId) => {
+  const status = previewStatusById[cameraId]
+  if (status === 'online') return 'TRỰC TIẾP'
+  if (status === 'checking') return 'ĐANG TẢI...'
+  return 'MẤT TÍN HIỆU'
+}
+
+const checkCameraStreamHealth = async (cameraId, url) => {
+  if (!url) {
+    previewStatusById[cameraId] = 'off'
+    previewErrorById[cameraId] = 'Camera chưa cấu hình URL xem trực tiếp'
+    return
+  }
+
+  previewStatusById[cameraId] = 'checking'
+
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const timer = controller ? setTimeout(() => controller.abort(), 4000) : null
+
+    const fetchOptions = {
+      method: 'GET',
+      headers: { 'Accept': '*/*' },
+    }
+    if (controller) {
+      fetchOptions.signal = controller.signal
+    }
+
+    const res = await fetch(url, fetchOptions)
+    if (timer) clearTimeout(timer)
+
+    if (!res.ok) {
+      previewStatusById[cameraId] = 'offline'
+      if (res.status === 404) {
+        previewErrorById[cameraId] = 'Không tìm thấy luồng camera (404 Not Found)'
+      } else if (res.status === 502) {
+        previewErrorById[cameraId] = 'Mất kết nối máy chủ streaming (502 Bad Gateway)'
+      } else if (res.status === 503 || res.status === 504) {
+        previewErrorById[cameraId] = 'Máy chủ streaming tạm thời bận hoặc quá tải'
+      } else {
+        previewErrorById[cameraId] = `Lỗi kết nối máy chủ (Mã lỗi ${res.status})`
+      }
+      return
+    }
+
+    // Check if the response is an HTML error page masquerading with 200
+    const contentType = res.headers ? (res.headers.get('content-type') || '') : ''
+    if (contentType.includes('text/html')) {
+      const text = await res.text()
+      if (text.includes('404 Not Found') || text.includes('502 Bad Gateway') || text.includes('503 Service Temporarily Unavailable')) {
+        previewStatusById[cameraId] = 'offline'
+        previewErrorById[cameraId] = 'Máy chủ streaming trả về trang lỗi kết nối'
+        return
+      }
+    }
+
+    previewStatusById[cameraId] = 'online'
+    previewErrorById[cameraId] = ''
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      previewStatusById[cameraId] = 'offline'
+      previewErrorById[cameraId] = 'Hết thời gian chờ phản hồi luồng video'
+    } else {
+      // In test environments or when mock cameras don't respond
+      previewStatusById[cameraId] = 'offline'
+      previewErrorById[cameraId] = 'Không thể kết nối đến luồng RTSP / Video'
+    }
+  }
+}
+
+const probeAllActiveCameras = () => {
+  activeCams.value.forEach((cam) => {
+    const url = normalizeUrl(cam?.urlView)
+    checkCameraStreamHealth(cam.cameraId, url)
+  })
+}
+
+const retryStream = (cameraId) => {
+  const cam = cameras.value.find((c) => c.cameraId === cameraId)
+  if (!cam) return
+  previewSeedById[cameraId] = Date.now()
+  const url = normalizeUrl(cam?.urlView)
+  checkCameraStreamHealth(cameraId, url)
+}
 
 const onLoad = (cameraId) => {
-  previewHealthById[cameraId] = true
+  previewStatusById[cameraId] = 'online'
+  previewErrorById[cameraId] = ''
 }
 
 const onError = (cameraId) => {
-  previewHealthById[cameraId] = false
+  previewStatusById[cameraId] = 'offline'
+  previewErrorById[cameraId] = 'Không thể tải luồng video trực tiếp'
 }
 
 const activeCams = computed(() =>
@@ -119,6 +298,7 @@ watch(
   () => ({ ...selectedMap }),
   () => {
     enforceSelectLimit()
+    probeAllActiveCameras()
   },
   { deep: true }
 )
@@ -135,6 +315,8 @@ const loadCameras = async () => {
       }
       initPreviewState(cam.cameraId)
     })
+
+    probeAllActiveCameras()
   } catch (error) {
     console.error("Lỗi load camera:", error)
   }
@@ -158,6 +340,21 @@ const toggleRec = async (event, cam) => {
 
 onMounted(() => {
   loadCameras()
+  // Tự động kiểm tra lại luồng mỗi 10 giây nếu có camera đang offline
+  autoProbeInterval = setInterval(() => {
+    activeCams.value.forEach((cam) => {
+      if (previewStatusById[cam.cameraId] === 'offline') {
+        const url = normalizeUrl(cam?.urlView)
+        if (url) checkCameraStreamHealth(cam.cameraId, url)
+      }
+    })
+  }, 10000)
+})
+
+onBeforeUnmount(() => {
+  if (autoProbeInterval) {
+    clearInterval(autoProbeInterval)
+  }
 })
 </script>
 
@@ -178,7 +375,7 @@ onMounted(() => {
 .gear-btn {
   font-size: 22px;
   background: var(--surface-default);
-  border: none;
+  border: 1px solid var(--border-subtle);
   padding: 8px 12px;
   border-radius: var(--radius-control);
   cursor: pointer;
@@ -198,6 +395,7 @@ onMounted(() => {
   border-radius: var(--radius-card);
   margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
 }
 
 .cam-list {
@@ -275,7 +473,7 @@ onMounted(() => {
 }
 
 .switch input:checked + .slider {
-  background: #2563eb;
+  background: var(--interactive-primary);
 }
 
 .switch input:checked + .slider::before {
@@ -293,43 +491,268 @@ onMounted(() => {
   border-radius: 16px;
   padding: 12px;
   box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
 }
 
 .cam-head {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 8px;
   font-weight: 600;
+}
+
+.cam-title {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .status.ok {
   color: var(--status-success-text);
 }
+.status-indicator.ok {
+  background: var(--status-success-text);
+  box-shadow: 0 0 8px var(--status-success-border);
+}
 
 .status.wait {
-  color: var(--accent-warning);
+  color: var(--status-warning-text);
+}
+.status-indicator.wait {
+  background: var(--status-warning-text);
+  animation: pulse-dot 1.2s infinite ease-in-out;
+}
+
+.status.off {
+  color: var(--status-danger-text);
+}
+.status-indicator.off {
+  background: var(--status-danger-text);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 .cam-preview {
   width: 100%;
   aspect-ratio: 16/9;
-  background: black;
+  background: #000000;
   border-radius: 12px;
   overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview {
   width: 100%;
   height: 100%;
   border: none;
+  display: block;
+  object-fit: cover;
+  background: #000000;
 }
 
-.cam-off {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-on-interactive);
+/* ==========================================================================
+   CCTV Modern Security Offline Placeholder
+   ========================================================================== */
+.cctv-placeholder {
+  width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  position: relative;
+  background: linear-gradient(145deg, #0b141e, #070d14);
+  color: var(--text-primary);
+  user-select: none;
+  overflow: hidden;
+}
+
+.cctv-grid-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.15;
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  pointer-events: none;
+}
+
+.cctv-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(500%); }
+}
+
+.cctv-crosshair {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: rgba(255, 255, 255, 0.25);
+  border-style: solid;
+  pointer-events: none;
+}
+.cctv-crosshair.top-left { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+.cctv-crosshair.top-right { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+.cctv-crosshair.bottom-left { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+.cctv-crosshair.bottom-right { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+
+.cctv-content {
+  position: relative;
+  z-index: 2;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  max-width: 85%;
+}
+
+.cctv-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.cctv-icon {
+  width: 26px;
+  height: 26px;
+  stroke: var(--text-secondary);
+}
+
+.cctv-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--interactive-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.cctv-state-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  display: inline-block;
+}
+
+.cctv-state-badge.state-offline {
+  background: rgba(239, 68, 68, 0.18);
+  color: var(--status-danger-text);
+  border: 1px solid var(--status-danger-border);
+}
+
+.cctv-state-badge.state-checking {
+  background: rgba(234, 179, 8, 0.18);
+  color: var(--status-warning-text);
+  border: 1px solid var(--status-warning-border);
+}
+
+.cctv-cam-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #edf7f9;
+}
+
+.cctv-reason {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #91a8b4;
+  line-height: 1.3;
+}
+
+.cctv-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-control);
+  color: #edf7f9;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cctv-retry-btn:hover:not(:disabled) {
+  background: var(--interactive-primary);
+  border-color: var(--interactive-primary);
+  color: var(--text-on-interactive);
+}
+
+.cctv-retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.retry-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.cctv-timestamp {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.05em;
 }
 
 .empty {
@@ -348,5 +771,14 @@ onMounted(() => {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .cam-list {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -6,35 +6,62 @@ const AUTH_TOKEN_KEY = 'v_shield_token'
 const AUTH_USER_KEY = 'v_shield_user'
 const AUTH_REFRESH_TOKEN_KEY = 'v_shield_refresh_token'
 
-const readAuthToken = () =>
-    sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || null
-
-const readAuthUser = () => {
-    const raw = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY)
-    return raw ? JSON.parse(raw) : null
+const readAuthToken = () => {
+    try {
+        return sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || null
+    } catch {
+        return null
+    }
 }
 
-const readRefreshToken = () =>
-    sessionStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || localStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || null
+const readAuthUser = () => {
+    try {
+        const raw = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY)
+        return raw ? JSON.parse(raw) : null
+    } catch {
+        return null
+    }
+}
+
+const readRefreshToken = () => {
+    try {
+        return sessionStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || localStorage.getItem(AUTH_REFRESH_TOKEN_KEY) || null
+    } catch {
+        return null
+    }
+}
 
 const writeAuthState = (token, user, refreshToken) => {
-    sessionStorage.setItem(AUTH_TOKEN_KEY, token)
-    sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
-    if (refreshToken) {
-        sessionStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken)
+    try {
+        if (token) {
+            sessionStorage.setItem(AUTH_TOKEN_KEY, token)
+            localStorage.setItem(AUTH_TOKEN_KEY, token)
+        }
+        if (user) {
+            const userStr = JSON.stringify(user)
+            sessionStorage.setItem(AUTH_USER_KEY, userStr)
+            localStorage.setItem(AUTH_USER_KEY, userStr)
+        }
+        if (refreshToken) {
+            sessionStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken)
+            localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken)
+        }
+    } catch (e) {
+        console.warn('Failed to save auth state:', e)
     }
-    localStorage.removeItem(AUTH_TOKEN_KEY)
-    localStorage.removeItem(AUTH_USER_KEY)
-    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
 }
 
 const clearAuthState = () => {
-    sessionStorage.removeItem(AUTH_TOKEN_KEY)
-    sessionStorage.removeItem(AUTH_USER_KEY)
-    sessionStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
-    localStorage.removeItem(AUTH_TOKEN_KEY)
-    localStorage.removeItem(AUTH_USER_KEY)
-    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+    try {
+        sessionStorage.removeItem(AUTH_TOKEN_KEY)
+        sessionStorage.removeItem(AUTH_USER_KEY)
+        sessionStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        localStorage.removeItem(AUTH_USER_KEY)
+        localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY)
+    } catch (e) {
+        console.warn('Failed to clear auth state:', e)
+    }
 }
 
 const state = reactive({

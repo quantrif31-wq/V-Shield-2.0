@@ -110,16 +110,19 @@ export default {
   align-items: center;
   margin-bottom: 16px;
 }
-.page-header h2 { margin: 0; font-size: 20px; color: #333; }
+.page-header h2 { margin: 0; font-size: 20px; color: var(--text-primary); }
 .btn-reload {
   padding: 6px 14px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  background: white;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control, 6px);
+  background: var(--surface-default);
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 13px;
+  font-weight: 600;
+  transition: background-color var(--transition-fast, 0.15s ease), border-color var(--transition-fast, 0.15s ease);
 }
-.btn-reload:hover { background: #f5f5f5; }
+.btn-reload:hover { background: var(--surface-hover); border-color: var(--border-default); }
 .map-section {
   flex: 1;
   display: flex;
@@ -128,12 +131,13 @@ export default {
   min-height: 0;
 }
 .indoor-section {
-  background: white;
-  border-radius: 8px;
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card, 8px);
   padding: 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-sm);
 }
-.indoor-section h3 { margin: 0 0 12px; font-size: 16px; color: #333; }
+.indoor-section h3 { margin: 0 0 12px; font-size: 16px; color: var(--text-primary); }
 .no-alarm, .loading-state, .error-state {
   display: flex;
   flex-direction: column;

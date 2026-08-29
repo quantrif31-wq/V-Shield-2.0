@@ -1382,9 +1382,9 @@ onMounted(loadAll)
 
 .pill-btn.active,
 .detail-tabs button.active {
-    background: #e8f1ff;
-    color: #1d4ed8;
-    border-color: #b9d2ff;
+    background: var(--surface-selected);
+    color: var(--text-link);
+    border-color: var(--border-focus);
 }
 
 .tab-count {
@@ -1407,8 +1407,8 @@ onMounted(loadAll)
 }
 
 .tab-count.danger {
-    background: #fff0f0;
-    color: #b42318;
+    background: var(--status-danger-bg);
+    color: var(--status-danger-text);
 }
 
 .queue-list {
@@ -1436,9 +1436,9 @@ onMounted(loadAll)
 }
 
 .queue-item.selected {
-    border-color: #2563eb;
-    background: #f6faff;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    border-color: var(--border-focus);
+    background: var(--surface-selected);
+    box-shadow: 0 0 0 2px rgba(84, 196, 211, 0.15);
 }
 
 .queue-head,
@@ -1478,68 +1478,69 @@ onMounted(loadAll)
 
 .badge-data_mismatch,
 .badge-pending_approval {
-    background: #eef4ff;
-    color: #35579d;
+    background: var(--status-info-bg);
+    color: var(--status-info-text);
 }
 
 .badge-manual_override,
 .badge-intv-policy_override,
 .badge-intv-device_override {
-    background: #fff5e8;
-    color: #a46008;
+    background: var(--status-warning-bg);
+    color: var(--status-warning-text);
 }
 
 .badge-device_degraded,
 .badge-intv-other {
-    background: #f3f4f6;
-    color: #475569;
+    background: var(--status-neutral-bg);
+    color: var(--status-neutral-text);
 }
 
 .badge-emergency_pass,
 .badge-duress,
 .badge-intv-emergency_override {
-    background: #fff0f0;
-    color: #b42318;
+    background: var(--status-danger-bg);
+    color: var(--status-danger-text);
 }
 
 .badge-intv-temporary_grant {
-    background: #edf8f3;
-    color: #166534;
+    background: var(--status-success-bg);
+    color: var(--status-success-text);
 }
 
 .severity-critical,
 .status-rejected {
-    background: #fff0f0;
-    color: #b42318;
+    background: var(--status-danger-bg);
+    color: var(--status-danger-text);
 }
 
 .severity-high,
 .status-pending {
-    background: #fff7e9;
-    color: #a16207;
+    background: var(--status-warning-bg);
+    color: var(--status-warning-text);
 }
 
 .severity-medium,
 .status-accepted {
-    background: #eef4ff;
-    color: #35579d;
+    background: var(--status-info-bg);
+    color: var(--status-info-text);
 }
 
 .severity-low,
 .status-executed,
 .status-closed {
-    background: #edf8f3;
-    color: #166534;
+    background: var(--status-success-bg);
+    color: var(--status-success-text);
 }
 
 .status-expired {
-    background: #f3f4f6;
-    color: #475569;
+    background: var(--status-neutral-bg);
+    color: var(--status-neutral-text);
 }
 
 .plate-badge {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: var(--surface-subtle);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
 }
 
 .detail-actions {
