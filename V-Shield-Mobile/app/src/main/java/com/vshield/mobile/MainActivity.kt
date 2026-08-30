@@ -31,12 +31,86 @@ import com.vshield.mobile.viewmodel.AuthViewModel
 import com.vshield.mobile.viewmodel.ChatViewModel
 import com.vshield.mobile.viewmodel.NotificationViewModel
 
+import android.content.Intent
+import com.vshield.mobile.service.NotificationHelper
+import com.vshield.mobile.service.VShieldBackgroundService
+
 class MainActivity : FragmentActivity() {
+
+    private var pendingIntentAction: ((ChatViewModel, androidx.navigation.NavHostController) -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIntent(intent)
         setContent {
             VShieldTheme {
-                VShieldMainScreen()
+                VShieldMainScreen(
+                    pendingAction = pendingIntentAction,
+                    onClearPendingAction = { pendingIntentAction = null }
+                )
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val callAction = intent.getStringExtra(NotificationHelper.EXTRA_CALL_ACTION)
+        val navigateTo = intent.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
+        val convId = intent.getIntExtra(NotificationHelper.EXTRA_CONVERSATION_ID, 0)
+
+        android.util.Log.i("MainActivity", "handleIntent: callAction=$callAction, navigateTo=$navigateTo, convId=$convId")
+
+        val fromEmpId = intent.getIntExtra("EXTRA_FROM_EMPLOYEE_ID", 0)
+        val fromName = intent.getStringExtra("EXTRA_FROM_FULL_NAME") ?: "Cuộc gọi đến"
+        val callType = intent.getStringExtra("EXTRA_CALL_TYPE") ?: "audio"
+
+        if (callAction == NotificationHelper.ACTION_ACCEPT_CALL) {
+            NotificationHelper.cancelIncomingCallNotification(this)
+        }
+
+        pendingIntentAction = { chatVm, nav ->
+            if (callAction == NotificationHelper.ACTION_ACCEPT_CALL) {
+                android.util.Log.i("MainActivity", "pendingIntentAction: accepting call from $fromEmpId ($fromName)...")
+                chatVm.acceptCall(
+                    fromEmployeeId = fromEmpId,
+                    fromFullName = fromName,
+                    conversationId = convId,
+                    callType = callType
+                )
+            } else if (callAction == NotificationHelper.ACTION_REJECT_CALL) {
+                chatVm.rejectCall()
+            } else if (navigateTo == "call") {
+                val bgCall = com.vshield.mobile.service.VShieldBackgroundService.lastIncomingCall
+                if (bgCall != null && chatVm.uiState.value.callState is ChatCallState.Idle) {
+                    val isVideo = (bgCall.signalingData ?: "").contains("m=video")
+                    val cType = if (isVideo) "video" else "audio"
+                    chatVm.restoreIncomingCallState(
+                        fromEmployeeId = bgCall.fromEmployeeId,
+                        fromFullName = bgCall.fromFullName ?: "Cuộc gọi đến",
+                        conversationId = bgCall.conversationId,
+                        offerSdp = bgCall.signalingData,
+                        callType = cType
+                    )
+                }
+            } else if (navigateTo == NotificationHelper.ACTION_OPEN_CHAT) {
+                if (convId > 0) {
+                    android.util.Log.i("MainActivity", "Navigating directly to conversation $convId")
+                    nav.navigate(Screen.Conversation.createRoute(convId)) {
+                        popUpTo(Screen.Home.route)
+                        launchSingleTop = true
+                    }
+                } else {
+                    nav.navigate(Screen.Chat.route) {
+                        popUpTo(Screen.Home.route)
+                        launchSingleTop = true
+                    }
+                }
             }
         }
     }
@@ -44,7 +118,10 @@ class MainActivity : FragmentActivity() {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun VShieldMainScreen() {
+fun VShieldMainScreen(
+    pendingAction: ((ChatViewModel, androidx.navigation.NavHostController) -> Unit)? = null,
+    onClearPendingAction: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val chatViewModel: ChatViewModel = viewModel()
@@ -56,9 +133,22 @@ fun VShieldMainScreen() {
     val currentRoute = navBackStackEntry?.destination?.route
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                VShieldBackgroundService.isAppInForeground = true
+            } else if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                VShieldBackgroundService.isAppInForeground = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            VShieldBackgroundService.isAppInForeground = false
+        }
+    }
+
     val isLoggedIn = authState.isLoggedIn
-    val shouldKeepSessionDuringSystemAuth =
-        authState.isBiometricPromptActive || authState.awaitingBiometricEnrollment
     val mainRoutes = listOf(
         Screen.Home.route,
         Screen.Transfer.route,
@@ -68,11 +158,33 @@ fun VShieldMainScreen() {
         Screen.Profile.route
     )
 
-    LaunchedEffect(isLoggedIn) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Request permissions (Notifications, Audio, Camera) immediately on app launch
+    val multiplePermissionsLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) {}
+
+    LaunchedEffect(Unit) {
+        val permissions = mutableListOf<String>()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        permissions.add(android.Manifest.permission.RECORD_AUDIO)
+        permissions.add(android.Manifest.permission.CAMERA)
+        multiplePermissionsLauncher.launch(permissions.toTypedArray())
+    }
+
+    LaunchedEffect(isLoggedIn, pendingAction) {
         if (isLoggedIn) {
             notificationViewModel.initialize()
             chatViewModel.initialize()
             authViewModel.recordUserActivity()
+
+            if (pendingAction != null) {
+                pendingAction(chatViewModel, navController)
+                onClearPendingAction()
+            }
         } else if (currentRoute != Screen.Login.route) {
             navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
@@ -81,22 +193,8 @@ fun VShieldMainScreen() {
         }
     }
 
-    DisposableEffect(lifecycleOwner, isLoggedIn, shouldKeepSessionDuringSystemAuth) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (isLoggedIn &&
-                event == Lifecycle.Event.ON_STOP &&
-                !shouldKeepSessionDuringSystemAuth
-            ) {
-                authViewModel.lockSessionForInactivity()
-            }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val showBottomBar = isLoggedIn && currentRoute in mainRoutes
     val isInCall = chatState.callState !is ChatCallState.Idle
+    val showBottomBar = isLoggedIn && currentRoute in mainRoutes
     val showCallOverlay = isInCall
 
     Scaffold(

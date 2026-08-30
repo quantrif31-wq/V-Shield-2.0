@@ -27,15 +27,15 @@ class BiometricAuthManager(private val context: Context) {
         val packageManager = context.packageManager
         val capabilities = buildList {
             if (packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)) {
-                add(BiometricCapability(BiometricType.FINGERPRINT, "Van tay"))
+                add(BiometricCapability(BiometricType.FINGERPRINT, "Vân tay"))
             }
 
             if (supportsFaceUnlock(packageManager)) {
-                add(BiometricCapability(BiometricType.FACE, "Khuon mat"))
+                add(BiometricCapability(BiometricType.FACE, "Khuôn mặt"))
             }
 
             if (isDeviceCredentialReady()) {
-                add(BiometricCapability(BiometricType.GENERIC, "Pin / Mat khau"))
+                add(BiometricCapability(BiometricType.GENERIC, "Mã PIN / Mật khẩu máy"))
             }
         }
 
@@ -44,7 +44,7 @@ class BiometricAuthManager(private val context: Context) {
         }
 
         return if (isBiometricReady()) {
-            listOf(BiometricCapability(BiometricType.GENERIC, "Khoa dien thoai"))
+            listOf(BiometricCapability(BiometricType.GENERIC, "Khóa điện thoại"))
         } else {
             emptyList()
         }
@@ -71,8 +71,8 @@ class BiometricAuthManager(private val context: Context) {
 
     fun authenticate(
         activity: FragmentActivity,
-        title: String = "Xac thuc de mo ung dung",
-        subtitle: String = "Dung Pin, van tay hoac khuon mat de mo nhanh",
+        title: String = "Xác thực để mở ứng dụng",
+        subtitle: String = "Dùng vân tay, khuôn mặt hoặc mã khóa máy để mở nhanh",
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -92,7 +92,7 @@ class BiometricAuthManager(private val context: Context) {
             }
 
             override fun onAuthenticationFailed() {
-                onError("Xac thuc that bai, vui long thu lai")
+                onError("Xác thực thất bại, vui lòng thử lại")
             }
         }
 
@@ -101,7 +101,7 @@ class BiometricAuthManager(private val context: Context) {
             BiometricPrompt(activity, executor, callback)
                 .authenticate(promptInfo)
         }.onFailure { ex ->
-            onError(ex.message ?: "Khong mo duoc xac thuc sinh trac hoc tren thiet bi nay.")
+            onError(ex.message ?: "Không thể mở xác thực sinh trắc học trên thiết bị này.")
         }
     }
 
@@ -113,7 +113,7 @@ class BiometricAuthManager(private val context: Context) {
     ) {
         authenticate(
             activity = activity,
-            title = "Bat dang nhap nhanh",
+            title = "Bật đăng nhập nhanh",
             subtitle = buildEnrollmentSubtitle(selectedTypes),
             onSuccess = onSuccess,
             onError = onError
@@ -149,9 +149,9 @@ class BiometricAuthManager(private val context: Context) {
     private fun buildEnrollmentSubtitle(selectedTypes: Set<BiometricType>): String {
         val labels = selectedTypes.toDisplayText()
         return if (labels.isBlank()) {
-            "Xac nhan sinh trac hoc de luu thiet bi nay"
+            "Xác nhận sinh trắc học để lưu thiết bị này"
         } else {
-            "Xac nhan $labels de luu thiet bi nay"
+            "Xác nhận $labels để lưu thiết bị này"
         }
     }
 
@@ -163,7 +163,7 @@ class BiometricAuthManager(private val context: Context) {
             .setSubtitle(subtitle)
 
         if (!allowDeviceCredential) {
-            builder.setNegativeButtonText("Huy")
+            builder.setNegativeButtonText("Hủy")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -185,21 +185,21 @@ class BiometricAuthManager(private val context: Context) {
 
 fun Set<BiometricType>.toDisplayText(): String {
     if (isEmpty()) {
-        return "sinh trac hoc"
+        return "sinh trắc học"
     }
 
     val labels = mapNotNull {
         when (it) {
-            BiometricType.FINGERPRINT -> "van tay"
-            BiometricType.FACE -> "khuon mat"
-            BiometricType.GENERIC -> "sinh trac hoc"
+            BiometricType.FINGERPRINT -> "vân tay"
+            BiometricType.FACE -> "khuôn mặt"
+            BiometricType.GENERIC -> "mã khóa máy"
         }
     }.distinct()
 
     return when (labels.size) {
-        0 -> "sinh trac hoc"
+        0 -> "sinh trắc học"
         1 -> labels.first()
-        2 -> "${labels[0]} va ${labels[1]}"
-        else -> labels.dropLast(1).joinToString(", ") + " va " + labels.last()
+        2 -> "${labels[0]} và ${labels[1]}"
+        else -> labels.dropLast(1).joinToString(", ") + " và " + labels.last()
     }
 }

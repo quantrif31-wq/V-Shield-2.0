@@ -1,4 +1,4 @@
-﻿package com.vshield.mobile.webrtc
+package com.vshield.mobile.webrtc
 
 import android.content.Context
 import android.media.AudioManager
@@ -91,8 +91,18 @@ class WebRTCManager(private val context: Context) {
             val adm = createSafeAudioDeviceModule()
             audioDeviceModule = adm
 
-            val encoderFactory = DefaultVideoEncoderFactory(eglBaseContext, true, true)
-            val decoderFactory = DefaultVideoDecoderFactory(eglBaseContext)
+            val encoderFactory = try {
+                DefaultVideoEncoderFactory(eglBaseContext, true, true)
+            } catch (e: Throwable) {
+                Log.w(TAG, "DefaultVideoEncoderFactory fallback: ${e.message}")
+                SoftwareVideoEncoderFactory()
+            }
+            val decoderFactory = try {
+                DefaultVideoDecoderFactory(eglBaseContext)
+            } catch (e: Throwable) {
+                Log.w(TAG, "DefaultVideoDecoderFactory fallback: ${e.message}")
+                SoftwareVideoDecoderFactory()
+            }
 
             val options = PeerConnectionFactory.Options()
 
@@ -115,9 +125,24 @@ class WebRTCManager(private val context: Context) {
 
     private fun createSafeAudioDeviceModule(): AudioDeviceModule? {
         return try {
+            val useHardwareAEC = try {
+                JavaAudioDeviceModule.isBuiltInAcousticEchoCancelerSupported()
+            } catch (_: Throwable) { false }
+
+            val useHardwareNS = try {
+                JavaAudioDeviceModule.isBuiltInNoiseSuppressorSupported()
+            } catch (_: Throwable) { false }
+
             JavaAudioDeviceModule.builder(context.applicationContext)
-                .setUseHardwareAcousticEchoCanceler(false)
-                .setUseHardwareNoiseSuppressor(false)
+                .setUseHardwareAcousticEchoCanceler(useHardwareAEC)
+                .setUseHardwareNoiseSuppressor(useHardwareNS)
+                .setAudioSource(android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+                .setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
                 .setAudioRecordErrorCallback(object : JavaAudioDeviceModule.AudioRecordErrorCallback {
                     override fun onWebRtcAudioRecordInitError(msg: String?) {
                         Log.w(TAG, "AudioRecord init error: $msg")
@@ -144,6 +169,35 @@ class WebRTCManager(private val context: Context) {
         } catch (e: Throwable) {
             Log.w(TAG, "createSafeAudioDeviceModule fallback: ${e.message}")
             null
+        }
+    }
+
+    fun setSpeakerphoneOn(on: Boolean) {
+        try {
+            audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+            audioManager?.isSpeakerphoneOn = on
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                if (on) {
+                    val speakerDevice = audioManager?.availableCommunicationDevices?.firstOrNull {
+                        it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    if (speakerDevice != null) {
+                        audioManager?.setCommunicationDevice(speakerDevice)
+                    }
+                } else {
+                    val earpieceDevice = audioManager?.availableCommunicationDevices?.firstOrNull {
+                        it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                    }
+                    if (earpieceDevice != null) {
+                        audioManager?.setCommunicationDevice(earpieceDevice)
+                    } else {
+                        audioManager?.clearCommunicationDevice()
+                    }
+                }
+            }
+            Log.i(TAG, "Speakerphone set to: $on")
+        } catch (e: Throwable) {
+            Log.w(TAG, "setSpeakerphoneOn error: ${e.message}")
         }
     }
 
@@ -191,6 +245,11 @@ class WebRTCManager(private val context: Context) {
                     mainHandler.post {
                         try {
                             stream?.videoTracks?.firstOrNull()?.let { listener?.onRemoteVideo(it) }
+                            stream?.audioTracks?.forEach {
+                                it.setEnabled(true)
+                                it.setVolume(1.0)
+                                Log.i(TAG, "onAddStream: AudioTrack enabled with full volume")
+                            }
                         } catch (e: Throwable) {
                             Log.w(TAG, "onAddStream: ${e.message}")
                         }
@@ -205,6 +264,10 @@ class WebRTCManager(private val context: Context) {
                             val track = receiver?.track()
                             if (track is VideoTrack) {
                                 listener?.onRemoteVideo(track)
+                            } else if (track is org.webrtc.AudioTrack) {
+                                track.setEnabled(true)
+                                track.setVolume(1.0)
+                                Log.i(TAG, "onAddTrack: Remote AudioTrack enabled with full volume")
                             }
                         } catch (e: Throwable) {
                             Log.w(TAG, "onAddTrack: ${e.message}")
@@ -232,10 +295,17 @@ class WebRTCManager(private val context: Context) {
         val pc = peerConnection ?: return false
 
         try {
-            // Set audio mode for clear phone call
+            // Set audio mode for clear, loud VoIP phone call
             try {
                 audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager?.isSpeakerphoneOn = enableVideo // Speaker on for video, earpiece for audio
+                setSpeakerphoneOn(true) // Default to loudspeaker so audio is loud and clear
+
+                // Ensure in-call volume is raised to comfortable level
+                val maxVol = audioManager?.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL) ?: 0
+                val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_VOICE_CALL) ?: 0
+                if (maxVol > 0 && currentVol < (maxVol * 0.7).toInt()) {
+                    audioManager?.setStreamVolume(AudioManager.STREAM_VOICE_CALL, (maxVol * 0.85).toInt(), 0)
+                }
             } catch (e: Throwable) {
                 Log.w(TAG, "AudioManager mode setup: ${e.message}")
             }
@@ -245,6 +315,8 @@ class WebRTCManager(private val context: Context) {
                 mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
                 mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
                 mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googTypingNoiseDetection", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googAudioMirroring", "false"))
             }
 
             val aSource = factory.createAudioSource(audioConstraints)
@@ -264,7 +336,13 @@ class WebRTCManager(private val context: Context) {
                         val helper = SurfaceTextureHelper.create("VideoCaptureThread", eglBaseContext)
                         surfaceTextureHelper = helper
                         capturer.initialize(helper, context.applicationContext, vSource.capturerObserver)
-                        capturer.startCapture(1280, 720, 30)
+                        try {
+                            capturer.startCapture(640, 480, 30)
+                        } catch (_: Throwable) {
+                            try {
+                                capturer.startCapture(320, 240, 15)
+                            } catch (_: Throwable) {}
+                        }
 
                         val vTrack = factory.createVideoTrack("video0", vSource)
                         vTrack.setEnabled(true)
@@ -289,18 +367,32 @@ class WebRTCManager(private val context: Context) {
 
     private fun createCameraCapturer(): CameraVideoCapturer? {
         return try {
-            val enumerator = Camera2Enumerator(context.applicationContext)
+            val enumerator = if (Camera2Enumerator.isSupported(context.applicationContext)) {
+                Camera2Enumerator(context.applicationContext)
+            } else {
+                Camera1Enumerator(true)
+            }
             val deviceNames = enumerator.deviceNames
             val front = deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
             val back = deviceNames.firstOrNull { enumerator.isBackFacing(it) }
-            (front ?: back)?.let { enumerator.createCapturer(it, null) }
+            val selected = front ?: back ?: deviceNames.firstOrNull()
+            selected?.let { enumerator.createCapturer(it, null) }
         } catch (e: Throwable) {
-            Log.w(TAG, "Camera2Enumerator failed: ${e.message}")
-            null
+            try {
+                val fallback = Camera1Enumerator(true)
+                val deviceNames = fallback.deviceNames
+                val front = deviceNames.firstOrNull { fallback.isFrontFacing(it) }
+                val back = deviceNames.firstOrNull { fallback.isBackFacing(it) }
+                val selected = front ?: back ?: deviceNames.firstOrNull()
+                selected?.let { fallback.createCapturer(it, null) }
+            } catch (e2: Throwable) {
+                Log.w(TAG, "createCameraCapturer failed: ${e2.message}")
+                null
+            }
         }
     }
 
-    fun createOffer() {
+    fun createOffer(enableVideo: Boolean = false) {
         val pc = peerConnection ?: run {
             listener?.onError("PeerConnection chưa sẵn sàng")
             return
@@ -308,7 +400,7 @@ class WebRTCManager(private val context: Context) {
 
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (enableVideo) "true" else "false"))
         }
 
         pc.createOffer(object : SdpObserver {
@@ -316,7 +408,7 @@ class WebRTCManager(private val context: Context) {
                 pc.setLocalDescription(object : SdpObserver {
                     override fun onCreateSuccess(p0: SessionDescription?) {}
                     override fun onSetSuccess() {
-                        Log.i(TAG, "Local offer description set successfully")
+                        Log.i(TAG, "Local offer description set successfully (enableVideo=$enableVideo)")
                         mainHandler.post {
                             listener?.onOfferCreated(desc.description)
                         }
@@ -342,32 +434,39 @@ class WebRTCManager(private val context: Context) {
         }, constraints)
     }
 
-    fun handleRemoteOffer(offerSdp: String) {
+    private fun normalizeSdp(sdp: String): String {
+        return sdp.replace("\r\n", "\n")
+            .replace("\r", "\n")
+            .split("\n")
+            .filter { it.isNotBlank() }
+            .joinToString("\r\n", postfix = "\r\n")
+    }
+
+    fun handleRemoteOffer(offerSdp: String, enableVideo: Boolean = false) {
         val pc = peerConnection ?: return
-        val desc = SessionDescription(SessionDescription.Type.OFFER, offerSdp)
+        val normalized = normalizeSdp(offerSdp)
+        val hasVideo = enableVideo || normalized.contains("m=video")
+        val desc = SessionDescription(SessionDescription.Type.OFFER, normalized)
         pc.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(p0: SessionDescription?) {}
             override fun onSetSuccess() {
-                Log.i(TAG, "Remote offer description set successfully")
+                Log.i(TAG, "Remote offer description set successfully (hasVideo=$hasVideo)")
                 isRemoteDescriptionSet = true
                 drainPendingIceCandidates()
-                createAnswer()
+                createAnswer(hasVideo)
             }
             override fun onCreateFailure(p0: String?) {}
             override fun onSetFailure(error: String?) {
                 Log.e(TAG, "setRemoteDescription (offer) failed: $error")
-                mainHandler.post {
-                    listener?.onError("Không thể tiếp nhận offer từ đối phương")
-                }
             }
         }, desc)
     }
 
-    private fun createAnswer() {
+    private fun createAnswer(enableVideo: Boolean = false) {
         val pc = peerConnection ?: return
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (enableVideo) "true" else "false"))
         }
 
         pc.createAnswer(object : SdpObserver {
@@ -375,7 +474,7 @@ class WebRTCManager(private val context: Context) {
                 pc.setLocalDescription(object : SdpObserver {
                     override fun onCreateSuccess(p0: SessionDescription?) {}
                     override fun onSetSuccess() {
-                        Log.i(TAG, "Local answer description set successfully")
+                        Log.i(TAG, "Local answer description set successfully (enableVideo=$enableVideo)")
                         mainHandler.post {
                             listener?.onAnswerCreated(desc.description)
                         }
@@ -383,9 +482,6 @@ class WebRTCManager(private val context: Context) {
                     override fun onCreateFailure(p0: String?) {}
                     override fun onSetFailure(error: String?) {
                         Log.e(TAG, "setLocalDescription (answer) failed: $error")
-                        mainHandler.post {
-                            listener?.onError("Không thể hoàn tất trả lời cuộc gọi: $error")
-                        }
                     }
                 }, desc)
             }
@@ -393,9 +489,6 @@ class WebRTCManager(private val context: Context) {
             override fun onSetSuccess() {}
             override fun onCreateFailure(error: String?) {
                 Log.e(TAG, "createAnswer failure: $error")
-                mainHandler.post {
-                    listener?.onError("Không thể tạo tín hiệu trả lời: $error")
-                }
             }
             override fun onSetFailure(p0: String?) {}
         }, constraints)
@@ -403,7 +496,8 @@ class WebRTCManager(private val context: Context) {
 
     fun handleRemoteAnswer(answerSdp: String) {
         val pc = peerConnection ?: return
-        val desc = SessionDescription(SessionDescription.Type.ANSWER, answerSdp)
+        val normalized = normalizeSdp(answerSdp)
+        val desc = SessionDescription(SessionDescription.Type.ANSWER, normalized)
         pc.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(p0: SessionDescription?) {}
             override fun onSetSuccess() {
@@ -469,6 +563,7 @@ class WebRTCManager(private val context: Context) {
 
     fun close() {
         try {
+            setSpeakerphoneOn(false)
             audioManager?.mode = AudioManager.MODE_NORMAL
             audioManager?.isSpeakerphoneOn = false
         } catch (e: Throwable) {

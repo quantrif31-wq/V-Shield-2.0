@@ -31,9 +31,8 @@ object RetrofitClient {
     private val authInterceptor = Interceptor { chain ->
         val request = chain.request().newBuilder()
         authToken?.let {
-            request.addHeader("Authorization", "Bearer $it")
+            request.header("Authorization", "Bearer $it")
         }
-        request.addHeader("Content-Type", "application/json")
         chain.proceed(request.build())
     }
 
@@ -119,12 +118,6 @@ object RetrofitClient {
         .build()
 
     private val refreshClient = OkHttpClient.Builder()
-        .addInterceptor(Interceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Content-Type", "application/json")
-                .build()
-            chain.proceed(request)
-        })
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)

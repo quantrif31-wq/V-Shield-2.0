@@ -9,9 +9,11 @@ class AuthRepository(
 ) {
     suspend fun login(username: String, password: String, mfaCode: String? = null): Result<LoginData> {
         return try {
+            android.util.Log.d("AuthRepository", "Attempting login for user: $username")
             val response = RetrofitClient.apiService.login(
                 LoginRequest(username, password, mfaCode)
             )
+            android.util.Log.d("AuthRepository", "Login response code: ${response.code()}")
             val data = response.body()
 
             if (response.isSuccessful && data != null && data.token.isNotBlank()) {
@@ -25,19 +27,22 @@ class AuthRepository(
                 Result.failure(
                     Exception(
                         data.message ?: if (data.requiresMfaSetup) {
-                            "Tai khoan can thiet lap xac thuc hai lop tren web truoc khi dang nhap mobile."
+                            "Tài khoản cần thiết lập xác thực hai lớp trên web trước khi đăng nhập trên mobile."
                         } else {
-                            "Tai khoan yeu cau ma xac thuc hai lop. Phien ban mobile hien chua ho tro buoc nay."
+                            "Tài khoản yêu cầu mã xác thực hai lớp (MFA)."
                         }
                     )
                 )
             } else {
+                val errorMsg = response.errorBody()?.string()
+                android.util.Log.e("AuthRepository", "Login failed errorBody: $errorMsg")
                 Result.failure(
-                    Exception(data?.message ?: "Dang nhap that bai")
+                    Exception(data?.message ?: errorMsg ?: "Đăng nhập thất bại")
                 )
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Ket noi that bai: ${e.message}"))
+            android.util.Log.e("AuthRepository", "Login exception: ${e.message}", e)
+            Result.failure(Exception("Kết nối máy chủ thất bại: ${e.message}"))
         }
     }
 

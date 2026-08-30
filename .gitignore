@@ -84,6 +84,8 @@ coverage.json
 *.obj
 *.pkg
 *.msi
+*.apk
+*.aab
 
 # ----- Archives / large packaged data -----
 *.zip

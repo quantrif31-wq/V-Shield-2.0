@@ -141,22 +141,25 @@ class NotificationSignalRClient(
         val messages = text.split(rs).filter { it.isNotBlank() }
         for (msg in messages) {
             try {
+                val json = JsonParser.parseString(msg).asJsonObject
                 if (!isNegotiated) {
                     isNegotiated = true
                     _connectionState.value = ConnectionState.CONNECTED
                     scope.launch { onConnectionChanged?.invoke(true) }
-                    return
+                    if (!json.has("type")) {
+                        continue
+                    }
                 }
 
-                val json = JsonParser.parseString(msg).asJsonObject
                 val type = json.get("type")?.asInt ?: continue
-
                 when (type) {
                     1 -> handleInvocation(json)
                     6 -> {}
                     7 -> {}
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.e("NotifSignalRClient", "Error parsing message: $msg", e)
+            }
         }
     }
 

@@ -33,6 +33,7 @@ data class ChatUiState(
     val remoteVideoTrack: VideoTrack? = null,
     val isMicMuted: Boolean = false,
     val isCameraOff: Boolean = false,
+    val isSpeakerOn: Boolean = true,
     val callError: String? = null,
     val error: String? = null
 )
@@ -48,6 +49,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var pendingIceCandidates = mutableListOf<IceCandidate>()
     private var pendingOfferSdp: String? = null
 
+    private val activeSignalR: ChatSignalRClient?
+        get() = com.vshield.mobile.service.VShieldBackgroundService.chatClient ?: signalRClient
+
     fun initialize() {
         val token = RetrofitClient.getToken()
         if (token == null) {
@@ -59,6 +63,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(myEmployeeId = empId)
 
         if (!BuildConfig.DEMO_MODE) {
+            com.vshield.mobile.service.VShieldBackgroundService.start(getApplication())
+
+            // Hook into background service listeners
+            com.vshield.mobile.service.VShieldBackgroundService.onChatMessageReceived = { msg -> handleIncomingMessage(msg) }
+            com.vshield.mobile.service.VShieldBackgroundService.onChatMessagesRead = { read -> handleMessagesRead(read) }
+            com.vshield.mobile.service.VShieldBackgroundService.onChatUserTyping = { info -> handleUserTyping(info) }
+            com.vshield.mobile.service.VShieldBackgroundService.onChatIncomingCall = { call -> handleIncomingCallSignal(call) }
+            com.vshield.mobile.service.VShieldBackgroundService.onChatCallResponse = { resp -> handleCallResponseSignal(resp) }
+            com.vshield.mobile.service.VShieldBackgroundService.onChatCallEnded = { ended -> handleCallEndedSignal(ended) }
+
             val baseUrl = BuildConfig.API_BASE_URL
             signalRClient = ChatSignalRClient(baseUrl, token, viewModelScope)
             setupSignalRCallbacks()
@@ -73,82 +87,118 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun setupSignalRCallbacks() {
         val client = signalRClient ?: return
 
-        client.onMessageReceived = { msg ->
-            val current = _uiState.value
-            if (msg.conversationId == current.currentConvId) {
-                val newMsg = ChatMessageInfo(
-                    messageId = msg.messageId,
-                    senderId = msg.senderId,
-                    senderName = msg.fullName,
-                    content = msg.content,
-                    messageType = msg.messageType,
-                    signalingData = msg.signalingData,
-                    sentAt = msg.sentAt,
-                    isRead = msg.isRead,
-                    readAt = null
+        client.onMessageReceived = { msg -> handleIncomingMessage(msg) }
+        client.onMessagesRead = { read -> handleMessagesRead(read) }
+        client.onUserTyping = { info -> handleUserTyping(info) }
+        client.onIncomingCall = { call -> handleIncomingCallSignal(call) }
+        client.onCallResponse = { resp -> handleCallResponseSignal(resp) }
+        client.onCallEnded = { ended -> handleCallEndedSignal(ended) }
+    }
+
+    private fun handleIncomingMessage(msg: SignalRReceiveMessage) {
+        val current = _uiState.value
+        if (msg.conversationId == current.currentConvId) {
+            val newMsg = ChatMessageInfo(
+                messageId = msg.messageId,
+                senderId = msg.senderId,
+                senderName = msg.fullName,
+                content = msg.content,
+                messageType = msg.messageType,
+                signalingData = msg.signalingData,
+                sentAt = msg.sentAt,
+                isRead = msg.isRead,
+                readAt = null
+            )
+            val mergedMessages = if (current.messages.any { it.messageId == newMsg.messageId }) {
+                current.messages
+            } else {
+                current.messages + newMsg
+            }
+            _uiState.value = current.copy(messages = mergedMessages)
+        }
+        val updatedConvs = current.conversations.map { conv ->
+            if (conv.conversationId == msg.conversationId) {
+                val unread = if (msg.senderId != current.myEmployeeId && msg.conversationId != current.currentConvId)
+                    conv.unreadCount + 1 else conv.unreadCount
+                conv.copy(
+                    lastMessage = LastMessageInfo(
+                        messageId = msg.messageId,
+                        content = msg.content,
+                        sentAt = msg.sentAt,
+                        messageType = msg.messageType,
+                        senderName = msg.fullName,
+                        senderId = msg.senderId
+                    ),
+                    unreadCount = unread
                 )
-                val mergedMessages = if (current.messages.any { it.messageId == newMsg.messageId }) {
-                    current.messages
-                } else {
-                    current.messages + newMsg
-                }
-                _uiState.value = current.copy(messages = mergedMessages)
-            }
-            val updatedConvs = current.conversations.map { conv ->
-                if (conv.conversationId == msg.conversationId) {
-                    val unread = if (msg.senderId != current.myEmployeeId && msg.conversationId != current.currentConvId)
-                        conv.unreadCount + 1 else conv.unreadCount
-                    conv.copy(
-                        lastMessage = LastMessageInfo(
-                            messageId = msg.messageId,
-                            content = msg.content,
-                            sentAt = msg.sentAt,
-                            messageType = msg.messageType,
-                            senderName = msg.fullName,
-                            senderId = msg.senderId
-                        ),
-                        unreadCount = unread
-                    )
-                } else conv
-            }
-            _uiState.value = _uiState.value.copy(conversations = updatedConvs)
+            } else conv
         }
+        _uiState.value = _uiState.value.copy(conversations = updatedConvs)
+    }
 
-        client.onMessagesRead = { read ->
-            val current = _uiState.value
-            if (read.conversationId == current.currentConvId) {
-                val updatedMessages = current.messages.map { msg ->
-                    if (msg.senderId == current.myEmployeeId && !msg.isRead) {
-                        msg.copy(isRead = true, readAt = read.readAt)
-                    } else msg
-                }
-                _uiState.value = current.copy(messages = updatedMessages)
+    private fun handleMessagesRead(read: SignalRReadReceipt) {
+        val current = _uiState.value
+        if (read.conversationId == current.currentConvId) {
+            val updatedMessages = current.messages.map { msg ->
+                if (msg.senderId == current.myEmployeeId && !msg.isRead) {
+                    msg.copy(isRead = true, readAt = read.readAt)
+                } else msg
+            }
+            _uiState.value = current.copy(messages = updatedMessages)
+        }
+    }
+
+    private fun handleUserTyping(info: SignalRTypingInfo) {
+        if (info.employeeId != _uiState.value.myEmployeeId) {
+            _uiState.value = _uiState.value.copy(typingUser = info.fullName)
+            typingJob?.cancel()
+            typingJob = viewModelScope.launch {
+                delay(3000)
+                _uiState.value = _uiState.value.copy(typingUser = null)
             }
         }
+    }
 
-        client.onUserTyping = { info ->
-            if (info.employeeId != _uiState.value.myEmployeeId) {
-                _uiState.value = _uiState.value.copy(typingUser = info.fullName)
-                typingJob?.cancel()
-                typingJob = viewModelScope.launch {
-                    delay(3000)
-                    _uiState.value = _uiState.value.copy(typingUser = null)
-                }
+    private fun handleCallEndedSignal(ended: SignalRCallEnded? = null) {
+        com.vshield.mobile.service.NotificationHelper.cancelIncomingCallNotification(getApplication())
+        val myId = _uiState.value.myEmployeeId
+        val state = _uiState.value.callState
+
+        android.util.Log.i("ChatViewModel", "handleCallEndedSignal: ended.fromEmployeeId=${ended?.fromEmployeeId}, myId=$myId, state=$state")
+
+        // 1. If CallEnded was broadcasted because we accepted or rejected for ourselves, DO NOT close active call!
+        if (ended != null && ended.fromEmployeeId == myId) {
+            android.util.Log.i("ChatViewModel", "CallEnded ignored because it was triggered by myself ($myId)")
+            return
+        }
+
+        // 2. If in Connected state, only end if remote party ended it
+        if (state is ChatCallState.Connected) {
+            if (ended != null && ended.fromEmployeeId != 0 && ended.fromEmployeeId != state.withEmployeeId) {
+                android.util.Log.i("ChatViewModel", "CallEnded ignored because ended.fromEmployeeId (${ended.fromEmployeeId}) != withEmployeeId (${state.withEmployeeId})")
+                return
             }
         }
 
-        client.onIncomingCall = { call ->
-            handleIncomingCallSignal(call)
+        // 3. If in Outgoing state, only end if remote party ended it
+        if (state is ChatCallState.Outgoing) {
+            if (ended != null && ended.fromEmployeeId != 0 && ended.fromEmployeeId != state.toEmployeeId) {
+                android.util.Log.i("ChatViewModel", "CallEnded ignored because ended.fromEmployeeId (${ended.fromEmployeeId}) != toEmployeeId (${state.toEmployeeId})")
+                return
+            }
         }
 
-        client.onCallResponse = { resp ->
-            handleCallResponseSignal(resp)
+        // 4. If in Incoming state, only dismiss if caller cancelled
+        if (state is ChatCallState.Incoming) {
+            if (ended != null && ended.fromEmployeeId != 0 && ended.fromEmployeeId != state.fromEmployeeId) {
+                android.util.Log.i("ChatViewModel", "CallEnded ignored because ended.fromEmployeeId (${ended.fromEmployeeId}) != incoming.fromEmployeeId (${state.fromEmployeeId})")
+                return
+            }
         }
 
-        client.onCallEnded = {
-            _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
-            closeWebRtc()
-        }
+        android.util.Log.i("ChatViewModel", "Ending call and returning to Idle state...")
+        _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
+        closeWebRtc()
     }
 
     private fun handleIncomingCallSignal(call: SignalRCallInfo) {
@@ -158,13 +208,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (call.signalingData.isNullOrBlank()) return
                 pendingOfferSdp = call.signalingData
                 val isVideo = (call.signalingData ?: "").contains("m=video")
+                val callType = if (isVideo) "video" else "audio"
+
+                // Show Heads-Up Notification for Incoming Call
+                com.vshield.mobile.service.NotificationHelper.showIncomingCallNotification(
+                    context = getApplication(),
+                    callType = callType,
+                    fromEmployeeId = call.fromEmployeeId,
+                    fromFullName = call.fromFullName ?: "Cuộc gọi đến",
+                    conversationId = call.conversationId
+                )
+
                 _uiState.value = current.copy(
                     callState = ChatCallState.Incoming(
                         fromEmployeeId = call.fromEmployeeId,
                         fromFullName = call.fromFullName ?: "Cuộc gọi đến",
                         conversationId = call.conversationId,
                         offerSdp = call.signalingData,
-                        callType = if (isVideo) "video" else "audio"
+                        callType = callType
                     )
                 )
             }
@@ -214,12 +275,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun parseIceCandidate(json: String?): IceCandidate? {
         if (json.isNullOrBlank()) return null
         return try {
-            val obj = com.google.gson.JsonParser.parseString(json).asJsonObject
-            val sdpMid = obj.get("sdpMid")?.asString ?: "0"
-            val sdpMLineIndex = obj.get("sdpMLineIndex")?.asInt ?: 0
-            val candidate = obj.get("candidate")?.asString ?: return null
+            val element = com.google.gson.JsonParser.parseString(json)
+            if (!element.isJsonObject) return null
+            val obj = element.asJsonObject
+            val sdpMid = if (obj.has("sdpMid") && !obj.get("sdpMid").isJsonNull) obj.get("sdpMid").asString else "0"
+            val sdpMLineIndex = if (obj.has("sdpMLineIndex") && !obj.get("sdpMLineIndex").isJsonNull) {
+                try { obj.get("sdpMLineIndex").asInt } catch (_: Exception) { 0 }
+            } else 0
+            val candidate = if (obj.has("candidate") && !obj.get("candidate").isJsonNull) obj.get("candidate").asString else return null
+            if (candidate.isBlank()) return null
             IceCandidate(sdpMid, sdpMLineIndex, candidate)
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -265,7 +331,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         messages = resp.body()!!.data ?: emptyList(),
                         isLoadingMessages = false
                     )
-                    signalRClient?.markRead(conversationId)
+                    activeSignalR?.markRead(conversationId)
                 } else {
                     _uiState.value = _uiState.value.copy(isLoadingMessages = false)
                 }
@@ -278,9 +344,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun openConversation(conversationId: Int) {
+        val conv = _uiState.value.conversations.find { it.conversationId == conversationId }
+        _uiState.value = _uiState.value.copy(currentConversation = conv, currentConvId = conversationId)
+        com.vshield.mobile.service.VShieldBackgroundService.currentOpenedConversationId = conversationId
+        com.vshield.mobile.service.NotificationHelper.cancelMessageNotification(getApplication(), conversationId)
+        loadMessages(conversationId)
+        clearUnreadForConversation(conversationId)
+        if (_uiState.value.conversations.isEmpty()) {
+            loadConversations()
+        }
+    }
+
     fun setCurrentConversation(conversation: ConversationInfo?) {
-        _uiState.value = _uiState.value.copy(currentConversation = conversation)
+        _uiState.value = _uiState.value.copy(currentConversation = conversation, currentConvId = conversation?.conversationId ?: 0)
+        com.vshield.mobile.service.VShieldBackgroundService.currentOpenedConversationId = conversation?.conversationId
         if (conversation != null) {
+            com.vshield.mobile.service.NotificationHelper.cancelMessageNotification(getApplication(), conversation.conversationId)
             loadMessages(conversation.conversationId)
             clearUnreadForConversation(conversation.conversationId)
         }
@@ -318,7 +398,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendTyping() {
         val convId = _uiState.value.currentConvId
-        if (convId > 0) signalRClient?.typing(convId)
+        if (convId > 0) activeSignalR?.typing(convId)
     }
 
     fun loadContacts() {
@@ -356,52 +436,83 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startCall(targetEmployeeId: Int, targetFullName: String, conversationId: Int?, type: String = "audio") {
-        try {
-            val current = _uiState.value
-            _uiState.value = current.copy(
-                callState = ChatCallState.Outgoing(
-                    toEmployeeId = targetEmployeeId,
-                    toFullName = targetFullName,
-                    conversationId = conversationId,
-                    callType = type
-                ),
-                callError = null
-            )
+        viewModelScope.launch {
+            try {
+                val current = _uiState.value
+                _uiState.value = current.copy(
+                    callState = ChatCallState.Outgoing(
+                        toEmployeeId = targetEmployeeId,
+                        toFullName = targetFullName,
+                        conversationId = conversationId,
+                        callType = type
+                    ),
+                    callError = null
+                )
 
-            if (BuildConfig.DEMO_MODE) {
-                signalRClient?.callUser(targetEmployeeId, "offer", "demo-offer", conversationId)
-                return
-            }
+                if (BuildConfig.DEMO_MODE) {
+                    activeSignalR?.callUser(targetEmployeeId, "offer", "demo-offer", conversationId)
+                    return@launch
+                }
 
-            val isVideo = type == "video"
-            val manager = ensureWebRtcManager()
-            manager.initialize()
-            if (!manager.createPeerConnection()) {
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể khởi tạo kết nối thoại")
+                val isVideo = type == "video"
+                val manager = ensureWebRtcManager()
+                manager.initialize()
+                if (!manager.createPeerConnection()) {
+                    _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể khởi tạo kết nối thoại")
+                    closeWebRtc()
+                    return@launch
+                }
+                if (!manager.setupLocalMedia(enableVideo = isVideo)) {
+                    _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể bật thiết bị âm thanh")
+                    closeWebRtc()
+                    return@launch
+                }
+                manager.createOffer(enableVideo = isVideo)
+                pendingIceCandidates.clear()
+            } catch (e: Throwable) {
+                android.util.Log.e("ChatViewModel", "startCall CRASH: ${e.message}", e)
+                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Lỗi cuộc gọi: ${e.message}")
                 closeWebRtc()
-                return
             }
-            if (!manager.setupLocalMedia(enableVideo = isVideo)) {
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể bật thiết bị âm thanh")
-                closeWebRtc()
-                return
-            }
-            manager.createOffer()
-            pendingIceCandidates.clear()
-        } catch (e: Throwable) {
-            _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Lỗi cuộc gọi: ${e.message}")
-            closeWebRtc()
         }
     }
 
-    fun acceptCall() {
-        try {
-            val state = _uiState.value.callState
-            if (state !is ChatCallState.Incoming) return
-            val isVideo = state.callType == "video"
+    fun acceptCall(
+        fromEmployeeId: Int = 0,
+        fromFullName: String = "",
+        conversationId: Int = 0,
+        callType: String = ""
+    ) {
+        viewModelScope.launch {
+            try {
+                var state = _uiState.value.callState
+                if (state !is ChatCallState.Incoming) {
+                    val bgCall = com.vshield.mobile.service.VShieldBackgroundService.lastIncomingCall
+                    val empId = if (fromEmployeeId > 0) fromEmployeeId else (bgCall?.fromEmployeeId ?: 0)
+                    val empName = if (fromFullName.isNotBlank()) fromFullName else (bgCall?.fromFullName ?: "Cuộc gọi đến")
+                    val cId = if (conversationId > 0) conversationId else bgCall?.conversationId
+                    val sdp = bgCall?.signalingData ?: pendingOfferSdp
+                    val cType = if (callType.isNotBlank()) callType else if ((sdp ?: "").contains("m=video")) "video" else "audio"
 
-            if (BuildConfig.DEMO_MODE) {
-                signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
+                    if (empId > 0) {
+                        state = ChatCallState.Incoming(
+                            fromEmployeeId = empId,
+                            fromFullName = empName,
+                            conversationId = cId,
+                            offerSdp = sdp,
+                            callType = cType
+                        )
+                        _uiState.value = _uiState.value.copy(callState = state)
+                    } else {
+                        return@launch
+                    }
+                }
+                val isVideo = state.callType == "video"
+
+                // Always dismiss incoming call notification immediately
+                com.vshield.mobile.service.NotificationHelper.cancelIncomingCallNotification(getApplication())
+
+                // Immediately switch to Connected state so CallOverlay displays and stays on screen
                 _uiState.value = _uiState.value.copy(
                     callState = ChatCallState.Connected(
                         withEmployeeId = state.fromEmployeeId,
@@ -409,66 +520,75 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         callType = state.callType
                     )
                 )
-                return
-            }
 
-            val manager = ensureWebRtcManager()
-            manager.initialize()
-            if (!manager.createPeerConnection()) {
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể khởi tạo kết nối thoại")
-                closeWebRtc()
-                return
-            }
-            if (!manager.setupLocalMedia(enableVideo = isVideo)) {
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể bật thiết bị âm thanh")
-                closeWebRtc()
-                return
-            }
+                // Acknowledge accepted state to remote caller
+                activeSignalR?.callResponse(state.fromEmployeeId, "accepted", "")
 
-            pendingIceCandidates.forEach { manager.addIceCandidate(it) }
-            pendingIceCandidates.clear()
+                if (BuildConfig.DEMO_MODE) {
+                    return@launch
+                }
 
-            val offer = state.offerSdp ?: pendingOfferSdp
-            if (offer != null && offer.isNotBlank()) {
-                manager.handleRemoteOffer(offer)
-                signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
-                _uiState.value = _uiState.value.copy(
-                    callState = ChatCallState.Connected(
-                        withEmployeeId = state.fromEmployeeId,
-                        withFullName = state.fromFullName,
-                        callType = state.callType
-                    )
-                )
-            } else {
-                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không nhận được tín hiệu offer")
-                closeWebRtc()
+                val manager = ensureWebRtcManager()
+                manager.initialize()
+                manager.createPeerConnection()
+                manager.setupLocalMedia(enableVideo = isVideo)
+
+                pendingIceCandidates.forEach { manager.addIceCandidate(it) }
+                pendingIceCandidates.clear()
+
+                val offer = state.offerSdp ?: pendingOfferSdp
+                if (offer != null && offer.isNotBlank()) {
+                    manager.handleRemoteOffer(offer, enableVideo = isVideo)
+                }
+            } catch (e: Throwable) {
+                com.vshield.mobile.service.NotificationHelper.cancelIncomingCallNotification(getApplication())
+                android.util.Log.e("ChatViewModel", "acceptCall error: ${e.message}", e)
             }
-        } catch (e: Throwable) {
-            _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Lỗi nhận cuộc gọi: ${e.message}")
-            closeWebRtc()
         }
+    }
+
+    fun restoreIncomingCallState(
+        fromEmployeeId: Int,
+        fromFullName: String,
+        conversationId: Int?,
+        offerSdp: String?,
+        callType: String
+    ) {
+        _uiState.value = _uiState.value.copy(
+            callState = ChatCallState.Incoming(
+                fromEmployeeId = fromEmployeeId,
+                fromFullName = fromFullName,
+                conversationId = conversationId,
+                offerSdp = offerSdp,
+                callType = callType
+            )
+        )
     }
 
     fun rejectCall() {
         val state = _uiState.value.callState
-        if (state is ChatCallState.Incoming) {
-            signalRClient?.callResponse(state.fromEmployeeId, "reject", "")
+        if (state !is ChatCallState.Incoming) {
+            return
         }
+        com.vshield.mobile.service.NotificationHelper.cancelIncomingCallNotification(getApplication())
+        activeSignalR?.callResponse(state.fromEmployeeId, "reject", "")
+        com.vshield.mobile.service.VShieldBackgroundService.rejectCurrentCall()
         closeWebRtc()
         _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle)
     }
 
     fun endCall() {
+        com.vshield.mobile.service.NotificationHelper.cancelIncomingCallNotification(getApplication())
         val state = _uiState.value.callState
         when (state) {
             is ChatCallState.Incoming -> {
-                signalRClient?.endCall(state.fromEmployeeId, state.conversationId)
+                activeSignalR?.endCall(state.fromEmployeeId, state.conversationId)
             }
             is ChatCallState.Outgoing -> {
-                signalRClient?.endCall(state.toEmployeeId, state.conversationId)
+                activeSignalR?.endCall(state.toEmployeeId, state.conversationId)
             }
             is ChatCallState.Connected -> {
-                signalRClient?.endCall(state.withEmployeeId, null)
+                activeSignalR?.endCall(state.withEmployeeId, null)
             }
             else -> {}
         }
@@ -486,6 +606,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val off = !_uiState.value.isCameraOff
         webrtcManager?.setVideoEnabled(!off)
         _uiState.value = _uiState.value.copy(isCameraOff = off)
+    }
+
+    fun toggleSpeaker() {
+        val on = !_uiState.value.isSpeakerOn
+        webrtcManager?.setSpeakerphoneOn(on)
+        _uiState.value = _uiState.value.copy(isSpeakerOn = on)
     }
 
     fun switchCamera() {
@@ -507,7 +633,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val current = _uiState.value
                 val state = current.callState
                 if (state is ChatCallState.Outgoing) {
-                    signalRClient?.callUser(state.toEmployeeId, "offer", sdp, state.conversationId)
+                    activeSignalR?.callUser(state.toEmployeeId, "offer", sdp, state.conversationId)
                 }
             }
 
@@ -521,7 +647,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     else -> 0
                 }
                 if (targetId > 0) {
-                    signalRClient?.callResponse(targetId, "answer", sdp)
+                    activeSignalR?.callResponse(targetId, "answer", sdp)
                 }
             }
 
@@ -531,13 +657,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val json = buildIceCandidateJson(candidate)
                 when (state) {
                     is ChatCallState.Outgoing -> {
-                        signalRClient?.callUser(state.toEmployeeId, "ice", json, state.conversationId)
+                        activeSignalR?.callUser(state.toEmployeeId, "ice", json, state.conversationId)
                     }
                     is ChatCallState.Incoming -> {
-                        signalRClient?.callResponse(state.fromEmployeeId, "ice", json)
+                        activeSignalR?.callResponse(state.fromEmployeeId, "ice", json)
                     }
                     is ChatCallState.Connected -> {
-                        signalRClient?.callResponse(state.withEmployeeId, "ice", json)
+                        activeSignalR?.callResponse(state.withEmployeeId, "ice", json)
                     }
                     else -> {}
                 }
@@ -584,7 +710,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun closeWebRtc() {
-        webrtcManager?.close()
+        try {
+            webrtcManager?.close()
+        } catch (e: Throwable) {
+            android.util.Log.w("ChatViewModel", "closeWebRtc error: ${e.message}")
+        }
         webrtcManager = null
         pendingIceCandidates.clear()
         pendingOfferSdp = null
@@ -592,7 +722,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             localVideoTrack = null,
             remoteVideoTrack = null,
             isMicMuted = false,
-            isCameraOff = false
+            isCameraOff = false,
+            isSpeakerOn = true
         )
     }
 

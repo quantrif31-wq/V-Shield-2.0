@@ -152,7 +152,7 @@ private fun SummaryRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         SummaryChip(
-            label = "$pendingCount mục đang mở",
+            label = "$pendingCount cần xử lý",
             color = MaterialTheme.colorScheme.primaryContainer,
             textColor = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.weight(1f)
@@ -163,12 +163,12 @@ private fun SummaryRow(
             textColor = Color(0xFF1565C0)
         )
         SummaryChip(
-            label = "$securityAlertCount alert",
+            label = "$securityAlertCount cảnh báo",
             color = Color(0xFFFFF3E0),
             textColor = Color(0xFFEF6C00)
         )
         SummaryChip(
-            label = if (isConnected) "Realtime" else "Mất kết nối",
+            label = if (isConnected) "Trực tuyến" else "Mất kết nối",
             color = if (isConnected) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
             textColor = if (isConnected) Color(0xFF2E7D32) else Color(0xFFC62828)
         )
@@ -366,11 +366,11 @@ private fun severityColor(severity: String): Color = when (severity) {
 }
 
 private fun severityLabel(severity: String): String = when (severity) {
-    "success" -> "Xanh lá"
-    "info" -> "Xanh dương"
-    "caution" -> "Vàng"
-    "warning" -> "Cam"
-    "critical" -> "Đỏ"
+    "success" -> "Thành công"
+    "info" -> "Thông tin"
+    "caution" -> "Lưu ý"
+    "warning" -> "Cảnh báo"
+    "critical" -> "Khẩn cấp"
     else -> "Thông tin"
 }
 

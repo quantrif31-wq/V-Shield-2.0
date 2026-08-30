@@ -39,7 +39,7 @@ sealed class BottomNavItem(
 
     data object Transfer : BottomNavItem(
         route = "transfer",
-        title = "Xe",
+        title = "Bàn giao xe",
         selectedIcon = Icons.Filled.DirectionsCar,
         unselectedIcon = Icons.Outlined.DirectionsCar
     )

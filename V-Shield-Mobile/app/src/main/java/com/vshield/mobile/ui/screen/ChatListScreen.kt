@@ -67,7 +67,7 @@ fun ChatListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Liên lạc") },
+                title = { Text("Tin nhắn & Trò chuyện") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -77,7 +77,7 @@ fun ChatListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showContactPicker = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Tạo hội thoại mới")
+                Icon(Icons.Default.Add, contentDescription = "Tạo cuộc trò chuyện mới")
             }
         }
     ) { padding ->
@@ -97,7 +97,7 @@ fun ChatListScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Chưa có hội thoại nào", style = MaterialTheme.typography.bodyLarge)
+                Text("Chưa có cuộc trò chuyện nào", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
             LazyColumn(

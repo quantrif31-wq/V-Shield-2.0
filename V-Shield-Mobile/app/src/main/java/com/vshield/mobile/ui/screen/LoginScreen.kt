@@ -75,8 +75,8 @@ fun LoginScreen(
     val activity = LocalContext.current as? FragmentActivity
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var username by remember { mutableStateOf(uiState.lastUsername.orEmpty()) }
-    var password by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf(uiState.lastUsername.takeIf { !it.isNullOrBlank() } ?: "nhanvien1") }
+    var password by remember { mutableStateOf("Staff@123") }
     var mfaCode by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var biometricSelection by remember(uiState.showBiometricSetupDialog, uiState.biometricCapabilities) {
@@ -118,7 +118,7 @@ fun LoginScreen(
 
     if (uiState.error != null) {
         ErrorDialog(
-            title = "Loi dang nhap",
+            title = "Lỗi đăng nhập",
             message = uiState.error!!,
             onDismiss = { authViewModel.clearError() }
         )
@@ -128,12 +128,12 @@ fun LoginScreen(
         AlertDialog(
             onDismissRequest = { authViewModel.dismissBiometricSetupDialog() },
             title = {
-                Text("Bat dang nhap nhanh")
+                Text("Bật đăng nhập nhanh")
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "Chon cach dang nhap nhanh ban muon dung tren dien thoai nay. Android se su dung sinh trac hoc da duoc bat san tren may."
+                        "Chọn cách đăng nhập nhanh bạn muốn dùng trên điện thoại này. Hệ thống sẽ sử dụng sinh trắc học đã được kích hoạt trên thiết bị."
                     )
 
                     uiState.biometricCapabilities.forEach { capability ->
@@ -177,9 +177,9 @@ fun LoginScreen(
 
                     Text(
                         text = if (uiState.awaitingBiometricEnrollment) {
-                            "Dien thoai chua bat sinh trac hoc. Ban hay bat trong cai dat may, quay lai app va he thong se tiep tuc kich hoat."
+                            "Điện thoại chưa bật sinh trắc học. Bạn hãy bật trong cài đặt máy, sau đó quay lại ứng dụng để tiếp tục kích hoạt."
                         } else {
-                            "Neu may chua bat van tay hoac khuon mat, app se mo man hinh cai dat cua dien thoai."
+                            "Nếu máy chưa bật vân tay hoặc khuôn mặt, ứng dụng sẽ mở màn hình cài đặt của điện thoại."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -192,14 +192,14 @@ fun LoginScreen(
                     enabled = biometricSelection.isNotEmpty() && !uiState.isBiometricPromptActive
                 ) {
                     Text(
-                        if (uiState.awaitingBiometricEnrollment) "Kiem tra lai"
-                        else "Bat dang nhap nhanh"
+                        if (uiState.awaitingBiometricEnrollment) "Kiểm tra lại"
+                        else "Bật đăng nhập nhanh"
                     )
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { authViewModel.skipBiometricSetup() }) {
-                    Text("Nhap tay sau")
+                    Text("Nhập tay sau")
                 }
             }
         )
@@ -237,7 +237,7 @@ fun LoginScreen(
             )
 
             Text(
-                text = "Dang nhap an toan cho dien thoai",
+                text = "Đăng nhập an toàn cho thiết bị di động",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
             )
@@ -255,7 +255,7 @@ fun LoginScreen(
                         .padding(24.dp)
                 ) {
                     Text(
-                        text = "Dang nhap",
+                        text = "Đăng nhập",
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
@@ -264,7 +264,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Lan dau ban nhap tai khoan, mat khau va ma 2 lop. Sau khi vao thanh cong, app se hoi ban co muon bat dang nhap nhanh bang sinh trac hoc cua chinh dien thoai nay hay khong.",
+                        text = "Vui lòng nhập tên tài khoản, mật khẩu và mã xác thực 2 lớp (nếu có). Sau khi đăng nhập thành công, bạn có thể bật mở khóa nhanh bằng sinh trắc học.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -272,7 +272,7 @@ fun LoginScreen(
                     if (uiState.hasBiometricSession) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Dang nhap nhanh da bat cho ${uiState.enabledBiometricTypes.toDisplayText()}. Moi lan mo app, he thong se uu tien quet sinh trac hoc truoc, nhung ban van co the quay ve nhap tay bat cu luc nao.",
+                            text = "Đăng nhập nhanh đã bật cho ${uiState.enabledBiometricTypes.toDisplayText()}. Mỗi lần mở ứng dụng, hệ thống sẽ ưu tiên xác thực sinh trắc học trước.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -283,7 +283,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it },
-                        label = { Text("Ten dang nhap") },
+                        label = { Text("Tên đăng nhập") },
                         leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -296,7 +296,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Mat khau") },
+                        label = { Text("Mật khẩu") },
                         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -322,10 +322,10 @@ fun LoginScreen(
                         OutlinedTextField(
                             value = mfaCode,
                             onValueChange = { mfaCode = it.filter(Char::isDigit).take(6) },
-                            label = { Text("Ma xac thuc 2 lop") },
+                            label = { Text("Mã xác thực 2 lớp (MFA)") },
                             leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
                             supportingText = {
-                                Text("Nhap 6 so tu Authenticator neu tai khoan cua ban dang bat MFA.")
+                                Text("Nhập 6 chữ số từ ứng dụng Authenticator nếu tài khoản đang bật MFA.")
                             },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -340,7 +340,7 @@ fun LoginScreen(
                     if (uiState.hasBiometricHardware) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Thiet bi nay co the dung ${uiState.biometricCapabilities.map { it.type }.toSet().toDisplayText()} de mo nhanh. Neu may chua bat, app se dua ban sang cai dat sinh trac hoc cua dien thoai.",
+                            text = "Thiết bị này có thể dùng ${uiState.biometricCapabilities.map { it.type }.toSet().toDisplayText()} để mở khóa nhanh.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -363,7 +363,7 @@ fun LoginScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Dang nhap")
+                            Text("Đăng nhập")
                         }
                     }
 
@@ -375,7 +375,7 @@ fun LoginScreen(
                                 if (activity != null) {
                                     authViewModel.loginWithBiometric(activity)
                                 } else {
-                                    authViewModel.showError("Khong mo duoc xac thuc sinh trac hoc tren thiet bi nay.")
+                                    authViewModel.showError("Không thể mở xác thực sinh trắc học trên thiết bị này.")
                                 }
                             },
                             modifier = Modifier
@@ -387,8 +387,8 @@ fun LoginScreen(
                             Icon(Icons.Filled.Fingerprint, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (uiState.lastUsername.isNullOrBlank()) "Mo bang sinh trac hoc"
-                                else "Mo nhanh cho ${uiState.lastUsername}"
+                                if (uiState.lastUsername.isNullOrBlank()) "Mở bằng sinh trắc học"
+                                else "Mở nhanh cho ${uiState.lastUsername}"
                             )
                         }
                     }
@@ -405,9 +405,9 @@ fun LoginScreen(
                         ) {
                             Text(
                                 if (uiState.offlineDisplayName.isNullOrBlank()) {
-                                    "Vao che do ngoai tuyen"
+                                    "Vào chế độ ngoại tuyến"
                                 } else {
-                                    "Vao ngoai tuyen cho ${uiState.offlineDisplayName}"
+                                    "Vào ngoại tuyến cho ${uiState.offlineDisplayName}"
                                 }
                             )
                         }
@@ -415,7 +415,7 @@ fun LoginScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "Neu API tam thoi bi sap, app van co the vao bang du lieu da luu tu lan dang nhap thanh cong truoc.",
+                            text = "Nếu máy chủ tạm thời gián đoạn, ứng dụng vẫn có thể truy cập bằng dữ liệu đã lưu từ lần đăng nhập thành công trước.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

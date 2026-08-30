@@ -31,9 +31,9 @@ data class LeaveType(
 )
 
 val LEAVE_TYPE_OPTIONS = listOf(
-    LeaveType(1, "AnnualLeave"),
-    LeaveType(2, "SickLeave"),
-    LeaveType(3, "UnpaidLeave"),
-    LeaveType(4, "PersonalLeave"),
-    LeaveType(5, "Other")
+    LeaveType(1, "Nghỉ phép năm"),
+    LeaveType(2, "Nghỉ ốm / Bệnh"),
+    LeaveType(3, "Nghỉ không lương"),
+    LeaveType(4, "Nghỉ việc riêng"),
+    LeaveType(5, "Lý do khác")
 )

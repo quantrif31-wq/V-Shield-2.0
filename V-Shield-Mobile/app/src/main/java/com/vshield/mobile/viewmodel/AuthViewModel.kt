@@ -63,13 +63,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             secureStorage.isBiometricEnabled() &&
             (authRepository.hasRestorableSession() || hasOfflineSession)
 
-        val canAutoLoginWithoutPrompt = authRepository.hasActiveAccessToken() && !hasBiometricSession
-        if (canAutoLoginWithoutPrompt) {
+        val hasToken = authRepository.hasActiveAccessToken()
+        if (hasToken) {
             authRepository.restoreAccessToken()
         }
 
         _uiState.value = AuthUiState(
-            isLoggedIn = canAutoLoginWithoutPrompt,
+            isLoggedIn = hasToken,
             isOfflineMode = false,
             biometricCapabilities = biometricCapabilities,
             enabledBiometricTypes = enabledBiometricTypes,
@@ -77,7 +77,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             canEnterOffline = hasOfflineSession,
             offlineDisplayName = offlineSession?.fullName,
             lastUsername = secureStorage.getLastUsername(),
-            shouldAutoPromptBiometricLogin = hasBiometricSession
+            shouldAutoPromptBiometricLogin = hasBiometricSession && !hasToken
         )
     }
 
@@ -123,18 +123,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         false
                     }
 
+                    com.vshield.mobile.service.VShieldBackgroundService.start(getApplication())
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoggedIn = true,
                         isOfflineMode = false,
-                        biometricCapabilities = capabilities,
                         enabledBiometricTypes = secureStorage.getEnabledBiometricTypes(),
-                        hasBiometricSession = autoEnabled && hasRestorableSession,
+                        hasBiometricSession = secureStorage.isBiometricEnabled(),
                         canEnterOffline = secureStorage.hasOfflineSession(),
                         offlineDisplayName = secureStorage.getOfflineUserSession()?.fullName,
-                        lastUsername = secureStorage.getLastUsername(),
-                        pendingBiometricSetupUsername = null,
-                        pendingBiometricTypes = emptySet(),
+                        pendingBiometricSetupUsername = if (secureStorage.isBiometricEnabled()) null else username,
                         showBiometricSetupDialog = false,
                         awaitingBiometricEnrollment = false,
                         shouldAutoPromptBiometricLogin = false,
@@ -198,7 +196,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(
                 isBiometricPromptActive = false,
                 hasBiometricSession = false,
-                error = "Khong tim thay phien dang nhap de mo bang sinh trac hoc"
+                error = "Không tìm thấy phiên đăng nhập để mở bằng sinh trắc học"
             )
             return
         }
@@ -209,6 +207,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch {
                     _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                     val restored = authRepository.restoreSessionWithStoredTokens()
+                    if (restored) {
+                        com.vshield.mobile.service.VShieldBackgroundService.start(getApplication())
+                    }
                     _uiState.value = if (restored) {
                         _uiState.value.copy(
                             isLoading = false,
@@ -233,7 +234,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             isBiometricPromptActive = false,
                             enabledBiometricTypes = emptySet(),
                             hasBiometricSession = false,
-                            error = "Phien dang nhap da het han, vui long dang nhap lai"
+                            error = "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"
                         )
                     }
                 }
@@ -253,7 +254,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         if (offline == null || offlineQr == null) {
             _uiState.value = _uiState.value.copy(
-                error = "May nay chua co du lieu ngoai tuyen day du. Hay dang nhap thanh cong online it nhat 1 lan."
+                error = "Máy này chưa có dữ liệu ngoại tuyến đầy đủ. Hãy đăng nhập thành công trực tuyến ít nhất 1 lần."
             )
             return
         }
@@ -271,7 +272,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun openBiometricSetupDialog() {
         if (_uiState.value.biometricCapabilities.isEmpty()) {
             _uiState.value = _uiState.value.copy(
-                error = "Thiet bi nay chua co sinh trac hoc kha dung cho dang nhap nhanh."
+                error = "Thiết bị này chưa có sinh trắc học khả dụng cho đăng nhập nhanh."
             )
             return
         }
@@ -299,21 +300,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         if (activity == null) {
             _uiState.value = _uiState.value.copy(
-                error = "Khong mo duoc cau hinh sinh trac hoc tren thiet bi nay."
+                error = "Không mở được cấu hình sinh trắc học trên thiết bị này."
             )
             return
         }
 
         if (filteredTypes.isEmpty()) {
             _uiState.value = _uiState.value.copy(
-                error = "Hay chon it nhat mot cach dang nhap nhanh kha dung."
+                error = "Hãy chọn ít nhất một cách đăng nhập nhanh khả dụng."
             )
             return
         }
 
         if (username.isNullOrBlank() || (!authRepository.hasRestorableSession() && !secureStorage.hasOfflineSession())) {
             _uiState.value = _uiState.value.copy(
-                error = "Hay dang nhap lai mot lan truoc khi bat dang nhap nhanh."
+                error = "Hãy đăng nhập lại một lần trước khi bật đăng nhập nhanh."
             )
             return
         }
@@ -330,9 +331,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 showBiometricSetupDialog = true,
                 awaitingBiometricEnrollment = opened,
                 error = if (opened) {
-                    "Sau khi bat sinh trac hoc tren may, quay lai app de kich hoat dang nhap nhanh."
+                    "Sau khi bật sinh trắc học trên máy, quay lại ứng dụng để kích hoạt đăng nhập nhanh."
                 } else {
-                    "Khong mo duoc man hinh cai dat sinh trac hoc cua dien thoai."
+                    "Không mở được màn hình cài đặt sinh trắc học của điện thoại."
                 }
             )
             return
@@ -350,7 +351,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(
                 awaitingBiometricEnrollment = false,
                 showBiometricSetupDialog = true,
-                error = "Dien thoai van chua bat sinh trac hoc. Ban co the thu lai hoac bo qua."
+                error = "Điện thoại vẫn chưa bật sinh trắc học. Bạn có thể thử lại hoặc bỏ qua."
             )
             return
         }
@@ -362,7 +363,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(
                 awaitingBiometricEnrollment = false,
                 showBiometricSetupDialog = true,
-                error = "Khong tim thay cau hinh dang nhap nhanh dang cho kich hoat."
+                error = "Không tìm thấy cấu hình đăng nhập nhanh đang chờ kích hoạt."
             )
             return
         }
@@ -465,21 +466,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         if (activity == null) {
             _uiState.value = _uiState.value.copy(
-                error = "Khong mo duoc xac thuc sinh trac hoc tren thiet bi nay."
+                error = "Không mở được xác thực sinh trắc học trên thiết bị này."
             )
             return
         }
 
         if (_uiState.value.biometricCapabilities.isEmpty()) {
             _uiState.value = _uiState.value.copy(
-                error = "Thiet bi nay chua ho tro sinh trac hoc kha dung cho ung dung."
+                error = "Thiết bị này chưa hỗ trợ sinh trắc học khả dụng cho ứng dụng."
             )
             return
         }
 
         if (!authRepository.hasRestorableSession() && !secureStorage.hasOfflineSession()) {
             _uiState.value = _uiState.value.copy(
-                error = "Hay dang nhap lai mot lan truoc khi bat dang nhap nhanh."
+                error = "Hãy đăng nhập lại một lần trước khi bật đăng nhập nhanh."
             )
             return
         }
@@ -533,6 +534,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         inactivityJob?.cancel()
+        com.vshield.mobile.service.VShieldBackgroundService.stop(getApplication())
         authRepository.logout()
         secureStorage.disableBiometric()
         secureStorage.clearOfflineSession()

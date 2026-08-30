@@ -99,10 +99,10 @@ fun ProfileScreen(
     if (authState.showBiometricSetupDialog) {
         AlertDialog(
             onDismissRequest = { authViewModel.dismissBiometricSetupDialog() },
-            title = { Text("Quan ly dang nhap nhanh") },
+            title = { Text("Quản lý đăng nhập nhanh") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Ban co the bat mot hoac nhieu kieu sinh trac hoc ma dien thoai ho tro.")
+                    Text("Bạn có thể bật một hoặc nhiều kiểu sinh trắc học mà thiết bị hỗ trợ.")
 
                     authState.biometricCapabilities.forEach { capability ->
                         val selected = biometricSelection.contains(capability.type)
@@ -139,9 +139,9 @@ fun ProfileScreen(
 
                     Text(
                         text = if (authState.awaitingBiometricEnrollment) {
-                            "Sau khi bat sinh trac hoc trong cai dat may, quay lai day de app kich hoat tiep."
+                            "Sau khi bật sinh trắc học trong cài đặt máy, hãy quay lại đây để ứng dụng kích hoạt tiếp."
                         } else {
-                            "Neu may chua bat van tay hoac khuon mat, app se mo cai dat sinh trac hoc cua dien thoai."
+                            "Nếu máy chưa bật vân tay hoặc khuôn mặt, ứng dụng sẽ mở cài đặt sinh trắc học của điện thoại."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = Gray600
@@ -153,12 +153,12 @@ fun ProfileScreen(
                     onClick = { authViewModel.submitBiometricSelection(activity, biometricSelection) },
                     enabled = biometricSelection.isNotEmpty() && !authState.isBiometricPromptActive
                 ) {
-                    Text(if (authState.awaitingBiometricEnrollment) "Kiem tra lai" else "Luu cau hinh")
+                    Text(if (authState.awaitingBiometricEnrollment) "Kiểm tra lại" else "Lưu cấu hình")
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { authViewModel.dismissBiometricSetupDialog() }) {
-                    Text("Dong")
+                    Text("Đóng")
                 }
             }
         )
@@ -233,7 +233,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Thong tin lien he",
+                            text = "Thông tin liên hệ",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -251,7 +251,7 @@ fun ProfileScreen(
                         uiState.profile?.phone?.let {
                             ProfileInfoRow(
                                 icon = Icons.Filled.Phone,
-                                label = "So dien thoai",
+                                label = "Số điện thoại",
                                 value = it
                             )
                         }
@@ -266,7 +266,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Bao mat ung dung",
+                            text = "Bảo mật ứng dụng",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -296,15 +296,15 @@ fun ProfileScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Dang nhap nhanh bang sinh trac hoc",
+                                        text = "Đăng nhập nhanh bằng sinh trắc học",
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         text = when {
-                                            authState.hasBiometricSession -> "Da bat cho ${authState.enabledBiometricTypes.toDisplayText()}. Tu lan mo app sau, he thong se uu tien quet sinh trac hoc truoc."
-                                            authState.hasBiometricHardware -> "Thiet bi nay co the dung ${authState.biometricCapabilities.map { it.type }.toSet().toDisplayText()} de mo nhanh."
-                                            else -> "Thiet bi nay hien chua co sinh trac hoc kha dung cho app."
+                                            authState.hasBiometricSession -> "Đã bật cho ${authState.enabledBiometricTypes.toDisplayText()}. Từ lần mở ứng dụng sau, hệ thống sẽ ưu tiên xác thực sinh trắc học trước."
+                                            authState.hasBiometricHardware -> "Thiết bị này có thể dùng ${authState.biometricCapabilities.map { it.type }.toSet().toDisplayText()} để mở khóa nhanh."
+                                            else -> "Thiết bị này hiện chưa có sinh trắc học khả dụng cho ứng dụng."
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Gray600
@@ -328,8 +328,8 @@ fun ProfileScreen(
                                 enabled = !authState.isBiometricPromptActive
                             ) {
                                 Text(
-                                    if (authState.hasBiometricSession) "Thiet lap lai dang nhap nhanh"
-                                    else "Bat dang nhap nhanh ngay"
+                                    if (authState.hasBiometricSession) "Thiết lập lại đăng nhập nhanh"
+                                    else "Bật đăng nhập nhanh ngay"
                                 )
                             }
 
@@ -340,7 +340,7 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = authState.hasBiometricSession
                             ) {
-                                Text("Tat va xoa cau hinh dang nhap nhanh")
+                                Text("Tắt và xóa cấu hình đăng nhập nhanh")
                             }
                         }
 
@@ -350,8 +350,8 @@ fun ProfileScreen(
 
                         ProfileInfoRow(
                             icon = Icons.Filled.Security,
-                            label = "Tu khoa phien",
-                            value = "Dong app la khoa ngay, hoac bo khong 5 phut se quay ve man dang nhap."
+                            label = "Tự khóa phiên",
+                            value = "Đóng ứng dụng sẽ khóa ngay, hoặc để yên 5 phút sẽ tự quay về màn hình đăng nhập."
                         )
                     }
                 }
@@ -364,7 +364,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Lich lam viec",
+                            text = "Lịch làm việc",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -373,7 +373,7 @@ fun ProfileScreen(
 
                         if (uiState.schedules.isEmpty()) {
                             Text(
-                                text = "Chua co lich lam viec",
+                                text = "Chưa có lịch làm việc",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Gray600
                             )
@@ -401,7 +401,7 @@ fun ProfileScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Dang xuat")
+                    Text("Đăng xuất")
                 }
             }
         }

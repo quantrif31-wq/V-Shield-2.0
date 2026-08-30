@@ -26,9 +26,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.fragment.app.FragmentActivity
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.vshield.mobile.data.model.ChatMessageInfo
 import com.vshield.mobile.data.model.ConversationInfo
 import com.vshield.mobile.viewmodel.ChatViewModel
@@ -37,7 +39,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationScreen(
     conversationId: Int,
@@ -50,24 +52,71 @@ fun ConversationScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
 
-    val audioPermissionState = rememberMultiplePermissionsState(
-        listOf(android.Manifest.permission.RECORD_AUDIO)
-    )
-    val videoPermissionsState = rememberMultiplePermissionsState(
-        listOf(
-            android.Manifest.permission.RECORD_AUDIO,
-            android.Manifest.permission.CAMERA
-        )
-    )
-
-    var messageText by remember { mutableStateOf("") }
-
     val conversation = remember(conversationId, uiState.conversations) {
         uiState.conversations.find { it.conversationId == conversationId }
     }
 
+    val otherParticipants = remember(conversation, uiState.myEmployeeId) {
+        conversation?.participants?.filter { it.employeeId != uiState.myEmployeeId } ?: emptyList()
+    }
+    val fallbackSenderName = remember(uiState.messages, uiState.myEmployeeId) {
+        uiState.messages.firstOrNull { it.senderId != uiState.myEmployeeId }?.senderName
+    }
+    val displayName = conversation?.title ?: (if (otherParticipants.isNotEmpty()) otherParticipants.joinToString(", ") { it.fullName } else (fallbackSenderName ?: "Cuộc trò chuyện"))
+
+    val audioPermissions = remember {
+        buildList {
+            add(android.Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(android.Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        }.toTypedArray()
+    }
+
+    val videoPermissions = remember {
+        buildList {
+            add(android.Manifest.permission.RECORD_AUDIO)
+            add(android.Manifest.permission.CAMERA)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(android.Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        }.toTypedArray()
+    }
+
+    fun hasPermissions(perms: Array<String>): Boolean {
+        return perms.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { map ->
+        val target = otherParticipants.firstOrNull() ?: return@rememberLauncherForActivityResult
+        val audioGranted = map[android.Manifest.permission.RECORD_AUDIO] == true ||
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (audioGranted) {
+            onStartCall(target.employeeId, target.fullName, "audio")
+        }
+    }
+
+    val videoPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { map ->
+        val target = otherParticipants.firstOrNull() ?: return@rememberLauncherForActivityResult
+        val audioGranted = map[android.Manifest.permission.RECORD_AUDIO] == true ||
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val cameraGranted = map[android.Manifest.permission.CAMERA] == true ||
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (audioGranted && cameraGranted) {
+            onStartCall(target.employeeId, target.fullName, "video")
+        }
+    }
+
+    var messageText by remember { mutableStateOf("") }
+
     LaunchedEffect(conversationId) {
-        chatViewModel.setCurrentConversation(conversation)
+        chatViewModel.openConversation(conversationId)
     }
 
     LaunchedEffect(uiState.messages.size) {
@@ -75,11 +124,6 @@ fun ConversationScreen(
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
     }
-
-    val otherParticipants = remember(conversation, uiState.myEmployeeId) {
-        conversation?.participants?.filter { it.employeeId != uiState.myEmployeeId } ?: emptyList()
-    }
-    val displayName = conversation?.title ?: otherParticipants.joinToString(", ") { it.fullName }
 
     Scaffold(
         topBar = {
@@ -113,22 +157,22 @@ fun ConversationScreen(
                     if (otherParticipants.size == 1) {
                         val target = otherParticipants.first()
                         IconButton(onClick = {
-                            if (audioPermissionState.allPermissionsGranted) {
+                            if (hasPermissions(audioPermissions)) {
                                 onStartCall(target.employeeId, target.fullName, "audio")
                             } else {
-                                audioPermissionState.launchMultiplePermissionRequest()
+                                audioPermissionLauncher.launch(audioPermissions)
                             }
                         }) {
-                            Icon(Icons.Filled.Phone, contentDescription = "Gọi thoại HD")
+                            Icon(Icons.Filled.Phone, contentDescription = "Gọi thoại")
                         }
                         IconButton(onClick = {
-                            if (videoPermissionsState.allPermissionsGranted) {
+                            if (hasPermissions(videoPermissions)) {
                                 onStartCall(target.employeeId, target.fullName, "video")
                             } else {
-                                videoPermissionsState.launchMultiplePermissionRequest()
+                                videoPermissionLauncher.launch(videoPermissions)
                             }
                         }) {
-                            Icon(Icons.Filled.Videocam, contentDescription = "Gọi Video Face-to-Face")
+                            Icon(Icons.Filled.Videocam, contentDescription = "Gọi video")
                         }
                     }
                 }
@@ -148,7 +192,7 @@ fun ConversationScreen(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Chưa có tin nhắn", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Chưa có tin nhắn nào", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(

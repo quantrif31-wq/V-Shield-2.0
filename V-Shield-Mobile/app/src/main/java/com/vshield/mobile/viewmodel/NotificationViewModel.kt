@@ -86,6 +86,21 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
 
         initialized = true
         if (!BuildConfig.DEMO_MODE) {
+            com.vshield.mobile.service.VShieldBackgroundService.start(getApplication())
+
+            com.vshield.mobile.service.VShieldBackgroundService.onNewNotification = { notif ->
+                handleIncomingNotification(notif)
+            }
+            com.vshield.mobile.service.VShieldBackgroundService.onUnreadCountUpdated = { count ->
+                _uiState.value = _uiState.value.copy(
+                    unreadNotificationCount = count,
+                    unreadCount = count + rawSecurityAlerts.size
+                )
+            }
+            com.vshield.mobile.service.VShieldBackgroundService.onNotificationConnectionChanged = { connected ->
+                _uiState.value = _uiState.value.copy(isConnected = connected)
+            }
+
             signalRClient = NotificationSignalRClient(BuildConfig.API_BASE_URL, token, viewModelScope)
             setupSignalRCallbacks()
             signalRClient?.connect()
@@ -104,15 +119,7 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         }
 
         client.onNotificationReceived = { notif ->
-            val item = notif.toNotificationItem()
-            rawNotifications = listOf(item) + rawNotifications.filterNot { it.id == item.id }
-            recomputeState(preferIncomingAlert = notif.toAlarmInfo())
-
-            if ((item.severity ?: "info").toSeverityRank() >= 5) {
-                alarmService.startAlarm(item.title ?: "Cảnh báo khẩn cấp", item.body ?: "")
-            } else {
-                alarmService.playNotificationOnce(item.title, item.body)
-            }
+            handleIncomingNotification(notif)
         }
 
         client.onUnreadCountUpdated = { count ->
@@ -120,6 +127,18 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
                 unreadNotificationCount = count,
                 unreadCount = count + rawSecurityAlerts.size
             )
+        }
+    }
+
+    private fun handleIncomingNotification(notif: SignalRNotification) {
+        val item = notif.toNotificationItem()
+        rawNotifications = listOf(item) + rawNotifications.filterNot { it.id == item.id }
+        recomputeState(preferIncomingAlert = notif.toAlarmInfo())
+
+        if ((item.severity ?: "info").toSeverityRank() >= 5) {
+            alarmService.startAlarm(item.title ?: "Cảnh báo khẩn cấp", item.body ?: "")
+        } else {
+            alarmService.playNotificationOnce(item.title, item.body)
         }
     }
 
@@ -340,8 +359,8 @@ private fun SecurityAlertItem.toFeedItem(): NotificationFeedItem {
         severity = severityKey,
         severityRank = severityKey.toSeverityRank(),
         sourceLabel = when (ackKind) {
-            "alarm" -> "SOC alarm"
-            "duress" -> "Duress"
+            "alarm" -> "Báo động SOC"
+            "duress" -> "Báo động khẩn cấp"
             else -> "Điều phối an ninh"
         },
         createdAt = occurredAtUtc,
@@ -437,7 +456,7 @@ private fun mapSecuritySeverity(severity: String?, kind: String?): String {
 private fun String?.toSourceLabel(severity: String): String {
     val categoryKey = this.orEmpty().lowercase()
     return when {
-        categoryKey == "chat" || severity == "success" -> "Chat"
+        categoryKey == "chat" || severity == "success" -> "Trò chuyện"
         categoryKey == "approval" || severity == "caution" -> "Phê duyệt"
         categoryKey == "alarm" -> "Cảnh báo"
         else -> "Thông báo"

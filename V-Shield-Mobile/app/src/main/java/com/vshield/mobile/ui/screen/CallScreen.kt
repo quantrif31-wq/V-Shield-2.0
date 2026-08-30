@@ -1,6 +1,10 @@
-﻿package com.vshield.mobile.ui.screen
+package com.vshield.mobile.ui.screen
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,13 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import androidx.core.content.ContextCompat
 import com.vshield.mobile.data.model.ChatCallState
 import com.vshield.mobile.viewmodel.ChatViewModel
 import com.vshield.mobile.webrtc.WebRTCManager
@@ -27,7 +31,6 @@ import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
 
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun IncomingCallDialog(
     callState: ChatCallState.Incoming,
@@ -35,18 +38,55 @@ fun IncomingCallDialog(
     onReject: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val isVideo = callState.callType == "video"
-    val permissions = if (isVideo) {
-        listOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.CAMERA)
-    } else {
-        listOf(android.Manifest.permission.RECORD_AUDIO)
+    val permissions = remember(isVideo) {
+        buildList {
+            add(android.Manifest.permission.RECORD_AUDIO)
+            if (isVideo) add(android.Manifest.permission.CAMERA)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(android.Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        }.toTypedArray()
     }
-    val callPermissionsState = rememberMultiplePermissionsState(permissions)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { map ->
+        val audioGranted = map[android.Manifest.permission.RECORD_AUDIO] == true ||
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (audioGranted) {
+            onAccept()
+        }
+    }
+
+    fun hasPermissions(): Boolean {
+        return permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = {},
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Surface(
                     modifier = Modifier.size(64.dp),
                     shape = CircleShape,
@@ -61,55 +101,47 @@ fun IncomingCallDialog(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = callState.fromFullName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (isVideo) "Cuộc gọi Video Face-to-Face..." else "Cuộc gọi thoại HD đến...",
+                    text = if (isVideo) "Cuộc gọi video đến..." else "Cuộc gọi thoại đến...",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        },
-        text = {},
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                FilledTonalButton(
-                    onClick = onReject,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    Icon(Icons.Default.CallEnd, contentDescription = "Từ chối", tint = MaterialTheme.colorScheme.onError)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Từ chối", color = MaterialTheme.colorScheme.onError)
-                }
-                FilledTonalButton(
-                    onClick = {
-                        if (callPermissionsState.allPermissionsGranted) {
-                            onAccept()
-                        } else {
-                            callPermissionsState.launchMultiplePermissionRequest()
-                            onAccept()
-                        }
-                    },
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF10B981)
-                    )
-                ) {
-                    Icon(Icons.Default.Call, contentDescription = "Trả lời", tint = Color.White)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Trả lời", color = Color.White)
+                    FilledTonalButton(
+                        onClick = onReject,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(Icons.Default.CallEnd, contentDescription = "Từ chối", tint = MaterialTheme.colorScheme.onError)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Từ chối", color = MaterialTheme.colorScheme.onError)
+                    }
+                    FilledTonalButton(
+                        onClick = onAccept,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFF10B981)
+                        )
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = "Trả lời", tint = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Trả lời", color = Color.White)
+                    }
                 }
             }
         }
-    )
+    }
 }
 
 @Composable
@@ -122,7 +154,7 @@ fun CallOverlay(chatViewModel: ChatViewModel) {
                 callState = call,
                 onAccept = { chatViewModel.acceptCall() },
                 onReject = { chatViewModel.rejectCall() },
-                onDismiss = { chatViewModel.rejectCall() }
+                onDismiss = {}
             )
         }
 
@@ -131,6 +163,8 @@ fun CallOverlay(chatViewModel: ChatViewModel) {
                 fullName = call.toFullName,
                 callType = call.callType,
                 onEnd = { chatViewModel.endCall() },
+                onToggleSpeaker = { chatViewModel.toggleSpeaker() },
+                isSpeakerOn = uiState.isSpeakerOn,
                 localVideoTrack = uiState.localVideoTrack
             )
         }
@@ -143,8 +177,10 @@ fun CallOverlay(chatViewModel: ChatViewModel) {
                 onToggleMic = { chatViewModel.toggleMic() },
                 onToggleCamera = { chatViewModel.toggleCamera() },
                 onSwitchCamera = { chatViewModel.switchCamera() },
+                onToggleSpeaker = { chatViewModel.toggleSpeaker() },
                 isMicMuted = uiState.isMicMuted,
                 isCameraOff = uiState.isCameraOff,
+                isSpeakerOn = uiState.isSpeakerOn,
                 localVideoTrack = uiState.localVideoTrack,
                 remoteVideoTrack = uiState.remoteVideoTrack,
                 callError = uiState.callError,
@@ -157,14 +193,21 @@ fun CallOverlay(chatViewModel: ChatViewModel) {
 }
 
 @Composable
-private fun VideoSurfaceView(videoTrack: VideoTrack?, isMirror: Boolean, modifier: Modifier = Modifier) {
+private fun VideoSurfaceView(
+    videoTrack: VideoTrack?,
+    isMirror: Boolean,
+    isOverlay: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     if (videoTrack == null) return
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
             SurfaceViewRenderer(ctx).apply {
                 setMirror(isMirror)
-                setZOrderMediaOverlay(true)
+                if (isOverlay) {
+                    setZOrderMediaOverlay(true)
+                }
                 try {
                     init(WebRTCManager.eglBaseContext, null)
                     setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
@@ -210,6 +253,8 @@ private fun OutgoingCallScreen(
     fullName: String,
     callType: String,
     onEnd: () -> Unit,
+    onToggleSpeaker: () -> Unit,
+    isSpeakerOn: Boolean,
     localVideoTrack: VideoTrack?
 ) {
     Box(
@@ -256,26 +301,46 @@ private fun OutgoingCallScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = if (callType == "video") "Đang gọi Video Face-to-Face..." else "Đang gọi thoại HD...",
+                text = if (callType == "video") "Đang gọi video..." else "Đang gọi thoại...",
                 fontSize = 15.sp,
                 color = Color.White.copy(alpha = 0.8f)
             )
 
             Spacer(modifier = Modifier.weight(1f))
 
-            FilledIconButton(
-                onClick = onEnd,
-                modifier = Modifier.size(68.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.CallEnd,
-                    contentDescription = "Hủy cuộc gọi",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
+                FilledIconButton(
+                    onClick = onToggleSpeaker,
+                    modifier = Modifier.size(56.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = if (isSpeakerOn) Color(0xFF3B82F6) else Color(0xFF334155)
+                    )
+                ) {
+                    Icon(
+                        if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                        contentDescription = if (isSpeakerOn) "Loa ngoài: Bật" else "Loa ngoài: Tắt",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                FilledIconButton(
+                    onClick = onEnd,
+                    modifier = Modifier.size(68.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.CallEnd,
+                        contentDescription = "Hủy cuộc gọi",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -290,8 +355,10 @@ private fun ConnectedCallScreen(
     onToggleMic: () -> Unit,
     onToggleCamera: () -> Unit,
     onSwitchCamera: () -> Unit,
+    onToggleSpeaker: () -> Unit,
     isMicMuted: Boolean,
     isCameraOff: Boolean,
+    isSpeakerOn: Boolean,
     localVideoTrack: VideoTrack?,
     remoteVideoTrack: VideoTrack?,
     callError: String?,
@@ -332,7 +399,7 @@ private fun ConnectedCallScreen(
                 Text(text = fullName, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (callType == "video") "Đang kết nối Video Face-to-Face..." else "Đang trong cuộc gọi thoại HD",
+                    text = if (callType == "video") "Đang trong cuộc gọi video" else "Đang trong cuộc gọi thoại",
                     fontSize = 14.sp,
                     color = Color(0xFF38BDF8)
                 )
@@ -352,6 +419,7 @@ private fun ConnectedCallScreen(
                 VideoSurfaceView(
                     videoTrack = localVideoTrack,
                     isMirror = true,
+                    isOverlay = true,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -376,12 +444,12 @@ private fun ConnectedCallScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FilledIconButton(
                     onClick = onToggleMic,
-                    modifier = Modifier.size(52.dp),
+                    modifier = Modifier.size(50.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = if (isMicMuted) Color(0xFFEF4444) else Color(0xFF334155)
                     )
@@ -394,10 +462,25 @@ private fun ConnectedCallScreen(
                     )
                 }
 
+                FilledIconButton(
+                    onClick = onToggleSpeaker,
+                    modifier = Modifier.size(50.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = if (isSpeakerOn) Color(0xFF3B82F6) else Color(0xFF334155)
+                    )
+                ) {
+                    Icon(
+                        if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                        contentDescription = if (isSpeakerOn) "Loa ngoài: Bật" else "Loa ngoài: Tắt",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 if (callType == "video") {
                     FilledIconButton(
                         onClick = onSwitchCamera,
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier.size(50.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = Color(0xFF334155)
                         )
@@ -412,7 +495,7 @@ private fun ConnectedCallScreen(
 
                     FilledIconButton(
                         onClick = onToggleCamera,
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier.size(50.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = if (isCameraOff) Color(0xFFEF4444) else Color(0xFF334155)
                         )
@@ -428,7 +511,7 @@ private fun ConnectedCallScreen(
 
                 FilledIconButton(
                     onClick = onEnd,
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier.size(60.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
@@ -437,7 +520,7 @@ private fun ConnectedCallScreen(
                         Icons.Default.CallEnd,
                         contentDescription = "Kết thúc",
                         tint = Color.White,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }

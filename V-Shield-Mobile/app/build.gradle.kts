@@ -88,6 +88,8 @@ dependencies {
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 
     implementation("io.github.webrtc-sdk:android:137.7151.05")
 

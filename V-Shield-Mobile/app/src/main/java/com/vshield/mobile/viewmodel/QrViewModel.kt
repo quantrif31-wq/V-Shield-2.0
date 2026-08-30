@@ -61,15 +61,15 @@ class QrViewModel(application: Application) : AndroidViewModel(application) {
                     remainingSeconds = data.remainingSeconds,
                     employeeName = data.employeeName,
                     isOfflineMode = false,
-                    statusMessage = "QR dang dong bo truc tiep tu he thong.",
+                    statusMessage = "Mã QR đang đồng bộ trực tiếp từ hệ thống.",
                     error = null
                 )
                 startCountdown()
             } else {
-                fallbackToOfflineQr(response.body()?.message ?: "Khong the tao QR online.")
+                fallbackToOfflineQr(response.body()?.message ?: "Không thể tạo mã QR trực tuyến.")
             }
         } catch (e: Exception) {
-            fallbackToOfflineQr("Dang dung QR ngoai tuyen vi API tam thoi khong san sang.")
+            fallbackToOfflineQr("Đang dùng mã QR ngoại tuyến vì kết nối máy chủ tạm thời gián đoạn.")
         }
     }
 
@@ -95,7 +95,7 @@ class QrViewModel(application: Application) : AndroidViewModel(application) {
                 employeeName = offlineUser?.fullName.orEmpty(),
                 isOfflineMode = true,
                 statusMessage = null,
-                error = "Chua co cau hinh QR ngoai tuyen. Hay dang nhap online it nhat 1 lan."
+                error = "Chưa có cấu hình mã QR ngoại tuyến. Hãy đăng nhập trực tuyến ít nhất 1 lần."
             )
         }
     }

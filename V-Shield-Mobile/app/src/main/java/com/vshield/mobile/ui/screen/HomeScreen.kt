@@ -91,7 +91,7 @@ fun HomeScreen(
 
     if (uiState.error != null) {
         ErrorDialog(
-            title = "Loi QR",
+            title = "Lỗi mã QR",
             message = uiState.error!!,
             onDismiss = { qrViewModel.clearError() }
         )
@@ -110,11 +110,11 @@ fun HomeScreen(
 
     val shortcuts = remember(onOpenChat, onOpenNotifications, onOpenLeave, onOpenTransfer, onOpenProfile) {
         listOf(
-            HomeShortcut("Chat", "Tro chuyen noi bo", Icons.AutoMirrored.Filled.Chat, Color(0xFF2E7D32), onOpenChat),
-            HomeShortcut("Thong bao", "Canh bao va cap nhat", Icons.Filled.Notifications, Color(0xFFC62828), onOpenNotifications),
-            HomeShortcut("Lich va nghi", "Don nghi phep ca nhan", Icons.Filled.CalendarMonth, Color(0xFF0288D1), onOpenLeave),
-            HomeShortcut("Chuyen xe", "Uy quyen phuong tien", Icons.Filled.DirectionsCar, Color(0xFFEF6C00), onOpenTransfer),
-            HomeShortcut("Ca nhan", "Ho so va lich lam viec", Icons.Filled.Person, Color(0xFF6A1B9A), onOpenProfile)
+            HomeShortcut("Trò chuyện", "Trò chuyện nội bộ", Icons.AutoMirrored.Filled.Chat, Color(0xFF2E7D32), onOpenChat),
+            HomeShortcut("Thông báo", "Cảnh báo & Cập nhật", Icons.Filled.Notifications, Color(0xFFC62828), onOpenNotifications),
+            HomeShortcut("Lịch & Nghỉ", "Đơn xin nghỉ phép", Icons.Filled.CalendarMonth, Color(0xFF0288D1), onOpenLeave),
+            HomeShortcut("Bàn giao xe", "Ủy quyền phương tiện", Icons.Filled.DirectionsCar, Color(0xFFEF6C00), onOpenTransfer),
+            HomeShortcut("Cá nhân", "Hồ sơ & Lịch làm việc", Icons.Filled.Person, Color(0xFF6A1B9A), onOpenProfile)
         )
     }
 
@@ -134,12 +134,12 @@ fun HomeScreen(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = "Bang dieu khien ca nhan",
+                    text = "Bảng điều khiển cá nhân",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f)
                 )
                 Text(
-                    text = uiState.employeeName.ifEmpty { "Dang tai..." },
+                    text = uiState.employeeName.ifEmpty { "Đang tải..." },
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold
@@ -147,9 +147,9 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = if (uiState.isOfflineMode) {
-                        "App dang giu QR du phong tren may. Khi API hoi phuc, he thong se tu dong quay lai dong bo online."
+                        "Ứng dụng đang giữ mã QR dự phòng trên máy. Khi kết nối máy chủ ổn định, hệ thống sẽ tự động đồng bộ trực tuyến."
                     } else {
-                        "Tu day ban co the vao QR, chat, thong bao, xin nghi, chuyen xe va ho so."
+                        "Từ đây bạn có thể mở mã QR, trò chuyện, nhận thông báo, xin nghỉ phép, bàn giao xe và quản lý hồ sơ."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
@@ -186,15 +186,15 @@ fun HomeScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (uiState.isOfflineMode) "QR ngoai tuyen" else "QR dong",
+                                        text = if (uiState.isOfflineMode) "Mã QR ngoại tuyến" else "Mã QR động",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = if (uiState.isOfflineMode) {
-                                            "Dang tu sinh QR tren dien thoai tu cau hinh da duoc cap truoc do"
+                                            "Đang tự sinh mã QR trên máy từ cấu hình đã được cấp trước đó"
                                         } else {
-                                            "Ma ra vao danh cho kiem soat cong"
+                                            "Mã ra vào dành cho kiểm soát cổng an ninh"
                                         },
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Gray600
@@ -210,9 +210,9 @@ fun HomeScreen(
                                 ) {
                                     Text(
                                         text = if (uiState.isOfflineMode) {
-                                            "OFFLINE ${uiState.remainingSeconds}s"
+                                            "Ngoại tuyến: ${uiState.remainingSeconds}s"
                                         } else {
-                                            "Con ${uiState.remainingSeconds}s"
+                                            "Còn ${uiState.remainingSeconds}s"
                                         },
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                         color = when {
@@ -244,7 +244,7 @@ fun HomeScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 8.dp)
                                         .graphicsLayer {
-                                            scaleX = pulseScale
+                                             scaleX = pulseScale
                                             scaleY = pulseScale
                                         }
                                 )
@@ -258,7 +258,7 @@ fun HomeScreen(
                             ) {
                                 Icon(Icons.Filled.QrCodeScanner, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(if (uiState.isOfflineMode) "Thu dong bo lai" else "Lam moi QR")
+                                Text(if (uiState.isOfflineMode) "Thử đồng bộ lại" else "Làm mới mã QR")
                             }
                         }
                     }
@@ -275,16 +275,16 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Text(
-                                text = "Trang thai mobile",
+                                text = "Trạng thái ứng dụng",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = if (uiState.isOfflineMode) {
-                                    "Mobile dang chay o che do ngoai tuyen. Ban van vao app va xuat QR duoc du API tam thoi gap su co."
+                                    "Ứng dụng đang chạy ở chế độ ngoại tuyến. Bạn vẫn có thể mở ứng dụng và xuất mã QR bình thường."
                                 } else {
-                                    "Mobile dang ket noi online binh thuong. QR va du lieu dang duoc dong bo truc tiep."
+                                    "Ứng dụng đang kết nối trực tuyến bình thường. Mã QR và dữ liệu đang được đồng bộ trực tiếp."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Gray600

@@ -89,7 +89,7 @@ fun LeaveScreen(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Tạo")
+                    Text("Tạo đơn")
                 }
             }
         }
@@ -144,7 +144,7 @@ fun LeaveScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = request.leaveType ?: "Nghỉ phép",
+                                    text = formatLeaveType(request.leaveType),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -191,6 +191,19 @@ fun LeaveScreen(
                 }
             }
         }
+    }
+}
+
+private fun formatLeaveType(type: String?): String {
+    return when (type?.lowercase()?.trim()) {
+        "annualleave", "annual_leave", "annual" -> "Nghỉ phép năm"
+        "sickleave", "sick_leave", "sick" -> "Nghỉ ốm / Bệnh"
+        "unpaidleave", "unpaid_leave", "unpaid" -> "Nghỉ không lương"
+        "personalleave", "personal_leave", "personal" -> "Nghỉ việc riêng"
+        "maternityleave", "maternity_leave", "maternity" -> "Nghỉ thai sản"
+        "other" -> "Lý do khác"
+        null -> "Nghỉ phép"
+        else -> type
     }
 }
 
@@ -281,12 +294,12 @@ private fun CreateLeaveDialog(
                 },
                 enabled = selectedTypeId > 0 && startDate.isNotBlank() && endDate.isNotBlank()
             ) {
-                Text("Gửi")
+                Text("Gửi đơn")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Hủy")
+                Text("Hủy bỏ")
             }
         }
     )

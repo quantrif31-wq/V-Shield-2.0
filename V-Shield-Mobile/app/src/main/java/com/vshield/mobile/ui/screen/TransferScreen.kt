@@ -84,7 +84,7 @@ fun TransferScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Ủy quyền xe",
+                    text = "Ủy quyền & Bàn giao xe",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold
@@ -95,7 +95,7 @@ fun TransferScreen(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Tạo")
+                    Text("Tạo yêu cầu")
                 }
             }
         }
@@ -386,12 +386,12 @@ private fun CreateDelegationDialog(
                 },
                 enabled = selectedVehicleId > 0 && selectedEmployeeId > 0
             ) {
-                Text("Gửi")
+                Text("Gửi yêu cầu")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Hủy")
+                Text("Hủy bỏ")
             }
         }
     )
