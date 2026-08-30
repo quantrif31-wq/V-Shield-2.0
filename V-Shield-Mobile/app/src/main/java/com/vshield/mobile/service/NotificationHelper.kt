@@ -28,53 +28,72 @@ object NotificationHelper {
     const val ACTION_REJECT_CALL = "action_reject_call"
     const val ACTION_OPEN_CHAT = "action_open_chat"
 
-    private var currentRingtone: android.media.Ringtone? = null
+    private var mediaPlayer: android.media.MediaPlayer? = null
     private var ringtoneVibrator: android.os.Vibrator? = null
+    private val ringtoneLock = Any()
 
+    @Synchronized
     fun playCallRingtone(context: Context) {
-        try {
-            stopCallRingtone()
-            val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            val ringtone = RingtoneManager.getRingtone(context.applicationContext, ringtoneUri)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ringtone?.isLooping = true
-            }
-            ringtone?.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            ringtone?.play()
-            currentRingtone = ringtone
+        synchronized(ringtoneLock) {
+            try {
+                stopCallRingtone()
+                val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                val player = android.media.MediaPlayer().apply {
+                    setDataSource(context.applicationContext, ringtoneUri)
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    isLooping = true
+                    prepare()
+                    start()
+                }
+                mediaPlayer = player
 
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
-                vibratorManager?.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                    vibratorManager?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                }
+                val pattern = longArrayOf(0, 1000, 1000)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(android.os.VibrationEffect.createWaveform(pattern, 0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(pattern, 0)
+                }
+                ringtoneVibrator = vibrator
+                android.util.Log.i("NotificationHelper", "Incoming call ringtone & vibration started (MediaPlayer)")
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationHelper", "Error playing ringtone with MediaPlayer: ${e.message}")
             }
-            val pattern = longArrayOf(0, 1000, 1000)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(android.os.VibrationEffect.createWaveform(pattern, 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(pattern, 0)
-            }
-            ringtoneVibrator = vibrator
-            android.util.Log.i("NotificationHelper", "Incoming call ringtone & vibration started")
-        } catch (e: Exception) {
-            android.util.Log.e("NotificationHelper", "Error playing ringtone: ${e.message}")
         }
     }
 
+    @Synchronized
     fun stopCallRingtone() {
-        try {
-            currentRingtone?.stop()
-            currentRingtone = null
-            ringtoneVibrator?.cancel()
-            ringtoneVibrator = null
-            android.util.Log.i("NotificationHelper", "Incoming call ringtone & vibration stopped")
-        } catch (_: Exception) {}
+        synchronized(ringtoneLock) {
+            try {
+                mediaPlayer?.let { player ->
+                    if (player.isPlaying) {
+                        player.stop()
+                    }
+                    player.reset()
+                    player.release()
+                }
+                mediaPlayer = null
+
+                ringtoneVibrator?.cancel()
+                ringtoneVibrator = null
+                android.util.Log.i("NotificationHelper", "Incoming call ringtone & vibration stopped (MediaPlayer)")
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationHelper", "Error stopping ringtone: ${e.message}")
+            }
+        }
     }
 
     fun createNotificationChannels(context: Context) {

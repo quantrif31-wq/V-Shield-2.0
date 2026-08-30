@@ -210,14 +210,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val isVideo = (call.signalingData ?: "").contains("m=video")
                 val callType = if (isVideo) "video" else "audio"
 
-                // Show Heads-Up Notification for Incoming Call
-                com.vshield.mobile.service.NotificationHelper.showIncomingCallNotification(
-                    context = getApplication(),
-                    callType = callType,
-                    fromEmployeeId = call.fromEmployeeId,
-                    fromFullName = call.fromFullName ?: "Cuộc gọi đến",
-                    conversationId = call.conversationId
-                )
+                // Only show notification if background service is not running
+                if (!com.vshield.mobile.service.VShieldBackgroundService.isRunning) {
+                    com.vshield.mobile.service.NotificationHelper.showIncomingCallNotification(
+                        context = getApplication(),
+                        callType = callType,
+                        fromEmployeeId = call.fromEmployeeId,
+                        fromFullName = call.fromFullName ?: "Cuộc gọi đến",
+                        conversationId = call.conversationId
+                    )
+                }
 
                 _uiState.value = current.copy(
                     callState = ChatCallState.Incoming(

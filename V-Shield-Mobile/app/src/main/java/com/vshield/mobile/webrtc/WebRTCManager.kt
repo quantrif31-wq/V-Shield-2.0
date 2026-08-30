@@ -295,6 +295,7 @@ class WebRTCManager(private val context: Context) {
         val pc = peerConnection ?: return false
 
         try {
+            com.vshield.mobile.service.NotificationHelper.stopCallRingtone()
             // Set audio mode for clear, loud VoIP phone call
             try {
                 audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
