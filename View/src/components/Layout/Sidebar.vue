@@ -136,6 +136,7 @@
                         @click="toggleNavGroup(group.label)"
                     >
                         <span class="nav-label-text">{{ group.label }}</span>
+                        <span v-if="isMobile && group.items?.length" class="mobile-group-count">{{ group.items.length }}</span>
                         <svg
                             class="nav-label-chevron"
                             :class="{ 'chevron-collapsed': !isGroupExpanded(group.label) }"
@@ -239,6 +240,7 @@ const route = useRoute()
 
 const hoveredGroup = ref('')
 const pinnedGroup = ref('')
+const mobileExpandedGroup = ref('')
 const groupAnchors = ref({})
 const flyoutViewportTick = ref(0)
 const sidebarRootRef = ref(null)
@@ -255,11 +257,33 @@ const getCurrentRouteGroupLabel = () => {
 
 const isGroupExpanded = (label) => {
     if (props.collapsed) return true
+    if (props.isMobile) {
+        if (mobileExpandedGroup.value !== '') {
+            return mobileExpandedGroup.value === label
+        }
+        const activeLabel = getCurrentRouteGroupLabel()
+        return activeLabel === label
+    }
     const activeLabel = getCurrentRouteGroupLabel()
     return pinnedGroup.value === label || hoveredGroup.value === label || activeLabel === label
 }
 
 const toggleNavGroup = (label) => {
+    if (props.isMobile) {
+        const isCurrentlyOpen = isGroupExpanded(label)
+        if (isCurrentlyOpen) {
+            mobileExpandedGroup.value = '__none__'
+        } else {
+            mobileExpandedGroup.value = label
+            nextTick(() => {
+                const el = groupAnchors.value[label]
+                if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                }
+            })
+        }
+        return
+    }
     pinnedGroup.value = pinnedGroup.value === label ? '' : label
 }
 
@@ -1341,9 +1365,31 @@ const refreshFlyoutPosition = () => {
 }
 
 .sidebar-nav {
-    flex: 1;
+    flex: 1 1 auto;
     padding: 0 12px 16px;
-    overflow: visible;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 999px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
 }
 
 .sidebar-search {
@@ -1449,6 +1495,30 @@ const refreshFlyoutPosition = () => {
     text-align: left;
     line-height: 1.35;
     pointer-events: none;
+}
+
+.mobile-group-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--sidebar-text-muted);
+    font-size: 0.66rem;
+    font-weight: 600;
+    margin-left: auto;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+.nav-group.is-open .mobile-group-count {
+    background: rgba(15, 124, 130, 0.15);
+    border-color: rgba(15, 124, 130, 0.3);
+    color: var(--accent-primary);
 }
 
 .nav-label-chevron {
@@ -1760,7 +1830,7 @@ const refreshFlyoutPosition = () => {
 
 @media (max-width: 1023px) {
     .sidebar {
-        width: min(320px, calc(100vw - 24px));
+        width: min(340px, calc(100vw - 20px));
         padding: 12px;
         transform: translateX(calc(-100% - 16px));
     }
@@ -1774,36 +1844,76 @@ const refreshFlyoutPosition = () => {
     }
 
     .sidebar-panel {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 24px);
         overflow: hidden;
+        border-radius: 24px;
+    }
+
+    .sidebar-top {
+        flex-shrink: 0;
+        padding: 18px 16px 14px;
+    }
+
+    .sidebar-nav {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding: 0 12px 28px;
     }
 
     .nav-group-items {
         position: static;
         width: 100%;
-        max-height: none;
-        padding: 0;
+        padding: 4px 0 6px 8px;
         border: none;
-        border-radius: 0;
-        background: transparent;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.02);
         box-shadow: none;
         backdrop-filter: none;
-        margin-top: 8px;
-        opacity: 1 !important;
-        transform: none !important;
-        pointer-events: auto !important;
+        margin-top: 4px;
+        margin-bottom: 8px;
+        border-left: 2px solid var(--border-subtle);
+        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, margin 0.22s ease, padding 0.22s ease;
     }
 
     .nav-group-items.mobile-inline {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-height: 1400px;
+        opacity: 1;
+        overflow: hidden;
     }
 
     .nav-flyout {
-        display: none;
+        display: none !important;
     }
 
     .nav-group-items.group-collapsed {
-        max-height: 0;
-        overflow: hidden;
+        max-height: 0 !important;
+        opacity: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        border-left-color: transparent !important;
+    }
+
+    .nav-item {
+        min-height: 48px;
+        padding: 10px 14px;
+        margin: 2px 0;
+        border-radius: 12px;
+    }
+
+    .nav-item:active {
+        transform: scale(0.98);
     }
 
     .sidebar-collapse-btn {
@@ -1846,6 +1956,23 @@ const refreshFlyoutPosition = () => {
 
 :global(:root[data-theme='dark']) .nav-label-toggle:hover {
     background: rgba(255, 255, 255, 0.06);
+}
+
+:global(:root[data-theme='dark']) .mobile-group-count {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--sidebar-text-muted);
+}
+
+:global(:root[data-theme='dark']) .nav-group.is-open .mobile-group-count {
+    background: rgba(84, 196, 211, 0.18);
+    border-color: rgba(84, 196, 211, 0.35);
+    color: #d6f5ff;
+}
+
+:global(:root[data-theme='dark']) .nav-group-items {
+    background: rgba(255, 255, 255, 0.02);
+    border-left-color: rgba(255, 255, 255, 0.1);
 }
 
 :global(:root[data-theme='dark']) .nav-group.is-open .nav-label-toggle {
