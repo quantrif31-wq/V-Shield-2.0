@@ -377,17 +377,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val manager = ensureWebRtcManager()
             manager.initialize()
             if (!manager.createPeerConnection()) {
-                _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo kết nối thoại")
+                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể khởi tạo kết nối thoại")
+                closeWebRtc()
                 return
             }
             if (!manager.setupLocalMedia(enableVideo = isVideo)) {
-                _uiState.value = _uiState.value.copy(callError = "Không thể bật thiết bị âm thanh")
+                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể bật thiết bị âm thanh")
+                closeWebRtc()
                 return
             }
             manager.createOffer()
             pendingIceCandidates.clear()
         } catch (e: Throwable) {
-            _uiState.value = _uiState.value.copy(callError = "Lỗi cuộc gọi: ${e.message}")
+            _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Lỗi cuộc gọi: ${e.message}")
+            closeWebRtc()
         }
     }
 
@@ -412,11 +415,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val manager = ensureWebRtcManager()
             manager.initialize()
             if (!manager.createPeerConnection()) {
-                _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo kết nối thoại")
+                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể khởi tạo kết nối thoại")
+                closeWebRtc()
                 return
             }
             if (!manager.setupLocalMedia(enableVideo = isVideo)) {
-                _uiState.value = _uiState.value.copy(callError = "Không thể bật thiết bị âm thanh")
+                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể bật thiết bị âm thanh")
+                closeWebRtc()
                 return
             }
 
@@ -435,10 +440,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 )
             } else {
-                _uiState.value = _uiState.value.copy(callError = "Không nhận được tín hiệu offer")
+                _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không nhận được tín hiệu offer")
+                closeWebRtc()
             }
         } catch (e: Throwable) {
-            _uiState.value = _uiState.value.copy(callError = "Lỗi nhận cuộc gọi: ${e.message}")
+            _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Lỗi nhận cuộc gọi: ${e.message}")
+            closeWebRtc()
         }
     }
 
