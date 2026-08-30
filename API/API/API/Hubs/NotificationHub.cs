@@ -38,6 +38,7 @@ public class NotificationHub : Hub
     private int GetUserId()
     {
         var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? Context.User?.FindFirst("sub")?.Value
                     ?? Context.User?.FindFirst("userId")?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
     }

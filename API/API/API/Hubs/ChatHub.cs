@@ -15,17 +15,20 @@ public class ChatHub : Hub
     private readonly ILogger<ChatHub> _logger;
     private readonly ChatPresenceRegistry _presenceRegistry;
     private readonly ChatRelayGateway _relayGateway;
+    private readonly API.Services.INotificationService _notificationService;
 
     public ChatHub(
         ApplicationDbContext db,
         ILogger<ChatHub> logger,
         ChatPresenceRegistry presenceRegistry,
-        ChatRelayGateway relayGateway)
+        ChatRelayGateway relayGateway,
+        API.Services.INotificationService notificationService)
     {
         _db = db;
         _logger = logger;
         _presenceRegistry = presenceRegistry;
         _relayGateway = relayGateway;
+        _notificationService = notificationService;
     }
 
     private int GetEmployeeId()
@@ -152,6 +155,40 @@ public class ChatHub : Hub
         };
 
         await Clients.Group($"conv_{conversationId}").SendAsync("ReceiveMessage", payload);
+
+        try
+        {
+            var otherParticipantEmpIds = await _db.ChatParticipants
+                .Where(p => p.ConversationId == conversationId && p.EmployeeId != empId)
+                .Select(p => p.EmployeeId)
+                .ToListAsync();
+
+            if (otherParticipantEmpIds.Count > 0)
+            {
+                var recipientUserIds = await _db.AppUsers
+                    .Where(u => u.EmployeeId.HasValue && otherParticipantEmpIds.Contains(u.EmployeeId.Value) && u.IsActive)
+                    .Select(u => u.UserId)
+                    .ToListAsync();
+
+                if (recipientUserIds.Count > 0)
+                {
+                    await _notificationService.NotifyUsersAsync(
+                        recipientUserIds,
+                        $"Tin nhắn từ {sender.FullName}",
+                        content,
+                        category: "Chat",
+                        referenceType: "Chat",
+                        referenceId: conversationId.ToString(),
+                        actionUrl: $"/chat?conversationId={conversationId}"
+                    );
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispatch notification for chat message in conversation {ConversationId}", conversationId);
+        }
+
         return payload;
     }
 
@@ -307,6 +344,34 @@ public class ChatHub : Hub
             fromEmployeeId = empId,
             conversationId
         });
+
+        try
+        {
+            var callerName = await _db.Employees
+                .Where(e => e.EmployeeId == empId)
+                .Select(e => e.FullName)
+                .FirstOrDefaultAsync();
+
+            var recipientUser = await _db.AppUsers
+                .FirstOrDefaultAsync(u => u.EmployeeId == targetEmployeeId && u.IsActive);
+
+            if (recipientUser != null)
+            {
+                await _notificationService.NotifyUsersAsync(
+                    new List<int> { recipientUser.UserId },
+                    "Cuộc gọi nhỡ",
+                    $"Bạn có cuộc gọi nhỡ từ {callerName ?? "Đồng nghiệp"}",
+                    category: "Chat",
+                    referenceType: "Call",
+                    referenceId: conversationId?.ToString(),
+                    actionUrl: "/chat"
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send missed call notification to employee {TargetId}", targetEmployeeId);
+        }
 
         if (_relayGateway.IsEnabled)
         {

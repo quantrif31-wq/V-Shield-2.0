@@ -15,11 +15,16 @@ public class ChatController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
     private readonly IHubContext<ChatHub> _chatHub;
+    private readonly API.Services.INotificationService _notificationService;
 
-    public ChatController(ApplicationDbContext db, IHubContext<ChatHub> chatHub)
+    public ChatController(
+        ApplicationDbContext db,
+        IHubContext<ChatHub> chatHub,
+        API.Services.INotificationService notificationService)
     {
         _db = db;
         _chatHub = chatHub;
+        _notificationService = notificationService;
     }
 
     private int GetEmployeeId()
@@ -276,6 +281,36 @@ public class ChatController : ControllerBase
         };
 
         await _chatHub.Clients.Group($"conv_{conversationId}").SendAsync("ReceiveMessage", payload);
+
+        try
+        {
+            var otherParticipantEmpIds = await _db.ChatParticipants
+                .Where(p => p.ConversationId == conversationId && p.EmployeeId != empId)
+                .Select(p => p.EmployeeId)
+                .ToListAsync();
+
+            if (otherParticipantEmpIds.Count > 0)
+            {
+                var recipientUserIds = await _db.AppUsers
+                    .Where(u => u.EmployeeId.HasValue && otherParticipantEmpIds.Contains(u.EmployeeId.Value) && u.IsActive)
+                    .Select(u => u.UserId)
+                    .ToListAsync();
+
+                if (recipientUserIds.Count > 0)
+                {
+                    await _notificationService.NotifyUsersAsync(
+                        recipientUserIds,
+                        $"Tin nhắn từ {senderName}",
+                        message.Content,
+                        category: "Chat",
+                        referenceType: "Chat",
+                        referenceId: conversationId.ToString(),
+                        actionUrl: $"/chat?conversationId={conversationId}"
+                    );
+                }
+            }
+        }
+        catch {}
 
         return Ok(new { success = true, data = payload });
     }

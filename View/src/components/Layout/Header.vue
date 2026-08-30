@@ -327,7 +327,7 @@ import {
     onNotification,
     onUnreadCountChanged,
 } from '../../services/notificationApi'
-import { connectChatHub, onMessage, onCallEnded } from '../../services/chatApi'
+import { connectChatHub, onMessage, onCallEnded, getConversations } from '../../services/chatApi'
 import { enterpriseApi } from '../../services/enterpriseSecurityApi'
 import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
 import { socApi } from '../../services/socApi'
@@ -941,6 +941,32 @@ function handleDocumentClick(event) {
     }
 }
 
+async function loadChatUnread() {
+    try {
+        const res = await getConversations()
+        const convs = res.data?.data || []
+        const chatItems = []
+        for (const conv of convs) {
+            if (conv.unreadCount > 0 && conv.lastMessage) {
+                chatItems.push({
+                    id: `chat-conv-${conv.conversationId}`,
+                    source: 'chat',
+                    title: `Tin nhắn từ ${conv.lastMessage.senderName || 'Đồng nghiệp'}`,
+                    message: conv.lastMessage.content || 'Có tin nhắn chưa đọc',
+                    severity: 'success',
+                    time: conv.lastMessage.sentAt || new Date().toISOString(),
+                    read: false,
+                    actionUrl: `/chat?conversationId=${conv.conversationId}`,
+                    referenceType: 'Chat',
+                    referenceId: conv.conversationId,
+                    locationLabel: 'Hội thoại trực tuyến',
+                })
+            }
+        }
+        localChatNotifications.value = chatItems
+    } catch {}
+}
+
 let timer = null
 let removeNotificationSubscription = null
 let removeUnreadSubscription = null
@@ -952,7 +978,7 @@ onMounted(async () => {
     timer = window.setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
 
-    await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts()])
+    await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts(), loadChatUnread()])
 
     try {
         const token = sessionStorage.getItem('v_shield_token') || localStorage.getItem('v_shield_token')

@@ -21,6 +21,7 @@ public class NotificationsController : ControllerBase
     private int GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User.FindFirst("sub")?.Value
                     ?? User.FindFirst("userId")?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
     }
