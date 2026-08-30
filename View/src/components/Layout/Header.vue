@@ -154,16 +154,55 @@
                 <div v-if="showNotifications" class="dropdown notification-dropdown expanded">
                     <div class="dropdown-header">
                         <div>
-                            <span>Trung tâm cảnh báo</span>
+                            <span>Trung tâm thông báo & cảnh báo</span>
                             <small>{{ statusSummary }}</small>
                         </div>
                         <button
-                            v-if="unreadNotificationCount"
+                            v-if="unreadNotificationCount || unresolvedItems.length"
                             type="button"
                             class="btn-link"
                             @click="markAllRead"
                         >
-                            Đánh dấu đã đọc
+                            Đánh dấu tất cả đã đọc
+                        </button>
+                    </div>
+
+                    <div class="notification-tabs">
+                        <button
+                            type="button"
+                            class="tab-btn"
+                            :class="{ active: activeFilterTab === 'all' }"
+                            @click="activeFilterTab = 'all'"
+                        >
+                            Tất cả
+                            <span class="tab-count">{{ mergedFeed.length }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="tab-btn"
+                            :class="{ active: activeFilterTab === 'security' }"
+                            @click="activeFilterTab = 'security'"
+                        >
+                            An ninh
+                            <span v-if="securityCount" class="tab-count badge-danger">{{ securityCount }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="tab-btn"
+                            :class="{ active: activeFilterTab === 'approval' }"
+                            @click="activeFilterTab = 'approval'"
+                        >
+                            Phê duyệt
+                            <span v-if="approvalCount" class="tab-count badge-caution">{{ approvalCount }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="tab-btn"
+                            :class="{ active: activeFilterTab === 'chat' }"
+                            @click="activeFilterTab = 'chat'"
+                        >
+                            Trao đổi
+                            <span v-if="chatCallCount" class="tab-count badge-success">{{ chatCallCount }}</span>
                         </button>
                     </div>
 
@@ -175,7 +214,7 @@
 
                     <div class="notification-list">
                         <div
-                            v-for="item in mergedFeed"
+                            v-for="item in filteredFeed"
                             :key="item.source + '-' + item.id"
                             class="notification-item"
                             :class="[
@@ -207,7 +246,7 @@
                                     <circle cx="12" cy="12" r="9" />
                                 </svg>
                                 <svg v-else-if="item.severity === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                    <path d="M20 6L9 17l-5-5" />
+                                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                                 </svg>
                                 <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                     <circle cx="12" cy="12" r="9" />
@@ -230,7 +269,7 @@
                                 <div class="notification-meta">
                                     <span class="meta-badge">{{ sourceLabel(item) }}</span>
                                     <span v-if="item.locationLabel" class="meta-text">{{ item.locationLabel }}</span>
-                                    <span v-if="item.referenceType" class="meta-text">{{ item.referenceType }}</span>
+                                    <span v-if="item.referenceType && item.referenceType !== sourceLabel(item)" class="meta-text">{{ item.referenceType }}</span>
                                     <span class="meta-time">{{ formatTimeAgo(item.time) }}</span>
                                 </div>
 
@@ -245,26 +284,25 @@
                                         {{ ackLoading[item.source + '-' + item.id] ? 'Đang xác nhận...' : 'Xác nhận xử lý' }}
                                     </button>
                                     <button
-                                        v-if="item.actionUrl"
                                         type="button"
                                         class="action-button"
                                         @click.stop="openItem(item)"
                                     >
-                                        {{ item.source === 'security-alert' ? 'Mở điều phối' : 'Xem chi tiết' }}
+                                        {{ actionButtonLabel(item) }}
                                     </button>
                                     <span v-if="item.source === 'security-alert' && !item.requiresAck" class="action-hint">
                                         {{ item.isActive ? 'Đang hoạt động' : 'Đã ghi nhận' }}
                                     </span>
-                                    <span v-else-if="item.source === 'notification' && !item.read" class="action-hint">
+                                    <span v-else-if="!item.read" class="action-hint">
                                         Chưa đọc
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <div v-if="!mergedFeed.length" class="notification-empty">
-                            <strong>Chưa có mục nào cần xử lý</strong>
-                            <span>Thông báo mới và cảnh báo an ninh sẽ xuất hiện tại đây.</span>
+                        <div v-if="!filteredFeed.length" class="notification-empty">
+                            <strong>Không có mục nào trong danh mục này</strong>
+                            <span>Các thông báo mới, yêu cầu phê duyệt và trao đổi sẽ xuất hiện tại đây.</span>
                         </div>
                     </div>
                 </div>
@@ -289,6 +327,7 @@ import {
     onNotification,
     onUnreadCountChanged,
 } from '../../services/notificationApi'
+import { connectChatHub, onMessage, onCallEnded } from '../../services/chatApi'
 import { enterpriseApi } from '../../services/enterpriseSecurityApi'
 import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
 import { socApi } from '../../services/socApi'
@@ -307,17 +346,19 @@ const route = useRoute()
 const dropdownRootRef = ref(null)
 const showNotifications = ref(false)
 const showUserMenu = ref(false)
+const activeFilterTab = ref('all')
 const currentTime = ref('')
 const currentDate = ref('')
 const dbNotifications = ref([])
+const localChatNotifications = ref([])
 const unreadCount = ref(0)
 const ackLoading = ref({})
 const { density, isDark, setDensity, toggleTheme } = usePreferences()
 
 const severityLegend = [
-    { key: 'success', label: 'Chat' },
+    { key: 'success', label: 'Trao đổi & Chat' },
     { key: 'info', label: 'Thông tin' },
-    { key: 'caution', label: 'Cần chú ý' },
+    { key: 'caution', label: 'Cần chú ý / Phê duyệt' },
     { key: 'warning', label: 'Cần xử lý sớm' },
     { key: 'critical', label: 'Khẩn cấp' },
 ]
@@ -501,10 +542,31 @@ const normalizedSecurityAlerts = computed(() =>
     })
 )
 
+const localChatNormalized = computed(() =>
+    localChatNotifications.value.map((item) => ({
+        id: item.id,
+        source: item.source || 'chat',
+        title: item.title,
+        message: item.message,
+        severity: item.severity || 'success',
+        severityRank: getSeverityRank(item.severity || 'success'),
+        time: item.time,
+        read: !!item.read,
+        requiresAck: false,
+        ackKind: null,
+        actionUrl: item.actionUrl || '/chat',
+        referenceType: item.referenceType || 'Chat',
+        referenceId: item.referenceId,
+        locationLabel: item.locationLabel || 'Trao đổi',
+        isActive: !item.read,
+    }))
+)
+
 const unresolvedItems = computed(() =>
     [
         ...normalizedNotifications.value.filter((item) => !item.read),
         ...normalizedSecurityAlerts.value.filter((item) => item.isActive),
+        ...localChatNormalized.value.filter((item) => !item.read),
     ]
 )
 
@@ -524,10 +586,14 @@ const highestActiveSeverity = computed(() => {
 })
 
 const pendingCount = computed(() => unresolvedItems.value.length)
-const unreadNotificationCount = computed(() => normalizedNotifications.value.filter((item) => !item.read).length)
+const unreadNotificationCount = computed(() => normalizedNotifications.value.filter((item) => !item.read).length + localChatNormalized.value.filter((item) => !item.read).length)
 
 const mergedFeed = computed(() =>
-    [...normalizedSecurityAlerts.value, ...normalizedNotifications.value].sort((left, right) => {
+    [
+        ...normalizedSecurityAlerts.value,
+        ...normalizedNotifications.value,
+        ...localChatNormalized.value,
+    ].sort((left, right) => {
         if (right.severityRank !== left.severityRank) {
             return right.severityRank - left.severityRank
         }
@@ -543,6 +609,73 @@ const mergedFeed = computed(() =>
         return new Date(right.time).getTime() - new Date(left.time).getTime()
     })
 )
+
+const securityCount = computed(() =>
+    mergedFeed.value.filter(
+        (item) =>
+            item.source === 'security-alert' ||
+            item.severity === 'critical' ||
+            item.severity === 'warning' ||
+            String(item.referenceType || '').toLowerCase().includes('alarm')
+    ).length
+)
+
+const approvalCount = computed(() =>
+    mergedFeed.value.filter(
+        (item) =>
+            item.severity === 'caution' ||
+            String(item.referenceType || '').toLowerCase().includes('approval') ||
+            String(item.referenceType || '').toLowerCase().includes('leave') ||
+            String(item.referenceType || '').toLowerCase().includes('vehicle') ||
+            String(item.referenceType || '').toLowerCase().includes('claim') ||
+            String(item.referenceType || '').toLowerCase().includes('evidence') ||
+            String(item.referenceType || '').toLowerCase().includes('intervention')
+    ).length
+)
+
+const chatCallCount = computed(() =>
+    mergedFeed.value.filter(
+        (item) =>
+            item.source === 'chat' ||
+            item.source === 'call' ||
+            item.severity === 'success' ||
+            String(item.referenceType || '').toLowerCase() === 'chat'
+    ).length
+)
+
+const filteredFeed = computed(() => {
+    if (activeFilterTab.value === 'security') {
+        return mergedFeed.value.filter(
+            (item) =>
+                item.source === 'security-alert' ||
+                item.severity === 'critical' ||
+                item.severity === 'warning' ||
+                String(item.referenceType || '').toLowerCase().includes('alarm')
+        )
+    }
+    if (activeFilterTab.value === 'approval') {
+        return mergedFeed.value.filter(
+            (item) =>
+                item.severity === 'caution' ||
+                String(item.referenceType || '').toLowerCase().includes('approval') ||
+                String(item.referenceType || '').toLowerCase().includes('leave') ||
+                String(item.referenceType || '').toLowerCase().includes('vehicle') ||
+                String(item.referenceType || '').toLowerCase().includes('claim') ||
+                String(item.referenceType || '').toLowerCase().includes('evidence') ||
+                String(item.referenceType || '').toLowerCase().includes('intervention')
+        )
+    }
+    if (activeFilterTab.value === 'chat') {
+        return mergedFeed.value.filter(
+            (item) =>
+                item.source === 'chat' ||
+                item.source === 'call' ||
+                item.severity === 'success' ||
+                String(item.referenceType || '').toLowerCase() === 'chat'
+        )
+    }
+    return mergedFeed.value
+})
 
 const statusChipLabel = computed(() => {
     const labels = {
@@ -561,9 +694,9 @@ const statusSummary = computed(() => {
         return 'Không có mục nào đang chờ xử lý.'
     }
 
-    const securityCount = normalizedSecurityAlerts.value.length
-    const notificationCount = unreadNotificationCount.value
-    return `${pendingCount.value} mục đang mở, gồm ${securityCount} cảnh báo an ninh và ${notificationCount} thông báo chưa đọc.`
+    const securityC = securityCount.value
+    const notificationC = unreadNotificationCount.value
+    return `${pendingCount.value} mục chưa xử lý, gồm ${securityC} an ninh/cảnh báo và ${notificationC} thông báo mới.`
 })
 
 function parsePrefixedId(value) {
@@ -594,24 +727,49 @@ function defaultAlertRoute(kind) {
 
 function sourceLabel(item) {
     if (item.source === 'security-alert') {
-        if (item.ackKind === 'duress') return 'Duress'
-        if (item.ackKind === 'alarm') return 'SOC alarm'
+        if (item.ackKind === 'duress') return 'Báo động uy hiếp'
+        if (item.ackKind === 'alarm') return 'Cảnh báo SOC'
         return 'Điều phối an ninh'
     }
+    if (item.source === 'chat') return 'Tin nhắn'
+    if (item.source === 'call') return 'Cuộc gọi'
+
+    const refType = String(item.referenceType || '').toLowerCase()
+    if (refType.includes('leave')) return 'Đơn nghỉ phép'
+    if (refType.includes('vehicle')) return 'Xe nội bộ'
+    if (refType.includes('lostfound') || refType.includes('claim')) return 'Thất lạc & Tìm thấy'
+    if (refType.includes('evidence')) return 'Hồ sơ chứng cứ'
+    if (refType.includes('intervention')) return 'Tác nghiệp an ninh'
+    if (refType.includes('alarm')) return 'Cảnh báo hệ thống'
 
     const severity = item.severity
-    if (severity === 'success') return 'Chat'
+    if (severity === 'success') return 'Trao đổi'
     if (severity === 'caution') return 'Phê duyệt'
+    if (severity === 'warning') return 'Cần xử lý'
+    if (severity === 'critical') return 'Khẩn cấp'
     return 'Thông báo'
+}
+
+function actionButtonLabel(item) {
+    if (item.source === 'security-alert') return 'Mở điều phối'
+    if (item.source === 'chat') return 'Mở trò chuyện'
+    if (item.source === 'call') return 'Gọi lại / Nhắn tin'
+    const refType = String(item.referenceType || '').toLowerCase()
+    if (refType.includes('leave')) return 'Xem đơn nghỉ'
+    if (refType.includes('vehicle')) return 'Xem xe'
+    if (refType.includes('lostfound') || refType.includes('claim')) return 'Xem đồ thất lạc'
+    if (refType.includes('evidence')) return 'Xem chứng cứ'
+    if (refType.includes('alarm')) return 'Xem cảnh báo'
+    return 'Xem chi tiết'
 }
 
 function severityLabel(severity) {
     const labels = {
-        success: 'Xanh lá',
-        info: 'Xanh da trời',
-        caution: 'Vàng',
-        warning: 'Cam',
-        critical: 'Đỏ',
+        success: 'Trao đổi',
+        info: 'Thông tin',
+        caution: 'Phê duyệt',
+        warning: 'Cảnh báo',
+        critical: 'Khẩn cấp',
         neutral: 'Bình thường',
     }
     return labels[severity] || labels.neutral
@@ -685,12 +843,16 @@ function toggleUserMenu() {
 async function markAllRead() {
     try {
         await markAllNotificationsRead()
-        dbNotifications.value = dbNotifications.value.map((item) => ({
-            ...item,
-            isRead: true,
-        }))
-        unreadCount.value = 0
     } catch {}
+    dbNotifications.value = dbNotifications.value.map((item) => ({
+        ...item,
+        isRead: true,
+    }))
+    localChatNotifications.value = localChatNotifications.value.map((item) => ({
+        ...item,
+        read: true,
+    }))
+    unreadCount.value = 0
 }
 
 async function handleItemClick(item) {
@@ -699,7 +861,12 @@ async function handleItemClick(item) {
         return
     }
 
-    if (!item.read) {
+    if (item.source === 'chat' || item.source === 'call') {
+        const target = localChatNotifications.value.find((entry) => entry.id === item.id)
+        if (target) {
+            target.read = true
+        }
+    } else if (!item.read) {
         try {
             await markNotificationRead(item.id)
             const target = dbNotifications.value.find((entry) => entry.id === item.id)
@@ -714,10 +881,30 @@ async function handleItemClick(item) {
 }
 
 async function openItem(item) {
+    showNotifications.value = false
     if (item.actionUrl) {
         await router.push(item.actionUrl)
+        return
     }
-    showNotifications.value = false
+    if (item.source === 'chat' || item.source === 'call') {
+        await router.push('/chat')
+        return
+    }
+    const refType = String(item.referenceType || '').toLowerCase()
+    if (refType.includes('leave')) {
+        const isApprover = ['Admin', 'QuanLy'].includes(authState.user?.role)
+        await router.push(isApprover ? '/leave-approvals' : '/leave-requests')
+    } else if (refType.includes('vehicle')) {
+        await router.push('/vehicles')
+    } else if (refType.includes('lostfound') || refType.includes('claim')) {
+        await router.push('/lost-found')
+    } else if (refType.includes('evidence')) {
+        await router.push('/evidence-repository')
+    } else if (refType.includes('alarm') || refType.includes('intervention')) {
+        await router.push('/soc-console')
+    } else {
+        await router.push('/dashboard')
+    }
 }
 
 async function acknowledgeItem(item) {
@@ -757,6 +944,8 @@ function handleDocumentClick(event) {
 let timer = null
 let removeNotificationSubscription = null
 let removeUnreadSubscription = null
+let removeChatMessageSubscription = null
+let removeCallEndedSubscription = null
 
 onMounted(async () => {
     updateTime()
@@ -770,11 +959,51 @@ onMounted(async () => {
         if (token) {
             await connectNotificationHub(token)
             removeNotificationSubscription = onNotification((notification) => {
-                dbNotifications.value = [notification, ...dbNotifications.value].slice(0, 100)
+                dbNotifications.value = [notification, ...dbNotifications.value.filter(n => n.id !== notification.id)].slice(0, 100)
                 unreadCount.value += 1
             })
             removeUnreadSubscription = onUnreadCountChanged((count) => {
                 unreadCount.value = Number(count) || 0
+            })
+
+            await connectChatHub(token)
+            removeChatMessageSubscription = onMessage((msg) => {
+                const currentUserId = authState.user?.id || authState.user?.userId
+                if (msg && msg.senderId && Number(msg.senderId) !== Number(currentUserId)) {
+                    const chatItem = {
+                        id: `chat-${msg.id || Date.now()}`,
+                        source: 'chat',
+                        title: `Tin nhắn từ ${msg.senderName || 'Đồng nghiệp'}`,
+                        message: msg.content || (msg.hasAttachment ? '[Tệp đính kèm]' : 'Có tin nhắn mới'),
+                        severity: 'success',
+                        time: msg.createdAt || new Date().toISOString(),
+                        read: false,
+                        actionUrl: `/chat?conversationId=${msg.conversationId}`,
+                        referenceType: 'Chat',
+                        referenceId: msg.conversationId,
+                        locationLabel: 'Hội thoại trực tuyến',
+                    }
+                    localChatNotifications.value = [chatItem, ...localChatNotifications.value.filter(c => c.id !== chatItem.id)].slice(0, 30)
+                }
+            })
+
+            removeCallEndedSubscription = onCallEnded((data) => {
+                if (data && (data.status === 'missed' || data.reason === 'missed' || data.reason === 'timeout')) {
+                    const callItem = {
+                        id: `call-${Date.now()}`,
+                        source: 'call',
+                        title: 'Cuộc gọi nhỡ',
+                        message: `Bạn có cuộc gọi nhỡ từ ${data.callerName || 'Đồng nghiệp'}`,
+                        severity: 'warning',
+                        time: new Date().toISOString(),
+                        read: false,
+                        actionUrl: '/chat',
+                        referenceType: 'Call',
+                        referenceId: data.callId || null,
+                        locationLabel: 'Cuộc gọi',
+                    }
+                    localChatNotifications.value = [callItem, ...localChatNotifications.value].slice(0, 30)
+                }
             })
         }
     } catch {}
@@ -787,6 +1016,8 @@ onUnmounted(() => {
     document.removeEventListener('click', handleDocumentClick)
     removeNotificationSubscription?.()
     removeUnreadSubscription?.()
+    removeChatMessageSubscription?.()
+    removeCallEndedSubscription?.()
     disconnectNotificationHub()
 })
 
@@ -1207,11 +1438,83 @@ watch(
     font-weight: 700;
 }
 
+.notification-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: var(--surface-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.notification-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--surface-hover);
+}
+
+.tab-btn.active {
+    color: var(--accent-primary);
+    background: var(--surface-default);
+    border-color: var(--border-subtle);
+    box-shadow: var(--shadow-xs);
+}
+
+.tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: var(--surface-selected);
+    color: var(--text-primary);
+}
+
+.tab-count.badge-danger {
+    background: rgba(196, 49, 49, 0.15);
+    color: #c43131;
+}
+
+.tab-count.badge-caution {
+    background: rgba(234, 185, 52, 0.2);
+    color: #af7a13;
+}
+
+.tab-count.badge-success {
+    background: rgba(20, 134, 109, 0.16);
+    color: var(--accent-success);
+}
+
 .notification-legend {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 14px 20px 0;
+    padding: 12px 20px 0;
 }
 
 .legend-item,
