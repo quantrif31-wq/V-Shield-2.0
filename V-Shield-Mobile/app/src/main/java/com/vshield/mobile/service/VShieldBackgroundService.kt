@@ -321,22 +321,24 @@ class VShieldBackgroundService : Service() {
 
         acquireWakeLock()
 
-        // Force a fresh WebSocket connection to the server immediately upon task removal
+        // Ensure connections are active without interrupting already-connected sockets
         serviceScope.launch {
             try {
-                if (chatClient != null) {
-                    chatClient?.forceReconnect()
-                } else {
+                if (chatClient == null) {
                     initSignalRConnections()
+                } else if (chatClient?.connectionState?.value != ChatSignalRClient.ConnectionState.CONNECTED &&
+                    chatClient?.connectionState?.value != ChatSignalRClient.ConnectionState.CONNECTING) {
+                    chatClient?.connect()
                 }
 
-                if (notificationClient != null) {
-                    notificationClient?.forceReconnect()
-                } else {
+                if (notificationClient == null) {
                     initSignalRConnections()
+                } else if (notificationClient?.connectionState?.value != NotificationSignalRClient.ConnectionState.CONNECTED &&
+                    notificationClient?.connectionState?.value != NotificationSignalRClient.ConnectionState.CONNECTING) {
+                    notificationClient?.connect()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in onTaskRemoved reconnect: ${e.message}")
+                Log.e(TAG, "Error in onTaskRemoved check: ${e.message}")
             }
         }
 

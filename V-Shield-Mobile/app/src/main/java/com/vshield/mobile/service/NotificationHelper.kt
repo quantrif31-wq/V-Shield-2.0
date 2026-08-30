@@ -14,7 +14,7 @@ import com.vshield.mobile.MainActivity
 
 object NotificationHelper {
 
-    const val CHANNEL_CALLS_ID = "vshield_incoming_calls"
+    const val CHANNEL_CALLS_ID = "vshield_incoming_calls_v2"
     const val CHANNEL_MESSAGES_ID = "vshield_chat_messages"
     const val CHANNEL_ALERTS_ID = "vshield_security_alerts"
     const val CHANNEL_SERVICE_ID = "vshield_background_service"
@@ -27,6 +27,55 @@ object NotificationHelper {
     const val ACTION_ACCEPT_CALL = "action_accept_call"
     const val ACTION_REJECT_CALL = "action_reject_call"
     const val ACTION_OPEN_CHAT = "action_open_chat"
+
+    private var currentRingtone: android.media.Ringtone? = null
+    private var ringtoneVibrator: android.os.Vibrator? = null
+
+    fun playCallRingtone(context: Context) {
+        try {
+            stopCallRingtone()
+            val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val ringtone = RingtoneManager.getRingtone(context.applicationContext, ringtoneUri)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone?.isLooping = true
+            }
+            ringtone?.audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            ringtone?.play()
+            currentRingtone = ringtone
+
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            }
+            val pattern = longArrayOf(0, 1000, 1000)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(android.os.VibrationEffect.createWaveform(pattern, 0))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(pattern, 0)
+            }
+            ringtoneVibrator = vibrator
+            android.util.Log.i("NotificationHelper", "Incoming call ringtone & vibration started")
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationHelper", "Error playing ringtone: ${e.message}")
+        }
+    }
+
+    fun stopCallRingtone() {
+        try {
+            currentRingtone?.stop()
+            currentRingtone = null
+            ringtoneVibrator?.cancel()
+            ringtoneVibrator = null
+            android.util.Log.i("NotificationHelper", "Incoming call ringtone & vibration stopped")
+        } catch (_: Exception) {}
+    }
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -127,6 +176,9 @@ object NotificationHelper {
         fromFullName: String,
         conversationId: Int?
     ) {
+        // Start playing ringtone and vibration immediately
+        playCallRingtone(context)
+
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
 
         // Content intent (tap notification body) -> Open app to Call screen
@@ -158,6 +210,7 @@ object NotificationHelper {
 
         val isVideo = callType == "video"
         val subtitle = if (isVideo) "Cuộc gọi video đến..." else "Cuộc gọi thoại đến..."
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_CALLS_ID)
             .setSmallIcon(android.R.drawable.stat_sys_phone_call)
@@ -168,6 +221,7 @@ object NotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .setOngoing(true)
+            .setSound(ringtoneUri)
             .setContentIntent(contentPendingIntent)
             .setFullScreenIntent(contentPendingIntent, true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Từ chối", rejectPendingIntent)
@@ -180,6 +234,7 @@ object NotificationHelper {
 
     fun cancelIncomingCallNotification(context: Context) {
         try {
+            stopCallRingtone()
             NotificationManagerCompat.from(context).cancel(NOTIFICATION_CALL_ID)
         } catch (_: Exception) {}
     }
