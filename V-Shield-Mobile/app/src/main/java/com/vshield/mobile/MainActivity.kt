@@ -32,22 +32,24 @@ import com.vshield.mobile.viewmodel.ChatViewModel
 import com.vshield.mobile.viewmodel.NotificationViewModel
 
 import android.content.Intent
+import kotlinx.coroutines.flow.collectLatest
 import com.vshield.mobile.service.NotificationHelper
 import com.vshield.mobile.service.VShieldBackgroundService
 
 class MainActivity : FragmentActivity() {
 
-    private var pendingIntentAction: ((ChatViewModel, androidx.navigation.NavHostController) -> Unit)? = null
+    private val intentActionFlow = kotlinx.coroutines.flow.MutableSharedFlow<Intent>(
+        replay = 1,
+        extraBufferCapacity = 1,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleIntent(intent)
+        intent?.let { intentActionFlow.tryEmit(it) }
         setContent {
             VShieldTheme {
-                VShieldMainScreen(
-                    pendingAction = pendingIntentAction,
-                    onClearPendingAction = { pendingIntentAction = null }
-                )
+                VShieldMainScreen(intentFlow = intentActionFlow)
             }
         }
     }
@@ -55,72 +57,14 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIntent(intent)
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        if (intent == null) return
-        val callAction = intent.getStringExtra(NotificationHelper.EXTRA_CALL_ACTION)
-        val navigateTo = intent.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
-        val convId = intent.getIntExtra(NotificationHelper.EXTRA_CONVERSATION_ID, 0)
-
-        android.util.Log.i("MainActivity", "handleIntent: callAction=$callAction, navigateTo=$navigateTo, convId=$convId")
-
-        val fromEmpId = intent.getIntExtra("EXTRA_FROM_EMPLOYEE_ID", 0)
-        val fromName = intent.getStringExtra("EXTRA_FROM_FULL_NAME") ?: "Cuộc gọi đến"
-        val callType = intent.getStringExtra("EXTRA_CALL_TYPE") ?: "audio"
-
-        if (callAction == NotificationHelper.ACTION_ACCEPT_CALL) {
-            NotificationHelper.cancelIncomingCallNotification(this)
-        }
-
-        pendingIntentAction = { chatVm, nav ->
-            if (callAction == NotificationHelper.ACTION_ACCEPT_CALL) {
-                android.util.Log.i("MainActivity", "pendingIntentAction: accepting call from $fromEmpId ($fromName)...")
-                chatVm.acceptCall(
-                    fromEmployeeId = fromEmpId,
-                    fromFullName = fromName,
-                    conversationId = convId,
-                    callType = callType
-                )
-            } else if (callAction == NotificationHelper.ACTION_REJECT_CALL) {
-                chatVm.rejectCall()
-            } else if (navigateTo == "call") {
-                val bgCall = com.vshield.mobile.service.VShieldBackgroundService.lastIncomingCall
-                if (bgCall != null && chatVm.uiState.value.callState is ChatCallState.Idle) {
-                    val isVideo = (bgCall.signalingData ?: "").contains("m=video")
-                    val cType = if (isVideo) "video" else "audio"
-                    chatVm.restoreIncomingCallState(
-                        fromEmployeeId = bgCall.fromEmployeeId,
-                        fromFullName = bgCall.fromFullName ?: "Cuộc gọi đến",
-                        conversationId = bgCall.conversationId,
-                        offerSdp = bgCall.signalingData,
-                        callType = cType
-                    )
-                }
-            } else if (navigateTo == NotificationHelper.ACTION_OPEN_CHAT) {
-                if (convId > 0) {
-                    android.util.Log.i("MainActivity", "Navigating directly to conversation $convId")
-                    nav.navigate(Screen.Conversation.createRoute(convId)) {
-                        popUpTo(Screen.Home.route)
-                        launchSingleTop = true
-                    }
-                } else {
-                    nav.navigate(Screen.Chat.route) {
-                        popUpTo(Screen.Home.route)
-                        launchSingleTop = true
-                    }
-                }
-            }
-        }
+        intentActionFlow.tryEmit(intent)
     }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun VShieldMainScreen(
-    pendingAction: ((ChatViewModel, androidx.navigation.NavHostController) -> Unit)? = null,
-    onClearPendingAction: () -> Unit = {}
+    intentFlow: kotlinx.coroutines.flow.Flow<Intent>? = null
 ) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
@@ -175,15 +119,59 @@ fun VShieldMainScreen(
         multiplePermissionsLauncher.launch(permissions.toTypedArray())
     }
 
-    LaunchedEffect(isLoggedIn, pendingAction) {
+    LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             notificationViewModel.initialize()
             chatViewModel.initialize()
             authViewModel.recordUserActivity()
 
-            if (pendingAction != null) {
-                pendingAction(chatViewModel, navController)
-                onClearPendingAction()
+            intentFlow?.collectLatest { receivedIntent ->
+                val callAction = receivedIntent.getStringExtra(NotificationHelper.EXTRA_CALL_ACTION)
+                val navigateTo = receivedIntent.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
+                val convId = receivedIntent.getIntExtra(NotificationHelper.EXTRA_CONVERSATION_ID, 0)
+                val fromEmpId = receivedIntent.getIntExtra("EXTRA_FROM_EMPLOYEE_ID", 0)
+                val fromName = receivedIntent.getStringExtra("EXTRA_FROM_FULL_NAME") ?: "Cuộc gọi đến"
+                val callType = receivedIntent.getStringExtra("EXTRA_CALL_TYPE") ?: "audio"
+
+                android.util.Log.i("MainActivity", "intentFlow collected: callAction=$callAction, navigateTo=$navigateTo, convId=$convId")
+
+                if (callAction == NotificationHelper.ACTION_ACCEPT_CALL) {
+                    NotificationHelper.cancelIncomingCallNotification(context)
+                    chatViewModel.acceptCall(
+                        fromEmployeeId = fromEmpId,
+                        fromFullName = fromName,
+                        conversationId = convId,
+                        callType = callType
+                    )
+                } else if (callAction == NotificationHelper.ACTION_REJECT_CALL) {
+                    chatViewModel.rejectCall()
+                } else if (navigateTo == "call") {
+                    val bgCall = com.vshield.mobile.service.VShieldBackgroundService.lastIncomingCall
+                    if (bgCall != null && chatViewModel.uiState.value.callState is ChatCallState.Idle) {
+                        val isVideo = (bgCall.signalingData ?: "").contains("m=video")
+                        val cType = if (isVideo) "video" else "audio"
+                        chatViewModel.restoreIncomingCallState(
+                            fromEmployeeId = bgCall.fromEmployeeId,
+                            fromFullName = bgCall.fromFullName ?: "Cuộc gọi đến",
+                            conversationId = bgCall.conversationId,
+                            offerSdp = bgCall.signalingData,
+                            callType = cType
+                        )
+                    }
+                } else if (navigateTo == NotificationHelper.ACTION_OPEN_CHAT) {
+                    if (convId > 0) {
+                        android.util.Log.i("MainActivity", "Navigating directly to conversation $convId")
+                        navController.navigate(Screen.Conversation.createRoute(convId)) {
+                            popUpTo(Screen.Home.route)
+                            launchSingleTop = true
+                        }
+                    } else {
+                        navController.navigate(Screen.Chat.route) {
+                            popUpTo(Screen.Home.route)
+                            launchSingleTop = true
+                        }
+                    }
+                }
             }
         } else if (currentRoute != Screen.Login.route) {
             navController.navigate(Screen.Login.route) {

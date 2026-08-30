@@ -194,6 +194,7 @@ object NotificationHelper {
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
 
         val intent = Intent(context, MainActivity::class.java).apply {
+            action = "ACTION_OPEN_CHAT_${conversationId}_${System.currentTimeMillis()}"
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(EXTRA_NAVIGATE_TO, ACTION_OPEN_CHAT)
             putExtra(EXTRA_CONVERSATION_ID, conversationId)
