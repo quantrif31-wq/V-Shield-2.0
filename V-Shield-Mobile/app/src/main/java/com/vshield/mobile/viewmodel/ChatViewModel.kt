@@ -157,12 +157,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             "offer" -> {
                 if (call.signalingData.isNullOrBlank()) return
                 pendingOfferSdp = call.signalingData
+                val isVideo = (call.signalingData ?: "").contains("m=video")
                 _uiState.value = current.copy(
                     callState = ChatCallState.Incoming(
                         fromEmployeeId = call.fromEmployeeId,
                         fromFullName = call.fromFullName ?: "Cuộc gọi đến",
                         conversationId = call.conversationId,
-                        offerSdp = call.signalingData
+                        offerSdp = call.signalingData,
+                        callType = if (isVideo) "video" else "audio"
                     )
                 )
             }
@@ -200,7 +202,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = current.copy(
                         callState = ChatCallState.Connected(
                             withEmployeeId = resp.fromEmployeeId,
-                            withFullName = resp.fromFullName ?: current.callState.toFullName
+                            withFullName = resp.fromFullName ?: current.callState.toFullName,
+                            callType = current.callState.callType
                         )
                     )
                 }
@@ -352,14 +355,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startCall(targetEmployeeId: Int, targetFullName: String, conversationId: Int?) {
+    fun startCall(targetEmployeeId: Int, targetFullName: String, conversationId: Int?, type: String = "audio") {
         try {
             val current = _uiState.value
             _uiState.value = current.copy(
                 callState = ChatCallState.Outgoing(
                     toEmployeeId = targetEmployeeId,
                     toFullName = targetFullName,
-                    conversationId = conversationId
+                    conversationId = conversationId,
+                    callType = type
                 ),
                 callError = null
             )
@@ -369,13 +373,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 return
             }
 
+            val isVideo = type == "video"
             val manager = ensureWebRtcManager()
             manager.initialize()
             if (!manager.createPeerConnection()) {
                 _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo kết nối thoại")
                 return
             }
-            if (!manager.setupLocalMedia()) {
+            if (!manager.setupLocalMedia(enableVideo = isVideo)) {
                 _uiState.value = _uiState.value.copy(callError = "Không thể bật thiết bị âm thanh")
                 return
             }
@@ -390,13 +395,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val state = _uiState.value.callState
             if (state !is ChatCallState.Incoming) return
+            val isVideo = state.callType == "video"
 
             if (BuildConfig.DEMO_MODE) {
                 signalRClient?.callResponse(state.fromEmployeeId, "accepted", "")
                 _uiState.value = _uiState.value.copy(
                     callState = ChatCallState.Connected(
                         withEmployeeId = state.fromEmployeeId,
-                        withFullName = state.fromFullName
+                        withFullName = state.fromFullName,
+                        callType = state.callType
                     )
                 )
                 return
@@ -408,7 +415,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(callError = "Không thể khởi tạo kết nối thoại")
                 return
             }
-            if (!manager.setupLocalMedia()) {
+            if (!manager.setupLocalMedia(enableVideo = isVideo)) {
                 _uiState.value = _uiState.value.copy(callError = "Không thể bật thiết bị âm thanh")
                 return
             }
@@ -423,7 +430,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(
                     callState = ChatCallState.Connected(
                         withEmployeeId = state.fromEmployeeId,
-                        withFullName = state.fromFullName
+                        withFullName = state.fromFullName,
+                        callType = state.callType
                     )
                 )
             } else {

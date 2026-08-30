@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,17 +43,20 @@ fun ConversationScreen(
     conversationId: Int,
     chatViewModel: ChatViewModel,
     onBack: () -> Unit,
-    onStartCall: (targetEmployeeId: Int, targetFullName: String) -> Unit
+    onStartCall: (targetEmployeeId: Int, targetFullName: String, type: String) -> Unit
 ) {
     val uiState by chatViewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
 
-    val callPermissionsState = rememberMultiplePermissionsState(
+    val audioPermissionState = rememberMultiplePermissionsState(
+        listOf(android.Manifest.permission.RECORD_AUDIO)
+    )
+    val videoPermissionsState = rememberMultiplePermissionsState(
         listOf(
-            android.Manifest.permission.CAMERA,
-            android.Manifest.permission.RECORD_AUDIO
+            android.Manifest.permission.RECORD_AUDIO,
+            android.Manifest.permission.CAMERA
         )
     )
 
@@ -107,15 +111,24 @@ fun ConversationScreen(
                 },
                 actions = {
                     if (otherParticipants.size == 1) {
+                        val target = otherParticipants.first()
                         IconButton(onClick = {
-                            val target = otherParticipants.first()
-                            if (callPermissionsState.allPermissionsGranted) {
-                                onStartCall(target.employeeId, target.fullName)
+                            if (audioPermissionState.allPermissionsGranted) {
+                                onStartCall(target.employeeId, target.fullName, "audio")
                             } else {
-                                callPermissionsState.launchMultiplePermissionRequest()
+                                audioPermissionState.launchMultiplePermissionRequest()
                             }
                         }) {
-                    Icon(Icons.Filled.Phone, contentDescription = "Gọi")
+                            Icon(Icons.Filled.Phone, contentDescription = "Gọi thoại HD")
+                        }
+                        IconButton(onClick = {
+                            if (videoPermissionsState.allPermissionsGranted) {
+                                onStartCall(target.employeeId, target.fullName, "video")
+                            } else {
+                                videoPermissionsState.launchMultiplePermissionRequest()
+                            }
+                        }) {
+                            Icon(Icons.Filled.Videocam, contentDescription = "Gọi Video Face-to-Face")
                         }
                     }
                 }

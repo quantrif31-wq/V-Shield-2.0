@@ -159,7 +159,7 @@ class WebRTCManager(private val context: Context) {
         }
     }
 
-    fun setupLocalMedia(): Boolean {
+    fun setupLocalMedia(enableVideo: Boolean = false): Boolean {
         val factory = peerConnectionFactory ?: return false
         val pc = peerConnection ?: return false
 
@@ -176,24 +176,26 @@ class WebRTCManager(private val context: Context) {
             localAudioTrack?.setEnabled(true)
             pc.addTrack(localAudioTrack, listOf("vshield_stream"))
 
-            try {
-                localVideoSource = factory.createVideoSource(false)
-                videoCapturer = createCameraCapturer()
-                if (videoCapturer != null) {
-                    val surfaceTextureHelper = SurfaceTextureHelper.create("VideoCaptureThread", eglBaseContext)
-                    videoCapturer?.initialize(
-                        surfaceTextureHelper,
-                        context.applicationContext,
-                        localVideoSource?.capturerObserver
-                    )
-                    videoCapturer?.startCapture(1280, 720, 30)
-                    localVideoTrack = factory.createVideoTrack("video0", localVideoSource)
-                    localVideoTrack?.setEnabled(true)
-                    pc.addTrack(localVideoTrack, listOf("vshield_stream"))
-                    localVideoTrack?.let { listener?.onLocalVideo(it) }
+            if (enableVideo) {
+                try {
+                    localVideoSource = factory.createVideoSource(false)
+                    videoCapturer = createCameraCapturer()
+                    if (videoCapturer != null) {
+                        val surfaceTextureHelper = SurfaceTextureHelper.create("VideoCaptureThread", eglBaseContext)
+                        videoCapturer?.initialize(
+                            surfaceTextureHelper,
+                            context.applicationContext,
+                            localVideoSource?.capturerObserver
+                        )
+                        videoCapturer?.startCapture(1280, 720, 30)
+                        localVideoTrack = factory.createVideoTrack("video0", localVideoSource)
+                        localVideoTrack?.setEnabled(true)
+                        pc.addTrack(localVideoTrack, listOf("vshield_stream"))
+                        localVideoTrack?.let { listener?.onLocalVideo(it) }
+                    }
+                } catch (e: Throwable) {
+                    Log.w("WebRTCManager", "Camera setup failed, proceeding audio-only: ${e.message}")
                 }
-            } catch (e: Throwable) {
-                Log.w("WebRTCManager", "Camera setup failed, proceeding audio-only: ${e.message}")
             }
 
             return true

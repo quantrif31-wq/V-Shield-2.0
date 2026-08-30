@@ -34,7 +34,7 @@ fun NavGraph(
     notificationViewModel: NotificationViewModel,
     startDestination: String,
     onSessionExpired: () -> Unit,
-    onStartCall: (Int, String) -> Unit
+    onStartCall: (Int, String, String) -> Unit
 ) {
     NavHost(
         navController = navController,
@@ -80,8 +80,8 @@ fun NavGraph(
                 conversationId = conversationId,
                 chatViewModel = chatViewModel,
                 onBack = { navController.popBackStack() },
-                onStartCall = { targetId, targetName ->
-                    onStartCall(targetId, targetName)
+                onStartCall = { targetId, targetName, type ->
+                    onStartCall(targetId, targetName, type)
                 }
             )
         }

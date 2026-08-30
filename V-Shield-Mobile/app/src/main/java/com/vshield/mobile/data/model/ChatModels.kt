@@ -147,15 +147,18 @@ sealed class ChatCallState {
         val fromEmployeeId: Int,
         val fromFullName: String,
         val conversationId: Int?,
-        val offerSdp: String? = null
+        val offerSdp: String? = null,
+        val callType: String = "audio"
     ) : ChatCallState()
     data class Outgoing(
         val toEmployeeId: Int,
         val toFullName: String,
-        val conversationId: Int?
+        val conversationId: Int?,
+        val callType: String = "audio"
     ) : ChatCallState()
     data class Connected(
         val withEmployeeId: Int,
-        val withFullName: String
+        val withFullName: String,
+        val callType: String = "audio"
     ) : ChatCallState()
 }

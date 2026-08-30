@@ -142,9 +142,9 @@ fun VShieldMainScreen() {
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onStartCall = { targetId, targetName ->
+                onStartCall = { targetId, targetName, type ->
                     val conv = chatState.currentConversation
-                    chatViewModel.startCall(targetId, targetName, conv?.conversationId)
+                    chatViewModel.startCall(targetId, targetName, conv?.conversationId, type)
                 }
             )
 
