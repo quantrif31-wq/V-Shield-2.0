@@ -10,8 +10,15 @@ const ensureApiBaseUrl = (value, fallbackPort) => {
     return `http://localhost:${fallbackPort}/api`;
   }
 
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:${fallbackPort}/api`;
+  const { protocol, hostname, port } = window.location;
+  // In local development on localhost/loopback, connect directly to the dev backend port
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `${protocol}//${hostname}:${fallbackPort}/api`;
+  }
+
+  // In production / domain with reverse proxy (e.g. v-shield.site), use origin /api directly
+  const portSuffix = port && port !== "80" && port !== "443" && port !== "8080" ? `:${port}` : "";
+  return `${protocol}//${hostname}${portSuffix}/api`;
 };
 
 const ensureServiceBaseUrl = (value, fallbackPort) => {
