@@ -94,28 +94,95 @@ public class NotificationService : INotificationService
         if (userIds.Count == 0) return;
         try
         {
-            var notifications = userIds.Select(uid => new Notification
-            {
-                RecipientUserId = uid, Title = title, Body = body, Category = category ?? "System",
-                Severity = ResolveSeverity(null, category, title),
-                ReferenceType = referenceType, ReferenceId = referenceId, ActionUrl = actionUrl,
-                Latitude = latitude, Longitude = longitude, LocationLabel = locationLabel,
-                CreatedAt = DateTime.UtcNow
-            }).ToList();
+            var distinctUserIds = userIds.Distinct().ToList();
+            var notificationsToSend = new List<Notification>();
+            var now = DateTime.UtcNow;
+            var severity = ResolveSeverity(null, category, title);
 
-            _db.Notifications.AddRange(notifications);
+            foreach (var uid in distinctUserIds)
+            {
+                Notification notif;
+                if (string.Equals(category, "Chat", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(referenceId))
+                {
+                    var existing = await _db.Notifications
+                        .FirstOrDefaultAsync(n => n.RecipientUserId == uid && n.Category == "Chat" && n.ReferenceId == referenceId);
+
+                    if (existing != null)
+                    {
+                        existing.Title = title;
+                        existing.Body = body;
+                        existing.Severity = severity;
+                        existing.ReferenceType = referenceType ?? "Chat";
+                        existing.ActionUrl = actionUrl;
+                        existing.CreatedAt = now;
+                        existing.IsRead = false;
+                        existing.ReadAt = null;
+                        notif = existing;
+                    }
+                    else
+                    {
+                        notif = new Notification
+                        {
+                            RecipientUserId = uid,
+                            Title = title,
+                            Body = body,
+                            Category = "Chat",
+                            Severity = severity,
+                            ReferenceType = referenceType ?? "Chat",
+                            ReferenceId = referenceId,
+                            ActionUrl = actionUrl,
+                            Latitude = latitude,
+                            Longitude = longitude,
+                            LocationLabel = locationLabel,
+                            CreatedAt = now,
+                            IsRead = false
+                        };
+                        _db.Notifications.Add(notif);
+                    }
+                }
+                else
+                {
+                    notif = new Notification
+                    {
+                        RecipientUserId = uid,
+                        Title = title,
+                        Body = body,
+                        Category = category ?? "System",
+                        Severity = severity,
+                        ReferenceType = referenceType,
+                        ReferenceId = referenceId,
+                        ActionUrl = actionUrl,
+                        Latitude = latitude,
+                        Longitude = longitude,
+                        LocationLabel = locationLabel,
+                        CreatedAt = now,
+                        IsRead = false
+                    };
+                    _db.Notifications.Add(notif);
+                }
+                notificationsToSend.Add(notif);
+            }
+
             await _db.SaveChangesAsync();
 
-            foreach (var notif in notifications)
+            foreach (var notif in notificationsToSend)
             {
                 await _hubContext.Clients.Group($"notif_user_{notif.RecipientUserId}")
                     .SendAsync("NewNotification", new
                     {
-                        notif.Id, notif.Title, notif.Body, notif.Category,
+                        notif.Id,
+                        notif.Title,
+                        notif.Body,
+                        notif.Category,
                         notif.Severity,
-                        notif.ReferenceType, notif.ReferenceId, notif.ActionUrl,
-                        notif.Latitude, notif.Longitude, notif.LocationLabel,
-                        notif.CreatedAt, notif.IsRead
+                        notif.ReferenceType,
+                        notif.ReferenceId,
+                        notif.ActionUrl,
+                        notif.Latitude,
+                        notif.Longitude,
+                        notif.LocationLabel,
+                        notif.CreatedAt,
+                        notif.IsRead
                     });
             }
         }

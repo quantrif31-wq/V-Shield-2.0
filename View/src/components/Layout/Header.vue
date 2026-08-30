@@ -490,10 +490,30 @@ const roleLabel = computed(() => {
     return map[authState.user?.role] || authState.user?.role || 'Tài khoản hệ thống'
 })
 
-const normalizedNotifications = computed(() =>
-    dbNotifications.value.map((notification) => {
+const normalizedNotifications = computed(() => {
+    const chatMap = new Map()
+    const result = []
+
+    for (const notification of dbNotifications.value) {
+        const isChat = notification.category === 'Chat' ||
+            String(notification.referenceType || '').toLowerCase() === 'chat' ||
+            String(notification.referenceType || '').toLowerCase() === 'call'
+
+        if (isChat && notification.referenceId) {
+            const key = `chat_${notification.referenceId}`
+            if (!chatMap.has(key)) {
+                chatMap.set(key, notification)
+            } else {
+                const existing = chatMap.get(key)
+                if (new Date(notification.createdAt) > new Date(existing.createdAt)) {
+                    chatMap.set(key, notification)
+                }
+                continue
+            }
+        }
+
         const severity = normalizeNotificationSeverity(notification)
-        return {
+        result.push({
             id: notification.id,
             source: 'notification',
             category: notification.category,
@@ -510,9 +530,10 @@ const normalizedNotifications = computed(() =>
             referenceId: notification.referenceId,
             locationLabel: notification.locationLabel,
             isActive: !notification.isRead,
-        }
-    })
-)
+        })
+    }
+    return result
+})
 
 const normalizedSecurityAlerts = computed(() =>
     (securityAlertState.items || []).map((item) => {
@@ -840,9 +861,19 @@ async function handleItemClick(item) {
     if (!item.read) {
         try {
             await markNotificationRead(item.id)
-            const target = dbNotifications.value.find((entry) => entry.id === item.id)
-            if (target) {
-                target.isRead = true
+            const refId = item.referenceId
+            if (refId && (item.category === 'Chat' || String(item.referenceType || '').toLowerCase() === 'chat')) {
+                dbNotifications.value = dbNotifications.value.map((entry) => {
+                    if (entry.referenceId === refId && (entry.category === 'Chat' || String(entry.referenceType || '').toLowerCase() === 'chat')) {
+                        return { ...entry, isRead: true }
+                    }
+                    return entry
+                })
+            } else {
+                const target = dbNotifications.value.find((entry) => entry.id === item.id)
+                if (target) {
+                    target.isRead = true
+                }
             }
             unreadCount.value = Math.max(0, unreadCount.value - 1)
         } catch {}
