@@ -275,22 +275,24 @@ class VShieldBackgroundService : Service() {
     private fun startHeartbeat() {
         serviceScope.launch {
             while (isActive) {
-                delay(15000) // Check connection health every 15s
+                delay(10000) // Check connection health every 10s
                 try {
                     val token = tokenManager?.getToken()
                     if (!token.isNullOrBlank() && !BuildConfig.DEMO_MODE) {
                         if (chatClient == null) {
                             initSignalRConnections()
-                        } else if (chatClient?.connectionState?.value == ChatSignalRClient.ConnectionState.DISCONNECTED) {
+                        } else if (chatClient?.connectionState?.value != ChatSignalRClient.ConnectionState.CONNECTED &&
+                            chatClient?.connectionState?.value != ChatSignalRClient.ConnectionState.CONNECTING) {
                             Log.d(TAG, "Heartbeat: Reconnecting Chat SignalR...")
-                            chatClient?.connect()
+                            chatClient?.forceReconnect()
                         }
 
                         if (notificationClient == null) {
                             initSignalRConnections()
-                        } else if (notificationClient?.connectionState?.value == NotificationSignalRClient.ConnectionState.DISCONNECTED) {
+                        } else if (notificationClient?.connectionState?.value != NotificationSignalRClient.ConnectionState.CONNECTED &&
+                            notificationClient?.connectionState?.value != NotificationSignalRClient.ConnectionState.CONNECTING) {
                             Log.d(TAG, "Heartbeat: Reconnecting Notification SignalR...")
-                            notificationClient?.connect()
+                            notificationClient?.forceReconnect()
                         }
                     }
                 } catch (e: Exception) {
@@ -306,8 +308,37 @@ class VShieldBackgroundService : Service() {
         isAppInForeground = false
         currentOpenedConversationId = null
 
-        // Ensure SignalR stays connected
-        initSignalRConnections()
+        // Clear UI listeners to prevent leaking dead Activity/Compose references
+        onChatMessageReceived = null
+        onChatMessagesRead = null
+        onChatUserTyping = null
+        onChatIncomingCall = null
+        onChatCallResponse = null
+        onChatCallEnded = null
+        onNewNotification = null
+        onUnreadCountUpdated = null
+        onNotificationConnectionChanged = null
+
+        acquireWakeLock()
+
+        // Force a fresh WebSocket connection to the server immediately upon task removal
+        serviceScope.launch {
+            try {
+                if (chatClient != null) {
+                    chatClient?.forceReconnect()
+                } else {
+                    initSignalRConnections()
+                }
+
+                if (notificationClient != null) {
+                    notificationClient?.forceReconnect()
+                } else {
+                    initSignalRConnections()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in onTaskRemoved reconnect: ${e.message}")
+            }
+        }
 
         // Reschedule service restart via AlarmManager in case OS attempts to kill the process
         try {

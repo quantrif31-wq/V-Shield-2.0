@@ -48,12 +48,25 @@ class NotificationSignalRClient(
         }
     }
 
+    fun forceReconnect() {
+        shouldReconnect = true
+        try {
+            webSocket?.cancel()
+            webSocket = null
+        } catch (_: Exception) {}
+        _connectionState.value = ConnectionState.CONNECTING
+        scope.launch(Dispatchers.IO) {
+            doNegotiateAndConnect()
+        }
+    }
+
     private fun doNegotiateAndConnect() {
         try {
             val negotiateUrl = baseUrl.trimEnd('/') + "/hubs/notifications/negotiate?negotiateVersion=1"
             val client = OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(10, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
                 .build()
 
             val request = Request.Builder()
@@ -96,6 +109,8 @@ class NotificationSignalRClient(
             .trimEnd('/') + "/hubs/notifications?id=$connectionToken&access_token=$accessToken"
 
         val client = OkHttpClient.Builder()
+            .pingInterval(10, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
         okHttpClient = client

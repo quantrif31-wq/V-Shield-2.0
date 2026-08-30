@@ -735,6 +735,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        com.vshield.mobile.service.VShieldBackgroundService.onChatMessageReceived = null
+        com.vshield.mobile.service.VShieldBackgroundService.onChatMessagesRead = null
+        com.vshield.mobile.service.VShieldBackgroundService.onChatUserTyping = null
+        com.vshield.mobile.service.VShieldBackgroundService.onChatIncomingCall = null
+        com.vshield.mobile.service.VShieldBackgroundService.onChatCallResponse = null
+        com.vshield.mobile.service.VShieldBackgroundService.onChatCallEnded = null
         signalRClient?.disconnect()
     }
 }
