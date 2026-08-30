@@ -339,6 +339,19 @@ public class ChatController : ControllerBase
         if (participant != null)
             participant.LastReadAt = now;
 
+        var user = await _db.AppUsers.FirstOrDefaultAsync(u => u.EmployeeId == empId);
+        if (user != null)
+        {
+            var notifs = await _db.Notifications
+                .Where(n => n.RecipientUserId == user.UserId && n.Category == "Chat" && n.ReferenceId == conversationId.ToString() && !n.IsRead)
+                .ToListAsync();
+            foreach (var n in notifs)
+            {
+                n.IsRead = true;
+                n.ReadAt = now;
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         return Ok(new { success = true, readCount = unread.Count });

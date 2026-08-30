@@ -327,7 +327,6 @@ import {
     onNotification,
     onUnreadCountChanged,
 } from '../../services/notificationApi'
-import { connectChatHub, onMessage, onCallEnded, getConversations } from '../../services/chatApi'
 import { enterpriseApi } from '../../services/enterpriseSecurityApi'
 import { refreshSecurityAlerts, securityAlertState } from '../../services/securityAlertBus'
 import { socApi } from '../../services/socApi'
@@ -350,7 +349,6 @@ const activeFilterTab = ref('all')
 const currentTime = ref('')
 const currentDate = ref('')
 const dbNotifications = ref([])
-const localChatNotifications = ref([])
 const unreadCount = ref(0)
 const ackLoading = ref({})
 const { density, isDark, setDensity, toggleTheme } = usePreferences()
@@ -498,6 +496,7 @@ const normalizedNotifications = computed(() =>
         return {
             id: notification.id,
             source: 'notification',
+            category: notification.category,
             title: notification.title || 'Thông báo hệ thống',
             message: notification.body || notification.title || 'Có một cập nhật mới.',
             severity,
@@ -542,31 +541,10 @@ const normalizedSecurityAlerts = computed(() =>
     })
 )
 
-const localChatNormalized = computed(() =>
-    localChatNotifications.value.map((item) => ({
-        id: item.id,
-        source: item.source || 'chat',
-        title: item.title,
-        message: item.message,
-        severity: item.severity || 'success',
-        severityRank: getSeverityRank(item.severity || 'success'),
-        time: item.time,
-        read: !!item.read,
-        requiresAck: false,
-        ackKind: null,
-        actionUrl: item.actionUrl || '/chat',
-        referenceType: item.referenceType || 'Chat',
-        referenceId: item.referenceId,
-        locationLabel: item.locationLabel || 'Trao đổi',
-        isActive: !item.read,
-    }))
-)
-
 const unresolvedItems = computed(() =>
     [
         ...normalizedNotifications.value.filter((item) => !item.read),
         ...normalizedSecurityAlerts.value.filter((item) => item.isActive),
-        ...localChatNormalized.value.filter((item) => !item.read),
     ]
 )
 
@@ -586,13 +564,12 @@ const highestActiveSeverity = computed(() => {
 })
 
 const pendingCount = computed(() => unresolvedItems.value.length)
-const unreadNotificationCount = computed(() => normalizedNotifications.value.filter((item) => !item.read).length + localChatNormalized.value.filter((item) => !item.read).length)
+const unreadNotificationCount = computed(() => normalizedNotifications.value.filter((item) => !item.read).length)
 
 const mergedFeed = computed(() =>
     [
         ...normalizedSecurityAlerts.value,
         ...normalizedNotifications.value,
-        ...localChatNormalized.value,
     ].sort((left, right) => {
         if (right.severityRank !== left.severityRank) {
             return right.severityRank - left.severityRank
@@ -636,10 +613,10 @@ const approvalCount = computed(() =>
 const chatCallCount = computed(() =>
     mergedFeed.value.filter(
         (item) =>
-            item.source === 'chat' ||
-            item.source === 'call' ||
+            item.category === 'Chat' ||
             item.severity === 'success' ||
-            String(item.referenceType || '').toLowerCase() === 'chat'
+            String(item.referenceType || '').toLowerCase() === 'chat' ||
+            String(item.referenceType || '').toLowerCase() === 'call'
     ).length
 )
 
@@ -668,10 +645,10 @@ const filteredFeed = computed(() => {
     if (activeFilterTab.value === 'chat') {
         return mergedFeed.value.filter(
             (item) =>
-                item.source === 'chat' ||
-                item.source === 'call' ||
+                item.category === 'Chat' ||
                 item.severity === 'success' ||
-                String(item.referenceType || '').toLowerCase() === 'chat'
+                String(item.referenceType || '').toLowerCase() === 'chat' ||
+                String(item.referenceType || '').toLowerCase() === 'call'
         )
     }
     return mergedFeed.value
@@ -731,10 +708,11 @@ function sourceLabel(item) {
         if (item.ackKind === 'alarm') return 'Cảnh báo SOC'
         return 'Điều phối an ninh'
     }
-    if (item.source === 'chat') return 'Tin nhắn'
-    if (item.source === 'call') return 'Cuộc gọi'
 
     const refType = String(item.referenceType || '').toLowerCase()
+    const cat = String(item.category || '').toLowerCase()
+    if (refType.includes('call') || cat.includes('call')) return 'Cuộc gọi'
+    if (refType.includes('chat') || cat.includes('chat')) return 'Tin nhắn'
     if (refType.includes('leave')) return 'Đơn nghỉ phép'
     if (refType.includes('vehicle')) return 'Xe nội bộ'
     if (refType.includes('lostfound') || refType.includes('claim')) return 'Thất lạc & Tìm thấy'
@@ -752,13 +730,15 @@ function sourceLabel(item) {
 
 function actionButtonLabel(item) {
     if (item.source === 'security-alert') return 'Mở điều phối'
-    if (item.source === 'chat') return 'Mở trò chuyện'
-    if (item.source === 'call') return 'Gọi lại / Nhắn tin'
     const refType = String(item.referenceType || '').toLowerCase()
+    const cat = String(item.category || '').toLowerCase()
+    if (refType.includes('chat') || cat.includes('chat')) return 'Mở trò chuyện'
+    if (refType.includes('call') || cat.includes('call')) return 'Gọi lại / Nhắn tin'
     if (refType.includes('leave')) return 'Xem đơn nghỉ'
     if (refType.includes('vehicle')) return 'Xem xe'
     if (refType.includes('lostfound') || refType.includes('claim')) return 'Xem đồ thất lạc'
     if (refType.includes('evidence')) return 'Xem chứng cứ'
+    if (refType.includes('intervention')) return 'Xem tác nghiệp'
     if (refType.includes('alarm')) return 'Xem cảnh báo'
     return 'Xem chi tiết'
 }
@@ -848,10 +828,6 @@ async function markAllRead() {
         ...item,
         isRead: true,
     }))
-    localChatNotifications.value = localChatNotifications.value.map((item) => ({
-        ...item,
-        read: true,
-    }))
     unreadCount.value = 0
 }
 
@@ -861,12 +837,7 @@ async function handleItemClick(item) {
         return
     }
 
-    if (item.source === 'chat' || item.source === 'call') {
-        const target = localChatNotifications.value.find((entry) => entry.id === item.id)
-        if (target) {
-            target.read = true
-        }
-    } else if (!item.read) {
+    if (!item.read) {
         try {
             await markNotificationRead(item.id)
             const target = dbNotifications.value.find((entry) => entry.id === item.id)
@@ -886,11 +857,12 @@ async function openItem(item) {
         await router.push(item.actionUrl)
         return
     }
-    if (item.source === 'chat' || item.source === 'call') {
+    const refType = String(item.referenceType || '').toLowerCase()
+    const cat = String(item.category || '').toLowerCase()
+    if (refType.includes('chat') || cat.includes('chat') || refType.includes('call') || cat.includes('call')) {
         await router.push('/chat')
         return
     }
-    const refType = String(item.referenceType || '').toLowerCase()
     if (refType.includes('leave')) {
         const isApprover = ['Admin', 'QuanLy'].includes(authState.user?.role)
         await router.push(isApprover ? '/leave-approvals' : '/leave-requests')
@@ -941,44 +913,16 @@ function handleDocumentClick(event) {
     }
 }
 
-async function loadChatUnread() {
-    try {
-        const res = await getConversations()
-        const convs = res.data?.data || []
-        const chatItems = []
-        for (const conv of convs) {
-            if (conv.unreadCount > 0 && conv.lastMessage) {
-                chatItems.push({
-                    id: `chat-conv-${conv.conversationId}`,
-                    source: 'chat',
-                    title: `Tin nhắn từ ${conv.lastMessage.senderName || 'Đồng nghiệp'}`,
-                    message: conv.lastMessage.content || 'Có tin nhắn chưa đọc',
-                    severity: 'success',
-                    time: conv.lastMessage.sentAt || new Date().toISOString(),
-                    read: false,
-                    actionUrl: `/chat?conversationId=${conv.conversationId}`,
-                    referenceType: 'Chat',
-                    referenceId: conv.conversationId,
-                    locationLabel: 'Hội thoại trực tuyến',
-                })
-            }
-        }
-        localChatNotifications.value = chatItems
-    } catch {}
-}
-
 let timer = null
 let removeNotificationSubscription = null
 let removeUnreadSubscription = null
-let removeChatMessageSubscription = null
-let removeCallEndedSubscription = null
 
 onMounted(async () => {
     updateTime()
     timer = window.setInterval(updateTime, 1000)
     document.addEventListener('click', handleDocumentClick)
 
-    await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts(), loadChatUnread()])
+    await Promise.all([loadNotifications(), loadUnreadCount(), refreshSecurityAlerts()])
 
     try {
         const token = sessionStorage.getItem('v_shield_token') || localStorage.getItem('v_shield_token')
@@ -991,46 +935,6 @@ onMounted(async () => {
             removeUnreadSubscription = onUnreadCountChanged((count) => {
                 unreadCount.value = Number(count) || 0
             })
-
-            await connectChatHub(token)
-            removeChatMessageSubscription = onMessage((msg) => {
-                const currentUserId = authState.user?.id || authState.user?.userId
-                if (msg && msg.senderId && Number(msg.senderId) !== Number(currentUserId)) {
-                    const chatItem = {
-                        id: `chat-${msg.id || Date.now()}`,
-                        source: 'chat',
-                        title: `Tin nhắn từ ${msg.senderName || 'Đồng nghiệp'}`,
-                        message: msg.content || (msg.hasAttachment ? '[Tệp đính kèm]' : 'Có tin nhắn mới'),
-                        severity: 'success',
-                        time: msg.createdAt || new Date().toISOString(),
-                        read: false,
-                        actionUrl: `/chat?conversationId=${msg.conversationId}`,
-                        referenceType: 'Chat',
-                        referenceId: msg.conversationId,
-                        locationLabel: 'Hội thoại trực tuyến',
-                    }
-                    localChatNotifications.value = [chatItem, ...localChatNotifications.value.filter(c => c.id !== chatItem.id)].slice(0, 30)
-                }
-            })
-
-            removeCallEndedSubscription = onCallEnded((data) => {
-                if (data && (data.status === 'missed' || data.reason === 'missed' || data.reason === 'timeout')) {
-                    const callItem = {
-                        id: `call-${Date.now()}`,
-                        source: 'call',
-                        title: 'Cuộc gọi nhỡ',
-                        message: `Bạn có cuộc gọi nhỡ từ ${data.callerName || 'Đồng nghiệp'}`,
-                        severity: 'warning',
-                        time: new Date().toISOString(),
-                        read: false,
-                        actionUrl: '/chat',
-                        referenceType: 'Call',
-                        referenceId: data.callId || null,
-                        locationLabel: 'Cuộc gọi',
-                    }
-                    localChatNotifications.value = [callItem, ...localChatNotifications.value].slice(0, 30)
-                }
-            })
         }
     } catch {}
 })
@@ -1042,8 +946,6 @@ onUnmounted(() => {
     document.removeEventListener('click', handleDocumentClick)
     removeNotificationSubscription?.()
     removeUnreadSubscription?.()
-    removeChatMessageSubscription?.()
-    removeCallEndedSubscription?.()
     disconnectNotificationHub()
 })
 
