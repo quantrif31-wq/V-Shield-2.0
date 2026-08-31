@@ -16,7 +16,13 @@ export default defineConfig(({ mode }) => {
         provider: "v8",
         all: true,
         include: ["src/**"],
-        exclude: ["src/**/__tests__/**", "src/main.js", "src/assets/**"],
+        exclude: [
+          "src/**/__tests__/**",
+          "src/main.js",
+          "src/assets/**",
+          "src/style.css",
+          "src/styles/**"
+        ],
         reporter: ["text", "text-summary", "html", "lcov"],
         thresholds: {
           lines: 70,

@@ -72,6 +72,8 @@ const sim = await import('../../services/simulationHarness')
 const { enterpriseApi, zoneAuthorityApi } = await import('../../services/enterpriseSecurityApi')
 const { authState } = await import('../../stores/auth')
 
+const axios = (await import('axios')).default
+
 const GateTransitMonitor = (await import('../GateTransitMonitor.vue')).default
 
 const cameraFixture = {
@@ -112,6 +114,8 @@ beforeEach(() => {
   enterpriseApi.createEmergencyPass.mockResolvedValue({ data: { emergencyPass: { emergencyPassId: 6 } } })
   enterpriseApi.createEmergencyState.mockResolvedValue({ data: { emergencyStateId: 11 } })
   authState.user.role = 'BaoVe'
+  axios.get.mockResolvedValue({ data: { status: 'ok' } })
+  vi.useRealTimers()
 })
 
 beforeEach(() => {

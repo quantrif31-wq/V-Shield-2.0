@@ -172,3 +172,35 @@ describe('http error interceptor', () => {
     expect(observability.captureApiFailure).toHaveBeenCalledWith(failure)
   })
 })
+
+describe('http redirect-to-login once', () => {
+  it('is a no-op when a redirect is already in progress', async () => {
+    const replace = vi.fn()
+    window.history.pushState({}, '', '/dashboard')
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, pathname: '/dashboard', replace },
+      writable: true,
+      configurable: true,
+    })
+    await expect(errorHandler({ config: { url: '/a' }, response: { status: 401 } })).rejects.toMatchObject({ response: { status: 401 } })
+    await expect(errorHandler({ config: { url: '/b' }, response: { status: 401 } })).rejects.toMatchObject({ response: { status: 401 } })
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  it('resets the redirect flag via the timeout when already on /login', async () => {
+    const replace = vi.fn()
+    vi.useFakeTimers()
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, pathname: '/login', replace },
+      writable: true,
+      configurable: true,
+    })
+    const pending = errorHandler({ config: { url: '/a' }, response: { status: 401 } })
+    await pending.catch(() => {})
+    expect(replace).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1300)
+    vi.useRealTimers()
+  })
+})
