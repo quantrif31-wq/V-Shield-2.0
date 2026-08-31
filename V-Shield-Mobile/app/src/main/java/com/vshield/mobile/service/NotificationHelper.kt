@@ -161,9 +161,9 @@ object NotificationHelper {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Thông báo sự cố an ninh và khẩn cấp"
-            setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), callAudioAttributes)
+            setSound(notifSoundUri, notifAudioAttributes)
             enableVibration(true)
-            vibrationPattern = longArrayOf(0, 500, 300, 500, 300, 500)
+            vibrationPattern = longArrayOf(0, 200, 100, 200)
             lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             setShowBadge(true)
         }
