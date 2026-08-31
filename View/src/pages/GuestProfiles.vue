@@ -283,6 +283,11 @@ import { deleteVisitorDirectoryItem, getVisitorAccessLogs, getVisitorDirectory, 
 import ImportModal from '../components/import-export/ImportModal.vue'
 import ExportModal from '../components/import-export/ExportModal.vue'
 import { enterpriseApi } from '../services/enterpriseSecurityApi'
+import { useRealtimeSync } from '../composables/useRealtimeSync'
+
+useRealtimeSync(['GuestProfile', 'PreRegistration', 'VisitorDetail', 'Visit'], () => {
+    fetchDirectory()
+})
 
 const isLoading = ref(true)
 const isSaving = ref(false)

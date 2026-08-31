@@ -279,10 +279,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { getDashboardReports } from '../services/dashboardApi'
+import { useRealtimeSync } from '../composables/useRealtimeSync'
 
 const loading = ref(true)
 const loadError = ref('')
 const report = ref(null)
+
+useRealtimeSync(['AccessLog', 'Alarm', 'Employee', 'Vehicle', 'Camera', 'Gate', 'Visit'], () => {
+    loadAll()
+})
 
 const kpis = computed(() => report.value?.kpis || {})
 const trafficByDay = computed(() => report.value?.trafficByDay || [])

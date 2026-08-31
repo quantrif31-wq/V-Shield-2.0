@@ -684,6 +684,7 @@ import { normalizeCameraUrl } from "../utils/cameraNetwork"
 import { isSimMode, installSimulation } from "../services/simulationHarness"
 import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
 import { authState, hasRole } from "../stores/auth"
+import { onEntityChanged } from "../services/notificationApi"
 import DecisionDrawer from "./shared/DecisionDrawer.vue"
 import StepUpModal from "./shared/StepUpModal.vue"
 import AuditReceiptToast from "./shared/AuditReceiptToast.vue"
@@ -1001,6 +1002,10 @@ export default {
   await this.loadCameraList()
   await this.fetchUserZones()
 
+  this.unsubscribeSync = onEntityChanged(['AccessLog', 'LaneEvent', 'Gate', 'Camera'], () => {
+    this.fetchUserZones()
+  })
+
   for (const lane of this.lanes) {
     lane.qr.destroyed = false
     lane.plate.destroyed = false
@@ -1010,6 +1015,7 @@ export default {
 },
 
   beforeUnmount() {
+    this.unsubscribeSync?.()
     document.body.classList.remove("gate-transit-compact")
     this.autoActive = false
     if (this.autoTimer) {

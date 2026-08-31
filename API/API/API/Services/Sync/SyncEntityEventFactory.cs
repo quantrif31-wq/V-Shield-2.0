@@ -28,6 +28,7 @@ public sealed class SyncEntityEventFactory
     [
         nameof(Employee),
         nameof(Vehicle),
+        nameof(VehicleType),
         nameof(WatchlistEntry),
         nameof(AccessRule),
         nameof(Site),
@@ -43,7 +44,23 @@ public sealed class SyncEntityEventFactory
         nameof(ChatParticipant),
         nameof(ChatMessage),
         nameof(RemoteFaceEnrollmentJob),
-        nameof(EmployeeFaceModel)
+        nameof(EmployeeFaceModel),
+        nameof(Department),
+        nameof(Position),
+        nameof(PreRegistration),
+        nameof(VisitorDetail),
+        nameof(ExceptionReason),
+        nameof(Shift),
+        nameof(WorkSchedule),
+        nameof(EmployeeAccessPermission),
+        nameof(VisitorAccessPermission),
+        nameof(RoleGateAccessPermission),
+        nameof(UserGateAccessPermission),
+        nameof(SystemConfig),
+        nameof(AppUser),
+        nameof(LeaveRequest),
+        nameof(VehicleDelegation),
+        nameof(AccessLog)
     ];
 
     private readonly SyncRuntimeOptions _options;

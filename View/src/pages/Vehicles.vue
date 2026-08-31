@@ -66,8 +66,12 @@ import StatusBadge from '../components/ui/StatusBadge.vue'
 import ImportModal from '../components/import-export/ImportModal.vue'
 import ExportModal from '../components/import-export/ExportModal.vue'
 import { useToasts } from '../composables/useToasts'
+import { useRealtimeSync } from '../composables/useRealtimeSync'
 
 const route=useRoute();const router=useRouter();const{success,error:showError}=useToasts()
+useRealtimeSync(['Vehicle', 'VehicleType', 'Employee'], () => {
+    fetchVehicles()
+})
 const vehicles=ref([]);const employeeList=ref([]);const vehicleTypeOptions=ref([]);const loading=ref(true);const loadError=ref('');const permissionDenied=ref(false);const searchQuery=ref('');const filterType=ref('');const currentPage=ref(1);const pageSize=10;let filterTimer=null
 const showImportModal=ref(false);const showExportModal=ref(false);const showModal=ref(false);const showDiscardDialog=ref(false);const editingVehicle=ref(null);const saving=ref(false);const modalError=ref('');const deleteTarget=ref(null);const ownerSearchQuery=ref('');const form=reactive({licensePlate:'',vehicleTypeId:'',employeeId:null,description:''});const formBaseline=ref('');const formSubmitted=ref(false)
 const protectedAvatarUrls=ref({});const brokenAvatarIds=ref({});const plateValidation=reactive({touched:false,isValid:false,type:'Unknown',typeLabel:'',cleanedPlate:'',corrected:false})

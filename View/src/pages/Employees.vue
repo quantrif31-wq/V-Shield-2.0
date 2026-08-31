@@ -130,8 +130,13 @@ import StatusBadge from '../components/ui/StatusBadge.vue'
 import ImportModal from '../components/import-export/ImportModal.vue'
 import ExportModal from '../components/import-export/ExportModal.vue'
 import { useToasts } from '../composables/useToasts'
+import { useRealtimeSync } from '../composables/useRealtimeSync'
 
 const route = useRoute(); const router = useRouter(); const { success, error: showError } = useToasts()
+useRealtimeSync(['Employee', 'EmployeeFaceModel', 'Department', 'Position'], () => {
+    fetchEmployees()
+    fetchEmployeeSummary()
+})
 const employees = ref([]); const departments = ref([]); const positions = ref([]); const loading = ref(true); const loadError = ref(''); const permissionDenied = ref(false)
 const searchQuery = ref(''); const filterStatus = ref(''); const currentPage = ref(1); const pageSize = 10; const sortKey = ref('fullName'); const sortDirection = ref('asc')
 const employeeSummary = ref({ totalEmployees: 0, activeEmployees: 0, inactiveEmployees: 0 }); const protectedAvatarUrls = ref({}); const brokenEmployeeAvatarIds = ref({})

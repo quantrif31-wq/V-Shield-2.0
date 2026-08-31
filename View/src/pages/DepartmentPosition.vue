@@ -300,8 +300,14 @@ import {
 } from '../services/lookupApi'
 import ImportModal from '../components/import-export/ImportModal.vue'
 import ExportModal from '../components/import-export/ExportModal.vue'
+import { useRealtimeSync } from '../composables/useRealtimeSync'
 
 const router = useRouter()
+
+useRealtimeSync(['Department', 'Position', 'Employee'], () => {
+    fetchDepartments()
+    fetchPositions()
+})
 
 function goToRolePermissions(position) {
     router.push({ name: 'RolePermissions' })

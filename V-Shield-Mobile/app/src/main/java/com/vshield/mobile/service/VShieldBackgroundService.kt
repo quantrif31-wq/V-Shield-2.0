@@ -71,6 +71,7 @@ class VShieldBackgroundService : Service() {
 
         var onNewNotification: ((SignalRNotification) -> Unit)? = null
         var onUnreadCountUpdated: ((Int) -> Unit)? = null
+        var onSyncEventApplied: ((com.google.gson.JsonObject) -> Unit)? = null
         var onNotificationConnectionChanged: ((Boolean) -> Unit)? = null
 
         @Volatile
@@ -242,6 +243,10 @@ class VShieldBackgroundService : Service() {
 
         client.onUnreadCountUpdated = { count ->
             onUnreadCountUpdated?.invoke(count)
+        }
+
+        client.onSyncEventApplied = { syncData ->
+            onSyncEventApplied?.invoke(syncData)
         }
 
         client.onConnectionChanged = { connected ->

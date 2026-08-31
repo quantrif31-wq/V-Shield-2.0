@@ -97,6 +97,10 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
                     unreadCount = count + rawSecurityAlerts.size
                 )
             }
+            com.vshield.mobile.service.VShieldBackgroundService.onSyncEventApplied = {
+                loadNotifications()
+                loadUnreadCount()
+            }
             com.vshield.mobile.service.VShieldBackgroundService.onNotificationConnectionChanged = { connected ->
                 _uiState.value = _uiState.value.copy(isConnected = connected)
             }
@@ -116,6 +120,11 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
 
         client.onConnectionChanged = { connected ->
             _uiState.value = _uiState.value.copy(isConnected = connected)
+        }
+
+        client.onSyncEventApplied = {
+            loadNotifications()
+            loadUnreadCount()
         }
 
         client.onNotificationReceived = { notif ->

@@ -11,6 +11,7 @@ let connectionPromise = null
 let staleTimer = null
 const notificationCallbacks = new Set()
 const unreadCountCallbacks = new Set()
+const syncEventCallbacks = new Set()
 
 const SEVERITY_RANK = {
   success: 1,
@@ -43,6 +44,11 @@ export async function connectNotificationHub(token) {
   connection.on('UnreadCountUpdated', (count) => {
     markRealtimeUpdated('notifications')
     unreadCountCallbacks.forEach(cb => cb(count))
+  })
+
+  connection.on('SyncEventApplied', (event) => {
+    markRealtimeUpdated('sync')
+    syncEventCallbacks.forEach(cb => cb(event))
   })
 
   connection.onreconnecting(() => {
@@ -89,6 +95,7 @@ export async function disconnectNotificationHub() {
   if (activeConnection) await activeConnection.stop()
   notificationCallbacks.clear()
   unreadCountCallbacks.clear()
+  syncEventCallbacks.clear()
   updateRealtimeStatus('notifications', 'disconnected', { connectionId: null })
 }
 
@@ -101,6 +108,38 @@ export function onNotification(callback) {
 export function onUnreadCountChanged(callback) {
   unreadCountCallbacks.add(callback)
   return () => unreadCountCallbacks.delete(callback)
+}
+
+export function onSyncEvent(callback) {
+  syncEventCallbacks.add(callback)
+  return () => syncEventCallbacks.delete(callback)
+}
+
+export function onEntityChanged(entityType, callback) {
+  const handler = (event) => {
+    if (!entityType) {
+      callback(event)
+      return
+    }
+    const targetTypes = Array.isArray(entityType) ? entityType : [entityType]
+    const matched = targetTypes.some(t => String(t).toLowerCase() === String(event?.aggregateType || '').toLowerCase())
+    if (matched) {
+      callback(event)
+    }
+  }
+  syncEventCallbacks.add(handler)
+  return () => syncEventCallbacks.delete(handler)
+}
+
+export function emitLocalEntityChanged(aggregateType, aggregateId, action = 'Upsert') {
+  const event = {
+    aggregateType,
+    aggregateId: String(aggregateId || ''),
+    action,
+    sourceSystem: 'Local',
+    occurredAtUtc: new Date().toISOString()
+  }
+  syncEventCallbacks.forEach(cb => cb(event))
 }
 
 export const onNotificationConnectionState = (callback) => onRealtimeStatus('notifications', callback)

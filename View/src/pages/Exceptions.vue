@@ -445,6 +445,11 @@ import { enterpriseApi } from '../services/enterpriseSecurityApi'
 import { getExceptions } from '../services/accessLogApi'
 import { authState } from '../stores/auth'
 import ExceptionCaseTimeline from '../components/shared/ExceptionCaseTimeline.vue'
+import { useRealtimeSync } from '../composables/useRealtimeSync'
+
+useRealtimeSync(['AccessLog', 'LaneEvent', 'ExceptionReason', 'Alarm'], () => {
+    loadAll()
+})
 
 const loading = ref(false)
 const saving = ref(false)

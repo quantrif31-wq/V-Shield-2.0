@@ -16,6 +16,7 @@ public partial class ApplicationDbContext : DbContext
     private readonly ISyncExecutionContext? _syncExecutionContext;
     private readonly SyncEntityEventFactory? _syncEntityEventFactory;
     private readonly ISyncSignalNotifier? _syncSignalNotifier;
+    private readonly SyncRealtimeNotifier? _syncRealtimeNotifier;
     private bool _isWritingAudit;
 
     public ApplicationDbContext()
@@ -33,13 +34,15 @@ public partial class ApplicationDbContext : DbContext
         ICurrentUserContext currentUserContext,
         ISyncExecutionContext? syncExecutionContext = null,
         SyncEntityEventFactory? syncEntityEventFactory = null,
-        ISyncSignalNotifier? syncSignalNotifier = null)
+        ISyncSignalNotifier? syncSignalNotifier = null,
+        SyncRealtimeNotifier? syncRealtimeNotifier = null)
         : base(options)
     {
         _currentUserContext = currentUserContext;
         _syncExecutionContext = syncExecutionContext;
         _syncEntityEventFactory = syncEntityEventFactory;
         _syncSignalNotifier = syncSignalNotifier;
+        _syncRealtimeNotifier = syncRealtimeNotifier;
     }
 
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
@@ -118,10 +121,24 @@ public partial class ApplicationDbContext : DbContext
             SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
             base.SaveChanges();
 
-            if (syncCandidates.Count > 0 && _syncSignalNotifier != null)
+            if (syncCandidates.Count > 0)
             {
-                _syncSignalNotifier.TriggerLocalSync();
-                _ = _syncSignalNotifier.BroadcastSyncNeededAsync();
+                if (_syncSignalNotifier != null)
+                {
+                    _syncSignalNotifier.TriggerLocalSync();
+                    _ = _syncSignalNotifier.BroadcastSyncNeededAsync();
+                }
+                if (_syncRealtimeNotifier != null)
+                {
+                    foreach (var c in syncCandidates)
+                    {
+                        _ = _syncRealtimeNotifier.PublishAsync(
+                            c.OutboxEvent.AggregateType,
+                            c.OutboxEvent.AggregateId,
+                            c.OutboxEvent.EventType.EndsWith(".Delete") ? "Delete" : "Upsert",
+                            c.OutboxEvent.SourceSystem);
+                    }
+                }
             }
 
             return result;
@@ -177,10 +194,25 @@ public partial class ApplicationDbContext : DbContext
             SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
             await base.SaveChangesAsync(cancellationToken);
 
-            if (syncCandidates.Count > 0 && _syncSignalNotifier != null)
+            if (syncCandidates.Count > 0)
             {
-                _syncSignalNotifier.TriggerLocalSync();
-                _ = _syncSignalNotifier.BroadcastSyncNeededAsync(cancellationToken: cancellationToken);
+                if (_syncSignalNotifier != null)
+                {
+                    _syncSignalNotifier.TriggerLocalSync();
+                    _ = _syncSignalNotifier.BroadcastSyncNeededAsync(cancellationToken: cancellationToken);
+                }
+                if (_syncRealtimeNotifier != null)
+                {
+                    foreach (var c in syncCandidates)
+                    {
+                        _ = _syncRealtimeNotifier.PublishAsync(
+                            c.OutboxEvent.AggregateType,
+                            c.OutboxEvent.AggregateId,
+                            c.OutboxEvent.EventType.EndsWith(".Delete") ? "Delete" : "Upsert",
+                            c.OutboxEvent.SourceSystem,
+                            cancellationToken);
+                    }
+                }
             }
 
             return result;
