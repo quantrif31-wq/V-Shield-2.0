@@ -867,9 +867,13 @@ namespace API
                 {
                     db.Database.Migrate();
                 }
-                catch (SqlException ex) when (ex.Number == 2714) // object already exists
+                catch (SqlException ex) when (ex.Number == 2714 || ex.Number == 1801) // object or database already exists
                 {
-                    Console.WriteLine($"[WARN] Bo qua loi migrate do bang da ton tai: {ex.Message}");
+                    Console.WriteLine($"[WARN] Bo qua loi migrate do database/bang da ton tai: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[WARN] Migrate warning: {ex.Message}");
                 }
 
                 var seedSection = configuration.GetSection("SeedAdmin");
