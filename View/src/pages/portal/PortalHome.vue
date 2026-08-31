@@ -2,10 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { portalApi } from '../../services/portalApi'
-import PortalHoloRadar from '../../components/portal/PortalHoloRadar.vue'
+import PortalThreeCore from '../../components/portal/PortalThreeCore.vue'
+import { TextScramble } from '../../utils/cyberTextScramble'
 import { mechaAudio } from '../../utils/portalAudio'
 
 const router = useRouter()
+const titleScrambleRef = ref(null)
+const subtitleScrambleRef = ref(null)
+
 const overview = ref({
   systemName: 'V-SHIELD 2.0',
   tagline: 'Hệ thống kiểm soát an ninh thông minh đa nền tảng & AI Realtime',
@@ -39,11 +43,20 @@ function navigateTo(path) {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+function scrambleHeadline() {
+  if (subtitleScrambleRef.value) {
+    const fx = new TextScramble(subtitleScrambleRef.value)
+    fx.setText('ĐA NỀN TẢNG & AI REALTIME')
+  }
+}
+
 onMounted(async () => {
   try {
     const data = await portalApi.getOverview()
     if (data) overview.value = { ...overview.value, ...data }
   } catch {}
+
+  scrambleHeadline()
   setInterval(nextUpdate, 7000)
 })
 </script>
@@ -51,7 +64,7 @@ onMounted(async () => {
 <template>
   <div class="relative overflow-hidden py-10 lg:py-16">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
-      <!-- ── SECTION 1: HERO SECTION WITH 3D HOLO RADAR ── -->
+      <!-- ── SECTION 1: HERO SECTION WITH THREE.JS 3D HOLOGRAM CORE ── -->
       <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">
         <!-- Left: Headline & Actions (7 cols) -->
         <div class="space-y-6 lg:col-span-7 font-mono">
@@ -61,10 +74,16 @@ onMounted(async () => {
             <span class="tracking-widest">ENTERPRISE DEFENSE SYSTEM // V-SHIELD 2.0</span>
           </div>
 
-          <!-- Stencil Heavy Headline with Cyber Glitch -->
-          <h1 class="mecha-glitch-hover cursor-default text-4xl font-black uppercase tracking-tight sm:text-6xl sm:leading-[1.1] text-slate-100 transition-all">
+          <!-- Stencil Heavy Headline with Cyber Scramble -->
+          <h1
+            @mouseenter="scrambleHeadline"
+            class="mecha-glitch-hover cursor-pointer text-4xl font-black uppercase tracking-tight sm:text-6xl sm:leading-[1.1] text-slate-100 transition-all select-none"
+          >
             KIỂM SOÁT AN NINH <br />
-            <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 drop-shadow-[0_0_35px_rgba(255,204,0,0.6)]">
+            <span
+              ref="subtitleScrambleRef"
+              class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 drop-shadow-[0_0_35px_rgba(255,204,0,0.6)]"
+            >
               ĐA NỀN TẢNG & AI REALTIME
             </span>
           </h1>
@@ -124,23 +143,23 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Right: 3D Holographic Radar & Telemetry (5 cols) -->
+        <!-- Right: THREE.JS 3D WebGL Hologram Core & Telemetry (5 cols) -->
         <div class="lg:col-span-5 font-mono">
           <div class="relative mx-auto max-w-md border-2 border-amber-500/40 bg-[#0a0d14] p-5 mecha-cut-corners shadow-[0_0_50px_rgba(255,204,0,0.2)] mecha-laser-border">
             <!-- Telemetry Header -->
             <div class="flex items-center justify-between border-b border-slate-800 pb-3 text-xs font-black text-amber-400">
               <div class="flex items-center gap-2">
                 <span class="h-2 w-2 bg-amber-400"></span>
-                <span>HỆ THỐNG GIÁM SÁT 3D // HUD RADAR</span>
+                <span>HỆ THỐNG GIÁM SÁT 3D // THREE.JS WEBGL</span>
               </div>
               <span class="bg-amber-950 px-2 py-0.5 text-[10px] text-amber-300 border border-amber-500/30">
                 ACTIVE
               </span>
             </div>
 
-            <!-- 3D Holographic Interactive Radar Canvas -->
+            <!-- Three.js 3D WebGL Hologram Core -->
             <div class="py-2 flex justify-center">
-              <PortalHoloRadar />
+              <PortalThreeCore />
             </div>
 
             <!-- Gauges Grid -->
