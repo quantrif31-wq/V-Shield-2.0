@@ -131,16 +131,22 @@ function landingRouteForRole(role) {
 
 const routes = [
     {
+        path: '/',
+        name: 'HomePage',
+        component: HomePage,
+        meta: { public: true },
+    },
+    {
         path: '/portal',
         name: 'Portal',
         component: HomePage,
-        meta: { public: true, guest: true },
+        meta: { public: true },
     },
     {
         path: '/home',
         name: 'Home',
         component: HomePage,
-        meta: { public: true, guest: true },
+        meta: { public: true },
     },
     {
         path: '/login',
@@ -171,9 +177,6 @@ const routes = [
         component: MainLayout,
         meta: { requiresAuth: true },
         children: [
-            { path: '', redirect: () => {
-                return landingRouteForRole(authState.user?.role)
-            }},
             { path: 'dashboard', name: 'Dashboard', component: Dashboard, meta: { allowedRoles: ['Admin', 'QuanLy'], taskKey: 'dashboard' } },
             { path: 'monitoring', name: 'Monitoring', component: Monitoring, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring', keepAlive: true } },
             { path: 'monitoring/face-camera', name: 'FaceCamera', component: FaceIdSecurity, meta: { allowedRoles: ['Admin', 'BaoVe'], taskKey: 'monitoring', keepAlive: true } },
@@ -300,9 +303,6 @@ router.beforeEach((to, from, next) => {
     // Nếu route yêu cầu đăng nhập
     if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAuth)) {
         if (!isLoggedIn()) {
-            if (to.path === '/' || to.path === '') {
-                return next({ name: 'Portal' })
-            }
             return next({ name: 'Login', query: { redirect: to.fullPath } })
         }
     }
@@ -344,9 +344,8 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    // Nếu đã đăng nhập mà vào trang login thì redirect
-    // Nhưng cho phép truy cập trang đăng ký khách (GuestRegister) dù đã đăng nhập
-    if (to.meta.guest && isLoggedIn() && to.name !== 'GuestRegister' && to.name !== 'VisitorPass') {
+    // Nếu đã đăng nhập mà vào trang login thì redirect vào dashboard
+    if (to.name === 'Login' && isLoggedIn()) {
         const currentRole = authState.user?.role
         return next(landingRouteForRole(currentRole))
     }

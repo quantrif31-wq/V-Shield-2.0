@@ -24,8 +24,8 @@ const exceptionReasonApi = await import('../../services/exceptionReasonApi')
 const SystemCatalog = (await import('../SystemCatalog.vue')).default
 const DepartmentPosition = (await import('../DepartmentPosition.vue')).default
 
-const sharedStubs = { ImportModal: true, ExportModal: true }
-const routerStubs = { ...sharedStubs, RouterLink: { template: '<a><slot /></a>' } }
+const sharedStubs = { ImportModal: true, ExportModal: true, RouterLink: { template: '<a><slot /></a>' } }
+const routerStubs = { ...sharedStubs }
 
 const sampleReasons = [
   { reasonId: 1, reasonCode: 'BYPASS_MANUAL', description: 'Mở cổng thủ công', usageCount: 2 },
@@ -248,6 +248,7 @@ describe('SystemCatalog', () => {
     exceptionReasonApi.createExceptionReason.mockRejectedValue({ response: { data: { message: 'Trùng mã' } } })
     const wrapper = mount(SystemCatalog, { global: { stubs: sharedStubs } })
     await flushPromises()
+    await wrapper.vm.openReasonModal()
     wrapper.vm.reasonForm.reasonCode = 'DUP'
     wrapper.vm.reasonForm.description = 'Mô tả'
     await wrapper.vm.handleSaveReason()
@@ -301,6 +302,16 @@ describe('SystemCatalog', () => {
     await flushPromises()
     await wrapper.vm.handleDeleteReason(sampleReasons[0])
     expect(window.alert).toHaveBeenCalledWith('Không thể xóa lý do ngoại lệ này.')
+  })
+
+  it('renders import and export modal stubs when flags are set', async () => {
+    const wrapper = mount(SystemCatalog, { global: { stubs: sharedStubs } })
+    await flushPromises()
+    wrapper.vm.showImportModal = true
+    wrapper.vm.showExportModal = true
+    await nextTick()
+    expect(wrapper.findComponent({ name: 'ImportModal' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'ExportModal' }).exists()).toBe(true)
   })
 })
 
