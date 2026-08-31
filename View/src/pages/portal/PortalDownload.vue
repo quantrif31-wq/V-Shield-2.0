@@ -5,7 +5,7 @@ import { portalApi } from '../../services/portalApi'
 
 const apkDownloadUrl = ref('https://v-shield.site/downloads/VShield-Mobile-Latest.apk')
 const apkVersion = ref('2.0.0')
-const apkSize = ref('61.05 MB')
+const apkSize = ref('58.25 MB')
 const qrDataUrl = ref('')
 
 const systemRequirements = [
