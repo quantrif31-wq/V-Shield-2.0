@@ -144,11 +144,7 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
         rawNotifications = listOf(item) + rawNotifications.filterNot { it.id == item.id }
         recomputeState(preferIncomingAlert = notif.toAlarmInfo())
 
-        if ((item.severity ?: "info").toSeverityRank() >= 5) {
-            alarmService.startAlarm(item.title ?: "Cảnh báo khẩn cấp", item.body ?: "")
-        } else {
-            alarmService.playNotificationOnce(item.title, item.body)
-        }
+        alarmService.playNotificationOnce(item.title, item.body)
     }
 
     fun loadNotifications() {

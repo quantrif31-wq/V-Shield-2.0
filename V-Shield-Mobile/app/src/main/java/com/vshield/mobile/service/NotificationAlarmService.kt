@@ -49,41 +49,34 @@ class NotificationAlarmService(private val context: Context) {
         stopAlarm()
 
         try {
-            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             alarmPlayer = MediaPlayer().apply {
                 setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build())
                 setDataSource(context, uri)
-                isLooping = true
+                isLooping = false
+                setOnCompletionListener {
+                    stopAlarm()
+                }
                 prepare()
                 start()
             }
-        } catch (_: Exception) {
-            try {
-                val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                alarmPlayer = MediaPlayer().apply {
-                    setAudioAttributes(AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build())
-                    setDataSource(context, uri)
-                    isLooping = true
-                    prepare()
-                    start()
-                }
-            } catch (_: Exception) {}
-        }
+        } catch (_: Exception) {}
 
-        vibrateContinuous()
+        vibrateOnce()
     }
 
     fun stopAlarm() {
-        alarmPlayer?.apply {
-            if (isPlaying) stop()
-            release()
-        }
+        try {
+            alarmPlayer?.apply {
+                if (isPlaying) stop()
+                reset()
+                release()
+            }
+        } catch (_: Exception) {}
         alarmPlayer = null
         stopVibration()
     }

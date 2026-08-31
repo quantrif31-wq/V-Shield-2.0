@@ -93,6 +93,9 @@ fun VShieldMainScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 VShieldBackgroundService.isAppInForeground = true
                 permissionStatus = PermissionManager.checkPermissionStatus(context)
+                if (chatViewModel.uiState.value.callState !is ChatCallState.Incoming) {
+                    NotificationHelper.stopCallRingtone()
+                }
             } else if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
                 VShieldBackgroundService.isAppInForeground = false
             }
@@ -101,6 +104,7 @@ fun VShieldMainScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             VShieldBackgroundService.isAppInForeground = false
+            NotificationHelper.stopCallRingtone()
         }
     }
 
@@ -134,6 +138,12 @@ fun VShieldMainScreen(
             multiplePermissionsLauncher.launch(requiredPermissions.toTypedArray())
         } else if (!permissionStatus.isAllGranted) {
             showPermissionDialog = true
+        }
+    }
+
+    LaunchedEffect(chatState.callState) {
+        if (chatState.callState !is ChatCallState.Incoming) {
+            NotificationHelper.stopCallRingtone()
         }
     }
 
