@@ -61,7 +61,7 @@ async function submitReview() {
     if (res.success && res.data) {
       reviews.value.unshift(res.data)
       newReview.content = ''
-      reviewToast.value = '✨ Cảm ơn bạn! Đánh giá đã được gửi thành công.'
+      reviewToast.value = '✨ Đánh giá tác chiến đã được ghi nhận thành công!'
       setTimeout(() => { reviewToast.value = '' }, 4000)
     }
   } catch {
@@ -83,7 +83,7 @@ async function submitComment() {
     if (res.success && res.data) {
       comments.value.unshift(res.data)
       newComment.content = ''
-      commentToast.value = '💬 Bình luận của bạn đã được xuất bản!'
+      commentToast.value = '💬 Tín hiệu trao đổi kỹ thuật đã được xuất bản!'
       setTimeout(() => { commentToast.value = '' }, 4000)
     }
   } catch {
@@ -101,18 +101,18 @@ async function reactComment(comment) {
 </script>
 
 <template>
-  <div class="py-12 lg:py-16">
+  <div class="py-10 lg:py-16 font-mono">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
       <!-- Header -->
       <div class="text-center space-y-3">
-        <div class="inline-flex items-center gap-2 rounded-full border border-pink-500/30 bg-pink-950/40 px-3 py-1 text-xs font-bold text-pink-300 font-mono">
-          <span>COMMUNITY FEEDBACK & REVIEWS</span>
+        <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
+          <span>// OPERATOR COMBAT LOGS & DISCUSSIONS</span>
         </div>
-        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-100 font-mono">
-          Đánh Giá & Cộng Đồng
+        <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
+          NHẬT KÝ ĐÁNH GIÁ & CỘNG ĐỒNG
         </h1>
-        <p class="mx-auto max-w-2xl text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Không gian trao đổi kỹ thuật, đánh giá chất lượng sản phẩm và đóng góp ý kiến trực tiếp từ các kỹ sư, chuyên gia an ninh và người dùng.
+        <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Không gian trao đổi kỹ thuật, báo cáo thực chiến và đánh giá độ tin cậy của hệ thống V-Shield MK-II từ các chuyên gia an ninh.
         </p>
       </div>
 
@@ -122,102 +122,100 @@ async function reactComment(comment) {
           <button
             type="button"
             @click="activeTab = 'reviews'; triggerSfx()"
-            class="relative pb-3 text-sm font-bold uppercase tracking-wider transition"
+            class="relative pb-3 text-xs sm:text-sm font-black uppercase tracking-wider transition"
             :class="[
               activeTab === 'reviews'
-                ? 'text-cyan-300 drop-shadow-[0_0_10px_rgba(0,240,255,0.6)]'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-400 border-b-2 border-amber-400'
+                : 'text-slate-500 hover:text-slate-300'
             ]"
           >
-            <span>★ Đánh Giá Chuyên Gia & Người Dùng ({{ reviews.length }})</span>
-            <span v-if="activeTab === 'reviews'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 to-pink-400"></span>
+            <span>★ ĐÁNH GIÁ CHUYÊN GIA ({{ reviews.length }})</span>
           </button>
 
           <button
             type="button"
             @click="activeTab = 'comments'; triggerSfx()"
-            class="relative pb-3 text-sm font-bold uppercase tracking-wider transition"
+            class="relative pb-3 text-xs sm:text-sm font-black uppercase tracking-wider transition"
             :class="[
               activeTab === 'comments'
-                ? 'text-pink-300 drop-shadow-[0_0_10px_rgba(255,42,133,0.6)]'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-orange-400 border-b-2 border-orange-400'
+                : 'text-slate-500 hover:text-slate-300'
             ]"
           >
-            <span>💬 Diễn Đàn Thảo Luận Kỹ Thuật ({{ comments.length }})</span>
-            <span v-if="activeTab === 'comments'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-pink-400 to-purple-400"></span>
+            <span>💬 DIỄN ĐÀN KỸ THUẬT ({{ comments.length }})</span>
           </button>
         </div>
       </div>
 
       <!-- ── TAB 1: REVIEWS ── -->
       <div v-if="activeTab === 'reviews'" class="space-y-10">
-        <!-- Review Submission Card -->
-        <div class="rounded-3xl border border-cyan-500/30 bg-slate-900/80 p-6 sm:p-8 backdrop-blur-2xl space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-bold text-slate-100 font-mono">
-              Gửi Đánh Giá Của Bạn
+        <!-- Review Form -->
+        <div class="mecha-hud-bracket border-2 border-amber-500/40 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_40px_rgba(255,204,0,0.1)] space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-base font-black text-slate-100 uppercase">
+              GỬI NHẬT KÝ ĐÁNH GIÁ CỦA BẠN
             </h3>
             <button
               v-if="!communityUser"
               type="button"
               @click="openAuthModal"
-              class="text-xs font-semibold text-pink-400 hover:underline"
+              class="text-xs font-bold text-amber-400 hover:underline"
             >
-              Đăng nhập Google SSO để hiển thị avatar
+              [ ĐĂNG NHẬP PILOT SSO ]
             </button>
           </div>
 
-          <form @submit.prevent="submitReview" class="space-y-4">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <form @submit.prevent="submitReview" class="space-y-4 font-sans">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 font-mono">
               <div>
-                <label class="block text-xs font-semibold text-slate-400 mb-1">Họ và Tên</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">HỌ VÀ TÊN // CALLSIGN</label>
                 <input
                   v-model="newReview.authorName"
                   type="text"
-                  placeholder="Nguyễn Văn A"
-                  class="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-400"
+                  placeholder="Commander Alex"
+                  class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-slate-400 mb-1">Điểm Đánh Giá</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">ĐIỂM ĐÁNH GIÁ TÁC CHIẾN</label>
                 <select
                   v-model.number="newReview.rating"
-                  class="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2 text-xs text-amber-400 outline-none focus:border-cyan-400"
+                  class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-amber-400 outline-none focus:border-amber-400 mecha-cut-tr"
                 >
-                  <option :value="5">★★★★★ (5/5 - Xuất sắc)</option>
+                  <option :value="5">★★★★★ (5/5 - Cực kỳ tin cậy)</option>
                   <option :value="4">★★★★☆ (4/5 - Rất tốt)</option>
-                  <option :value="3">★★★☆☆ (3/5 - Bình thường)</option>
-                  <option :value="2">★★☆☆☆ (2/5 - Cần cải thiện)</option>
-                  <option :value="1">★☆☆☆☆ (1/5 - Kém)</option>
+                  <option :value="3">★★★☆☆ (3/5 - Chuẩn danh định)</option>
+                  <option :value="2">★★☆☆☆ (2/5 - Cần tối ưu)</option>
+                  <option :value="1">★☆☆☆☆ (1/5 - Không đạt)</option>
                 </select>
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-slate-400 mb-1">Nền Tảng Trải Nghiệm</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">NỀN TẢNG THỬ NGHIỆM</label>
                 <select
                   v-model="newReview.platform"
-                  class="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-cyan-400"
+                  class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
                 >
                   <option value="Web Cloud">Web Cloud (VPS)</option>
-                  <option value="Docker Local">Docker Local</option>
-                  <option value="Mobile Android">Mobile Android (APK)</option>
+                  <option value="Docker Local">Docker Local Station</option>
+                  <option value="Mobile Android">Mobile Field App (APK)</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-400 mb-1">Nội Dung Nhận Xét</label>
+              <label class="block text-xs font-mono font-bold text-slate-400 mb-1">NỘI DUNG NHẬT KÝ THỰC CHIẾN</label>
               <textarea
                 v-model="newReview.content"
                 rows="3"
-                placeholder="Chia sẻ cảm nhận về tốc độ nhận diện Face ID, barie tự động, độ trễ đồng bộ..."
-                class="w-full rounded-xl border border-slate-700 bg-slate-950/80 p-3.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-400"
+                placeholder="Đánh giá về thời gian phản hồi Face ID, cơ chế mở barie, tính ổn định Offline-First..."
+                class="w-full border border-slate-700 bg-[#07080b] p-3.5 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
               ></textarea>
             </div>
 
-            <div class="flex items-center justify-between">
-              <div v-if="reviewToast" class="text-xs font-semibold text-cyan-300">
+            <div class="flex items-center justify-between font-mono">
+              <div v-if="reviewToast" class="text-xs font-bold text-amber-400">
                 {{ reviewToast }}
               </div>
               <div v-else></div>
@@ -225,9 +223,9 @@ async function reactComment(comment) {
               <button
                 type="submit"
                 :disabled="reviewSubmitting"
-                class="rounded-xl bg-gradient-to-r from-cyan-500 to-pink-500 px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(0,240,255,0.4)] transition hover:opacity-90 disabled:opacity-50"
+                class="mecha-btn-hazard px-6 py-2.5 text-xs font-black uppercase mecha-cut-btn disabled:opacity-50"
               >
-                {{ reviewSubmitting ? 'Đang gửi...' : 'Đăng Đánh Giá' }}
+                {{ reviewSubmitting ? 'ĐANG NẠP...' : 'XUẤT BẢN ĐÁNH GIÁ' }}
               </button>
             </div>
           </form>
@@ -238,49 +236,48 @@ async function reactComment(comment) {
           <div
             v-for="rev in reviews"
             :key="rev.id"
-            class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl space-y-4 hover:border-cyan-500/40 transition"
+            class="mecha-hud-bracket border border-slate-800 bg-[#0c0f15] p-6 mecha-cut-tr space-y-4 hover:border-amber-400 transition"
           >
             <div class="flex items-center gap-3">
-              <img :src="rev.avatarUrl" :alt="rev.authorName" class="h-11 w-11 rounded-full border border-cyan-400/40 bg-slate-800" />
+              <img :src="rev.avatarUrl" :alt="rev.authorName" class="h-11 w-11 border-2 border-amber-400 bg-slate-900" />
               <div>
-                <h4 class="text-xs font-bold text-slate-100 font-mono">{{ rev.authorName }}</h4>
-                <div class="text-[10px] text-cyan-400 font-medium">{{ rev.authorRole || rev.platform }}</div>
+                <h4 class="text-xs font-black text-slate-100 uppercase">{{ rev.authorName }}</h4>
+                <div class="text-[10px] text-amber-400 font-bold">{{ rev.authorRole || rev.platform }}</div>
               </div>
             </div>
 
-            <!-- Star Rating -->
             <div class="flex items-center gap-1 text-amber-400 text-sm">
               <span v-for="s in rev.rating" :key="s">★</span>
             </div>
 
-            <p class="text-xs text-slate-300 leading-relaxed">
+            <p class="font-sans text-xs text-slate-300 leading-relaxed">
               "{{ rev.content }}"
             </p>
 
-            <div class="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-800/80 pt-3 font-mono">
-              <span>{{ rev.platform }}</span>
-              <span>♥ {{ rev.likesCount }} hữu ích</span>
+            <div class="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-800 pt-3">
+              <span class="text-amber-400/80 font-bold">[ {{ rev.platform }} ]</span>
+              <span>♥ {{ rev.likesCount }} CONFIRMED</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ── TAB 2: COMMENTS & DISCUSSION ── -->
+      <!-- ── TAB 2: COMMENTS ── -->
       <div v-else class="space-y-8">
-        <!-- New Comment Input -->
-        <div class="rounded-3xl border border-pink-500/30 bg-slate-900/80 p-6 sm:p-8 backdrop-blur-2xl space-y-4">
-          <h3 class="text-lg font-bold text-slate-100 font-mono">
-            Đặt Câu Hỏi / Thảo Luận Kỹ Thuật
+        <!-- New Comment Form -->
+        <div class="mecha-hud-bracket border-2 border-orange-500/40 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_40px_rgba(255,85,0,0.1)] space-y-4">
+          <h3 class="text-base font-black text-slate-100 uppercase">
+            TRUYỀN PHÁT TÍN HIỆU THẢO LUẬN // TECH COMMS
           </h3>
 
-          <form @submit.prevent="submitComment" class="space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <form @submit.prevent="submitComment" class="space-y-3 font-sans">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
               <div>
                 <input
                   v-model="newComment.authorName"
                   type="text"
-                  placeholder="Tên / Biệt danh của bạn"
-                  class="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-pink-400"
+                  placeholder="Pilot Callsign / Tên"
+                  class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-orange-400 mecha-cut-tr"
                 />
               </div>
             </div>
@@ -289,13 +286,13 @@ async function reactComment(comment) {
               <textarea
                 v-model="newComment.content"
                 rows="3"
-                placeholder="Nhập nội dung thảo luận, thắc mắc về triển khai Docker, AI Model hoặc thuật toán TOTP..."
-                class="w-full rounded-xl border border-slate-700 bg-slate-950/80 p-3.5 text-xs text-slate-200 outline-none focus:border-pink-400"
+                placeholder="Nhập nội dung thảo luận về giải pháp mô hình AI, kiến trúc Docker hoặc giao thức TOTP..."
+                class="w-full border border-slate-700 bg-[#07080b] p-3.5 text-xs text-slate-200 outline-none focus:border-orange-400 mecha-cut-tr"
               ></textarea>
             </div>
 
-            <div class="flex items-center justify-between">
-              <div v-if="commentToast" class="text-xs font-semibold text-pink-300">
+            <div class="flex items-center justify-between font-mono">
+              <div v-if="commentToast" class="text-xs font-bold text-orange-400">
                 {{ commentToast }}
               </div>
               <div v-else></div>
@@ -303,46 +300,46 @@ async function reactComment(comment) {
               <button
                 type="submit"
                 :disabled="commentSubmitting"
-                class="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-6 py-2 text-xs font-bold uppercase text-white shadow-[0_0_20px_rgba(255,42,133,0.4)] transition hover:opacity-90 disabled:opacity-50"
+                class="mecha-btn-hazard px-6 py-2 text-xs font-black uppercase mecha-cut-btn disabled:opacity-50"
               >
-                {{ commentSubmitting ? 'Đang gửi...' : 'Gửi Thảo Luận' }}
+                {{ commentSubmitting ? 'ĐANG PHÁT...' : 'GỬI TÍN HIỆU' }}
               </button>
             </div>
           </form>
         </div>
 
-        <!-- Comment Thread List -->
+        <!-- Comments Stream -->
         <div class="space-y-4">
           <div
             v-for="cmt in comments"
             :key="cmt.id"
-            class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl space-y-3"
+            class="mecha-hud-bracket border border-slate-800 bg-[#0c0f15] p-6 mecha-cut-tr space-y-3"
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <img :src="cmt.avatarUrl" :alt="cmt.authorName" class="h-9 w-9 rounded-full border border-pink-400/40 bg-slate-800" />
+                <img :src="cmt.avatarUrl" :alt="cmt.authorName" class="h-9 w-9 border border-orange-400 bg-slate-900" />
                 <div>
                   <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold text-slate-200 font-mono">{{ cmt.authorName }}</span>
-                    <span v-if="cmt.badge" class="rounded bg-pink-950 px-1.5 py-0.2 text-[9px] font-bold text-pink-300 border border-pink-500/30">
+                    <span class="text-xs font-black text-slate-200 uppercase">{{ cmt.authorName }}</span>
+                    <span v-if="cmt.badge" class="bg-orange-950 px-1.5 py-0.2 text-[9px] font-bold text-orange-300 border border-orange-500/30">
                       {{ cmt.badge }}
                     </span>
                   </div>
-                  <span class="text-[10px] text-slate-500 font-mono">{{ new Date(cmt.createdAt).toLocaleString('vi-VN') }}</span>
+                  <span class="text-[10px] text-slate-500">{{ new Date(cmt.createdAt).toLocaleString('vi-VN') }}</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 @click="reactComment(cmt)"
-                class="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs text-slate-300 hover:border-pink-500/50 hover:text-pink-300 transition"
+                class="flex items-center gap-1.5 border border-slate-700 bg-[#07080b] px-3 py-1 text-xs text-slate-300 hover:border-orange-400 hover:text-orange-300 transition"
               >
                 <span>♥</span>
                 <span>{{ cmt.likesCount }}</span>
               </button>
             </div>
 
-            <p class="text-xs text-slate-300 leading-relaxed pl-12">
+            <p class="font-sans text-xs text-slate-300 leading-relaxed pl-12">
               {{ cmt.content }}
             </p>
 
@@ -351,16 +348,16 @@ async function reactComment(comment) {
               <div
                 v-for="rep in cmt.replies"
                 :key="rep.id"
-                class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1.5"
+                class="border border-slate-800 bg-[#07080b] p-3 space-y-1.5 mecha-cut-tr"
               >
                 <div class="flex items-center gap-2">
-                  <img :src="rep.avatarUrl" :alt="rep.authorName" class="h-6 w-6 rounded-full border border-cyan-400" />
-                  <span class="text-xs font-bold text-cyan-300 font-mono">{{ rep.authorName }}</span>
-                  <span class="rounded bg-cyan-950 px-1.5 py-0.2 text-[9px] font-bold text-cyan-300">
-                    {{ rep.badge || 'Developer' }}
+                  <img :src="rep.avatarUrl" :alt="rep.authorName" class="h-6 w-6 border border-amber-400" />
+                  <span class="text-xs font-bold text-amber-400">{{ rep.authorName }}</span>
+                  <span class="bg-amber-950 px-1.5 py-0.2 text-[8px] font-bold text-amber-300">
+                    {{ rep.badge || 'DEVELOPER' }}
                   </span>
                 </div>
-                <p class="text-xs text-slate-300 pl-8">
+                <p class="font-sans text-xs text-slate-300 pl-8">
                   {{ rep.content }}
                 </p>
               </div>

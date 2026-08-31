@@ -1,101 +1,93 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const activeCategory = ref('all')
 
 const categories = [
-  { id: 'all', name: 'Tất Cả Công Nghệ' },
-  { id: 'ai', name: 'AI & Sinh Trắc Học' },
-  { id: 'barrier', name: 'Rào Chắn & Giao Thông' },
-  { id: 'sync', name: 'Mạng & Đồng Bộ Lai' },
-  { id: 'security', name: 'Bảo Mật & UEBA' }
+  { id: 'all', name: 'TẤT CẢ VŨ KHÍ' },
+  { id: 'ai', name: 'AI BIOMETRICS' },
+  { id: 'barrier', name: 'KINETIC BARRIER' },
+  { id: 'sync', name: 'HYBRID SYNC' },
+  { id: 'security', name: 'UEBA THREAT' }
 ]
 
 const features = [
   {
     id: 1,
     category: 'ai',
-    title: 'AI Face ID Realtime 60 FPS',
-    tag: 'BIOMETRIC ENGINE',
-    accent: 'cyan',
-    desc: 'Hệ thống nhận diện khuôn mặt xử lý tốc độ cao với thuật toán YOLOv11 + ArcFace, hỗ trợ nhận diện đa góc độ (lên đến 45 độ), thích ứng điều kiện ánh sáng yếu và chống giả mạo hình ảnh/video 2D (Anti-Spoofing).',
+    title: 'AI FACE ID 60FPS // BIOMETRICS RADAR',
+    code: 'MOD-01-OPTIC',
+    desc: 'Hệ thống radar nhận diện khuôn mặt quang học tốc độ cao YOLOv11 + ArcFace, xử lý đa góc độ ±45°, thích ứng ánh sáng ban đêm và kháng giả mạo sinh học Live 3D Anti-Spoofing.',
     specs: [
-      { label: 'Tốc độ nhận diện', value: '< 45ms' },
-      { label: 'Độ chính xác', value: '99.98%' },
-      { label: 'Góc nhận diện', value: '±45° Yaw/Pitch' },
-      { label: 'Chống giả mạo', value: 'Live 3D Depth' }
+      { label: 'TỐC ĐỘ PHẢN ỨNG', value: '< 45ms' },
+      { label: 'ĐỘ CHÍNH XÁC', value: '99.98%' },
+      { label: 'GÓC QUÉT QUANG HỌC', value: '±45° Yaw/Pitch' },
+      { label: 'KHÁNG ẢNH GIẢ MẠO', value: 'Live 3D Depth' }
     ]
   },
   {
     id: 2,
     category: 'barrier',
-    title: 'Virtual Smart Barrier & Đối Soát Biển Số',
-    tag: 'TRAFFIC CONTROL',
-    accent: 'pink',
-    desc: 'Cơ chế điều khiển rào chắn tự động kết hợp camera nhận diện biển số xe (ANPR OCR). Tự động đối chiếu thông tin chủ xe và người lái qua thẻ từ / khuôn mặt để phát hiện gian lận đổi biển số.',
+    title: 'VIRTUAL SMART BARRIER & ANPR OCR',
+    code: 'MOD-02-KINETIC',
+    desc: 'Hạ tầng kiểm soát barie tự động và camera nhận dạng biển số xe quân sự ANPR OCR. Tự động đối soát chéo người lái và thông tin chủ xe nhằm triệt tiêu hành vi đổi biển số gian lận.',
     specs: [
-      { label: 'Thời gian mở barie', value: '0.6s' },
-      { label: 'Độ chính xác OCR', value: '99.5%' },
-      { label: 'Đồng bộ làn xe', value: 'Đa luồng Lane 1/2' },
-      { label: 'Cảnh báo đối soát', value: 'Realtime SOC Alert' }
+      { label: 'THỜI GIAN KÍCH HOẠT', value: '0.6 Giây' },
+      { label: 'ĐỘ CHÍNH XÁC OCR', value: '99.5%' },
+      { label: 'KIỂM SOÁT LÀN', value: 'Multi-Lane 1/2' },
+      { label: 'CẢNH BÁO TÁC CHIẾN', value: 'Realtime SOC Alert' }
     ]
   },
   {
     id: 3,
     category: 'security',
-    title: 'Mã QR Động TOTP Chống Gian Lận',
-    tag: 'ANTI-CLONING PASS',
-    accent: 'teal',
-    desc: 'Thẻ thông hành điện tử sinh mã QR động thay đổi liên tục mỗi 30 giây dựa trên thuật toán TOTP SHA-256 mã hóa khóa bí mật phần cứng, vô hiệu hóa hoàn toàn hành vi chụp màn hình chia sẻ cho người khác.',
+    title: 'DYNAMIC TOTP QR // QUANTUM PASS',
+    code: 'MOD-03-CRYPTO',
+    desc: 'Thẻ thông hành điện tử sinh mã QR động xoay vòng 30 giây dựa trên thuật toán HMAC-SHA256 mã hóa phần cứng, ngăn chặn 100% việc sao chép hoặc chụp ảnh màn hình.',
     specs: [
-      { label: 'Thời gian xoay mã', value: '30s / token' },
-      { label: 'Thuật toán mã hóa', value: 'HMAC-SHA256' },
-      { label: 'Khả năng chống sao chép', value: '100% Tuyệt đối' },
-      { label: 'Hỗ trợ offline', value: 'Quét tại trạm không mạng' }
+      { label: 'CHU KỲ XOAY MÃ', value: '30s / Token' },
+      { label: 'MÃ HÓA KHÓA', value: 'HMAC-SHA256' },
+      { label: 'KHÁNG SAO CHÉP', value: '100% Absolute' },
+      { label: 'HOẠT ĐỘNG OFFLINE', value: 'Autonomous Local' }
     ]
   },
   {
     id: 4,
     category: 'barrier',
-    title: 'VoIP Intercom & Video Call WebRTC',
-    tag: 'HD COMMUNICATION',
-    accent: 'purple',
-    desc: 'Hệ thống liên lạc thoại & video đa điểm độ trễ cực thấp giữa bảo vệ tại cổng và người dùng qua ứng dụng di động. Hỗ trợ xác nhận danh tính khách vãng lai và phê duyệt mở barie khẩn cấp từ xa.',
+    title: 'VOIP INTERCOM // WEBRTC TACTICAL COMMS',
+    code: 'MOD-04-COMMS',
+    desc: 'Kênh đàm thoại thoại & video mã hóa hai chiều độ trễ cực thấp giữa bảo vệ tại cổng và người dùng qua app di động. Hỗ trợ xác nhận danh tính và mở barie khẩn cấp từ xa.',
     specs: [
-      { label: 'Độ trễ truyền hình', value: '< 100ms WebRTC' },
-      { label: 'Chất lượng video', value: '1080p 60FPS' },
-      { label: 'Mã hóa luồng gọi', value: 'DTLS / SRTP' },
-      { label: 'Tích hợp mở cổng', value: 'Nút ấn 1-chạm trong cuộc gọi' }
+      { label: 'ĐỘ TRỄ TRUYỀN DẪN', value: '< 100ms WebRTC' },
+      { label: 'CHẤT LƯỢNG HÌNH ẢNH', value: '1080p 60FPS' },
+      { label: 'BẢO MẬT LUỒNG GỌI', value: 'DTLS / SRTP E2EE' },
+      { label: 'MỞ CỔNG KHẨN CẤP', value: '1-Tap Override' }
     ]
   },
   {
     id: 5,
     category: 'sync',
-    title: 'Hybrid Sync Protocol (Offline-First)',
-    tag: 'DISTRIBUTED ARCHITECTURE',
-    accent: 'cyan',
-    desc: 'Kiến trúc đồng bộ hai chiều phân tán giữa đám mây trung tâm (Cloud Central) và các trạm kiểm soát cục bộ (Local Stations). Trạm cục bộ vẫn vận hành độc lập hoàn toàn khi đứt cáp quang và tự động đối chiếu khi có mạng.',
+    title: 'HYBRID SYNC PROTOCOL // OFFLINE-FIRST',
+    code: 'MOD-05-AUTONOMOUS',
+    desc: 'Kiến trúc đồng bộ hai chiều phân tán giữa Central Cloud và trạm Local Node. Trạm cục bộ vẫn vận hành độc lập hoàn toàn khi mất mạng và tự động đồng bộ khi có kết nối.',
     specs: [
-      { label: 'Độ trễ đồng bộ', value: 'Sub-30ms' },
-      { label: 'Xung đột dữ liệu', value: 'Vector Clocks CRDT' },
-      { label: 'Thời gian offline tối đa', value: 'Vô hạn (Tự cache)' },
-      { label: 'Băng thông tối ưu', value: 'Nén Gzip/Protobuf' }
+      { label: 'ĐỘ TRỄ ĐỒNG BỘ', value: 'Sub-30ms' },
+      { label: 'XỬ LÝ XUNG ĐỘT', value: 'Vector Clocks CRDT' },
+      { label: 'OFFLINE CONTINUITY', value: 'Vô Hạn (Auto-Cache)' },
+      { label: 'NÉN DỮ LIỆU', value: 'Protobuf / Gzip' }
     ]
   },
   {
     id: 6,
     category: 'security',
-    title: 'UEBA - Phân Tích Hành Vi Người Dùng & AI Anomaly',
-    tag: 'SECURITY INTELLIGENCE',
-    accent: 'pink',
-    desc: 'Hệ thống học máy theo dõi hồ sơ di chuyển của nhân viên và khách để phát hiện các dấu hiệu đột nhập: ra vào ngoài giờ làm việc, quẹt thẻ ở 2 vị trí địa lý bất khả thi (Impossible Travel) hoặc đi theo sau (Tailgating).',
+    title: 'UEBA // ANOMALY THREAT INTERCEPTOR',
+    code: 'MOD-06-DEFENSE',
+    desc: 'Mô hình học máy theo dõi hồ sơ di chuyển để phát hiện các dấu hiệu đột nhập: ra vào ngoài giờ, quẹt thẻ ở 2 vị trí bất khả thi (Impossible Travel) hoặc đi theo sau (Tailgating).',
     specs: [
-      { label: 'Mô hình AI phát hiện', value: 'Isolation Forest + UEBA' },
-      { label: 'Cấp độ cảnh báo', value: 'Info / Warning / Critical' },
-      { label: 'Phản ứng tự động', value: 'Khóa cửa & Báo động SOC' },
-      { label: 'Xuất báo cáo', value: 'SIEM & Audit Trail' }
+      { label: 'AI MODEL PHÁT HIỆN', value: 'Isolation Forest' },
+      { label: 'CẤP ĐỘ CẢNH BÁO', value: 'Critical / Warning' },
+      { label: 'PHẢN ỨNG TỰ ĐỘNG', value: 'Auto-Lockdown' },
+      { label: 'NHẬT KÝ KIỂM TOÁN', value: 'SIEM & Audit Trail' }
     ]
   }
 ]
@@ -111,18 +103,18 @@ function triggerSfx() {
 </script>
 
 <template>
-  <div class="py-12 lg:py-16">
+  <div class="py-10 lg:py-16 font-mono">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
       <!-- Header -->
       <div class="text-center space-y-3">
-        <div class="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/40 px-3 py-1 text-xs font-bold text-cyan-300 font-mono">
-          <span>⚡ HỆ SINH THÁI CÔNG NGHỆ 6 TRỤ CỘT</span>
+        <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
+          <span>// TACTICAL SPECIFICATION BLUEPRINTS</span>
         </div>
-        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-100 font-mono">
-          Tính Năng & Kiến Trúc An Ninh
+        <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
+          VŨ KHÍ & CÔNG NGHỆ TÁC CHIẾN
         </h1>
-        <p class="mx-auto max-w-2xl text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Được thiết kế theo tiêu chuẩn an ninh cấp doanh nghiệp, V-Shield 2.0 cung cấp khả năng tự động hóa phòng thủ toàn diện từ rìa (Edge IoT) đến đám mây (Cloud).
+        <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Được chế tạo theo tiêu chuẩn phòng thủ cấp quân sự, V-Shield MK-II tự động hóa toàn bộ lá chắn kiểm soát ra vào từ trạm rìa Edge đến đám mây.
         </p>
       </div>
 
@@ -133,11 +125,11 @@ function triggerSfx() {
           :key="cat.id"
           type="button"
           @click="activeCategory = cat.id; triggerSfx()"
-          class="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all"
+          class="px-4 py-2 text-xs font-black uppercase tracking-wider transition-all mecha-cut-btn"
           :class="[
             activeCategory === cat.id
-              ? 'bg-gradient-to-r from-cyan-500 to-pink-500 text-slate-950 shadow-[0_0_20px_rgba(0,240,255,0.4)]'
-              : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300'
+              ? 'mecha-btn-hazard text-slate-950'
+              : 'border border-slate-700 bg-[#0e1117] text-slate-400 hover:border-amber-400 hover:text-amber-300'
           ]"
         >
           {{ cat.name }}
@@ -149,37 +141,37 @@ function triggerSfx() {
         <div
           v-for="item in filteredFeatures()"
           :key="item.id"
-          class="relative rounded-3xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 backdrop-blur-xl transition-all duration-300 hover:border-cyan-500/50 hover:shadow-[0_0_30px_rgba(0,240,255,0.2)]"
+          class="mecha-hud-bracket border-2 border-amber-500/30 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_30px_rgba(255,204,0,0.1)] transition-all hover:border-amber-400 hover:shadow-[0_0_40px_rgba(255,204,0,0.25)] space-y-4"
         >
-          <!-- Tag -->
-          <div class="flex items-center justify-between">
-            <span class="rounded-lg border border-cyan-500/30 bg-cyan-950/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-300 font-mono">
-              {{ item.tag }}
+          <!-- Tag Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <span class="bg-amber-950 px-2.5 py-0.5 text-[10px] font-black text-amber-400 border border-amber-500/40 mecha-cut-tr">
+              {{ item.code }}
             </span>
-            <span class="font-mono text-xs font-bold text-slate-500">
-              FEATURE #0{{ item.id }}
+            <span class="text-xs text-slate-500 font-bold">
+              SYS // 0{{ item.id }}
             </span>
           </div>
 
           <!-- Title -->
-          <h3 class="mt-4 text-xl font-extrabold text-slate-100 font-mono">
+          <h3 class="text-lg sm:text-xl font-black text-slate-100">
             {{ item.title }}
           </h3>
 
           <!-- Description -->
-          <p class="mt-3 text-xs leading-relaxed text-slate-300">
+          <p class="font-sans text-xs leading-relaxed text-slate-300">
             {{ item.desc }}
           </p>
 
           <!-- Tech Specs Breakdown Grid -->
-          <div class="mt-6 grid grid-cols-2 gap-3 border-t border-slate-800/80 pt-5">
+          <div class="grid grid-cols-2 gap-3 border-t border-slate-800 pt-4">
             <div
               v-for="(spec, sIdx) in item.specs"
               :key="sIdx"
-              class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-2.5"
+              class="border border-slate-800 bg-[#121620] p-2.5 mecha-cut-tr"
             >
-              <div class="text-[10px] text-slate-400">{{ spec.label }}</div>
-              <div class="mt-0.5 font-mono text-xs font-bold text-cyan-300">{{ spec.value }}</div>
+              <div class="text-[9px] text-slate-400 font-bold uppercase">{{ spec.label }}</div>
+              <div class="mt-0.5 text-xs font-black text-amber-400">{{ spec.value }}</div>
             </div>
           </div>
         </div>

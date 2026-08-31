@@ -14,16 +14,16 @@ const overview = ref({
   serverStatus: 'Online'
 })
 
-const mascotQuotes = [
-  'Xin chào Operator! Hệ thống phòng thủ V-Shield 2.0 đã trực tuyến.',
-  'Đồng bộ dữ liệu Hybrid Sync đang hoạt động với độ trễ dưới 30ms!',
-  'Mô hình AI Face ID đã sẵn sàng quét nhận diện sinh trắc học đa góc độ.',
-  'Cổng liên lạc Video Call VoIP được mã hóa end-to-end sẵn sàng kết nối.'
+const pilotComms = [
+  'THÔNG BÁO TÁC CHIẾN: Rào chắn thông minh đã được nạp thuật toán đối soát ANPR OCR.',
+  'HỆ THỐNG PHÒNG THỦ: Cụm trạm Hybrid Sync duy trì trạng thái Offline-First độ trễ sub-30ms.',
+  'CẢNH BÁO SINH TRẮC HỌC: Radar AI Face ID 60FPS đã sẵn sàng nhận diện đa góc độ.',
+  'KÊNH THOẠI KHẨN CẤP: Kênh Video Call VoIP mã hóa DTLS/SRTP kết nối thẳng tới phòng chỉ huy.'
 ]
-const currentQuoteIndex = ref(0)
+const currentCommIndex = ref(0)
 
-function nextQuote() {
-  currentQuoteIndex.value = (currentQuoteIndex.value + 1) % mascotQuotes.length
+function nextComm() {
+  currentCommIndex.value = (currentCommIndex.value + 1) % pilotComms.length
 }
 
 function triggerSfx() {
@@ -41,259 +41,228 @@ onMounted(async () => {
     const data = await portalApi.getOverview()
     if (data) overview.value = { ...overview.value, ...data }
   } catch {}
-  setInterval(nextQuote, 7000)
+  setInterval(nextComm, 6500)
 })
 </script>
 
 <template>
-  <div class="relative overflow-hidden py-12 lg:py-20">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <!-- ── SECTION 1: HERO SHOWCASE ── -->
-      <div class="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
-        <!-- Left: Slogan & CTAs (7 cols) -->
-        <div class="space-y-6 lg:col-span-7">
-          <!-- Cyber Badge -->
-          <div class="inline-flex items-center gap-2 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-3.5 py-1.5 text-xs font-bold text-cyan-300 shadow-[0_0_20px_rgba(0,240,255,0.3)] backdrop-blur-md">
-            <span class="flex h-2 w-2 rounded-full bg-cyan-400 animate-ping"></span>
-            <span class="font-mono tracking-wider">HỆ THỐNG AN NINH THÔNG MINH THẾ HỆ MỚI</span>
+  <div class="relative overflow-hidden py-10 lg:py-16">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
+      <!-- ── SECTION 1: MECHA COCKPIT HERO ── -->
+      <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">
+        <!-- Left: Mission Briefing & Tactical Directives (7 cols) -->
+        <div class="space-y-6 lg:col-span-7 font-mono">
+          <!-- Tactical Mission Header Badge -->
+          <div class="inline-flex items-center gap-2 border border-amber-500/50 bg-[#121620] px-3.5 py-1.5 text-xs font-black text-amber-400 mecha-cut-tr shadow-[0_0_20px_rgba(255,204,0,0.25)]">
+            <span class="h-2 w-2 bg-amber-400 animate-ping"></span>
+            <span class="tracking-widest">TACTICAL PROTOCOL // V-SHIELD MK-II</span>
           </div>
 
-          <!-- Main Title -->
-          <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl sm:leading-[1.15]">
-            Kiểm Soát An Ninh <br />
-            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-200 to-pink-500 drop-shadow-[0_0_35px_rgba(0,240,255,0.5)] font-mono">
-              Đa Nền Tảng & AI Realtime
+          <!-- Stencil Heavy Headline -->
+          <h1 class="text-4xl font-black uppercase tracking-tight sm:text-6xl sm:leading-[1.1] text-slate-100">
+            HỆ THỐNG PHÒNG THỦ <br />
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 drop-shadow-[0_0_35px_rgba(255,204,0,0.6)]">
+              AI REALTIME & HYBRID SYNC
             </span>
           </h1>
 
-          <p class="max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-            Giải pháp tích hợp nhận diện khuôn mặt sinh trắc học <strong class="text-cyan-300">60 FPS</strong>, rào chắn thông minh, mã QR động TOTP và đồng bộ đa trạm <strong class="text-pink-400">Offline-First</strong> tối tân.
+          <p class="max-w-2xl text-xs sm:text-sm font-sans leading-relaxed text-slate-300">
+            Chiến giáp kiểm soát an ninh đa nền tảng thế hệ mới. Tích hợp động cơ sinh trắc học <strong class="text-amber-400 font-mono">60 FPS</strong>, rào chắn động lực học, mã lượng tử <strong class="text-amber-400 font-mono">TOTP 30s</strong> và giao thức tự hành <strong class="text-orange-400 font-mono">Offline-First</strong> cấp quân sự.
           </p>
 
-          <!-- Interactive Mascot Dialogue Box -->
+          <!-- Radio Pilot Comm Box (Mecha HUD Style) -->
           <div
-            @click="nextQuote"
-            class="group relative flex cursor-pointer items-center gap-3.5 rounded-2xl border border-cyan-500/30 bg-slate-900/80 p-4 shadow-[0_0_25px_rgba(0,240,255,0.15)] backdrop-blur-md transition hover:border-cyan-400 hover:shadow-[0_0_35px_rgba(0,240,255,0.3)]"
+            @click="nextComm"
+            class="mecha-hud-bracket cursor-pointer border border-amber-500/30 bg-[#0d1017] p-4 mecha-cut-tr transition-all hover:border-amber-400 hover:shadow-[0_0_30px_rgba(255,204,0,0.2)]"
           >
-            <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-pink-500/50 bg-gradient-to-br from-pink-900/60 to-purple-900/60 shadow-[0_0_15px_rgba(255,42,133,0.4)]">
-              <span class="text-xl">🤖</span>
-              <span class="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-cyan-400 text-[8px] font-black text-slate-950">
-                AI
-              </span>
-            </div>
-            <div class="flex-1 space-y-0.5">
-              <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-pink-400 font-mono">
-                <span>V-Shield AI Core</span>
-                <span class="text-[10px] text-cyan-400/80 group-hover:underline">Click đổi câu thoại ↻</span>
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2 text-[10px] font-bold text-amber-400">
+              <div class="flex items-center gap-2">
+                <span class="h-1.5 w-1.5 bg-amber-400"></span>
+                <span>COMMS FREQ: 142.85 MHz // OPERATOR TAC-AI</span>
               </div>
-              <p class="text-xs font-medium text-slate-200 transition-all duration-300">
-                "{{ mascotQuotes[currentQuoteIndex] }}"
-              </p>
+              <span class="text-slate-500 hover:text-amber-300">[ NEXT » ]</span>
             </div>
+            <p class="mt-2.5 font-sans text-xs font-medium text-slate-200">
+              "{{ pilotComms[currentCommIndex] }}"
+            </p>
           </div>
 
-          <!-- Hero Action Buttons -->
+          <!-- Hero Action CTAs -->
           <div class="flex flex-wrap items-center gap-4 pt-2">
             <button
               type="button"
               @click="navigateTo('/features')"
-              class="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 via-teal-400 to-pink-500 px-6 py-3 text-sm font-bold uppercase tracking-wider text-slate-950 shadow-[0_0_30px_rgba(0,240,255,0.4)] transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(0,240,255,0.7)]"
+              class="mecha-btn-hazard px-6 py-3 text-xs font-black uppercase mecha-cut-btn inline-flex items-center gap-2"
             >
-              <span class="relative z-10 flex items-center gap-2">
-                <span>Khám Phá Tính Năng</span>
-                <svg class="h-4 w-4 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                  <polyline points="12 5 19 12 12 19"></polyline>
-                </svg>
-              </span>
-              <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover:translate-x-full"></div>
+              <span>VŨ KHÍ & CÔNG NGHỆ</span>
+              <span class="text-slate-950 font-bold">»</span>
             </button>
 
             <button
               type="button"
               @click="navigateTo('/download')"
-              class="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-slate-900/80 px-6 py-3 text-sm font-bold uppercase tracking-wider text-cyan-300 shadow-[0_0_20px_rgba(0,240,255,0.2)] backdrop-blur-md transition-all hover:border-cyan-300 hover:bg-slate-800/90 hover:text-cyan-200 hover:shadow-[0_0_30px_rgba(0,240,255,0.4)]"
+              class="mecha-btn-tactical px-6 py-3 text-xs font-black uppercase mecha-cut-tr inline-flex items-center gap-2"
             >
-              <svg class="h-4 w-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
-              <span>Tải App Mobile</span>
+              <span>TẢI FIELD APP (APK)</span>
             </button>
 
             <router-link
               to="/login"
               @click="triggerSfx"
-              class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:border-pink-500/50 hover:text-pink-300"
+              class="border border-slate-700 bg-[#0e1117] px-5 py-3 text-xs font-bold text-slate-400 hover:border-amber-400 hover:text-amber-300 transition mecha-cut-tr"
             >
-              <span>Vào Đăng Nhập</span>
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
-              </svg>
+              CỔNG QUẢN TRỊ »
             </router-link>
           </div>
         </div>
 
-        <!-- Right: Holographic Telemetry Terminal (5 cols) -->
-        <div class="lg:col-span-5">
-          <div class="relative mx-auto max-w-md rounded-3xl border border-cyan-500/30 bg-slate-900/80 p-6 shadow-[0_0_50px_rgba(0,240,255,0.25)] backdrop-blur-2xl">
-            <!-- Neon Edge Accent -->
-            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div>
-
-            <!-- Terminal Header -->
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <!-- Right: Holographic Targeting Reticle & Combat Telemetry (5 cols) -->
+        <div class="lg:col-span-5 font-mono">
+          <div class="relative mx-auto max-w-md border-2 border-amber-500/40 bg-[#0a0d14] p-6 mecha-cut-corners shadow-[0_0_50px_rgba(255,204,0,0.2)] mecha-radar-scanner">
+            <!-- HUD Reticle Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 text-xs font-black text-amber-400">
               <div class="flex items-center gap-2">
-                <span class="h-3 w-3 rounded-full bg-rose-500/80"></span>
-                <span class="h-3 w-3 rounded-full bg-amber-500/80"></span>
-                <span class="h-3 w-3 rounded-full bg-emerald-500/80"></span>
-                <span class="ml-2 font-mono text-xs font-bold text-cyan-300">TELEMETRY_NODE_01</span>
+                <span class="h-2 w-2 bg-amber-400"></span>
+                <span>HUD TARGETING // SECTOR 01</span>
               </div>
-              <span class="rounded bg-cyan-950 px-2 py-0.5 font-mono text-[10px] text-cyan-400">
-                ACTIVE
+              <span class="bg-amber-950 px-2 py-0.5 text-[10px] text-amber-300 border border-amber-500/30">
+                LOCKED
               </span>
             </div>
 
-            <!-- Key Metrics Grid -->
-            <div class="mt-5 grid grid-cols-2 gap-3.5">
-              <div class="rounded-xl border border-cyan-500/20 bg-slate-950/60 p-3.5">
-                <div class="text-[11px] font-semibold text-slate-400">Độ Chính Xác Face ID</div>
-                <div class="mt-1 font-mono text-2xl font-black text-cyan-300">99.98%</div>
-                <div class="mt-0.5 text-[10px] text-emerald-400">YOLOv11 Biometrics</div>
+            <!-- Mecha Telemetry Gauges -->
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <div class="border border-amber-500/30 bg-[#121620] p-3 mecha-cut-tr">
+                <div class="text-[10px] text-slate-400 font-bold">BIOMETRICS RADAR</div>
+                <div class="mt-1 text-2xl font-black text-amber-400">99.98%</div>
+                <div class="mt-0.5 text-[9px] text-emerald-400">YOLOv11 60FPS</div>
               </div>
 
-              <div class="rounded-xl border border-pink-500/20 bg-slate-950/60 p-3.5">
-                <div class="text-[11px] font-semibold text-slate-400">Độ Trễ Đồng Bộ</div>
-                <div class="mt-1 font-mono text-2xl font-black text-pink-400">&lt;30ms</div>
-                <div class="mt-0.5 text-[10px] text-pink-300/80">Hybrid Sync Protocol</div>
+              <div class="border border-orange-500/30 bg-[#121620] p-3 mecha-cut-tr">
+                <div class="text-[10px] text-slate-400 font-bold">REACTION LATENCY</div>
+                <div class="mt-1 text-2xl font-black text-orange-400">&lt;30ms</div>
+                <div class="mt-0.5 text-[9px] text-amber-300">HYBRID LINK</div>
               </div>
 
-              <div class="rounded-xl border border-teal-500/20 bg-slate-950/60 p-3.5">
-                <div class="text-[11px] font-semibold text-slate-400">Nền Tảng Triển Khai</div>
-                <div class="mt-1 font-mono text-2xl font-black text-teal-300">3 Platform</div>
-                <div class="mt-0.5 text-[10px] text-slate-400">Cloud / Local / Mobile</div>
+              <div class="border border-slate-700 bg-[#121620] p-3 mecha-cut-tr">
+                <div class="text-[10px] text-slate-400 font-bold">DEPLOYED NODES</div>
+                <div class="mt-1 text-2xl font-black text-slate-100">03 PLATFORMS</div>
+                <div class="mt-0.5 text-[9px] text-slate-400">Cloud / Local / Mobile</div>
               </div>
 
-              <div class="rounded-xl border border-purple-500/20 bg-slate-950/60 p-3.5">
-                <div class="text-[11px] font-semibold text-slate-400">Đánh Giá Cộng Đồng</div>
-                <div class="mt-1 font-mono text-2xl font-black text-amber-400">{{ overview.averageRating }} ★</div>
-                <div class="mt-0.5 text-[10px] text-slate-400">{{ overview.totalReviews }}+ reviews</div>
+              <div class="border border-amber-500/30 bg-[#121620] p-3 mecha-cut-tr">
+                <div class="text-[10px] text-slate-400 font-bold">OPERATOR RATING</div>
+                <div class="mt-1 text-2xl font-black text-amber-400">{{ overview.averageRating }} ★</div>
+                <div class="mt-0.5 text-[9px] text-slate-400">{{ overview.totalReviews }}+ Combat Logs</div>
               </div>
             </div>
 
-            <!-- Live Status Logs Stream -->
-            <div class="mt-4 rounded-xl border border-slate-800 bg-slate-950/90 p-3 font-mono text-[11px] text-slate-300">
-              <div class="flex items-center gap-2 text-cyan-400">
-                <span class="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>[SYSTEM_LOG] CentralSync connected (v2.0.0)</span>
+            <!-- Live Status Grid Stream -->
+            <div class="mt-4 border border-slate-800 bg-[#080a0f] p-3 text-[11px] text-slate-300 space-y-1">
+              <div class="flex items-center justify-between text-amber-400">
+                <span>[SHIELD_INTEGRITY]</span>
+                <span class="font-bold">100% NOMINAL</span>
               </div>
-              <div class="text-slate-500 mt-1">[BARRIER] Lane 01 Gate AUTO-ARMED</div>
-              <div class="text-emerald-400/90 mt-1">[ENROLLMENT] 3D Vector indexing ready</div>
+              <div class="h-1.5 w-full bg-slate-900 overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-amber-400 to-orange-500 w-full"></div>
+              </div>
+              <div class="text-slate-500 text-[10px] pt-1">
+                // SYS_SYNC: AREA_01 & CENTRAL_VPS_STABLE
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ── SECTION 2: QUICK FEATURE HIGHLIGHTS ── -->
-      <div class="mt-24 space-y-10">
-        <div class="text-center space-y-3">
-          <h2 class="text-xs font-black uppercase tracking-widest text-cyan-400 font-mono">
-            HỆ THỐNG PHÒNG THỦ TOÀN DIỆN
+      <!-- ── SECTION 2: 6 TACTICAL DEFENSE CORES ── -->
+      <div class="space-y-8 font-mono">
+        <div class="text-center space-y-2">
+          <div class="inline-flex items-center gap-2 border border-amber-500/30 bg-[#121620] px-3 py-1 text-[10px] font-black text-amber-400 mecha-cut-tr">
+            <span>TACTICAL DEFENSE ARSENAL</span>
+          </div>
+          <h2 class="text-2xl sm:text-4xl font-black uppercase text-slate-100">
+            6 KHỐI VŨ KHÍ PHÒNG THỦ CỐT LÕI
           </h2>
-          <p class="text-3xl font-extrabold tracking-tight sm:text-4xl text-slate-100 font-mono">
-            Khám Phá Công Nghệ Cốt Lõi V-Shield 2.0
-          </p>
         </div>
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <!-- Card 1 -->
+          <!-- Core 01 -->
           <div
             @click="navigateTo('/features')"
-            class="group cursor-pointer rounded-2xl border border-cyan-500/30 bg-slate-900/60 p-6 shadow-[0_0_20px_rgba(0,240,255,0.1)] transition-all duration-300 hover:-translate-y-1.5 hover:border-cyan-400 hover:shadow-[0_0_35px_rgba(0,240,255,0.3)]"
+            class="mecha-hud-bracket cursor-pointer border border-amber-500/30 bg-[#0e1117] p-6 mecha-cut-tr transition-all hover:border-amber-400 hover:shadow-[0_0_30px_rgba(255,204,0,0.3)] space-y-3"
           >
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 group-hover:scale-110 transition">
-              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z"></path>
-                <path d="M17 11.5a5 5 0 0 1-10 0"></path>
-              </svg>
+            <div class="flex items-center justify-between">
+              <span class="bg-amber-950 px-2 py-0.5 text-[9px] font-bold text-amber-400 border border-amber-500/30">CORE // 01</span>
+              <span class="text-xs text-slate-500">60 FPS</span>
             </div>
-            <h3 class="mt-4 text-lg font-bold text-slate-100 group-hover:text-cyan-300 transition">AI Face ID & Virtual Barrier</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-400">
-              Nhận diện khuôn mặt 60 FPS đa góc kết hợp điều khiển barie tự động và đối soát biển số xe thông minh.
+            <h3 class="text-base font-black text-slate-100">AI FACE ID & BARRIER</h3>
+            <p class="font-sans text-xs text-slate-400 leading-relaxed">
+              Radar nhận diện đa góc độ kết hợp barie tự động và đối soát biển số ANPR OCR tốc độ cao.
             </p>
-            <div class="mt-4 flex items-center gap-1.5 text-xs font-bold text-cyan-400 group-hover:underline">
-              <span>Xem chi tiết tính năng</span>
-              <span>→</span>
-            </div>
+            <div class="text-[11px] font-bold text-amber-400 pt-2">XEM CHI TIẾT TÁC CHIẾN »</div>
           </div>
 
-          <!-- Card 2 -->
+          <!-- Core 02 -->
           <div
             @click="navigateTo('/features')"
-            class="group cursor-pointer rounded-2xl border border-pink-500/30 bg-slate-900/60 p-6 shadow-[0_0_20px_rgba(255,42,133,0.1)] transition-all duration-300 hover:-translate-y-1.5 hover:border-pink-400 hover:shadow-[0_0_35px_rgba(255,42,133,0.3)]"
+            class="mecha-hud-bracket cursor-pointer border border-orange-500/30 bg-[#0e1117] p-6 mecha-cut-tr transition-all hover:border-orange-400 hover:shadow-[0_0_30px_rgba(255,85,0,0.3)] space-y-3"
           >
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-pink-500/20 text-pink-300 border border-pink-400/30 group-hover:scale-110 transition">
-              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+            <div class="flex items-center justify-between">
+              <span class="bg-orange-950 px-2 py-0.5 text-[9px] font-bold text-orange-400 border border-orange-500/30">CORE // 02</span>
+              <span class="text-xs text-slate-500">TOTP-256</span>
             </div>
-            <h3 class="mt-4 text-lg font-bold text-slate-100 group-hover:text-pink-300 transition">QR Động TOTP & VoIP Call</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-400">
-              Mã QR xoay vòng liên tục chống chụp lén và đàm thoại video call WebRTC trực tiếp tới phòng an ninh.
+            <h3 class="text-base font-black text-slate-100">QR ĐỘNG & VOIP COMMS</h3>
+            <p class="font-sans text-xs text-slate-400 leading-relaxed">
+              Mã QR xoay vòng 30 giây chống chụp màn hình và tổng đài đàm thoại video WebRTC trực tiếp.
             </p>
-            <div class="mt-4 flex items-center gap-1.5 text-xs font-bold text-pink-400 group-hover:underline">
-              <span>Xem chi tiết tính năng</span>
-              <span>→</span>
-            </div>
+            <div class="text-[11px] font-bold text-orange-400 pt-2">XEM CHI TIẾT TÁC CHIẾN »</div>
           </div>
 
-          <!-- Card 3 -->
+          <!-- Core 03 -->
           <div
             @click="navigateTo('/features')"
-            class="group cursor-pointer rounded-2xl border border-teal-500/30 bg-slate-900/60 p-6 shadow-[0_0_20px_rgba(20,184,166,0.1)] transition-all duration-300 hover:-translate-y-1.5 hover:border-teal-400 hover:shadow-[0_0_35px_rgba(20,184,166,0.3)]"
+            class="mecha-hud-bracket cursor-pointer border border-cyan-500/30 bg-[#0e1117] p-6 mecha-cut-tr transition-all hover:border-cyan-400 hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] space-y-3"
           >
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/20 text-teal-300 border border-teal-400/30 group-hover:scale-110 transition">
-              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
+            <div class="flex items-center justify-between">
+              <span class="bg-cyan-950 px-2 py-0.5 text-[9px] font-bold text-cyan-400 border border-cyan-500/30">CORE // 03</span>
+              <span class="text-xs text-slate-500">SUB-30MS</span>
             </div>
-            <h3 class="mt-4 text-lg font-bold text-slate-100 group-hover:text-teal-300 transition">Hybrid Sync & UEBA</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-400">
-              Đồng bộ dữ liệu hai chiều Cloud-Local không gián đoạn và AI phân tích phát hiện hành vi bất thường.
+            <h3 class="text-base font-black text-slate-100">HYBRID SYNC & UEBA</h3>
+            <p class="font-sans text-xs text-slate-400 leading-relaxed">
+              Đồng bộ dữ liệu hai chiều Cloud-Local Offline-First và AI phát hiện hành vi bất thường.
             </p>
-            <div class="mt-4 flex items-center gap-1.5 text-xs font-bold text-teal-400 group-hover:underline">
-              <span>Xem chi tiết tính năng</span>
-              <span>→</span>
-            </div>
+            <div class="text-[11px] font-bold text-cyan-400 pt-2">XEM CHI TIẾT TÁC CHIẾN »</div>
           </div>
         </div>
       </div>
 
-      <!-- ── SECTION 3: BOTTOM CALL TO ACTION BANNER ── -->
-      <div class="mt-24 rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 p-8 sm:p-12 shadow-[0_0_50px_rgba(0,240,255,0.2)] text-center space-y-6">
-        <h2 class="text-2xl sm:text-4xl font-extrabold text-slate-100 font-mono">
-          Sẵn Sàng Trải Nghiệm Hệ Thống An Ninh V-Shield 2.0?
+      <!-- ── SECTION 3: BOTTOM WAR ROOM CTA ── -->
+      <div class="border-2 border-amber-500/40 bg-[#0a0d14] p-8 sm:p-12 mecha-cut-corners shadow-[0_0_50px_rgba(255,204,0,0.15)] text-center space-y-6 font-mono">
+        <h2 class="text-2xl sm:text-4xl font-black uppercase text-slate-100">
+          SẴN SÀNG TRIỂN KHAI V-SHIELD MK-II?
         </h2>
-        <p class="mx-auto max-w-xl text-xs sm:text-sm text-slate-300 leading-relaxed">
-          Tải ứng dụng Mobile APK hoặc truy cập Cổng Quản Trị Hệ Thống ngay để khám phá toàn bộ tính năng kiểm soát ra vào thời gian thực.
+        <p class="mx-auto max-w-xl font-sans text-xs sm:text-sm text-slate-300 leading-relaxed">
+          Tải ứng dụng Mobile APK hoặc truy cập Cổng Quản Trị Hệ Thống ngay để kích hoạt lá chắn bảo mật thời gian thực.
         </p>
         <div class="flex flex-wrap items-center justify-center gap-4 pt-2">
           <button
             type="button"
             @click="navigateTo('/download')"
-            class="rounded-xl bg-gradient-to-r from-cyan-500 to-pink-500 px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-950 shadow-[0_0_25px_rgba(0,240,255,0.5)] hover:scale-105 transition"
+            class="mecha-btn-hazard px-6 py-3.5 text-xs font-black uppercase mecha-cut-btn"
           >
-            📥 Tải Ngay APK Android
+            📥 TẢI FIELD APP (APK)
           </button>
           <button
             type="button"
             @click="navigateTo('/community')"
-            class="rounded-xl border border-cyan-500/40 bg-slate-900/80 px-6 py-3 text-xs font-bold uppercase tracking-wider text-cyan-300 hover:border-cyan-300 transition"
+            class="mecha-btn-tactical px-6 py-3.5 text-xs font-black uppercase mecha-cut-tr"
           >
-            💬 Tham Gia Diễn Đàn
+            💬 BẢNG TIN OPERATOR
           </button>
         </div>
       </div>

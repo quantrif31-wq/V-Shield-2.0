@@ -1,144 +1,142 @@
 <script setup>
-import { ref } from 'vue'
-
-const roadmapMilestones = [
+const roadmapPhases = [
   {
-    version: 'v1.0.0 (Genesis Phase)',
-    time: 'Tháng 03/2026',
-    title: 'Nền Tảng Kiểm Soát Cơ Bản & Quản Trị Trung Tâm',
-    status: 'Completed',
-    desc: 'Thiết kế cơ sở dữ liệu SQL Server, triển khai ASP.NET Core Web API, xác thực JWT đa quyền và quản lý nhân viên, lịch làm việc, khách đăng ký trước.',
+    phase: 'PHASE 01 // GENESIS PROTOCOL',
+    time: 'THÁNG 03/2026',
+    title: 'KHUNG GẦM ĐIỀU PHỐI & KIỂM SOÁT CƠ SỞ',
+    status: 'COMPLETED',
+    desc: 'Thiết kế cơ sở dữ liệu phân cấp SQL Server, xây dựng ASP.NET Core Web API, phân quyền chỉ huy đa cấp JWT và quản lý hồ sơ nhân viên, lịch trực tác chiến.',
     deliverables: [
-      'Kiến trúc Clean Architecture .NET 8',
-      'Hệ thống quản lý chấm công & ca trực',
+      'Clean Architecture .NET 8 lõi thép',
+      'Ma trận quản lý ca trực & chấm công chuẩn xác',
       'Phân quyền Admin / Quản Lý / Bảo Vệ / Lễ Tân / Nhân Sự'
     ]
   },
   {
-    version: 'v1.5.0 (Automation Phase)',
-    time: 'Tháng 05/2026',
-    title: 'Tích Hợp AI Edge & Rào Chắn Tự Động',
-    status: 'Completed',
-    desc: 'Tích hợp mô hình AI YOLOv11 + OCR nhận diện biển số xe máy / ô tô, kết nối luồng camera Go2RTC WebRTC 60 FPS và điều khiển tự động barie đóng mở.',
+    phase: 'PHASE 02 // KINETIC AUTOMATION',
+    time: 'THÁNG 05/2026',
+    title: 'TÍCH HỢP RADAR QUANG HỌC & RÀO CHẮN ĐỘNG LỰC',
+    status: 'COMPLETED',
+    desc: 'Huấn luyện mô hình YOLOv11 + OCR nhận dạng biển số ANPR, kết nối luồng camera WebRTC 60 FPS sub-100ms và điều khiển tự động barie mở cổng an ninh.',
     deliverables: [
       'Nhận diện biển số xe ANPR thời gian thực',
-      'Luồng Video RTSP/WebRTC sub-100ms',
+      'Luồng Video RTSP/WebRTC sub-100ms độ trễ thấp',
       'Mô phỏng trạm kiểm soát phần cứng Virtual Barrier'
     ]
   },
   {
-    version: 'v2.0.0 (Neural Realtime Defense - Hiện tại)',
-    time: 'Tháng 08/2026',
-    title: 'Hệ Sinh Thái Đa Nền Tảng, Hybrid Sync & Mã QR TOTP',
-    status: 'Active',
-    desc: 'Phát hành ứng dụng Mobile Android (APK), mã QR xoay vòng liên tục chống gian lận, giao thức đồng bộ lai Cloud-Local (Offline-First) và tổng đài VoIP Video Call WebRTC.',
+    phase: 'PHASE 03 // NEURAL REALTIME (CURRENT)',
+    time: 'THÁNG 08/2026',
+    title: 'HỆ SINH THÁI ĐA NỀN TẢNG & MÃ LƯỢNG TỬ TOTP',
+    status: 'ACTIVE',
+    desc: 'Phát hành ứng dụng Mobile Android APK, mã QR xoay vòng 30s chống chụp trộm, giao thức đồng bộ lai Hybrid Sync (Offline-First) và kênh thoại VoIP WebRTC.',
     deliverables: [
-      'Giao thức Central-Area Node Hybrid Sync',
-      'Mã QR TOTP SHA-256 chống chụp màn hình',
+      'Giao thức Central-Area Node Hybrid Sync (<30ms)',
+      'Mã QR TOTP HMAC-SHA256 kháng sao chép',
       'Đàm thoại Video Call hai chiều bảo vệ - nhân viên',
       'Mô hình phát hiện hành vi bất thường UEBA & SOC Console'
     ]
   },
   {
-    version: 'v2.5.0 (Autonomous AI Era - Kế hoạch tương lai)',
-    time: 'Quý 4/2026',
-    title: 'Mô Hình Ngôn Ngữ Lớn (LLM Agent) & Bản Đồ Số 3D Twin',
-    status: 'Planned',
-    desc: 'Tích hợp trợ lý AI đàm thoại tự nhiên xử lý tình huống khẩn cấp, bản đồ số 3D không gian tòa nhà (Digital Twin 3D) và điều phối an ninh tự hành qua máy bay không người lái (Drone Edge).',
+    phase: 'PHASE 04 // AUTONOMOUS AI TITAN',
+    time: 'QUÝ 4/2026',
+    title: 'LLM COPILOT CHỈ HUY & BẢN ĐỒ SỐ 3D TWIN',
+    status: 'PLANNED',
+    desc: 'Tích hợp trợ lý AI đàm thoại tự nhiên xử lý tình huống khẩn cấp, bản đồ số 3D Digital Twin không gian căn cứ và điều phối an ninh tự hành bằng Drone.',
     deliverables: [
       'Trợ lý an ninh AI Security Copilot (LLM Multi-modal)',
       'Mô hình 3D Digital Twin không gian khuôn viên',
-      'Tự động hóa cảnh báo đa kênh Telegram/SMS/Zalo Gateway'
+      'Tự động hóa cảnh báo tác chiến Telegram/SMS Gateway'
     ]
   }
 ]
 </script>
 
 <template>
-  <div class="py-12 lg:py-16">
+  <div class="py-10 lg:py-16 font-mono">
     <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 space-y-12">
       <!-- Header -->
       <div class="text-center space-y-3">
-        <div class="inline-flex items-center gap-2 rounded-full border border-pink-500/30 bg-pink-950/40 px-3 py-1 text-xs font-bold text-pink-300 font-mono">
-          <span>CYBER TIMELINE & EVOLUTION</span>
+        <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
+          <span>// CHASSIS EVOLUTION & UPGRADE TIMELINE</span>
         </div>
-        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-100 font-mono">
-          Lịch Sử Phát Triển & Lộ Trình
+        <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
+          LỊCH SỬ NÂNG CẤP CHIẾN GIÁP
         </h1>
-        <p class="mx-auto max-w-2xl text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Hành trình nghiên cứu, xây dựng và hoàn thiện đề tài đồ án tốt nghiệp V-Shield 2.0 từ phiên bản khởi nguyên tới hệ sinh thái bảo mật thông minh thế hệ mới.
+        <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Quá trình nghiên cứu, chế tạo và thử nghiệm đề tài đồ án tốt nghiệp V-Shield MK-II qua từng giai đoạn nâng cấp sức mạnh phòng thủ.
         </p>
       </div>
 
       <!-- Timeline Tree -->
-      <div class="relative border-l-2 border-cyan-500/30 pl-6 sm:pl-10 ml-4 sm:ml-8 space-y-12">
+      <div class="relative border-l-2 border-amber-500/40 pl-6 sm:pl-10 ml-4 sm:ml-8 space-y-12">
         <div
-          v-for="(item, idx) in roadmapMilestones"
+          v-for="(item, idx) in roadmapPhases"
           :key="idx"
           class="relative space-y-3"
         >
-          <!-- Timeline Glowing Node Dot -->
+          <!-- Timeline Node Marker -->
           <div
-            class="absolute -left-[31px] sm:-left-[47px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 bg-slate-950"
+            class="absolute -left-[31px] sm:-left-[47px] top-1 flex h-6 w-6 items-center justify-center border-2 bg-[#07080b]"
             :class="[
-              item.status === 'Active'
-                ? 'border-pink-400 shadow-[0_0_15px_#ff2a85]'
-                : item.status === 'Completed'
-                  ? 'border-cyan-400 shadow-[0_0_15px_#00f0ff]'
+              item.status === 'ACTIVE'
+                ? 'border-amber-400 shadow-[0_0_15px_#ffcc00]'
+                : item.status === 'COMPLETED'
+                  ? 'border-emerald-400 shadow-[0_0_15px_#10b981]'
                   : 'border-slate-600'
             ]"
           >
             <span
-              class="h-2 w-2 rounded-full"
+              class="h-2 w-2"
               :class="[
-                item.status === 'Active'
-                  ? 'bg-pink-400 animate-ping'
-                  : item.status === 'Completed'
-                    ? 'bg-cyan-400'
+                item.status === 'ACTIVE'
+                  ? 'bg-amber-400 animate-ping'
+                  : item.status === 'COMPLETED'
+                    ? 'bg-emerald-400'
                     : 'bg-slate-600'
               ]"
             ></span>
           </div>
 
-          <!-- Version & Status Tag -->
+          <!-- Phase Header Tag -->
           <div class="flex flex-wrap items-center gap-3">
-            <span class="font-mono text-xs font-black uppercase text-cyan-300">
-              {{ item.version }}
+            <span class="text-xs font-black uppercase text-amber-400">
+              {{ item.phase }}
             </span>
-            <span class="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-mono text-slate-400">
+            <span class="bg-[#121620] px-2 py-0.5 text-[10px] text-slate-400 border border-slate-700">
               {{ item.time }}
             </span>
             <span
-              class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+              class="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
               :class="[
-                item.status === 'Active'
-                  ? 'bg-pink-950 text-pink-300 border border-pink-500/40 shadow-[0_0_10px_rgba(255,42,133,0.3)]'
-                  : item.status === 'Completed'
+                item.status === 'ACTIVE'
+                  ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                  : item.status === 'COMPLETED'
                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
                     : 'bg-slate-900 text-slate-400 border border-slate-700'
               ]"
             >
-              {{ item.status === 'Active' ? 'Đang Hoạt Động (Current)' : item.status === 'Completed' ? 'Đã Hoàn Thành' : 'Kế Hoạch' }}
+              {{ item.status === 'ACTIVE' ? 'ĐANG TÁC CHIẾN (ACTIVE)' : item.status === 'COMPLETED' ? 'HOÀN THÀNH' : 'KẾ HOẠCH' }}
             </span>
           </div>
 
-          <!-- Title & Content Card -->
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl transition hover:border-cyan-500/40">
-            <h3 class="text-lg font-bold text-slate-100 font-mono">
+          <!-- Phase Content Card -->
+          <div class="mecha-hud-bracket border border-amber-500/30 bg-[#0d1017] p-6 mecha-cut-tr transition hover:border-amber-400 space-y-3">
+            <h3 class="text-base sm:text-lg font-black text-slate-100 uppercase">
               {{ item.title }}
             </h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-300">
+            <p class="font-sans text-xs text-slate-300 leading-relaxed">
               {{ item.desc }}
             </p>
 
-            <div class="mt-4 space-y-1.5 border-t border-slate-800/80 pt-3">
-              <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                Các kết quả đạt được:
+            <div class="space-y-1.5 border-t border-slate-800 pt-3">
+              <div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                KẾT QUẢ ĐẠT ĐƯỢC:
               </div>
               <ul class="space-y-1 text-xs text-slate-300">
                 <li v-for="(del, dIdx) in item.deliverables" :key="dIdx" class="flex items-center gap-2">
-                  <span class="text-cyan-400 font-bold">✓</span>
-                  <span>{{ del }}</span>
+                  <span class="text-amber-400 font-bold">»</span>
+                  <span class="font-sans">{{ del }}</span>
                 </li>
               </ul>
             </div>

@@ -37,14 +37,15 @@ provide('openAuthModal', handleOpenAuth)
 </script>
 
 <template>
-  <div class="relative min-h-screen w-full bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950">
-    <!-- Ambient Particle Canvas Background -->
+  <div class="relative min-h-screen w-full bg-[#07080b] text-slate-100 font-sans selection:bg-amber-400 selection:text-slate-950">
+    <!-- Ambient Particle Canvas Background (Amber & Laser Sparkles) -->
     <PortalParticlesCanvas />
 
-    <!-- Cyber Background Radial Glows & Grid -->
-    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(0,240,255,0.15),rgba(255,255,255,0))]"></div>
-    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_60%_60%_at_80%_90%,rgba(255,42,133,0.1),rgba(255,255,255,0))]"></div>
-    <div class="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(to_right,#00f0ff05_1px,transparent_1px),linear-gradient(to_bottom,#00f0ff05_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+    <!-- Mecha Carbon Grid & Hexagon Cockpit Glows -->
+    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(255,204,0,0.08),rgba(0,0,0,0))]"></div>
+    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_60%_60%_at_80%_90%,rgba(255,85,0,0.06),rgba(0,0,0,0))]"></div>
+    <div class="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(to_right,#ffcc0006_1px,transparent_1px),linear-gradient(to_bottom,#ffcc0006_1px,transparent_1px)] bg-[size:3.5rem_3.5rem]"></div>
+    <div class="pointer-events-none fixed inset-0 z-0 mecha-scanlines opacity-40"></div>
 
     <!-- Main Content Container -->
     <div class="relative z-10 flex min-h-screen flex-col justify-between">
@@ -58,7 +59,7 @@ provide('openAuthModal', handleOpenAuth)
       <!-- Sub-Page Views with Smooth Transitions -->
       <main class="flex-1">
         <router-view v-slot="{ Component }">
-          <transition name="portal-page" mode="out-in">
+          <transition name="mecha-page" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
@@ -68,7 +69,7 @@ provide('openAuthModal', handleOpenAuth)
       <PortalFooter />
     </div>
 
-    <!-- Google SSO / Community Auth Modal -->
+    <!-- Google SSO / Pilot ID Auth Modal -->
     <PortalAuthModal
       v-if="showAuthModal"
       @close="showAuthModal = false"
@@ -78,17 +79,17 @@ provide('openAuthModal', handleOpenAuth)
 </template>
 
 <style>
-.portal-page-enter-active,
-.portal-page-leave-active {
-  transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1), transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+.mecha-page-enter-active,
+.mecha-page-leave-active {
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.portal-page-enter-from {
+.mecha-page-enter-from {
   opacity: 0;
-  transform: translateY(12px) scale(0.99);
+  transform: translateY(8px) scale(0.99);
 }
 
-.portal-page-leave-to {
+.mecha-page-leave-to {
   opacity: 0;
   transform: translateY(-8px) scale(0.99);
 }
