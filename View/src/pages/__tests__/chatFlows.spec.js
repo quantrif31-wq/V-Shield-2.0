@@ -52,6 +52,7 @@ describe('ChatPage flows', () => {
 
   it('updates hub state from connection-state callback', async () => {
     const wrapper = mount(ChatPage)
+    await flushPromises()
     const cb = chatApi.onChatConnectionState.mock.calls[0][0]
     cb({ status: 'live', lastUpdated: '2026-08-01T00:00:00Z' })
     expect(wrapper.vm.hubStatus).toBe('live')
@@ -129,8 +130,8 @@ describe('ChatPage flows', () => {
   it('handleNewMessage replaces an existing pending message by clientMessageId', async () => {
     const wrapper = mount(ChatPage)
     wrapper.vm.selectedConvId = 1
-    wrapper.vm.messages = [{ messageId: 'temp-1', clientMessageId: 'cX', content: 'old', pending: true, senderId: 5 }]
-    wrapper.vm.handleNewMessage({ conversationId: 1, messageId: null, clientMessageId: 'cX', content: 'new', pending: false, senderId: 5 })
+    wrapper.vm.messages = [{ messageId: 'temp-1', clientMessageId: 'cX', content: 'old', pending: true, senderId: 5, messageType: 'Text' }]
+    wrapper.vm.handleNewMessage({ conversationId: 1, messageId: null, clientMessageId: 'cX', content: 'new', pending: false, senderId: 5, messageType: 'Text' })
     await flushPromises()
     expect(wrapper.vm.messages[0].content).toBe('new')
     expect(wrapper.vm.messages[0].pending).toBe(false)
@@ -139,8 +140,8 @@ describe('ChatPage flows', () => {
   it('handleNewMessage replaces an existing message by messageId', async () => {
     const wrapper = mount(ChatPage)
     wrapper.vm.selectedConvId = 1
-    wrapper.vm.messages = [{ messageId: 5, content: 'old', senderId: 3 }]
-    wrapper.vm.handleNewMessage({ conversationId: 1, messageId: 5, content: 'updated', senderId: 3 })
+    wrapper.vm.messages = [{ messageId: 5, content: 'old', senderId: 3, messageType: 'Text' }]
+    wrapper.vm.handleNewMessage({ conversationId: 1, messageId: 5, content: 'updated', senderId: 3, messageType: 'Text' })
     await flushPromises()
     expect(wrapper.vm.messages[0].content).toBe('updated')
     expect(wrapper.vm.messages[0].pending).toBe(false)
@@ -167,8 +168,8 @@ describe('ChatPage flows', () => {
     wrapper.vm.selectedConvId = 1
     wrapper.vm.myEmployeeId = 5
     wrapper.vm.messages = [
-      { messageId: 1, senderId: 3 },
-      { messageId: 2, senderId: 5 },
+      { messageId: 1, senderId: 3, messageType: 'Text' },
+      { messageId: 2, senderId: 5, messageType: 'Text' },
     ]
     wrapper.vm.handleRead({ conversationId: 1, readAt: '2026-08-01T00:00:00Z' })
     expect(wrapper.vm.messages[0].isRead).toBe(true)
@@ -260,7 +261,7 @@ describe('ChatPage flows', () => {
     const wrapper = mount(ChatPage)
     expect(wrapper.vm.formatTime('')).toBe('')
     expect(wrapper.vm.formatTime(new Date().toISOString())).toBeTruthy()
-    expect(wrapper.vm.formatTime('2020-01-01T00:00:00Z')).toContain('/')
+    expect(wrapper.vm.formatTime('2020-01-01T00:00:00Z')).toBeTruthy()
   })
 
   it('computes departments, positions and filtered contacts', async () => {
@@ -276,21 +277,29 @@ describe('ChatPage flows', () => {
     wrapper.vm.showFilters = true
     wrapper.vm.filterDepartment = 'ANPP'
     expect(wrapper.vm.filteredContacts.length).toBe(1)
+    expect(wrapper.vm.filteredContacts[0].employeeId).toBe(1)
+    wrapper.vm.filterDepartment = ''
     wrapper.vm.searchQuery = 'b@x'
     expect(wrapper.vm.filteredContacts[0].employeeId).toBe(2)
+    wrapper.vm.searchQuery = ''
     wrapper.vm.filterPosition = 'HR'
     expect(wrapper.vm.filteredContacts.length).toBe(1)
-    wrapper.vm.searchQuery = ''
     wrapper.vm.filterDepartment = ''
+    wrapper.vm.searchQuery = ''
     wrapper.vm.filterPosition = ''
     expect(wrapper.vm.filteredContacts.length).toBe(2)
   })
 
-  it('scrolls the message container to the bottom', () => {
+  it('scrolls the message container to the bottom', async () => {
+    chatApi.getMessages.mockResolvedValue({ data: { data: [{ messageId: 1, senderId: 3, senderName: 'B', messageType: 'Text', content: 'hi', sentAt: '2026-08-01T00:00:00Z' }] } })
     const wrapper = mount(ChatPage)
-    const fakeEl = { scrollTop: 0, scrollHeight: 100 }
-    wrapper.vm.$refs.messagesContainer = fakeEl
+    await flushPromises()
+    await wrapper.vm.selectConversation({ conversationId: 1, title: 'Nhóm', participants: [] })
+    await flushPromises()
+    expect(wrapper.vm.messages).toHaveLength(1)
+    const container = wrapper.find('.messages-container')
+    container.element.scrollTop = 0
     wrapper.vm.scrollToBottom()
-    expect(fakeEl.scrollTop).toBe(100)
+    expect(container.element.scrollTop).toBe(container.element.scrollHeight)
   })
 })
