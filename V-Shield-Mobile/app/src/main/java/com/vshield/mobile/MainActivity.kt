@@ -33,6 +33,7 @@ import com.vshield.mobile.viewmodel.NotificationViewModel
 
 import android.content.Intent
 import kotlinx.coroutines.flow.collectLatest
+import com.vshield.mobile.service.AutoStartHelper
 import com.vshield.mobile.service.NotificationHelper
 import com.vshield.mobile.service.VShieldBackgroundService
 

@@ -15,10 +15,15 @@ class BootReceiver : BroadcastReceiver() {
         val action = intent.action
         Log.i("BootReceiver", "Received broadcast: $action")
 
+        if (!AutoStartHelper.isAutoStartEnabled(context)) {
+            Log.i("BootReceiver", "Auto-start disabled by user preferences. Skipping startup.")
+            return
+        }
+
         val tokenManager = TokenManager(context)
         val token = tokenManager.getToken()
         if (!token.isNullOrBlank()) {
-            Log.i("BootReceiver", "Ensuring VShieldBackgroundService is running (action=$action)")
+            Log.i("BootReceiver", "Ensuring VShieldBackgroundService is running on boot (action=$action)")
             VShieldBackgroundService.start(context)
         }
     }

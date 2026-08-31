@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -53,6 +55,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vshield.mobile.data.model.ScheduleItem
 import com.vshield.mobile.security.BiometricType
 import com.vshield.mobile.security.toDisplayText
+import com.vshield.mobile.service.AutoStartHelper
 import com.vshield.mobile.ui.component.LoadingIndicator
 import com.vshield.mobile.ui.theme.Blue50
 import com.vshield.mobile.ui.theme.Blue700
@@ -84,10 +87,17 @@ fun ProfileScreen(
         profileViewModel.loadData()
     }
 
+    val context = LocalContext.current
+    var isAutoStartEnabled by remember { mutableStateOf(AutoStartHelper.isAutoStartEnabled(context)) }
+    var isIgnoringBattery by remember { mutableStateOf(AutoStartHelper.isIgnoringBatteryOptimizations(context)) }
+
     DisposableEffect(lifecycleOwner, activity, authState.awaitingBiometricEnrollment) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && authState.awaitingBiometricEnrollment) {
-                authViewModel.onBiometricEnrollmentSettingsReturned(activity)
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isIgnoringBattery = AutoStartHelper.isIgnoringBatteryOptimizations(context)
+                if (authState.awaitingBiometricEnrollment) {
+                    authViewModel.onBiometricEnrollmentSettingsReturned(activity)
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -352,6 +362,121 @@ fun ProfileScreen(
                             icon = Icons.Filled.Security,
                             label = "Tự khóa phiên",
                             value = "Đóng ứng dụng sẽ khóa ngay, hoặc để yên 5 phút sẽ tự quay về màn hình đăng nhập."
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Khởi chạy cùng thiết bị & Chạy nền",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Blue50
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PowerSettingsNew,
+                                        contentDescription = null,
+                                        tint = Blue700,
+                                        modifier = Modifier.padding(10.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Tự khởi chạy khi mở máy",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = if (isAutoStartEnabled) {
+                                            "Tự động bật dịch vụ ngầm nhận cuộc gọi & thông báo khẩn cấp ngay khi điện thoại khởi động lại."
+                                        } else {
+                                            "Đang tắt: Ứng dụng sẽ không tự chạy khi điện thoại khởi động lại."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Gray600
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isAutoStartEnabled,
+                                onCheckedChange = {
+                                    isAutoStartEnabled = it
+                                    AutoStartHelper.setAutoStartEnabled(context, it)
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                activity?.let { AutoStartHelper.requestIgnoreBatteryOptimizations(it) }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isIgnoringBattery) Icons.Filled.CheckCircle else Icons.Filled.PlayArrow,
+                                    contentDescription = null,
+                                    tint = if (isIgnoringBattery) Blue700 else Gray600,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    if (isIgnoringBattery) "Đã cấp quyền chạy ngầm không giới hạn Pin"
+                                    else "Yêu cầu quyền bỏ qua tối ưu hóa Pin"
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                AutoStartHelper.openAutoStartPermissionSettings(context)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.PowerSettingsNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Mở cài đặt Tự khởi chạy (Autostart) của máy")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Gợi ý: Đối với các dòng máy Xiaomi/POCO, Samsung, Oppo, Vivo, bạn nên bật 'Tự khởi chạy' và chọn 'Không giới hạn pin' để luôn nhận được cuộc gọi và cảnh báo.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Gray600
                         )
                     }
                 }

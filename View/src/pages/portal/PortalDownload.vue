@@ -12,7 +12,7 @@ const systemRequirements = [
   { spec: 'HỆ ĐIỀU HÀNH', requirement: 'Android 8.0 (Oreo) hoặc mới hơn' },
   { spec: 'KIẾN TRÚC CPU', requirement: 'ARM64-v8a / armeabi-v7a' },
   { spec: 'BỘ NHỚ RAM TỐI THIỂU', requirement: '2.0 GB RAM (Khuyến nghị 4GB)' },
-  { spec: 'QUYỀN TRUY CẬP YÊU CẦU', requirement: 'Camera (Quét QR/FaceID), Mic (Video Call VoIP)' },
+  { spec: 'QUYỀN TRUY CẬP YÊU CẦU', requirement: 'Camera, Mic, Khởi chạy cùng thiết bị (Boot), Bỏ qua tối ưu Pin' },
   { spec: 'KẾT NỐI MẠNG', requirement: 'Wi-Fi / 4G / 5G (Hỗ trợ mở cửa Offline tự hành)' }
 ]
 
@@ -109,11 +109,11 @@ onMounted(async () => {
               </div>
               <div class="flex items-center gap-2">
                 <span class="text-amber-400 font-bold">»</span>
-                <span>Tra cứu ca trực & bảng chấm công</span>
+                <span>Tự khởi chạy cùng thiết bị (Autostart)</span>
               </div>
               <div class="flex items-center gap-2">
                 <span class="text-amber-400 font-bold">»</span>
-                <span>Đăng ký khách & cấp quyền ra vào</span>
+                <span>Duy trì kết nối ngầm nhận cảnh báo 24/7</span>
               </div>
             </div>
 
