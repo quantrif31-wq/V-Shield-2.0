@@ -5,6 +5,8 @@ import PortalFooter from './PortalFooter.vue'
 import PortalParticlesCanvas from './PortalParticlesCanvas.vue'
 import PortalGlobalThreeCanvas from './PortalGlobalThreeCanvas.vue'
 import PortalLiveTelemetryFeed from './PortalLiveTelemetryFeed.vue'
+import PortalLaserSparksCanvas from './PortalLaserSparksCanvas.vue'
+import PortalScreenHudOverlay from './PortalScreenHudOverlay.vue'
 import PortalAuthModal from './PortalAuthModal.vue'
 import PortalTacticalCursor from './PortalTacticalCursor.vue'
 import { mechaAudio } from '../../utils/portalAudio'
@@ -13,7 +15,7 @@ const showAuthModal = ref(false)
 const communityUser = ref(null)
 
 function handleOpenAuth() {
-  mechaAudio.playClick()
+  mechaAudio.playHeavyImpactDrop()
   showAuthModal.value = true
 }
 
@@ -32,7 +34,11 @@ function handleLogoutCommunity() {
 function onGlobalClick(e) {
   const target = e.target.closest('button, a, .cursor-pointer')
   if (target) {
-    mechaAudio.playClick()
+    if (target.classList.contains('mecha-btn-hazard')) {
+      mechaAudio.playHeavyImpactDrop()
+    } else {
+      mechaAudio.playClick()
+    }
   }
 }
 
@@ -70,15 +76,21 @@ provide('openAuthModal', handleOpenAuth)
     <!-- Next-Gen Tactical Cursor Follower & Shockwaves -->
     <PortalTacticalCursor />
 
-    <!-- Fullscreen Global Three.js WebGL Cyber Canvas -->
+    <!-- High-Voltage Electric Laser Sparks & Embers Physics -->
+    <PortalLaserSparksCanvas />
+
+    <!-- Cockpit Screen 4-Corner Viewport HUD Overlay -->
+    <PortalScreenHudOverlay />
+
+    <!-- Fullscreen Global Three.js WebGL Cyber Space Canvas -->
     <PortalGlobalThreeCanvas />
 
     <!-- Ambient Particle Canvas Background (Amber & Laser Sparkles) -->
     <PortalParticlesCanvas />
 
     <!-- Mecha Carbon Grid & Hexagon Cockpit Glows -->
-    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(255,204,0,0.08),rgba(0,0,0,0))]"></div>
-    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_60%_60%_at_80%_90%,rgba(255,85,0,0.06),rgba(0,0,0,0))]"></div>
+    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(255,204,0,0.1),rgba(0,0,0,0))]"></div>
+    <div class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_60%_60%_at_80%_90%,rgba(255,85,0,0.08),rgba(0,0,0,0))]"></div>
     <div class="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(to_right,#ffcc0006_1px,transparent_1px),linear-gradient(to_bottom,#ffcc0006_1px,transparent_1px)] bg-[size:3.5rem_3.5rem]"></div>
     <div class="pointer-events-none fixed inset-0 z-0 mecha-scanlines opacity-30"></div>
 

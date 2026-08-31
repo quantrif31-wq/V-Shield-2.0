@@ -476,14 +476,25 @@ describe('UserManagement scope management', () => {
     expect(wrapper.vm.stepUpVisible).toBe(false)
 
     wrapper.vm.saveScopes()
+    wrapper.vm.gateAccessItems[0].accessMode = 'allow'
+    wrapper.vm.permissionOverrides[0].accessMode = 'inherit'
     userApi.replaceOperationalScopes.mockResolvedValue({})
     userApi.replaceUserGateAccess.mockResolvedValue({})
+    const payload = wrapper.vm.buildGatePayload()
+    expect(payload).toEqual([{ gateId: 10, accessMode: 'allow' }])
     await wrapper.vm.onStepUpConfirmed({ sessionId: 'sess' })
     await flushPromises()
     expect(securityApi.enterpriseApi.setStepUpSession).toHaveBeenCalledWith('sess')
     expect(userApi.replaceOperationalScopes).toHaveBeenCalledTimes(1)
     expect(userApi.replaceUserGateAccess).toHaveBeenCalledTimes(1)
     expect(wrapper.vm.showScopeModal).toBe(false)
+  })
+
+  it('cleans up the outside-click listener on unmount', async () => {
+    const removeSpy = vi.spyOn(document, 'removeEventListener')
+    const wrapper = await openScope()
+    wrapper.unmount()
+    expect(removeSpy).toHaveBeenCalledWith('click', wrapper.vm.handleClickOutside)
   })
 
   it('closes the scope modal and resets state', async () => {
