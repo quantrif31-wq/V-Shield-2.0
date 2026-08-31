@@ -1,7 +1,6 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { mechaAudio } from '../../utils/portalAudio'
 
 const props = defineProps({
@@ -13,664 +12,458 @@ const props = defineProps({
 
 const emit = defineEmits(['update:activeIndex', 'championClick'])
 
-// Mode: 'gltf_warframe' (Real 3D Animated Robot GLB) vs 'oscar_sketchfab' (Real 3D Oscar Creativo Model)
-const activeModelMode = ref('gltf_warframe')
 const containerRef = ref(null)
-const isLoadingModel = ref(true)
-const currentActionName = ref('Thủ Thế (Idle)')
+const canvasContainerRef = ref(null)
+const activeAngleIndex = ref(0)
+const isShieldActive = ref(false)
+const isOverdriveActive = ref(false)
+const isSketchfabViewer = ref(false)
+const isLockOnActive = ref(false)
+const currentActionText = ref('SẴN SÀNG TÁC CHIẾN (COMBAT READY)')
 
-let scene, camera, renderer, animationFrameId, clock
-let fixedStageGroup, mechaRootGroup, spotLight, ambientLight, dirLight
-let mixer = null
-const actions = {}
-let activeAction = null
-let currentModelScene = null
-let customWeapons = []
+// 3D Parallax & Gyro Tracking
+const mouseX = ref(0)
+const mouseY = ref(0)
+const rotX = ref(0)
+const rotY = ref(0)
+const isHovering = ref(false)
 
-// Mouse orbit and drag interaction
-let isDragging = false
-let prevMouseX = 0, prevMouseY = 0
-let mouseX = 0, mouseY = 0
-let manualRotY = 0, manualRotX = 0
+// Three.js Background Spark Stage
+let scene, camera, renderer, animationFrameId, particles
 
-// 5 Champions Color Profiles & Weapon Specs
+// High-Res Cinematic Render Angles of Oscar Creativo BOT MECHA Warrior
+const mechaAngles = [
+  {
+    id: 'front',
+    label: 'GÓC TIÊN PHONG CHÍNH DIỆN',
+    src: '/mecha/mecha_render1.jpg',
+    scale: 'scale-100'
+  },
+  {
+    id: 'combat',
+    label: 'GÓC TOÀN CẢNH VŨ TRANG',
+    src: '/mecha/mecha_render2.jpg',
+    scale: 'scale-105'
+  },
+  {
+    id: 'heavy',
+    label: 'TƯ THẾ XUẤT KÍCH HEROIC',
+    src: '/mecha/mecha_thumb.jpg',
+    scale: 'scale-100'
+  }
+]
+
+// 5 Champions Color Grading & Tactical Specs
 const championProfiles = [
   {
     id: 0,
     name: 'Phạm Văn Thành',
     codename: 'V-SHIELD PRIME',
-    primary: 0xffcc00,
-    accent: 0xff5500,
-    glow: 0xffcc00,
-    metalness: 0.9,
-    roughness: 0.18,
-    defaultAnim: 'Standing',
-    weaponType: 'broadsword'
+    primaryColor: '#ffcc00',
+    glowColor: '#ffaa00',
+    filterStyle: 'hue-rotate(0deg) saturate(1.35) contrast(1.1)',
+    weapon: 'LƯỠI ĐẠI KIẾM LƯỢNG TỬ // QUANTUM BLADE',
+    role: 'CHỈ HUY ĐIỀU HÀNH & KIẾN TRÚC SƯ TRƯỞNG'
   },
   {
     id: 1,
     name: 'Hà Mạnh Hùng',
     codename: 'PHANTOM FALCON',
-    primary: 0xff5500,
-    accent: 0xff0055,
-    glow: 0xff3300,
-    metalness: 0.92,
-    roughness: 0.15,
-    defaultAnim: 'Punch',
-    weaponType: 'railgun'
+    primaryColor: '#ff5500',
+    glowColor: '#ff2200',
+    filterStyle: 'hue-rotate(330deg) saturate(1.8) contrast(1.15)',
+    weapon: 'SÚNG TRƯỜNG PLASMA RAILGUN // HYPER-VELOCITY',
+    role: 'TRINH SÁT AN NINH & GIÁM SÁT THỰC ĐỊA'
   },
   {
     id: 2,
     name: 'Phạm Ngọc Hoài Anh',
     codename: 'DREADNOUGHT VORTEX',
-    primary: 0x00f0ff,
-    accent: 0x0088ff,
-    glow: 0x00ffff,
-    metalness: 0.95,
-    roughness: 0.12,
-    defaultAnim: 'Jump',
-    weaponType: 'cannon'
+    primaryColor: '#00f0ff',
+    glowColor: '#00c8ff',
+    filterStyle: 'hue-rotate(185deg) saturate(1.6) contrast(1.15)',
+    weapon: 'ĐẠI BÁC HẠT NẶNG TITAN // HEAVY CANNON',
+    role: 'HẠ TẦNG MẠNG & BẢO MẬT HỆ THỐNG'
   },
   {
     id: 3,
     name: 'Vũ Tiến Đạt',
     codename: 'SPECTRE STRIKER',
-    primary: 0xa855f7,
-    accent: 0xff00aa,
-    glow: 0xcc44ff,
-    metalness: 0.9,
-    roughness: 0.2,
-    defaultAnim: 'Running',
-    weaponType: 'daggers'
+    primaryColor: '#c084fc',
+    glowColor: '#a855f7',
+    filterStyle: 'hue-rotate(260deg) saturate(1.6) contrast(1.15)',
+    weapon: 'CẶP DAO GĂM SÓNG ÂM // SONIC DAGGERS',
+    role: 'THỊ GIÁC MÁY TÍNH & NHẬN DIỆN KHUÔN MẶT'
   },
   {
     id: 4,
     name: 'Nguyễn Quốc Việt',
     codename: 'TEMPEST JUGGERNAUT',
-    primary: 0x10b981,
-    accent: 0x06b6d4,
-    glow: 0x00ff88,
-    metalness: 0.85,
-    roughness: 0.25,
-    defaultAnim: 'Walking',
-    weaponType: 'halberd'
+    primaryColor: '#10b981',
+    glowColor: '#059669',
+    filterStyle: 'hue-rotate(95deg) saturate(1.6) contrast(1.15)',
+    weapon: 'KÍCH SẤM SÉT // THUNDERSTRIKE HALBERD',
+    role: 'XỬ LÝ DỮ LIỆU & PHÂN TÍCH HÀNH VI UEBA'
   }
 ]
 
-function switchModelMode(mode) {
-  activeModelMode.value = mode
-  mechaAudio.playEngage()
-  if (mode === 'gltf_warframe') {
-    nextTick(() => {
-      initStage()
-    })
+const currentChampion = computed(() => championProfiles[props.activeIndex] || championProfiles[0])
+
+// ── 3D PARALLAX MOUSE HANDLER ──
+function handleMouseMove(e) {
+  if (!containerRef.value) return
+  const rect = containerRef.value.getBoundingClientRect()
+  const x = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2)
+  const y = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2)
+  
+  mouseX.value = x
+  mouseY.value = y
+  rotY.value = x * 15
+  rotX.value = -y * 12
+  isHovering.value = true
+}
+
+function handleMouseLeave() {
+  isHovering.value = false
+  rotX.value = 0
+  rotY.value = 0
+  mouseX.value = 0
+  mouseY.value = 0
+}
+
+// ── COMBAT OVERDRIVE ACTIONS ──
+function triggerStrike() {
+  isOverdriveActive.value = true
+  currentActionText.value = '⚔️ KÍCH HOẠT XUNG KÍCH LƯỢNG TỬ (OVERDRIVE STRIKE)'
+  mechaAudio.playTargetLock()
+  mechaAudio.playHeavyImpactDrop()
+  setTimeout(() => {
+    isOverdriveActive.value = false
+    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
+  }, 1400)
+}
+
+function triggerShield() {
+  isShieldActive.value = !isShieldActive.value
+  if (isShieldActive.value) {
+    currentActionText.value = '🛡️ TRƯỜNG LỰC BẢO VỆ ĐANG HOẠT ĐỘNG (ENERGY SHIELD ACTIVE)'
+    mechaAudio.playEngage()
   } else {
-    disposeThree()
+    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
+    mechaAudio.playClick()
   }
 }
 
-// ── BUILD 3D HIGH-TECH WEAPONS ATTACHED TO SKELETON ──
-function buildChampionWeapon(weaponType, colorScheme) {
-  const weaponGroup = new THREE.Group()
-  const glowMat = new THREE.MeshBasicMaterial({ color: colorScheme.glow })
-  const metalMat = new THREE.MeshStandardMaterial({
-    color: 0x181e2b,
-    metalness: 0.95,
-    roughness: 0.18
-  })
-
-  if (weaponType === 'broadsword') {
-    const bladeGeo = new THREE.BoxGeometry(0.18, 2.2, 0.04)
-    const blade = new THREE.Mesh(bladeGeo, glowMat)
-    blade.position.set(0.65, 1.4, 0.3)
-    blade.rotation.z = Math.PI / 12
-    weaponGroup.add(blade)
-
-    const hiltGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8)
-    const hilt = new THREE.Mesh(hiltGeo, metalMat)
-    hilt.position.set(0.5, 0.4, 0.25)
-    hilt.rotation.z = Math.PI / 12
-    weaponGroup.add(hilt)
-  } else if (weaponType === 'railgun') {
-    const rail1Geo = new THREE.BoxGeometry(0.06, 0.08, 1.8)
-    const rail1 = new THREE.Mesh(rail1Geo, metalMat)
-    rail1.position.set(0.6, 0.9, 0.8)
-    weaponGroup.add(rail1)
-
-    const rail2 = new THREE.Mesh(rail1Geo, metalMat)
-    rail2.position.set(0.6, 0.76, 0.8)
-    weaponGroup.add(rail2)
-
-    const coreBeamGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.6, 8)
-    const coreBeam = new THREE.Mesh(coreBeamGeo, glowMat)
-    coreBeam.position.set(0.6, 0.83, 0.8)
-    coreBeam.rotation.x = Math.PI / 2
-    weaponGroup.add(coreBeam)
-  } else if (weaponType === 'cannon') {
-    const barrelGeo = new THREE.CylinderGeometry(0.18, 0.22, 1.6, 16)
-    const barrel = new THREE.Mesh(barrelGeo, metalMat)
-    barrel.position.set(-0.55, 1.65, 0.4)
-    barrel.rotation.x = Math.PI / 2
-    weaponGroup.add(barrel)
-
-    const ringGeo = new THREE.TorusGeometry(0.2, 0.04, 8, 16)
-    const ring = new THREE.Mesh(ringGeo, glowMat)
-    ring.position.set(-0.55, 1.65, 1.2)
-    weaponGroup.add(ring)
-  } else if (weaponType === 'daggers') {
-    const dGeo = new THREE.ConeGeometry(0.09, 1.1, 4)
-    const d1 = new THREE.Mesh(dGeo, glowMat)
-    d1.position.set(-0.6, 0.7, 0.5)
-    d1.rotation.x = Math.PI / 2.5
-    weaponGroup.add(d1)
-
-    const d2 = new THREE.Mesh(dGeo, glowMat)
-    d2.position.set(0.6, 0.7, 0.5)
-    d2.rotation.x = -Math.PI / 2.5
-    weaponGroup.add(d2)
-  } else if (weaponType === 'halberd') {
-    const shaftGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.4, 8)
-    const shaft = new THREE.Mesh(shaftGeo, metalMat)
-    shaft.position.set(0.65, 1.2, 0.2)
-    weaponGroup.add(shaft)
-
-    const tipGeo = new THREE.ConeGeometry(0.18, 0.7, 4)
-    const tip = new THREE.Mesh(tipGeo, glowMat)
-    tip.position.set(0.65, 2.45, 0.2)
-    weaponGroup.add(tip)
-  }
-
-  return weaponGroup
+function triggerBoost() {
+  currentActionText.value = '🚀 ĐẨY PHẢN LỰC SIÊU THANH (THRUSTER BOOST)'
+  mechaAudio.playEngage()
+  rotX.value = -18
+  setTimeout(() => {
+    rotX.value = 0
+    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
+  }, 1200)
 }
 
-function initStage() {
-  const container = containerRef.value
+function triggerLockOn() {
+  isLockOnActive.value = !isLockOnActive.value
+  if (isLockOnActive.value) {
+    currentActionText.value = '🎯 KHÓA MỤC TIÊU CHIẾN THUẬT (TARGET LOCK-ON)'
+    mechaAudio.playTargetLock()
+  } else {
+    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
+    mechaAudio.playHover()
+  }
+}
+
+function cycleAngle() {
+  activeAngleIndex.value = (activeAngleIndex.value + 1) % mechaAngles.length
+  currentActionText.value = '🔄 ĐỔI GÓC NHÌN: ' + mechaAngles[activeAngleIndex.value].label
+  mechaAudio.playClick()
+}
+
+// ── LIGHTWEIGHT 3D SPARK NEBULA (THREE.JS) ──
+function initSparkStage() {
+  const container = canvasContainerRef.value
   if (!container) return
 
-  disposeThree()
-
-  const width = container.clientWidth || 480
+  const width = container.clientWidth || 500
   const height = container.clientHeight || 420
 
-  clock = new THREE.Clock()
-
-  // 1. Scene & Camera
   scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000)
-  camera.position.set(0, 2.2, 5.8)
-  camera.lookAt(0, 1.1, 0)
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100)
+  camera.position.set(0, 0, 8)
 
-  // 2. High-Tech Tactical Lighting
-  ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
-  scene.add(ambientLight)
-
-  dirLight = new THREE.DirectionalLight(0xffffff, 2.8)
-  dirLight.position.set(5, 10, 7)
-  scene.add(dirLight)
-
-  const rimLight = new THREE.DirectionalLight(0x00f0ff, 2.2)
-  rimLight.position.set(-5, 4, -5)
-  scene.add(rimLight)
-
-  const currentProfile = championProfiles[props.activeIndex] || championProfiles[0]
-  spotLight = new THREE.PointLight(currentProfile.glow, 3.8, 16)
-  spotLight.position.set(0, 3.2, 3.5)
-  scene.add(spotLight)
-
-  // 3. Renderer with safe WebGL configuration
   try {
-    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' })
+    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
     renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.15
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     container.appendChild(renderer.domElement)
   } catch (_) {
-    isLoadingModel.value = false
     return
   }
 
-  // ── 4. MECHA BREAK HOLOGRAPHIC LAUNCH PLATFORM ──
-  fixedStageGroup = new THREE.Group()
-  scene.add(fixedStageGroup)
-
-  const baseGeo = new THREE.CylinderGeometry(2.5, 2.7, 0.32, 8)
-  const baseMat = new THREE.MeshStandardMaterial({
-    color: 0x07090e,
-    metalness: 0.96,
-    roughness: 0.15
-  })
-  const baseMesh = new THREE.Mesh(baseGeo, baseMat)
-  baseMesh.position.y = -0.16
-  fixedStageGroup.add(baseMesh)
-
-  const outerRingGeo = new THREE.TorusGeometry(2.65, 0.04, 16, 64)
-  const ringMat = new THREE.MeshBasicMaterial({ color: currentProfile.glow })
-  const outerRing = new THREE.Mesh(outerRingGeo, ringMat)
-  outerRing.rotation.x = Math.PI / 2
-  fixedStageGroup.add(outerRing)
-
-  const discGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.02, 32)
-  const discMat = new THREE.MeshBasicMaterial({
-    color: currentProfile.glow,
-    transparent: true,
-    opacity: 0.35,
-    wireframe: true
-  })
-  const discMesh = new THREE.Mesh(discGeo, discMat)
-  discMesh.position.y = 0.01
-  fixedStageGroup.add(discMesh)
-
-  // 4 Corner Energy Emitters
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4
-    const pylonGeo = new THREE.BoxGeometry(0.15, 0.42, 0.15)
-    const pylonMat = new THREE.MeshStandardMaterial({ color: 0x181e2b, metalness: 0.9, roughness: 0.2 })
-    const pylon = new THREE.Mesh(pylonGeo, pylonMat)
-    pylon.position.set(Math.cos(angle) * 2.4, 0.1, Math.sin(angle) * 2.4)
-    fixedStageGroup.add(pylon)
-
-    const tipGeo = new THREE.SphereGeometry(0.055, 8, 8)
-    const tip = new THREE.Mesh(tipGeo, ringMat)
-    tip.position.set(Math.cos(angle) * 2.4, 0.34, Math.sin(angle) * 2.4)
-    fixedStageGroup.add(tip)
-  }
-
-  // Floating Cyber Sparks
-  const pCount = 140
+  // 120 Floating Cyber Particles
+  const pCount = 120
   const pPositions = new Float32Array(pCount * 3)
   for (let i = 0; i < pCount * 3; i += 3) {
-    pPositions[i] = (Math.random() - 0.5) * 4.5
-    pPositions[i + 1] = Math.random() * 3.4
-    pPositions[i + 2] = (Math.random() - 0.5) * 4.5
+    pPositions[i] = (Math.random() - 0.5) * 10
+    pPositions[i + 1] = (Math.random() - 0.5) * 8
+    pPositions[i + 2] = (Math.random() - 0.5) * 6
   }
   const pGeo = new THREE.BufferGeometry()
   pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3))
   const pMat = new THREE.PointsMaterial({
-    color: currentProfile.glow,
-    size: 0.045,
+    color: new THREE.Color(currentChampion.value.primaryColor),
+    size: 0.05,
     transparent: true,
-    opacity: 0.8
+    opacity: 0.85
   })
-  const particles = new THREE.Points(pGeo, pMat)
-  fixedStageGroup.add(particles)
+  particles = new THREE.Points(pGeo, pMat)
+  scene.add(particles)
 
-  // ── 5. LOAD REAL 3D GLB WARFRAME MODEL ──
-  mechaRootGroup = new THREE.Group()
-  scene.add(mechaRootGroup)
-
-  loadRealGLTFModel()
-
-  // Listeners
-  window.addEventListener('mousemove', onMouseMove, { passive: true })
-  window.addEventListener('resize', onResize)
-
-  container.addEventListener('mousedown', (e) => {
-    isDragging = true
-    prevMouseX = e.clientX
-    prevMouseY = e.clientY
-  })
-
-  window.addEventListener('mouseup', () => {
-    isDragging = false
-  })
-
-  container.addEventListener('click', () => {
-    triggerNextAnimation()
-  })
-
-  animate()
+  animateSparks()
 }
 
-function loadRealGLTFModel() {
-  isLoadingModel.value = true
-  const loader = new GLTFLoader()
-
-  loader.load(
-    '/models/robot_expressive.glb',
-    (gltf) => {
-      const model = gltf.scene
-      currentModelScene = model
-      model.scale.set(0.5, 0.5, 0.5)
-      model.position.set(0, 0, 0)
-
-      // Initialize Skeletal Animation Mixer
-      mixer = new THREE.AnimationMixer(model)
-      const animClips = gltf.animations || []
-
-      animClips.forEach((clip) => {
-        actions[clip.name] = mixer.clipAction(clip)
-      })
-
-      if (actions['Idle']) {
-        activeAction = actions['Idle']
-        activeAction.play()
-        currentActionName.value = 'Thủ Thế (Idle)'
-      } else if (animClips.length > 0) {
-        activeAction = mixer.clipAction(animClips[0])
-        activeAction.play()
-        currentActionName.value = animClips[0].name
-      }
-
-      mechaRootGroup.add(model)
-      applyChampionSkin(props.activeIndex)
-      isLoadingModel.value = false
-    },
-    undefined,
-    (err) => {
-      console.warn('GLTF load error:', err)
-      isLoadingModel.value = false
-    }
-  )
-}
-
-function playAnimation(name, duration = 0.4) {
-  if (!mixer || !actions[name]) return
-
-  const prevAction = activeAction
-  activeAction = actions[name]
-  currentActionName.value = name
-
-  if (prevAction !== activeAction) {
-    if (prevAction) prevAction.fadeOut(duration)
-    activeAction
-      .reset()
-      .setEffectiveTimeScale(1)
-      .setEffectiveWeight(1)
-      .fadeIn(duration)
-      .play()
+function animateSparks() {
+  animationFrameId = requestAnimationFrame(animateSparks)
+  const time = Date.now() * 0.001
+  if (particles) {
+    particles.rotation.y = time * 0.06 + mouseX.value * 0.2
+    particles.rotation.x = time * 0.03 - mouseY.value * 0.15
   }
-}
-
-function applyChampionSkin(index) {
-  const profile = championProfiles[index] || championProfiles[0]
-
-  if (spotLight) {
-    spotLight.color.setHex(profile.glow)
-  }
-
-  // Inject PBR Cyber Shaders onto the Real 3D Model Meshes
-  if (currentModelScene) {
-    currentModelScene.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const mat = child.material
-        if (child.name.toLowerCase().includes('head') || child.name.toLowerCase().includes('body') || child.name.toLowerCase().includes('main')) {
-          mat.color.setHex(profile.primary)
-          mat.metalness = profile.metalness
-          mat.roughness = profile.roughness
-        } else if (child.name.toLowerCase().includes('eye') || child.name.toLowerCase().includes('visor') || child.name.toLowerCase().includes('glow')) {
-          mat.color.setHex(profile.glow)
-          if (mat.emissive) mat.emissive.setHex(profile.glow)
-        } else {
-          mat.metalness = 0.9
-          mat.roughness = 0.22
-        }
-      }
-    })
-  }
-
-  // Attach Custom Weapon
-  customWeapons.forEach(w => mechaRootGroup.remove(w))
-  customWeapons = []
-
-  const newWeapon = buildChampionWeapon(profile.weaponType, profile)
-  mechaRootGroup.add(newWeapon)
-  customWeapons.push(newWeapon)
-
-  if (profile.defaultAnim && actions[profile.defaultAnim]) {
-    playAnimation(profile.defaultAnim, 0.5)
-  } else if (actions['Idle']) {
-    playAnimation('Idle', 0.5)
-  }
-}
-
-function triggerNextAnimation() {
-  const actionList = ['Punch', 'Jump', 'Wave', 'Running', 'Dance', 'Idle']
-  const randomAnim = actionList[Math.floor(Math.random() * actionList.length)]
-  if (actions[randomAnim]) {
-    playAnimation(randomAnim, 0.3)
-    mechaAudio.playTargetLock()
-    mechaAudio.playHeavyImpactDrop()
-  }
-}
-
-function onMouseMove(e) {
-  if (isDragging) {
-    const deltaX = e.clientX - prevMouseX
-    const deltaY = e.clientY - prevMouseY
-    manualRotY += deltaX * 0.012
-    manualRotX += deltaY * 0.008
-    prevMouseX = e.clientX
-    prevMouseY = e.clientY
-  }
-
-  if (!containerRef.value) return
-  const rect = containerRef.value.getBoundingClientRect()
-  mouseX = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2)
-  mouseY = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2)
-}
-
-function onResize() {
-  if (!containerRef.value || !renderer || !camera) return
-  const width = containerRef.value.clientWidth
-  const height = containerRef.value.clientHeight
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  renderer.setSize(width, height)
-}
-
-function animate() {
-  animationFrameId = requestAnimationFrame(animate)
-
-  const delta = clock ? clock.getDelta() : 0.016
-  const time = Date.now() * 0.002
-
-  if (mixer) {
-    mixer.update(delta)
-  }
-
-  if (mechaRootGroup) {
-    mechaRootGroup.rotation.y = manualRotY + Math.sin(time * 0.5) * 0.12 + mouseX * 0.35
-    mechaRootGroup.position.y = Math.sin(time * 2) * 0.02
-  }
-
-  if (fixedStageGroup) {
-    const particles = fixedStageGroup.children.find(c => c.isPoints)
-    if (particles) {
-      particles.rotation.y = time * 0.1
-    }
-  }
-
-  if (camera) {
-    camera.position.x = mouseX * 0.3
-    camera.position.y = 2.2 - mouseY * 0.25
-    camera.lookAt(0, 1.1, 0)
-  }
-
   if (renderer && scene && camera) {
     renderer.render(scene, camera)
   }
 }
 
-function disposeThree() {
-  if (animationFrameId) cancelAnimationFrame(animationFrameId)
-  if (renderer) {
-    renderer.dispose()
-    if (renderer.domElement && renderer.domElement.parentNode) {
-      renderer.domElement.parentNode.removeChild(renderer.domElement)
-    }
+function updateSparkColor() {
+  if (particles && particles.material) {
+    particles.material.color.set(currentChampion.value.primaryColor)
   }
 }
 
-watch(() => props.activeIndex, (newVal) => {
-  if (activeModelMode.value === 'gltf_warframe') {
-    applyChampionSkin(newVal)
-  }
-})
-
 onMounted(() => {
-  if (activeModelMode.value === 'gltf_warframe') {
-    initStage()
-  }
+  initSparkStage()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('mousemove', onMouseMove)
-  window.removeEventListener('resize', onResize)
-  disposeThree()
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  if (renderer && renderer.domElement && renderer.domElement.parentNode) {
+    renderer.domElement.parentNode.removeChild(renderer.domElement)
+  }
+})
+
+watch(() => props.activeIndex, () => {
+  updateSparkColor()
 })
 </script>
 
 <template>
   <div class="relative flex flex-col items-center justify-center select-none w-full">
     
-    <!-- ── 3D MODEL ENGINE SWITCHER ── -->
-    <div class="mb-3 flex items-center gap-1.5 p-1 bg-[#090c14]/90 border border-amber-500/40 mecha-cut-tr z-30 shadow-[0_0_20px_rgba(255,204,0,0.2)]">
-      <button
-        type="button"
-        @click="switchModelMode('gltf_warframe')"
-        class="px-3 py-1.5 text-[10px] font-black uppercase transition-all mecha-cut-tr flex items-center gap-1.5"
-        :class="[
-          activeModelMode === 'gltf_warframe'
-            ? 'bg-amber-400 text-slate-950 shadow-[0_0_15px_#ffcc00]'
-            : 'bg-transparent text-slate-400 hover:text-amber-300'
-        ]"
-      >
-        <span>⚡</span>
-        <span>MÔ HÌNH 3D WARFRAME (GLTF ANIMATED)</span>
-      </button>
-
-      <button
-        type="button"
-        @click="switchModelMode('oscar_sketchfab')"
-        class="px-3 py-1.5 text-[10px] font-black uppercase transition-all mecha-cut-tr flex items-center gap-1.5"
-        :class="[
-          activeModelMode === 'oscar_sketchfab'
-            ? 'bg-amber-400 text-slate-950 shadow-[0_0_15px_#ffcc00]'
-            : 'bg-transparent text-slate-400 hover:text-amber-300'
-        ]"
-      >
-        <span>🤖</span>
-        <span>MÔ HÌNH SKETCHFAB (OSCAR CREATIVO)</span>
-      </button>
-    </div>
-
-    <!-- ── OPTION 1: REAL 3D ANIMATED GLB MODEL (THREE.JS) ── -->
+    <!-- ── 3D MECHA BREAK HOLOGRAPHIC STAGE CONTAINER ── -->
     <div
-      v-if="activeModelMode === 'gltf_warframe'"
-      class="relative flex flex-col items-center justify-center w-full"
+      ref="containerRef"
+      @mousemove="handleMouseMove"
+      @mouseleave="handleMouseLeave"
+      class="relative h-[420px] sm:h-[460px] w-full max-w-[540px] flex items-center justify-center cursor-crosshair overflow-hidden rounded-xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0b0e17]/95 via-[#07090e] to-[#04060a] mecha-cut-corners shadow-[0_0_60px_rgba(255,204,0,0.25)]"
+      style="perspective: 1200px;"
     >
-      <!-- 3D Canvas Container -->
+      <!-- Background Three.js Particle Sparks Canvas -->
+      <div ref="canvasContainerRef" class="pointer-events-none absolute inset-0 z-0"></div>
+
+      <!-- Holographic Grid Floor & Pedestal Lighting -->
       <div
-        ref="containerRef"
-        class="h-[380px] sm:h-[420px] w-full max-w-[520px] cursor-grab active:cursor-grabbing filter drop-shadow-[0_0_50px_rgba(255,204,0,0.45)] relative"
-        title="Kéo chuột để xoay 360° • Nhấp chuột để kích hoạt hoạt ảnh chiến đấu"
+        class="pointer-events-none absolute bottom-0 inset-x-0 h-44 bg-[radial-gradient(ellipse_at_bottom,#ffcc0025,transparent_70%)] opacity-80 z-0"
+      ></div>
+
+      <!-- Holographic Outer Laser Ring -->
+      <div
+        class="pointer-events-none absolute bottom-6 h-28 w-80 rounded-full border-2 border-dashed transition-all duration-700 animate-spin-slow opacity-60 z-0"
+        :style="{ borderColor: currentChampion.primaryColor, boxShadow: '0 0 30px ' + currentChampion.glowColor + '40' }"
+      ></div>
+
+      <!-- ── PSEUDO-3D PARALLAX MECHA WARFRAME LAYER ── -->
+      <div
+        v-if="!isSketchfabViewer"
+        class="relative flex items-center justify-center w-full h-full z-10 transition-transform duration-150 ease-out"
+        :style="{
+          transform: 'rotateY(' + rotY + 'deg) rotateX(' + rotX + 'deg) translateZ(' + (isOverdriveActive ? 60 : 30) + 'px) scale(' + (isOverdriveActive ? 1.08 : 1) + ')',
+          filter: isOverdriveActive ? 'brightness(1.3) drop-shadow(0 0 35px #ff5500)' : 'none'
+        }"
       >
-        <!-- Loading Spinner -->
+        <!-- High-Res Authentic Oscar Creativo Mecha Image -->
+        <img
+          :src="mechaAngles[activeAngleIndex].src"
+          :alt="mechaAngles[activeAngleIndex].label"
+          class="h-[360px] sm:h-[400px] w-auto object-contain transition-all duration-500 select-none pointer-events-none drop-shadow-[0_20px_35px_rgba(0,0,0,0.9)]"
+          :class="mechaAngles[activeAngleIndex].scale"
+          :style="{ filter: currentChampion.filterStyle }"
+        />
+
+        <!-- Dynamic Specular Cursor Glare Layer -->
         <div
-          v-if="isLoadingModel"
-          class="absolute inset-0 flex flex-col items-center justify-center bg-[#07090e]/80 backdrop-blur-sm z-30 font-mono text-xs text-amber-400 gap-2"
+          class="pointer-events-none absolute inset-0 transition-opacity duration-300 mix-blend-screen"
+          :style="{
+            background: isHovering
+              ? 'radial-gradient(circle 200px at ' + ((mouseX + 1) * 50) + '% ' + ((mouseY + 1) * 50) + '%, ' + currentChampion.primaryColor + '55, transparent 80%)'
+              : 'none'
+          }"
+        ></div>
+
+        <!-- Glowing Reactor Core Surge Effect -->
+        <div
+          class="pointer-events-none absolute h-12 w-12 rounded-full blur-md animate-pulse mix-blend-screen transition-all duration-500"
+          :style="{
+            backgroundColor: currentChampion.primaryColor,
+            top: '44%',
+            left: '48%',
+            transform: 'translate(-50%, -50%)',
+            boxShadow: '0 0 40px 15px ' + currentChampion.primaryColor
+          }"
+        ></div>
+
+        <!-- Hexagonal Energy Shield Forcefield Layer -->
+        <div
+          v-if="isShieldActive"
+          class="pointer-events-none absolute inset-6 rounded-2xl border-2 border-cyan-400/80 bg-cyan-500/10 backdrop-blur-[1px] animate-pulse flex items-center justify-center shadow-[0_0_50px_rgba(0,240,255,0.5)] z-20"
         >
-          <span class="h-5 w-5 border-2 border-amber-400 border-t-transparent animate-spin rounded-full"></span>
-          <span>ĐANG NẠP MÔ HÌNH 3D GLTF (450KB)...</span>
+          <div class="font-mono text-xs font-black text-cyan-300 tracking-widest bg-slate-950/80 px-3 py-1 border border-cyan-400 mecha-cut-tr">
+            ⚡ QUANTUM FORCEFIELD // ACTIVE
+          </div>
+        </div>
+
+        <!-- Tactical Lock-on Reticles -->
+        <div
+          v-if="isLockOnActive"
+          class="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
+        >
+          <div class="h-44 w-44 rounded-full border-2 border-red-500/80 animate-ping opacity-60"></div>
+          <div class="absolute h-56 w-56 rounded-full border border-dashed border-red-400/80 animate-spin-slow"></div>
+          <div class="absolute font-mono text-[9px] font-black text-red-400 bg-red-950/80 px-2 py-0.5 border border-red-500 -top-2">
+            [TARGET ACQUIRED: 100%]
+          </div>
         </div>
       </div>
 
-      <!-- Real Combat Action Buttons Bar -->
-      <div class="mt-2 flex flex-wrap items-center justify-center gap-1.5 z-20 font-mono text-[10px] font-black max-w-lg">
-        <button
-          type="button"
-          @click="playAnimation('Punch'); mechaAudio.playHeavyImpactDrop()"
-          class="px-2.5 py-1 bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(239,68,68,0.3)] flex items-center gap-1"
-        >
-          <span>⚔️ TẤN CÔNG (PUNCH)</span>
-        </button>
-
-        <button
-          type="button"
-          @click="playAnimation('Jump'); mechaAudio.playEngage()"
-          class="px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(6,182,212,0.3)] flex items-center gap-1"
-        >
-          <span>🚀 BẬT NHẢY (JUMP)</span>
-        </button>
-
-        <button
-          type="button"
-          @click="playAnimation('Wave'); mechaAudio.playClick()"
-          class="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(245,158,11,0.3)] flex items-center gap-1"
-        >
-          <span>🫡 CHÀO CHIẾN THUẬT</span>
-        </button>
-
-        <button
-          type="button"
-          @click="playAnimation('Running'); mechaAudio.playTargetLock()"
-          class="px-2.5 py-1 bg-purple-950/80 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(168,85,247,0.3)] flex items-center gap-1"
-        >
-          <span>🏃 XUNG PHONG (SPRINT)</span>
-        </button>
-
-        <button
-          type="button"
-          @click="playAnimation('Dance'); mechaAudio.playClick()"
-          class="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(16,185,129,0.3)] flex items-center gap-1"
-        >
-          <span>🏆 ĂN MỪNG (VICTORY)</span>
-        </button>
-
-        <button
-          type="button"
-          @click="playAnimation('Idle'); mechaAudio.playHover()"
-          class="px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all mecha-cut-tr flex items-center gap-1"
-        >
-          <span>🛡️ THỦ THẾ (IDLE)</span>
-        </button>
+      <!-- ── EMBEDDED SKETCHFAB 3D ENGINE (OPTIONAL ON-DEMAND) ── -->
+      <div
+        v-else
+        class="relative w-full h-full z-10 p-2"
+      >
+        <iframe
+          title="BOT MECHA Warrior 3d by Oscar Creativo"
+          class="w-full h-full border-0 rounded-lg"
+          src="https://sketchfab.com/models/34850bfe441642788154c4a8a0bd60e4/embed?autostart=1&preload=1&ui_theme=dark&ui_infos=0&ui_watermark=0&ui_stop=0&ui_hint=2&dnt=1"
+          allow="autoplay; fullscreen; xr-spatial-tracking"
+          xr-spatial-tracking="true"
+          allowfullscreen
+        ></iframe>
       </div>
 
-      <!-- HUD Telemetry Footer -->
-      <div class="mt-3 flex items-center justify-between w-full max-w-md px-3 py-1 font-mono text-[9px] font-bold text-amber-400/90 bg-[#07090e]/90 border border-amber-500/30 mecha-cut-corners shadow-[0_0_25px_rgba(255,204,0,0.2)]">
-        <div class="flex items-center gap-1.5">
-          <span class="h-1.5 w-1.5 bg-emerald-400 animate-ping"></span>
-          <span>HOẠT ẢNH: <span class="text-white uppercase">{{ currentActionName }}</span></span>
+      <!-- ── TACTICAL HUD OVERLAYS (MECHA BREAK AESTHETICS) ── -->
+      <!-- Top Left Unit Code -->
+      <div class="pointer-events-none absolute top-3 left-3 flex items-center gap-2 bg-[#07090e]/90 px-2.5 py-1 border border-amber-500/40 text-[9.5px] font-mono font-black text-amber-400 z-30 mecha-cut-tr">
+        <span class="h-2 w-2 rounded-full animate-ping" :style="{ backgroundColor: currentChampion.primaryColor }"></span>
+        <span>MECHA: {{ currentChampion.codename }}</span>
+      </div>
+
+      <!-- Top Right Weapon Badge -->
+      <div class="pointer-events-none absolute top-3 right-3 bg-[#07090e]/90 px-2.5 py-1 border border-cyan-500/40 text-[9px] font-mono font-bold text-cyan-400 z-30 mecha-cut-tr">
+        <span>VŨ KHÍ: {{ currentChampion.weapon.split('//')[0] }}</span>
+      </div>
+
+      <!-- Bottom Status Readout -->
+      <div class="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between bg-[#07090e]/90 px-3 py-1.5 border border-slate-800 text-[9px] font-mono z-30 mecha-cut-corners">
+        <div class="flex items-center gap-1.5 text-slate-300">
+          <span class="text-amber-400 font-black">TRẠNG THÁI:</span>
+          <span class="text-white font-bold">{{ currentActionText }}</span>
         </div>
-        <div class="text-slate-400">
-          MÔ HÌNH: <span class="text-amber-400 font-black">REAL 3D SKELETON GLTF</span>
+        <div class="text-emerald-400 font-bold hidden sm:block">
+          GÓC 3D GYRO: X:{{ Math.round(rotX) }}° Y:{{ Math.round(rotY) }}°
         </div>
       </div>
     </div>
 
-    <!-- ── OPTION 2: REAL 3D OSCAR CREATIVO SKETCHFAB EMBED ── -->
-    <div
-      v-else
-      class="relative h-[380px] sm:h-[430px] w-full max-w-[540px] border-2 border-amber-500/50 bg-[#07090e] mecha-cut-corners shadow-[0_0_50px_rgba(255,204,0,0.35)] overflow-hidden"
-    >
-      <iframe
-        title="BOT MECHA Warrior 3d by Oscar Creativo"
-        class="w-full h-full border-0"
-        src="https://sketchfab.com/models/34850bfe441642788154c4a8a0bd60e4/embed?autostart=1&preload=1&ui_theme=dark&ui_infos=0&ui_watermark=0&ui_stop=0&ui_hint=2&dnt=1"
-        allow="autoplay; fullscreen; xr-spatial-tracking"
-        xr-spatial-tracking="true"
-        allowfullscreen
-      ></iframe>
+    <!-- ── INTERACTIVE COMBAT OVERDRIVE CONTROL BAR ── -->
+    <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5 z-20 font-mono text-[10px] font-black max-w-xl">
+      <button
+        type="button"
+        @click="triggerStrike"
+        class="px-3 py-1.5 bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/60 transition-all mecha-cut-tr shadow-[0_0_15px_rgba(239,68,68,0.4)] flex items-center gap-1.5 active:scale-95"
+      >
+        <span>⚔️ XUNG KÍCH (STRIKE)</span>
+      </button>
 
-      <!-- Badges -->
-      <div class="pointer-events-none absolute top-2 left-2 flex items-center gap-1.5 bg-[#07080b]/90 px-2 py-0.5 border border-amber-500/40 text-[9px] font-mono font-bold text-amber-400">
-        <span class="h-1.5 w-1.5 bg-amber-400 animate-ping"></span>
-        <span>SKETCHFAB: BOT MECHA WARRIOR 3D</span>
-      </div>
+      <button
+        type="button"
+        @click="triggerShield"
+        class="px-3 py-1.5 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
+        :class="[
+          isShieldActive
+            ? 'bg-cyan-500 text-slate-950 shadow-[0_0_20px_#00f0ff] border border-cyan-300'
+            : 'bg-cyan-950/80 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/60 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+        ]"
+      >
+        <span>🛡️ KHIÊN NĂNG LƯỢNG</span>
+      </button>
 
-      <div class="pointer-events-none absolute top-2 right-2 bg-[#07080b]/90 px-2 py-0.5 border border-cyan-500/40 text-[9px] font-mono font-bold text-cyan-400">
-        <span>TÁC GIẢ: OSCAR CREATIVO</span>
-      </div>
+      <button
+        type="button"
+        @click="triggerBoost"
+        class="px-3 py-1.5 bg-amber-950/80 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/60 transition-all mecha-cut-tr shadow-[0_0_12px_rgba(245,158,11,0.3)] flex items-center gap-1.5 active:scale-95"
+      >
+        <span>🚀 ĐẨY PHẢN LỰC</span>
+      </button>
 
-      <div class="pointer-events-none absolute bottom-2 left-2 right-2 flex items-center justify-between bg-[#07080b]/90 px-2.5 py-1 border border-slate-800 text-[8.5px] font-mono text-slate-400">
-        <span>Xoay 360° • Thu phóng chuột • Chuẩn Sci-Fi Mecha</span>
-        <span class="text-amber-400 font-bold">50.7K TRIANGLES • PBR TEXTURES</span>
-      </div>
+      <button
+        type="button"
+        @click="triggerLockOn"
+        class="px-3 py-1.5 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
+        :class="[
+          isLockOnActive
+            ? 'bg-red-600 text-white shadow-[0_0_20px_#ff0055] border border-red-400'
+            : 'bg-slate-900 hover:bg-red-950 text-slate-300 hover:text-red-300 border border-slate-700'
+        ]"
+      >
+        <span>🎯 KHÓA MỤC TIÊU</span>
+      </button>
+
+      <button
+        type="button"
+        @click="cycleAngle"
+        class="px-3 py-1.5 bg-purple-950/80 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/60 transition-all mecha-cut-tr shadow-[0_0_12px_rgba(168,85,247,0.3)] flex items-center gap-1.5 active:scale-95"
+      >
+        <span>🔄 ĐỔI GÓC NHÌN ({{ activeAngleIndex + 1 }}/3)</span>
+      </button>
+
+      <button
+        type="button"
+        @click="isSketchfabViewer = !isSketchfabViewer"
+        class="px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
+      >
+        <span v-if="!isSketchfabViewer">🌐 MỞ 3D SKETCHFAB</span>
+        <span v-else class="text-amber-400 font-bold">⚡ QUAY LẠI 3D PARALLAX</span>
+      </button>
+    </div>
+
+    <!-- Attribution Footer -->
+    <div class="mt-2 text-center font-mono text-[9px] text-slate-500">
+      MÔ HÌNH NGUYÊN BẢN: <span class="text-slate-400 font-bold">BOT MECHA WARRIOR 3D BY OSCAR CREATIVO</span> • MECHA BREAK AESTHETIC ENGINE
     </div>
   </div>
 </template>
 
-
+<style scoped>
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin-slow {
+  animation: spinSlow 24s linear infinite;
+}
+</style>
