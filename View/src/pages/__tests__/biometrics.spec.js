@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../services/biometricApi', () => ({
@@ -56,11 +57,13 @@ function defaultResolvers() {
 beforeEach(() => {
   vi.clearAllMocks()
   defaultResolvers()
+  vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
   document.body.innerHTML = ''
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('Biometrics', () => {
@@ -277,4 +280,24 @@ describe('Biometrics', () => {
     expect(vm.latestRecordLabel({ latestModelAt: '2026-01-01T08:00:00Z', latestVideoAt: null })).not.toBe('Chưa có dữ liệu')
     expect(vm.latestRecordLabel({ latestModelAt: null, latestVideoAt: null })).toBe('Chưa có dữ liệu')
   })
+})
+
+it('renders recentModels, recentVideos and faceModels loops via vm refs', async () => {
+  const wrapper = mount(Biometrics)
+  await flushPromises()
+  wrapper.vm.recentModels = [{ id: 1, employeeName: 'A', modelFileName: 'a.model', createdAt: '2026-01-01T08:00:00Z' }]
+  wrapper.vm.recentVideos = [{ id: 2, employeeName: 'B', fileName: 'b.mp4', fileSize: 2048, createdAt: '2026-01-01T08:00:00Z' }]
+  wrapper.vm.faceModels = [
+    { id: 3, employeeName: 'C', modelFileName: 'c.model', version: 2, status: 'Active', encodingCount: 3, checksumPrefix: 'cc', activatedAtUtc: '2026-01-01T08:00:00Z', registrySyncState: 'Synced' },
+  ]
+  wrapper.vm.registryVersion = '9.9'
+  await nextTick()
+  expect(wrapper.text()).toContain('a.model')
+  expect(wrapper.text()).toContain('b.mp4')
+  expect(wrapper.text()).toContain('c.model')
+  expect(wrapper.vm.modelRuntimeUnavailable).toBe(false)
+  wrapper.vm.faceModels = [{ id: 9, employeeName: 'D', modelFileName: 'd.model', version: null, status: null, encodingCount: null, checksumPrefix: null, activatedAtUtc: null, registrySyncState: 'RuntimeUnavailable' }]
+  await nextTick()
+  expect(wrapper.vm.modelRuntimeUnavailable).toBe(true)
+  expect(wrapper.text()).toContain('Thiếu metadata')
 })
