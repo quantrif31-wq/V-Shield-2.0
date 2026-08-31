@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mechaAudio } from '../../utils/portalAudio'
 
 const props = defineProps({
@@ -13,15 +15,18 @@ const props = defineProps({
 const emit = defineEmits(['update:activeIndex', 'championClick'])
 
 const containerRef = ref(null)
-let scene, camera, renderer, animationFrameId
-let stageGroup, platformMesh, floorGrid
+let scene, camera, renderer, animationFrameId, clock
+let fixedStageGroup, revolvingGroup
 const mechaRobots = []
+const mixers = []
 let targetAngle = 0
 let currentAngle = 0
 let isDragging = false
 let prevMouseX = 0, prevMouseY = 0
 let mouseX = 0, mouseY = 0
 let manualRotY = 0, manualRotX = 0
+let gltfBaseModel = null
+let gltfAnimations = []
 
 // Colors for the 5 Champions
 const championColors = [
@@ -32,24 +37,22 @@ const championColors = [
   0x10b981  // 4: Emerald (Việt)
 ]
 
-function createMechaRobot(index, primaryColor) {
+function createProceduralMecha(index, primaryColor) {
   const robotGroup = new THREE.Group()
 
-  // 1. Materials
   const armorMat = new THREE.MeshStandardMaterial({
     color: primaryColor,
-    metalness: 0.8,
+    metalness: 0.85,
     roughness: 0.2,
     wireframe: false
   })
   const darkMetalMat = new THREE.MeshStandardMaterial({
-    color: 0x181e29,
+    color: 0x111622,
     metalness: 0.9,
     roughness: 0.3
   })
   const glowMat = new THREE.MeshBasicMaterial({
-    color: primaryColor,
-    wireframe: false
+    color: primaryColor
   })
   const wireframeMat = new THREE.MeshBasicMaterial({
     color: 0x334155,
@@ -58,19 +61,19 @@ function createMechaRobot(index, primaryColor) {
     opacity: 0.25
   })
 
-  // 2. Torso (Body Chest)
+  // Torso Chest
   const chestGeo = new THREE.BoxGeometry(0.9, 1.1, 0.6)
   const chestMesh = new THREE.Mesh(chestGeo, armorMat)
   chestMesh.position.y = 1.6
   robotGroup.add(chestMesh)
 
-  // 3. Glowing Core Reactor (Center Chest)
+  // Glowing Core Reactor
   const reactorGeo = new THREE.SphereGeometry(0.22, 16, 16)
   const reactorMesh = new THREE.Mesh(reactorGeo, glowMat)
   reactorMesh.position.set(0, 1.65, 0.32)
   robotGroup.add(reactorMesh)
 
-  // 4. Head & Optical Sensor Visor
+  // Head & Optical Sensor Visor
   const headGeo = new THREE.BoxGeometry(0.45, 0.45, 0.45)
   const headMesh = new THREE.Mesh(headGeo, darkMetalMat)
   headMesh.position.y = 2.45
@@ -81,7 +84,7 @@ function createMechaRobot(index, primaryColor) {
   visorMesh.position.set(0, 2.45, 0.22)
   robotGroup.add(visorMesh)
 
-  // 5. Shoulder Armor (Pauldrons)
+  // Shoulder Pauldrons
   const leftShoulderGeo = new THREE.ConeGeometry(0.35, 0.6, 4)
   const leftShoulder = new THREE.Mesh(leftShoulderGeo, armorMat)
   leftShoulder.position.set(-0.75, 2.0, 0)
@@ -94,33 +97,28 @@ function createMechaRobot(index, primaryColor) {
   rightShoulder.rotation.z = -Math.PI / 4
   robotGroup.add(rightShoulder)
 
-  // 6. Arms & Legs
-  const limbMat = darkMetalMat
-  // Left Leg
+  // Limbs
   const lLegGeo = new THREE.CylinderGeometry(0.12, 0.15, 1.3, 8)
-  const lLeg = new THREE.Mesh(lLegGeo, limbMat)
+  const lLeg = new THREE.Mesh(lLegGeo, darkMetalMat)
   lLeg.position.set(-0.32, 0.65, 0)
   robotGroup.add(lLeg)
 
-  // Right Leg
-  const rLeg = new THREE.Mesh(lLegGeo, limbMat)
+  const rLeg = new THREE.Mesh(lLegGeo, darkMetalMat)
   rLeg.position.set(0.32, 0.65, 0)
   robotGroup.add(rLeg)
 
-  // Left Arm
   const armGeo = new THREE.CylinderGeometry(0.1, 0.12, 1.0, 8)
-  const lArm = new THREE.Mesh(armGeo, limbMat)
+  const lArm = new THREE.Mesh(armGeo, darkMetalMat)
   lArm.position.set(-0.65, 1.4, 0.2)
   lArm.rotation.x = Math.PI / 6
   robotGroup.add(lArm)
 
-  // Right Arm (Holding Weapon)
-  const rArm = new THREE.Mesh(armGeo, limbMat)
+  const rArm = new THREE.Mesh(armGeo, darkMetalMat)
   rArm.position.set(0.65, 1.4, 0.2)
   rArm.rotation.x = -Math.PI / 8
   robotGroup.add(rArm)
 
-  // 7. Back Thruster Booster Wings
+  // Back Wings
   const wingGeo = new THREE.BoxGeometry(0.2, 0.8, 0.08)
   const lWing = new THREE.Mesh(wingGeo, armorMat)
   lWing.position.set(-0.45, 1.8, -0.35)
@@ -132,54 +130,45 @@ function createMechaRobot(index, primaryColor) {
   rWing.rotation.z = Math.PI / 6
   robotGroup.add(rWing)
 
-  // 8. Signature 3D Weapon (Distinct for each champion)
-  let weaponGroup = new THREE.Group()
-
+  // 3D Unique Weapons
+  const weaponGroup = new THREE.Group()
   if (index === 0) {
-    // Phạm Văn Thành: 3D Quantum Broadsword
     const bladeGeo = new THREE.BoxGeometry(0.18, 1.9, 0.06)
     const blade = new THREE.Mesh(bladeGeo, glowMat)
     blade.position.set(0.85, 2.0, 0.4)
     blade.rotation.z = Math.PI / 12
     weaponGroup.add(blade)
   } else if (index === 1) {
-    // Hà Mạnh Hùng: 3D Plasma Railgun
     const barrelGeo = new THREE.CylinderGeometry(0.08, 0.12, 1.8, 12)
     const barrel = new THREE.Mesh(barrelGeo, darkMetalMat)
     barrel.position.set(0.8, 1.6, 0.8)
     barrel.rotation.x = Math.PI / 2
     weaponGroup.add(barrel)
-
     const ringGeo = new THREE.TorusGeometry(0.2, 0.03, 8, 16)
     const ring = new THREE.Mesh(ringGeo, glowMat)
     ring.position.set(0.8, 1.6, 1.2)
     weaponGroup.add(ring)
   } else if (index === 2) {
-    // Phạm Ngọc Hoài Anh: 3D Heavy Shoulder Cannon
     const cannonGeo = new THREE.CylinderGeometry(0.18, 0.22, 1.5, 12)
     const cannon = new THREE.Mesh(cannonGeo, darkMetalMat)
     cannon.position.set(-0.6, 2.3, 0.4)
     cannon.rotation.x = Math.PI / 2
     weaponGroup.add(cannon)
   } else if (index === 3) {
-    // Vũ Tiến Đạt: 3D Dual Energy Daggers
     const daggerGeo = new THREE.ConeGeometry(0.12, 1.0, 4)
     const d1 = new THREE.Mesh(daggerGeo, glowMat)
     d1.position.set(-0.75, 1.2, 0.5)
     d1.rotation.x = Math.PI / 3
     weaponGroup.add(d1)
-
     const d2 = new THREE.Mesh(daggerGeo, glowMat)
     d2.position.set(0.75, 1.2, 0.5)
     d2.rotation.x = -Math.PI / 3
     weaponGroup.add(d2)
   } else if (index === 4) {
-    // Nguyễn Quốc Việt: 3D Thunder Halberd
     const shaftGeo = new THREE.CylinderGeometry(0.05, 0.05, 2.4, 8)
     const shaft = new THREE.Mesh(shaftGeo, darkMetalMat)
     shaft.position.set(0.85, 1.8, 0.3)
     weaponGroup.add(shaft)
-
     const tipGeo = new THREE.ConeGeometry(0.22, 0.7, 4)
     const tip = new THREE.Mesh(tipGeo, glowMat)
     tip.position.set(0.85, 3.1, 0.3)
@@ -197,7 +186,8 @@ function createMechaRobot(index, primaryColor) {
     darkMetalMat,
     glowMat,
     wireframeMat,
-    color: primaryColor
+    color: primaryColor,
+    isGltf: false
   }
 }
 
@@ -208,6 +198,8 @@ function initStage() {
   const width = container.clientWidth || 480
   const height = container.clientHeight || 420
 
+  clock = new THREE.Clock()
+
   // 1. Scene & Camera
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000)
@@ -215,18 +207,18 @@ function initStage() {
   camera.lookAt(0, 1.4, 0)
 
   // 2. Lights
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.9)
   scene.add(ambientLight)
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.5)
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.6)
   dirLight.position.set(5, 10, 7)
   scene.add(dirLight)
 
-  const pointLight = new THREE.PointLight(0xffcc00, 2.0, 15)
-  pointLight.position.set(0, 2, 0)
+  const pointLight = new THREE.PointLight(0xffcc00, 2.2, 15)
+  pointLight.position.set(0, 2.5, 0)
   scene.add(pointLight)
 
-  // 3. Renderer with safe try-catch
+  // 3. WebGL Renderer
   try {
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' })
     renderer.setSize(width, height)
@@ -236,45 +228,60 @@ function initStage() {
     return
   }
 
-  stageGroup = new THREE.Group()
-  scene.add(stageGroup)
+  // ── 4. COMPLETELY FIXED PEDESTAL BASE (ĐẾ CỐ ĐỊNH, KHÔNG QUAY) ──
+  fixedStageGroup = new THREE.Group()
+  scene.add(fixedStageGroup)
 
-  // 4. Circular 3D Pedestal Stage
-  const platGeo = new THREE.CylinderGeometry(3.5, 3.7, 0.35, 32)
+  // Main Stationary Base
+  const platGeo = new THREE.CylinderGeometry(3.6, 3.8, 0.4, 32)
   const platMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0e17,
-    metalness: 0.9,
-    roughness: 0.1
+    color: 0x070a10,
+    metalness: 0.95,
+    roughness: 0.15
   })
-  platformMesh = new THREE.Mesh(platGeo, platMat)
-  platformMesh.position.y = -0.18
-  stageGroup.add(platformMesh)
+  const fixedPlatform = new THREE.Mesh(platGeo, platMat)
+  fixedPlatform.position.y = -0.2
+  fixedStageGroup.add(fixedPlatform)
 
-  // Glowing Outer Rim
-  const rimGeo = new THREE.TorusGeometry(3.6, 0.04, 16, 64)
+  // Stationary Glowing Outer Laser Perimeter Ring
+  const rimGeo = new THREE.TorusGeometry(3.7, 0.04, 16, 64)
   const rimMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 })
-  const rim = new THREE.Mesh(rimGeo, rimMat)
-  rim.rotation.x = Math.PI / 2
-  stageGroup.add(rim)
+  const fixedRim = new THREE.Mesh(rimGeo, rimMat)
+  fixedRim.rotation.x = Math.PI / 2
+  fixedStageGroup.add(fixedRim)
 
-  // 5. Build and Position 5 Mecha Champions
-  const radius = 2.4
-  for (let i = 0; i < 5; i++) {
-    const angle = (i / 5) * Math.PI * 2
-    const mecha = createMechaRobot(i, championColors[i])
+  // Stationary Hazard Tech Marker Cross
+  const crossGeo1 = new THREE.BoxGeometry(7.4, 0.02, 0.06)
+  const crossMat = new THREE.MeshBasicMaterial({ color: 0xff5500, opacity: 0.4, transparent: true })
+  const cross1 = new THREE.Mesh(crossGeo1, crossMat)
+  cross1.position.y = 0.01
+  fixedStageGroup.add(cross1)
 
-    // Position on circular ring
-    mecha.group.position.x = Math.sin(angle) * radius
-    mecha.group.position.z = Math.cos(angle) * radius
+  const cross2 = new THREE.Mesh(crossGeo1, crossMat)
+  cross2.position.y = 0.01
+  cross2.rotation.y = Math.PI / 2
+  fixedStageGroup.add(cross2)
 
-    // Face outward from center
-    mecha.group.rotation.y = angle
+  // ── 5. REVOLVING CAROUSEL RING (5 CHIẾN BINH XOAY TRÊN ĐẾ CỐ ĐỊNH) ──
+  revolvingGroup = new THREE.Group()
+  scene.add(revolvingGroup)
 
-    stageGroup.add(mecha.group)
-    mechaRobots.push(mecha)
-  }
+  // Load 3D GLTF Model if available, or procedural fallback
+  const loader = new GLTFLoader()
+  loader.load(
+    '/models/robot.glb',
+    (gltf) => {
+      gltfBaseModel = gltf.scene
+      gltfAnimations = gltf.animations
+      setupChampionsWithGltf()
+    },
+    undefined,
+    () => {
+      setupChampionsProcedural()
+    }
+  )
 
-  // 6. Interactive Event Listeners
+  // 6. Interactive Mouse Drag & Viewport
   window.addEventListener('mousemove', onMouseMove, { passive: true })
   window.addEventListener('resize', onResize)
 
@@ -288,23 +295,90 @@ function initStage() {
     isDragging = false
   })
 
-  updateActiveMaterials(props.activeIndex)
   animate()
+}
+
+function setupChampionsWithGltf() {
+  const radius = 2.4
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2
+    const clonedScene = SkeletonUtils.clone(gltfBaseModel)
+    clonedScene.scale.set(0.65, 0.65, 0.65)
+    clonedScene.position.set(Math.sin(angle) * radius, 0, Math.cos(angle) * radius)
+    clonedScene.rotation.y = angle
+
+    // Color tinting materials for the champion
+    const targetColor = championColors[i]
+    clonedScene.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material = child.material.clone()
+        if (child.name.includes('Body') || child.name.includes('Head') || child.name.includes('Armor')) {
+          child.material.color = new THREE.Color(targetColor)
+        }
+      }
+    })
+
+    // Setup Animation Mixer
+    let mixer = null
+    if (gltfAnimations.length > 0) {
+      mixer = new THREE.AnimationMixer(clonedScene)
+      // Pick Idle / Walking animation
+      const clip = gltfAnimations.find(a => a.name.toLowerCase().includes('idle')) || gltfAnimations[0]
+      if (clip) {
+        const action = mixer.clipAction(clip)
+        action.play()
+      }
+      mixers.push(mixer)
+    }
+
+    revolvingGroup.add(clonedScene)
+    mechaRobots.push({
+      group: clonedScene,
+      color: targetColor,
+      mixer,
+      isGltf: true
+    })
+  }
+  updateActiveMaterials(props.activeIndex)
+}
+
+function setupChampionsProcedural() {
+  const radius = 2.4
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2
+    const mecha = createProceduralMecha(i, championColors[i])
+    mecha.group.position.set(Math.sin(angle) * radius, 0, Math.cos(angle) * radius)
+    mecha.group.rotation.y = angle
+    revolvingGroup.add(mecha.group)
+    mechaRobots.push(mecha)
+  }
+  updateActiveMaterials(props.activeIndex)
 }
 
 function updateActiveMaterials(activeIdx) {
   mechaRobots.forEach((robot, i) => {
     const isActive = i === activeIdx
-    if (isActive) {
-      robot.chest.material = robot.armorMat
-      robot.reactor.material = robot.glowMat
-      robot.visor.material = robot.glowMat
-      robot.group.scale.set(1.15, 1.15, 1.15)
+    if (robot.isGltf) {
+      robot.group.scale.set(isActive ? 0.78 : 0.52, isActive ? 0.78 : 0.52, isActive ? 0.78 : 0.52)
+      robot.group.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.wireframe = !isActive
+          child.material.opacity = isActive ? 1.0 : 0.25
+          child.material.transparent = !isActive
+        }
+      })
     } else {
-      robot.chest.material = robot.wireframeMat
-      robot.reactor.material = robot.wireframeMat
-      robot.visor.material = robot.wireframeMat
-      robot.group.scale.set(0.85, 0.85, 0.85)
+      if (isActive) {
+        robot.chest.material = robot.armorMat
+        robot.reactor.material = robot.glowMat
+        robot.visor.material = robot.glowMat
+        robot.group.scale.set(1.15, 1.15, 1.15)
+      } else {
+        robot.chest.material = robot.wireframeMat
+        robot.reactor.material = robot.wireframeMat
+        robot.visor.material = robot.wireframeMat
+        robot.group.scale.set(0.85, 0.85, 0.85)
+      }
     }
   })
 }
@@ -337,31 +411,23 @@ function onResize() {
 function animate() {
   animationFrameId = requestAnimationFrame(animate)
 
-  const time = Date.now() * 0.003
+  const delta = clock ? clock.getDelta() : 0.016
+  mixers.forEach(m => m.update(delta))
 
-  // Smoothly rotate the stage so active champion faces front (0 radians)
+  // Rotate revolving group so active champion is at front (0 rad)
   targetAngle = -(props.activeIndex / 5) * Math.PI * 2
   currentAngle += (targetAngle - currentAngle) * 0.08
 
-  if (stageGroup) {
-    stageGroup.rotation.y = currentAngle + manualRotY + mouseX * 0.2
-    stageGroup.rotation.x = manualRotX + mouseY * 0.15
+  if (revolvingGroup) {
+    revolvingGroup.rotation.y = currentAngle + manualRotY + mouseX * 0.2
   }
 
-  // Active Champion Combat Idle Animations
-  mechaRobots.forEach((robot, i) => {
-    if (i === props.activeIndex) {
-      // Reactor pulsating breath
-      const pulse = 1.0 + Math.sin(time * 3) * 0.2
-      robot.reactor.scale.set(pulse, pulse, pulse)
-
-      // Weapon oscillation / charge
-      if (robot.weapon) {
-        robot.weapon.position.y = Math.sin(time * 2) * 0.06
-        robot.weapon.rotation.z = Math.sin(time * 1.5) * 0.04
-      }
-    }
-  })
+  // Camera parallax subtly tracks mouse
+  if (camera) {
+    camera.position.x = mouseX * 0.4
+    camera.position.y = 3.2 - mouseY * 0.3
+    camera.lookAt(0, 1.4, 0)
+  }
 
   if (renderer && scene && camera) {
     renderer.render(scene, camera)
@@ -386,17 +452,17 @@ onUnmounted(() => {
 
 <template>
   <div class="relative flex items-center justify-center select-none">
-    <!-- 3D Three.js WebGL Stage Canvas Container -->
+    <!-- 3D Three.js WebGL Stage Canvas Container with Fixed Pedestal -->
     <div
       ref="containerRef"
       class="h-[380px] w-full max-w-[500px] cursor-grab active:cursor-grabbing filter drop-shadow-[0_0_50px_rgba(255,204,0,0.45)]"
-      title="Nhấp giữ chuột để xoay góc nhìn 3D quanh 5 Chiến Binh"
+      title="Đế bệ cố định • Nhấp giữ chuột để xoay góc nhìn 3D"
     ></div>
 
     <!-- HUD Central Indicator -->
     <div class="pointer-events-none absolute bottom-1 flex items-center gap-2 font-mono text-[9px] font-black text-amber-400/90 bg-[#07080b]/90 px-3 py-1 border border-amber-500/40 mecha-cut-tr shadow-[0_0_20px_rgba(255,204,0,0.3)]">
       <span class="h-2 w-2 bg-amber-400 animate-ping"></span>
-      <span>3D ANIMATED MECHA CHAMPIONS // ROTATING VIEWPORT</span>
+      <span>FIXED PEDESTAL • 3D ANIMATED MECHA TURNTABLE</span>
     </div>
   </div>
 </template>
