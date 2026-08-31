@@ -43,11 +43,11 @@ const pilots = [
     callsign: 'PHANTOM FALCON',
     role: 'KỸ SƯ TRÍ TUỆ NHÂN TẠO & THỊ GIÁC MÁY TÍNH',
     avatar: '/pilots/pilot_hung.jpg',
-    cockpit: '/cockpits/cockpit_orange.jpg',
+    cockpit: '/cockpits/cockpit_cyan.jpg',
     cockpitFilter: 'none',
-    color: '#ff5500',
-    glow: '#ea580c',
-    cockpitName: 'SUPERSONIC INTERCEPTOR // FALCON-02',
+    color: '#00f0ff', // Electric Cyan
+    glow: '#0284c7',
+    cockpitName: 'QUANTUM VISION COCKPIT // FALCON-02',
     systemStatus: 'ONLINE • YOLOv11 + ArcFace 60FPS',
     weapon: 'EX-02 HYPER-VELOCITY PLASMA RAILGUN',
     quote: 'Quét và khóa mục tiêu sinh trắc học quang học trong phạm vi ±45° với độ chính xác tuyệt đối.'
@@ -58,11 +58,11 @@ const pilots = [
     callsign: 'DREADNOUGHT VORTEX',
     role: 'KỸ SƯ HẠ TẦNG ĐÁM MÂY & DEVOPS BẢO MẬT',
     avatar: '/pilots/pilot_hoaianh.jpg',
-    cockpit: '/cockpits/cockpit_cyan.jpg',
+    cockpit: '/cockpits/cockpit_orange.jpg',
     cockpitFilter: 'none',
-    color: '#00f0ff',
-    glow: '#0284c7',
-    cockpitName: 'FORTRESS DEFENSE MATRIX // VORTEX-03',
+    color: '#ef4444', // Crimson Red
+    glow: '#dc2626',
+    cockpitName: 'CRIMSON ARSENAL COCKPIT // VORTEX-03',
     systemStatus: 'ONLINE • DOCKER & CADDY TLS ACTIVE',
     weapon: 'EX-03 TITAN HEAVY PARTICLE CANNON',
     quote: 'Thiết lập trường lực bảo mật đa tầng, tối ưu băng thông mạng và duy trì Uptime 99.99%.'
@@ -90,7 +90,7 @@ const pilots = [
     avatar: '/pilots/pilot_viet.jpg',
     cockpit: '/cockpits/cockpit_green.jpg',
     cockpitFilter: 'none',
-    color: '#10b981',
+    color: '#10b981', // Matrix Green
     glow: '#059669',
     cockpitName: 'HEAVY SIEGE ARTILLERY // TEMPEST-05',
     systemStatus: 'ONLINE • BARRIER RELAY & TOTP SYNCHRONIZED',
@@ -101,7 +101,6 @@ const pilots = [
 
 const currentPilot = computed(() => pilots[props.activeIndex] || pilots[0])
 
-// Calculate 3D carousel transform
 function getPilotTransform(index) {
   const total = pilots.length
   let offset = index - props.activeIndex

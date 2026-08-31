@@ -35,10 +35,10 @@ const champions = [
     weaponType: 'Trinh sát Tầm xa / Khóa Mục tiêu Sinh trắc học',
     weaponDesc: 'Phát xạ chùm tia năng lượng quang học 60 FPS YOLOv11 + ArcFace, tự động khóa mục tiêu khuôn mặt trong phạm vi ±45° và đối soát biển số ANPR OCR tức thì.',
     duties: 'Tối ưu hóa pipeline suy luận AI, chống giả mạo sinh trắc học 3D Depth Anti-Spoofing và tích hợp camera giám sát luồng RTSP.',
-    color: '#ff5500',
+    color: '#00f0ff', // Electric Cyan
     stats: { code: 95, defense: 91, sync: 93, power: 99 },
-    borderColor: 'border-orange-500',
-    textColor: 'text-orange-400',
+    borderColor: 'border-cyan-400',
+    textColor: 'text-cyan-400',
     weaponIcon: '🎯'
   },
   {
@@ -51,10 +51,10 @@ const champions = [
     weaponType: 'Phòng vệ Không gian mạng / Hạ tầng Container',
     weaponDesc: 'Tạo trường lực bảo vệ không gian mạng Docker Compose & Caddy TLS đa lớp, nén băng thông Protobuf và duy trì thời gian hoạt động Uptime 99.99%.',
     duties: 'Triển khai hạ tầng VPS, thiết lập pipeline CI/CD tự động, bảo mật mạng nội bộ và giám sát tài nguyên phần cứng thời gian thực.',
-    color: '#00f0ff',
+    color: '#ef4444', // Crimson Red
     stats: { code: 93, defense: 99, sync: 96, power: 95 },
-    borderColor: 'border-cyan-400',
-    textColor: 'text-cyan-400',
+    borderColor: 'border-red-500',
+    textColor: 'text-red-400',
     weaponIcon: '🛡️'
   },
   {
@@ -67,7 +67,7 @@ const champions = [
     weaponType: 'Tác chiến Nhanh / Giao diện Realtime & WebRTC',
     weaponDesc: 'Cặp dao găm laser độ trễ dưới 30ms kết hợp luồng đàm thoại video WebRTC VoIP và giao diện tương tác Mecha Tactical chuẩn game AAA.',
     duties: 'Phát triển toàn bộ hệ thống giao diện Vue 3 Mecha, tích hợp WebGL Three.js và tối ưu hóa trải nghiệm người dùng trên mọi thiết bị.',
-    color: '#eab308',
+    color: '#eab308', // Amber Gold
     stats: { code: 96, defense: 89, sync: 94, power: 96 },
     borderColor: 'border-amber-400',
     textColor: 'text-amber-400',
@@ -83,7 +83,7 @@ const champions = [
     weaponType: 'Kiểm soát Rào chắn / Thiết bị Ngoại vi Relay',
     weaponDesc: 'Mũi kích phóng xung điện điều khiển đóng mở rào chắn Barie trong 0.6 giây, đồng bộ ứng dụng di động Android APK và mã TOTP thẻ thông hành.',
     duties: 'Lập trình ứng dụng di động Android, giao tiếp phần cứng Relay/RS485 và kiểm thử độ bền bỉ của trạm kiểm soát an ninh tại cổng.',
-    color: '#10b981',
+    color: '#10b981', // Matrix Green
     stats: { code: 92, defense: 95, sync: 92, power: 98 },
     borderColor: 'border-emerald-400',
     textColor: 'text-emerald-400',
