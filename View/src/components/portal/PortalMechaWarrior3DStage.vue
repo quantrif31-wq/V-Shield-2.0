@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { mechaAudio } from '../../utils/portalAudio'
@@ -13,6 +13,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:activeIndex', 'championClick'])
 
+// Dual Display Mode: 'sketchfab' (Oscar Creativo BOT MECHA Warrior) vs 'threejs' (V-Shield GLTF Interactive Warframe)
+const displayMode = ref('sketchfab')
 const containerRef = ref(null)
 const isLoading = ref(true)
 const currentActionName = ref('Idle')
@@ -95,7 +97,19 @@ const championProfiles = [
   }
 ]
 
-// ── BUILD 3D HIGH-TECH WEAPONS ──
+function switchMode(mode) {
+  displayMode.value = mode
+  mechaAudio.playEngage()
+  if (mode === 'threejs') {
+    nextTick(() => {
+      initStage()
+    })
+  } else {
+    disposeThree()
+  }
+}
+
+// ── BUILD 3D HIGH-TECH WEAPONS FOR THREE.JS ──
 function buildChampionWeapon(weaponType, colorScheme) {
   const weaponGroup = new THREE.Group()
   const glowMat = new THREE.MeshBasicMaterial({ color: colorScheme.glow })
@@ -106,7 +120,6 @@ function buildChampionWeapon(weaponType, colorScheme) {
   })
 
   if (weaponType === 'broadsword') {
-    // Quantum Energy Broadsword
     const bladeGeo = new THREE.BoxGeometry(0.18, 2.2, 0.04)
     const blade = new THREE.Mesh(bladeGeo, glowMat)
     blade.position.set(0.65, 1.4, 0.3)
@@ -119,7 +132,6 @@ function buildChampionWeapon(weaponType, colorScheme) {
     hilt.rotation.z = Math.PI / 12
     weaponGroup.add(hilt)
   } else if (weaponType === 'railgun') {
-    // Hyper-Velocity Plasma Railgun
     const rail1Geo = new THREE.BoxGeometry(0.06, 0.08, 1.8)
     const rail1 = new THREE.Mesh(rail1Geo, metalMat)
     rail1.position.set(0.6, 0.9, 0.8)
@@ -135,7 +147,6 @@ function buildChampionWeapon(weaponType, colorScheme) {
     coreBeam.rotation.x = Math.PI / 2
     weaponGroup.add(coreBeam)
   } else if (weaponType === 'cannon') {
-    // Titan Heavy Shoulder Cannon
     const barrelGeo = new THREE.CylinderGeometry(0.18, 0.22, 1.6, 16)
     const barrel = new THREE.Mesh(barrelGeo, metalMat)
     barrel.position.set(-0.55, 1.65, 0.4)
@@ -147,7 +158,6 @@ function buildChampionWeapon(weaponType, colorScheme) {
     ring.position.set(-0.55, 1.65, 1.2)
     weaponGroup.add(ring)
   } else if (weaponType === 'daggers') {
-    // Dual Holographic Energy Daggers
     const dGeo = new THREE.ConeGeometry(0.09, 1.1, 4)
     const d1 = new THREE.Mesh(dGeo, glowMat)
     d1.position.set(-0.6, 0.7, 0.5)
@@ -159,7 +169,6 @@ function buildChampionWeapon(weaponType, colorScheme) {
     d2.rotation.x = -Math.PI / 2.5
     weaponGroup.add(d2)
   } else if (weaponType === 'halberd') {
-    // Thunderstrike Power Halberd
     const shaftGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.4, 8)
     const shaft = new THREE.Mesh(shaftGeo, metalMat)
     shaft.position.set(0.65, 1.2, 0.2)
@@ -177,6 +186,8 @@ function buildChampionWeapon(weaponType, colorScheme) {
 function initStage() {
   const container = containerRef.value
   if (!container) return
+
+  disposeThree()
 
   const width = container.clientWidth || 480
   const height = container.clientHeight || 420
@@ -220,11 +231,10 @@ function initStage() {
     return
   }
 
-  // ── 4. MECHA BREAK HOLOGRAPHIC LAUNCH PLATFORM (FIXED BASE) ──
+  // ── 4. MECHA BREAK HOLOGRAPHIC LAUNCH PLATFORM ──
   fixedStageGroup = new THREE.Group()
   scene.add(fixedStageGroup)
 
-  // Heavy Octagonal Cyber Platform
   const baseGeo = new THREE.CylinderGeometry(2.6, 2.8, 0.35, 8)
   const baseMat = new THREE.MeshStandardMaterial({
     color: 0x07090e,
@@ -235,14 +245,12 @@ function initStage() {
   baseMesh.position.y = -0.18
   fixedStageGroup.add(baseMesh)
 
-  // Glowing Outer Energy Barrier Ring
   const outerRingGeo = new THREE.TorusGeometry(2.75, 0.04, 16, 64)
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 })
   const outerRing = new THREE.Mesh(outerRingGeo, ringMat)
   outerRing.rotation.x = Math.PI / 2
   fixedStageGroup.add(outerRing)
 
-  // Inner Projector Disc (Pulsing Glow)
   const discGeo = new THREE.CylinderGeometry(1.6, 1.6, 0.02, 32)
   const discMat = new THREE.MeshBasicMaterial({
     color: 0xffcc00,
@@ -254,7 +262,7 @@ function initStage() {
   discMesh.position.y = 0.01
   fixedStageGroup.add(discMesh)
 
-  // 4 Corner Energy Emitters / Pylons
+  // 4 Corner Energy Emitters
   for (let i = 0; i < 4; i++) {
     const angle = (i / 4) * Math.PI * 2 + Math.PI / 4
     const pylonGeo = new THREE.BoxGeometry(0.16, 0.45, 0.16)
@@ -269,7 +277,7 @@ function initStage() {
     fixedStageGroup.add(tip)
   }
 
-  // Floating Cyber Sparks & Nebula Dust
+  // Floating Cyber Sparks
   const pCount = 180
   const pPositions = new Float32Array(pCount * 3)
   for (let i = 0; i < pCount * 3; i += 3) {
@@ -294,7 +302,7 @@ function initStage() {
 
   loadMechaModel()
 
-  // 6. Interaction Listeners
+  // Listeners
   window.addEventListener('mousemove', onMouseMove, { passive: true })
   window.addEventListener('resize', onResize)
 
@@ -326,7 +334,6 @@ function loadMechaModel() {
       model.scale.set(0.48, 0.48, 0.48)
       model.position.set(0, 0, 0)
 
-      // Initialize Animation Mixer
       mixer = new THREE.AnimationMixer(model)
       const animClips = gltf.animations || []
 
@@ -335,7 +342,6 @@ function loadMechaModel() {
         actions[clip.name] = action
       })
 
-      // Default to Idle Animation
       if (actions['Idle']) {
         activeAction = actions['Idle']
         activeAction.play()
@@ -351,9 +357,8 @@ function loadMechaModel() {
       isLoading.value = false
     },
     undefined,
-    (err) => {
-      console.warn('Could not load robot_expressive.glb, applying procedural mecha fallback:', err)
-      // High-grade procedural fallback
+    () => {
+      // Fallback
       const fallbackGeo = new THREE.BoxGeometry(0.8, 1.8, 0.6)
       const fallbackMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.9, roughness: 0.2 })
       const fallbackMesh = new THREE.Mesh(fallbackGeo, fallbackMat)
@@ -387,12 +392,10 @@ function playAnimation(name, duration = 0.4) {
 function applyChampionSkin(index) {
   const profile = championProfiles[index] || championProfiles[0]
 
-  // Update Spotlight & Light Color
   if (spotLight) {
     spotLight.color.setHex(profile.glow)
   }
 
-  // Reskin GLB Materials for Cyber Mecha Aesthetics
   if (currentMechaMesh) {
     currentMechaMesh.traverse((child) => {
       if (child.isMesh && child.material) {
@@ -412,7 +415,6 @@ function applyChampionSkin(index) {
     })
   }
 
-  // Re-attach Dedicated Champion Weapon
   customWeapons.forEach(w => mechaRootGroup.remove(w))
   customWeapons = []
 
@@ -420,7 +422,6 @@ function applyChampionSkin(index) {
   mechaRootGroup.add(newWeapon)
   customWeapons.push(newWeapon)
 
-  // Play Champion's Signature Animation
   if (profile.defaultAnim && actions[profile.defaultAnim]) {
     playAnimation(profile.defaultAnim, 0.5)
   } else if (actions['Idle']) {
@@ -469,18 +470,15 @@ function animate() {
   const delta = clock ? clock.getDelta() : 0.016
   const time = Date.now() * 0.002
 
-  // Update Skeletal Animation Mixer
   if (mixer) {
     mixer.update(delta)
   }
 
-  // Smooth Mecha Stance Rotation
   if (mechaRootGroup) {
     mechaRootGroup.rotation.y = manualRotY + Math.sin(time * 0.5) * 0.15 + mouseX * 0.35
     mechaRootGroup.position.y = Math.sin(time * 2) * 0.03
   }
 
-  // Floating Cyber Sparks Animation
   if (fixedStageGroup) {
     const particles = fixedStageGroup.children.find(c => c.isPoints)
     if (particles) {
@@ -488,7 +486,6 @@ function animate() {
     }
   }
 
-  // Camera Parallax
   if (camera) {
     camera.position.x = mouseX * 0.3
     camera.position.y = 2.4 - mouseY * 0.25
@@ -500,102 +497,184 @@ function animate() {
   }
 }
 
+function disposeThree() {
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  if (renderer) {
+    renderer.dispose()
+    if (renderer.domElement && renderer.domElement.parentNode) {
+      renderer.domElement.parentNode.removeChild(renderer.domElement)
+    }
+  }
+}
+
 watch(() => props.activeIndex, (newVal) => {
-  applyChampionSkin(newVal)
+  if (displayMode.value === 'threejs') {
+    applyChampionSkin(newVal)
+  }
 })
 
 onMounted(() => {
-  initStage()
+  if (displayMode.value === 'threejs') {
+    initStage()
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('resize', onResize)
-  if (animationFrameId) cancelAnimationFrame(animationFrameId)
-  if (renderer) renderer.dispose()
+  disposeThree()
 })
 </script>
 
 <template>
   <div class="relative flex flex-col items-center justify-center select-none w-full">
-    <!-- 3D Three.js WebGL Stage Canvas Container -->
+    
+    <!-- ── DUAL-ENGINE 3D MODEL SELECTOR TABS ── -->
+    <div class="mb-3 flex items-center gap-1.5 p-1 bg-[#090c14]/90 border border-amber-500/40 mecha-cut-tr z-30 shadow-[0_0_20px_rgba(255,204,0,0.2)]">
+      <button
+        type="button"
+        @click="switchMode('sketchfab')"
+        class="px-3 py-1.5 text-[10px] font-black uppercase transition-all mecha-cut-tr flex items-center gap-1.5"
+        :class="[
+          displayMode === 'sketchfab'
+            ? 'bg-amber-400 text-slate-950 shadow-[0_0_15px_#ffcc00]'
+            : 'bg-transparent text-slate-400 hover:text-amber-300'
+        ]"
+      >
+        <span>🤖</span>
+        <span>MECHA WARRIOR 3D (OSCAR CREATIVO)</span>
+      </button>
+
+      <button
+        type="button"
+        @click="switchMode('threejs')"
+        class="px-3 py-1.5 text-[10px] font-black uppercase transition-all mecha-cut-tr flex items-center gap-1.5"
+        :class="[
+          displayMode === 'threejs'
+            ? 'bg-amber-400 text-slate-950 shadow-[0_0_15px_#ffcc00]'
+            : 'bg-transparent text-slate-400 hover:text-amber-300'
+        ]"
+      >
+        <span>⚡</span>
+        <span>V-SHIELD TACTICAL WARFRAME (THREE.JS)</span>
+      </button>
+    </div>
+
+    <!-- ── OPTION 1: SKETCHFAB 3D OSCAR CREATIVO BOT MECHA WARRIOR EMBED ── -->
     <div
-      ref="containerRef"
-      class="h-[380px] sm:h-[420px] w-full max-w-[520px] cursor-grab active:cursor-grabbing filter drop-shadow-[0_0_50px_rgba(255,204,0,0.45)] relative"
-      title="Kéo chuột để xoay 360° • Nhấp chuột để kích hoạt đòn đánh"
+      v-if="displayMode === 'sketchfab'"
+      class="relative h-[380px] sm:h-[430px] w-full max-w-[540px] border-2 border-amber-500/50 bg-[#07090e] mecha-cut-corners shadow-[0_0_50px_rgba(255,204,0,0.35)] overflow-hidden"
     >
-      <!-- Loading Overlay -->
-      <div
-        v-if="isLoading"
-        class="absolute inset-0 flex flex-col items-center justify-center bg-[#07090e]/80 backdrop-blur-sm z-30 font-mono text-xs text-amber-400 gap-2"
-      >
-        <span class="h-4 w-4 border-2 border-amber-400 border-t-transparent animate-spin rounded-full"></span>
-        <span>KHỞI ĐỘNG VẬT LÝ 3D WARFRAME...</span>
-      </div>
-    </div>
+      <!-- Sketchfab High-Performance Interactive 3D WebGL Iframe -->
+      <iframe
+        title="BOT MECHA Warrior 3d by Oscar Creativo"
+        class="w-full h-full border-0"
+        src="https://sketchfab.com/models/34850bfe441642788154c4a8a0bd60e4/embed?autostart=1&preload=1&ui_theme=dark&ui_infos=0&ui_watermark=0&ui_stop=0&ui_hint=2&dnt=1"
+        allow="autoplay; fullscreen; xr-spatial-tracking"
+        xr-spatial-tracking="true"
+        allowfullscreen
+      ></iframe>
 
-    <!-- ── COMBAT ANIMATION CONTROL BAR (MECHA BREAK STYLE) ── -->
-    <div class="mt-2 flex flex-wrap items-center justify-center gap-1.5 z-20 font-mono text-[10px] font-black max-w-lg">
-      <button
-        type="button"
-        @click="playAnimation('Punch'); mechaAudio.playHeavyImpactDrop()"
-        class="px-2.5 py-1 bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(239,68,68,0.3)] flex items-center gap-1"
-      >
-        <span>⚔️ TẤN CÔNG</span>
-      </button>
-
-      <button
-        type="button"
-        @click="playAnimation('Jump'); mechaAudio.playEngage()"
-        class="px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(6,182,212,0.3)] flex items-center gap-1"
-      >
-        <span>🚀 BẬT NHẢY</span>
-      </button>
-
-      <button
-        type="button"
-        @click="playAnimation('Wave'); mechaAudio.playClick()"
-        class="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(245,158,11,0.3)] flex items-center gap-1"
-      >
-        <span>🫡 CHÀO TÁC CHIẾN</span>
-      </button>
-
-      <button
-        type="button"
-        @click="playAnimation('Running'); mechaAudio.playTargetLock()"
-        class="px-2.5 py-1 bg-purple-950/80 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(168,85,247,0.3)] flex items-center gap-1"
-      >
-        <span>🏃 XUNG PHONG</span>
-      </button>
-
-      <button
-        type="button"
-        @click="playAnimation('Dance'); mechaAudio.playClick()"
-        class="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(168,85,247,0.3)] flex items-center gap-1"
-      >
-        <span>🏆 ĂN MỪNG</span>
-      </button>
-
-      <button
-        type="button"
-        @click="playAnimation('Idle'); mechaAudio.playHover()"
-        class="px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all mecha-cut-tr flex items-center gap-1"
-      >
-        <span>🛡️ THỦ THẾ</span>
-      </button>
-    </div>
-
-    <!-- HUD Telemetry Floating Footer Indicator -->
-    <div class="mt-3 flex items-center justify-between w-full max-w-md px-3 py-1 font-mono text-[9px] font-bold text-amber-400/90 bg-[#07090e]/90 border border-amber-500/30 mecha-cut-corners shadow-[0_0_25px_rgba(255,204,0,0.2)]">
-      <div class="flex items-center gap-1.5">
+      <!-- Holographic Overlay Bracket Badges -->
+      <div class="pointer-events-none absolute top-2 left-2 flex items-center gap-1.5 bg-[#07080b]/90 px-2 py-0.5 border border-amber-500/40 text-[9px] font-mono font-bold text-amber-400">
         <span class="h-1.5 w-1.5 bg-amber-400 animate-ping"></span>
-        <span>HOẠT ẢNH: <span class="text-white uppercase">{{ currentActionName }}</span></span>
+        <span>MODEL: BOT MECHA WARRIOR 3D</span>
       </div>
-      <div class="text-slate-400">
-        XOAY 3D: <span class="text-emerald-400 font-black">CHUỘT TRÁI</span>
+
+      <div class="pointer-events-none absolute top-2 right-2 bg-[#07080b]/90 px-2 py-0.5 border border-cyan-500/40 text-[9px] font-mono font-bold text-cyan-400">
+        <span>AUTHOR: OSCAR CREATIVO</span>
       </div>
-      <div class="text-amber-300">
-        V-SHIELD // AAA WARFRAME
+
+      <div class="pointer-events-none absolute bottom-2 left-2 right-2 flex items-center justify-between bg-[#07080b]/90 px-2.5 py-1 border border-slate-800 text-[8.5px] font-mono text-slate-400">
+        <span>Xoay 360° • Thu phóng chuột • Chuẩn Sci-Fi Mecha</span>
+        <span class="text-amber-400 font-bold">50.7K TRIANGLES • PBR TEXTURES</span>
+      </div>
+    </div>
+
+    <!-- ── OPTION 2: NATIVE THREE.JS ANIMATED WARFRAME ── -->
+    <div
+      v-else
+      class="relative flex flex-col items-center justify-center w-full"
+    >
+      <!-- 3D Three.js WebGL Stage Canvas Container -->
+      <div
+        ref="containerRef"
+        class="h-[380px] sm:h-[420px] w-full max-w-[520px] cursor-grab active:cursor-grabbing filter drop-shadow-[0_0_50px_rgba(255,204,0,0.45)] relative"
+        title="Kéo chuột để xoay 360° • Nhấp chuột để kích hoạt đòn đánh"
+      >
+        <!-- Loading Overlay -->
+        <div
+          v-if="isLoading"
+          class="absolute inset-0 flex flex-col items-center justify-center bg-[#07090e]/80 backdrop-blur-sm z-30 font-mono text-xs text-amber-400 gap-2"
+        >
+          <span class="h-4 w-4 border-2 border-amber-400 border-t-transparent animate-spin rounded-full"></span>
+          <span>KHỞI ĐỘNG VẬT LÝ 3D WARFRAME...</span>
+        </div>
+      </div>
+
+      <!-- Combat Animation Control Bar -->
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-1.5 z-20 font-mono text-[10px] font-black max-w-lg">
+        <button
+          type="button"
+          @click="playAnimation('Punch'); mechaAudio.playHeavyImpactDrop()"
+          class="px-2.5 py-1 bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(239,68,68,0.3)] flex items-center gap-1"
+        >
+          <span>⚔️ TẤN CÔNG</span>
+        </button>
+
+        <button
+          type="button"
+          @click="playAnimation('Jump'); mechaAudio.playEngage()"
+          class="px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(6,182,212,0.3)] flex items-center gap-1"
+        >
+          <span>🚀 BẬT NHẢY</span>
+        </button>
+
+        <button
+          type="button"
+          @click="playAnimation('Wave'); mechaAudio.playClick()"
+          class="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(245,158,11,0.3)] flex items-center gap-1"
+        >
+          <span>🫡 CHÀO TÁC CHIẾN</span>
+        </button>
+
+        <button
+          type="button"
+          @click="playAnimation('Running'); mechaAudio.playTargetLock()"
+          class="px-2.5 py-1 bg-purple-950/80 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(168,85,247,0.3)] flex items-center gap-1"
+        >
+          <span>🏃 XUNG PHONG</span>
+        </button>
+
+        <button
+          type="button"
+          @click="playAnimation('Dance'); mechaAudio.playClick()"
+          class="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/50 transition-all mecha-cut-tr shadow-[0_0_10px_rgba(16,185,129,0.3)] flex items-center gap-1"
+        >
+          <span>🏆 ĂN MỪNG</span>
+        </button>
+
+        <button
+          type="button"
+          @click="playAnimation('Idle'); mechaAudio.playHover()"
+          class="px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all mecha-cut-tr flex items-center gap-1"
+        >
+          <span>🛡️ THỦ THẾ</span>
+        </button>
+      </div>
+
+      <!-- HUD Telemetry Footer -->
+      <div class="mt-3 flex items-center justify-between w-full max-w-md px-3 py-1 font-mono text-[9px] font-bold text-amber-400/90 bg-[#07090e]/90 border border-amber-500/30 mecha-cut-corners shadow-[0_0_25px_rgba(255,204,0,0.2)]">
+        <div class="flex items-center gap-1.5">
+          <span class="h-1.5 w-1.5 bg-amber-400 animate-ping"></span>
+          <span>HOẠT ẢNH: <span class="text-white uppercase">{{ currentActionName }}</span></span>
+        </div>
+        <div class="text-slate-400">
+          XOAY 3D: <span class="text-emerald-400 font-black">CHUỘT TRÁI</span>
+        </div>
+        <div class="text-amber-300">
+          V-SHIELD // AAA WARFRAME
+        </div>
       </div>
     </div>
   </div>
