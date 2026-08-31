@@ -1,4 +1,4 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 using API.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -60,19 +60,19 @@ public sealed class SyncSignalNotifier : ISyncSignalNotifier
 
             if (!string.IsNullOrWhiteSpace(areaNodeId))
             {
-                await hubContext.Clients.Group($""node_{areaNodeId}"")
-                    .SendAsync(""NotifySyncNeeded"", scopeType, scopeId, cancellationToken);
+                await hubContext.Clients.Group($"node_{areaNodeId}")
+                    .SendAsync("NotifySyncNeeded", scopeType, scopeId, cancellationToken);
             }
             else
             {
                 await hubContext.Clients.All
-                    .SendAsync(""NotifySyncNeeded"", scopeType, scopeId, cancellationToken);
+                    .SendAsync("NotifySyncNeeded", scopeType, scopeId, cancellationToken);
             }
-            _logger.LogDebug(""Broadcasted NotifySyncNeeded to area nodes (Target: {NodeId}, Scope: {ScopeType}/{ScopeId})"", areaNodeId ?? ""All"", scopeType, scopeId);
+            _logger.LogDebug("Broadcasted NotifySyncNeeded to area nodes (Target: {NodeId}, Scope: {ScopeType}/{ScopeId})", areaNodeId ?? "All", scopeType, scopeId);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, ""Failed to broadcast real-time sync trigger via ChatRelayHub."");
+            _logger.LogDebug(ex, "Failed to broadcast real-time sync trigger via ChatRelayHub.");
         }
     }
 
