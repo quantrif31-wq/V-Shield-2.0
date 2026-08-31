@@ -23,6 +23,7 @@ public class AreaNodeChatRelayWorker : BackgroundService
     private readonly SyncRuntimeOptions _options;
     private readonly ChatPresenceRegistry _presenceRegistry;
     private readonly IHubContext<ChatHub> _chatHubContext;
+    private readonly ISyncSignalNotifier _syncSignalNotifier;
     private readonly object _connectionLock = new();
     private HubConnection? _connection;
 
@@ -31,13 +32,15 @@ public class AreaNodeChatRelayWorker : BackgroundService
         ILogger<AreaNodeChatRelayWorker> logger,
         IOptions<SyncRuntimeOptions> options,
         ChatPresenceRegistry presenceRegistry,
-        IHubContext<ChatHub> chatHubContext)
+        IHubContext<ChatHub> chatHubContext,
+        ISyncSignalNotifier syncSignalNotifier)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _options = options.Value;
         _presenceRegistry = presenceRegistry;
         _chatHubContext = chatHubContext;
+        _syncSignalNotifier = syncSignalNotifier;
     }
 
     public bool IsConnected
@@ -47,6 +50,27 @@ public class AreaNodeChatRelayWorker : BackgroundService
             lock (_connectionLock)
             {
                 return _connection?.State == HubConnectionState.Connected;
+            }
+        }
+    }
+
+    public async Task NotifyUpstreamPendingAsync()
+    {
+        HubConnection? connection;
+        lock (_connectionLock)
+        {
+            connection = _connection;
+        }
+
+        if (connection != null && connection.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await connection.InvokeAsync("NotifyUpstreamPending", _options.LocalAreaNodeId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to notify Central of pending upstream sync events.");
             }
         }
     }
@@ -119,6 +143,12 @@ public class AreaNodeChatRelayWorker : BackgroundService
             connection.On<RelaySignal>("RelaySignal", signal =>
             {
                 _ = DeliverToLocalAsync(signal);
+            });
+
+            connection.On<string?, string?>("NotifySyncNeeded", (scopeType, scopeId) =>
+            {
+                _logger.LogDebug("Received real-time NotifySyncNeeded signal from Central ({ScopeType}/{ScopeId}). Triggering local sync immediately.", scopeType, scopeId);
+                _syncSignalNotifier.TriggerLocalSync();
             });
 
             lock (_connectionLock)

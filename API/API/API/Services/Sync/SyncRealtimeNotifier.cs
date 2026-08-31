@@ -6,11 +6,16 @@ namespace API.Services.Sync;
 public class SyncRealtimeNotifier
 {
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly ISyncSignalNotifier _syncSignalNotifier;
     private readonly ILogger<SyncRealtimeNotifier> _logger;
 
-    public SyncRealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<SyncRealtimeNotifier> logger)
+    public SyncRealtimeNotifier(
+        IHubContext<NotificationHub> hubContext,
+        ISyncSignalNotifier syncSignalNotifier,
+        ILogger<SyncRealtimeNotifier> logger)
     {
         _hubContext = hubContext;
+        _syncSignalNotifier = syncSignalNotifier;
         _logger = logger;
     }
 
@@ -26,6 +31,8 @@ public class SyncRealtimeNotifier
                 sourceSystem,
                 occurredAtUtc = DateTime.UtcNow
             }, cancellationToken);
+
+            _ = _syncSignalNotifier.BroadcastSyncNeededAsync(null, aggregateType, aggregateId, cancellationToken);
         }
         catch (Exception ex)
         {

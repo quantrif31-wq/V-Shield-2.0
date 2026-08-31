@@ -68,11 +68,17 @@ public class ChatRelayHub : Hub
         }
 
         _logger.LogInformation("Chat relay node {NodeId} connected ({ConnectionId})", nodeId, Context.ConnectionId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"node_{nodeId}");
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        var nodeId = GetNodeId();
+        if (!string.IsNullOrWhiteSpace(nodeId))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"node_{nodeId}");
+        }
         _nodeRegistry.RemoveConnection(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
@@ -89,5 +95,15 @@ public class ChatRelayHub : Hub
     public async Task RelaySignal(RelaySignal signal)
     {
         await _gateway.RelaySignalAsync(signal, excludeNodeConnectionId: Context.ConnectionId);
+    }
+
+    /// <summary>AreaNode notifies Central that upstream sync events are pending.</summary>
+    public Task NotifyUpstreamPending(string areaNodeId)
+    {
+        using var scope = Context.GetHttpContext()!.RequestServices.CreateScope();
+        var notifier = scope.ServiceProvider.GetService<ISyncSignalNotifier>();
+        notifier?.TriggerCentralInbox();
+        _logger.LogDebug("Received NotifyUpstreamPending from node {NodeId}", areaNodeId);
+        return Task.CompletedTask;
     }
 }

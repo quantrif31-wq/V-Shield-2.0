@@ -30,6 +30,7 @@ class NotificationSignalRClient(
 
     var onNotificationReceived: ((SignalRNotification) -> Unit)? = null
     var onUnreadCountUpdated: ((Int) -> Unit)? = null
+    var onSyncEventApplied: ((com.google.gson.JsonObject) -> Unit)? = null
     var onConnectionChanged: ((Boolean) -> Unit)? = null
 
     enum class ConnectionState {
@@ -191,6 +192,10 @@ class NotificationSignalRClient(
             "UnreadCountUpdated" -> {
                 val count = args[0].asInt
                 scope.launch { onUnreadCountUpdated?.invoke(count) }
+            }
+            "SyncEventApplied" -> {
+                val data = args[0].asJsonObject
+                scope.launch { onSyncEventApplied?.invoke(data) }
             }
         }
     }

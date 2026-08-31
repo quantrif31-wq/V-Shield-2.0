@@ -15,17 +15,23 @@ public class AreaNodeSyncWorker : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AreaNodeSyncWorker> _logger;
     private readonly SyncRuntimeOptions _options;
+    private readonly ISyncSignalNotifier _syncSignalNotifier;
+    private readonly API.Services.ChatRelay.AreaNodeChatRelayWorker? _chatRelayWorker;
 
     public AreaNodeSyncWorker(
         IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger<AreaNodeSyncWorker> logger,
-        IOptions<SyncRuntimeOptions> options)
+        IOptions<SyncRuntimeOptions> options,
+        ISyncSignalNotifier syncSignalNotifier,
+        API.Services.ChatRelay.AreaNodeChatRelayWorker? chatRelayWorker = null)
     {
         _scopeFactory = scopeFactory;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _options = options.Value;
+        _syncSignalNotifier = syncSignalNotifier;
+        _chatRelayWorker = chatRelayWorker;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,22 +43,59 @@ public class AreaNodeSyncWorker : BackgroundService
             return;
         }
 
+        var fallbackInterval = TimeSpan.FromSeconds(Math.Max(5, Math.Min(_options.PushIntervalSeconds * 5, 30)));
+        var consecutiveFailures = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            bool hasMoreData = false;
             try
             {
-                await RunOnceAsync(stoppingToken);
+                hasMoreData = await RunOnceAsync(stoppingToken);
+                consecutiveFailures = 0;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Area node sync cycle failed.");
+                consecutiveFailures++;
+                var backoff = Math.Min(30, Math.Pow(2, Math.Min(consecutiveFailures, 5)));
+                _logger.LogWarning(ex, "Area node sync cycle failed. Retrying in {Seconds}s.", backoff);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(backoff), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                continue;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, Math.Min(_options.PushIntervalSeconds, _options.PullIntervalSeconds))), stoppingToken);
+            // High load draining loop: if there are more batches pending, loop immediately without waiting!
+            if (hasMoreData)
+            {
+                continue;
+            }
+
+            // Wait for real-time SignalR pulse OR fallback heartbeat timer
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                cts.CancelAfter(fallbackInterval);
+                await _syncSignalNotifier.LocalSyncTriggerReader.WaitToReadAsync(cts.Token);
+                while (_syncSignalNotifier.LocalSyncTriggerReader.TryRead(out _)) { }
+            }
+            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+            {
+                // Fallback heartbeat timer elapsed
+            }
         }
     }
 
-    private async Task RunOnceAsync(CancellationToken cancellationToken)
+    private async Task<bool> RunOnceAsync(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -69,7 +112,7 @@ public class AreaNodeSyncWorker : BackgroundService
 
         try
         {
-            await RunSyncCycleAsync(
+            return await RunSyncCycleAsync(
                 db,
                 syncSystemConfigStore,
                 syncExecutionContext,
@@ -83,7 +126,7 @@ public class AreaNodeSyncWorker : BackgroundService
             _logger.LogInformation("Sync node credentials expired or were reset upstream. Re-registering area node {AreaNodeId}.", _options.LocalAreaNodeId);
             await ResetLocalSessionAsync(syncSystemConfigStore, cancellationToken);
             nodeSecret = await RegisterNodeAsync(syncSystemConfigStore, cancellationToken);
-            await RunSyncCycleAsync(
+            return await RunSyncCycleAsync(
                 db,
                 syncSystemConfigStore,
                 syncExecutionContext,
@@ -94,7 +137,7 @@ public class AreaNodeSyncWorker : BackgroundService
         }
     }
 
-    private async Task RunSyncCycleAsync(
+    private async Task<bool> RunSyncCycleAsync(
         ApplicationDbContext db,
         SyncSystemConfigStore syncSystemConfigStore,
         ISyncExecutionContext syncExecutionContext,
@@ -109,8 +152,9 @@ public class AreaNodeSyncWorker : BackgroundService
             await BootstrapAsync(syncSystemConfigStore, syncExecutionContext, syncEventApplier, realtimeNotifier, nodeSecret, cancellationToken);
         }
 
-        await PushPendingEventsAsync(db, nodeSecret, cancellationToken);
-        await PullDownstreamEventsAsync(syncSystemConfigStore, syncExecutionContext, syncEventApplier, realtimeNotifier, nodeSecret, cancellationToken);
+        var pushedMore = await PushPendingEventsAsync(db, nodeSecret, cancellationToken);
+        var pulledMore = await PullDownstreamEventsAsync(syncSystemConfigStore, syncExecutionContext, syncEventApplier, realtimeNotifier, nodeSecret, cancellationToken);
+        return pushedMore || pulledMore;
     }
 
     private static async Task ResetLocalSessionAsync(SyncSystemConfigStore store, CancellationToken cancellationToken)
@@ -188,18 +232,19 @@ public class AreaNodeSyncWorker : BackgroundService
         await store.SetBootstrapCompletedAsync(true, cancellationToken);
     }
 
-    private async Task PushPendingEventsAsync(ApplicationDbContext db, string nodeSecret, CancellationToken cancellationToken)
+    private async Task<bool> PushPendingEventsAsync(ApplicationDbContext db, string nodeSecret, CancellationToken cancellationToken)
     {
         await EnsureChatDependencyEventsAsync(db, cancellationToken);
 
+        var batchSize = Math.Max(1, _options.BatchSize);
         var pending = await db.OutboxEvents
             .Where(item => item.Channel == "Sync" && item.Status == "PendingSync")
-            .Take(Math.Max(1, _options.BatchSize))
+            .Take(batchSize)
             .ToListAsync(cancellationToken);
 
         if (pending.Count == 0)
         {
-            return;
+            return false;
         }
 
         pending = pending
@@ -234,7 +279,7 @@ public class AreaNodeSyncWorker : BackgroundService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Sync upstream batch failed with status code {StatusCode}", response.StatusCode);
-            return;
+            return false;
         }
 
         var payload = await response.Content.ReadFromJsonAsync<SyncBatchResponse>(cancellationToken: cancellationToken);
@@ -263,6 +308,17 @@ public class AreaNodeSyncWorker : BackgroundService
         }
 
         await db.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            if (_chatRelayWorker != null)
+            {
+                _ = _chatRelayWorker.NotifyUpstreamPendingAsync();
+            }
+        }
+        catch { }
+
+        return pending.Count >= batchSize;
     }
 
     private async Task EnsureChatDependencyEventsAsync(ApplicationDbContext db, CancellationToken cancellationToken)
@@ -416,7 +472,7 @@ public class AreaNodeSyncWorker : BackgroundService
         _ => 10
     };
 
-    private async Task PullDownstreamEventsAsync(
+    private async Task<bool> PullDownstreamEventsAsync(
         SyncSystemConfigStore store,
         ISyncExecutionContext syncExecutionContext,
         SyncEventApplier syncEventApplier,
@@ -470,6 +526,8 @@ public class AreaNodeSyncWorker : BackgroundService
             using var ackResponse = await client.SendAsync(ackRequest, cancellationToken);
             ackResponse.EnsureSuccessStatusCode();
         }
+
+        return payload.Events.Count >= Math.Max(1, _options.BatchSize);
     }
 
     private bool ShouldSkipEcho(SyncEventDto syncEvent)

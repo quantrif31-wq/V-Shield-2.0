@@ -170,6 +170,7 @@ namespace API
             builder.Services.AddSingleton<IFaceStoragePathResolver, FaceStoragePathResolver>();
             builder.Services.Configure<SyncRuntimeOptions>(builder.Configuration.GetSection(SyncRuntimeOptions.SectionName));
             builder.Services.AddSingleton<ISyncExecutionContext, SyncExecutionContext>();
+            builder.Services.AddSingleton<ISyncSignalNotifier, SyncSignalNotifier>();
             builder.Services.AddScoped<SyncEntityEventFactory>();
             builder.Services.AddScoped<SyncSystemConfigStore>();
             builder.Services.AddScoped<SyncEventApplier>();

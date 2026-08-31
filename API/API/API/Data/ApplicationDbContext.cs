@@ -15,6 +15,7 @@ public partial class ApplicationDbContext : DbContext
     private readonly ICurrentUserContext? _currentUserContext;
     private readonly ISyncExecutionContext? _syncExecutionContext;
     private readonly SyncEntityEventFactory? _syncEntityEventFactory;
+    private readonly ISyncSignalNotifier? _syncSignalNotifier;
     private bool _isWritingAudit;
 
     public ApplicationDbContext()
@@ -31,12 +32,14 @@ public partial class ApplicationDbContext : DbContext
         DbContextOptions<ApplicationDbContext> options,
         ICurrentUserContext currentUserContext,
         ISyncExecutionContext? syncExecutionContext = null,
-        SyncEntityEventFactory? syncEntityEventFactory = null)
+        SyncEntityEventFactory? syncEntityEventFactory = null,
+        ISyncSignalNotifier? syncSignalNotifier = null)
         : base(options)
     {
         _currentUserContext = currentUserContext;
         _syncExecutionContext = syncExecutionContext;
         _syncEntityEventFactory = syncEntityEventFactory;
+        _syncSignalNotifier = syncSignalNotifier;
     }
 
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
@@ -114,6 +117,13 @@ public partial class ApplicationDbContext : DbContext
             OutboxEvents.AddRange(syncCandidates.Select(x => x.OutboxEvent));
             SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
             base.SaveChanges();
+
+            if (syncCandidates.Count > 0 && _syncSignalNotifier != null)
+            {
+                _syncSignalNotifier.TriggerLocalSync();
+                _ = _syncSignalNotifier.BroadcastSyncNeededAsync();
+            }
+
             return result;
         }
         catch (Exception ex)
@@ -166,6 +176,13 @@ public partial class ApplicationDbContext : DbContext
             OutboxEvents.AddRange(syncCandidates.Select(x => x.OutboxEvent));
             SystemAuditLogs.AddRange(auditCandidates.Select(x => x.Log));
             await base.SaveChangesAsync(cancellationToken);
+
+            if (syncCandidates.Count > 0 && _syncSignalNotifier != null)
+            {
+                _syncSignalNotifier.TriggerLocalSync();
+                _ = _syncSignalNotifier.BroadcastSyncNeededAsync(cancellationToken: cancellationToken);
+            }
+
             return result;
         }
         catch (Exception ex)
