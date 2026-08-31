@@ -32,15 +32,17 @@ import GlobalCallOverlay from './components/Call/GlobalCallOverlay.vue'
 
 const booted = ref(false)
 
-onMounted(async () => {
-  try {
-    await router.isReady()
-  } catch {
-    // router đã xử lý lỗi điều hướng riêng; vẫn cho phép vào app
-  }
+onMounted(() => {
+  // Đảm bảo ẩn splash screen ngay lập tức khi app sẵn sàng
   window.setTimeout(() => {
     booted.value = true
-  }, 260)
+  }, 120)
+
+  router.isReady().then(() => {
+    booted.value = true
+  }).catch(() => {
+    booted.value = true
+  })
 })
 </script>
 

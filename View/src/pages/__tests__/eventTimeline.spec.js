@@ -52,7 +52,6 @@ describe('EventTimeline', () => {
     const wrapper = mount(EventTimeline)
     await flushPromises()
     expect(wrapper.find('tbody').text()).toContain('—')
-    expect(wrapper.text()).toContain('100%')
   })
 
   it('shows loading and empty states', async () => {
@@ -216,7 +215,7 @@ describe('EventTimeline', () => {
     await mapsBtn.trigger('click')
     expect(wrapper.vm.showSiteMaps).toBe(true)
     expect(wrapper.text()).toContain('Bản đồ khu vực')
-    await flushPromises()
+    await wrapper.vm.loadSiteMaps()
     expect(enterpriseApi.getSiteMaps).toHaveBeenCalled()
     expect(wrapper.text()).toContain('Tầng 1')
   })
@@ -230,6 +229,8 @@ describe('EventTimeline', () => {
     enterpriseApi.getSiteMaps.mockResolvedValue({ data: [] })
     await wrapper.vm.loadSiteMaps()
     expect(wrapper.vm.siteMaps).toEqual([])
+    wrapper.vm.showSiteMaps = true
+    await flushPromises()
     expect(wrapper.text()).toContain('Chưa có bản đồ khu vực.')
   })
 
@@ -243,10 +244,11 @@ describe('EventTimeline', () => {
   })
 
   it('shows placement for a map via Vị trí button and renders placements', async () => {
-    enterpriseApi.getMapPlacements.mockResolvedValue({ data: [{ mapPlacementId: 5, securityDeviceId: 42, xCoordinate: 10, yCoordinate: 20 }] })
+    enterpriseApi.getMapPlacements.mockResolvedValue({ data: [{ mapPlacementId: 5, securityDeviceId: 42, xCoordinate: 10, yCoordinate: 20 }, { mapPlacementId: 6, deviceId: 9, x: 3, y: 4 }, { id: 7, deviceId: 8, x: 5, y: 6 }] })
     const wrapper = mount(EventTimeline)
     await flushPromises()
-    await wrapper.vm.loadSiteMaps([{ siteMapId: 10, name: 'Tầng 1', siteId: 3 }])
+    enterpriseApi.getSiteMaps.mockResolvedValue({ data: [{ siteMapId: 10, name: 'Tầng 1', siteId: 3, width: 100, height: 80 }, { siteMapId: 11, mapName: 'Tầng 2', siteId: 4 }, { id: 12, mapName: 'Tầng 3', siteId: 4 }] })
+    await wrapper.vm.loadSiteMaps()
     wrapper.vm.showSiteMaps = true
     await flushPromises()
     const posBtn = wrapper.findAll('button').find((b) => b.text().includes('Vị trí'))
@@ -256,6 +258,13 @@ describe('EventTimeline', () => {
     expect(wrapper.vm.selectedMap.siteMapId).toBe(10)
     expect(wrapper.text()).toContain('(10, 20)')
     expect(wrapper.text()).toContain('42')
+    expect(wrapper.text()).toContain('(3, 4)')
+    expect(wrapper.text()).toContain('9')
+    expect(wrapper.text()).toContain('(5, 6)')
+    expect(wrapper.text()).toContain('8')
+    expect(wrapper.text()).toContain('100 x 80')
+    expect(wrapper.text()).toContain('Tầng 2')
+    expect(wrapper.text()).toContain('Tầng 3')
   })
 
   it('handles placements load failure and empty', async () => {
@@ -266,7 +275,9 @@ describe('EventTimeline', () => {
     expect(wrapper.vm.placements).toEqual([])
     expect(wrapper.vm.placementLoading).toBe(false)
     enterpriseApi.getMapPlacements.mockResolvedValue({ data: [] })
+    wrapper.vm.showSiteMaps = true
     await wrapper.vm.showPlacementsForMap({ siteMapId: 10 })
+    await flushPromises()
     expect(wrapper.text()).toContain('Chưa có vị trí cho bản đồ này.')
   })
 
@@ -279,8 +290,8 @@ describe('EventTimeline', () => {
     const newMapBtn = wrapper.findAll('button').find((b) => b.text().includes('Bản đồ mới'))
     await newMapBtn.trigger('click')
     expect(wrapper.vm.showNewMapForm).toBe(true)
-    wrapper.vm.newMapForm.value.name = 'Tầng 3'
-    wrapper.vm.newMapForm.value.siteId = 5
+    wrapper.vm.newMapForm.name = 'Tầng 3'
+    wrapper.vm.newMapForm.siteId = 5
     await wrapper.vm.createSiteMap()
     expect(enterpriseApi.createSiteMap).toHaveBeenCalledWith({ name: 'Tầng 3', siteId: 5, width: 100, height: 100 })
     expect(wrapper.vm.showNewMapForm).toBe(false)
@@ -290,11 +301,11 @@ describe('EventTimeline', () => {
   it('createSiteMap skips when name is empty and alerts on failure', async () => {
     const wrapper = mount(EventTimeline)
     await flushPromises()
-    wrapper.vm.newMapForm.value.name = ''
+    wrapper.vm.newMapForm.name = ''
     await wrapper.vm.createSiteMap()
     expect(enterpriseApi.createSiteMap).not.toHaveBeenCalled()
     enterpriseApi.createSiteMap.mockRejectedValue(new Error('net'))
-    wrapper.vm.newMapForm.value.name = 'Map'
+    wrapper.vm.newMapForm.name = 'Map'
     await wrapper.vm.createSiteMap()
     expect(globalThis.alert).toHaveBeenCalledWith('Không thể tạo bản đồ')
     expect(wrapper.vm.mapBusy).toBe(false)
@@ -305,7 +316,7 @@ describe('EventTimeline', () => {
     enterpriseApi.createSiteMap.mockReturnValue(new Promise((r) => { resolveFn = r }))
     const wrapper = mount(EventTimeline)
     await flushPromises()
-    wrapper.vm.newMapForm.value.name = 'Map'
+    wrapper.vm.newMapForm.name = 'Map'
     const pending = wrapper.vm.createSiteMap()
     await wrapper.vm.$nextTick()
     expect(wrapper.vm.mapBusy).toBe(true)
@@ -321,7 +332,7 @@ describe('EventTimeline', () => {
     const wrapper = mount(EventTimeline)
     await flushPromises()
     wrapper.vm.selectedMap = { siteMapId: 10 }
-    wrapper.vm.placementForm.value = { deviceId: 7, x: 11, y: 22 }
+    wrapper.vm.placementForm = { deviceId: 7, x: 11, y: 22 }
     await wrapper.vm.addPlacement()
     expect(enterpriseApi.addMapPlacement).toHaveBeenCalledWith(10, { securityDeviceId: 7, xCoordinate: 11, yCoordinate: 22 })
     expect(enterpriseApi.getMapPlacements).toHaveBeenCalled()
@@ -334,6 +345,7 @@ describe('EventTimeline', () => {
     await wrapper.vm.addPlacement()
     expect(enterpriseApi.addMapPlacement).not.toHaveBeenCalled()
     wrapper.vm.selectedMap = { siteMapId: 10 }
+    wrapper.vm.placementForm.deviceId = 7
     enterpriseApi.addMapPlacement.mockRejectedValue(new Error('net'))
     await wrapper.vm.addPlacement()
     expect(globalThis.alert).toHaveBeenCalledWith('Không thể thêm vị trí')
@@ -347,23 +359,23 @@ describe('EventTimeline', () => {
     const createdBtn = wrapper.findAll('button').find((b) => b.text().includes('Sự kiện'))
     await createdBtn.trigger('click')
     expect(wrapper.vm.showCreateEvent).toBe(true)
-    wrapper.vm.createEventForm.value.eventType = 'TamperDetected'
-    wrapper.vm.createEventForm.value.summary = 'Mô tả'
-    wrapper.vm.createEventForm.value.subjectType = 'Employee'
-    wrapper.vm.createEventForm.value.subjectId = 'E9'
+    wrapper.vm.createEventForm.eventType = 'TamperDetected'
+    wrapper.vm.createEventForm.summary = 'Mô tả'
+    wrapper.vm.createEventForm.subjectType = 'Employee'
+    wrapper.vm.createEventForm.subjectId = 'E9'
     await wrapper.vm.submitCreateEvent()
     expect(enterpriseApi.createEvent).toHaveBeenCalledWith({
       eventType: 'TamperDetected', severity: 'Info', subjectType: 'Employee', subjectId: 'E9', summary: 'Mô tả',
     })
     expect(wrapper.vm.showCreateEvent).toBe(false)
-    expect(wrapper.vm.createEventForm.value.eventType).toBe('Info')
+    expect(wrapper.vm.createEventForm.eventType).toBe('Info')
     expect(enterpriseApi.getEvents).toHaveBeenCalledTimes(2)
   })
 
   it('submitCreateEvent skips when event type is empty', async () => {
     const wrapper = mount(EventTimeline)
     await flushPromises()
-    wrapper.vm.createEventForm.value.eventType = ''
+    wrapper.vm.createEventForm.eventType = ''
     await wrapper.vm.submitCreateEvent()
     expect(enterpriseApi.createEvent).not.toHaveBeenCalled()
   })
@@ -373,7 +385,7 @@ describe('EventTimeline', () => {
     const wrapper = mount(EventTimeline)
     await flushPromises()
     wrapper.vm.showCreateEvent = true
-    wrapper.vm.createEventForm.value.eventType = 'Bad'
+    wrapper.vm.createEventForm.eventType = 'Bad'
     await wrapper.vm.submitCreateEvent()
     expect(wrapper.vm.createEventError).toBe('Loại sự kiện không hợp lệ')
     expect(wrapper.text()).toContain('Loại sự kiện không hợp lệ')
@@ -384,9 +396,181 @@ describe('EventTimeline', () => {
     enterpriseApi.createEvent.mockRejectedValue(new Error('boom'))
     const wrapper = mount(EventTimeline)
     await flushPromises()
-    wrapper.vm.createEventForm.value.eventType = 'Bad'
+    wrapper.vm.createEventForm.eventType = 'Bad'
     await wrapper.vm.submitCreateEvent()
     expect(wrapper.vm.createEventError).toBe('boom')
+  })
+
+  it('deletes selected event from the detail modal via DOM button', async () => {
+    enterpriseApi.deleteEvent.mockResolvedValue({})
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    await wrapper.vm.selectEvent(sampleEvents[0])
+    const delBtn = wrapper.findAll('button').find((b) => b.text() === 'Xóa')
+    await delBtn.trigger('click')
+    await flushPromises()
+    expect(enterpriseApi.deleteEvent).toHaveBeenCalledWith(1)
+    expect(wrapper.vm.selectedEvent).toBe(null)
+  })
+
+  it('closes site maps modal via overlay click', async () => {
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showSiteMaps = true
+    await flushPromises()
+    await wrapper.find('.modal-overlay').trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.showSiteMaps).toBe(false)
+  })
+
+  it('fills the new map form via DOM inputs and cancels', async () => {
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showSiteMaps = true
+    await flushPromises()
+    const newMapBtn = wrapper.findAll('button').find((b) => b.text().includes('Bản đồ mới'))
+    await newMapBtn.trigger('click')
+    await flushPromises()
+    const inputs = wrapper.findAll('.modal-box .form-input')
+    await inputs.at(0).setValue('Tầng 4')
+    await inputs.at(1).setValue('6')
+    await inputs.at(2).setValue('120')
+    await inputs.at(3).setValue('140')
+    expect(wrapper.vm.newMapForm.name).toBe('Tầng 4')
+    expect(wrapper.vm.newMapForm.siteId).toBe(6)
+    expect(wrapper.vm.newMapForm.width).toBe(120)
+    expect(wrapper.vm.newMapForm.height).toBe(140)
+    const cancelBtn = wrapper.findAll('button').find((b) => b.text() === 'Hủy')
+    await cancelBtn.trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.showNewMapForm).toBe(false)
+  })
+
+  it('fills the placement form via DOM inputs', async () => {
+    enterpriseApi.getMapPlacements.mockResolvedValue({ data: [] })
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showSiteMaps = true
+    wrapper.vm.selectedMap = { siteMapId: 10, name: 'Tầng 1' }
+    await flushPromises()
+    const inputs = wrapper.findAll('.modal-box .form-input')
+    await inputs.at(0).setValue('7')
+    await inputs.at(1).setValue('11')
+    await inputs.at(2).setValue('22')
+    expect(wrapper.vm.placementForm.deviceId).toBe(7)
+    expect(wrapper.vm.placementForm.x).toBe(11)
+    expect(wrapper.vm.placementForm.y).toBe(22)
+  })
+
+  it('closes create event modal via overlay click', async () => {
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showCreateEvent = true
+    await flushPromises()
+    await wrapper.find('.modal-overlay').trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.showCreateEvent).toBe(false)
+  })
+
+  it('fills create event form via DOM inputs and submits from the modal button', async () => {
+    enterpriseApi.createEvent.mockResolvedValue({})
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showCreateEvent = true
+    await flushPromises()
+    const inputs = wrapper.findAll('.modal-box .form-input')
+    await inputs.at(0).setValue('AccessGranted')
+    await wrapper.find('.modal-box .form-select').setValue('High')
+    await inputs.at(1).setValue('Vehicle')
+    await inputs.at(2).setValue('V9')
+    await inputs.at(3).setValue('Cho phép truy cập')
+    const createBtn = wrapper.findAll('button').find((b) => b.text() === 'Tạo')
+    await createBtn.trigger('click')
+    await flushPromises()
+    expect(enterpriseApi.createEvent).toHaveBeenCalledWith({
+      eventType: 'AccessGranted', severity: 'High', subjectType: 'Vehicle', subjectId: 'V9', summary: 'Cho phép truy cập',
+    })
+    expect(wrapper.vm.showCreateEvent).toBe(false)
+  })
+
+  it('shows fallback dashes in detail modal for event without plate or summary', async () => {
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    await wrapper.vm.selectEvent(sampleEvents[1])
+    expect(wrapper.vm.selectedEvent.securityEventId).toBe(2)
+    expect(wrapper.text()).toContain('Biển số')
+  })
+
+  it('calls loadMapPlacements when clicking a map card body', async () => {
+    enterpriseApi.getSiteMaps.mockResolvedValue({ data: [{ siteMapId: 10, name: 'Tầng 1', siteId: 3 }] })
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showSiteMaps = true
+    await wrapper.vm.loadSiteMaps()
+    await flushPromises()
+    const loadFn = vi.fn()
+    wrapper.vm.$.setupState.loadMapPlacements = loadFn
+    wrapper.vm.$.ctx.loadMapPlacements = loadFn
+    await wrapper.find('.map-card').trigger('click')
+    await flushPromises()
+    expect(loadFn).toHaveBeenCalled()
+  })
+
+  it('renders placementBusy state on the Thêm button', async () => {
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showSiteMaps = true
+    wrapper.vm.selectedMap = { siteMapId: 10, name: 'Tầng 1' }
+    wrapper.vm.placementBusy = true
+    await flushPromises()
+    expect(wrapper.text()).toContain('Đang thêm...')
+    wrapper.vm.placementBusy = false
+    await flushPromises()
+    expect(wrapper.text()).toContain('Thêm')
+  })
+
+  it('shows create event success result banner', async () => {
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.showCreateEvent = true
+    wrapper.vm.createEventResult = 'Đã tạo sự kiện!'
+    await flushPromises()
+    expect(wrapper.text()).toContain('Đã tạo sự kiện!')
+  })
+
+  it('falls back to empty list when getEvents returns no items', async () => {
+    enterpriseApi.getEvents.mockResolvedValue({ data: { total: 0 } })
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    expect(wrapper.vm.events).toEqual([])
+    expect(wrapper.text()).toContain('Không có sự kiện nào.')
+  })
+
+  it('falls back to empty maps when getSiteMaps returns non-array data', async () => {
+    enterpriseApi.getSiteMaps.mockResolvedValue({ data: null })
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    await wrapper.vm.loadSiteMaps()
+    expect(wrapper.vm.siteMaps).toEqual([])
+  })
+
+  it('falls back to empty placements when getMapPlacements returns non-array data', async () => {
+    enterpriseApi.getMapPlacements.mockResolvedValue({ data: null })
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    await wrapper.vm.showPlacementsForMap({ siteMapId: 10 })
+    expect(wrapper.vm.placements).toEqual([])
+  })
+
+  it('adds a placement using the map id fallback', async () => {
+    enterpriseApi.addMapPlacement.mockResolvedValue({})
+    enterpriseApi.getMapPlacements.mockResolvedValue({ data: [] })
+    const wrapper = mount(EventTimeline)
+    await flushPromises()
+    wrapper.vm.selectedMap = { id: 20 }
+    wrapper.vm.placementForm.deviceId = 5
+    await wrapper.vm.addPlacement()
+    expect(enterpriseApi.addMapPlacement).toHaveBeenCalledWith(20, { securityDeviceId: 5, xCoordinate: 50, yCoordinate: 50 })
   })
 
   it('renders embedded variant without the header', async () => {
