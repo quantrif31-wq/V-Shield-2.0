@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { mechaAudio } from '../../utils/portalAudio'
+import { tacticalVoice } from '../../utils/portalVoiceSynth'
 
 const isSfxOn = ref(true)
 const isBgmOn = ref(false)
@@ -9,12 +10,18 @@ function toggleSfx() {
   isSfxOn.value = !isSfxOn.value
   mechaAudio.sfxEnabled = isSfxOn.value
   localStorage.setItem('vshield_portal_audio', String(isSfxOn.value))
-  if (isSfxOn.value) mechaAudio.playClick()
+  if (isSfxOn.value) {
+    mechaAudio.playClick()
+    tacticalVoice.speak('Acoustic Feedback Armed.')
+  }
 }
 
 function toggleBgm() {
   isBgmOn.value = mechaAudio.toggleBgm()
-  if (isSfxOn.value) mechaAudio.playTargetLock()
+  if (isBgmOn.value) {
+    mechaAudio.playTargetLock()
+    tacticalVoice.speakSystemBoot()
+  }
 }
 
 onMounted(() => {
@@ -29,13 +36,13 @@ onMounted(() => {
     <button
       type="button"
       @click="toggleSfx"
-      class="flex items-center gap-1 border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-all mecha-cut-tr"
+      class="flex items-center gap-1 border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all mecha-cut-tr"
       :class="[
         isSfxOn
-          ? 'border-amber-500/50 bg-[#151a24] text-amber-400 shadow-[0_0_12px_rgba(255,204,0,0.3)]'
+          ? 'border-amber-500/50 bg-[#151a24] text-amber-400 shadow-[0_0_15px_rgba(255,204,0,0.35)]'
           : 'border-slate-800 bg-[#0c0f15] text-slate-500 hover:text-slate-400'
       ]"
-      title="Bật/Tắt hiệu ứng âm thanh cơ khí SFX"
+      title="Bật/Tắt hiệu ứng âm thanh cơ khí SFX & Giọng nói AI"
     >
       <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -50,10 +57,10 @@ onMounted(() => {
     <button
       type="button"
       @click="toggleBgm"
-      class="flex items-center gap-1 border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-all mecha-cut-tr"
+      class="flex items-center gap-1 border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all mecha-cut-tr"
       :class="[
         isBgmOn
-          ? 'border-orange-500/60 bg-[#1f150e] text-orange-400 shadow-[0_0_15px_rgba(255,85,0,0.4)] animate-pulse'
+          ? 'border-orange-500/60 bg-[#1f150e] text-orange-400 shadow-[0_0_20px_rgba(255,85,0,0.5)] animate-pulse'
           : 'border-slate-800 bg-[#0c0f15] text-slate-500 hover:text-slate-400'
       ]"
       title="Bật/Tắt nhạc nền Sci-Fi Synth BGM thời gian thực"

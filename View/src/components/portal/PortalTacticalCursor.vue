@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { mechaAudio } from '../../utils/portalAudio'
+import { tacticalVoice } from '../../utils/portalVoiceSynth'
 
 const cursorX = ref(-100)
 const cursorY = ref(-100)
@@ -23,9 +24,9 @@ function updatePosition(e) {
     if (!isLocked.value) {
       mechaAudio.playTargetLock()
       isLocked.value = true
+      const txt = target.innerText || target.getAttribute('aria-label') || 'ENGAGED'
+      lockLabel.value = txt.slice(0, 18).trim().toUpperCase()
     }
-    const txt = target.innerText || target.getAttribute('aria-label') || 'ENGAGED'
-    lockLabel.value = txt.slice(0, 16).trim().toUpperCase()
   } else {
     isLocked.value = false
     lockLabel.value = ''
@@ -85,44 +86,49 @@ onUnmounted(() => {
         class="absolute -top-1 -left-1 h-2 w-2 rounded-full transition-all duration-150"
         :class="[
           isLocked
-            ? 'bg-orange-500 shadow-[0_0_15px_#ff5500] scale-150'
-            : 'bg-amber-400 shadow-[0_0_8px_#ffcc00]'
+            ? 'bg-orange-500 shadow-[0_0_18px_#ff5500] scale-150'
+            : 'bg-amber-400 shadow-[0_0_10px_#ffcc00]'
         ]"
       ></div>
 
       <!-- Outer Rotating Targeting Ring -->
       <div
-        class="absolute -top-5 -left-5 h-10 w-10 rounded-full border border-dashed transition-all duration-200"
+        class="absolute -top-6 -left-6 h-12 w-12 rounded-full border border-dashed transition-all duration-200"
         :class="[
           isLocked
-            ? 'border-orange-500 scale-125 animate-spin shadow-[0_0_15px_rgba(255,85,0,0.5)]'
+            ? 'border-orange-500 scale-125 animate-spin shadow-[0_0_20px_rgba(255,85,0,0.6)]'
             : 'border-amber-400/40 animate-[spin_8s_linear_infinite]'
         ]"
       ></div>
 
       <!-- Crosshair Corner Brackets -->
       <div
-        class="absolute -top-4 -left-4 h-8 w-8 transition-transform duration-200"
+        class="absolute -top-5 -left-5 h-10 w-10 transition-transform duration-200"
         :class="[isLocked ? 'scale-150 text-orange-400' : 'text-amber-400/70']"
       >
-        <span class="absolute top-0 left-0 h-1.5 w-1.5 border-t-2 border-l-2 border-current"></span>
-        <span class="absolute top-0 right-0 h-1.5 w-1.5 border-t-2 border-r-2 border-current"></span>
-        <span class="absolute bottom-0 left-0 h-1.5 w-1.5 border-b-2 border-l-2 border-current"></span>
-        <span class="absolute bottom-0 right-0 h-1.5 w-1.5 border-b-2 border-r-2 border-current"></span>
+        <span class="absolute top-0 left-0 h-2 w-2 border-t-2 border-l-2 border-current"></span>
+        <span class="absolute top-0 right-0 h-2 w-2 border-t-2 border-r-2 border-current"></span>
+        <span class="absolute bottom-0 left-0 h-2 w-2 border-b-2 border-l-2 border-current"></span>
+        <span class="absolute bottom-0 right-0 h-2 w-2 border-b-2 border-r-2 border-current"></span>
       </div>
 
-      <!-- Coordinate & Lock HUD Readout Tag -->
+      <!-- Coordinate & Quantum Hologram Inspector Readout -->
       <div
-        class="absolute top-4 left-4 whitespace-nowrap font-mono text-[9px] font-bold tracking-widest transition-all"
+        class="absolute top-5 left-5 whitespace-nowrap font-mono text-[9px] font-bold tracking-widest transition-all"
         :class="[
           isLocked
-            ? 'text-orange-400 bg-[#0c0f15]/90 px-1.5 py-0.5 border border-orange-500/50 mecha-cut-tr shadow-[0_0_10px_rgba(255,85,0,0.3)]'
-            : 'text-amber-400/60'
+            ? 'text-orange-400 bg-[#07080b]/95 p-2 border border-orange-500/60 mecha-cut-tr shadow-[0_0_20px_rgba(255,85,0,0.4)]'
+            : 'text-amber-400/70'
         ]"
       >
-        <div v-if="isLocked" class="flex items-center gap-1">
-          <span class="h-1.5 w-1.5 bg-orange-400 animate-ping"></span>
-          <span>&lt; LOCK: {{ lockLabel || 'TARGET' }} &gt;</span>
+        <div v-if="isLocked" class="space-y-0.5">
+          <div class="flex items-center gap-1.5 text-orange-400">
+            <span class="h-1.5 w-1.5 bg-orange-400 animate-ping"></span>
+            <span>&lt; LOCK: {{ lockLabel || 'TARGET' }} &gt;</span>
+          </div>
+          <div class="text-[8px] text-slate-400 font-sans">
+            // SHA-256 ENCRYPTED • NOMINAL
+          </div>
         </div>
         <div v-else>
           X:{{ Math.round(targetX) }} Y:{{ Math.round(targetY) }}
@@ -152,10 +158,10 @@ onUnmounted(() => {
     transform: translate(-50%, -50%) scale(0.2);
   }
   100% {
-    width: 140px;
-    height: 140px;
+    width: 160px;
+    height: 160px;
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.6);
+    transform: translate(-50%, -50%) scale(1.8);
   }
 }
 
@@ -163,7 +169,7 @@ onUnmounted(() => {
   position: fixed;
   border-radius: 9999px;
   border: 2px solid #ffcc00;
-  box-shadow: 0 0 20px #ff5500, inset 0 0 15px #ffcc00;
+  box-shadow: 0 0 25px #ff5500, inset 0 0 20px #ffcc00;
   animation: mecha-shockwave-expand 0.5s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
 }
 </style>
