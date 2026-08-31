@@ -1,144 +1,69 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { mechaAudio } from '../../utils/portalAudio'
 
-const isMuted = ref(true)
-let audioCtx = null
-let ambientInterval = null
+const isSfxOn = ref(true)
+const isBgmOn = ref(false)
 
-function getAudioContext() {
-  if (!audioCtx && typeof window !== 'undefined') {
-    const AudioContext = window.AudioContext || window.webkitAudioContext
-    if (AudioContext) {
-      audioCtx = new AudioContext()
-    }
-  }
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume()
-  }
-  return audioCtx
+function toggleSfx() {
+  isSfxOn.value = !isSfxOn.value
+  mechaAudio.sfxEnabled = isSfxOn.value
+  localStorage.setItem('vshield_portal_audio', String(isSfxOn.value))
+  if (isSfxOn.value) mechaAudio.playClick()
 }
 
-function playCyberChord() {
-  if (isMuted.value) return
-  const ctx = getAudioContext()
-  if (!ctx) return
-
-  const now = ctx.currentTime
-  // Lush cyber-ambient frequencies (F minor 9th: F3, C4, Eb4, G4, Bb4)
-  const freqs = [174.61, 261.63, 311.13, 392.00, 466.16]
-
-  freqs.forEach((freq, idx) => {
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    const filter = ctx.createBiquadFilter()
-
-    osc.type = idx % 2 === 0 ? 'sine' : 'triangle'
-    osc.frequency.setValueAtTime(freq, now)
-
-    filter.type = 'lowpass'
-    filter.frequency.setValueAtTime(800 + idx * 200, now)
-
-    gain.gain.setValueAtTime(0.001, now)
-    gain.gain.exponentialRampToValueAtTime(0.035, now + 0.8)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 4.5)
-
-    osc.connect(filter)
-    filter.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc.start(now)
-    osc.stop(now + 4.6)
-  })
-}
-
-function playClickSfx() {
-  if (isMuted.value) return
-  const ctx = getAudioContext()
-  if (!ctx) return
-
-  const now = ctx.currentTime
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(880, now)
-  osc.frequency.exponentialRampToValueAtTime(1760, now + 0.12)
-
-  gain.gain.setValueAtTime(0.06, now)
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14)
-
-  osc.connect(gain)
-  gain.connect(ctx.destination)
-
-  osc.start(now)
-  osc.stop(now + 0.15)
-}
-
-function toggleAudio() {
-  isMuted.value = !isMuted.value
-  if (!isMuted.value) {
-    getAudioContext()
-    playCyberChord()
-    if (!ambientInterval) {
-      ambientInterval = setInterval(() => {
-        if (!isMuted.value) playCyberChord()
-      }, 9000)
-    }
-  } else {
-    if (ambientInterval) {
-      clearInterval(ambientInterval)
-      ambientInterval = null
-    }
-  }
+function toggleBgm() {
+  isBgmOn.value = mechaAudio.toggleBgm()
+  if (isSfxOn.value) mechaAudio.playTargetLock()
 }
 
 onMounted(() => {
-  window.addEventListener('portal-click-sfx', playClickSfx)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('portal-click-sfx', playClickSfx)
-  if (ambientInterval) clearInterval(ambientInterval)
-  if (audioCtx) audioCtx.close().catch(() => {})
+  isSfxOn.value = mechaAudio.sfxEnabled
+  isBgmOn.value = mechaAudio.bgmEnabled
 })
 </script>
 
 <template>
-  <button
-    type="button"
-    @click="toggleAudio"
-    class="group relative inline-flex items-center gap-2 rounded-full border border-cyan-500/40 bg-slate-900/80 px-3.5 py-1.5 text-xs font-semibold text-cyan-300 shadow-[0_0_15px_rgba(0,240,255,0.2)] backdrop-blur-md transition-all hover:border-cyan-400 hover:bg-slate-800/90 hover:text-cyan-200 hover:shadow-[0_0_25px_rgba(0,240,255,0.4)]"
-    :title="isMuted ? 'Bật âm thanh không gian (BGM/SFX)' : 'Tắt âm thanh'"
-  >
-    <!-- Visualizer bars when active -->
-    <span class="flex h-3.5 items-center gap-0.5" aria-hidden="true">
-      <span
-        class="h-2 w-0.5 rounded-full bg-cyan-400 transition-all duration-300"
-        :class="{ 'animate-pulse h-3': !isMuted, 'opacity-40': isMuted }"
-      ></span>
-      <span
-        class="h-3 w-0.5 rounded-full bg-pink-400 transition-all duration-300"
-        :class="{ 'animate-bounce h-3.5': !isMuted, 'opacity-40': isMuted }"
-        style="animation-delay: 150ms"
-      ></span>
-      <span
-        class="h-1.5 w-0.5 rounded-full bg-cyan-400 transition-all duration-300"
-        :class="{ 'animate-pulse h-2.5': !isMuted, 'opacity-40': isMuted }"
-        style="animation-delay: 300ms"
-      ></span>
-    </span>
-
-    <span class="tracking-wide">
-      {{ isMuted ? 'BGM: Tắt' : 'BGM: Bật' }}
-    </span>
-
-    <!-- Sparkle indicator -->
-    <span
-      v-if="!isMuted"
-      class="absolute -top-1 -right-1 flex h-2 w-2 items-center justify-center"
+  <div class="flex items-center gap-1.5 font-mono">
+    <!-- SFX Button -->
+    <button
+      type="button"
+      @click="toggleSfx"
+      class="flex items-center gap-1 border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-all mecha-cut-tr"
+      :class="[
+        isSfxOn
+          ? 'border-amber-500/50 bg-[#151a24] text-amber-400 shadow-[0_0_12px_rgba(255,204,0,0.3)]'
+          : 'border-slate-800 bg-[#0c0f15] text-slate-500 hover:text-slate-400'
+      ]"
+      title="Bật/Tắt hiệu ứng âm thanh cơ khí SFX"
     >
-      <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
-      <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300"></span>
-    </span>
-  </button>
+      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path v-if="isSfxOn" d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        <line v-else x1="23" y1="9" x2="17" y2="15"></line>
+        <line v-if="!isSfxOn" x1="17" y1="9" x2="23" y2="15"></line>
+      </svg>
+      <span>SFX</span>
+    </button>
+
+    <!-- Ambient BGM Synth Button -->
+    <button
+      type="button"
+      @click="toggleBgm"
+      class="flex items-center gap-1 border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-all mecha-cut-tr"
+      :class="[
+        isBgmOn
+          ? 'border-orange-500/60 bg-[#1f150e] text-orange-400 shadow-[0_0_15px_rgba(255,85,0,0.4)] animate-pulse'
+          : 'border-slate-800 bg-[#0c0f15] text-slate-500 hover:text-slate-400'
+      ]"
+      title="Bật/Tắt nhạc nền Sci-Fi Synth BGM thời gian thực"
+    >
+      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18V5l12-2v13"></path>
+        <circle cx="6" cy="18" r="3"></circle>
+        <circle cx="18" cy="16" r="3"></circle>
+      </svg>
+      <span>BGM</span>
+    </button>
+  </div>
 </template>

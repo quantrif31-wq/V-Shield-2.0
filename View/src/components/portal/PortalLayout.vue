@@ -3,6 +3,8 @@ import { ref, onMounted, onUnmounted, provide } from 'vue'
 import PortalNavbar from './PortalNavbar.vue'
 import PortalFooter from './PortalFooter.vue'
 import PortalParticlesCanvas from './PortalParticlesCanvas.vue'
+import PortalGlobalThreeCanvas from './PortalGlobalThreeCanvas.vue'
+import PortalLiveTelemetryFeed from './PortalLiveTelemetryFeed.vue'
 import PortalAuthModal from './PortalAuthModal.vue'
 import PortalTacticalCursor from './PortalTacticalCursor.vue'
 import { mechaAudio } from '../../utils/portalAudio'
@@ -65,8 +67,11 @@ provide('openAuthModal', handleOpenAuth)
 
 <template>
   <div class="relative min-h-screen w-full bg-[#07080b] text-slate-100 font-sans selection:bg-amber-400 selection:text-slate-950">
-    <!-- Next-Gen Tactical Cursor Follower -->
+    <!-- Next-Gen Tactical Cursor Follower & Shockwaves -->
     <PortalTacticalCursor />
+
+    <!-- Fullscreen Global Three.js WebGL Cyber Canvas -->
+    <PortalGlobalThreeCanvas />
 
     <!-- Ambient Particle Canvas Background (Amber & Laser Sparkles) -->
     <PortalParticlesCanvas />
@@ -98,6 +103,9 @@ provide('openAuthModal', handleOpenAuth)
       <!-- Footer -->
       <PortalFooter />
     </div>
+
+    <!-- Floating Live SOC Telemetry Feed Drawer -->
+    <PortalLiveTelemetryFeed />
 
     <!-- Google SSO / Account Modal -->
     <PortalAuthModal
