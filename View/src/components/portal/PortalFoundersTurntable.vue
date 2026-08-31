@@ -4,8 +4,8 @@ import { mechaAudio } from '../../utils/portalAudio'
 import { tacticalVoice } from '../../utils/portalVoiceSynth'
 import PortalMechaWarrior3DStage from './PortalMechaWarrior3DStage.vue'
 
-const activeIndex = ref(3) // Default to user (Vũ Tiến Đạt - Purple)
-const isAutoRotating = ref(false)
+const activeIndex = ref(3) // Default to Vũ Tiến Đạt (Purple)
+const isAutoRotating = ref(true)
 let autoRotateTimer = null
 
 const champions = [
@@ -124,7 +124,7 @@ function startAutoRotate() {
   stopAutoRotate()
   autoRotateTimer = setInterval(() => {
     activeIndex.value = (activeIndex.value + 1) % champions.length
-  }, 6000)
+  }, 5500)
 }
 
 function stopAutoRotate() {
@@ -146,26 +146,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative space-y-8 font-mono">
+  <div class="relative space-y-6 font-mono">
     
-    <!-- Header Controls & Status -->
-    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-amber-500/20 pb-4">
+    <!-- Top Command Telemetry Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-amber-500/20 pb-3">
       <div class="flex items-center gap-3">
-        <div class="flex h-3 w-3 items-center justify-center">
-          <span class="h-2 w-2 rounded-full animate-ping" :style="{ backgroundColor: currentChampion.color }"></span>
-        </div>
+        <span class="h-2.5 w-2.5 rounded-full animate-ping" :style="{ backgroundColor: currentChampion.color }"></span>
         <div class="text-xs font-black uppercase tracking-wider text-slate-300">
           BUỒNG LÁI TÁC CHIẾN MECHA 2.0 // <span :style="{ color: currentChampion.color }">{{ currentChampion.codename }}</span>
         </div>
       </div>
 
-      <!-- Navigation & Auto Rotate Toggles -->
+      <!-- Controls -->
       <div class="flex items-center gap-2">
         <button
           type="button"
           @click="prevChampion"
           class="px-2.5 py-1 text-xs font-bold border border-slate-700 bg-[#07090e] hover:border-amber-400 text-slate-300 hover:text-amber-400 transition-all mecha-cut-tr"
-          title="Phi công trước"
         >
           ◀ TRƯỚC
         </button>
@@ -174,7 +171,6 @@ onUnmounted(() => {
           type="button"
           @click="nextChampion"
           class="px-2.5 py-1 text-xs font-bold border border-slate-700 bg-[#07090e] hover:border-amber-400 text-slate-300 hover:text-amber-400 transition-all mecha-cut-tr"
-          title="Phi công kế tiếp"
         >
           TIẾP ▶
         </button>
@@ -194,161 +190,227 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ── AAA MECHA COCKPIT & PILOT TURNTABLE STAGE ── -->
-    <PortalMechaWarrior3DStage
-      :active-index="activeIndex"
-      @select-pilot="selectChampion"
-    />
-
-    <!-- ── ACTIVE PILOT DOSSIER & TACTICAL ARSENAL CARD ── -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- ── SPLIT SCREEN: LEFT (COCKPIT & CHARACTER) + RIGHT (DOSSIER WITH DASHED CONNECTORS) ── -->
+    <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
       
-      <!-- Left: Pilot Identity & Core Responsibilities -->
-      <div
-        class="lg:col-span-7 border-2 bg-[#090c14]/95 p-6 sm:p-8 mecha-cut-corners shadow-[0_0_40px_rgba(0,0,0,0.8)] transition-all duration-500"
-        :style="{ borderColor: currentChampion.color, boxShadow: `0 0 35px ${currentChampion.color}25` }"
-      >
-        <div class="space-y-6">
-          <!-- Top Badge & Name -->
-          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 pb-4">
-            <div>
-              <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider" :style="{ color: currentChampion.color }">
-                <span>{{ currentChampion.weaponIcon }}</span>
-                <span>{{ currentChampion.codename }}</span>
-                <span class="text-slate-600">•</span>
-                <span class="text-slate-400">{{ currentChampion.classId }}</span>
+      <!-- ── LEFT COLUMN: COCKPIT & 3D ROTATING PILOT STAGE (7 COLS) ── -->
+      <div class="lg:col-span-7 relative flex flex-col">
+        <PortalMechaWarrior3DStage
+          :active-index="activeIndex"
+          :is-auto-rotating="isAutoRotating"
+          @select-pilot="selectChampion"
+        />
+      </div>
+
+      <!-- ── RIGHT COLUMN: TACTICAL INFORMATION DOSSIER & CONNECTORS (5 COLS) ── -->
+      <div class="lg:col-span-5 relative flex flex-col justify-between">
+        
+        <!-- Animated Holographic Connecting Dashed Lines Layer (Desktop Only) -->
+        <svg
+          class="hidden lg:block pointer-events-none absolute -left-8 inset-y-0 w-8 h-full z-30 overflow-visible"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <!-- Line 1: Connects from Pilot Tech Mask to Header Name -->
+          <line
+            x1="-40" y1="90"
+            x2="0" y2="90"
+            :stroke="currentChampion.color"
+            stroke-width="1.8"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.85"
+          />
+          <circle cx="-40" cy="90" r="3" :fill="currentChampion.color" class="animate-ping" />
+          <circle cx="0" cy="90" r="3" :fill="currentChampion.color" />
+
+          <!-- Line 2: Connects from Pilot Chest Armor to Core Duties -->
+          <line
+            x1="-60" y1="210"
+            x2="0" y2="210"
+            :stroke="currentChampion.color"
+            stroke-width="1.8"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.75"
+          />
+          <circle cx="-60" cy="210" r="3" :fill="currentChampion.color" />
+          <circle cx="0" cy="210" r="3" :fill="currentChampion.color" />
+
+          <!-- Line 3: Connects from Pilot Arm Gauntlet to Weapon Specs -->
+          <line
+            x1="-50" y1="330"
+            x2="0" y2="330"
+            :stroke="currentChampion.color"
+            stroke-width="1.8"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.75"
+          />
+          <circle cx="-50" cy="330" r="3" :fill="currentChampion.color" />
+          <circle cx="0" cy="330" r="3" :fill="currentChampion.color" />
+
+          <!-- Line 4: Connects from Base to Radar Stats -->
+          <line
+            x1="-40" y1="440"
+            x2="0" y2="440"
+            :stroke="currentChampion.color"
+            stroke-width="1.8"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.65"
+          />
+          <circle cx="-40" cy="440" r="3" :fill="currentChampion.color" />
+          <circle cx="0" cy="440" r="3" :fill="currentChampion.color" />
+        </svg>
+
+        <!-- Right Info Card -->
+        <div
+          class="h-full flex flex-col justify-between border-2 bg-[#080b12]/95 p-6 sm:p-7 mecha-cut-corners shadow-[0_0_40px_rgba(0,0,0,0.85)] transition-all duration-500 relative"
+          :style="{ borderColor: currentChampion.color, boxShadow: `0 0 35px ${currentChampion.color}25` }"
+        >
+          <!-- Holographic Dashed Border Line Accents -->
+          <div
+            class="pointer-events-none absolute -top-1 -right-1 h-6 w-6 border-t-2 border-r-2"
+            :style="{ borderColor: currentChampion.color }"
+          ></div>
+          <div
+            class="pointer-events-none absolute -bottom-1 -left-1 h-6 w-6 border-b-2 border-l-2"
+            :style="{ borderColor: currentChampion.color }"
+          ></div>
+
+          <div class="space-y-4">
+            <!-- Node 1: Header Callsign & Pilot Name -->
+            <div class="border-b border-slate-800/90 pb-3.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5 text-xs font-black uppercase" :style="{ color: currentChampion.color }">
+                  <span>{{ currentChampion.weaponIcon }}</span>
+                  <span>{{ currentChampion.codename }}</span>
+                </div>
+                <div class="text-[10px] font-bold text-slate-400 bg-slate-900/90 px-2 py-0.5 border border-slate-800 mecha-cut-tr">
+                  {{ currentChampion.classId }}
+                </div>
               </div>
+
               <h2 class="text-2xl sm:text-3xl font-black text-white mt-1">
                 {{ currentChampion.name }}
               </h2>
-              <div class="text-sm font-bold text-slate-300 pt-0.5">
+              <div class="text-xs font-bold text-slate-300 pt-0.5">
                 {{ currentChampion.role }}
               </div>
             </div>
 
-            <!-- Power Rating -->
-            <div class="text-right">
-              <div class="text-[10px] text-slate-500 uppercase">CHỈ SỐ ĐỒNG BỘ</div>
-              <div class="text-2xl font-black" :style="{ color: currentChampion.color }">
-                {{ currentChampion.stats.sync }}%
+            <!-- Node 2: Thesis Responsibilities -->
+            <div class="space-y-1.5 font-sans">
+              <div class="font-mono text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
+                <span class="inline-block h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: currentChampion.color }"></span>
+                <span>// NHIỆM VỤ ĐỒ ÁN:</span>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                {{ currentChampion.duties }}
+              </p>
+            </div>
+
+            <!-- Node 3: Specialized Cyber Weapon -->
+            <div class="space-y-1 border-t border-slate-800/80 pt-3 font-sans">
+              <div class="font-mono text-[11px] font-black uppercase flex items-center gap-1.5" :style="{ color: currentChampion.color }">
+                <span>⚡</span>
+                <span>VŨ KHÍ: {{ currentChampion.weaponName.split('(')[0] }}</span>
+              </div>
+              <p class="text-[11.5px] text-slate-400 leading-relaxed">
+                {{ currentChampion.weaponDesc }}
+              </p>
+            </div>
+
+            <!-- Node 4: Combat Radar Stats -->
+            <div class="space-y-2.5 border-t border-slate-800/80 pt-3">
+              <div class="flex justify-between items-center text-[10.5px] font-black text-slate-400">
+                <span>CHỈ SỐ NĂNG LỰC TÁC CHIẾN</span>
+                <span :style="{ color: currentChampion.color }">ĐỒNG BỘ: {{ currentChampion.stats.sync }}%</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-[10px] font-bold">
+                <div>
+                  <div class="flex justify-between text-slate-400 mb-0.5">
+                    <span>BACKEND:</span>
+                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.code }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.code}%`, backgroundColor: currentChampion.color }"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-slate-400 mb-0.5">
+                    <span>DEFENSE:</span>
+                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.defense }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.defense}%`, backgroundColor: currentChampion.color }"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-slate-400 mb-0.5">
+                    <span>SYNC HUD:</span>
+                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.sync }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.sync}%`, backgroundColor: currentChampion.color }"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-slate-400 mb-0.5">
+                    <span>AI POWER:</span>
+                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.power }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.power}%`, backgroundColor: currentChampion.color }"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Responsibilities & Thesis Duties -->
-          <div class="space-y-2 font-sans">
-            <div class="font-mono text-xs font-black uppercase text-amber-400">
-              // NHIỆM VỤ ĐỒ ÁN & TRÁCH NHIỆM KỸ THUẬT:
+          <!-- Bottom 5 Pilot Quick Selection Switcher -->
+          <div class="pt-3 border-t border-slate-800/80 mt-3">
+            <div class="grid grid-cols-5 gap-1.5">
+              <button
+                v-for="(c, idx) in champions"
+                :key="c.id"
+                type="button"
+                @click="selectChampion(idx)"
+                class="p-1.5 text-center transition-all mecha-cut-tr flex flex-col items-center justify-center gap-0.5"
+                :class="[
+                  idx === activeIndex
+                    ? 'border-2 text-white font-black scale-105 shadow-[0_0_15px_rgba(0,0,0,0.8)]'
+                    : 'border border-slate-800 bg-[#0a0d14] text-slate-400 hover:text-slate-200'
+                ]"
+                :style="{
+                  borderColor: idx === activeIndex ? c.color : undefined,
+                  backgroundColor: idx === activeIndex ? '#0f1422' : undefined
+                }"
+              >
+                <span class="text-xs">{{ c.weaponIcon }}</span>
+                <span class="text-[8.5px] font-mono leading-none truncate max-w-full">
+                  {{ c.name.split(' ').pop() }}
+                </span>
+              </button>
             </div>
-            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              {{ currentChampion.duties }}
-            </p>
-          </div>
-
-          <!-- Weapon & Tech Arsenal -->
-          <div class="space-y-2 border-t border-slate-800 pt-4 font-sans">
-            <div class="font-mono text-xs font-black uppercase" :style="{ color: currentChampion.color }">
-              // VŨ KHÍ CÔNG NGHỆ CHUYÊN DỤNG: {{ currentChampion.weaponName }}
-            </div>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              {{ currentChampion.weaponDesc }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right: Pilot Radar Stats & Quick Selector Grid -->
-      <div class="lg:col-span-5 flex flex-col justify-between gap-4 border border-slate-800 bg-[#07090e]/95 p-6 mecha-cut-corners">
-        <div class="space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-            <span class="text-xs font-black text-amber-400 uppercase">// CHỈ SỐ TÁC CHIẾN (STATS)</span>
-            <span class="text-[10px] text-slate-500 font-mono">PHÂN PHỐI NĂNG LƯỢNG</span>
-          </div>
-
-          <!-- 4 Stat Bars -->
-          <div class="space-y-3">
-            <div>
-              <div class="flex justify-between text-xs font-bold text-slate-300 mb-1">
-                <span>BACKEND & MẬT MÃ (CODE)</span>
-                <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.code }}%</span>
-              </div>
-              <div class="h-2 w-full bg-slate-900 overflow-hidden rounded-sm">
-                <div
-                  class="h-full transition-all duration-700"
-                  :style="{ width: `${currentChampion.stats.code}%`, backgroundColor: currentChampion.color }"
-                ></div>
-              </div>
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs font-bold text-slate-300 mb-1">
-                <span>PHÒNG THỦ & AN NINH (DEFENSE)</span>
-                <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.defense }}%</span>
-              </div>
-              <div class="h-2 w-full bg-slate-900 overflow-hidden rounded-sm">
-                <div
-                  class="h-full transition-all duration-700"
-                  :style="{ width: `${currentChampion.stats.defense}%`, backgroundColor: currentChampion.color }"
-                ></div>
-              </div>
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs font-bold text-slate-300 mb-1">
-                <span>ĐỒNG BỘ REALTIME (SYNC)</span>
-                <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.sync }}%</span>
-              </div>
-              <div class="h-2 w-full bg-slate-900 overflow-hidden rounded-sm">
-                <div
-                  class="h-full transition-all duration-700"
-                  :style="{ width: `${currentChampion.stats.sync}%`, backgroundColor: currentChampion.color }"
-                ></div>
-              </div>
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs font-bold text-slate-300 mb-1">
-                <span>HỎA LỰC SUY LUẬN (AI POWER)</span>
-                <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.power }}%</span>
-              </div>
-              <div class="h-2 w-full bg-slate-900 overflow-hidden rounded-sm">
-                <div
-                  class="h-full transition-all duration-700"
-                  :style="{ width: `${currentChampion.stats.power}%`, backgroundColor: currentChampion.color }"
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 5 Pilot Selectors -->
-        <div class="pt-4 border-t border-slate-800/80">
-          <div class="text-[10px] text-slate-500 uppercase mb-2 font-bold">// DANH SÁCH 5 CHIẾN BINH MECHA:</div>
-          <div class="grid grid-cols-5 gap-1.5">
-            <button
-              v-for="(c, idx) in champions"
-              :key="c.id"
-              type="button"
-              @click="selectChampion(idx)"
-              class="p-2 text-center transition-all mecha-cut-tr flex flex-col items-center justify-center gap-1"
-              :class="[
-                idx === activeIndex
-                  ? 'border-2 text-white font-black scale-105 shadow-[0_0_15px_rgba(0,0,0,0.8)]'
-                  : 'border border-slate-800 bg-[#0a0d14] text-slate-400 hover:text-slate-200 hover:border-slate-700'
-              ]"
-              :style="{
-                borderColor: idx === activeIndex ? c.color : undefined,
-                backgroundColor: idx === activeIndex ? '#0f1422' : undefined
-              }"
-            >
-              <span class="text-xs">{{ c.weaponIcon }}</span>
-              <span class="text-[9px] font-mono leading-none truncate max-w-full">
-                {{ c.name.split(' ').pop() }}
-              </span>
-            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+.animate-dash {
+  animation: dash 1s linear infinite;
+}
+</style>
