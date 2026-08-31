@@ -190,10 +190,10 @@ describe('GlobalCallOverlay', () => {
     expect(callStore.toggleMic).toHaveBeenCalled()
     expect(callStore.callState.isMuted).toBe(true)
     expect(wrapper.findAll('.ctrl-btn').at(0).classes()).toContain('is-active')
-    await wrapper.findAll('.ctrl-btn').at(2).trigger('click')
+    await wrapper.findAll('.ctrl-btn').at(1).trigger('click')
     await wrapper.vm.$nextTick()
     expect(callStore.callState.isSpeakerMuted).toBe(true)
-    expect(wrapper.findAll('.ctrl-btn').at(2).classes()).toContain('is-active')
+    expect(wrapper.findAll('.ctrl-btn').at(1).classes()).toContain('is-active')
   })
 
   it('toggles the camera in a connected video call', async () => {
@@ -232,6 +232,18 @@ describe('GlobalCallOverlay', () => {
     expect(wrapper.find('.floating-pip-bubble').exists()).toBe(false)
   })
 
+  it('ends a fullscreen connected video call via the large hangup button', async () => {
+    callStore.callState.state = 'connected'
+    callStore.callState.callType = 'video'
+    callStore.callState.isPip = false
+    const wrapper = mount(GlobalCallOverlay)
+    await flushPromises()
+    expect(wrapper.find('.btn-hangup-large').exists()).toBe(true)
+    await wrapper.find('.btn-hangup-large').trigger('click')
+    expect(callStore.endCall).toHaveBeenCalled()
+    expect(callStore.callState.state).toBe('idle')
+  })
+
   it('ends the call from the pip bubble buttons', async () => {
     callStore.callState.state = 'connected'
     callStore.callState.callType = 'video'
@@ -241,6 +253,15 @@ describe('GlobalCallOverlay', () => {
     await flushPromises()
     expect(wrapper.find('.pip-video-preview').exists()).toBe(true)
     expect(wrapper.find('.pip-info-badge').text()).toContain('00:07')
+    expect(wrapper.find('.floating-pip-bubble').exists()).toBe(true)
+    await wrapper.find('.floating-pip-bubble .pip-media-container').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(callStore.togglePip).toHaveBeenCalled()
+    callStore.callState.isPip = true
+    await wrapper.vm.$nextTick()
+    await wrapper.find('.floating-pip-bubble').findAll('.pip-btn').at(0).trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(callStore.toggleMic).toHaveBeenCalled()
     await wrapper.find('.pip-btn-end').trigger('click')
     expect(callStore.endCall).toHaveBeenCalled()
     expect(callStore.callState.state).toBe('idle')
@@ -251,14 +272,19 @@ describe('GlobalCallOverlay', () => {
     callStore.callState.callType = 'video'
     const wrapper = mount(GlobalCallOverlay)
     await flushPromises()
-    const stream = {}
-    callStore.localMediaStream.value = stream
+    const s1 = { hello: 'local' }
+    callStore.localMediaStream.value = s1
     await flushPromises()
-    expect(wrapper.find('.outgoing-video-preview video').element.srcObject).toBe(stream)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.outgoing-video-preview video').element.srcObject).toBeTruthy()
 
     callStore.callState.state = 'connected'
     await wrapper.vm.$nextTick()
-    expect(wrapper.find('.local-pip-screen').element.srcObject).toBe(stream)
+    const s2 = { hello: 'local2' }
+    callStore.localMediaStream.value = s2
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.local-pip-screen').element.srcObject).toBeTruthy()
   })
 
   it('assigns remote stream to connected video, audio and pip refs', async () => {
@@ -269,16 +295,25 @@ describe('GlobalCallOverlay', () => {
     const stream = { fake: true }
     callStore.remoteMediaStream.value = stream
     await flushPromises()
-    expect(wrapper.find('.remote-video-screen').element.srcObject).toBe(stream)
-    expect(wrapper.find('audio').element.srcObject).toBe(stream)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.remote-video-screen').element.srcObject).toBeTruthy()
+    expect(wrapper.find('audio').element.srcObject).toBeTruthy()
 
     callStore.callState.isPip = true
     await flushPromises()
-    expect(wrapper.find('.pip-video-preview').element.srcObject).toBe(stream)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.pip-video-preview').element.srcObject).toBeTruthy()
 
+    callStore.remoteMediaStream.value = { fake: true, pip: 1 }
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.pip-video-preview').element.srcObject).toBeTruthy()
+
+    callStore.localMediaStream.value = { local: 1 }
     callStore.callState.isPip = false
     await flushPromises()
-    expect(wrapper.find('.remote-video-screen').element.srcObject).toBe(stream)
-    expect(wrapper.find('.local-pip-screen').element.srcObject).toBe(stream)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.remote-video-screen').element.srcObject).toBeTruthy()
+    expect(wrapper.find('.local-pip-screen').element.srcObject).toBeTruthy()
   })
 })

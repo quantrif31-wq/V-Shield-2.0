@@ -3,7 +3,14 @@ import { isLoggedIn, hasRole } from '../stores/auth'
 import { authState } from '../stores/auth'
 
 const Login = () => import('../pages/Login.vue')
-const HomePage = () => import('../pages/HomePage.vue')
+const PortalLayout = () => import('../components/portal/PortalLayout.vue')
+const PortalHome = () => import('../pages/portal/PortalHome.vue')
+const PortalFeatures = () => import('../pages/portal/PortalFeatures.vue')
+const PortalRoadmap = () => import('../pages/portal/PortalRoadmap.vue')
+const PortalDownload = () => import('../pages/portal/PortalDownload.vue')
+const PortalCommunity = () => import('../pages/portal/PortalCommunity.vue')
+const PortalAbout = () => import('../pages/portal/PortalAbout.vue')
+const PortalContact = () => import('../pages/portal/PortalContact.vue')
 const ForcePasswordChange = () => import('../pages/ForcePasswordChange.vue')
 const MainLayout = () => import('../components/Layout/MainLayout.vue')
 const Dashboard = () => import('../pages/Dashboard.vue')
@@ -132,21 +139,26 @@ function landingRouteForRole(role) {
 const routes = [
     {
         path: '/',
-        name: 'HomePage',
-        component: HomePage,
+        component: PortalLayout,
         meta: { public: true },
-    },
-    {
-        path: '/portal',
-        name: 'Portal',
-        component: HomePage,
-        meta: { public: true },
-    },
-    {
-        path: '/home',
-        name: 'Home',
-        component: HomePage,
-        meta: { public: true },
+        children: [
+            { path: '', name: 'PortalHome', component: PortalHome, meta: { public: true } },
+            { path: 'portal', name: 'Portal', component: PortalHome, meta: { public: true } },
+            { path: 'home', name: 'Home', component: PortalHome, meta: { public: true } },
+            { path: 'features', name: 'PortalFeatures', component: PortalFeatures, meta: { public: true } },
+            { path: 'portal/features', component: PortalFeatures, meta: { public: true } },
+            { path: 'roadmap', name: 'PortalRoadmap', component: PortalRoadmap, meta: { public: true } },
+            { path: 'portal/roadmap', component: PortalRoadmap, meta: { public: true } },
+            { path: 'download', name: 'PortalDownload', component: PortalDownload, meta: { public: true } },
+            { path: 'portal/download', component: PortalDownload, meta: { public: true } },
+            { path: 'downloads', component: PortalDownload, meta: { public: true } },
+            { path: 'community', name: 'PortalCommunity', component: PortalCommunity, meta: { public: true } },
+            { path: 'portal/community', component: PortalCommunity, meta: { public: true } },
+            { path: 'about', name: 'PortalAbout', component: PortalAbout, meta: { public: true } },
+            { path: 'portal/about', component: PortalAbout, meta: { public: true } },
+            { path: 'contact', name: 'PortalContact', component: PortalContact, meta: { public: true } },
+            { path: 'portal/contact', component: PortalContact, meta: { public: true } },
+        ]
     },
     {
         path: '/login',
