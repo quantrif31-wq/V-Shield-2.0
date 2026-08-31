@@ -648,31 +648,7 @@ public class DeviceManagementController : ControllerBase
 
             await System.IO.File.WriteAllTextAsync(yamlPath, yaml.ToString());
             await _context.SaveChangesAsync();
-
-            if (IsDockerMode())
-            {
-                await TryReloadGo2RtcByHttpAsync();
-                return;
-            }
-
-            var go2rtcPath = Path.GetDirectoryName(yamlPath) ?? string.Empty;
-            var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
-            if (!Directory.Exists(go2rtcPath) || !System.IO.File.Exists(exePath))
-            {
-                return;
-            }
-
-            foreach (var proc in Process.GetProcessesByName("go2rtc"))
-            {
-                proc.Kill();
-            }
-
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = exePath,
-                WorkingDirectory = go2rtcPath,
-                UseShellExecute = true
-            });
+            await TryReloadGo2RtcByHttpAsync();
         }
         catch
         {
@@ -683,11 +659,7 @@ public class DeviceManagementController : ControllerBase
     private string ResolveAiRootFolderName() =>
         _configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
 
-    private bool IsDockerMode()
-    {
-        var mode = (_configuration["Runtime:Mode"] ?? "local").Trim().ToLowerInvariant();
-        return mode == "docker";
-    }
+    private static bool IsDockerMode() => true;
 
     private string ResolveGo2RtcYamlPath()
     {

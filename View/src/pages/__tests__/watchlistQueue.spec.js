@@ -357,16 +357,17 @@ describe('WatchlistQueue', () => {
     await wrapper.find('#watchlist-panel-matches button.is-secondary').trigger('click')
     await flushPromises()
     expect(wrapper.findAll('tbody tr').length).toBe(4)
+    wrapper.unmount()
 
     hoisted.route.query = { tab: 'entries' }
     enterpriseApi.getWatchlistEntries.mockRejectedValueOnce(new Error('second'))
-    hoisted.route.query = { tab: 'entries' }
     const wrapper2 = mountQ(WatchlistQueue, mountOptions)
     await flushPromises()
     expect(wrapper2.text()).toContain('Không thể tải danh mục watchlist.')
     await wrapper2.find('#watchlist-panel-entries button.is-secondary').trigger('click')
     await flushPromises()
     expect(wrapper2.findAll('tbody tr').length).toBe(2)
+    wrapper2.unmount()
 
     hoisted.route.query = { tab: 'entries' }
     enterpriseApi.getWatchlistEntries.mockResolvedValue({ data: [] })

@@ -1,14 +1,17 @@
 @echo off
+setlocal
 cd /d "%~dp0"
-powershell -ExecutionPolicy Bypass -File "%~dp0manage.ps1" -Action start
+echo ===================================================
+echo [INFO] Khoi dong V-Shield Docker Local Stack...
+echo ===================================================
+docker compose up -d
 if errorlevel 1 (
-  echo.
-  echo Khoi dong that bai. Vui long xem thong bao loi o tren.
-  pause
-  exit /b 1
+    echo.
+    echo [ERROR] Khoi dong Docker that bai. Vui long kiem tra Docker Desktop da bat chua.
+    pause
+    exit /b 1
 )
 echo.
-set "VSHIELD_URL=http://127.0.0.1:5173/"
-if exist "%~dp0.runtime\view.url" set /p VSHIELD_URL=<"%~dp0.runtime\view.url"
-echo V-Shield da san sang: %VSHIELD_URL%
-ping 127.0.0.1 -n 6 >nul
+echo [OK] V-Shield Stack da san sang tai: http://localhost:5173
+echo.
+pause

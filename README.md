@@ -1,45 +1,33 @@
 # V-Shield
 
-Huong dan cai dat va chay V-Shield theo 3 nhu cau pho bien:
+Hướng dẫn cài đặt và chạy V-Shield theo 2 nhu cầu phổ biến:
 
-- `Docker local`: danh cho may Windows ca nhan, de dung nhat
-- `Docker VPS`: danh cho may chu public
-- `Windows non-Docker`: chi dung khi ban muon chay truc tiep bang `manage.ps1`
+- `Docker local`: dành cho máy Windows cá nhân / phát triển nội bộ
+- `Docker VPS`: dành cho máy chủ triển khai public
 
-Neu ban chi muon chay du an nhanh tren may cua minh, hay di theo muc `Docker local`.
+## 1. Chọn cách cài đặt
 
-## 1. Chon cach cai dat
+### Lựa chọn A: Docker local
 
-### Lua chon A: Docker local
+Dùng khi:
 
-Dung khi:
+- Bạn đang dùng máy cá nhân / máy trạm Windows
+- Bạn muốn mở ứng dụng tại `http://localhost:5173`
+- Bạn muốn có sẵn SQL Server + API + Frontend + go2rtc + AI Runtime trong cùng một Docker stack
+- Khởi động nhanh bằng file `start.bat` hoặc lệnh `docker compose up -d`
 
-- Ban dang dung Windows
-- Ban muon mo app tai `http://localhost:5173`
-- Ban muon co san SQL Server + API + frontend + go2rtc trong cung mot stack
-- Ban muon may khac clone repo ve co the dung day du cac luong local Docker
+### Lựa chọn B: Docker VPS
 
-### Lua chon B: Docker VPS
+Dùng khi:
 
-Dung khi:
+- Bạn triển khai lên máy chủ VPS (Ubuntu / Linux)
+- Bạn cần cấu hình secret, biến môi trường và domain cho môi trường public
+- Khởi động qua `docker compose --env-file .env.vps -f docker-compose.vps.yml up -d`
 
-- Ban deploy len VPS
-- Ban muon stack gon hon, uu tien web/API
-- Ban can secret va bien moi truong rieng cho moi truong public
-
-### Lua chon C: Windows non-Docker
-
-Dung khi:
-
-- Ban muon debug local truc tiep bang `dotnet` + `npm`
-- Ban khong muon dung container
-
-Mac dinh cua repo hien tai:
+Mặc định của hệ thống:
 
 - Docker local frontend: `http://localhost:5173`
-- Windows non-Docker frontend: `http://localhost:5174`
 - API local Docker: `http://localhost:5107`
-- API non-Docker: `http://127.0.0.1:5108`
 
 ## 2. Docker local
 
@@ -451,84 +439,24 @@ Nen giu quy tac:
 - phan anh ro khu vuc van hanh
 - khong doi ten tuy tien sau khi da dua vao van hanh
 
-## 4. Windows non-Docker
+## 4. Cloudflare Tunnel
 
-Chi dung muc nay neu ban chu dong muon chay local khong qua Docker.
+Hệ thống có sẵn luồng cấu hình Cloudflare Tunnel thông qua Docker container:
 
-### 4.1. Cai dependency
+- Docker tunnel: xem `scripts/setup-docker-cloudflare-tunnel.ps1` (Windows) hoặc `scripts/setup-docker-cloudflare-tunnel.sh` (Linux)
 
-```powershell
-.\manage.ps1 -Action install
-```
-
-### 4.2. Chay app
-
-```powershell
-.\manage.ps1 -Action start
-```
-
-Mac dinh:
-
-- Frontend: [http://127.0.0.1:5174](http://127.0.0.1:5174)
-- API: [http://127.0.0.1:5108/health](http://127.0.0.1:5108/health)
-
-Neu cong `5174` dang bi chiem, script se thu fallback sang `5175` hoac `5176`.
-
-### 4.3. Dung app
-
-```powershell
-.\manage.ps1 -Action stop
-```
-
-### 4.4. Xem trang thai
-
-```powershell
-.\manage.ps1 -Action status
-```
-
-### 4.5. Don moi truong local
-
-```powershell
-.\manage.ps1 -Action uninstall
-```
-
-Luu y:
-
-- script se khong xoa DB Docker
-- script nay chu yeu don dependency local va `.runtime`
-
-## 5. Cloudflare Tunnel
-
-Repo co san luong cau hinh Cloudflare Tunnel, nhung day khong phai buoc bat buoc de chay local.
-
-Neu can:
-
-- Docker tunnel: xem `scripts/setup-docker-cloudflare-tunnel.ps1`
-- Windows non-Docker public domain: xem `setup-public-domain.bat`
-
-Tai lieu bo sung:
+Tài liệu bổ sung:
 
 - `docs/DOCKER_RUN_GUIDE.md`
 - `docs/DOCKER_REGRESSION_CHECKLIST.md`
 - `docs/DOCKER_UI_REGRESSION.md`
 - `docs/WEB_DEPLOYMENT_MODES.md`
 
-## 6. Tai khoan mau
+## 5. Tài khoản mẫu
 
-Khi demo data dang bat, he thong tu seed mot nhom tai khoan mau theo vai tro.
+Khi demo data đang bật, hệ thống tự seed một nhóm tài khoản mẫu theo vai trò:
 
-### 6.1. Tai khoan nen thu truoc
-
-Docker local:
-
-- `admin` / `AdminLocal@2026`
-
-Windows non-Docker:
-
-- `admin` / `Admin@123`
-
-Tai khoan demo theo vai tro do backend tao:
-
+- `admin` / `AdminLocal@2026` (Docker Local) hoặc cấu hình trong `.env`
 - `manager` / `Manager@123`
 - `quanly2` / `Manager@123`
 - `baove1` / `BaoVe@123`
@@ -537,132 +465,41 @@ Tai khoan demo theo vai tro do backend tao:
 - `nhansu1` / `HR@123`
 - `nhanvien1` / `Staff@123`
 
-Luu y:
+## 6. Nạp lại demo data
 
-- So luong tai khoan `baove*`, `quanly*`, `letan*`, `nhansu*`, `nhanvien*` co the nhieu hon tuy theo bo employee demo duoc seed
-- `manager` la tai khoan QuanLy dau tien, cac tai khoan tiep theo se la `quanly2`, `quanly3`...
-- `admin` la tai khoan seed rieng cua he thong, khong phai luc nao cung giong mat khau demo cua mode khac
-
-### 6.2. Tai khoan test hien tai cho Docker local
-
-- App local: [http://localhost:5173](http://localhost:5173)
-- API local: [http://localhost:5107](http://localhost:5107)
-- Tai khoan test: `admin`
-- Mat khau test: `AdminLocal@2026`
-
-### 6.3. Neu dang dung MFA
-
-Luu y:
-
-- MFA secret duoc luu trong DB o dang ma hoa
-- Khoa giai ma MFA khong duoc phep mat sau moi lan recreate container
-- Docker local va VPS trong repo hien da duoc cau hinh de giu khoa nay bang volume rieng
-
-Neu ban da tung recreate API truoc khi co ban fix nay, mot so tai khoan co the se phai setup MFA lai 1 lan cuoi.
-
-## 7. Nap lai demo data
-
-### 7.1. Demo data co duoc bat san khong
-
-Docker local:
-
-- duoc bat san khi chay stack local
-
-Docker VPS:
-
-- phu thuoc bien `.env.vps`
-- thuong can:
-  - `DEMO_DATA_ENABLED=true`
-  - neu dang chay Production va van muon seed demo thi can them `DEMO_DATA_ALLOW_IN_PRODUCTION=true`
-
-### 7.2. Seed demo data khi khoi dong
-
-Demo data duoc seed tu dong khi app khoi dong neu:
-
-- `DemoData:Enabled = true`
-- va neu la Production thi `DemoData:AllowInProduction = true`
-
-Neu DB chua co du lieu demo, app se nap bo du lieu mau trong luc startup.
-
-### 7.3. Nap lai kich ban demo van hanh
-
-Repo hien co endpoint reset demo:
-
-- `POST /api/demo-control/reset`
-
-Dieu kien de dung:
-
-- phai dang nhap bang tai khoan `Admin`
-- app phai dang chay trong moi truong development demo
-- `DemoData:Enabled = true`
-
-Muc dich cua endpoint nay:
-
-- reset lai cac kich ban demo van hanh
-- nap lai alarm, intervention, emergency pass va cac tinh huong demo lien quan
-
-### 7.4. Cach reset nhanh tren Docker local
-
-Cach de nhat la dung giao dien admin neu man hinh co nut reset demo. Neu muon goi API truc tiep, co the:
-
-1. Dang nhap bang `admin`
-2. Lay token tu phien dang nhap
-3. Goi:
-
-```powershell
-curl -X POST http://localhost:5107/api/demo-control/reset ^
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Neu ban chi muon seed lai tu dau toan bo stack local, cach manh tay hon la:
+### 6.1. Reset nhanh trên Docker local
 
 ```powershell
 docker compose down -v
 docker compose up -d --build
 ```
 
-Cach nay se xoa DB volume local va cho app seed lai tu dau.
-
-### 7.5. Cach reset demo tren VPS
-
-Neu VPS duoc cau hinh cho phep demo data:
+### 6.2. Reset trên VPS
 
 ```powershell
 docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
 ```
 
-Neu can seed lai tu dau tren VPS:
+## 7. Lệnh nhanh
 
-- can rat than trong
-- chi nen lam tren moi truong demo
-- neu xoa volume DB thi du lieu hien tai se mat
-
-## 8. Lenh nhanh
-
-### Docker local
+### Docker local (Stack đầy đủ)
 
 ```powershell
-Copy-Item .env.docker.example .env
-docker compose --profile ai --profile ai-heavy up -d --build
+.\start.bat
+# hoặc:
+docker compose up -d --build
 ```
 
-### Docker local chi len web/API co ban
+### Dừng Docker local
 
 ```powershell
-Copy-Item .env.docker.example .env
-docker compose up -d --build
+.\stop.bat
+# hoặc:
+docker compose down
 ```
 
 ### Docker VPS
 
 ```powershell
-Copy-Item .env.vps.example .env.vps
 docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
-```
-
-### Windows non-Docker
-
-```powershell
-.\manage.ps1 -Action install
-.\manage.ps1 -Action start
 ```

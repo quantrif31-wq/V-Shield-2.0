@@ -2,7 +2,26 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('jsqr', () => ({ default: vi.fn() }))
-vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() } }))
+vi.mock('axios', () => {
+  const instance = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }
+  }
+  return {
+    default: {
+      ...instance,
+      create: vi.fn(() => instance)
+    }
+  }
+})
+vi.mock('../../services/notificationApi', () => ({
+  onEntityChanged: vi.fn(() => vi.fn()),
+  onSyncEvent: vi.fn(() => vi.fn())
+}))
 vi.mock('../../services/plateCameraApi', () => ({
   __v_isRef: false,
   __v_isReadonly: false,
@@ -44,7 +63,11 @@ vi.mock('../../services/dynamicQrScannerApi', () => ({
   QR_API_BASE_URL: 'http://qr.local:8001',
   QR_API_BASE_URL_LANE2: 'http://qr.local:8002',
 }))
-vi.mock('../../config/api', () => ({ PLATE_API_BASE_URL: 'http://plate.local/api' }))
+vi.mock('../../config/api', () => ({
+  PLATE_API_BASE_URL: 'http://plate.local/api',
+  API_BASE_URL: 'http://localhost:5107/api',
+  API_ORIGIN: 'http://localhost:5107'
+}))
 vi.mock('../../utils/cameraNetwork', () => ({ normalizeCameraUrl: (url) => String(url || '') }))
 vi.mock('../../services/simulationHarness', () => ({ isSimMode: vi.fn(() => false), installSimulation: vi.fn() }))
 vi.mock('../../services/enterpriseSecurityApi', () => ({

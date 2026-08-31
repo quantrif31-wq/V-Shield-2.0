@@ -407,33 +407,7 @@ namespace API.Controllers
                 // ===== LƯU DB (QUAN TRỌNG) =====
                 await _context.SaveChangesAsync();
 
-                if (!IsDockerMode())
-                {
-                    var go2rtcPath = Path.GetDirectoryName(yamlPath) ?? string.Empty;
-                    var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
-
-                    // ===== STOP PROCESS CŨ =====
-                    foreach (var proc in Process.GetProcessesByName("go2rtc"))
-                    {
-                        proc.Kill();
-                    }
-
-                    // ===== START GO2RTC =====
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        WorkingDirectory = go2rtcPath,
-                        UseShellExecute = true
-                    });
-
-                    // ===== AUTO CLOUDFLARE =====
-                    EnsureCloudflaredTunnelConfig();
-                    StartCloudflaredTunnel();
-                }
-                else
-                {
-                    await TryReloadGo2RtcByHttpAsync();
-                }
+                await TryReloadGo2RtcByHttpAsync();
 
                 return Ok(new
                 {
@@ -458,160 +432,42 @@ namespace API.Controllers
         [HttpPost("stop-go2rtc")]
         public IActionResult StopGo2Rtc()
         {
-            try
-            {
-                var processes = Process.GetProcessesByName("go2rtc");
-
-                foreach (var proc in processes)
-                {
-                    proc.Kill();
-                }
-
-                return Ok("Đã tắt go2rtc");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            return Ok("Dịch vụ Go2RTC được quản lý bởi Docker Compose.");
         }
 
         // ================= START/STOP PYTHON PROCESSES =================
         [HttpPost("start-python-qr")]
         public IActionResult StartPythonQr()
         {
-            return StartPythonWorkerScript("QR_Dong", "QR_Dong.py");
+            return Ok("Dịch vụ QR được quản lý bởi Docker Compose.");
         }
 
         [HttpPost("stop-python-qr")]
         public IActionResult StopPythonQr()
         {
-            return StopPythonWorkerScript("QR_Dong.py");
+            return Ok("Dịch vụ QR được quản lý bởi Docker Compose.");
         }
 
         [HttpPost("start-python-plate")]
         public IActionResult StartPythonPlate()
         {
-            return StartPythonWorkerScript("doc_bien_gpu", "docbien.py");
+            return Ok("Dịch vụ Biển số được quản lý bởi Docker Compose.");
         }
 
         [HttpPost("stop-python-plate")]
         public IActionResult StopPythonPlate()
         {
-            return StopPythonWorkerScript("docbien.py");
+            return Ok("Dịch vụ Biển số được quản lý bởi Docker Compose.");
         }
 
         [HttpGet("status-python")]
         public IActionResult StatusPython()
         {
-            try
+            return Ok(new
             {
-                var isQrRunning = IsPythonWorkerScriptRunning("QR_Dong.py");
-                var isPlateRunning = IsPythonWorkerScriptRunning("docbien.py");
-                
-                return Ok(new
-                {
-                    qr = isQrRunning,
-                    plate = isPlateRunning
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        private IActionResult StartPythonWorkerScript(string folderName, string scriptName)
-        {
-            try
-            {
-                if (IsPythonWorkerScriptRunning(scriptName))
-                {
-                    return Ok($"Đã bật {scriptName} từ trước.");
-                }
-
-                var basePath = Directory.GetCurrentDirectory();
-                var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", ResolveAiRootFolderName(), folderName));
-                var scriptPath = Path.Combine(projectPath, scriptName);
-                var pythonExe = Path.Combine(projectPath, "venv", "Scripts", "python.exe");
-
-                if (!System.IO.File.Exists(pythonExe))
-                {
-                    pythonExe = "python"; // fallback
-                }
-
-                var psi = new ProcessStartInfo
-                {
-                    FileName = pythonExe,
-                    Arguments = $"\"{scriptPath}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WorkingDirectory = projectPath
-                };
-
-                Process.Start(psi);
-
-                return Ok($"Đã bật {scriptName}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        private IActionResult StopPythonWorkerScript(string scriptName)
-        {
-            try
-            {
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = "powershell.exe",
-                        Arguments = $"-Command \"Get-WmiObject Win32_Process | Where-Object {{ $_.CommandLine -match '{scriptName}' -and $_.Name -eq 'python.exe' }} | ForEach-Object {{ $_.Terminate() }}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-                process.Start();
-                process.WaitForExit();
-
-                return Ok($"Đã tắt {scriptName}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        private bool IsPythonWorkerScriptRunning(string scriptName)
-        {
-            try
-            {
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = "powershell.exe",
-                        Arguments = $"-Command \"@(Get-WmiObject Win32_Process | Where-Object {{ $_.CommandLine -match '{scriptName}' -and $_.Name -eq 'python.exe' }}).Count\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardOutput = true
-                    }
-                };
-                process.Start();
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                if (int.TryParse(output.Trim(), out int count))
-                {
-                    return count > 0;
-                }
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
+                qr = true,
+                plate = true
+            });
         }
 
         private string ResolveAiRootFolderName() =>
@@ -948,101 +804,5 @@ namespace API.Controllers
 
             return "127.0.0.1";
         }
-        private void EnsureCloudflaredTunnelConfig()
-        {
-            var cloudflareDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".cloudflared"
-            );
-
-            if (!Directory.Exists(cloudflareDir))
-                Directory.CreateDirectory(cloudflareDir);
-
-            // Tìm file json tunnel
-            var jsonFile = Directory.GetFiles(cloudflareDir, "*.json")
-                                    .FirstOrDefault();
-
-            if (jsonFile == null)
-            {
-                throw new Exception("Không tìm thấy file tunnel .json (bạn chưa create tunnel)");
-            }
-
-            var configPath = Path.Combine(cloudflareDir, "config.yml");
-
-            var tunnelName = _configuration["Cloudflared:TunnelName"]?.Trim();
-            if (string.IsNullOrWhiteSpace(tunnelName))
-            {
-                tunnelName = Path.GetFileNameWithoutExtension(jsonFile);
-            }
-
-            var publicHostname = _configuration["Cloudflared:PublicHostname"]?.Trim();
-            if (string.IsNullOrWhiteSpace(publicHostname))
-            {
-                throw new Exception("Thieu Cloudflared:PublicHostname trong cau hinh.");
-            }
-
-            var targetService = _configuration["Cloudflared:TargetService"]?.Trim();
-            if (string.IsNullOrWhiteSpace(targetService))
-            {
-                targetService = "http://localhost:1984";
-            }
-
-            var configContent = $@"
-tunnel: {tunnelName}
-credentials-file: {jsonFile.Replace("\\", "/")}
-
-ingress:
-  - hostname: {publicHostname}
-    service: {targetService}
-  - service: http_status:404
-";
-
-            System.IO.File.WriteAllText(configPath, configContent);
-        }
-        private void StartCloudflaredTunnel()
-        {
-            var cloudflareDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".cloudflared"
-            );
-
-            var configPath = Path.Combine(cloudflareDir, "config.yml");
-
-            var couldStopExisting = true;
-            foreach (var proc in Process.GetProcessesByName("cloudflared"))
-            {
-                try
-                {
-                    proc.Kill();
-                    proc.WaitForExit(3000);
-                }
-                catch (Exception ex)
-                {
-                    couldStopExisting = false;
-                    Console.WriteLine($"WARN: Khong the tat cloudflared hien tai: {ex.Message}");
-                }
-                finally
-                {
-                    proc.Dispose();
-                }
-            }
-
-            if (!couldStopExisting && Process.GetProcessesByName("cloudflared").Any())
-            {
-                return;
-            }
-
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "cloudflared",
-                Arguments = $"tunnel --config \"{configPath}\" run",
-                UseShellExecute = true,
-                CreateNoWindow = true
-            });
-        }
     }
-    }
-
-
-
-
+}

@@ -56,81 +56,24 @@ public sealed class RuntimeOrchestrator
         var service = LoadConfigs().FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (service == null) return RuntimeActionResult.Fail($"Khong tim thay service {name}.");
         if (!service.Enabled) return RuntimeActionResult.Fail($"Service {name} dang bi tat (Enabled=false).");
-        if (IsDockerMode()) return RuntimeActionResult.Ok($"Docker mode: bo qua lenh start cho {name} (quan ly boi docker-compose).");
-
-        try
-        {
-            var result = service.Name switch
-            {
-                "python_qr" => StartPythonScript("QR_Dong", "QR_Dong.py"),
-                "python_plate" => StartPythonScript("doc_bien_gpu", "docbien.py"),
-                "go2rtc" => StartGo2Rtc(),
-                "cloudflared" => StartCloudflared(),
-                _ => RuntimeActionResult.Fail($"Service {name} chua duoc ho tro.")
-            };
-            return await Task.FromResult(result);
-        }
-        catch (Exception ex)
-        {
-            return RuntimeActionResult.Fail(ex.Message);
-        }
+        return await Task.FromResult(RuntimeActionResult.Ok($"Dịch vụ {name} được quản lý bởi Docker Compose."));
     }
 
     public async Task<RuntimeActionResult> StopAsync(string name)
     {
-        if (IsDockerMode()) return RuntimeActionResult.Ok($"Docker mode: bo qua lenh stop cho {name} (quan ly boi docker-compose).");
-
-        try
-        {
-            var result = name switch
-            {
-                "python_qr" => StopPythonScript("QR_Dong.py"),
-                "python_plate" => StopPythonScript("docbien.py"),
-                "go2rtc" => KillProcesses("go2rtc"),
-                "cloudflared" => KillProcesses("cloudflared"),
-                _ => RuntimeActionResult.Fail($"Service {name} chua duoc ho tro.")
-            };
-            return await Task.FromResult(result);
-        }
-        catch (Exception ex)
-        {
-            return RuntimeActionResult.Fail(ex.Message);
-        }
+        return await Task.FromResult(RuntimeActionResult.Ok($"Dịch vụ {name} được quản lý bởi Docker Compose."));
     }
 
     private RuntimeServiceState ToState(RuntimeServiceConfig config)
     {
-        if (IsDockerMode())
-        {
-            return new RuntimeServiceState
-            {
-                Name = config.Name,
-                DisplayName = config.DisplayName,
-                Enabled = config.Enabled,
-                AutoStart = config.AutoStart,
-                ManagedMode = ManagedModeExternal,
-                Running = config.Enabled,
-                UpdatedAt = config.UpdatedAt
-            };
-        }
-
-        var running = config.Name switch
-        {
-            "python_qr" => IsPythonScriptRunning("QR_Dong.py"),
-            "python_plate" => IsPythonScriptRunning("docbien.py"),
-            "go2rtc" => IsProcessRunning("go2rtc"),
-            "cloudflared" => IsProcessRunning("cloudflared"),
-            _ => false
-        };
-
         return new RuntimeServiceState
         {
             Name = config.Name,
             DisplayName = config.DisplayName,
             Enabled = config.Enabled,
             AutoStart = config.AutoStart,
-            ManagedMode = config.ManagedMode,
-            Running = running,
+            ManagedMode = ManagedModeExternal,
+            Running = config.Enabled,
             UpdatedAt = config.UpdatedAt
         };
     }
@@ -139,8 +82,8 @@ public sealed class RuntimeOrchestrator
     {
         lock (_sync)
         {
-            var defaults = GetDefaultConfigs();
             var path = GetConfigFilePath();
+            var defaults = GetDefaultConfigs();
             if (!File.Exists(path))
             {
                 SaveConfigs(defaults);
@@ -192,140 +135,16 @@ public sealed class RuntimeOrchestrator
     private string ResolveAiRootFolderName() =>
         _configuration["RuntimePaths:AiRootFolderName"] ?? "AI_Project";
 
-    private bool IsDockerMode()
-    {
-        var mode = (_configuration["Runtime:Mode"] ?? "local").Trim().ToLowerInvariant();
-        return mode == "docker";
-    }
+    private bool IsDockerMode() => true;
 
     private static List<RuntimeServiceConfig> GetDefaultConfigs() =>
         new()
         {
-            new RuntimeServiceConfig("python_qr", "Python doc QR", true, false, ManagedModeLegacy),
-            new RuntimeServiceConfig("python_plate", "Python doc bien so", true, false, ManagedModeLegacy),
-            new RuntimeServiceConfig("go2rtc", "Go2RTC", true, true, ManagedModeLegacy),
-            new RuntimeServiceConfig("cloudflared", "Cloudflared", true, true, ManagedModeLegacy),
+            new RuntimeServiceConfig("python_qr", "Python doc QR", true, false, ManagedModeExternal),
+            new RuntimeServiceConfig("python_plate", "Python doc bien so", true, false, ManagedModeExternal),
+            new RuntimeServiceConfig("go2rtc", "Go2RTC", true, true, ManagedModeExternal),
+            new RuntimeServiceConfig("cloudflared", "Cloudflared", true, true, ManagedModeExternal),
         };
-
-    private RuntimeActionResult StartGo2Rtc()
-    {
-        if (IsProcessRunning("go2rtc")) return RuntimeActionResult.Ok("go2rtc da dang chay.");
-
-        var basePath = Directory.GetCurrentDirectory();
-        var go2rtcPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", ResolveAiRootFolderName(), "cam", "go2rtc_win64"));
-        var exePath = Path.Combine(go2rtcPath, "go2rtc.exe");
-        if (!File.Exists(exePath)) return RuntimeActionResult.Fail("Khong tim thay go2rtc.exe");
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = exePath,
-            WorkingDirectory = go2rtcPath,
-            UseShellExecute = true
-        });
-        return RuntimeActionResult.Ok("Da bat go2rtc.");
-    }
-
-    private RuntimeActionResult StartCloudflared()
-    {
-        if (IsProcessRunning("cloudflared")) return RuntimeActionResult.Ok("cloudflared da dang chay.");
-
-        var cloudflareDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cloudflared");
-        var configPath = Path.Combine(cloudflareDir, "config.yml");
-        if (!File.Exists(configPath)) return RuntimeActionResult.Fail("Khong tim thay ~/.cloudflared/config.yml");
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "cloudflared",
-            Arguments = $"tunnel --config \"{configPath}\" run",
-            UseShellExecute = true,
-            CreateNoWindow = true
-        });
-
-        return RuntimeActionResult.Ok("Da bat cloudflared.");
-    }
-
-    private RuntimeActionResult StartPythonScript(string folderName, string scriptName)
-    {
-        if (IsPythonScriptRunning(scriptName))
-        {
-            return RuntimeActionResult.Ok($"{scriptName} da dang chay.");
-        }
-
-        var basePath = Directory.GetCurrentDirectory();
-        var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", ResolveAiRootFolderName(), folderName));
-        var scriptPath = Path.Combine(projectPath, scriptName);
-        if (!File.Exists(scriptPath)) return RuntimeActionResult.Fail($"Khong tim thay script {scriptPath}");
-
-        var pythonExe = Path.Combine(projectPath, "venv", "Scripts", "python.exe");
-        if (!File.Exists(pythonExe)) pythonExe = "python";
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = pythonExe,
-            Arguments = $"\"{scriptPath}\"",
-            WorkingDirectory = projectPath,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        Process.Start(psi);
-        return RuntimeActionResult.Ok($"Da bat {scriptName}.");
-    }
-
-    private RuntimeActionResult StopPythonScript(string scriptName)
-    {
-        var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-Command \"Get-WmiObject Win32_Process | Where-Object {{ $_.CommandLine -match '{scriptName}' -and $_.Name -eq 'python.exe' }} | ForEach-Object {{ $_.Terminate() }}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-        process.Start();
-        process.WaitForExit();
-        return RuntimeActionResult.Ok($"Da tat {scriptName}.");
-    }
-
-    private static RuntimeActionResult KillProcesses(string name)
-    {
-        foreach (var proc in Process.GetProcessesByName(name))
-        {
-            proc.Kill();
-        }
-        return RuntimeActionResult.Ok($"Da tat {name}.");
-    }
-
-    private static bool IsProcessRunning(string processName) =>
-        Process.GetProcessesByName(processName).Length > 0;
-
-    private bool IsPythonScriptRunning(string scriptName)
-    {
-        try
-        {
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = $"-Command \"@(Get-WmiObject Win32_Process | Where-Object {{ $_.CommandLine -match '{scriptName}' -and $_.Name -eq 'python.exe' }}).Count\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true
-                }
-            };
-            process.Start();
-            var output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-            return int.TryParse(output.Trim(), out var count) && count > 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 }
 
 public sealed class RuntimeServiceConfig
