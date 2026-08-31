@@ -32,10 +32,16 @@ import com.vshield.mobile.viewmodel.ChatViewModel
 import com.vshield.mobile.viewmodel.NotificationViewModel
 
 import android.content.Intent
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.collectLatest
+import com.vshield.mobile.security.PermissionManager
+import com.vshield.mobile.security.PermissionStatus
 import com.vshield.mobile.service.AutoStartHelper
 import com.vshield.mobile.service.NotificationHelper
 import com.vshield.mobile.service.VShieldBackgroundService
+import com.vshield.mobile.ui.component.PermissionSetupDialog
 
 class MainActivity : FragmentActivity() {
 
@@ -78,10 +84,15 @@ fun VShieldMainScreen(
     val currentRoute = navBackStackEntry?.destination?.route
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var permissionStatus by remember { mutableStateOf(PermissionManager.checkPermissionStatus(context)) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 VShieldBackgroundService.isAppInForeground = true
+                permissionStatus = PermissionManager.checkPermissionStatus(context)
             } else if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
                 VShieldBackgroundService.isAppInForeground = false
             }
@@ -103,21 +114,27 @@ fun VShieldMainScreen(
         Screen.Profile.route
     )
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    // Request permissions (Notifications, Audio, Camera) immediately on app launch
+    // Request all essential permissions immediately on launch and check special permissions
     val multiplePermissionsLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
-    ) {}
+    ) {
+        permissionStatus = PermissionManager.checkPermissionStatus(context)
+        if (!permissionStatus.isAllGranted) {
+            showPermissionDialog = true
+        }
+    }
 
     LaunchedEffect(Unit) {
-        val permissions = mutableListOf<String>()
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+        permissionStatus = PermissionManager.checkPermissionStatus(context)
+        val requiredPermissions = PermissionManager.getRequiredRuntimePermissions()
+        val missingRuntime = requiredPermissions.filter {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
-        permissions.add(android.Manifest.permission.RECORD_AUDIO)
-        permissions.add(android.Manifest.permission.CAMERA)
-        multiplePermissionsLauncher.launch(permissions.toTypedArray())
+        if (missingRuntime.isNotEmpty()) {
+            multiplePermissionsLauncher.launch(requiredPermissions.toTypedArray())
+        } else if (!permissionStatus.isAllGranted) {
+            showPermissionDialog = true
+        }
     }
 
     LaunchedEffect(isLoggedIn) {
@@ -237,6 +254,18 @@ fun VShieldMainScreen(
 
             if (showCallOverlay) {
                 CallOverlay(chatViewModel = chatViewModel)
+            }
+
+            if (showPermissionDialog) {
+                PermissionSetupDialog(
+                    status = permissionStatus,
+                    onRefreshStatus = {
+                        permissionStatus = PermissionManager.checkPermissionStatus(context)
+                    },
+                    onDismiss = {
+                        showPermissionDialog = false
+                    }
+                )
             }
         }
     }

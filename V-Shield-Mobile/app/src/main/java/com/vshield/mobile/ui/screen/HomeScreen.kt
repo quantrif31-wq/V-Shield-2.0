@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,6 +29,9 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,23 +45,28 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vshield.mobile.security.PermissionManager
+import com.vshield.mobile.security.PermissionStatus
 import com.vshield.mobile.ui.component.ErrorDialog
 import com.vshield.mobile.ui.component.LoadingIndicator
+import com.vshield.mobile.ui.component.PermissionSetupDialog
 import com.vshield.mobile.ui.component.QrCodeView
-import com.vshield.mobile.ui.theme.Blue700
-import com.vshield.mobile.ui.theme.Gray600
-import com.vshield.mobile.ui.theme.Green600
-import com.vshield.mobile.ui.theme.Red600
-import com.vshield.mobile.ui.theme.SurfaceLight
+import com.vshield.mobile.ui.theme.*
 import com.vshield.mobile.viewmodel.QrViewModel
 
 private data class HomeShortcut(
@@ -155,6 +164,83 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
                 )
             }
+        }
+
+        val context = LocalContext.current
+        var permStatus by remember { mutableStateOf(PermissionManager.checkPermissionStatus(context)) }
+        var showPermDialog by remember { mutableStateOf(false) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    permStatus = PermissionManager.checkPermissionStatus(context)
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+
+        if (!permStatus.isAllGranted) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clickable { showPermDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Amber50)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = Amber600,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Thiếu ${permStatus.missingCount} quyền bảo mật & chạy ngầm",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Amber600
+                            )
+                            Text(
+                                text = "Chạm vào đây để cấp quyền nhận cuộc gọi và chạy ngầm 24/7",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Gray600
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        tint = Amber600
+                    )
+                }
+            }
+        }
+
+        if (showPermDialog) {
+            PermissionSetupDialog(
+                status = permStatus,
+                onRefreshStatus = {
+                    permStatus = PermissionManager.checkPermissionStatus(context)
+                },
+                onDismiss = {
+                    showPermDialog = false
+                }
+            )
         }
 
         if (uiState.isLoading && uiState.qrData == null) {
