@@ -3,6 +3,7 @@ import { isLoggedIn, hasRole } from '../stores/auth'
 import { authState } from '../stores/auth'
 
 const Login = () => import('../pages/Login.vue')
+const HomePage = () => import('../pages/HomePage.vue')
 const ForcePasswordChange = () => import('../pages/ForcePasswordChange.vue')
 const MainLayout = () => import('../components/Layout/MainLayout.vue')
 const Dashboard = () => import('../pages/Dashboard.vue')
@@ -129,6 +130,18 @@ function landingRouteForRole(role) {
 }
 
 const routes = [
+    {
+        path: '/portal',
+        name: 'Portal',
+        component: HomePage,
+        meta: { public: true, guest: true },
+    },
+    {
+        path: '/home',
+        name: 'Home',
+        component: HomePage,
+        meta: { public: true, guest: true },
+    },
     {
         path: '/login',
         name: 'Login',
@@ -287,6 +300,9 @@ router.beforeEach((to, from, next) => {
     // Nếu route yêu cầu đăng nhập
     if (to.matched.some(matchedRoute => matchedRoute.meta.requiresAuth)) {
         if (!isLoggedIn()) {
+            if (to.path === '/' || to.path === '') {
+                return next({ name: 'Portal' })
+            }
             return next({ name: 'Login', query: { redirect: to.fullPath } })
         }
     }

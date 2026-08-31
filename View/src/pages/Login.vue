@@ -1,6 +1,14 @@
 <template>
     <div class="login-page">
         <div class="login-theme-toggle">
+            <router-link
+                to="/portal"
+                class="theme-toggle-btn !w-auto !px-3 !rounded-full text-xs font-bold gap-1.5 inline-flex items-center text-cyan-300 border border-cyan-500/30 bg-slate-900/80 hover:bg-slate-800 transition-all mr-2"
+                title="Về Trang Chủ V-Shield 2.0"
+            >
+                <span>←</span>
+                <span>Trang Chủ</span>
+            </router-link>
             <button
                 type="button"
                 class="theme-toggle-btn"

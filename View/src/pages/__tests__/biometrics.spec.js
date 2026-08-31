@@ -224,23 +224,31 @@ describe('Biometrics', () => {
   it('runs job actions for activate, cancel and retry', async () => {
     api.getFaceEnrollmentJobs.mockResolvedValue({
       data: [
-        { jobId: 10, employeeName: 'A', status: 'Ready', canActivate: false, canCancel: true, canRetry: true, createdAtUtc: '2026-01-01T08:00:00Z', attemptCount: 1, usableFrameCount: 5, encodingCount: 2, qualityScore: 0.8, duplicateSubjectId: null, failureMessage: null },
+        { jobId: 10, employeeName: 'A', status: 'Ready', canActivate: false, canCancel: true, canRetry: false, createdAtUtc: '2026-01-01T08:00:00Z', attemptCount: 1, usableFrameCount: 5, encodingCount: 2, qualityScore: 0.8, duplicateSubjectId: null, failureMessage: null },
         { jobId: 11, employeeName: 'B', status: 'Completed', canActivate: true, canCancel: false, canRetry: false, createdAtUtc: '2026-01-01T08:00:00Z', attemptCount: 1, duplicateSubjectId: 99, failureCode: 'DUP', failureMessage: 'TrÃ¹ng' },
         { jobId: 12, employeeName: 'C', status: 'Failed', canActivate: false, canCancel: false, canRetry: true, createdAtUtc: '2026-01-01T08:00:00Z', attemptCount: 3, usableFrameCount: null, encodingCount: null, qualityScore: null },
       ],
     })
     const wrapper = mount(Biometrics)
     await flushPromises()
-    await wrapper.vm.runJobAction({ jobId: 11 }, 'activate')
+    const norm = (s) => String(s).normalize('NFC')
+    const buttons = wrapper.findAll('button')
+    const activateBtn = buttons.find((b) => norm(b.text()).includes('Kích hoạt'))
+    const cancelBtn = buttons.find((b) => norm(b.text()).includes('Hủy'))
+    const retryBtn = buttons.find((b) => norm(b.text()).includes('Thử lại'))
+    await activateBtn.trigger('click')
+    await flushPromises()
     expect(api.activateFaceEnrollmentJob).toHaveBeenCalledWith(11)
-    await wrapper.vm.runJobAction({ jobId: 10 }, 'cancel')
+    await cancelBtn.trigger('click')
+    await flushPromises()
     expect(api.cancelFaceEnrollmentJob).toHaveBeenCalledWith(10)
-    await wrapper.vm.runJobAction({ jobId: 12 }, 'retry')
+    await retryBtn.trigger('click')
+    await flushPromises()
     expect(api.retryFaceEnrollmentJob).toHaveBeenCalledWith(12)
-    expect(wrapper.text()).toContain('Trùng chủ thể')
-    expect(wrapper.text()).toContain('Kích hoạt')
-    expect(wrapper.text()).toContain('Hủy')
-    expect(wrapper.text()).toContain('Thử lại')
+    expect(norm(wrapper.text())).toContain('Trùng chủ thể')
+    expect(norm(wrapper.text())).toContain('Kích hoạt')
+    expect(norm(wrapper.text())).toContain('Hủy')
+    expect(norm(wrapper.text())).toContain('Thử lại')
   })
 
   it('polls enrollment jobs when jobs are pending', async () => {
@@ -285,6 +293,7 @@ describe('Biometrics', () => {
 it('renders recentModels, recentVideos and faceModels loops via vm refs', async () => {
   const wrapper = mount(Biometrics)
   await flushPromises()
+  const norm = (s) => String(s).normalize('NFC')
   wrapper.vm.recentModels = [{ id: 1, employeeName: 'A', modelFileName: 'a.model', createdAt: '2026-01-01T08:00:00Z' }]
   wrapper.vm.recentVideos = [{ id: 2, employeeName: 'B', fileName: 'b.mp4', fileSize: 2048, createdAt: '2026-01-01T08:00:00Z' }]
   wrapper.vm.faceModels = [
@@ -299,5 +308,70 @@ it('renders recentModels, recentVideos and faceModels loops via vm refs', async 
   wrapper.vm.faceModels = [{ id: 9, employeeName: 'D', modelFileName: 'd.model', version: null, status: null, encodingCount: null, checksumPrefix: null, activatedAtUtc: null, registrySyncState: 'RuntimeUnavailable' }]
   await nextTick()
   expect(wrapper.vm.modelRuntimeUnavailable).toBe(true)
-  expect(wrapper.text()).toContain('Thiếu metadata')
+  expect(norm(wrapper.text())).toContain('Thiếu metadata')
+})
+
+it('renders employees, access credentials and bindings tables via vm refs', async () => {
+  const wrapper = mount(Biometrics)
+  await flushPromises()
+  const norm = (s) => String(s).normalize('NFC')
+  const many = Array.from({ length: 25 }, (_, i) => ({
+    employeeId: i + 1, fullName: `Emp${i}`, positionName: i % 2 ? 'Bảo vệ' : null, departmentName: i % 2 ? null : 'An ninh', modelCount: i % 2, videoCount: i % 3, latestModelAt: '2026-01-01T08:00:00Z', latestVideoAt: null,
+  }))
+  wrapper.vm.employees = many
+  wrapper.vm.accessCredentials = [
+    { id: 1, employeeId: 1, employeeName: 'A', credentialType: 'Face', storedStatus: 'Stored', effectiveStatus: 'Active', maskedIdentifier: 'abc***', effectiveFromUtc: '2026-01-01T08:00:00Z', expiresAtUtc: '2027-01-01T08:00:00Z' },
+  ]
+  wrapper.vm.faceCredentialBindings = [
+    { id: 5, employeeId: 1, employeeName: 'A', credentialType: 'Face', accessCredentialId: 9, bindingStatus: 'Active', credentialEffectiveStatus: 'Active', maskedIdentifier: 'xyz', activatedAtUtc: '2026-01-01T08:00:00Z', revokedAtUtc: null },
+  ]
+  await nextTick()
+  expect(wrapper.vm.bTotalPages).toBe(3)
+  expect(norm(wrapper.text())).toContain('1 thông tin đăng nhập')
+  expect(norm(wrapper.text())).toContain('1 liên kết')
+  expect(wrapper.text()).toContain('abc***')
+  const nextBtn = wrapper.findAll('.page-btn').find((b) => b.text() === '›')
+  await nextBtn.trigger('click')
+  await nextTick()
+  expect(wrapper.vm.bCurrentPage).toBe(2)
+  expect(wrapper.vm.bPagStart).toBe(11)
+  const page3 = wrapper.findAll('.page-btn').find((b) => b.text() === '3')
+  await page3.trigger('click')
+  await nextTick()
+  expect(wrapper.vm.bCurrentPage).toBe(3)
+  const prevBtn = wrapper.findAll('.page-btn').find((b) => b.text() === '‹')
+  await prevBtn.trigger('click')
+  await nextTick()
+  expect(wrapper.vm.bCurrentPage).toBe(2)
+})
+it('interacts with search input, employee select and create button', async () => {
+  const wrapper = mount(Biometrics)
+  await flushPromises()
+  wrapper.vm.employees = [
+    { employeeId: 7, fullName: 'Nguyen Van A', positionName: 'Bao ve', departmentName: 'An ninh', modelCount: 1, videoCount: 2, latestModelAt: '2026-01-01T08:00:00Z', latestVideoAt: '2026-01-02T08:00:00Z' },
+  ]
+  faceVideoApi.getEmployeeVideos.mockResolvedValue({ data: [{ id: 40, fileName: 'clip.mp4', createdAt: '2026-01-01T08:00:00Z' }] })
+  api.createFaceEnrollmentJob.mockResolvedValue({})
+  await nextTick()
+
+  const searchInput = wrapper.find('input[type="text"]')
+  await searchInput.setValue('Nguyen')
+  await nextTick()
+  expect(wrapper.vm.query).toBe('Nguyen')
+
+  const employeeSelect = wrapper.findAll('select').at(0)
+  await employeeSelect.setValue('7')
+  await flushPromises()
+  expect(wrapper.vm.selectedEmployeeId).toBe(7)
+  expect(faceVideoApi.getEmployeeVideos).toHaveBeenCalledWith(7)
+
+  const videoSelect = wrapper.findAll('select').at(1)
+  await videoSelect.setValue('40')
+  await nextTick()
+  expect(wrapper.vm.selectedVideoId).toBe(40)
+
+  const createBtn = wrapper.findAll('.btn-primary').at(0)
+  await createBtn.trigger('click')
+  await flushPromises()
+  expect(wrapper.vm.enrollmentBusy).toBe(false)
 })

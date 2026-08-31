@@ -221,6 +221,7 @@ namespace API
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.FacilityFloorImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IEntityImportHandler, API.Services.ImportExport.SecurityZoneImportHandler>();
             builder.Services.AddScoped<API.Services.ImportExport.IImportExportService, API.Services.ImportExport.ImportExportService>();
+            builder.Services.AddSingleton<API.Services.IPublicPortalService, API.Services.PublicPortalService>();
             builder.Services.AddSingleton<RuntimeOrchestrator>();
             if (!builder.Environment.IsEnvironment("Testing"))
             {
