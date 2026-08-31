@@ -1,469 +1,400 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import * as THREE from 'three'
 import { mechaAudio } from '../../utils/portalAudio'
 
 const props = defineProps({
   activeIndex: {
     type: Number,
-    default: 0
+    default: 3
   }
 })
 
-const emit = defineEmits(['update:activeIndex', 'championClick'])
+const emit = defineEmits(['update:activeIndex', 'selectPilot'])
 
-const containerRef = ref(null)
-const canvasContainerRef = ref(null)
-const activeAngleIndex = ref(0)
 const isShieldActive = ref(false)
 const isOverdriveActive = ref(false)
-const isSketchfabViewer = ref(false)
 const isLockOnActive = ref(false)
-const currentActionText = ref('SẴN SÀNG TÁC CHIẾN (COMBAT READY)')
-
-// 3D Parallax & Gyro Tracking
 const mouseX = ref(0)
 const mouseY = ref(0)
-const rotX = ref(0)
-const rotY = ref(0)
 const isHovering = ref(false)
 
-// Three.js Background Spark Stage
-let scene, camera, renderer, animationFrameId, particles
-
-// High-Res Cinematic Render Angles of Oscar Creativo BOT MECHA Warrior
-const mechaAngles = [
-  {
-    id: 'front',
-    label: 'GÓC TIÊN PHONG CHÍNH DIỆN',
-    src: '/mecha/mecha_render1.jpg',
-    scale: 'scale-100'
-  },
-  {
-    id: 'combat',
-    label: 'GÓC TOÀN CẢNH VŨ TRANG',
-    src: '/mecha/mecha_render2.jpg',
-    scale: 'scale-105'
-  },
-  {
-    id: 'heavy',
-    label: 'TƯ THẾ XUẤT KÍCH HEROIC',
-    src: '/mecha/mecha_thumb.jpg',
-    scale: 'scale-100'
-  }
-]
-
-// 5 Champions Color Grading & Tactical Specs
-const championProfiles = [
+const pilots = [
   {
     id: 0,
     name: 'Phạm Văn Thành',
-    codename: 'V-SHIELD PRIME',
-    primaryColor: '#ffcc00',
-    glowColor: '#ffaa00',
-    filterStyle: 'hue-rotate(0deg) saturate(1.35) contrast(1.1)',
-    weapon: 'LƯỠI ĐẠI KIẾM LƯỢNG TỬ // QUANTUM BLADE',
-    role: 'CHỈ HUY ĐIỀU HÀNH & KIẾN TRÚC SƯ TRƯỞNG'
+    callsign: 'AEGIS PRIME',
+    role: 'CHỈ HUY HỆ THỐNG & KIẾN TRÚC SƯ BACKEND',
+    avatar: '/pilots/pilot_thanh.jpg',
+    cockpit: '/cockpits/cockpit_gold.jpg',
+    color: '#ffcc00',
+    glow: '#ffaa00',
+    cockpitName: 'FLAGSHIP COMMAND BRIDGE // AURORA-01',
+    systemStatus: 'ONLINE • CRDT HYBRID SYNC 99.99%',
+    weapon: 'EX-01 QUANTUM BROADSWORD',
+    quote: 'Bảo vệ toàn vẹn kiến trúc dữ liệu và điều phối hệ thống phân tán với độ trễ dưới 30ms.'
   },
   {
     id: 1,
     name: 'Hà Mạnh Hùng',
-    codename: 'PHANTOM FALCON',
-    primaryColor: '#ff5500',
-    glowColor: '#ff2200',
-    filterStyle: 'hue-rotate(330deg) saturate(1.8) contrast(1.15)',
-    weapon: 'SÚNG TRƯỜNG PLASMA RAILGUN // HYPER-VELOCITY',
-    role: 'TRINH SÁT AN NINH & GIÁM SÁT THỰC ĐỊA'
+    callsign: 'PHANTOM FALCON',
+    role: 'KỸ SƯ TRÍ TUỆ NHÂN TẠO & THỊ GIÁC MÁY TÍNH',
+    avatar: '/pilots/pilot_hung.jpg',
+    cockpit: '/cockpits/cockpit_orange.jpg',
+    color: '#ff5500',
+    glow: '#ff2200',
+    cockpitName: 'SUPERSONIC INTERCEPTOR COCKPIT // FALCON-02',
+    systemStatus: 'ONLINE • YOLOv11 + ArcFace 60FPS',
+    weapon: 'EX-02 HYPER-VELOCITY PLASMA RAILGUN',
+    quote: 'Quét và khóa mục tiêu sinh trắc học quang học trong phạm vi ±45° với độ chính xác tuyệt đối.'
   },
   {
     id: 2,
     name: 'Phạm Ngọc Hoài Anh',
-    codename: 'DREADNOUGHT VORTEX',
-    primaryColor: '#00f0ff',
-    glowColor: '#00c8ff',
-    filterStyle: 'hue-rotate(185deg) saturate(1.6) contrast(1.15)',
-    weapon: 'ĐẠI BÁC HẠT NẶNG TITAN // HEAVY CANNON',
-    role: 'HẠ TẦNG MẠNG & BẢO MẬT HỆ THỐNG'
+    callsign: 'DREADNOUGHT VORTEX',
+    role: 'KỸ SƯ HẠ TẦNG ĐÁM MÂY & DEVOPS BẢO MẬT',
+    avatar: '/pilots/pilot_hoaianh.jpg',
+    cockpit: '/cockpits/cockpit_cyan.jpg',
+    color: '#00f0ff',
+    glow: '#00b4d8',
+    cockpitName: 'FORTRESS DEFENSE MATRIX // VORTEX-03',
+    systemStatus: 'ONLINE • DOCKER & CADDY TLS ACTIVE',
+    weapon: 'EX-03 TITAN HEAVY PARTICLE CANNON',
+    quote: 'Thiết lập trường lực bảo mật đa tầng, tối ưu băng thông mạng và duy trì Uptime 99.99%.'
   },
   {
     id: 3,
     name: 'Vũ Tiến Đạt',
-    codename: 'SPECTRE STRIKER',
-    primaryColor: '#c084fc',
-    glowColor: '#a855f7',
-    filterStyle: 'hue-rotate(260deg) saturate(1.6) contrast(1.15)',
-    weapon: 'CẶP DAO GĂM SÓNG ÂM // SONIC DAGGERS',
-    role: 'THỊ GIÁC MÁY TÍNH & NHẬN DIỆN KHUÔN MẶT'
+    callsign: 'SPECTRE STRIKER',
+    role: 'KỸ SƯ FRONTEND UI/UX & REALTIME WEBRTC',
+    avatar: '/pilots/pilot_dat.jpg',
+    cockpit: '/cockpits/cockpit_purple.jpg',
+    color: '#a855f7',
+    glow: '#c084fc',
+    cockpitName: 'STEALTH NEURAL MATRIX COCKPIT // SPECTRE-04',
+    systemStatus: 'ONLINE • WEBRTC VOIP & HUD LIVE 60FPS',
+    weapon: 'EX-04 DUAL HOLOGRAPHIC ENERGY DAGGERS',
+    quote: 'Xây dựng giao diện buồng lái Mecha chiến thuật thời gian thực và đồng bộ thị giác sống động.'
   },
   {
     id: 4,
     name: 'Nguyễn Quốc Việt',
-    codename: 'TEMPEST JUGGERNAUT',
-    primaryColor: '#10b981',
-    glowColor: '#059669',
-    filterStyle: 'hue-rotate(95deg) saturate(1.6) contrast(1.15)',
-    weapon: 'KÍCH SẤM SÉT // THUNDERSTRIKE HALBERD',
-    role: 'XỬ LÝ DỮ LIỆU & PHÂN TÍCH HÀNH VI UEBA'
+    callsign: 'TEMPEST JUGGERNAUT',
+    role: 'KỸ SƯ THIẾT BỊ IOT & ỨNG DỤNG MOBILE',
+    avatar: '/pilots/pilot_viet.jpg',
+    cockpit: '/cockpits/cockpit_green.jpg',
+    color: '#10b981',
+    glow: '#059669',
+    cockpitName: 'HEAVY SIEGE ARTILLERY COCKPIT // TEMPEST-05',
+    systemStatus: 'ONLINE • BARRIER RELAY & TOTP SYNCHRONIZED',
+    weapon: 'EX-05 THUNDERSTRIKE POWER HALBERD',
+    quote: 'Điều khiển rào chắn cổng tự động trong 0.6 giây và kết nối ứng dụng di động bảo mật cao.'
   }
 ]
 
-const currentChampion = computed(() => championProfiles[props.activeIndex] || championProfiles[0])
+const currentPilot = computed(() => pilots[props.activeIndex] || pilots[0])
 
-// ── 3D PARALLAX MOUSE HANDLER ──
+// Calculate 3D circular carousel offset position for each pilot
+function getPilotTransform(index) {
+  const total = pilots.length
+  let offset = index - props.activeIndex
+  if (offset > total / 2) offset -= total
+  if (offset < -total / 2) offset += total
+
+  const isSelected = offset === 0
+
+  // 3D positioning
+  const xOffset = offset * 145 // horizontal spacing
+  const zOffset = isSelected ? 40 : -Math.abs(offset) * 80 // depth
+  const yRot = offset * -22 // rotation angle towards center
+  const scale = isSelected ? 1.08 : Math.max(0.72, 1 - Math.abs(offset) * 0.16)
+  const opacity = isSelected ? 1 : Math.max(0.35, 0.7 - Math.abs(offset) * 0.2)
+
+  return {
+    transform: `translateX(${xOffset}px) translateZ(${zOffset}px) rotateY(${yRot}deg) scale(${scale})`,
+    opacity,
+    zIndex: isSelected ? 30 : 20 - Math.abs(offset),
+    filter: isSelected
+      ? 'none'
+      : 'grayscale(100%) brightness(0.6) contrast(1.1) drop-shadow(0 0 10px rgba(0,0,0,0.8))'
+  }
+}
+
 function handleMouseMove(e) {
-  if (!containerRef.value) return
-  const rect = containerRef.value.getBoundingClientRect()
-  const x = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2)
-  const y = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2)
-  
-  mouseX.value = x
-  mouseY.value = y
-  rotY.value = x * 15
-  rotX.value = -y * 12
+  const rect = e.currentTarget.getBoundingClientRect()
+  mouseX.value = ((e.clientX - rect.left) / rect.width - 0.5) * 2
+  mouseY.value = ((e.clientY - rect.top) / rect.height - 0.5) * 2
   isHovering.value = true
 }
 
 function handleMouseLeave() {
-  isHovering.value = false
-  rotX.value = 0
-  rotY.value = 0
   mouseX.value = 0
   mouseY.value = 0
+  isHovering.value = false
 }
 
-// ── COMBAT OVERDRIVE ACTIONS ──
-function triggerStrike() {
+function triggerOverdrive() {
   isOverdriveActive.value = true
-  currentActionText.value = '⚔️ KÍCH HOẠT XUNG KÍCH LƯỢNG TỬ (OVERDRIVE STRIKE)'
   mechaAudio.playTargetLock()
   mechaAudio.playHeavyImpactDrop()
   setTimeout(() => {
     isOverdriveActive.value = false
-    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
-  }, 1400)
+  }, 1600)
 }
 
 function triggerShield() {
   isShieldActive.value = !isShieldActive.value
   if (isShieldActive.value) {
-    currentActionText.value = '🛡️ TRƯỜNG LỰC BẢO VỆ ĐANG HOẠT ĐỘNG (ENERGY SHIELD ACTIVE)'
     mechaAudio.playEngage()
   } else {
-    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
     mechaAudio.playClick()
   }
-}
-
-function triggerBoost() {
-  currentActionText.value = '🚀 ĐẨY PHẢN LỰC SIÊU THANH (THRUSTER BOOST)'
-  mechaAudio.playEngage()
-  rotX.value = -18
-  setTimeout(() => {
-    rotX.value = 0
-    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
-  }, 1200)
 }
 
 function triggerLockOn() {
   isLockOnActive.value = !isLockOnActive.value
   if (isLockOnActive.value) {
-    currentActionText.value = '🎯 KHÓA MỤC TIÊU CHIẾN THUẬT (TARGET LOCK-ON)'
     mechaAudio.playTargetLock()
   } else {
-    currentActionText.value = 'SẴN SÀNG TÁC CHIẾN (COMBAT READY)'
     mechaAudio.playHover()
   }
 }
-
-function cycleAngle() {
-  activeAngleIndex.value = (activeAngleIndex.value + 1) % mechaAngles.length
-  currentActionText.value = '🔄 ĐỔI GÓC NHÌN: ' + mechaAngles[activeAngleIndex.value].label
-  mechaAudio.playClick()
-}
-
-// ── LIGHTWEIGHT 3D SPARK NEBULA (THREE.JS) ──
-function initSparkStage() {
-  const container = canvasContainerRef.value
-  if (!container) return
-
-  const width = container.clientWidth || 500
-  const height = container.clientHeight || 420
-
-  scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100)
-  camera.position.set(0, 0, 8)
-
-  try {
-    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
-    renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-    container.appendChild(renderer.domElement)
-  } catch (_) {
-    return
-  }
-
-  // 120 Floating Cyber Particles
-  const pCount = 120
-  const pPositions = new Float32Array(pCount * 3)
-  for (let i = 0; i < pCount * 3; i += 3) {
-    pPositions[i] = (Math.random() - 0.5) * 10
-    pPositions[i + 1] = (Math.random() - 0.5) * 8
-    pPositions[i + 2] = (Math.random() - 0.5) * 6
-  }
-  const pGeo = new THREE.BufferGeometry()
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3))
-  const pMat = new THREE.PointsMaterial({
-    color: new THREE.Color(currentChampion.value.primaryColor),
-    size: 0.05,
-    transparent: true,
-    opacity: 0.85
-  })
-  particles = new THREE.Points(pGeo, pMat)
-  scene.add(particles)
-
-  animateSparks()
-}
-
-function animateSparks() {
-  animationFrameId = requestAnimationFrame(animateSparks)
-  const time = Date.now() * 0.001
-  if (particles) {
-    particles.rotation.y = time * 0.06 + mouseX.value * 0.2
-    particles.rotation.x = time * 0.03 - mouseY.value * 0.15
-  }
-  if (renderer && scene && camera) {
-    renderer.render(scene, camera)
-  }
-}
-
-function updateSparkColor() {
-  if (particles && particles.material) {
-    particles.material.color.set(currentChampion.value.primaryColor)
-  }
-}
-
-onMounted(() => {
-  initSparkStage()
-})
-
-onUnmounted(() => {
-  if (animationFrameId) cancelAnimationFrame(animationFrameId)
-  if (renderer && renderer.domElement && renderer.domElement.parentNode) {
-    renderer.domElement.parentNode.removeChild(renderer.domElement)
-  }
-})
-
-watch(() => props.activeIndex, () => {
-  updateSparkColor()
-})
 </script>
 
 <template>
-  <div class="relative flex flex-col items-center justify-center select-none w-full">
-    
-    <!-- ── 3D MECHA BREAK HOLOGRAPHIC STAGE CONTAINER ── -->
-    <div
-      ref="containerRef"
-      @mousemove="handleMouseMove"
-      @mouseleave="handleMouseLeave"
-      class="relative h-[420px] sm:h-[460px] w-full max-w-[540px] flex items-center justify-center cursor-crosshair overflow-hidden rounded-xl border-2 border-amber-500/40 bg-gradient-to-b from-[#0b0e17]/95 via-[#07090e] to-[#04060a] mecha-cut-corners shadow-[0_0_60px_rgba(255,204,0,0.25)]"
-      style="perspective: 1200px;"
-    >
-      <!-- Background Three.js Particle Sparks Canvas -->
-      <div ref="canvasContainerRef" class="pointer-events-none absolute inset-0 z-0"></div>
-
-      <!-- Holographic Grid Floor & Pedestal Lighting -->
-      <div
-        class="pointer-events-none absolute bottom-0 inset-x-0 h-44 bg-[radial-gradient(ellipse_at_bottom,#ffcc0025,transparent_70%)] opacity-80 z-0"
-      ></div>
-
-      <!-- Holographic Outer Laser Ring -->
-      <div
-        class="pointer-events-none absolute bottom-6 h-28 w-80 rounded-full border-2 border-dashed transition-all duration-700 animate-spin-slow opacity-60 z-0"
-        :style="{ borderColor: currentChampion.primaryColor, boxShadow: '0 0 30px ' + currentChampion.glowColor + '40' }"
-      ></div>
-
-      <!-- ── PSEUDO-3D PARALLAX MECHA WARFRAME LAYER ── -->
-      <div
-        v-if="!isSketchfabViewer"
-        class="relative flex items-center justify-center w-full h-full z-10 transition-transform duration-150 ease-out"
-        :style="{
-          transform: 'rotateY(' + rotY + 'deg) rotateX(' + rotX + 'deg) translateZ(' + (isOverdriveActive ? 60 : 30) + 'px) scale(' + (isOverdriveActive ? 1.08 : 1) + ')',
-          filter: isOverdriveActive ? 'brightness(1.3) drop-shadow(0 0 35px #ff5500)' : 'none'
-        }"
-      >
-        <!-- High-Res Authentic Oscar Creativo Mecha Image -->
+  <div
+    class="relative w-full overflow-hidden rounded-2xl border-2 border-amber-500/50 bg-[#04060a] shadow-[0_0_60px_rgba(0,0,0,0.9)] select-none"
+    @mousemove="handleMouseMove"
+    @mouseleave="handleMouseLeave"
+    style="perspective: 1400px;"
+  >
+    <!-- ── 1. DYNAMIC MECHA COCKPIT BACKGROUND LAYER ── -->
+    <div class="relative h-[480px] sm:h-[540px] w-full overflow-hidden">
+      <!-- Cockpit Wallpapers with crossfade -->
+      <transition-group name="cockpit-fade">
         <img
-          :src="mechaAngles[activeAngleIndex].src"
-          :alt="mechaAngles[activeAngleIndex].label"
-          class="h-[360px] sm:h-[400px] w-auto object-contain transition-all duration-500 select-none pointer-events-none drop-shadow-[0_20px_35px_rgba(0,0,0,0.9)]"
-          :class="mechaAngles[activeAngleIndex].scale"
-          :style="{ filter: currentChampion.filterStyle }"
+          :key="currentPilot.cockpit"
+          :src="currentPilot.cockpit"
+          :alt="currentPilot.cockpitName"
+          class="absolute inset-0 h-full w-full object-cover object-center scale-105 transition-transform duration-700 ease-out"
+          :style="{
+            transform: `scale(${isOverdriveActive ? 1.12 : 1.05}) translate(${mouseX * -10}px, ${mouseY * -6}px)`,
+            filter: isOverdriveActive ? 'brightness(1.25) contrast(1.2)' : 'brightness(0.85) contrast(1.05)'
+          }"
         />
+      </transition-group>
 
-        <!-- Dynamic Specular Cursor Glare Layer -->
-        <div
-          class="pointer-events-none absolute inset-0 transition-opacity duration-300 mix-blend-screen"
-          :style="{
-            background: isHovering
-              ? 'radial-gradient(circle 200px at ' + ((mouseX + 1) * 50) + '% ' + ((mouseY + 1) * 50) + '%, ' + currentChampion.primaryColor + '55, transparent 80%)'
-              : 'none'
-          }"
-        ></div>
-
-        <!-- Glowing Reactor Core Surge Effect -->
-        <div
-          class="pointer-events-none absolute h-12 w-12 rounded-full blur-md animate-pulse mix-blend-screen transition-all duration-500"
-          :style="{
-            backgroundColor: currentChampion.primaryColor,
-            top: '44%',
-            left: '48%',
-            transform: 'translate(-50%, -50%)',
-            boxShadow: '0 0 40px 15px ' + currentChampion.primaryColor
-          }"
-        ></div>
-
-        <!-- Hexagonal Energy Shield Forcefield Layer -->
-        <div
-          v-if="isShieldActive"
-          class="pointer-events-none absolute inset-6 rounded-2xl border-2 border-cyan-400/80 bg-cyan-500/10 backdrop-blur-[1px] animate-pulse flex items-center justify-center shadow-[0_0_50px_rgba(0,240,255,0.5)] z-20"
-        >
-          <div class="font-mono text-xs font-black text-cyan-300 tracking-widest bg-slate-950/80 px-3 py-1 border border-cyan-400 mecha-cut-tr">
-            ⚡ QUANTUM FORCEFIELD // ACTIVE
-          </div>
-        </div>
-
-        <!-- Tactical Lock-on Reticles -->
-        <div
-          v-if="isLockOnActive"
-          class="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
-        >
-          <div class="h-44 w-44 rounded-full border-2 border-red-500/80 animate-ping opacity-60"></div>
-          <div class="absolute h-56 w-56 rounded-full border border-dashed border-red-400/80 animate-spin-slow"></div>
-          <div class="absolute font-mono text-[9px] font-black text-red-400 bg-red-950/80 px-2 py-0.5 border border-red-500 -top-2">
-            [TARGET ACQUIRED: 100%]
-          </div>
-        </div>
-      </div>
-
-      <!-- ── EMBEDDED SKETCHFAB 3D ENGINE (OPTIONAL ON-DEMAND) ── -->
+      <!-- Dynamic Ambient Cockpit Color Vignette Overlay -->
       <div
-        v-else
-        class="relative w-full h-full z-10 p-2"
-      >
-        <iframe
-          title="BOT MECHA Warrior 3d by Oscar Creativo"
-          class="w-full h-full border-0 rounded-lg"
-          src="https://sketchfab.com/models/34850bfe441642788154c4a8a0bd60e4/embed?autostart=1&preload=1&ui_theme=dark&ui_infos=0&ui_watermark=0&ui_stop=0&ui_hint=2&dnt=1"
-          allow="autoplay; fullscreen; xr-spatial-tracking"
-          xr-spatial-tracking="true"
-          allowfullscreen
-        ></iframe>
-      </div>
+        class="pointer-events-none absolute inset-0 transition-colors duration-700 mix-blend-color"
+        :style="{ backgroundColor: currentPilot.color, opacity: 0.25 }"
+      ></div>
 
-      <!-- ── TACTICAL HUD OVERLAYS (MECHA BREAK AESTHETICS) ── -->
-      <!-- Top Left Unit Code -->
-      <div class="pointer-events-none absolute top-3 left-3 flex items-center gap-2 bg-[#07090e]/90 px-2.5 py-1 border border-amber-500/40 text-[9.5px] font-mono font-black text-amber-400 z-30 mecha-cut-tr">
-        <span class="h-2 w-2 rounded-full animate-ping" :style="{ backgroundColor: currentChampion.primaryColor }"></span>
-        <span>MECHA: {{ currentChampion.codename }}</span>
-      </div>
+      <!-- Cockpit Glass Canopy Reflection Lines -->
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.04] to-transparent opacity-60"></div>
+      <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.7)_90%)]"></div>
 
-      <!-- Top Right Weapon Badge -->
-      <div class="pointer-events-none absolute top-3 right-3 bg-[#07090e]/90 px-2.5 py-1 border border-cyan-500/40 text-[9px] font-mono font-bold text-cyan-400 z-30 mecha-cut-tr">
-        <span>VŨ KHÍ: {{ currentChampion.weapon.split('//')[0] }}</span>
-      </div>
-
-      <!-- Bottom Status Readout -->
-      <div class="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between bg-[#07090e]/90 px-3 py-1.5 border border-slate-800 text-[9px] font-mono z-30 mecha-cut-corners">
-        <div class="flex items-center gap-1.5 text-slate-300">
-          <span class="text-amber-400 font-black">TRẠNG THÁI:</span>
-          <span class="text-white font-bold">{{ currentActionText }}</span>
+      <!-- ── 2. DYNAMIC COCKPIT HUD TELEMETRY OVERLAYS ── -->
+      <!-- Top Pilot Callsign & Cockpit Bridge Name -->
+      <div class="pointer-events-none absolute top-3 inset-x-4 flex items-center justify-between z-40 font-mono">
+        <div class="flex items-center gap-2 px-3 py-1 bg-[#07090e]/90 border border-amber-500/50 mecha-cut-tr shadow-[0_0_20px_rgba(0,0,0,0.8)]">
+          <span class="h-2 w-2 rounded-full animate-ping" :style="{ backgroundColor: currentPilot.color }"></span>
+          <span class="text-xs font-black text-white tracking-wider">{{ currentPilot.cockpitName }}</span>
         </div>
-        <div class="text-emerald-400 font-bold hidden sm:block">
-          GÓC 3D GYRO: X:{{ Math.round(rotX) }}° Y:{{ Math.round(rotY) }}°
+
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1 bg-[#07090e]/90 border border-slate-700 mecha-cut-tr text-[10px] font-bold text-slate-300">
+          <span>HỆ THỐNG: <span class="text-emerald-400 font-black">{{ currentPilot.systemStatus }}</span></span>
         </div>
       </div>
-    </div>
 
-    <!-- ── INTERACTIVE COMBAT OVERDRIVE CONTROL BAR ── -->
-    <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5 z-20 font-mono text-[10px] font-black max-w-xl">
-      <button
-        type="button"
-        @click="triggerStrike"
-        class="px-3 py-1.5 bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/60 transition-all mecha-cut-tr shadow-[0_0_15px_rgba(239,68,68,0.4)] flex items-center gap-1.5 active:scale-95"
+      <!-- Hexagonal Cockpit Quantum Forcefield -->
+      <div
+        v-if="isShieldActive"
+        class="pointer-events-none absolute inset-4 rounded-xl border-2 border-cyan-400/90 bg-cyan-500/10 backdrop-blur-[1px] animate-pulse flex items-center justify-center shadow-[0_0_60px_rgba(0,240,255,0.6)] z-30"
       >
-        <span>⚔️ XUNG KÍCH (STRIKE)</span>
-      </button>
+        <div class="font-mono text-xs font-black text-cyan-300 tracking-widest bg-slate-950/90 px-4 py-1.5 border border-cyan-400 mecha-cut-tr shadow-[0_0_25px_#00f0ff]">
+          ⚡ COCKPIT FORCEFIELD BARRIER // ACTIVE 100%
+        </div>
+      </div>
 
-      <button
-        type="button"
-        @click="triggerShield"
-        class="px-3 py-1.5 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
-        :class="[
-          isShieldActive
-            ? 'bg-cyan-500 text-slate-950 shadow-[0_0_20px_#00f0ff] border border-cyan-300'
-            : 'bg-cyan-950/80 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/60 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-        ]"
+      <!-- Tactical Lock-on Radar HUD -->
+      <div
+        v-if="isLockOnActive"
+        class="pointer-events-none absolute inset-0 flex items-center justify-center z-30"
       >
-        <span>🛡️ KHIÊN NĂNG LƯỢNG</span>
-      </button>
+        <div class="h-56 w-56 rounded-full border-2 border-red-500/80 animate-ping opacity-60"></div>
+        <div class="absolute h-72 w-72 rounded-full border border-dashed border-red-400/80 animate-spin-slow"></div>
+        <div class="absolute font-mono text-[10px] font-black text-red-400 bg-red-950/90 px-3 py-1 border border-red-500 -top-4 shadow-[0_0_20px_#ef4444]">
+          [NEURAL LINK SYNCHRONIZED: 100%]
+        </div>
+      </div>
 
-      <button
-        type="button"
-        @click="triggerBoost"
-        class="px-3 py-1.5 bg-amber-950/80 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/60 transition-all mecha-cut-tr shadow-[0_0_12px_rgba(245,158,11,0.3)] flex items-center gap-1.5 active:scale-95"
-      >
-        <span>🚀 ĐẨY PHẢN LỰC</span>
-      </button>
+      <!-- ── 3. 5 HOLOGRAPHIC WARRIOR 3D ROTATING TURNTABLE ── -->
+      <div class="absolute inset-0 flex items-end justify-center pb-6 z-20 pointer-events-none" style="transform-style: preserve-3d;">
+        <div
+          v-for="(pilot, idx) in pilots"
+          :key="pilot.id"
+          @click="emit('selectPilot', idx)"
+          class="absolute bottom-2 flex flex-col items-center cursor-pointer transition-all duration-700 ease-out pointer-events-auto group"
+          :style="getPilotTransform(idx)"
+        >
+          <!-- Holographic Pilot Silhouette / Full Color Hero Frame -->
+          <div class="relative flex items-center justify-center">
+            <!-- Glowing Pedestal Ring for active pilot -->
+            <div
+              v-if="idx === activeIndex"
+              class="pointer-events-none absolute -bottom-4 h-16 w-56 rounded-full border-2 border-dashed animate-spin-slow opacity-80"
+              :style="{ borderColor: pilot.color, boxShadow: `0 0 35px ${pilot.glow}70` }"
+            ></div>
 
-      <button
-        type="button"
-        @click="triggerLockOn"
-        class="px-3 py-1.5 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
-        :class="[
-          isLockOnActive
-            ? 'bg-red-600 text-white shadow-[0_0_20px_#ff0055] border border-red-400'
-            : 'bg-slate-900 hover:bg-red-950 text-slate-300 hover:text-red-300 border border-slate-700'
-        ]"
-      >
-        <span>🎯 KHÓA MỤC TIÊU</span>
-      </button>
+            <!-- Authentic Mecha Pilot Image -->
+            <div
+              class="relative rounded-2xl overflow-hidden transition-all duration-500"
+              :class="[
+                idx === activeIndex
+                  ? 'border-2 shadow-[0_0_40px_rgba(0,0,0,0.9)]'
+                  : 'border border-slate-800/80 opacity-60 hover:opacity-90'
+              ]"
+              :style="{
+                borderColor: idx === activeIndex ? pilot.color : '#1e293b',
+                boxShadow: idx === activeIndex ? `0 0 35px ${pilot.glow}60` : 'none'
+              }"
+            >
+              <img
+                :src="pilot.avatar"
+                :alt="pilot.name"
+                class="h-[320px] sm:h-[380px] w-[240px] sm:w-[280px] object-cover object-top select-none"
+              />
 
-      <button
-        type="button"
-        @click="cycleAngle"
-        class="px-3 py-1.5 bg-purple-950/80 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/60 transition-all mecha-cut-tr shadow-[0_0_12px_rgba(168,85,247,0.3)] flex items-center gap-1.5 active:scale-95"
-      >
-        <span>🔄 ĐỔI GÓC NHÌN ({{ activeAngleIndex + 1 }}/3)</span>
-      </button>
+              <!-- Glowing Neon Edge Frame & Scanning Beam (Active Only) -->
+              <div
+                v-if="idx === activeIndex"
+                class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80"
+              ></div>
 
-      <button
-        type="button"
-        @click="isSketchfabViewer = !isSketchfabViewer"
-        class="px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
-      >
-        <span v-if="!isSketchfabViewer">🌐 MỞ 3D SKETCHFAB</span>
-        <span v-else class="text-amber-400 font-bold">⚡ QUAY LẠI 3D PARALLAX</span>
-      </button>
-    </div>
+              <!-- Cyber Scanning Laser Line -->
+              <div
+                v-if="idx === activeIndex"
+                class="pointer-events-none absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-scan opacity-70"
+                :style="{ backgroundColor: pilot.color }"
+              ></div>
 
-    <!-- Attribution Footer -->
-    <div class="mt-2 text-center font-mono text-[9px] text-slate-500">
-      MÔ HÌNH NGUYÊN BẢN: <span class="text-slate-400 font-bold">BOT MECHA WARRIOR 3D BY OSCAR CREATIVO</span> • MECHA BREAK AESTHETIC ENGINE
+              <!-- Inactive Holographic Scanlines Overlay -->
+              <div
+                v-if="idx !== activeIndex"
+                class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(0,0,0,0.4)_4px)]"
+              ></div>
+            </div>
+
+            <!-- Floating Active Aura Glow behind center pilot -->
+            <div
+              v-if="idx === activeIndex"
+              class="pointer-events-none absolute -inset-4 rounded-3xl blur-2xl opacity-40 mix-blend-screen transition-all duration-700 -z-10"
+              :style="{ backgroundColor: pilot.color }"
+            ></div>
+          </div>
+
+          <!-- Pilot Name & Callsign Tag -->
+          <div
+            class="mt-2 px-3 py-1 rounded-md text-center transition-all duration-500 font-mono"
+            :class="[
+              idx === activeIndex
+                ? 'bg-[#07090e]/95 border-2 text-white font-black scale-105 mecha-cut-tr shadow-[0_0_20px_rgba(0,0,0,0.8)]'
+                : 'bg-[#07090e]/60 border border-slate-800 text-slate-400 text-xs hover:text-slate-200'
+            ]"
+            :style="{ borderColor: idx === activeIndex ? pilot.color : '#334155' }"
+          >
+            <div class="text-[11px] uppercase tracking-wider" :style="{ color: idx === activeIndex ? pilot.color : '#94a3b8' }">
+              // {{ pilot.callsign }}
+            </div>
+            <div class="text-xs font-black">{{ pilot.name }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 4. COCKPIT INTERACTIVE ACTION CONTROLS ── -->
+      <div class="absolute bottom-3 inset-x-4 flex flex-wrap items-center justify-between gap-2 z-40 font-mono text-[10px] font-black">
+        <!-- Action Overdrive Buttons -->
+        <div class="flex items-center gap-1.5">
+          <button
+            type="button"
+            @click="triggerOverdrive"
+            class="px-3 py-1.5 bg-red-950/90 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/60 transition-all mecha-cut-tr shadow-[0_0_15px_rgba(239,68,68,0.4)] flex items-center gap-1.5 active:scale-95"
+          >
+            <span>⚡ QUÁ TẢI (OVERDRIVE)</span>
+          </button>
+
+          <button
+            type="button"
+            @click="triggerShield"
+            class="px-3 py-1.5 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
+            :class="[
+              isShieldActive
+                ? 'bg-cyan-500 text-slate-950 shadow-[0_0_20px_#00f0ff] border border-cyan-300'
+                : 'bg-cyan-950/90 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/60 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+            ]"
+          >
+            <span>🛡️ KHIÊN BUỒNG LÁI</span>
+          </button>
+
+          <button
+            type="button"
+            @click="triggerLockOn"
+            class="px-3 py-1.5 transition-all mecha-cut-tr flex items-center gap-1.5 active:scale-95"
+            :class="[
+              isLockOnActive
+                ? 'bg-red-600 text-white shadow-[0_0_20px_#ff0055] border border-red-400'
+                : 'bg-slate-900/90 hover:bg-red-950 text-slate-300 hover:text-red-300 border border-slate-700'
+            ]"
+          >
+            <span>🎯 KHÓA MỤC TIÊU</span>
+          </button>
+        </div>
+
+        <!-- Quick 5 Pilot Carousel Dots -->
+        <div class="flex items-center gap-2 bg-[#07090e]/90 px-3 py-1 border border-slate-800 mecha-cut-tr">
+          <button
+            v-for="(pilot, idx) in pilots"
+            :key="pilot.id"
+            @click="emit('selectPilot', idx)"
+            class="h-3 w-3 rounded-full transition-all"
+            :style="{
+              backgroundColor: idx === activeIndex ? pilot.color : '#334155',
+              transform: idx === activeIndex ? 'scale(1.3)' : 'scale(1)',
+              boxShadow: idx === activeIndex ? `0 0 10px ${pilot.color}` : 'none'
+            }"
+            :title="pilot.name"
+          ></button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+@keyframes laserScan {
+  0% { top: 0%; opacity: 0; }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.8; }
+  100% { top: 100%; opacity: 0; }
+}
+.animate-laser-scan {
+  animation: laserScan 3s ease-in-out infinite;
+}
+
 @keyframes spinSlow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 .animate-spin-slow {
-  animation: spinSlow 24s linear infinite;
+  animation: spinSlow 20s linear infinite;
+}
+
+.cockpit-fade-enter-active,
+.cockpit-fade-leave-active {
+  transition: opacity 0.8s ease;
+}
+.cockpit-fade-enter-from,
+.cockpit-fade-leave-to {
+  opacity: 0;
 }
 </style>
