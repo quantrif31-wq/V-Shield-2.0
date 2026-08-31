@@ -4,7 +4,7 @@ import { mechaAudio } from '../../utils/portalAudio'
 import { tacticalVoice } from '../../utils/portalVoiceSynth'
 import PortalMechaWarrior3DStage from './PortalMechaWarrior3DStage.vue'
 
-const activeIndex = ref(3) // Default to Vũ Tiến Đạt (Purple)
+const activeIndex = ref(0) // Default to Phạm Văn Thành (Pilot 0)
 const isAutoRotating = ref(true)
 let autoRotateTimer = null
 
@@ -12,17 +12,17 @@ const champions = [
   {
     id: 0,
     name: 'Phạm Văn Thành',
-    role: 'Trưởng Nhóm & Kiến Trúc Sư Backend Core',
+    role: 'Trưởng Nhóm & Kiến Trúc Sư Trưởng Backend Core',
     classId: 'K65-ATTT',
-    codename: 'V-SHIELD PRIME // AEGIS COMMAND',
+    codename: 'SHADOW AEGIS // PRIME SOVEREIGN',
     weaponName: 'EX-01 QUANTUM BROADSWORD (LƯỠI ĐẠI KIẾM LƯỢNG TỬ)',
-    weaponType: 'Chỉ huy Điều hành / Điều phối Hệ thống Phân tán',
+    weaponType: 'Chỉ huy Tác chiến / Điều phối Hệ thống Phân tán',
     weaponDesc: 'Lưỡi kiếm phát quang tích hợp bộ xử lý .NET 8 Clean Architecture & giao thức đồng bộ lai Hybrid Sync, giảm xung đột dữ liệu CRDT với độ trễ dưới 30ms.',
-    duties: 'Thiết kế kiến trúc hệ thống phân tán, mã hóa mật mã TOTP HMAC-SHA256, phân quyền đa tầng RBAC và đảm bảo an ninh dữ liệu.',
-    color: '#ffcc00',
-    stats: { code: 98, defense: 96, sync: 99, power: 97 },
-    borderColor: 'border-amber-400',
-    textColor: 'text-amber-400',
+    duties: 'Thiết kế kiến trúc hệ thống phân tán, mã hóa mật mã TOTP HMAC-SHA256, phân quyền đa tầng RBAC và đảm bảo an ninh toàn diện.',
+    color: '#c084fc', // Menacing Shadow Purple / Violet
+    stats: { code: 99, defense: 97, sync: 99, power: 98 },
+    borderColor: 'border-purple-400',
+    textColor: 'text-purple-400',
     weaponIcon: '⚔️'
   },
   {
@@ -67,10 +67,10 @@ const champions = [
     weaponType: 'Tác chiến Nhanh / Giao diện Realtime & WebRTC',
     weaponDesc: 'Cặp dao găm laser độ trễ dưới 30ms kết hợp luồng đàm thoại video WebRTC VoIP và giao diện tương tác Mecha Tactical chuẩn game AAA.',
     duties: 'Phát triển toàn bộ hệ thống giao diện Vue 3 Mecha, tích hợp WebGL Three.js và tối ưu hóa trải nghiệm người dùng trên mọi thiết bị.',
-    color: '#a855f7',
+    color: '#ffaa00',
     stats: { code: 96, defense: 89, sync: 94, power: 96 },
-    borderColor: 'border-purple-400',
-    textColor: 'text-purple-400',
+    borderColor: 'border-amber-400',
+    textColor: 'text-amber-400',
     weaponIcon: '🗡️'
   },
   {
@@ -124,7 +124,7 @@ function startAutoRotate() {
   stopAutoRotate()
   autoRotateTimer = setInterval(() => {
     activeIndex.value = (activeIndex.value + 1) % champions.length
-  }, 5500)
+  }, 5000)
 }
 
 function stopAutoRotate() {
@@ -190,11 +190,100 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ── SPLIT SCREEN: LEFT (COCKPIT & CHARACTER) + RIGHT (DOSSIER WITH DASHED CONNECTORS) ── -->
+    <!-- ── SPLIT SCREEN WITH FULL SCREEN-CROSSING CALLOUT DASHED LEADER LINES ── -->
     <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
       
+      <!-- ── AAA GAME CALLOUT DASHED LEADER LINES (CROSSING LEFT TO RIGHT ON DESKTOP) ── -->
+      <svg
+        class="hidden lg:block pointer-events-none absolute inset-0 w-full h-full z-30 overflow-visible"
+        viewBox="0 0 1200 600"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id="lineGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" :stop-color="currentChampion.color" stop-opacity="0.9" />
+            <stop offset="100%" :stop-color="currentChampion.color" stop-opacity="0.4" />
+          </linearGradient>
+        </defs>
+
+        <!-- ── CALLOUT 1: FROM PILOT CYBER MASK (X:340, Y:130) -> RIGHT HEADER CARD (X:680, Y:80) ── -->
+        <g class="transition-all duration-500">
+          <polyline
+            points="340,130 520,80 680,80"
+            fill="none"
+            :stroke="currentChampion.color"
+            stroke-width="2"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.9"
+          />
+          <!-- Target Reticle at Origin on Mask -->
+          <circle cx="340" cy="130" r="5" :stroke="currentChampion.color" stroke-width="1.5" fill="none" class="animate-ping" />
+          <circle cx="340" cy="130" r="3" :fill="currentChampion.color" />
+          <!-- Pin Box Label at Angle Kink -->
+          <rect x="500" y="70" width="40" height="18" fill="#07090e" :stroke="currentChampion.color" stroke-width="1" rx="2" />
+          <text x="520" y="83" font-size="9" font-family="monospace" :fill="currentChampion.color" font-weight="bold" text-anchor="middle">HUD-1</text>
+          <!-- Terminal Arrow Pin at Right Box -->
+          <polygon points="680,76 688,80 680,84" :fill="currentChampion.color" />
+        </g>
+
+        <!-- ── CALLOUT 2: FROM PILOT CHEST CORE (X:340, Y:220) -> RIGHT DUTIES BOX (X:680, Y:190) ── -->
+        <g class="transition-all duration-500">
+          <polyline
+            points="340,220 500,190 680,190"
+            fill="none"
+            :stroke="currentChampion.color"
+            stroke-width="2"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.85"
+          />
+          <circle cx="340" cy="220" r="5" :stroke="currentChampion.color" stroke-width="1.5" fill="none" />
+          <circle cx="340" cy="220" r="3" :fill="currentChampion.color" />
+          <rect x="480" y="180" width="40" height="18" fill="#07090e" :stroke="currentChampion.color" stroke-width="1" rx="2" />
+          <text x="500" y="193" font-size="9" font-family="monospace" :fill="currentChampion.color" font-weight="bold" text-anchor="middle">CORE</text>
+          <polygon points="680,186 688,190 680,194" :fill="currentChampion.color" />
+        </g>
+
+        <!-- ── CALLOUT 3: FROM PILOT ARM WEAPON CONDUIT (X:280, Y:340) -> RIGHT WEAPON SPECS (X:680, Y:310) ── -->
+        <g class="transition-all duration-500">
+          <polyline
+            points="280,340 510,310 680,310"
+            fill="none"
+            :stroke="currentChampion.color"
+            stroke-width="2"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.85"
+          />
+          <circle cx="280" cy="340" r="5" :stroke="currentChampion.color" stroke-width="1.5" fill="none" />
+          <circle cx="280" cy="340" r="3" :fill="currentChampion.color" />
+          <rect x="490" y="300" width="40" height="18" fill="#07090e" :stroke="currentChampion.color" stroke-width="1" rx="2" />
+          <text x="510" y="313" font-size="9" font-family="monospace" :fill="currentChampion.color" font-weight="bold" text-anchor="middle">WEAP</text>
+          <polygon points="680,306 688,310 680,314" :fill="currentChampion.color" />
+        </g>
+
+        <!-- ── CALLOUT 4: FROM PEDESTAL / BASE THRUSTER (X:340, Y:450) -> RIGHT STATS RADAR (X:680, Y:430) ── -->
+        <g class="transition-all duration-500">
+          <polyline
+            points="340,450 530,430 680,430"
+            fill="none"
+            :stroke="currentChampion.color"
+            stroke-width="2"
+            stroke-dasharray="6,4"
+            class="animate-dash"
+            opacity="0.8"
+          />
+          <circle cx="340" cy="450" r="5" :stroke="currentChampion.color" stroke-width="1.5" fill="none" />
+          <circle cx="340" cy="450" r="3" :fill="currentChampion.color" />
+          <rect x="510" y="420" width="40" height="18" fill="#07090e" :stroke="currentChampion.color" stroke-width="1" rx="2" />
+          <text x="530" y="433" font-size="9" font-family="monospace" :fill="currentChampion.color" font-weight="bold" text-anchor="middle">SYNC</text>
+          <polygon points="680,426 688,430 680,434" :fill="currentChampion.color" />
+        </g>
+      </svg>
+
       <!-- ── LEFT COLUMN: COCKPIT & 3D ROTATING PILOT STAGE (7 COLS) ── -->
-      <div class="lg:col-span-7 relative flex flex-col">
+      <div class="lg:col-span-7 relative flex flex-col z-10">
         <PortalMechaWarrior3DStage
           :active-index="activeIndex"
           :is-auto-rotating="isAutoRotating"
@@ -202,73 +291,13 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- ── RIGHT COLUMN: TACTICAL INFORMATION DOSSIER & CONNECTORS (5 COLS) ── -->
-      <div class="lg:col-span-5 relative flex flex-col justify-between">
-        
-        <!-- Animated Holographic Connecting Dashed Lines Layer (Desktop Only) -->
-        <svg
-          class="hidden lg:block pointer-events-none absolute -left-8 inset-y-0 w-8 h-full z-30 overflow-visible"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <!-- Line 1: Connects from Pilot Tech Mask to Header Name -->
-          <line
-            x1="-40" y1="90"
-            x2="0" y2="90"
-            :stroke="currentChampion.color"
-            stroke-width="1.8"
-            stroke-dasharray="6,4"
-            class="animate-dash"
-            opacity="0.85"
-          />
-          <circle cx="-40" cy="90" r="3" :fill="currentChampion.color" class="animate-ping" />
-          <circle cx="0" cy="90" r="3" :fill="currentChampion.color" />
-
-          <!-- Line 2: Connects from Pilot Chest Armor to Core Duties -->
-          <line
-            x1="-60" y1="210"
-            x2="0" y2="210"
-            :stroke="currentChampion.color"
-            stroke-width="1.8"
-            stroke-dasharray="6,4"
-            class="animate-dash"
-            opacity="0.75"
-          />
-          <circle cx="-60" cy="210" r="3" :fill="currentChampion.color" />
-          <circle cx="0" cy="210" r="3" :fill="currentChampion.color" />
-
-          <!-- Line 3: Connects from Pilot Arm Gauntlet to Weapon Specs -->
-          <line
-            x1="-50" y1="330"
-            x2="0" y2="330"
-            :stroke="currentChampion.color"
-            stroke-width="1.8"
-            stroke-dasharray="6,4"
-            class="animate-dash"
-            opacity="0.75"
-          />
-          <circle cx="-50" cy="330" r="3" :fill="currentChampion.color" />
-          <circle cx="0" cy="330" r="3" :fill="currentChampion.color" />
-
-          <!-- Line 4: Connects from Base to Radar Stats -->
-          <line
-            x1="-40" y1="440"
-            x2="0" y2="440"
-            :stroke="currentChampion.color"
-            stroke-width="1.8"
-            stroke-dasharray="6,4"
-            class="animate-dash"
-            opacity="0.65"
-          />
-          <circle cx="-40" cy="440" r="3" :fill="currentChampion.color" />
-          <circle cx="0" cy="440" r="3" :fill="currentChampion.color" />
-        </svg>
-
-        <!-- Right Info Card -->
+      <!-- ── RIGHT COLUMN: TACTICAL INFORMATION DOSSIER (5 COLS) ── -->
+      <div class="lg:col-span-5 relative flex flex-col justify-between z-20">
         <div
-          class="h-full flex flex-col justify-between border-2 bg-[#080b12]/95 p-6 sm:p-7 mecha-cut-corners shadow-[0_0_40px_rgba(0,0,0,0.85)] transition-all duration-500 relative"
-          :style="{ borderColor: currentChampion.color, boxShadow: `0 0 35px ${currentChampion.color}25` }"
+          class="h-full flex flex-col justify-between border-2 bg-[#080b12]/95 p-6 sm:p-7 mecha-cut-corners shadow-[0_0_40px_rgba(0,0,0,0.9)] transition-all duration-500 relative"
+          :style="{ borderColor: currentChampion.color, boxShadow: `0 0 35px ${currentChampion.color}30` }"
         >
-          <!-- Holographic Dashed Border Line Accents -->
+          <!-- Corner Accents -->
           <div
             class="pointer-events-none absolute -top-1 -right-1 h-6 w-6 border-t-2 border-r-2"
             :style="{ borderColor: currentChampion.color }"
@@ -279,8 +308,8 @@ onUnmounted(() => {
           ></div>
 
           <div class="space-y-4">
-            <!-- Node 1: Header Callsign & Pilot Name -->
-            <div class="border-b border-slate-800/90 pb-3.5">
+            <!-- Node 1: Header Callsign & Pilot Name (Connected to Mask HUD) -->
+            <div class="border-b border-slate-800/90 pb-3.5 relative">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-1.5 text-xs font-black uppercase" :style="{ color: currentChampion.color }">
                   <span>{{ currentChampion.weaponIcon }}</span>
@@ -299,19 +328,19 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Node 2: Thesis Responsibilities -->
-            <div class="space-y-1.5 font-sans">
+            <!-- Node 2: Thesis Responsibilities (Connected to Core) -->
+            <div class="space-y-1.5 font-sans relative">
               <div class="font-mono text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
-                <span class="inline-block h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: currentChampion.color }"></span>
-                <span>// NHIỆM VỤ ĐỒ ÁN:</span>
+                <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: currentChampion.color }"></span>
+                <span>// NHIỆM VỤ KỸ THUẬT & ĐỒ ÁN:</span>
               </div>
               <p class="text-xs text-slate-300 leading-relaxed">
                 {{ currentChampion.duties }}
               </p>
             </div>
 
-            <!-- Node 3: Specialized Cyber Weapon -->
-            <div class="space-y-1 border-t border-slate-800/80 pt-3 font-sans">
+            <!-- Node 3: Specialized Cyber Weapon (Connected to Arm) -->
+            <div class="space-y-1 border-t border-slate-800/80 pt-3 font-sans relative">
               <div class="font-mono text-[11px] font-black uppercase flex items-center gap-1.5" :style="{ color: currentChampion.color }">
                 <span>⚡</span>
                 <span>VŨ KHÍ: {{ currentChampion.weaponName.split('(')[0] }}</span>
@@ -321,8 +350,8 @@ onUnmounted(() => {
               </p>
             </div>
 
-            <!-- Node 4: Combat Radar Stats -->
-            <div class="space-y-2.5 border-t border-slate-800/80 pt-3">
+            <!-- Node 4: Combat Radar Stats (Connected to Base) -->
+            <div class="space-y-2.5 border-t border-slate-800/80 pt-3 relative">
               <div class="flex justify-between items-center text-[10.5px] font-black text-slate-400">
                 <span>CHỈ SỐ NĂNG LỰC TÁC CHIẾN</span>
                 <span :style="{ color: currentChampion.color }">ĐỒNG BỘ: {{ currentChampion.stats.sync }}%</span>
@@ -372,7 +401,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Bottom 5 Pilot Quick Selection Switcher -->
+          <!-- Bottom 5 Pilot Quick Selection Buttons -->
           <div class="pt-3 border-t border-slate-800/80 mt-3">
             <div class="grid grid-cols-5 gap-1.5">
               <button
@@ -383,7 +412,7 @@ onUnmounted(() => {
                 class="p-1.5 text-center transition-all mecha-cut-tr flex flex-col items-center justify-center gap-0.5"
                 :class="[
                   idx === activeIndex
-                    ? 'border-2 text-white font-black scale-105 shadow-[0_0_15px_rgba(0,0,0,0.8)]'
+                    ? 'border-2 text-white font-black scale-105 shadow-[0_0_15px_rgba(0,0,0,0.9)]'
                     : 'border border-slate-800 bg-[#0a0d14] text-slate-400 hover:text-slate-200'
                 ]"
                 :style="{
@@ -411,6 +440,6 @@ onUnmounted(() => {
   }
 }
 .animate-dash {
-  animation: dash 1s linear infinite;
+  animation: dash 1.2s linear infinite;
 }
 </style>
