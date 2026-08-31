@@ -98,7 +98,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5107/health/ready"]
       interval: 15s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 90s
     networks:
       - default
       - face-backend
@@ -207,13 +208,6 @@ services:
       - ./runtime/face-data/input:/data/face/input:ro
       - ./runtime/face-data/models:/data/face/models
       - ./runtime/face-models:/data/face-models:ro
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     expose:
       - "5001"
     healthcheck:

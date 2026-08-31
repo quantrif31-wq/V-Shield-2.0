@@ -17,7 +17,8 @@ COPY requirements.docker.txt .
 # NOTE:
 # requirements.docker.txt da loai bo cac dependency GPU (+cu118)
 # de profile "ai-heavy" co the build tren moi truong Docker CPU.
-RUN pip install --no-cache-dir --default-timeout=1000 --retries 10 -r requirements.docker.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --default-timeout=1000 --retries 10 -r requirements.docker.txt
 
 COPY docbien.py .
 COPY best.pt ./best.pt
