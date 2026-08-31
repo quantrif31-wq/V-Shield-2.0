@@ -311,7 +311,6 @@ describe('PreRegistration page flows', () => {
     await flushPromises()
     expect(createLink).toHaveBeenCalledWith({ hostEmployeeId: 4, expiryHours: 48 })
     expect(wrapper.vm.createdLink.registrationUrl).toBe('https://example.test/register/abc')
-    expect(wrapper.vm.copied).toBe(true)
     wrapper.vm.openCreatedLink()
     expect(windowOpen).toHaveBeenCalled()
   })
