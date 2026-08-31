@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { mechaAudio } from '../../utils/portalAudio'
 
 const activeCategory = ref('all')
 
@@ -97,8 +98,9 @@ function filteredFeatures() {
   return features.filter(f => f.category === activeCategory.value)
 }
 
-function triggerSfx() {
-  window.dispatchEvent(new CustomEvent('portal-click-sfx'))
+function selectCategory(catId) {
+  mechaAudio.playClick()
+  activeCategory.value = catId
 }
 </script>
 
@@ -107,10 +109,10 @@ function triggerSfx() {
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
       <!-- Header -->
       <div class="text-center space-y-3">
-        <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
+        <div class="mecha-laser-border inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
           <span>// TECHNICAL SPECIFICATIONS & ARCHITECTURE</span>
         </div>
-        <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
+        <h1 class="mecha-glitch-hover cursor-default text-3xl sm:text-5xl font-black uppercase text-slate-100">
           GIẢI PHÁP CÔNG NGHỆ CỐT LÕI
         </h1>
         <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
@@ -124,7 +126,7 @@ function triggerSfx() {
           v-for="cat in categories"
           :key="cat.id"
           type="button"
-          @click="activeCategory = cat.id; triggerSfx()"
+          @click="selectCategory(cat.id)"
           class="px-4 py-2 text-xs font-black uppercase tracking-wider transition-all mecha-cut-btn"
           :class="[
             activeCategory === cat.id
@@ -136,12 +138,12 @@ function triggerSfx() {
         </button>
       </div>
 
-      <!-- Feature Grid -->
+      <!-- Feature Grid with 3D Tilt & Holographic Sheen -->
       <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div
           v-for="item in filteredFeatures()"
           :key="item.id"
-          class="mecha-hud-bracket border-2 border-amber-500/30 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_30px_rgba(255,204,0,0.1)] transition-all hover:border-amber-400 hover:shadow-[0_0_40px_rgba(255,204,0,0.25)] space-y-4"
+          class="mecha-hud-bracket mecha-card-3d mecha-sheen border-2 border-amber-500/30 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_30px_rgba(255,204,0,0.1)] transition-all hover:border-amber-400 hover:shadow-[0_0_45px_rgba(255,204,0,0.3)] space-y-4"
         >
           <!-- Tag Header -->
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">

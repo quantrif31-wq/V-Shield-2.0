@@ -2395,3 +2395,81 @@ table tbody tr:hover,
   background-size: 100% 3px, 6px 100%;
 }
 
+/* 7. Next-Gen 3D Tilt & Holographic Sheen */
+.mecha-card-3d {
+  position: relative;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+  transform-style: preserve-3d;
+}
+
+.mecha-card-3d:hover {
+  transform: translateY(-4px) scale(1.015);
+}
+
+.mecha-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.mecha-sheen::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 40%,
+    rgba(255, 204, 0, 0.08) 45%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 204, 0, 0.08) 55%,
+    transparent 60%
+  );
+  transform: translateX(-100%) translateY(-100%);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+
+.mecha-sheen:hover::after {
+  transform: translateX(100%) translateY(100%);
+}
+
+/* 8. Laser Tracer Border Animation */
+@keyframes laser-sweep-x {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.mecha-laser-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.mecha-laser-border::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ffcc00, #ff5500, transparent);
+  animation: laser-sweep-x 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 9. Cyber Glitch Hover Effect */
+@keyframes glitch-skew {
+  0% { transform: skew(0deg); }
+  20% { transform: skew(-2deg); }
+  40% { transform: skew(2deg); }
+  60% { transform: skew(-1deg); }
+  80% { transform: skew(1deg); }
+  100% { transform: skew(0deg); }
+}
+
+.mecha-glitch-hover:hover {
+  animation: glitch-skew 0.3s ease;
+  text-shadow: 2px 0 rgba(255, 85, 0, 0.7), -2px 0 rgba(0, 240, 255, 0.7);
+}
+
