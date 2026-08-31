@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getTopology = vi.fn()
@@ -253,5 +254,50 @@ describe('DeviceTopology flows', () => {
     tabButtons[2].click()
     await flushPromises()
     expect(getDeviceRelays).toHaveBeenCalled()
+  })
+
+  it('records health through the modal in the DOM', async () => {
+    recordHealth.mockResolvedValue({})
+    const wrapper = mount(DeviceTopology)
+    await flushPromises()
+    await wrapper.find('.device-row').trigger('click')
+    await new Promise((r) => setTimeout(r, 0))
+    const recordBtn = [...document.body.querySelectorAll('.drawer-panel button')].find((b) => b.textContent.toLowerCase().includes('ghi nhận'))
+    recordBtn.click()
+    await new Promise((r) => setTimeout(r, 0))
+    const healthPanel = document.body.querySelectorAll('.modal-panel')[1]
+    const statusSelect = healthPanel.querySelector('select')
+    statusSelect.value = 'Fault'
+    statusSelect.dispatchEvent(new Event('change'))
+    const area = healthPanel.querySelector('textarea')
+    area.value = 'lỗi kết nối'
+    area.dispatchEvent(new Event('input'))
+    const saveBtn = [...healthPanel.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Lưu')
+    saveBtn.click()
+    await flushPromises()
+    expect(recordHealth).toHaveBeenCalledWith(1, expect.objectContaining({ status: 'Fault', message: 'lỗi kết nối' }))
+    const closeBtn = [...healthPanel.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Đóng')
+    closeBtn.click()
+    await nextTick()
+    expect(wrapper.vm.recordHealthTarget).toBe(null)
+  })
+
+  it('creates an offline package through the modal in the DOM', async () => {
+    createOfflinePolicyPackage.mockResolvedValue({})
+    getOfflinePolicyPackages.mockResolvedValue({ data: { items: [] } })
+    const wrapper = mount(DeviceTopology)
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('Gói ngoại tuyến')).trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.showOfflinePackages).toBe(true)
+    expect(document.body.textContent).toContain('Không có gói.')
+    wrapper.vm.offlinePackageForm.deviceId = 5
+    wrapper.vm.offlinePackageForm.policyVersionId = 3
+    await nextTick()
+    const pkgPanel = document.body.querySelector('.modal-panel')
+    const createBtn = [...pkgPanel.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Tạo gói')
+    createBtn.click()
+    await flushPromises()
+    expect(createOfflinePolicyPackage).toHaveBeenCalledWith(expect.objectContaining({ securityDeviceId: 5 }))
   })
 })
