@@ -42,12 +42,12 @@ async function subscribeNewsletter() {
 
 <template>
   <footer class="relative z-10 border-t-2 border-amber-500/30 bg-[#07080b] text-slate-400 font-mono">
-    <!-- Bottom Hazard Caution Ribbon -->
+    <!-- Bottom Hazard Ribbon -->
     <div class="h-1 w-full mecha-hazard-bar opacity-80"></div>
 
     <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
       <div class="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-8">
-        <!-- Col 1: Brand & Mech Lore (4 cols) -->
+        <!-- Col 1: Brand & Overview (4 cols) -->
         <div class="space-y-4 lg:col-span-4">
           <div class="flex items-center gap-3">
             <div class="flex h-9 w-9 items-center justify-center border-2 border-amber-400 bg-[#121620] mecha-cut-tr shadow-[0_0_15px_rgba(255,204,0,0.3)]">
@@ -57,27 +57,27 @@ async function subscribeNewsletter() {
               </svg>
             </div>
             <span class="text-xl font-black tracking-widest text-slate-100 uppercase">
-              V-SHIELD MK-II
+              V-SHIELD 2.0
             </span>
           </div>
           <p class="font-sans text-xs leading-relaxed text-slate-400">
-            Hệ thống kiểm soát an ninh thông minh đa nền tảng kết hợp AI sinh trắc học thời gian thực, rào chắn động lực học và giao thức đồng bộ lai (Hybrid Sync).
+            Hệ thống kiểm soát an ninh thông minh đa nền tảng kết hợp AI sinh trắc học thời gian thực, rào chắn tự động và giao thức đồng bộ lai (Hybrid Sync).
           </p>
           <div class="flex items-center gap-2 pt-2">
             <div class="flex items-center gap-1.5 border border-emerald-500/40 bg-[#0c1613] px-2.5 py-1 text-[10px] font-bold text-emerald-400 mecha-cut-tr">
               <span class="h-1.5 w-1.5 bg-emerald-400 animate-ping"></span>
-              <span>DEFENSE SYSTEM 99.99% ONLINE</span>
+              <span>SYSTEM ONLINE 99.99%</span>
             </div>
             <span class="border border-slate-700 bg-[#121620] px-2.5 py-1 text-[10px] text-amber-400 font-bold mecha-cut-tr">
-              MK-II // PROD
+              MK-II // PRODUCTION
             </span>
           </div>
         </div>
 
-        <!-- Col 2: Vũ Khí (2 cols) -->
+        <!-- Col 2: Giải Pháp AI (2 cols) -->
         <div class="space-y-3 lg:col-span-2">
           <h4 class="text-xs font-black uppercase tracking-widest text-amber-400">
-            KHO VŨ KHÍ AI
+            GIẢI PHÁP AI
           </h4>
           <ul class="space-y-2 text-xs font-sans">
             <li>
@@ -116,12 +116,12 @@ async function subscribeNewsletter() {
         <!-- Col 3: Điều Hướng (2 cols) -->
         <div class="space-y-3 lg:col-span-2">
           <h4 class="text-xs font-black uppercase tracking-widest text-orange-400">
-            KHÁM PHÁ
+            ĐIỀU HƯỚNG
           </h4>
           <ul class="space-y-2 text-xs font-sans">
             <li>
               <button type="button" @click="navigateTo('/')" class="hover:text-orange-300 transition">
-                Trạm Chỉ Huy
+                Tổng Quan Hệ Thống
               </button>
             </li>
             <li>
@@ -131,34 +131,34 @@ async function subscribeNewsletter() {
             </li>
             <li>
               <button type="button" @click="navigateTo('/download')" class="hover:text-orange-300 transition">
-                Tải Field App (APK)
+                Tải Ứng Dụng (APK)
               </button>
             </li>
             <li>
               <button type="button" @click="navigateTo('/community')" class="hover:text-orange-300 transition">
-                Bảng Tin Operator
+                Đánh Giá & Trải Nghiệm
               </button>
             </li>
             <li>
               <button type="button" @click="navigateTo('/about')" class="hover:text-orange-300 transition">
-                Phi Đội Sáng Lập
+                Đội Ngũ Kỹ Sư
               </button>
             </li>
             <li>
               <button type="button" @click="navigateTo('/contact')" class="hover:text-orange-300 transition">
-                Kênh Hỗ Trợ Tác Chiến
+                Liên Hệ & Hỗ Trợ
               </button>
             </li>
           </ul>
         </div>
 
-        <!-- Col 4: Newsletter & Liên hệ (4 cols) -->
+        <!-- Col 4: Newsletter & Info (4 cols) -->
         <div class="space-y-3 lg:col-span-4">
           <h4 class="text-xs font-black uppercase tracking-widest text-amber-400">
-            ĐĂNG KÝ BẢN TIN TÁC CHIẾN
+            BẢN TIN CẬP NHẬT AN NINH
           </h4>
           <p class="font-sans text-xs text-slate-400">
-            Nhận thông báo cập nhật bản vá bảo mật và báo cáo phân tích đe dọa an ninh mới nhất.
+            Nhận thông báo cập nhật bản vá bảo mật và phân tích công nghệ mới nhất từ đội ngũ phát triển.
           </p>
 
           <form @submit.prevent="subscribeNewsletter" class="space-y-2">
@@ -166,7 +166,7 @@ async function subscribeNewsletter() {
               <input
                 v-model="newsletterEmail"
                 type="email"
-                placeholder="pilot@v-shield.site"
+                placeholder="developer@v-shield.site"
                 class="w-full border border-slate-700 bg-[#0c0f15] px-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 outline-none transition focus:border-amber-400 mecha-cut-tr"
                 :disabled="newsletterSubmitting"
               />
@@ -193,7 +193,7 @@ async function subscribeNewsletter() {
       <!-- Bottom Credits -->
       <div class="mt-10 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-6 text-xs text-slate-500 sm:flex-row font-mono">
         <div>
-          <span>© 2026 V-SHIELD MK-II. ALL TACTICAL DEFENSE RIGHTS RESERVED.</span>
+          <span>© 2026 V-SHIELD 2.0. ALL RIGHTS RESERVED.</span>
         </div>
         <div class="flex items-center gap-4">
           <router-link to="/login" class="text-amber-400 hover:text-amber-300 font-bold transition">
@@ -201,7 +201,7 @@ async function subscribeNewsletter() {
           </router-link>
           <span>•</span>
           <a href="https://github.com/quantrif31-wq/V-Shield-2.0" target="_blank" rel="noopener" class="text-orange-400 hover:text-orange-300 font-bold transition">
-            [ GITHUB REPO ]
+            [ GITHUB REPOSITORY ]
           </a>
         </div>
       </div>

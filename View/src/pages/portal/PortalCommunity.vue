@@ -61,7 +61,7 @@ async function submitReview() {
     if (res.success && res.data) {
       reviews.value.unshift(res.data)
       newReview.content = ''
-      reviewToast.value = '✨ Đánh giá tác chiến đã được ghi nhận thành công!'
+      reviewToast.value = '✨ Đánh giá của bạn đã được ghi nhận thành công!'
       setTimeout(() => { reviewToast.value = '' }, 4000)
     }
   } catch {
@@ -83,7 +83,7 @@ async function submitComment() {
     if (res.success && res.data) {
       comments.value.unshift(res.data)
       newComment.content = ''
-      commentToast.value = '💬 Tín hiệu trao đổi kỹ thuật đã được xuất bản!'
+      commentToast.value = '💬 Bình luận kỹ thuật đã được xuất bản!'
       setTimeout(() => { commentToast.value = '' }, 4000)
     }
   } catch {
@@ -106,13 +106,13 @@ async function reactComment(comment) {
       <!-- Header -->
       <div class="text-center space-y-3">
         <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
-          <span>// OPERATOR COMBAT LOGS & DISCUSSIONS</span>
+          <span>// OPERATOR REVIEWS & TECHNICAL DISCUSSIONS</span>
         </div>
         <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
-          NHẬT KÝ ĐÁNH GIÁ & CỘNG ĐỒNG
+          ĐÁNH GIÁ & DIỄN ĐÀN KỸ THUẬT
         </h1>
         <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Không gian trao đổi kỹ thuật, báo cáo thực chiến và đánh giá độ tin cậy của hệ thống V-Shield MK-II từ các chuyên gia an ninh.
+          Không gian trao đổi kỹ thuật, đóng góp trải nghiệm và đánh giá độ tin cậy của hệ thống V-Shield 2.0 từ các chuyên gia và người dùng.
         </p>
       </div>
 
@@ -153,7 +153,7 @@ async function reactComment(comment) {
         <div class="mecha-hud-bracket border-2 border-amber-500/40 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_40px_rgba(255,204,0,0.1)] space-y-4">
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 class="text-base font-black text-slate-100 uppercase">
-              GỬI NHẬT KÝ ĐÁNH GIÁ CỦA BẠN
+              GỬI ĐÁNH GIÁ CỦA BẠN
             </h3>
             <button
               v-if="!communityUser"
@@ -161,51 +161,51 @@ async function reactComment(comment) {
               @click="openAuthModal"
               class="text-xs font-bold text-amber-400 hover:underline"
             >
-              [ ĐĂNG NHẬP PILOT SSO ]
+              [ ĐĂNG NHẬP GOOGLE SSO ]
             </button>
           </div>
 
           <form @submit.prevent="submitReview" class="space-y-4 font-sans">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 font-mono">
               <div>
-                <label class="block text-xs font-bold text-slate-400 mb-1">HỌ VÀ TÊN // CALLSIGN</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">HỌ VÀ TÊN</label>
                 <input
                   v-model="newReview.authorName"
                   type="text"
-                  placeholder="Commander Alex"
+                  placeholder="Nguyễn Văn A"
                   class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-400 mb-1">ĐIỂM ĐÁNH GIÁ TÁC CHIẾN</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">ĐIỂM ĐÁNH GIÁ</label>
                 <select
                   v-model.number="newReview.rating"
                   class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-amber-400 outline-none focus:border-amber-400 mecha-cut-tr"
                 >
                   <option :value="5">★★★★★ (5/5 - Cực kỳ tin cậy)</option>
                   <option :value="4">★★★★☆ (4/5 - Rất tốt)</option>
-                  <option :value="3">★★★☆☆ (3/5 - Chuẩn danh định)</option>
-                  <option :value="2">★★☆☆☆ (2/5 - Cần tối ưu)</option>
+                  <option :value="3">★★★☆☆ (3/5 - Đạt tiêu chuẩn)</option>
+                  <option :value="2">★★☆☆☆ (2/5 - Cần cải thiện)</option>
                   <option :value="1">★☆☆☆☆ (1/5 - Không đạt)</option>
                 </select>
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-400 mb-1">NỀN TẢNG THỬ NGHIỆM</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">NỀN TẢNG TRẢI NGHIỆM</label>
                 <select
                   v-model="newReview.platform"
                   class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
                 >
                   <option value="Web Cloud">Web Cloud (VPS)</option>
-                  <option value="Docker Local">Docker Local Station</option>
-                  <option value="Mobile Android">Mobile Field App (APK)</option>
+                  <option value="Docker Local">Docker Local Node</option>
+                  <option value="Mobile Android">Mobile Client (APK)</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-mono font-bold text-slate-400 mb-1">NỘI DUNG NHẬT KÝ THỰC CHIẾN</label>
+              <label class="block text-xs font-mono font-bold text-slate-400 mb-1">NỘI DUNG ĐÁNH GIÁ</label>
               <textarea
                 v-model="newReview.content"
                 rows="3"
@@ -225,7 +225,7 @@ async function reactComment(comment) {
                 :disabled="reviewSubmitting"
                 class="mecha-btn-hazard px-6 py-2.5 text-xs font-black uppercase mecha-cut-btn disabled:opacity-50"
               >
-                {{ reviewSubmitting ? 'ĐANG NẠP...' : 'XUẤT BẢN ĐÁNH GIÁ' }}
+                {{ reviewSubmitting ? 'ĐANG GỬI...' : 'XUẤT BẢN ĐÁNH GIÁ' }}
               </button>
             </div>
           </form>
@@ -267,7 +267,7 @@ async function reactComment(comment) {
         <!-- New Comment Form -->
         <div class="mecha-hud-bracket border-2 border-orange-500/40 bg-[#0c0f15] p-6 sm:p-8 mecha-cut-corners shadow-[0_0_40px_rgba(255,85,0,0.1)] space-y-4">
           <h3 class="text-base font-black text-slate-100 uppercase">
-            TRUYỀN PHÁT TÍN HIỆU THẢO LUẬN // TECH COMMS
+            THẢO LUẬN KỸ THUẬT // TECH FORUM
           </h3>
 
           <form @submit.prevent="submitComment" class="space-y-3 font-sans">
@@ -276,7 +276,7 @@ async function reactComment(comment) {
                 <input
                   v-model="newComment.authorName"
                   type="text"
-                  placeholder="Pilot Callsign / Tên"
+                  placeholder="Họ và Tên"
                   class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2 text-xs text-slate-200 outline-none focus:border-orange-400 mecha-cut-tr"
                 />
               </div>
@@ -286,7 +286,7 @@ async function reactComment(comment) {
               <textarea
                 v-model="newComment.content"
                 rows="3"
-                placeholder="Nhập nội dung thảo luận về giải pháp mô hình AI, kiến trúc Docker hoặc giao thức TOTP..."
+                placeholder="Nhập nội dung thảo luận về mô hình AI, kiến trúc Docker hoặc giao thức TOTP..."
                 class="w-full border border-slate-700 bg-[#07080b] p-3.5 text-xs text-slate-200 outline-none focus:border-orange-400 mecha-cut-tr"
               ></textarea>
             </div>
@@ -302,7 +302,7 @@ async function reactComment(comment) {
                 :disabled="commentSubmitting"
                 class="mecha-btn-hazard px-6 py-2 text-xs font-black uppercase mecha-cut-btn disabled:opacity-50"
               >
-                {{ commentSubmitting ? 'ĐANG PHÁT...' : 'GỬI TÍN HIỆU' }}
+                {{ commentSubmitting ? 'ĐANG GỬI...' : 'GỬI BÌNH LUẬN' }}
               </button>
             </div>
           </form>

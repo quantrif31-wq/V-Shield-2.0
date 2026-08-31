@@ -4,84 +4,84 @@ import { ref } from 'vue'
 const activeCategory = ref('all')
 
 const categories = [
-  { id: 'all', name: 'TẤT CẢ VŨ KHÍ' },
-  { id: 'ai', name: 'AI BIOMETRICS' },
-  { id: 'barrier', name: 'KINETIC BARRIER' },
-  { id: 'sync', name: 'HYBRID SYNC' },
-  { id: 'security', name: 'UEBA THREAT' }
+  { id: 'all', name: 'TẤT CẢ GIẢI PHÁP' },
+  { id: 'ai', name: 'AI SINH TRẮC HỌC' },
+  { id: 'barrier', name: 'KIỂM SOÁT RA VÀO' },
+  { id: 'sync', name: 'ĐỒNG BỘ HYBRID' },
+  { id: 'security', name: 'BẢO MẬT & UEBA' }
 ]
 
 const features = [
   {
     id: 1,
     category: 'ai',
-    title: 'AI FACE ID 60FPS // BIOMETRICS RADAR',
-    code: 'MOD-01-OPTIC',
-    desc: 'Hệ thống radar nhận diện khuôn mặt quang học tốc độ cao YOLOv11 + ArcFace, xử lý đa góc độ ±45°, thích ứng ánh sáng ban đêm và kháng giả mạo sinh học Live 3D Anti-Spoofing.',
+    title: 'AI FACE ID 60FPS // NHẬN DIỆN SINH TRẮC HỌC',
+    code: 'MOD-01-VISION',
+    desc: 'Hệ thống nhận diện khuôn mặt quang học tốc độ cao YOLOv11 + ArcFace, xử lý đa góc độ ±45°, thích ứng môi trường thiếu sáng và tích hợp cơ chế chống giả mạo Live 3D Anti-Spoofing.',
     specs: [
-      { label: 'TỐC ĐỘ PHẢN ỨNG', value: '< 45ms' },
+      { label: 'TỐC ĐỘ PHẢN HỒI', value: '< 45ms' },
       { label: 'ĐỘ CHÍNH XÁC', value: '99.98%' },
-      { label: 'GÓC QUÉT QUANG HỌC', value: '±45° Yaw/Pitch' },
-      { label: 'KHÁNG ẢNH GIẢ MẠO', value: 'Live 3D Depth' }
+      { label: 'GÓC QUÉT NHẬN DIỆN', value: '±45° Yaw/Pitch' },
+      { label: 'CHỐNG GIẢ MẠO', value: 'Live 3D Depth' }
     ]
   },
   {
     id: 2,
     category: 'barrier',
-    title: 'VIRTUAL SMART BARRIER & ANPR OCR',
-    code: 'MOD-02-KINETIC',
-    desc: 'Hạ tầng kiểm soát barie tự động và camera nhận dạng biển số xe quân sự ANPR OCR. Tự động đối soát chéo người lái và thông tin chủ xe nhằm triệt tiêu hành vi đổi biển số gian lận.',
+    title: 'VIRTUAL SMART BARRIER & ĐỐI SOÁT BIỂN SỐ OCR',
+    code: 'MOD-02-BARRIER',
+    desc: 'Hạ tầng kiểm soát đóng mở rào chắn tự động kết hợp camera nhận dạng biển số xe ANPR OCR. Tự động đối soát chéo người lái và thông tin chủ xe nhằm ngăn chặn gian lận đổi biển số.',
     specs: [
-      { label: 'THỜI GIAN KÍCH HOẠT', value: '0.6 Giây' },
+      { label: 'THỜI GIAN MỞ BARIE', value: '0.6 Giây' },
       { label: 'ĐỘ CHÍNH XÁC OCR', value: '99.5%' },
       { label: 'KIỂM SOÁT LÀN', value: 'Multi-Lane 1/2' },
-      { label: 'CẢNH BÁO TÁC CHIẾN', value: 'Realtime SOC Alert' }
+      { label: 'CẢNH BÁO TỨC THÌ', value: 'Realtime SOC Alert' }
     ]
   },
   {
     id: 3,
     category: 'security',
-    title: 'DYNAMIC TOTP QR // QUANTUM PASS',
+    title: 'MÃ QR ĐỘNG TOTP // THẺ THÔNG HÀNH CHỐNG GIAN LẬN',
     code: 'MOD-03-CRYPTO',
-    desc: 'Thẻ thông hành điện tử sinh mã QR động xoay vòng 30 giây dựa trên thuật toán HMAC-SHA256 mã hóa phần cứng, ngăn chặn 100% việc sao chép hoặc chụp ảnh màn hình.',
+    desc: 'Thẻ thông hành điện tử sinh mã QR động xoay vòng 30 giây dựa trên thuật toán HMAC-SHA256 mã hóa phần cứng, ngăn chặn 100% việc sao chép hoặc chụp ảnh màn hình chia sẻ.',
     specs: [
       { label: 'CHU KỲ XOAY MÃ', value: '30s / Token' },
-      { label: 'MÃ HÓA KHÓA', value: 'HMAC-SHA256' },
-      { label: 'KHÁNG SAO CHÉP', value: '100% Absolute' },
-      { label: 'HOẠT ĐỘNG OFFLINE', value: 'Autonomous Local' }
+      { label: 'MÃ HÓA BẢO VỆ', value: 'HMAC-SHA256' },
+      { label: 'CHỐNG SAO CHÉP', value: '100% Tuyệt đối' },
+      { label: 'HỖ TRỢ OFFLINE', value: 'Autonomous Local' }
     ]
   },
   {
     id: 4,
     category: 'barrier',
-    title: 'VOIP INTERCOM // WEBRTC TACTICAL COMMS',
+    title: 'VOIP INTERCOM // VIDEO CALL WEBRTC TRỰC TIẾP',
     code: 'MOD-04-COMMS',
-    desc: 'Kênh đàm thoại thoại & video mã hóa hai chiều độ trễ cực thấp giữa bảo vệ tại cổng và người dùng qua app di động. Hỗ trợ xác nhận danh tính và mở barie khẩn cấp từ xa.',
+    desc: 'Kênh đàm thoại thoại & video mã hóa hai chiều độ trễ cực thấp giữa bảo vệ tại cổng và người dùng qua ứng dụng di động. Hỗ trợ xác nhận danh tính và mở barie khẩn cấp từ xa.',
     specs: [
-      { label: 'ĐỘ TRỄ TRUYỀN DẪN', value: '< 100ms WebRTC' },
-      { label: 'CHẤT LƯỢNG HÌNH ẢNH', value: '1080p 60FPS' },
-      { label: 'BẢO MẬT LUỒNG GỌI', value: 'DTLS / SRTP E2EE' },
-      { label: 'MỞ CỔNG KHẨN CẤP', value: '1-Tap Override' }
+      { label: 'ĐỘ TRỄ TRUYỀN HÌNH', value: '< 100ms WebRTC' },
+      { label: 'CHẤT LƯỢNG VIDEO', value: '1080p 60FPS' },
+      { label: 'MÃ HÓA LUỒNG GỌI', value: 'DTLS / SRTP E2EE' },
+      { label: 'MỞ CỔNG TỪ XA', value: '1-Tap Override' }
     ]
   },
   {
     id: 5,
     category: 'sync',
-    title: 'HYBRID SYNC PROTOCOL // OFFLINE-FIRST',
-    code: 'MOD-05-AUTONOMOUS',
-    desc: 'Kiến trúc đồng bộ hai chiều phân tán giữa Central Cloud và trạm Local Node. Trạm cục bộ vẫn vận hành độc lập hoàn toàn khi mất mạng và tự động đồng bộ khi có kết nối.',
+    title: 'GIAO THỨC HYBRID SYNC // OFFLINE-FIRST PHÂN TÁN',
+    code: 'MOD-05-SYNC',
+    desc: 'Kiến trúc đồng bộ hai chiều phân tán giữa Central Cloud và trạm Local Node. Trạm cục bộ vẫn vận hành độc lập hoàn toàn khi mất mạng và tự động đồng bộ khi có kết nối trở lại.',
     specs: [
       { label: 'ĐỘ TRỄ ĐỒNG BỘ', value: 'Sub-30ms' },
       { label: 'XỬ LÝ XUNG ĐỘT', value: 'Vector Clocks CRDT' },
-      { label: 'OFFLINE CONTINUITY', value: 'Vô Hạn (Auto-Cache)' },
-      { label: 'NÉN DỮ LIỆU', value: 'Protobuf / Gzip' }
+      { label: 'DUY TRÌ OFFLINE', value: 'Vô Hạn (Auto-Cache)' },
+      { label: 'NÉN BĂNG THÔNG', value: 'Protobuf / Gzip' }
     ]
   },
   {
     id: 6,
     category: 'security',
-    title: 'UEBA // ANOMALY THREAT INTERCEPTOR',
-    code: 'MOD-06-DEFENSE',
+    title: 'UEBA // PHÂN TÍCH HÀNH VI & PHÁT HIỆN BẤT THƯỜNG',
+    code: 'MOD-06-UEBA',
     desc: 'Mô hình học máy theo dõi hồ sơ di chuyển để phát hiện các dấu hiệu đột nhập: ra vào ngoài giờ, quẹt thẻ ở 2 vị trí bất khả thi (Impossible Travel) hoặc đi theo sau (Tailgating).',
     specs: [
       { label: 'AI MODEL PHÁT HIỆN', value: 'Isolation Forest' },
@@ -108,13 +108,13 @@ function triggerSfx() {
       <!-- Header -->
       <div class="text-center space-y-3">
         <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
-          <span>// TACTICAL SPECIFICATION BLUEPRINTS</span>
+          <span>// TECHNICAL SPECIFICATIONS & ARCHITECTURE</span>
         </div>
         <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
-          VŨ KHÍ & CÔNG NGHỆ TÁC CHIẾN
+          GIẢI PHÁP CÔNG NGHỆ CỐT LÕI
         </h1>
         <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Được chế tạo theo tiêu chuẩn phòng thủ cấp quân sự, V-Shield MK-II tự động hóa toàn bộ lá chắn kiểm soát ra vào từ trạm rìa Edge đến đám mây.
+          Được thiết kế theo tiêu chuẩn an ninh cấp doanh nghiệp, V-Shield 2.0 cung cấp khả năng tự động hóa kiểm soát an ninh toàn diện từ trạm rìa Edge đến đám mây.
         </p>
       </div>
 

@@ -16,20 +16,20 @@ const openFaqIndex = ref(null)
 
 const faqs = [
   {
-    q: 'V-Shield MK-II tác chiến thế nào khi trạm cục bộ bị cắt đứt kết nối mạng?',
+    q: 'V-Shield 2.0 hoạt động thế nào khi trạm cục bộ bị mất kết nối mạng?',
     a: 'Nhờ kiến trúc Offline-First Hybrid Sync, toàn bộ dữ liệu mã lượng tử TOTP và vector khuôn mặt Face ID đã được đồng bộ sẵn vào bộ nhớ đệm cục bộ. Trạm vẫn tự động mở rào chắn bình thường và tự động đồng bộ ngược lên Cloud khi có mạng.'
   },
   {
-    q: 'Mã QR lượng tử TOTP có khả năng chống chụp màn hình chia sẻ không?',
-    a: 'Mã QR được tạo động dựa trên thuật toán HMAC-SHA256 xoay vòng mỗi 30 giây. Mỗi mã quét chỉ có giá trị duy nhất 1 lần (Single-Use Token) và tự động hết hạn, vô hiệu hóa hoàn toàn hành vi chụp màn hình chia sẻ.'
+    q: 'Mã QR động TOTP có khả năng chống chụp màn hình chia sẻ không?',
+    a: 'Mã QR được tạo động dựa trên thuật toán HMAC-SHA256 xoay vòng mỗi 30 giây. Mỗi mã quét chỉ có giá trị duy nhất 1 lần (Single-Use Token) và tự động hết hạn, ngăn chặn 100% hành vi chụp màn hình gửi cho người khác.'
   },
   {
-    q: 'Hệ thống có hỗ trợ triển khai trên phần cứng On-Premises cô lập không?',
+    q: 'Hệ thống có hỗ trợ triển khai trên máy chủ nội bộ (On-Premises) không?',
     a: 'Có. Toàn bộ hệ thống V-Shield 2.0 đã được container hóa 100% bằng Docker và Docker Compose, cho phép triển khai nhanh chóng trên cả máy chủ Cloud (VPS) hoặc máy trạm bảo vệ cục bộ chỉ với một câu lệnh.'
   },
   {
-    q: 'Kênh thoại tác chiến VoIP Video Call có được bảo vệ chống nghe lén không?',
-    a: 'Luồng truyền hình ảnh và âm thanh được mã hóa toàn trình (End-to-End Encryption) qua chuẩn WebRTC DTLS/SRTP cấp quân sự, đảm bảo tính tuyệt mật giữa người gọi và phòng chỉ huy.'
+    q: 'Kênh thoại VoIP Video Call có được bảo mật chống nghe lén không?',
+    a: 'Luồng truyền hình ảnh và âm thanh được mã hóa toàn trình (End-to-End Encryption) qua chuẩn WebRTC DTLS/SRTP cấp doanh nghiệp, đảm bảo tính tuyệt mật giữa người gọi và phòng an ninh.'
   }
 ]
 
@@ -58,12 +58,12 @@ async function submitFeedback() {
   try {
     const res = await portalApi.submitFeedback(feedbackForm)
     if (res.success) {
-      feedbackToast.value = '✨ Tín hiệu đóng góp tác chiến đã được gửi thành công!'
+      feedbackToast.value = '✨ Ý kiến đóng góp của bạn đã được gửi thành công!'
       feedbackForm.message = ''
       setTimeout(() => { feedbackToast.value = '' }, 5000)
     }
   } catch {
-    feedbackToast.value = 'Không thể gửi tín hiệu lúc này, vui lòng thử lại.'
+    feedbackToast.value = 'Không thể gửi đóng góp lúc này, vui lòng thử lại.'
   } finally {
     feedbackSubmitting.value = false
   }
@@ -76,13 +76,13 @@ async function submitFeedback() {
       <!-- Header -->
       <div class="text-center space-y-3">
         <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
-          <span>// TACTICAL COMMS & MISSION DISPATCH</span>
+          <span>// SUPPORT & FEEDBACK CHANNEL</span>
         </div>
         <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
-          KÊNH TIẾP NHẬN TÁC CHIẾN & LIÊN HỆ
+          LIÊN HỆ & ĐÓNG GÓP Ý KIẾN
         </h1>
         <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Chúng tôi tiếp nhận mọi báo cáo sự cố, đề xuất nâng cấp tính năng và phản hồi kỹ thuật từ hội đồng chấm đồ án, chuyên gia và người dùng.
+          Chúng tôi tiếp nhận mọi báo cáo sự cố, đề xuất nâng cấp tính năng và phản hồi kỹ thuật từ hội đồng phản biện, chuyên gia và người dùng.
         </p>
       </div>
 
@@ -91,27 +91,27 @@ async function submitFeedback() {
         <!-- Left: Dispatch Form (7 cols) -->
         <div class="mecha-hud-bracket border-2 border-amber-500/40 bg-[#0c0f15] p-8 mecha-cut-corners shadow-[0_0_40px_rgba(255,204,0,0.15)] space-y-6 lg:col-span-7">
           <h3 class="text-base font-black text-slate-100 uppercase">
-            HÒM THƯ ĐÓNG GÓP Ý KIẾN TÁC CHIẾN
+            HÒM THƯ ĐÓNG GÓP Ý KIẾN
           </h3>
 
           <form @submit.prevent="submitFeedback" class="space-y-4 font-sans">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 font-mono">
               <div>
-                <label class="block text-xs font-bold text-slate-400 mb-1">HỌ VÀ TÊN // CALLSIGN</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">HỌ VÀ TÊN</label>
                 <input
                   v-model="feedbackForm.fullName"
                   type="text"
-                  placeholder="Operator Name"
+                  placeholder="Nguyễn Văn A"
                   class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2.5 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-400 mb-1">ĐỊA CHỈ EMAIL LIÊN HỆ</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">ĐỊA CHỈ EMAIL</label>
                 <input
                   v-model="feedbackForm.email"
                   type="email"
-                  placeholder="operator@domain.com"
+                  placeholder="contact@domain.com"
                   class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2.5 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
                 />
               </div>
@@ -124,10 +124,10 @@ async function submitFeedback() {
                 class="w-full border border-slate-700 bg-[#07080b] px-3.5 py-2.5 text-xs text-amber-400 outline-none focus:border-amber-400 mecha-cut-tr"
               >
                 <option value="Feature">💡 Đề xuất nâng cấp tính năng mới</option>
-                <option value="Bug">🐛 Báo cáo lỗi / Sự cố phòng thủ</option>
-                <option value="UI/UX">🎨 Góp ý giao diện Mecha Tactical</option>
+                <option value="Bug">🐛 Báo cáo lỗi / Sự cố vận hành</option>
+                <option value="UI/UX">🎨 Góp ý trải nghiệm giao diện</option>
                 <option value="Partnership">🤝 Hợp tác nghiên cứu & triển khai</option>
-                <option value="Other">📝 Ý kiến khác</option>
+                <option value="Other">📝 Ý kiến đóng góp khác</option>
               </select>
             </div>
 
@@ -136,7 +136,7 @@ async function submitFeedback() {
               <textarea
                 v-model="feedbackForm.message"
                 rows="4"
-                placeholder="Mô tả cụ thể thông tin đóng góp để nâng cấp hệ thống V-Shield MK-II..."
+                placeholder="Mô tả cụ thể thông tin đóng góp để nâng cấp hệ thống V-Shield 2.0..."
                 class="w-full border border-slate-700 bg-[#07080b] p-3.5 text-xs text-slate-200 outline-none focus:border-amber-400 mecha-cut-tr"
               ></textarea>
             </div>
@@ -152,7 +152,7 @@ async function submitFeedback() {
                 :disabled="feedbackSubmitting"
                 class="mecha-btn-hazard px-6 py-3 text-xs font-black uppercase mecha-cut-btn disabled:opacity-50"
               >
-                {{ feedbackSubmitting ? 'ĐANG CHUYỂN...' : 'GỬI ĐÓNG GÓP' }}
+                {{ feedbackSubmitting ? 'ĐANG GỬI...' : 'GỬI ĐÓNG GÓP' }}
               </button>
             </div>
           </form>
@@ -162,7 +162,7 @@ async function submitFeedback() {
         <div class="space-y-6 lg:col-span-5">
           <div class="mecha-hud-bracket border border-slate-800 bg-[#0c0f15] p-8 space-y-6 mecha-cut-tr">
             <h3 class="text-sm font-black text-slate-100 uppercase">
-              THÔNG TIN PHÒNG CHỈ HUY DỰ ÁN
+              THÔNG TIN PHÒNG NGHIÊN CỨU DỰ ÁN
             </h3>
 
             <div class="space-y-4 text-xs">
@@ -181,7 +181,7 @@ async function submitFeedback() {
                   <span>✉️</span>
                 </div>
                 <div>
-                  <div class="font-bold text-slate-200">EMAIL TÁC CHIẾN ĐỀ TÀI</div>
+                  <div class="font-bold text-slate-200">EMAIL LIÊN HỆ ĐỀ TÀI</div>
                   <div class="text-slate-400 mt-0.5">contact@v-shield.site</div>
                 </div>
               </div>
@@ -191,7 +191,7 @@ async function submitFeedback() {
                   <span>🌐</span>
                 </div>
                 <div>
-                  <div class="font-bold text-slate-200">TRẠM TRỰC TUYẾN CLOUD</div>
+                  <div class="font-bold text-slate-200">CỔNG THÔNG TIN CLOUD</div>
                   <div class="text-slate-400 mt-0.5">https://v-shield.site</div>
                 </div>
               </div>
@@ -203,7 +203,7 @@ async function submitFeedback() {
       <!-- FAQ Section -->
       <div class="space-y-6">
         <h3 class="text-2xl font-black uppercase text-slate-100 text-center">
-          GIẢI MÃ TÌNH HUỐNG KHẨN CẤP (FAQ)
+          CÂU HỎI THƯỜNG GẶP (FAQ)
         </h3>
 
         <div class="mx-auto max-w-3xl space-y-3">

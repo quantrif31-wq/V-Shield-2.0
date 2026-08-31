@@ -37,25 +37,25 @@ describe('Multi-Page Portal Sub-Views', () => {
   it('mounts PortalHome correctly', async () => {
     const wrapper = mount(PortalHome, { global: { stubs: { 'router-link': true } } })
     await flushPromises()
-    expect(wrapper.text()).toContain('V-SHIELD')
+    expect(wrapper.text()).toContain('V-SHIELD 2.0')
   })
 
   it('mounts PortalFeatures correctly', async () => {
     const wrapper = mount(PortalFeatures)
     await flushPromises()
-    expect(wrapper.text()).toContain('VŨ KHÍ & CÔNG NGHỆ')
+    expect(wrapper.text()).toContain('GIẢI PHÁP CÔNG NGHỆ')
   })
 
   it('mounts PortalRoadmap correctly', async () => {
     const wrapper = mount(PortalRoadmap)
     await flushPromises()
-    expect(wrapper.text()).toContain('LỊCH SỬ NÂNG CẤP')
+    expect(wrapper.text()).toContain('LỊCH SỬ PHÁT TRIỂN')
   })
 
   it('mounts PortalDownload correctly', async () => {
     const wrapper = mount(PortalDownload)
     await flushPromises()
-    expect(wrapper.text()).toContain('TRẠM TẢI ỨNG DỤNG')
+    expect(wrapper.text()).toContain('TRUNG TÂM TẢI ỨNG DỤNG')
   })
 
   it('mounts PortalCommunity correctly', async () => {
@@ -68,7 +68,7 @@ describe('Multi-Page Portal Sub-Views', () => {
       }
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('NHẬT KÝ ĐÁNH GIÁ')
+    expect(wrapper.text()).toContain('ĐÁNH GIÁ & DIỄN ĐÀN')
   })
 
   it('mounts PortalAbout correctly', async () => {
@@ -86,6 +86,6 @@ describe('Multi-Page Portal Sub-Views', () => {
       }
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('KÊNH TIẾP NHẬN TÁC CHIẾN')
+    expect(wrapper.text()).toContain('LIÊN HỆ & ĐÓNG GÓP')
   })
 })

@@ -1,31 +1,31 @@
 <script setup>
 const roadmapPhases = [
   {
-    phase: 'PHASE 01 // GENESIS PROTOCOL',
+    phase: 'PHASE 01 // KHỞI TẠO NỀN TẢNG',
     time: 'THÁNG 03/2026',
-    title: 'KHUNG GẦM ĐIỀU PHỐI & KIỂM SOÁT CƠ SỞ',
+    title: 'KIẾN TRÚC LÕI & QUẢN TRỊ DANH TÍNH CƠ BẢN',
     status: 'COMPLETED',
-    desc: 'Thiết kế cơ sở dữ liệu phân cấp SQL Server, xây dựng ASP.NET Core Web API, phân quyền chỉ huy đa cấp JWT và quản lý hồ sơ nhân viên, lịch trực tác chiến.',
+    desc: 'Thiết kế cơ sở dữ liệu phân cấp SQL Server, xây dựng ASP.NET Core Web API, phân quyền đa cấp JWT và quản lý hồ sơ nhân viên, lịch trực bảo vệ.',
     deliverables: [
-      'Clean Architecture .NET 8 lõi thép',
+      'Clean Architecture .NET 8 chuẩn mực',
       'Ma trận quản lý ca trực & chấm công chuẩn xác',
       'Phân quyền Admin / Quản Lý / Bảo Vệ / Lễ Tân / Nhân Sự'
     ]
   },
   {
-    phase: 'PHASE 02 // KINETIC AUTOMATION',
+    phase: 'PHASE 02 // TỰ ĐỘNG HÓA EDGE AI',
     time: 'THÁNG 05/2026',
-    title: 'TÍCH HỢP RADAR QUANG HỌC & RÀO CHẮN ĐỘNG LỰC',
+    title: 'TÍCH HỢP AI FACE ID & ĐIỀU KHIỂN RÀO CHẮN TỰ ĐỘNG',
     status: 'COMPLETED',
     desc: 'Huấn luyện mô hình YOLOv11 + OCR nhận dạng biển số ANPR, kết nối luồng camera WebRTC 60 FPS sub-100ms và điều khiển tự động barie mở cổng an ninh.',
     deliverables: [
       'Nhận diện biển số xe ANPR thời gian thực',
       'Luồng Video RTSP/WebRTC sub-100ms độ trễ thấp',
-      'Mô phỏng trạm kiểm soát phần cứng Virtual Barrier'
+      'Mô phỏng trạm kiểm soát phần hardware Virtual Barrier'
     ]
   },
   {
-    phase: 'PHASE 03 // NEURAL REALTIME (CURRENT)',
+    phase: 'PHASE 03 // ĐỒNG BỘ LAI & QR ĐỘNG (HIỆN TẠI)',
     time: 'THÁNG 08/2026',
     title: 'HỆ SINH THÁI ĐA NỀN TẢNG & MÃ LƯỢNG TỬ TOTP',
     status: 'ACTIVE',
@@ -38,11 +38,11 @@ const roadmapPhases = [
     ]
   },
   {
-    phase: 'PHASE 04 // AUTONOMOUS AI TITAN',
+    phase: 'PHASE 04 // AI COPILOT & 3D DIGITAL TWIN',
     time: 'QUÝ 4/2026',
-    title: 'LLM COPILOT CHỈ HUY & BẢN ĐỒ SỐ 3D TWIN',
+    title: 'TRỢ LÝ AI ĐIỀU HÀNH & BẢN ĐỒ SỐ 3D KHUÔN VIÊN',
     status: 'PLANNED',
-    desc: 'Tích hợp trợ lý AI đàm thoại tự nhiên xử lý tình huống khẩn cấp, bản đồ số 3D Digital Twin không gian căn cứ và điều phối an ninh tự hành bằng Drone.',
+    desc: 'Tích hợp trợ lý AI đàm thoại tự nhiên xử lý tình huống khẩn cấp, bản đồ số 3D Digital Twin không gian khuôn viên và điều phối an ninh tự hành.',
     deliverables: [
       'Trợ lý an ninh AI Security Copilot (LLM Multi-modal)',
       'Mô hình 3D Digital Twin không gian khuôn viên',
@@ -58,13 +58,13 @@ const roadmapPhases = [
       <!-- Header -->
       <div class="text-center space-y-3">
         <div class="inline-flex items-center gap-2 border border-amber-500/40 bg-[#121620] px-3.5 py-1 text-xs font-black text-amber-400 mecha-cut-tr">
-          <span>// CHASSIS EVOLUTION & UPGRADE TIMELINE</span>
+          <span>// DEVELOPMENT TIMELINE & MILESTONES</span>
         </div>
         <h1 class="text-3xl sm:text-5xl font-black uppercase text-slate-100">
-          LỊCH SỬ NÂNG CẤP CHIẾN GIÁP
+          LỊCH SỬ PHÁT TRIỂN & LỘ TRÌNH
         </h1>
         <p class="mx-auto max-w-2xl font-sans text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Quá trình nghiên cứu, chế tạo và thử nghiệm đề tài đồ án tốt nghiệp V-Shield MK-II qua từng giai đoạn nâng cấp sức mạnh phòng thủ.
+          Quá trình nghiên cứu, xây dựng và thử nghiệm đề tài đồ án tốt nghiệp V-Shield 2.0 qua từng giai đoạn hoàn thiện hệ thống.
         </p>
       </div>
 
@@ -116,7 +116,7 @@ const roadmapPhases = [
                     : 'bg-slate-900 text-slate-400 border border-slate-700'
               ]"
             >
-              {{ item.status === 'ACTIVE' ? 'ĐANG TÁC CHIẾN (ACTIVE)' : item.status === 'COMPLETED' ? 'HOÀN THÀNH' : 'KẾ HOẠCH' }}
+              {{ item.status === 'ACTIVE' ? 'ĐANG TRIỂN KHAI (ACTIVE)' : item.status === 'COMPLETED' ? 'HOÀN THÀNH' : 'KẾ HOẠCH' }}
             </span>
           </div>
 
