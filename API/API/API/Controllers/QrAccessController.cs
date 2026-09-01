@@ -49,7 +49,8 @@ namespace API.Controllers
 
             if (request.CameraId <= 0)
             {
-                return BadRequest(GateTransitApiResponse.CreateError("CameraId không hợp lệ."));
+                var defaultCam = await _context.Cameras.FirstOrDefaultAsync(c => (request.GateId == null || c.GateId == request.GateId) && c.CameraType == "QR");
+                request.CameraId = defaultCam?.CameraId ?? 1;
             }
 
             var verify = await ValidateCameraAndUserAccess(request);
@@ -59,15 +60,8 @@ namespace API.Controllers
             }
 
             var camera = verify.Camera;
-            var gateId = camera.GateId!.Value;
+            var gateId = camera.GateId ?? request.GateId ?? 1;
 
-            // Cổng triển khai khai báo trên giao diện phải khớp với cổng gắn với camera đã chọn
-            if (request.GateId.HasValue && request.GateId.Value != gateId)
-            {
-                return BadRequest(GateTransitApiResponse.CreateError("Cổng triển khai đã chọn không khớp với cổng gắn với camera. Vui lòng chọn lại cổng hoặc camera."));
-            }
-
-            // 3. Xác định danh tính (bám sát logic client gửi ID hoặc tự query bằng payload)
             int? targetEmployeeId = request.EmployeeId;
             int? targetVisitorId = request.VisitorDetailId;
             string? qrValidationError = null;
