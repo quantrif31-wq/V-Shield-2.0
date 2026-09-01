@@ -30,7 +30,7 @@ watch(() => props.activeIndex, (newVal) => {
   if (rotateTimer) clearTimeout(rotateTimer)
   rotateTimer = setTimeout(() => {
     isRotating.value = false
-  }, 1200)
+  }, 1800)
 
   // Calculate shortest continuous rotational step (e.g. +1 or -1)
   let diff = newVal - lastIndex
@@ -133,23 +133,23 @@ function getPilotStyle(index) {
   const angleDeg = (index * 72) + currentAngle.value
   const angleRad = (angleDeg * Math.PI) / 180
 
-  const rx = 250 // Wide horizontal spread for clear visibility of side pilots
-  const rz = 120 // Depth orbit radius
+  const rx = 265 // Wide horizontal spread for clear visibility of all pilots
+  const rz = 125 // Depth orbit radius
 
   const x = Math.sin(angleRad) * rx
   const z = (Math.cos(angleRad) - 1) * rz
-  const yRot = -Math.sin(angleRad) * 26
+  const yRot = -Math.sin(angleRad) * 24
 
   const depthFactor = (Math.cos(angleRad) + 1) / 2 // 1.0 at front, 0.0 at back
   const isFront = index === props.activeIndex
 
-  const scale = isFront ? 1.08 : 0.70 + depthFactor * 0.18
-  const opacity = isFront ? 1.0 : 0.38 + depthFactor * 0.32
+  const scale = isFront ? 1.08 : 0.72 + depthFactor * 0.18
+  const opacity = isFront ? 1.0 : 0.42 + depthFactor * 0.35
   const zIndex = isFront ? 40 : Math.round(depthFactor * 25) + 5
 
   const filter = isFront
-    ? 'grayscale(0%) brightness(1.1) contrast(1.05) drop-shadow(0 0 30px ' + pilots[index].glow + '90)'
-    : 'grayscale(100%) brightness(' + (0.35 + depthFactor * 0.20).toFixed(2) + ') contrast(1.2) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
+    ? 'grayscale(0%) brightness(1.08) contrast(1.05) drop-shadow(0 0 30px ' + pilots[index].glow + '90)'
+    : 'grayscale(100%) brightness(' + (0.38 + depthFactor * 0.22).toFixed(2) + ') contrast(1.15) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
 
   return {
     transform: `translateX(${x.toFixed(1)}px) translateZ(${z.toFixed(1)}px) rotateY(${yRot.toFixed(1)}deg) scale(${scale.toFixed(3)})`,
@@ -222,7 +222,7 @@ function triggerLockOn() {
         :key="pilot.id"
         :src="pilot.cockpit"
         :alt="pilot.cockpitName"
-        class="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out"
+        class="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[1800ms] ease-in-out"
         :class="pIdx === activeIndex ? 'opacity-100' : 'opacity-0'"
         :style="{
           transform: `scale(${pIdx === activeIndex ? (isOverdriveActive ? 1.12 : 1.05) : 1.0}) translate(${mouseX * -8}px, ${mouseY * -5}px)`,
@@ -233,7 +233,7 @@ function triggerLockOn() {
 
     <!-- Cockpit Ambient Tint Overlay (Smooth Color Shift) -->
     <div
-      class="pointer-events-none absolute inset-0 transition-colors duration-1000 ease-in-out mix-blend-color"
+      class="pointer-events-none absolute inset-0 transition-colors duration-[1800ms] ease-in-out mix-blend-color"
       :style="{ backgroundColor: currentPilot.color, opacity: 0.28 }"
     ></div>
 
@@ -277,7 +277,7 @@ function triggerLockOn() {
     >
       <!-- 3D Turntable Perspective Base Platform on Floor -->
       <div
-        class="pointer-events-none absolute bottom-4 h-20 w-[92%] max-w-[620px] rounded-full border border-amber-500/30 bg-gradient-to-t from-amber-500/10 to-transparent blur-[0.5px]"
+        class="pointer-events-none absolute bottom-4 h-20 w-[92%] max-w-[640px] rounded-full border border-amber-500/30 bg-gradient-to-t from-amber-500/10 to-transparent blur-[0.5px]"
         style="transform: rotateX(72deg);"
       ></div>
 
@@ -311,7 +311,7 @@ function triggerLockOn() {
         <div class="relative flex items-center justify-center">
           <!-- Pilot Photo Frame (Sharp & Vivid vs. Grayscale & Hidden) -->
           <div
-            class="relative rounded-2xl overflow-hidden transition-all duration-700"
+            class="relative rounded-2xl overflow-hidden transition-all duration-[1800ms] ease-in-out"
             :class="[
               idx === activeIndex
                 ? 'border-2 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
@@ -350,14 +350,14 @@ function triggerLockOn() {
           <!-- Active Aura Glow Flare -->
           <div
             v-if="idx === activeIndex"
-            class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-700 -z-10"
+            class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-[1800ms] -z-10"
             :style="{ backgroundColor: pilot.color }"
           ></div>
         </div>
 
         <!-- Pilot Name Tag -->
         <div
-          class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-700 font-mono"
+          class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-[1800ms] font-mono"
           :class="[
             idx === activeIndex
               ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'
@@ -441,29 +441,10 @@ function triggerLockOn() {
   animation: laserScan 3s ease-in-out infinite;
 }
 
-@keyframes laserSweep {
-  0% { top: 0%; opacity: 0; }
-  30% { opacity: 0.9; }
-  70% { opacity: 0.9; }
-  100% { top: 100%; opacity: 0; }
-}
-.animate-laser-sweep {
-  animation: laserSweep 0.8s ease-in-out forwards;
-}
-
-.warp-flash-enter-active,
-.warp-flash-leave-active {
-  transition: opacity 0.4s ease;
-}
-.warp-flash-enter-from,
-.warp-flash-leave-to {
-  opacity: 0;
-}
-
 .pilot-card-turntable {
-  transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1),
-              opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1),
-              filter 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 1.8s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 1.8s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 1.8s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform, opacity, filter;
 }
 </style>
