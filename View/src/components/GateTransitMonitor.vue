@@ -1648,7 +1648,14 @@ export default {
         if (!qr.cameraRunning) return "idle"
         if (qr.alert || this.hasInvalidHint(qr.verifyMessage || qr.message)) return "invalid"
         if (phase === "verified" && (qr.employeeId || qr.guestId)) return "valid"
-        if (phase === "connecting" || phase === "scanning" || phase === "candidate_found" || phase === "locked" || qr.verifying) return "scanning"
+        if (
+          phase === "connecting" ||
+          phase === "scanning" ||
+          phase === "candidate_found" ||
+          phase === "locked" ||
+          qr.verifying
+        )
+          return "scanning"
         return "idle"
       }
 
