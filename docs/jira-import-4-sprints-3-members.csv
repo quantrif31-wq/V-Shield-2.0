@@ -1,0 +1,34 @@
+Issue Type,Summary,Epic Name,Epic Link,Sprint,Assignee,Story Points,Priority,Status,Labels
+Epic,Kiến trúc Hệ thống & Tích hợp Thiết bị,EPIC-1,,,,,High,To Do,mvp-4-sprints
+Epic,Quản lý Ra vào & Luồng Khách,EPIC-2,,,,,Highest,To Do,mvp-4-sprints
+Epic,"Giám sát Thời gian thực & AI",EPIC-3,,,,,Highest,To Do,mvp-4-sprints
+Epic,"Quản trị, Báo cáo & Nhật ký",EPIC-4,,,,,High,To Do,mvp-4-sprints
+Epic,"Kiểm thử, Tối ưu & Bàn giao",EPIC-5,,,,,Highest,To Do,mvp-4-sprints
+Story,Thiết kế kiến trúc API UI DB và cấu hình môi trường,,EPIC-1,Sprint 1 — Nền tảng chạy được,Phạm Văn Thành,3,Highest,To Do,sprint-1
+Story,Dựng database migration và health endpoints,,EPIC-1,Sprint 1 — Nền tảng chạy được,Phạm Văn Thành,3,High,To Do,sprint-1
+Story,Xây đăng nhập JWT và phân quyền vai trò,,EPIC-4,Sprint 1 — Nền tảng chạy được,Phạm Văn Thành,4,Highest,To Do,sprint-1
+Story,Dựng layout login và điều hướng theo vai trò,,EPIC-4,Sprint 1 — Nền tảng chạy được,Phạm Ngọc Hoài Anh,5,High,To Do,sprint-1
+Story,Dựng UI nhân viên phòng ban chức vụ,,EPIC-2,Sprint 1 — Nền tảng chạy được,Phạm Ngọc Hoài Anh,3,Medium,To Do,sprint-1
+Task,Dựng Docker local seed data và smoke test,,EPIC-5,Sprint 1 — Nền tảng chạy được,Phạm Ngọc Hoài Anh,2,Highest,To Do,sprint-1
+Task,Lập đặc tả phạm vi Definition of Done và biên bản Sprint 1,,EPIC-5,Sprint 1 — Nền tảng chạy được,Hà Quang Sang,2,Medium,To Do,sprint-1;documentation
+Story,Xây API khách và đăng ký trước,,EPIC-2,Sprint 2 — Luồng khách và kiểm soát ra vào,Phạm Văn Thành,4,Highest,To Do,sprint-2
+Story,Xây access permission và decision service,,EPIC-2,Sprint 2 — Luồng khách và kiểm soát ra vào,Phạm Văn Thành,3,Highest,To Do,sprint-2
+Story,Tích hợp camera go2rtc và cấu hình nguồn camera,,EPIC-1,Sprint 2 — Luồng khách và kiểm soát ra vào,Phạm Văn Thành,3,High,To Do,sprint-2
+Story,Xây UI đăng ký trước và tiếp nhận khách,,EPIC-2,Sprint 2 — Luồng khách và kiểm soát ra vào,Phạm Ngọc Hoài Anh,4,High,To Do,sprint-2
+Story,Xây màn hình điều phối Thông hành,,EPIC-2,Sprint 2 — Luồng khách và kiểm soát ra vào,Phạm Ngọc Hoài Anh,4,Highest,To Do,sprint-2
+Story,Xây camera preview và integration test luồng khách,,EPIC-1,Sprint 2 — Luồng khách và kiểm soát ra vào,Phạm Ngọc Hoài Anh,2,High,To Do,sprint-2
+Task,Viết hướng dẫn luồng khách và biên bản Sprint 2,,EPIC-5,Sprint 2 — Luồng khách và kiểm soát ra vào,Hà Quang Sang,2,Medium,To Do,sprint-2;documentation
+Story,Xây API phát hành và xác thực QR,,EPIC-3,Sprint 3 — Realtime QR và biển số,Phạm Văn Thành,4,Highest,To Do,sprint-3
+Story,Tích hợp license plate runtime và chuẩn hóa biển số,,EPIC-3,Sprint 3 — Realtime QR và biển số,Phạm Văn Thành,4,Highest,To Do,sprint-3
+Story,Xây SignalR event pipeline sự kiện ra vào,,EPIC-3,Sprint 3 — Realtime QR và biển số,Phạm Văn Thành,2,High,To Do,sprint-3
+Story,Xây màn hình quét QR và phản hồi allow deny,,EPIC-3,Sprint 3 — Realtime QR và biển số,Phạm Ngọc Hoài Anh,4,Highest,To Do,sprint-3
+Story,Xây live monitor camera và kết quả biển số,,EPIC-3,Sprint 3 — Realtime QR và biển số,Phạm Ngọc Hoài Anh,4,Highest,To Do,sprint-3
+Story,Xây event timeline và test QR LPR SignalR,,EPIC-4,Sprint 3 — Realtime QR và biển số,Phạm Ngọc Hoài Anh,2,High,To Do,sprint-3
+Task,Soạn hướng dẫn giám sát và báo cáo Sprint 3,,EPIC-5,Sprint 3 — Realtime QR và biển số,Hà Quang Sang,2,Medium,To Do,sprint-3;documentation
+Story,Hoàn thiện quản lý user role và trạng thái,,EPIC-4,Sprint 4 — Quản trị báo cáo và bàn giao,Phạm Văn Thành,3,High,To Do,sprint-4
+Story,Xây audit log bất biến cho thao tác nhạy cảm,,EPIC-4,Sprint 4 — Quản trị báo cáo và bàn giao,Phạm Văn Thành,4,Highest,To Do,sprint-4
+Story,Xây API thống kê và xuất báo cáo,,EPIC-4,Sprint 4 — Quản trị báo cáo và bàn giao,Phạm Văn Thành,3,High,To Do,sprint-4
+Story,Xây dashboard KPI và báo cáo ra vào,,EPIC-4,Sprint 4 — Quản trị báo cáo và bàn giao,Phạm Ngọc Hoài Anh,4,High,To Do,sprint-4
+Story,Hoàn thiện UI audit log và quản trị,,EPIC-4,Sprint 4 — Quản trị báo cáo và bàn giao,Phạm Ngọc Hoài Anh,3,High,To Do,sprint-4
+Task,Chạy security review regression và UAT kỹ thuật,,EPIC-5,Sprint 4 — Quản trị báo cáo và bàn giao,Phạm Ngọc Hoài Anh,3,Highest,To Do,sprint-4
+Task,Hoàn thiện hướng dẫn biên bản UAT và hồ sơ bàn giao,,EPIC-5,Sprint 4 — Quản trị báo cáo và bàn giao,Hà Quang Sang,2,Highest,To Do,sprint-4;documentation

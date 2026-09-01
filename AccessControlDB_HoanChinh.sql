@@ -1,4 +1,12 @@
-﻿USE [AccessControlDB]
+USE [AccessControlDB]
+GO
+
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- Vô hiệu hóa tạm thời các ràng buộc khóa ngoại để nạp data sạch
+EXEC sp_MSforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
 GO
 
 -- =========================================================================================
@@ -332,29 +340,29 @@ SET IDENTITY_INSERT [Pre_Registration] OFF;
 
 -- Insert Visitor Details cho các đoàn khách
 SET IDENTITY_INSERT [Visitor_Details] ON;
-INSERT INTO [Visitor_Details] ([VisitorDetailId], [RegistrationId], [FullName], [IdCardNumber], [ExpectedFaceImage]) VALUES
+INSERT INTO [Visitor_Details] ([VisitorDetailId], [RegistrationId], [FullName], [IdCardNumber], [ExpectedFaceImage], [IsQrActive]) VALUES
 -- Reg 4 (Đối tác Samsung - 3 người)
-(1, 4, N'Lee Min Ho', 'KOR123456', 'https://res.cloudinary.com/dzczte86h/image/upload/v1774347402/vshield_access_control/guest/reg4_1.avif'),
-(2, 4, N'Park Seo Joon', 'KOR654321', NULL),
-(3, 4, N'Nguyễn Văn Phiên Dịch', '079090123456', NULL),
+(1, 4, N'Lee Min Ho', 'KOR123456', 'https://res.cloudinary.com/dzczte86h/image/upload/v1774347402/vshield_access_control/guest/reg4_1.avif', 1),
+(2, 4, N'Park Seo Joon', 'KOR654321', NULL, 1),
+(3, 4, N'Nguyễn Văn Phiên Dịch', '079090123456', NULL, 1),
 -- Reg 7 (Kiểm toán KPMG - 2 người)
-(4, 7, N'Trần Thị Kiểm Toán 1', '001190111222', 'https://res.cloudinary.com/dzczte86h/image/upload/v1774347403/vshield_access_control/guest/reg7_1.avif'),
-(5, 7, N'Lê Văn Kiểm Toán 2', '001190333444', NULL),
+(4, 7, N'Trần Thị Kiểm Toán 1', '001190111222', 'https://res.cloudinary.com/dzczte86h/image/upload/v1774347403/vshield_access_control/guest/reg7_1.avif', 1),
+(5, 7, N'Lê Văn Kiểm Toán 2', '001190333444', NULL, 1),
 -- Reg 10 (Đối tác FPT - 2 người)
-(6, 10, N'Hoàng Công Nghệ', '079088111222', NULL),
-(7, 10, N'Phạm Phần Mềm', '079088333444', NULL),
+(6, 10, N'Hoàng Công Nghệ', '079088111222', NULL, 1),
+(7, 10, N'Phạm Phần Mềm', '079088333444', NULL, 1),
 -- Reg 13 (Khách tham quan - 4 người)
-(8, 13, N'Khách Đoàn 1', '011111111111', NULL),
-(9, 13, N'Khách Đoàn 2', '022222222222', NULL),
-(10, 13, N'Khách Đoàn 3', '033333333333', NULL),
-(11, 13, N'Khách Đoàn 4', '044444444444', NULL),
+(8, 13, N'Khách Đoàn 1', '011111111111', NULL, 1),
+(9, 13, N'Khách Đoàn 2', '022222222222', NULL, 1),
+(10, 13, N'Khách Đoàn 3', '033333333333', NULL, 1),
+(11, 13, N'Khách Đoàn 4', '044444444444', NULL, 1),
 -- Reg 15 (Đối tác sự kiện - 2 người)
-(12, 15, N'Đạo Diễn Sự Kiện', '055555555555', NULL),
-(13, 15, N'Trợ Lý Sự Kiện', '066666666666', NULL),
+(12, 15, N'Đạo Diễn Sự Kiện', '055555555555', NULL, 1),
+(13, 15, N'Trợ Lý Sự Kiện', '066666666666', NULL, 1),
 -- Reg 20 (Đối tác quảng cáo - 3 người)
-(14, 20, N'Trưởng Nhóm Quảng Cáo', '077777777777', NULL),
-(15, 20, N'Quay Phim 1', '088888888888', NULL),
-(16, 20, N'Quay Phim 2', '099999999999', NULL);
+(14, 20, N'Trưởng Nhóm Quảng Cáo', '077777777777', NULL, 1),
+(15, 20, N'Quay Phim 1', '088888888888', NULL, 1),
+(16, 20, N'Quay Phim 2', '099999999999', NULL, 1);
 SET IDENTITY_INSERT [Visitor_Details] OFF;
 GO
 
@@ -517,4 +525,8 @@ INNER JOIN (
     )
     AND Direction = 'IN'
 ) as LastLogs ON v.LicensePlate = LastLogs.CapturedLicensePlate;
+GO
+
+-- Kích hoạt lại toàn bộ ràng buộc khóa ngoại
+EXEC sp_MSforeachtable 'ALTER TABLE ? CHECK CONSTRAINT ALL';
 GO

@@ -211,32 +211,123 @@
                 <div v-else class="empty-card">Chưa có dữ liệu theo giờ.</div>
             </article>
 
-            <article class="ops-panel">
+            <article class="ops-panel visitor-panel">
                 <div class="panel-head">
                     <div>
                         <span class="panel-kicker">Khách thăm</span>
                         <h2 class="panel-title">Lượt khách theo ngày (30 ngày)</h2>
                     </div>
+                    <div v-if="visitorTrend.length" class="panel-stats">
+                        <div class="stat-pill" title="Tổng lượt khách trong 30 ngày qua">
+                            <span class="stat-pill-label">Tổng:</span>
+                            <strong class="stat-pill-value">{{ totalVisitors30d }}</strong>
+                        </div>
+                        <div class="stat-pill" title="Trung bình mỗi ngày">
+                            <span class="stat-pill-label">TB:</span>
+                            <strong class="stat-pill-value">{{ avgVisitorsDaily }}/ngày</strong>
+                        </div>
+                        <div class="stat-pill" title="Ngày có lượt khách cao nhất">
+                            <span class="stat-pill-label">Cao nhất:</span>
+                            <strong class="stat-pill-value">{{ peakVisitors }}</strong>
+                        </div>
+                    </div>
                 </div>
 
-                <div v-if="visitorTrend.length" class="mini-bars">
-                    <div v-for="day in visitorTrend" :key="day.date" class="mini-bar-col">
-                        <div class="mini-bar-track">
+                <div v-if="visitorTrend.length" class="visitor-chart-wrap" @mouseleave="hoveredVisitorIndex = null">
+                    <div class="visitor-svg-container">
+                        <svg :viewBox="`0 0 ${vChartW} ${vChartH}`" class="visitor-svg" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="visitorBarGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#54c4d3" />
+                                    <stop offset="100%" stop-color="#0f7c82" />
+                                </linearGradient>
+                                <linearGradient id="visitorBarHoverGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#7ee4f0" />
+                                    <stop offset="100%" stop-color="#0b5961" />
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Đường lưới ngang & nhãn trục Y -->
+                            <template v-for="grid in visitorYGrid" :key="'vg' + grid.y">
+                                <line :x1="vPadL" :x2="vChartW - vPadR" :y1="grid.y" :y2="grid.y" class="visitor-grid-line" />
+                                <text :x="vPadL - 8" :y="grid.y + 3.5" class="visitor-axis-y-text" text-anchor="end">{{ grid.val }}</text>
+                            </template>
+
+                            <!-- Cột biểu đồ và vùng hover -->
+                            <g v-for="(bar, i) in visitorBars" :key="'vbar' + i">
+                                <!-- Background slot hover trigger -->
+                                <rect
+                                    :x="bar.slotX"
+                                    :y="vPadT"
+                                    :width="bar.slotW"
+                                    :height="vPlotH"
+                                    class="visitor-slot-rect"
+                                    :class="{ active: hoveredVisitorIndex === i }"
+                                    @mouseenter="hoveredVisitorIndex = i"
+                                />
+
+                                <!-- Thanh nền mờ -->
+                                <rect
+                                    :x="bar.x"
+                                    :y="vPadT"
+                                    :width="bar.barW"
+                                    :height="vPlotH"
+                                    rx="3"
+                                    ry="3"
+                                    class="visitor-bar-bg"
+                                />
+
+                                <!-- Cột dữ liệu thực tế -->
+                                <rect
+                                    :x="bar.x"
+                                    :y="bar.y"
+                                    :width="bar.barW"
+                                    :height="bar.barH"
+                                    rx="3"
+                                    ry="3"
+                                    class="visitor-bar-fill"
+                                    :class="{ active: hoveredVisitorIndex === i }"
+                                    :fill="hoveredVisitorIndex === i ? 'url(#visitorBarHoverGrad)' : 'url(#visitorBarGrad)'"
+                                    @mouseenter="hoveredVisitorIndex = i"
+                                />
+                            </g>
+
+                            <!-- Nhãn ngày trục X (hiển thị phân bố cách đều, tránh dính chữ) -->
+                            <template v-for="tick in visitorXTicks" :key="'vtick' + tick.label + tick.x">
+                                <text :x="tick.x" :y="vChartH - 6" class="visitor-axis-x-text" text-anchor="middle">
+                                    {{ tick.label }}
+                                </text>
+                            </template>
+                        </svg>
+
+                        <!-- Tooltip tương tác hiển thị thông tin chi tiết ngày -->
+                        <transition name="fade-fast">
                             <div
-                                class="mini-bar-fill"
-                                :style="{ height: miniPercent(day.total, maxVisitors) + '%' }"
-                                :title="`${day.label}: ${day.total} lượt`"
-                            ></div>
-                        </div>
-                        <span class="mini-bar-label">{{ day.label }}</span>
+                                v-if="hoveredVisitor"
+                                class="visitor-tooltip"
+                                :style="tooltipPositionStyle"
+                            >
+                                <div class="tooltip-date">Ngày {{ hoveredVisitor.label }}</div>
+                                <div class="tooltip-val">
+                                    <strong>{{ hoveredVisitor.total }}</strong> lượt khách
+                                </div>
+                            </div>
+                        </transition>
                     </div>
                 </div>
                 <div v-else class="empty-card">Chưa có dữ liệu khách thăm.</div>
 
-                <div v-if="visitorStatus.length" class="visitor-status-row">
-                    <span v-for="s in visitorStatus" :key="s.status" class="soft-chip">
-                        {{ visitorStatusLabel(s.status) }}: {{ s.count }}
-                    </span>
+                <div v-if="visitorStatus.length" class="visitor-status-cards">
+                    <div
+                        v-for="s in visitorStatus"
+                        :key="s.status"
+                        class="visitor-status-pill"
+                        :class="'status-' + (s.status || '').toLowerCase()"
+                    >
+                        <span class="status-dot"></span>
+                        <span class="status-name">{{ visitorStatusLabel(s.status) }}:</span>
+                        <span class="status-val">{{ s.count }}</span>
+                    </div>
                 </div>
             </article>
         </section>
@@ -392,9 +483,110 @@ const maxHourly = computed(() => {
 function barPercent(v, max) {
     return Math.max(2, Math.round((v / max) * 100))
 }
-function miniPercent(v, max) {
-    return Math.max(4, Math.round((v / max) * 100))
-}
+
+// ---- Visitor chart geometry & stats ----
+const vChartW = 600
+const vChartH = 180
+const vPadL = 32
+const vPadR = 16
+const vPadT = 20
+const vPadB = 24
+const vPlotW = vChartW - vPadL - vPadR
+const vPlotH = vChartH - vPadT - vPadB
+
+const totalVisitors30d = computed(() => visitorTrend.value.reduce((s, d) => s + (d.total || 0), 0))
+const avgVisitorsDaily = computed(() => {
+    const len = visitorTrend.value.length
+    if (!len) return '0'
+    return (totalVisitors30d.value / len).toFixed(1)
+})
+const peakVisitors = computed(() => Math.max(0, ...visitorTrend.value.map(d => d.total || 0)))
+
+const visitorBars = computed(() => {
+    const arr = visitorTrend.value
+    if (!arr.length) return []
+    const count = arr.length
+    const slotW = vPlotW / count
+    const barW = Math.max(4, Math.min(16, slotW * 0.65))
+    const maxVal = maxVisitors.value || 1
+
+    return arr.map((d, i) => {
+        const val = d.total || 0
+        const barH = val > 0 ? Math.max(4, (val / maxVal) * vPlotH) : 2
+        const slotX = vPadL + i * slotW
+        const x = vPadL + i * slotW + (slotW - barW) / 2
+        const y = vPadT + vPlotH - barH
+        return {
+            date: d.date,
+            label: d.label,
+            total: val,
+            slotX,
+            slotW,
+            x,
+            y,
+            barW,
+            barH,
+        }
+    })
+})
+
+const visitorYGrid = computed(() => {
+    const maxVal = maxVisitors.value || 1
+    const midVal = Math.round(maxVal / 2)
+    return [
+        { y: vPadT, val: maxVal },
+        { y: vPadT + vPlotH / 2, val: midVal },
+        { y: vPadT + vPlotH, val: 0 },
+    ]
+})
+
+const visitorXTicks = computed(() => {
+    const arr = visitorTrend.value
+    if (!arr.length) return []
+    const count = arr.length
+    const slotW = vPlotW / count
+    if (count <= 7) {
+        return arr.map((d, i) => ({
+            label: d.label,
+            x: vPadL + i * slotW + slotW / 2,
+        }))
+    }
+    const step = Math.max(1, Math.floor(count / 5))
+    const ticks = []
+    for (let i = 0; i < count; i += step) {
+        ticks.push({
+            label: arr[i].label,
+            x: vPadL + i * slotW + slotW / 2,
+        })
+    }
+    const lastIdx = count - 1
+    const lastTick = ticks[ticks.length - 1]
+    const lastX = vPadL + lastIdx * slotW + slotW / 2
+    if (lastTick && lastX - lastTick.x > 35) {
+        ticks.push({
+            label: arr[lastIdx].label,
+            x: lastX,
+        })
+    }
+    return ticks
+})
+
+const hoveredVisitorIndex = ref(null)
+const hoveredVisitor = computed(() => {
+    if (hoveredVisitorIndex.value === null) return null
+    return visitorBars.value[hoveredVisitorIndex.value] || null
+})
+
+const tooltipPositionStyle = computed(() => {
+    if (!hoveredVisitor.value) return {}
+    const percentX = Math.max(10, Math.min(90, (hoveredVisitor.value.x + hoveredVisitor.value.barW / 2) / vChartW * 100))
+    const percentY = (hoveredVisitor.value.y) / vChartH * 100
+    return {
+        left: `${percentX}%`,
+        bottom: `${Math.max(15, 100 - percentY + 12)}%`,
+        transform: 'translateX(-50%)',
+    }
+})
 
 // ---- Donut (SVG circle stroke-dasharray) ----
 const DONUT_COLORS = {
@@ -894,51 +1086,234 @@ onMounted(loadAll)
 .lvl-4 { background: rgba(15, 124, 130, 0.8); }
 .lvl-5 { background: #0f7c82; }
 
-/* Mini bars (visitor trend) */
-.mini-bars {
+/* Panel stats */
+.panel-stats {
     display: flex;
-    align-items: flex-end;
-    gap: 6px;
-    height: 130px;
-    padding-top: 10px;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.mini-bar-col {
-    flex: 1;
-    min-width: 0;
-    display: grid;
-    grid-template-rows: 100px 20px;
-    gap: 6px;
-    text-align: center;
+.stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--surface-muted);
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-soft);
 }
 
-.mini-bar-track {
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-}
-
-.mini-bar-fill {
-    width: 65%;
-    min-height: 4px;
-    border-radius: 6px 6px 2px 2px;
-    background: linear-gradient(180deg, var(--accent-info), var(--accent-primary));
-    transition: height 0.3s ease;
-}
-
-.mini-bar-label {
+.stat-pill-label {
     color: var(--text-muted);
-    font-size: 0.68rem;
-    white-space: nowrap;
-    overflow: hidden;
 }
 
-.visitor-status-row {
+.stat-pill-value {
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+/* Visitor chart */
+.visitor-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.visitor-chart-wrap {
+    position: relative;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.visitor-svg-container {
+    position: relative;
+    width: 100%;
+}
+
+.visitor-svg {
+    width: 100%;
+    height: 180px;
+    display: block;
+    overflow: visible;
+}
+
+.visitor-grid-line {
+    stroke: rgba(24, 49, 77, 0.08);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.visitor-axis-y-text {
+    font-size: 10px;
+    fill: var(--text-muted);
+    font-family: inherit;
+    font-weight: 500;
+}
+
+.visitor-axis-x-text {
+    font-size: 10.5px;
+    fill: var(--text-muted);
+    font-family: inherit;
+    font-weight: 500;
+}
+
+.visitor-slot-rect {
+    fill: transparent;
+    cursor: pointer;
+    transition: fill 0.15s ease;
+}
+
+.visitor-slot-rect.active,
+.visitor-slot-rect:hover {
+    fill: rgba(15, 124, 130, 0.06);
+}
+
+.visitor-bar-bg {
+    fill: var(--surface-muted);
+    opacity: 0.7;
+}
+
+.visitor-bar-fill {
+    transition: y 0.3s ease, height 0.3s ease, fill 0.2s ease;
+    cursor: pointer;
+}
+
+.visitor-bar-fill.active {
+    filter: drop-shadow(0 2px 6px rgba(15, 124, 130, 0.45));
+}
+
+.visitor-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--ink-900);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+    transition: left 0.1s ease, bottom 0.1s ease;
+}
+
+.visitor-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--ink-900) transparent transparent transparent;
+}
+
+.tooltip-date {
+    font-size: 0.7rem;
+    color: var(--mist-400);
+    margin-bottom: 2px;
+}
+
+.tooltip-val strong {
+    font-weight: 700;
+    color: var(--glow-500);
+    font-size: 0.85rem;
+}
+
+.fade-fast-enter-active,
+.fade-fast-leave-active {
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.fade-fast-enter-from,
+.fade-fast-leave-to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+}
+
+/* Visitor Status Cards */
+.visitor-status-cards {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
 }
+
+.visitor-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-soft);
+    transition: all 0.2s ease;
+}
+
+.visitor-status-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.visitor-status-pill .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+
+.visitor-status-pill .status-name {
+    color: var(--text-secondary);
+}
+
+.visitor-status-pill .status-val {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-heading);
+}
+
+/* Status variants */
+.status-checkedin {
+    background: rgba(84, 196, 211, 0.12);
+    border-color: rgba(84, 196, 211, 0.3);
+}
+.status-checkedin .status-dot { background: var(--glow-500); box-shadow: 0 0 6px var(--glow-500); }
+.status-checkedin .status-name { color: #0d6d72; }
+
+.status-overstay {
+    background: rgba(195, 81, 70, 0.12);
+    border-color: rgba(195, 81, 70, 0.3);
+}
+.status-overstay .status-dot { background: var(--accent-danger); box-shadow: 0 0 6px rgba(195, 81, 70, 0.6); }
+.status-overstay .status-name { color: var(--accent-danger); font-weight: 600; }
+.status-overstay .status-val { color: var(--accent-danger); }
+
+.status-checkedout, .status-completed {
+    background: rgba(20, 134, 109, 0.12);
+    border-color: rgba(20, 134, 109, 0.3);
+}
+.status-checkedout .status-dot, .status-completed .status-dot { background: var(--accent-success); }
+.status-checkedout .status-name, .status-completed .status-name { color: #0d6855; }
+
+.status-approved {
+    background: rgba(139, 92, 246, 0.12);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+.status-approved .status-dot { background: #8b5cf6; }
+.status-approved .status-name { color: #6d28d9; }
+
+.status-pending {
+    background: rgba(216, 155, 55, 0.12);
+    border-color: rgba(216, 155, 55, 0.3);
+}
+.status-pending .status-dot { background: var(--sun-500); }
+.status-pending .status-name { color: #b86f21; }
 
 /* Anomaly table */
 .anomaly-table {
