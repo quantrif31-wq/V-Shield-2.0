@@ -202,7 +202,7 @@ namespace API.Controllers
 
                 await transaction.CommitAsync();
 
-                if (targetEmployeeId.HasValue && hasAccess)
+                if (targetEmployeeId.HasValue && hasAccess && !request.DeferTransit)
                 {
                     await _zoneTransitService.ProcessAccessLogAsync(newLog.LogId);
                 }
@@ -533,7 +533,7 @@ namespace API.Controllers
 
             var utcNow = DateTime.UtcNow;
             var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
-            if (Math.Abs(parseResult.Counter!.Value - currentCounter) > 1)
+            if (Math.Abs(parseResult.Counter!.Value - currentCounter) > 4)
             {
                 return (false, "QR động đã hết hạn hoặc chưa đến hiệu lực.");
             }

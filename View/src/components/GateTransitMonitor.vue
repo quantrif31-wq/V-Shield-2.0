@@ -1664,9 +1664,11 @@ export default {
               qr.activeSessionVerifyMessage = result?.message || "Xác thực QR thất bại."
               qr.verifyMessage = result?.message || "Xác thực QR thất bại."
               qr.backendPhase = "scanning"
-              if (qr.activeSessionVerifyState === "expired" || qr.activeSessionVerifyState === "invalid") {
-                await this.kickoffQrScan(lane).catch(() => {})
-              }
+              setTimeout(() => {
+                if (qr.cameraRunning) {
+                  this.kickoffQrScan(lane).catch(() => {})
+                }
+              }, 1500)
             }
           }
         } finally {

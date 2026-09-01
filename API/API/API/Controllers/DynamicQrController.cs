@@ -394,8 +394,8 @@ public class DynamicQrController : ControllerBase
                 var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
                 var counterDelta = Math.Abs(payloadCounter - currentCounter);
 
-                // Cho phép lệch tối đa 1 time-step để tránh lỗi sát biên 30s.
-                if (counterDelta > 1)
+                // Cho phép lệch tối đa 4 time-steps (120s) để tránh lỗi lệch giờ giữa client, host và server.
+                if (counterDelta > 4)
                 {
                     await SaveScanLog(employeeId, normalizedPayload, false,
                         "QR đã hết hạn hoặc chưa đến hiệu lực.", request.ScannerDevice);
