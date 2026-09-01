@@ -480,9 +480,10 @@
                     v-model="cameraSearch[activeOpsLane.id + '-qr']"
                     placeholder="Tìm camera QR..."
                     :disabled="activeOpsLane.loading"
+                    @focus="qrDropdownOpen[activeOpsLane.id] = true"
                   />
 
-                  <div class="dropdown" v-if="cameraSearch[activeOpsLane.id + '-qr']">
+                  <div class="dropdown" v-if="qrDropdownOpen[activeOpsLane.id] && filterCameras(cameraSearch[activeOpsLane.id + '-qr']).length">
                     <div
                       v-for="cam in filterCameras(cameraSearch[activeOpsLane.id + '-qr'])"
                       :key="cam.cameraId"
@@ -502,9 +503,10 @@
                     v-model="cameraSearch[activeOpsLane.id + '-plate']"
                     placeholder="Tìm camera biển số..."
                     :disabled="activeOpsLane.loading"
+                    @focus="plateDropdownOpen[activeOpsLane.id] = true"
                   />
 
-                  <div class="dropdown" v-if="cameraSearch[activeOpsLane.id + '-plate']">
+                  <div class="dropdown" v-if="plateDropdownOpen[activeOpsLane.id] && filterCameras(cameraSearch[activeOpsLane.id + '-plate']).length">
                     <div
                       v-for="cam in filterCameras(cameraSearch[activeOpsLane.id + '-plate'])"
                       :key="cam.cameraId"
@@ -540,13 +542,37 @@
             </div>
 
             <div class="drawer-secondary-actions">
-                <button
+              <button
                 type="button"
                 class="btn btn-drawer-secondary btn-preview"
                 :disabled="activeOpsLane.loading"
                 @click="previewLane(activeOpsLane)"
               >
-                {{ activeOpsLane.loading ? "Đang xử lý..." : "Preview" }}
+                {{ activeOpsLane.loading ? "Đang xử lý..." : "Mở Preview" }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-drawer-secondary btn-doc-qr"
+                :disabled="activeOpsLane.loading || !activeOpsLane.qr.cameraIp.trim()"
+                @click="retryQr(activeOpsLane)"
+              >
+                Đọc QR
+              </button>
+              <button
+                type="button"
+                class="btn btn-drawer-secondary btn-doc-plate"
+                :disabled="activeOpsLane.loading || !activeOpsLane.plate.cameraIp.trim()"
+                @click="retryPlate(activeOpsLane)"
+              >
+                Đọc biển số
+              </button>
+              <button
+                type="button"
+                class="btn btn-drawer-secondary btn-doc-all"
+                :disabled="activeOpsLane.loading || !activeOpsLane.qr.cameraIp.trim() || !activeOpsLane.plate.cameraIp.trim()"
+                @click="readAllLane(activeOpsLane)"
+              >
+                Đọc cả 2 (QR + Biển số)
               </button>
               <button
                 type="button"
@@ -554,7 +580,7 @@
                 :disabled="activeOpsLane.loading"
                 @click="stopLane(activeOpsLane)"
               >
-                {{ activeOpsLane.loading ? "Đang xử lý..." : "Tắt" }}
+                {{ activeOpsLane.loading ? "Đang xử lý..." : "Tắt làn" }}
               </button>
             </div>
           </section>
@@ -844,7 +870,9 @@ export default {
     return {
       qrCanvasRefs: {},
       cameras: [],
-  cameraSearch: {},
+      cameraSearch: {},
+      qrDropdownOpen: {},
+      plateDropdownOpen: {},
       lanes: [
         {
   id: "lane1",
@@ -3750,32 +3778,39 @@ filterCameras(keyword) {
 },
 
 selectCamera(cam, lane, type) {
+  if (!cam) return
   if (!cam.urlView) {
     alert("Camera chưa có UrlView. Hãy reload go2rtc trước")
     return
   }
+  const streamValue = String(cam.streamUrl || cam.urlView || "").trim()
+  const viewValue = String(cam.urlView || "").trim()
 
   if (type === "qr") {
-    const qrStreamValue = this.preferMainQrStream(cam.streamUrl)
+    const qrStreamValue = this.preferMainQrStream(streamValue) || viewValue
     lane.qr.cameraIp = qrStreamValue
-    lane.qr.viewUrl = cam.urlView   // 🔥 thêm
+    lane.qr.viewUrl = viewValue
     lane.qr.currentIp = qrStreamValue
     lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-qr'] = cam.cameraName
-    this.mountPreview(lane.qr, cam.urlView)
+    this.qrDropdownOpen[lane.id] = false
+    if (viewValue) {
+      this.mountPreview(lane.qr, viewValue)
+    }
   }
 
   if (type === "plate") {
-    const streamValue = String(cam.streamUrl || "").trim()
-    const viewValue = String(cam.urlView || "").trim()
-    lane.plate.cameraIp = streamValue || viewValue
-    lane.plate.viewUrl = cam.urlView
-    lane.plate.currentIp = streamValue || viewValue
+    lane.plate.cameraIp = streamValue
+    lane.plate.viewUrl = viewValue
+    lane.plate.currentIp = streamValue
     lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-plate'] = cam.cameraName
-    this.mountPreview(lane.plate, cam.urlView)
+    this.plateDropdownOpen[lane.id] = false
+    if (viewValue) {
+      this.mountPreview(lane.plate, viewValue)
+    }
   }
 }
     
