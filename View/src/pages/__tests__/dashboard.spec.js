@@ -58,6 +58,29 @@ describe('Dashboard', () => {
     expect(linePath.attributes('d')).toContain('M ')
   })
 
+  it('renders the visitor SVG bar chart and summary stats when visitorTrend is available', async () => {
+    const reportWithVisitors = {
+      ...report,
+      visitorTrend: [
+        { date: '2026-08-01', label: '01/08', total: 12 },
+        { date: '2026-08-02', label: '02/08', total: 8 },
+        { date: '2026-08-03', label: '03/08', total: 15 },
+      ],
+      visitorStatus: [
+        { status: 'Overstay', count: 2 },
+        { status: 'CheckedOut', count: 5 },
+      ],
+    }
+    dashboardApi.getDashboardReports.mockResolvedValue({ data: reportWithVisitors })
+    const wrapper = mount(Dashboard)
+    await flushPromises()
+    expect(wrapper.find('.visitor-svg').exists()).toBe(true)
+    expect(wrapper.findAll('.visitor-bar-fill').length).toBe(3)
+    expect(wrapper.find('.status-overstay').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Quá giờ')
+    expect(wrapper.text()).toContain('35') // total: 12+8+15 = 35
+  })
+
   it('handles a missing report gracefully', async () => {
     dashboardApi.getDashboardReports.mockResolvedValue({ data: null })
     const wrapper = mount(Dashboard)

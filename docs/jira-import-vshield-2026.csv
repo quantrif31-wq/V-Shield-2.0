@@ -1,0 +1,84 @@
+Issue Type,Summary,Epic Name,Epic Link,Sprint,Story Points,Status,Labels
+Epic,Nền tảng & quản trị nhân sự,VSH-E01,,,42,Done,report-2026
+Epic,Kiểm soát ra/vào đa phương thức,VSH-E02,,,71,Done,report-2026
+Epic,"Khách, phương tiện & đăng ký trước",VSH-E03,,,32,Done,report-2026
+Epic,Chấm công & bản đồ vận hành,VSH-E04,,,34,Done,report-2026
+Epic,An ninh doanh nghiệp & SOC,VSH-E05,,,79,Done,report-2026
+Epic,Camera thiết bị & lưu trữ video,VSH-E06,,,34,Done,report-2026
+Epic,"Giao tiếp, thông báo & Mobile",VSH-E07,,,45,Done,report-2026
+Epic,Đồng bộ triển khai & vận hành,VSH-E08,,,49,Done,report-2026
+Epic,"Chất lượng, UI UX & phát hành",VSH-E09,,,70,Done,report-2026
+Epic,AI Agent doanh nghiệp,VSH-E10,,,13,Done,report-2026
+Story,Khởi tạo API .NET 8 Vue và database,,VSH-E01,VSH-S01 — Khởi tạo nền tảng,8,Done,foundation
+Story,Xây đăng nhập tài khoản và liên kết nhân viên,,VSH-E01,VSH-S01 — Khởi tạo nền tảng,8,Done,identity
+Story,Quản lý nhân viên phòng ban chức vụ và ảnh,,VSH-E01,VSH-S01 — Khởi tạo nền tảng,8,Done,hr
+Story,Tích hợp FaceID phiên bản đầu,,VSH-E02,VSH-S01 — Khởi tạo nền tảng,8,Done,faceid
+Story,Xây nhận diện biển số Việt Nam,,VSH-E02,VSH-S01 — Khởi tạo nền tảng,5,Done,plate
+Story,Khởi tạo đăng ký trước và dashboard,,VSH-E03,VSH-S01 — Khởi tạo nền tảng,5,Done,visitor
+Story,Xây luồng điều phối Thông hành,,VSH-E02,VSH-S02 — Thông hành & QR,8,Done,gate-transit
+Story,Tích hợp FaceID và biển số vào phiên thông hành,,VSH-E02,VSH-S02 — Thông hành & QR,8,Done,gate-transit
+Story,Xây QR động QR tĩnh và QR khách,,VSH-E03,VSH-S02 — Thông hành & QR,8,Done,qr
+Story,Bổ sung xác nhận thủ công và cảnh báo cổng,,VSH-E02,VSH-S02 — Thông hành & QR,8,Done,fallback
+Story,Chuẩn hóa camera RTSP go2rtc và preview,,VSH-E06,VSH-S02 — Thông hành & QR,8,Done,camera
+Story,Cấu hình HTTPS VPS remote AI và phân quyền,,VSH-E08,VSH-S02 — Thông hành & QR,5,Done,deployment
+Story,Sửa validation đăng ký trước và dữ liệu mẫu,,VSH-E03,VSH-S02 — Thông hành & QR,2,Done,bugfix
+Story,Chuẩn hóa module runtime và repository,,VSH-E08,VSH-S03 — Chuẩn hóa & Docker,5,Done,refactor
+Story,Hoàn thiện quản lý khách và visitor pass QR,,VSH-E03,VSH-S03 — Chuẩn hóa & Docker,8,Done,visitor
+Story,Xây audit log kèm IP thiết bị và lý do,,VSH-E05,VSH-S03 — Chuẩn hóa & Docker,8,Done,audit
+Story,Hoàn thiện attendance lịch nghỉ và báo cáo,,VSH-E04,VSH-S03 — Chuẩn hóa & Docker,8,Done,attendance
+Story,Thêm bản đồ cổng thời gian thực,,VSH-E04,VSH-S03 — Chuẩn hóa & Docker,5,Done,campus-map
+Story,Docker hóa nền tảng và AI runtime,,VSH-E08,VSH-S03 — Chuẩn hóa & Docker,8,Done,docker
+Story,Ổn định public camera WebRTC và rollout,,VSH-E06,VSH-S03 — Chuẩn hóa & Docker,6,Done,camera
+Story,Hardening CSP secret rate limit security boundary,,VSH-E05,VSH-S04 — Enterprise Security,8,Done,security
+Story,Triển khai step-up MFA và session control,,VSH-E05,VSH-S04 — Enterprise Security,8,Done,mfa
+Story,Xây AI import và import export đa định dạng,,VSH-E05,VSH-S04 — Enterprise Security,8,Done,ai-import
+Story,Xây AI dashboard UEBA và anomaly detection,,VSH-E05,VSH-S04 — Enterprise Security,8,Done,ueba
+Story,Xây SOC Alarm Console và policy engine,,VSH-E05,VSH-S04 — Enterprise Security,8,Done,soc
+Story,Thêm device topology VMS và AI review,,VSH-E06,VSH-S04 — Enterprise Security,5,Done,devices
+Story,Thêm evidence retention SIEM backup restore,,VSH-E05,VSH-S04 — Enterprise Security,5,Done,evidence
+Story,Xây hướng dẫn tương tác tiếng Việt,,VSH-E09,VSH-S04 — Enterprise Security,5,Done,guide
+Story,Tích hợp enterprise permission và lane decision,,VSH-E05,VSH-S05 — Điều hành hợp nhất,8,Done,integration
+Story,Xây intervention escalation và auto-expire,,VSH-E05,VSH-S05 — Điều hành hợp nhất,8,Done,intervention
+Story,Xây Campus 3D và realtime overlay,,VSH-E04,VSH-S05 — Điều hành hợp nhất,8,Done,campus-3d
+Story,Xây manual access parking fallback và evidence,,VSH-E02,VSH-S05 — Điều hành hợp nhất,8,Done,fallback
+Story,Bổ sung seed data enterprise demo,,VSH-E08,VSH-S05 — Điều hành hợp nhất,5,Done,seed-data
+Story,Thiết lập load stress soak test framework,,VSH-E09,VSH-S05 — Điều hành hợp nhất,5,Done,load-test
+Story,Ổn định build ba nền tảng và migration,,VSH-E09,VSH-S05 — Điều hành hợp nhất,3,Done,build
+Story,Sửa idempotency và delivery fallback chat,,VSH-E07,VSH-S06 — Realtime & phân quyền,5,Done,chat
+Story,Triển khai operational task và scope permission,,VSH-E05,VSH-S06 — Realtime & phân quyền,8,Done,authorization
+Story,Xây Role Permissions và scope override,,VSH-E05,VSH-S06 — Realtime & phân quyền,8,Done,authorization
+Story,Sửa SignalR authentication và alerts center,,VSH-E07,VSH-S06 — Realtime & phân quyền,5,Done,signalr
+Story,Ổn định QR hai làn và camera preview,,VSH-E02,VSH-S06 — Realtime & phân quyền,5,Done,qr
+Story,Tự động ghi hình và camera archive,,VSH-E06,VSH-S06 — Realtime & phân quyền,5,Done,recording
+Story,Xây central sync và ổn định Docker runtime,,VSH-E08,VSH-S06 — Realtime & phân quyền,5,Done,sync
+Story,Thêm mobile biometric unlock và offline QR,,VSH-E07,VSH-S06 — Realtime & phân quyền,3,Done,mobile
+Story,Nâng cấp toàn diện UI UX,,VSH-E09,VSH-S07 — UI Release Candidate,13,Done,ui-ux
+Story,Chuẩn hóa responsive đa thiết bị,,VSH-E09,VSH-S07 — UI Release Candidate,8,Done,responsive
+Story,Thiết lập Playwright functional visual accessibility,,VSH-E09,VSH-S07 — UI Release Candidate,8,Done,playwright
+Story,Tạo và review 120 Linux visual baselines,,VSH-E09,VSH-S07 — UI Release Candidate,5,Done,visual-regression
+Story,Thiết lập release gates rollback và UAT handoff,,VSH-E09,VSH-S07 — UI Release Candidate,5,Done,release
+Story,Đóng gói RC2 có artifact digest tái lập,,VSH-E09,VSH-S07 — UI Release Candidate,1,Done,rc2
+Story,Nâng FaceID lên YuNet SFace GPU và guided enrollment,,VSH-E02,VSH-S08 — FaceID & Mobile nâng cao,8,Done,faceid
+Story,Đăng ký FaceID từ xa và quản lý lifecycle,,VSH-E02,VSH-S08 — FaceID & Mobile nâng cao,8,Done,faceid-remote
+Story,Multi-face tracking và intruder evidence,,VSH-E02,VSH-S08 — FaceID & Mobile nâng cao,8,Done,multi-face
+Story,Kiểm tra quyền cổng và ghi access log FaceID,,VSH-E02,VSH-S08 — FaceID & Mobile nâng cao,8,Done,face-gate
+Story,Cải tiến FaceCamera UI và trạng thái quyết định,,VSH-E09,VSH-S08 — FaceID & Mobile nâng cao,5,Done,face-camera
+Story,Kết nối mobile API thật và biometric login,,VSH-E07,VSH-S08 — FaceID & Mobile nâng cao,5,Done,mobile
+Story,Xây gọi WebRTC và relay Central AreaNode,,VSH-E07,VSH-S08 — FaceID & Mobile nâng cao,8,Done,webrtc
+Story,Sửa sync upload rotation và lazy route,,VSH-E08,VSH-S08 — FaceID & Mobile nâng cao,3,Done,stabilization
+Story,Thêm hạ tầng test frontend và 336 test P0 P1,,VSH-E09,VSH-S09 — Quality Gate & AI Agent,8,Done,unit-test
+Story,Mở rộng frontend coverage lên trên 61 phần trăm,,VSH-E09,VSH-S09 — Quality Gate & AI Agent,13,Done,coverage
+Story,Đưa API coverage gate lên 55 phần trăm,,VSH-E09,VSH-S09 — Quality Gate & AI Agent,8,Done,api-test
+Story,Thêm Android Python test và CI workflow,,VSH-E09,VSH-S09 — Quality Gate & AI Agent,5,Done,ci
+Story,Xây gate transit auto monitor và simulation harness,,VSH-E02,VSH-S09 — Quality Gate & AI Agent,5,Done,simulation
+Story,Xây AI Agent tra cứu người soạn gửi email,,VSH-E10,VSH-S09 — Quality Gate & AI Agent,8,Done,ai-agent
+Story,Triển khai mail stack Docker VPS,,VSH-E10,VSH-S09 — Quality Gate & AI Agent,3,Done,mail
+Story,Nâng chất lượng email sync FK và QR rate limit,,VSH-E10,VSH-S09 — Quality Gate & AI Agent,2,Done,stabilization
+Story,Refactor light dark mode camera preview và route recovery,,VSH-E09,VSH-S09 — Quality Gate & AI Agent,3,Done,light-dark
+Task,Tạo protected GitHub Environment cho UAT,,VSH-E09,VSH-S10 — UAT & Production Readiness,3,To Do,production-readiness
+Task,Cấu hình protected inputs và deploy immutable digest,,VSH-E08,VSH-S10 — UAT & Production Readiness,5,To Do,production-readiness
+Story,Chạy UAT authentication role mutation SignalR performance,,VSH-E09,VSH-S10 — UAT & Production Readiness,8,To Do,production-readiness
+Task,Diễn tập rollback với prior digest,,VSH-E08,VSH-S10 — UAT & Production Readiness,5,To Do,production-readiness
+Task,Chạy load test staging với seed và token ổn định,,VSH-E09,VSH-S10 — UAT & Production Readiness,5,To Do,production-readiness
+Bug,Khắc phục phát hiện UAT mức Blocker Critical,,VSH-E09,VSH-S10 — UAT & Production Readiness,8,To Do,production-readiness
+Task,Thu thập sign-off và chốt release note,,VSH-E09,VSH-S10 — UAT & Production Readiness,3,To Do,production-readiness
