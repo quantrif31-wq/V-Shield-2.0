@@ -394,8 +394,8 @@ public class DynamicQrController : ControllerBase
                 var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
                 var counterDelta = Math.Abs(payloadCounter - currentCounter);
 
-                // Cho phép lệch tối đa 4 time-steps (120s) để tránh lỗi lệch giờ giữa client, host và server.
-                if (counterDelta > 4)
+                // Cho phép lệch tối đa 120 time-steps (60 phút) để tránh lỗi lệch giờ giữa client, host và server.
+                if (counterDelta > 120)
                 {
                     await SaveScanLog(employeeId, normalizedPayload, false,
                         "QR đã hết hạn hoặc chưa đến hiệu lực.", request.ScannerDevice);
@@ -705,7 +705,7 @@ public class DynamicQrController : ControllerBase
                     return (false, "QR visitor chưa có secret", null);
 
                 var nowCounter = _visitorQrService.GetCurrentCounter(DateTime.UtcNow);
-                if (Math.Abs(payload.Counter - nowCounter) > 1)
+                if (Math.Abs(payload.Counter - nowCounter) > 120)
                     return (false, "QR visitor đã hết hạn", null);
 
                 var expectedOtp = _visitorQrService.GenerateOtp(visitor.QrSecret, payload.Counter);

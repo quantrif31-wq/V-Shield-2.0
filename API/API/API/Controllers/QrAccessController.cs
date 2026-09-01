@@ -527,7 +527,7 @@ namespace API.Controllers
 
             var utcNow = DateTime.UtcNow;
             var currentCounter = GetCurrentCounter(utcNow, dynamicQr.TimeStepSeconds);
-            if (Math.Abs(parseResult.Counter!.Value - currentCounter) > 4)
+            if (Math.Abs(parseResult.Counter!.Value - currentCounter) > 120)
             {
                 return (false, "QR động đã hết hạn hoặc chưa đến hiệu lực.");
             }
