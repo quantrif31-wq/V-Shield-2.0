@@ -337,8 +337,8 @@ export default {
         {
           id: "lane1",
           laneId: "lane-1",
-          accessLaneId: 131,
-          gateId: 1177,
+          accessLaneId: 1,
+          gateId: 1,
           direction: "IN",
           faceCameraId: "lane-1-face",
           name: "Làn 1",
@@ -352,8 +352,8 @@ export default {
         {
           id: "lane2",
           laneId: "lane-2",
-          accessLaneId: 132,
-          gateId: 1177,
+          accessLaneId: 2,
+          gateId: 1,
           direction: "OUT",
           faceCameraId: "lane-2-face",
           name: "Làn 2",

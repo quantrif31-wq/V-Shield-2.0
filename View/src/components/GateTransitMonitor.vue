@@ -693,7 +693,7 @@ import * as plateLane1Api from "../services/plateCameraApi"
 import * as plateLane2Api from "../services/plateCameraApi"
 import axios from "axios"
 import { scanGate, scanGuest } from "../services/gateTransitApi"
-import { verifyDynamicQr } from "../services/dynamicQrVerifyApi"
+import { verifyQrForGate } from "../services/dynamicQrVerifyApi"
 import { getCameras, startPythonQrProcess, stopPythonQrProcess, startPythonPlateProcess, stopPythonPlateProcess, startPythonSimulatedCameraProcess, stopPythonSimulatedCameraProcess, getPythonProcessStatus } from "../services/cameraRuntimeApi"
 import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRuntimeService } from "../services/runtimeServiceApi"
 import {
@@ -716,6 +716,7 @@ import StepUpModal from "./shared/StepUpModal.vue"
 import AuditReceiptToast from "./shared/AuditReceiptToast.vue"
 function createQrModule(defaultScannerDevice) {
   return {
+    cameraId: null,
     cameraIp: "",
     currentIp: "",
     cameraRunning: false,
@@ -733,6 +734,59 @@ function createQrModule(defaultScannerDevice) {
     directCameraUrl: "",
     directCameraKey: 0,
     viewUrl: "", // 🔥 thêm dòng này
+
+    scannerDevice: defaultScannerDevice,
+
+    qrPayload: "",
+    manualPayload: "",
+    verifyMessage: "",
+    verifyData: null,
+
+    employeeId: "",
+    employeeName: "",
+    guestId: "",
+    personType: "",
+
+    activeSessionPayload: "",
+    activeSessionVerified: false,
+    activeSessionVerifyState: "",
+    activeSessionVerifyMessage: "",
+    lastSeenAt: null,
+
+    lastDecodedText: "",
+    lastDecodedAt: 0,
+    lastUpdate: "",
+    message: "",
+
+    previewTimer: null,
+    sessionTimer: null,
+    destroyed: false,
+
+    previewIntervalMs: 350,
+    absenceThresholdMs: 1500,
+    decodeMaxWidth: 640,
+    stablePayload: "",
+    stablePayloadCount: 0,
+    stablePayloadRequiredCount: 2,
+    stablePayloadWindowMs: 1200,
+    lastStablePayloadAt: 0,
+    cameraIp: "",
+    currentIp: "",
+    cameraRunning: false,
+    previewRunning: false,
+    pollingBusy: false,
+
+    previewHealthy: false,
+    imgBusy: false,
+    decodeBusy: false,
+    verifying: false,
+    scanKickoffBusy: false,
+    controlSessionId: 0,
+    lastAutoScanAt: 0,
+
+    directCameraUrl: "",
+    directCameraKey: 0,
+    viewUrl: "",
 
     scannerDevice: defaultScannerDevice,
 
@@ -800,6 +854,7 @@ function createQrModule(defaultScannerDevice) {
 
 function createPlateModule() {
   return {
+    cameraId: null,
     cameraIp: "",
     currentIp: "",
     cameraRunning: false,
@@ -826,7 +881,7 @@ function createPlateModule() {
 
     directCameraUrl: "",
     directCameraKey: 0,
-    viewUrl: "", // 🔥 thêm dòng này
+    viewUrl: "",
     previewHealthy: false,
     overlayText: "",
     overlayBox: null,
@@ -875,33 +930,33 @@ export default {
       plateDropdownOpen: {},
       lanes: [
         {
-  id: "lane1",
-  laneId: 131,
-  name: "Làn 1",
-  desc: "QR trên / Biển dưới",
-  gateId: 1177,
-  direction: "IN",
-  cameraId: null,
-  loading: false,
-  plateApi: plateLane1Api,
-  qr: createQrModule("WEB_SCANNER_GATE_01"),
-  plate: createPlateModule(),
-  auto: createAutoModule()
-},
-{
-  id: "lane2",
-  laneId: 132,
-  name: "Làn 2",
-  desc: "QR trên / Biển dưới",
-  gateId: 1177,
-  direction: "OUT",
-  cameraId: null,
-  loading: false,
-  plateApi: plateLane2Api,
-  qr: createQrModule("WEB_SCANNER_GATE_02"),
-  plate: createPlateModule(),
-  auto: createAutoModule()
-}
+          id: "lane1",
+          laneId: 1,
+          name: "Làn 1",
+          desc: "QR trên / Biển dưới",
+          gateId: 1,
+          direction: "IN",
+          cameraId: null,
+          loading: false,
+          plateApi: plateLane1Api,
+          qr: createQrModule("WEB_SCANNER_GATE_01"),
+          plate: createPlateModule(),
+          auto: createAutoModule()
+        },
+        {
+          id: "lane2",
+          laneId: 2,
+          name: "Làn 2",
+          desc: "QR trên / Biển dưới",
+          gateId: 1,
+          direction: "OUT",
+          cameraId: null,
+          loading: false,
+          plateApi: plateLane2Api,
+          qr: createQrModule("WEB_SCANNER_GATE_02"),
+          plate: createPlateModule(),
+          auto: createAutoModule()
+        }
       ],
       opsDrawerOpen: false,
       opsActiveLaneId: "lane1",
@@ -1670,7 +1725,7 @@ export default {
     },
 
     cameraVisualState(type, lane) {
-      if (type === "qr") {
+    if (type === "qr") {
         const qr = lane.qr
         const phase = this.qrBackendPhase(qr)
         if (!qr.cameraRunning) return "idle"
@@ -2569,13 +2624,26 @@ export default {
         // 🔥 phân loại QR
 let result = null
 
-if (safePayload.startsWith("EMP:")) {
-  // QR động
-  result = await verifyDynamicQr(safePayload, qr.scannerDevice)
-}
-else if (safePayload.startsWith("VIS:")) {
-  // QR khách mời (động) -> backend tự verify theo counter + OTP
-  result = await verifyDynamicQr(safePayload, qr.scannerDevice)
+if (safePayload.startsWith("EMP:") || safePayload.startsWith("VIS:")) {
+  const cameraId = Number(qr.cameraId || lane.cameraId || 0)
+  if (!cameraId) {
+    return {
+      success: false,
+      message: "Camera QR chưa được chọn nên không thể xác minh quyền vào.",
+      data: null
+    }
+  }
+
+  // This endpoint checks the credential against the selected gate and creates
+  // an audit log whether access is granted or denied.  Attendance remains
+  // deferred until the independently confirmed plate completes the transit.
+  result = await verifyQrForGate({
+    QrPayload: safePayload,
+    CameraId: cameraId,
+    GateId: lane.gateId || null,
+    QrSnapshotBase64: qr.lockedSnapshot || null,
+    DeferTransit: true
+  })
 }
 else {
   return {
@@ -2871,7 +2939,7 @@ else {
           GateId: lane.gateId,
           LaneId: lane.laneId,
           Direction: lane.direction,
-          CameraId: lane.cameraId,
+          CameraId: plate.cameraId || qr.cameraId || lane.cameraId,
           CredentialType: "QR",
           PlateSnapshotBase64: plate.lockedSnapshot || null,
           PlateCropBase64: plate.lockedPlateCrop || null,
@@ -3062,6 +3130,21 @@ else {
       const plate = lane.plate
       const incomingSessionId = Number(res.session_id || 0)
       const incomingIp = String(res.ip || "").trim()
+
+      // The plate service owns a single camera session.  Its status endpoint can
+      // still describe a session that was started by another lane (or an older
+      // visit).  Do not project that shared state onto a lane until this lane
+      // has explicitly been configured for the same camera.  Otherwise an empty
+      // lane incorrectly appears to be scanning and the stale session can block
+      // a newly selected camera from starting cleanly.
+      const configuredIp = String(plate.currentIp || plate.cameraIp || "").trim()
+      const sameConfiguredCamera =
+        !incomingIp || normalizeCameraUrl(incomingIp) === normalizeCameraUrl(configuredIp)
+      if (!configuredIp || !sameConfiguredCamera) {
+        this.stopPlateLoop(lane)
+        this.hardResetPlate(plate)
+        return
+      }
 
       if (incomingSessionId > 0) {
         plate.sessionId = incomingSessionId
@@ -3329,7 +3412,7 @@ else {
       GateId: lane.gateId,
       LaneId: lane.laneId,
       Direction: lane.direction,
-      CameraId: lane.cameraId,
+      CameraId: lane.plate.cameraId || lane.qr.cameraId || lane.cameraId,
       CredentialType: "QR",
       PlateSnapshotBase64: lane.plate.lockedSnapshot || null,
       PlateCropBase64: lane.plate.lockedPlateCrop || null,
@@ -3791,6 +3874,7 @@ selectCamera(cam, lane, type) {
     lane.qr.cameraIp = qrStreamValue
     lane.qr.viewUrl = viewValue
     lane.qr.currentIp = qrStreamValue
+    lane.qr.cameraId = cam.cameraId
     lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-qr'] = cam.cameraName
@@ -3804,6 +3888,7 @@ selectCamera(cam, lane, type) {
     lane.plate.cameraIp = streamValue
     lane.plate.viewUrl = viewValue
     lane.plate.currentIp = streamValue
+    lane.plate.cameraId = cam.cameraId
     lane.cameraId = cam.cameraId
 
     this.cameraSearch[lane.id + '-plate'] = cam.cameraName
