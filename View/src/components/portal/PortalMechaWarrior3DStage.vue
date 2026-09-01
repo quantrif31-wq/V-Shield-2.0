@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { mechaAudio } from '../../utils/portalAudio'
 
 const props = defineProps({
@@ -18,6 +18,21 @@ const emit = defineEmits(['update:activeIndex', 'selectPilot'])
 const isShieldActive = ref(false)
 const isOverdriveActive = ref(false)
 const isLockOnActive = ref(false)
+const isRotating = ref(false)
+let rotateTimer = null
+
+watch(() => props.activeIndex, () => {
+  isRotating.value = true
+  if (rotateTimer) clearTimeout(rotateTimer)
+  rotateTimer = setTimeout(() => {
+    isRotating.value = false
+  }, 650)
+})
+
+onUnmounted(() => {
+  if (rotateTimer) clearTimeout(rotateTimer)
+})
+
 const mouseX = ref(0)
 const mouseY = ref(0)
 
@@ -225,6 +240,23 @@ function triggerLockOn() {
       <div class="absolute h-60 w-60 rounded-full border border-dashed border-red-400/80 animate-spin-slow"></div>
     </div>
 
+    <!-- ── DYNAMIC HOLO-WARP WAVE & SCANLINE BURST ON ROTATION ── -->
+    <transition name="warp-flash">
+      <div
+        v-if="isRotating"
+        class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center mix-blend-screen overflow-hidden"
+      >
+        <div
+          class="h-80 w-80 rounded-full border-2 border-dashed animate-ping opacity-70"
+          :style="{ borderColor: currentPilot.color, boxShadow: `0 0 50px ${currentPilot.glow}` }"
+        ></div>
+        <div
+          class="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-sweep"
+          :style="{ backgroundColor: currentPilot.color, boxShadow: `0 0 25px ${currentPilot.color}` }"
+        ></div>
+      </div>
+    </transition>
+
     <!-- ── 3. 5 PILOTS 3D ROTATING CAROUSEL (CLEAN & CENTERED) ── -->
     <div class="relative flex-1 flex items-end justify-center pb-12 z-20 pointer-events-none" style="transform-style: preserve-3d;">
       <div
@@ -380,6 +412,25 @@ function triggerLockOn() {
 }
 .animate-spin-slow {
   animation: spinSlow 20s linear infinite;
+}
+
+@keyframes laserSweep {
+  0% { top: 0%; opacity: 0; }
+  30% { opacity: 0.9; }
+  70% { opacity: 0.9; }
+  100% { top: 100%; opacity: 0; }
+}
+.animate-laser-sweep {
+  animation: laserSweep 0.65s ease-in-out forwards;
+}
+
+.warp-flash-enter-active,
+.warp-flash-leave-active {
+  transition: opacity 0.3s ease;
+}
+.warp-flash-enter-from,
+.warp-flash-leave-to {
+  opacity: 0;
 }
 
 .cockpit-fade-enter-active,

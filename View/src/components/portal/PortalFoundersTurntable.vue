@@ -245,99 +245,102 @@ onUnmounted(() => {
             :style="{ borderColor: currentChampion.color }"
           ></div>
 
-          <div class="space-y-4">
-            <!-- Header: Callsign & Pilot Name -->
-            <div class="border-b border-slate-800/90 pb-3.5 relative">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5 text-xs font-black uppercase" :style="{ color: currentChampion.color }">
-                  <span>{{ currentChampion.weaponIcon }}</span>
-                  <span>{{ currentChampion.codename }}</span>
+          <!-- Transition Container for Tactical Dossier -->
+          <transition name="dossier-cyber" mode="out-in">
+            <div :key="currentChampion.id" class="space-y-4">
+              <!-- Header: Callsign & Pilot Name -->
+              <div class="border-b border-slate-800/90 pb-3.5 relative">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1.5 text-xs font-black uppercase" :style="{ color: currentChampion.color }">
+                    <span>{{ currentChampion.weaponIcon }}</span>
+                    <span>{{ currentChampion.codename }}</span>
+                  </div>
+                  <div class="text-[10px] font-bold text-slate-400 bg-slate-900/90 px-2 py-0.5 border border-slate-800 mecha-cut-tr">
+                    {{ currentChampion.classId }}
+                  </div>
                 </div>
-                <div class="text-[10px] font-bold text-slate-400 bg-slate-900/90 px-2 py-0.5 border border-slate-800 mecha-cut-tr">
-                  {{ currentChampion.classId }}
+
+                <h2 class="text-2xl sm:text-3xl font-black text-white mt-1">
+                  {{ currentChampion.name }}
+                </h2>
+                <div class="text-xs font-bold text-slate-300 pt-0.5">
+                  {{ currentChampion.role }}
                 </div>
               </div>
 
-              <h2 class="text-2xl sm:text-3xl font-black text-white mt-1">
-                {{ currentChampion.name }}
-              </h2>
-              <div class="text-xs font-bold text-slate-300 pt-0.5">
-                {{ currentChampion.role }}
+              <!-- Thesis Responsibilities -->
+              <div class="space-y-1.5 font-sans relative">
+                <div class="font-mono text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
+                  <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: currentChampion.color }"></span>
+                  <span>// NHIỆM VỤ KỸ THUẬT & ĐỒ ÁN:</span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  {{ currentChampion.duties }}
+                </p>
+              </div>
+
+              <!-- Specialized Cyber Weapon -->
+              <div class="space-y-1 border-t border-slate-800/80 pt-3 font-sans relative">
+                <div class="font-mono text-[11px] font-black uppercase flex items-center gap-1.5" :style="{ color: currentChampion.color }">
+                  <span>⚡</span>
+                  <span>VŨ KHÍ: {{ currentChampion.weaponName.split('(')[0] }}</span>
+                </div>
+                <p class="text-[11.5px] text-slate-400 leading-relaxed">
+                  {{ currentChampion.weaponDesc }}
+                </p>
+              </div>
+
+              <!-- Combat Radar Stats -->
+              <div class="space-y-2.5 border-t border-slate-800/80 pt-3 relative">
+                <div class="flex justify-between items-center text-[10.5px] font-black text-slate-400">
+                  <span>CHỈ SỐ NĂNG LỰC TÁC CHIẾN</span>
+                  <span :style="{ color: currentChampion.color }">ĐỒNG BỘ: {{ currentChampion.stats.sync }}%</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[10px] font-bold">
+                  <div>
+                    <div class="flex justify-between text-slate-400 mb-0.5">
+                      <span>BACKEND:</span>
+                      <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.code }}%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                      <div class="h-full transition-all duration-700 ease-out" :style="{ width: `${currentChampion.stats.code}%`, backgroundColor: currentChampion.color }"></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="flex justify-between text-slate-400 mb-0.5">
+                      <span>DEFENSE:</span>
+                      <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.defense }}%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                      <div class="h-full transition-all duration-700 ease-out" :style="{ width: `${currentChampion.stats.defense}%`, backgroundColor: currentChampion.color }"></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="flex justify-between text-slate-400 mb-0.5">
+                      <span>SYNC HUD:</span>
+                      <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.sync }}%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                      <div class="h-full transition-all duration-700 ease-out" :style="{ width: `${currentChampion.stats.sync}%`, backgroundColor: currentChampion.color }"></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="flex justify-between text-slate-400 mb-0.5">
+                      <span>AI POWER:</span>
+                      <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.power }}%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
+                      <div class="h-full transition-all duration-700 ease-out" :style="{ width: `${currentChampion.stats.power}%`, backgroundColor: currentChampion.color }"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <!-- Thesis Responsibilities -->
-            <div class="space-y-1.5 font-sans relative">
-              <div class="font-mono text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
-                <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: currentChampion.color }"></span>
-                <span>// NHIỆM VỤ KỸ THUẬT & ĐỒ ÁN:</span>
-              </div>
-              <p class="text-xs text-slate-300 leading-relaxed">
-                {{ currentChampion.duties }}
-              </p>
-            </div>
-
-            <!-- Specialized Cyber Weapon -->
-            <div class="space-y-1 border-t border-slate-800/80 pt-3 font-sans relative">
-              <div class="font-mono text-[11px] font-black uppercase flex items-center gap-1.5" :style="{ color: currentChampion.color }">
-                <span>⚡</span>
-                <span>VŨ KHÍ: {{ currentChampion.weaponName.split('(')[0] }}</span>
-              </div>
-              <p class="text-[11.5px] text-slate-400 leading-relaxed">
-                {{ currentChampion.weaponDesc }}
-              </p>
-            </div>
-
-            <!-- Combat Radar Stats -->
-            <div class="space-y-2.5 border-t border-slate-800/80 pt-3 relative">
-              <div class="flex justify-between items-center text-[10.5px] font-black text-slate-400">
-                <span>CHỈ SỐ NĂNG LỰC TÁC CHIẾN</span>
-                <span :style="{ color: currentChampion.color }">ĐỒNG BỘ: {{ currentChampion.stats.sync }}%</span>
-              </div>
-
-              <div class="grid grid-cols-2 gap-2 text-[10px] font-bold">
-                <div>
-                  <div class="flex justify-between text-slate-400 mb-0.5">
-                    <span>BACKEND:</span>
-                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.code }}%</span>
-                  </div>
-                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
-                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.code}%`, backgroundColor: currentChampion.color }"></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex justify-between text-slate-400 mb-0.5">
-                    <span>DEFENSE:</span>
-                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.defense }}%</span>
-                  </div>
-                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
-                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.defense}%`, backgroundColor: currentChampion.color }"></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex justify-between text-slate-400 mb-0.5">
-                    <span>SYNC HUD:</span>
-                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.sync }}%</span>
-                  </div>
-                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
-                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.sync}%`, backgroundColor: currentChampion.color }"></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex justify-between text-slate-400 mb-0.5">
-                    <span>AI POWER:</span>
-                    <span :style="{ color: currentChampion.color }">{{ currentChampion.stats.power }}%</span>
-                  </div>
-                  <div class="h-1.5 w-full bg-slate-900 rounded-sm overflow-hidden">
-                    <div class="h-full transition-all duration-500" :style="{ width: `${currentChampion.stats.power}%`, backgroundColor: currentChampion.color }"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          </transition>
 
           <!-- Bottom 5 Pilot Quick Selection Switcher -->
           <div class="pt-3 border-t border-slate-800/80 mt-3">
@@ -379,5 +382,21 @@ onUnmounted(() => {
 }
 .animate-dash {
   animation: dash 1.2s linear infinite;
+}
+
+/* ── Cyber Dossier Transition ── */
+.dossier-cyber-enter-active,
+.dossier-cyber-leave-active {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dossier-cyber-enter-from {
+  opacity: 0;
+  transform: translateX(18px) scale(0.98);
+  filter: brightness(1.6);
+}
+.dossier-cyber-leave-to {
+  opacity: 0;
+  transform: translateX(-18px) scale(0.98);
+  filter: brightness(0.6);
 }
 </style>

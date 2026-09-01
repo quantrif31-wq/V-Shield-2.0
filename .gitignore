@@ -173,3 +173,6 @@ video_setup_metadata/
 API/API/API.Tests/AI_Runtime/
 api-final.txt
 tests/qr-parking-sim/qr-test-report.json
+
+API/publish/
+
