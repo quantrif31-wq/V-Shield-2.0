@@ -119,16 +119,34 @@ export function getCameras() {
   })
 }
 
-export function startCamera(cameraId, ip, laneId = null) {
+export async function startCamera(cameraId, ip, laneId = null) {
   const data = { ip }
   if (laneId !== null && laneId !== undefined) {
     data.laneId = laneId
   }
-  return faceRequest({
-    method: "post",
-    url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/start`,
-    data
-  })
+  try {
+    return await faceRequest({
+      method: "post",
+      url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/start`,
+      data
+    })
+  } catch (error) {
+    if (error?.status === 409) {
+      // If camera conflict occurred (e.g. stream URL changed while session active),
+      // stop old session and seamlessly retry start with the new stream URL
+      try {
+        await stopCamera(cameraId)
+        return await faceRequest({
+          method: "post",
+          url: `${FACE_CAMERAS_PATH}/${encodeCameraId(cameraId)}/start`,
+          data
+        })
+      } catch {
+        throw error
+      }
+    }
+    throw error
+  }
 }
 
 export function stopCamera(cameraId) {
