@@ -368,6 +368,7 @@ function triggerLockOn() {
         :style="{
           transform: `translateZ(-${wheelRadius}px) rotateY(${currentAngle}deg)`,
           transformStyle: 'preserve-3d',
+          WebkitTransformStyle: 'preserve-3d',
           transition: isDragging ? 'none' : 'transform 2.0s cubic-bezier(0.25, 1, 0.35, 1)'
         }"
       >
@@ -380,47 +381,75 @@ function triggerLockOn() {
           :style="{
             transform: `rotateY(${idx * 72}deg) translateZ(${wheelRadius}px)`,
             transformStyle: 'preserve-3d',
+            WebkitTransformStyle: 'preserve-3d',
             zIndex: idx === activeIndex ? 50 : 20
           }"
         >
-          <div class="relative flex items-center justify-center">
-            <!-- Pilot Photo Frame (Sharp & Vivid vs. Grayscale & Hidden) -->
+          <!-- 3D Card Body Wrapper (Double-Sided) -->
+          <div
+            class="relative w-[195px] sm:w-[230px] h-[280px] sm:h-[330px] transition-all duration-[1600ms] ease-in-out"
+            :style="{
+              transformStyle: 'preserve-3d',
+              WebkitTransformStyle: 'preserve-3d',
+              transform: idx === activeIndex ? 'scale(1.06)' : 'scale(0.92)'
+            }"
+          >
+            <!-- ── FRONT FACE (Pilot Portrait & HUD Frame) ── -->
             <div
-              class="relative rounded-2xl overflow-hidden transition-all duration-[1600ms] ease-in-out"
+              class="absolute inset-0 rounded-2xl overflow-hidden bg-[#0a0e17] flex flex-col justify-between border-2 transition-all duration-[1600ms]"
               :class="[
                 idx === activeIndex
-                  ? 'border-2 scale-105 opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
-                  : 'border border-slate-800/90 scale-90 opacity-55 hover:opacity-80'
+                  ? 'opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
+                  : 'opacity-65 hover:opacity-90'
               ]"
               :style="{
                 borderColor: idx === activeIndex ? pilot.color : '#1e293b',
-                boxShadow: idx === activeIndex ? `0 0 35px ${pilot.glow}70` : 'none',
-                filter: idx === activeIndex ? 'none' : 'grayscale(100%) brightness(0.38) contrast(1.15)'
+                boxShadow: idx === activeIndex ? `0 0 35px ${pilot.glow}80` : 'none',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
               }"
             >
-              <img
-                :src="pilot.avatar"
-                :alt="pilot.name"
-                class="h-[270px] sm:h-[320px] w-[190px] sm:w-[225px] object-cover object-top select-none pointer-events-none"
-              />
+              <!-- Pilot Photo Container -->
+              <div class="relative flex-1 overflow-hidden bg-slate-950">
+                <img
+                  :src="pilot.avatar"
+                  :alt="pilot.name"
+                  class="w-full h-full object-cover object-top select-none pointer-events-none transition-all duration-[1600ms]"
+                  :style="{
+                    filter: idx === activeIndex ? 'none' : 'grayscale(100%) brightness(0.4) contrast(1.15)'
+                  }"
+                />
 
-              <!-- Active Neon Glow Frame & Scanning Laser -->
-              <div
-                v-if="idx === activeIndex"
-                class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/85"
-              ></div>
+                <!-- Active Neon Scanning Laser -->
+                <div
+                  v-if="idx === activeIndex"
+                  class="pointer-events-none absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-scan opacity-80"
+                  :style="{ backgroundColor: pilot.color }"
+                ></div>
 
-              <div
-                v-if="idx === activeIndex"
-                class="pointer-events-none absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-scan opacity-80"
-                :style="{ backgroundColor: pilot.color }"
-              ></div>
+                <!-- Active Vignette Overlay -->
+                <div
+                  v-if="idx === activeIndex"
+                  class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"
+                ></div>
 
-              <!-- Inactive Darkening & Scanlines Filter -->
+                <!-- Inactive Dark Shading -->
+                <div
+                  v-if="idx !== activeIndex"
+                  class="pointer-events-none absolute inset-0 bg-black/45"
+                ></div>
+              </div>
+
+              <!-- Pilot Nameplate Footer -->
               <div
-                v-if="idx !== activeIndex"
-                class="pointer-events-none absolute inset-0 bg-black/40 bg-[repeating-linear-gradient(0deg,transparent,transparent,3px,rgba(0,0,0,0.6)_4px)]"
-              ></div>
+                class="p-2 text-center font-mono bg-[#07090e] border-t transition-all duration-[1600ms]"
+                :style="{ borderColor: idx === activeIndex ? pilot.color + '70' : '#1e293b' }"
+              >
+                <div class="text-[9.5px] font-black tracking-wider" :style="{ color: idx === activeIndex ? pilot.color : '#64748b' }">
+                  {{ pilot.callsign.split('//')[0] }}
+                </div>
+                <div class="text-[11px] font-bold text-white tracking-wide truncate">{{ pilot.name }}</div>
+              </div>
             </div>
 
             <!-- Active Aura Glow Flare -->
@@ -429,22 +458,24 @@ function triggerLockOn() {
               class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-[1600ms] -z-10"
               :style="{ backgroundColor: pilot.color }"
             ></div>
-          </div>
 
-          <!-- Pilot Name Tag -->
-          <div
-            class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-[1600ms] font-mono"
-            :class="[
-              idx === activeIndex
-                ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'
-                : 'bg-[#07090e]/70 border border-slate-800 text-slate-400 text-[10px]'
-            ]"
-            :style="{ borderColor: idx === activeIndex ? pilot.color : '#334155' }"
-          >
-            <div class="text-[9.5px] font-black" :style="{ color: idx === activeIndex ? pilot.color : '#64748b' }">
-              {{ pilot.callsign.split('//')[0] }}
+            <!-- ── BACK FACE (High-Tech Mecha Armor Plate) ── -->
+            <div
+              class="absolute inset-0 rounded-2xl overflow-hidden bg-[#06080f] border border-slate-800/90 flex flex-col items-center justify-center p-4 text-center select-none pointer-events-none"
+              :style="{
+                transform: 'rotateY(180deg)',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                boxShadow: 'inset 0 0 30px rgba(0,0,0,0.95)'
+              }"
+            >
+              <div class="w-12 h-12 rounded-full border border-amber-500/30 flex items-center justify-center mb-2 bg-amber-500/5">
+                <span class="text-xl">🛡️</span>
+              </div>
+              <div class="font-mono text-[9px] font-black text-amber-400 tracking-widest uppercase">V-SHIELD TITAN</div>
+              <div class="font-mono text-[8px] text-slate-500 mt-0.5 tracking-wider">DEFENSE CHASSIS // MK-V</div>
+              <div class="mt-3 w-16 h-0.5 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent"></div>
             </div>
-            <div class="text-[11px] font-bold">{{ pilot.name }}</div>
           </div>
         </div>
       </div>
