@@ -272,13 +272,10 @@ def update_phase():
         set_phase_unlocked()
 
 
-def should_abort_decode(scan_session_id, deadline_at=0.0):
+def should_abort_decode(scan_session_id=0, deadline_at=0.0):
     if deadline_at and time.perf_counter() >= deadline_at:
         return True
-    if not scan_session_id:
-        return False
-    with lock:
-        return scan_session_id != int(state.get("scan_session_id") or 0)
+    return False
 
 
 def decode_qr(frame, scan_session_id=0, deadline_at=0.0):

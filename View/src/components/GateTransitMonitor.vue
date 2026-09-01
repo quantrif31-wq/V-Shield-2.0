@@ -1735,17 +1735,18 @@ export default {
     },
 
     cameraVisualState(type, lane) {
-    if (type === "qr") {
+      if (type === "qr") {
         const qr = lane.qr
         const phase = this.qrBackendPhase(qr)
         if (!qr.cameraRunning) return "idle"
-        if (qr.alert || this.hasInvalidHint(qr.verifyMessage || qr.message)) return "invalid"
-        if (phase === "verified" && (qr.employeeId || qr.guestId)) return "valid"
+        if (phase === "verified" || qr.activeSessionVerifyState === "success") return "valid"
+        if (qr.alert || qr.activeSessionVerifyState === "failed" || qr.activeSessionVerifyState === "invalid") return "invalid"
         if (
           phase === "connecting" ||
           phase === "scanning" ||
           phase === "candidate_found" ||
           phase === "locked" ||
+          phase === "cooldown" ||
           qr.verifying
         )
           return "scanning"
@@ -1754,29 +1755,31 @@ export default {
 
       const plate = lane.plate
       if (!plate.cameraRunning) return "idle"
-      if (this.hasInvalidHint(plate.message)) return "invalid"
       if (plate.scanLocked && !!plate.confirmedPlate) return "valid"
-      if (plate.scanActive) return "scanning"
+      if (plate.alert) return "invalid"
+      if (plate.scanActive || plate.ocrRunning) return "scanning"
       return "idle"
     },
 
     cameraVisualText(type, lane) {
       if (type === "qr") {
-        const phase = this.qrBackendPhase(lane.qr)
-        if (this.cameraVisualState(type, lane) === "invalid") return "LỖI / QUÁ THỜI GIAN"
-        if (phase === "verified") return "VALID"
-        if (phase === "locked") return "VERIFYING"
-        if (phase === "candidate_found") return "SEEN"
-        if (phase === "connecting") return "CONNECTING"
-        if (phase === "scanning") return "SCANNING"
-        return "IDLE"
+        const qr = lane.qr
+        const state = this.cameraVisualState(type, lane)
+        if (state === "valid") return "ĐÃ NHẬN DIỆN"
+        if (state === "invalid") return "KHÔNG HỢP LỆ"
+        if (qr.backendPhase === "connecting") return "ĐANG KẾT NỐI"
+        if (qr.backendPhase === "locked" || qr.verifying) return "ĐANG XÁC THỰC"
+        if (qr.backendPhase === "candidate_found") return "ĐÃ THẤY MÃ"
+        if (qr.cameraRunning) return "ĐANG QUÉT"
+        return "TẮT"
       }
 
+      const plate = lane.plate
       const state = this.cameraVisualState(type, lane)
-      if (state === "valid") return "VALID"
-      if (state === "invalid") return "LỖI / QUÁ THỜI GIAN"
-      if (state === "scanning") return "SCANNING"
-      return "IDLE"
+      if (state === "valid") return "ĐÃ NHẬN DIỆN"
+      if (state === "invalid") return "KHÔNG HỢP LỆ"
+      if (plate.scanActive || plate.cameraRunning) return "ĐANG QUÉT"
+      return "TẮT"
     },
 
     normalizeBox(raw) {
