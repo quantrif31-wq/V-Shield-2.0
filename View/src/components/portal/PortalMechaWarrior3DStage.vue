@@ -129,27 +129,27 @@ const pilots = [
 const currentPilot = computed(() => pilots[props.activeIndex] || pilots[0])
 
 function getPilotStyle(index) {
-  // Continuous orbital angle on 3D ellipse track
+  // Continuous orbital angle on wide 3D ellipse track
   const angleDeg = (index * 72) + currentAngle.value
   const angleRad = (angleDeg * Math.PI) / 180
 
-  const rx = 195 // Horizontal orbit radius
-  const rz = 130 // Depth orbit radius
+  const rx = 250 // Wide horizontal spread for clear visibility of side pilots
+  const rz = 120 // Depth orbit radius
 
   const x = Math.sin(angleRad) * rx
   const z = (Math.cos(angleRad) - 1) * rz
-  const yRot = -Math.sin(angleRad) * 28
+  const yRot = -Math.sin(angleRad) * 26
 
-  const depthFactor = (Math.cos(angleRad) + 1) / 2 // 1.0 at front, ~0.0 at back
+  const depthFactor = (Math.cos(angleRad) + 1) / 2 // 1.0 at front, 0.0 at back
   const isFront = index === props.activeIndex
 
-  const scale = isFront ? 1.06 : 0.68 + depthFactor * 0.22
-  const opacity = isFront ? 1.0 : 0.35 + depthFactor * 0.35
+  const scale = isFront ? 1.08 : 0.70 + depthFactor * 0.18
+  const opacity = isFront ? 1.0 : 0.38 + depthFactor * 0.32
   const zIndex = isFront ? 40 : Math.round(depthFactor * 25) + 5
 
   const filter = isFront
-    ? 'grayscale(0%) brightness(1.05) contrast(1.05) drop-shadow(0 0 25px ' + pilots[index].glow + '80)'
-    : 'grayscale(100%) brightness(' + (0.35 + depthFactor * 0.25).toFixed(2) + ') contrast(1.15) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
+    ? 'grayscale(0%) brightness(1.1) contrast(1.05) drop-shadow(0 0 30px ' + pilots[index].glow + '90)'
+    : 'grayscale(100%) brightness(' + (0.35 + depthFactor * 0.20).toFixed(2) + ') contrast(1.2) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
 
   return {
     transform: `translateX(${x.toFixed(1)}px) translateZ(${z.toFixed(1)}px) rotateY(${yRot.toFixed(1)}deg) scale(${scale.toFixed(3)})`,
@@ -157,6 +157,16 @@ function getPilotStyle(index) {
     zIndex,
     filter
   }
+}
+
+function prevPilot() {
+  const prev = (props.activeIndex - 1 + pilots.length) % pilots.length
+  emit('selectPilot', prev)
+}
+
+function nextPilot() {
+  const next = (props.activeIndex + 1) % pilots.length
+  emit('selectPilot', next)
 }
 
 function handleMouseMove(e) {
@@ -260,24 +270,37 @@ function triggerLockOn() {
       <div class="h-44 w-44 rounded-full border-2 border-red-500/80 animate-ping opacity-60"></div>
     </div>
 
-    <!-- ── DYNAMIC HOLO-WARP WAVE ON ROTATION ── -->
-    <transition name="warp-flash">
-      <div
-        v-if="isRotating"
-        class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center mix-blend-screen overflow-hidden"
-      >
-        <div
-          class="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-sweep"
-          :style="{ backgroundColor: currentPilot.color, boxShadow: `0 0 25px ${currentPilot.color}` }"
-        ></div>
-      </div>
-    </transition>
-
     <!-- ── 3. 5 PILOTS 3D ROTATING ORBITAL TURNTABLE CAROUSEL ── -->
     <div
-      class="relative flex-1 flex items-end justify-center pb-12 z-20 pointer-events-none"
+      class="relative flex-1 flex items-end justify-center pb-10 z-20 pointer-events-none"
       style="perspective: 1200px;"
     >
+      <!-- 3D Turntable Perspective Base Platform on Floor -->
+      <div
+        class="pointer-events-none absolute bottom-4 h-20 w-[92%] max-w-[620px] rounded-full border border-amber-500/30 bg-gradient-to-t from-amber-500/10 to-transparent blur-[0.5px]"
+        style="transform: rotateX(72deg);"
+      ></div>
+
+      <!-- Quick Floating Stage Navigation Arrows -->
+      <button
+        type="button"
+        @click="prevPilot"
+        class="pointer-events-auto absolute left-2 top-1/2 -translate-y-1/2 z-40 p-2 bg-[#07090e]/85 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400 border border-slate-700 hover:border-amber-500/60 rounded-lg transition-all active:scale-90"
+        aria-label="Phi công trước"
+      >
+        <span class="text-sm font-black">◀</span>
+      </button>
+
+      <button
+        type="button"
+        @click="nextPilot"
+        class="pointer-events-auto absolute right-2 top-1/2 -translate-y-1/2 z-40 p-2 bg-[#07090e]/85 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400 border border-slate-700 hover:border-amber-500/60 rounded-lg transition-all active:scale-90"
+        aria-label="Phi công tiếp theo"
+      >
+        <span class="text-sm font-black">▶</span>
+      </button>
+
+      <!-- 5 Pilot Cards Arrayed Across 3D Orbit -->
       <div
         v-for="(pilot, idx) in pilots"
         :key="pilot.id"
@@ -292,7 +315,7 @@ function triggerLockOn() {
             :class="[
               idx === activeIndex
                 ? 'border-2 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
-                : 'border border-slate-800/80'
+                : 'border border-slate-800/90'
             ]"
             :style="{
               borderColor: idx === activeIndex ? pilot.color : '#1e293b',
@@ -302,7 +325,7 @@ function triggerLockOn() {
             <img
               :src="pilot.avatar"
               :alt="pilot.name"
-              class="h-[280px] sm:h-[330px] w-[210px] sm:w-[240px] object-cover object-top select-none"
+              class="h-[270px] sm:h-[320px] w-[190px] sm:w-[225px] object-cover object-top select-none"
             />
 
             <!-- Active Neon Glow Frame & Scanning Laser -->
@@ -320,7 +343,7 @@ function triggerLockOn() {
             <!-- Inactive Darkening & Scanlines Filter -->
             <div
               v-if="idx !== activeIndex"
-              class="pointer-events-none absolute inset-0 bg-black/40 bg-[repeating-linear-gradient(0deg,transparent,transparent,3px,rgba(0,0,0,0.5)_4px)]"
+              class="pointer-events-none absolute inset-0 bg-black/45 bg-[repeating-linear-gradient(0deg,transparent,transparent,3px,rgba(0,0,0,0.6)_4px)]"
             ></div>
           </div>
 
@@ -338,7 +361,7 @@ function triggerLockOn() {
           :class="[
             idx === activeIndex
               ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'
-              : 'bg-[#07090e]/60 border border-slate-800 text-slate-500 text-[10px]'
+              : 'bg-[#07090e]/70 border border-slate-800 text-slate-400 text-[10px]'
           ]"
           :style="{ borderColor: idx === activeIndex ? pilot.color : '#334155' }"
         >
