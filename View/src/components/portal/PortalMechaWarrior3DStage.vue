@@ -119,24 +119,36 @@ const currentPilot = computed(() => pilots[props.activeIndex] || pilots[0])
 function getPilotTransform(index) {
   const total = pilots.length
   let offset = index - props.activeIndex
-  if (offset > total / 2) offset -= total
-  if (offset < -total / 2) offset += total
+  while (offset > total / 2) offset -= total
+  while (offset < -total / 2) offset += total
 
   const isSelected = offset === 0
 
-  const xOffset = offset * 115
-  const zOffset = isSelected ? 35 : -Math.abs(offset) * 75
-  const yRot = offset * -18
-  const scale = isSelected ? 1.06 : Math.max(0.68, 1 - Math.abs(offset) * 0.18)
-  const opacity = isSelected ? 1 : Math.max(0.3, 0.65 - Math.abs(offset) * 0.2)
+  // 3D Circular Turntable Geometry (72 deg per slot)
+  const angleDeg = offset * 72
+  const angleRad = (angleDeg * Math.PI) / 180
+
+  const rx = 195 // Horizontal orbit radius
+  const rz = 125 // Depth orbit radius
+
+  const x = Math.sin(angleRad) * rx
+  const z = (Math.cos(angleRad) - 1) * rz
+  const yRot = -offset * 25
+
+  // Depth factor: 1.0 at front center, down to 0.1 at back
+  const depthFactor = (Math.cos(angleRad) + 1) / 2
+  const scale = isSelected ? 1.08 : 0.65 + depthFactor * 0.22
+  const opacity = isSelected ? 1.0 : 0.32 + depthFactor * 0.35
+
+  const filter = isSelected
+    ? 'grayscale(0%) brightness(1.05) contrast(1.05) drop-shadow(0 0 25px ' + pilots[index].glow + '80)'
+    : 'grayscale(100%) brightness(' + (0.35 + depthFactor * 0.25).toFixed(2) + ') contrast(1.15) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
 
   return {
-    transform: `translateX(${xOffset}px) translateZ(${zOffset}px) rotateY(${yRot}deg) scale(${scale})`,
+    transform: `translateX(${x.toFixed(1)}px) translateZ(${z.toFixed(1)}px) rotateY(${yRot}deg) scale(${scale.toFixed(3)})`,
     opacity,
-    zIndex: isSelected ? 30 : 20 - Math.abs(offset),
-    filter: isSelected
-      ? 'none'
-      : 'grayscale(100%) brightness(0.5) contrast(1.15) drop-shadow(0 0 10px rgba(0,0,0,0.9))'
+    zIndex: isSelected ? 40 : Math.round(depthFactor * 25) + 5,
+    filter
   }
 }
 
@@ -186,24 +198,26 @@ function triggerLockOn() {
     @mouseleave="handleMouseLeave"
     style="perspective: 1200px;"
   >
-    <!-- ── 1. FIRST-PERSON POV COCKPIT BACKGROUND ── -->
-    <transition-group name="cockpit-fade">
+    <!-- ── 1. FIRST-PERSON POV COCKPIT BACKGROUNDS (SMOOTH CROSS-FADE TRANSITION) ── -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
       <img
-        :key="currentPilot.cockpit"
-        :src="currentPilot.cockpit"
-        :alt="currentPilot.cockpitName"
-        class="absolute inset-0 h-full w-full object-cover object-center scale-105 transition-transform duration-700 ease-out"
+        v-for="(pilot, pIdx) in pilots"
+        :key="pilot.id"
+        :src="pilot.cockpit"
+        :alt="pilot.cockpitName"
+        class="absolute inset-0 h-full w-full object-cover object-center transition-all duration-1000 ease-in-out"
+        :class="pIdx === activeIndex ? 'opacity-100 scale-105' : 'opacity-0 scale-100'"
         :style="{
-          transform: `scale(${isOverdriveActive ? 1.12 : 1.05}) translate(${mouseX * -8}px, ${mouseY * -5}px)`,
-          filter: `${currentPilot.cockpitFilter} ${isOverdriveActive ? 'brightness(1.3) contrast(1.2)' : 'brightness(0.85) contrast(1.05)'}`
+          transform: `scale(${pIdx === activeIndex ? (isOverdriveActive ? 1.12 : 1.05) : 1.0}) translate(${mouseX * -8}px, ${mouseY * -5}px)`,
+          filter: `${pilot.cockpitFilter} ${isOverdriveActive ? 'brightness(1.3) contrast(1.2)' : 'brightness(0.85) contrast(1.05)'}`
         }"
       />
-    </transition-group>
+    </div>
 
-    <!-- Cockpit Ambient Tint Overlay -->
+    <!-- Cockpit Ambient Tint Overlay (Smooth Color Shift) -->
     <div
-      class="pointer-events-none absolute inset-0 transition-colors duration-700 mix-blend-color"
-      :style="{ backgroundColor: currentPilot.color, opacity: 0.25 }"
+      class="pointer-events-none absolute inset-0 transition-colors duration-1000 ease-in-out mix-blend-color"
+      :style="{ backgroundColor: currentPilot.color, opacity: 0.28 }"
     ></div>
 
     <div class="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.04] to-transparent opacity-60"></div>
@@ -257,34 +271,34 @@ function triggerLockOn() {
       </div>
     </transition>
 
-    <!-- ── 3. 5 PILOTS 3D ROTATING CAROUSEL (CLEAN & CENTERED) ── -->
+    <!-- ── 3. 5 PILOTS 3D ROTATING TURNTABLE CAROUSEL (SMOOTH CIRCULAR ORBIT) ── -->
     <div class="relative flex-1 flex items-end justify-center pb-12 z-20 pointer-events-none" style="transform-style: preserve-3d;">
       <div
         v-for="(pilot, idx) in pilots"
         :key="pilot.id"
         @click="emit('selectPilot', idx)"
-        class="absolute bottom-2 flex flex-col items-center cursor-pointer transition-all duration-700 ease-out pointer-events-auto group"
+        class="absolute bottom-2 flex flex-col items-center cursor-pointer pointer-events-auto group pilot-card-turntable"
         :style="getPilotTransform(idx)"
       >
         <div class="relative flex items-center justify-center">
-          <!-- Active Pedestal Base Ring -->
+          <!-- Active Pedestal Base Ring (Only for Active Pilot) -->
           <div
             v-if="idx === activeIndex"
-            class="pointer-events-none absolute -bottom-3 h-12 w-48 rounded-full border border-dashed animate-spin-slow opacity-85"
-            :style="{ borderColor: pilot.color, boxShadow: `0 0 30px ${pilot.glow}70` }"
+            class="pointer-events-none absolute -bottom-3 h-12 w-48 rounded-full border border-dashed animate-spin-slow opacity-90 transition-opacity duration-700"
+            :style="{ borderColor: pilot.color, boxShadow: `0 0 35px ${pilot.glow}` }"
           ></div>
 
-          <!-- Pilot Photo Frame -->
+          <!-- Pilot Photo Frame (Sharp & Vivid vs. Grayscale & Hidden) -->
           <div
-            class="relative rounded-2xl overflow-hidden transition-all duration-500"
+            class="relative rounded-2xl overflow-hidden transition-all duration-700"
             :class="[
               idx === activeIndex
-                ? 'border-2 shadow-[0_0_35px_rgba(0,0,0,0.95)]'
-                : 'border border-slate-800/80 opacity-50 hover:opacity-80'
+                ? 'border-2 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
+                : 'border border-slate-800/80'
             ]"
             :style="{
               borderColor: idx === activeIndex ? pilot.color : '#1e293b',
-              boxShadow: idx === activeIndex ? `0 0 30px ${pilot.glow}60` : 'none'
+              boxShadow: idx === activeIndex ? `0 0 35px ${pilot.glow}70` : 'none'
             }"
           >
             <img
@@ -301,36 +315,36 @@ function triggerLockOn() {
 
             <div
               v-if="idx === activeIndex"
-              class="pointer-events-none absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-scan opacity-70"
+              class="pointer-events-none absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-scan opacity-80"
               :style="{ backgroundColor: pilot.color }"
             ></div>
 
-            <!-- Inactive scanlines -->
+            <!-- Inactive Darkening & Scanlines Filter -->
             <div
               v-if="idx !== activeIndex"
-              class="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent,3px,rgba(0,0,0,0.45)_4px)]"
+              class="pointer-events-none absolute inset-0 bg-black/40 bg-[repeating-linear-gradient(0deg,transparent,transparent,3px,rgba(0,0,0,0.5)_4px)]"
             ></div>
           </div>
 
-          <!-- Active Aura Glow -->
+          <!-- Active Aura Glow Flare -->
           <div
             v-if="idx === activeIndex"
-            class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-40 mix-blend-screen transition-all duration-700 -z-10"
+            class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-700 -z-10"
             :style="{ backgroundColor: pilot.color }"
           ></div>
         </div>
 
         <!-- Pilot Name Tag -->
         <div
-          class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-500 font-mono"
+          class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-700 font-mono"
           :class="[
             idx === activeIndex
               ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'
-              : 'bg-[#07090e]/60 border border-slate-800 text-slate-400 text-[10px]'
+              : 'bg-[#07090e]/60 border border-slate-800 text-slate-500 text-[10px]'
           ]"
           :style="{ borderColor: idx === activeIndex ? pilot.color : '#334155' }"
         >
-          <div class="text-[9.5px] font-black" :style="{ color: idx === activeIndex ? pilot.color : '#94a3b8' }">
+          <div class="text-[9.5px] font-black" :style="{ color: idx === activeIndex ? pilot.color : '#64748b' }">
             {{ pilot.callsign.split('//')[0] }}
           </div>
           <div class="text-[11px] font-bold">{{ pilot.name }}</div>
@@ -433,12 +447,10 @@ function triggerLockOn() {
   opacity: 0;
 }
 
-.cockpit-fade-enter-active,
-.cockpit-fade-leave-active {
-  transition: opacity 0.8s ease;
-}
-.cockpit-fade-enter-from,
-.cockpit-fade-leave-to {
-  opacity: 0;
+.pilot-card-turntable {
+  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+              filter 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity, filter;
 }
 </style>
