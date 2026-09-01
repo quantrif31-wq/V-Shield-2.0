@@ -82,12 +82,12 @@ describe('PortalFoundersTurntable', () => {
     expect(wrapper.vm.isAutoRotating).toBe(true)
   })
 
-  it('auto-rotates via setInterval every 5 seconds', () => {
+  it('auto-rotates via setInterval every 6.5 seconds', () => {
     const wrapper = mount(PortalFoundersTurntable, {
       global: { stubs: { PortalMechaWarrior3DStage: stageStub } }
     })
     const initial = wrapper.vm.activeIndex
-    vi.advanceTimersByTime(5001)
+    vi.advanceTimersByTime(6501)
     expect(wrapper.vm.activeIndex).toBe((initial + 1) % 5)
   })
 

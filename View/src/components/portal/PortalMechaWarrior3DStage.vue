@@ -36,7 +36,7 @@ watch(() => props.activeIndex, (newVal) => {
   if (rotateTimer) clearTimeout(rotateTimer)
   rotateTimer = setTimeout(() => {
     isRotating.value = false
-  }, 1500)
+  }, 2000)
 
   // Calculate shortest continuous rotational step
   let diff = newVal - lastIndex
@@ -284,7 +284,7 @@ function triggerLockOn() {
         :key="pilot.id"
         :src="pilot.cockpit"
         :alt="pilot.cockpitName"
-        class="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[1200ms] ease-in-out"
+        class="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[2000ms] ease-in-out"
         :class="pIdx === activeIndex ? 'opacity-100' : 'opacity-0'"
         :style="{
           transform: `scale(${pIdx === activeIndex ? (isOverdriveActive ? 1.12 : 1.05) : 1.0}) translate(${mouseX * -8}px, ${mouseY * -5}px)`,
@@ -295,7 +295,7 @@ function triggerLockOn() {
 
     <!-- Cockpit Ambient Tint Overlay (Smooth Color Shift) -->
     <div
-      class="pointer-events-none absolute inset-0 transition-colors duration-[1200ms] ease-in-out mix-blend-color"
+      class="pointer-events-none absolute inset-0 transition-colors duration-[2000ms] ease-in-out mix-blend-color"
       :style="{ backgroundColor: currentPilot.color, opacity: 0.28 }"
     ></div>
 
@@ -368,7 +368,7 @@ function triggerLockOn() {
         :style="{
           transform: `translateZ(-${wheelRadius}px) rotateY(${currentAngle}deg)`,
           transformStyle: 'preserve-3d',
-          transition: isDragging ? 'none' : 'transform 1.3s cubic-bezier(0.25, 1, 0.35, 1)'
+          transition: isDragging ? 'none' : 'transform 2.0s cubic-bezier(0.25, 1, 0.35, 1)'
         }"
       >
         <!-- 5 Faces Fixed on the Circumference, Facing Outwards (Radial Tangent) -->
@@ -386,7 +386,7 @@ function triggerLockOn() {
           <div class="relative flex items-center justify-center">
             <!-- Pilot Photo Frame (Sharp & Vivid vs. Grayscale & Hidden) -->
             <div
-              class="relative rounded-2xl overflow-hidden transition-all duration-700"
+              class="relative rounded-2xl overflow-hidden transition-all duration-[1600ms] ease-in-out"
               :class="[
                 idx === activeIndex
                   ? 'border-2 scale-105 opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
@@ -426,14 +426,14 @@ function triggerLockOn() {
             <!-- Active Aura Glow Flare -->
             <div
               v-if="idx === activeIndex"
-              class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-700 -z-10"
+              class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-[1600ms] -z-10"
               :style="{ backgroundColor: pilot.color }"
             ></div>
           </div>
 
           <!-- Pilot Name Tag -->
           <div
-            class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-700 font-mono"
+            class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-[1600ms] font-mono"
             :class="[
               idx === activeIndex
                 ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'

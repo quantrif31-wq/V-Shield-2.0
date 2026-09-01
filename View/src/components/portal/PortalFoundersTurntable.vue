@@ -124,7 +124,7 @@ function startAutoRotate() {
   stopAutoRotate()
   autoRotateTimer = setInterval(() => {
     activeIndex.value = (activeIndex.value + 1) % champions.length
-  }, 5000)
+  }, 6500)
 }
 
 function stopAutoRotate() {
