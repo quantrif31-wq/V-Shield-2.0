@@ -134,10 +134,14 @@ async function requestWithBaseUrlFallback(config) {
 }
 
 export async function turnOnCamera(ip) {
+  const cleanIp = String(ip || "").trim()
+  if (!cleanIp) {
+    return { success: false, message: "Chưa cấu hình URL camera biển số" }
+  }
   return requestWithBaseUrlFallback({
     method: "post",
     url: "/camera/on",
-    data: { ip }
+    data: { ip: cleanIp }
   })
 }
 

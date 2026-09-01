@@ -2769,6 +2769,15 @@ else {
       if (lane.plate.cameraRunning) return true
       if (Date.now() < lane.auto.plateCooldownUntil) return false
 
+      const targetIp = String(
+        lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || ""
+      ).trim()
+      if (!targetIp) {
+        lane.auto.plateCooldownUntil = Date.now() + 5000
+        lane.auto.error = "Chưa chọn camera biển số"
+        return false
+      }
+
       const holder = this.lanes.find(
         (x) => x.id !== lane.id && x.plate.cameraRunning && x.plate.sessionId > 0
       )
@@ -2785,14 +2794,12 @@ else {
       try {
         this.releaseOtherPlateLanes(lane)
         this.stopPlateLoop(lane)
-        const res = await lane.plateApi.turnOnCamera(
-          lane.plate.currentIp || lane.plate.cameraIp
-        )
+        const res = await lane.plateApi.turnOnCamera(targetIp)
         if (res?.success || res?.session_id) {
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(res.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.currentIp = lane.plate.currentIp || lane.plate.cameraIp
+          lane.plate.currentIp = targetIp
           lane.plate.scanActive = true
           this.startPlateLoop(lane)
           return true
@@ -3149,8 +3156,12 @@ else {
 },
 
     async readAllLane(lane) {
-      if (!lane.qr.cameraIp.trim() || !lane.plate.cameraIp.trim()) {
-        alert("Vui lòng nhập đủ URL QR và biển số")
+      const qrIp = String(lane.qr.cameraIp || lane.qr.currentIp || "").trim()
+      const plateIp = String(
+        lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || ""
+      ).trim()
+      if (!qrIp || !plateIp) {
+        alert("Vui lòng chọn hoặc nhập đủ URL QR và biển số")
         return
       }
 
@@ -3161,7 +3172,7 @@ else {
         if (!lane.plate.cameraRunning) {
           this.releaseOtherPlateLanes(lane)
           this.stopPlateLoop(lane)
-          const resPlate = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
+          const resPlate = await lane.plateApi.turnOnCamera(plateIp)
           if (!resPlate?.success) {
             alert(resPlate?.message || "Không thể khởi tạo trình nhận diện biển số")
             return
@@ -3169,7 +3180,9 @@ else {
           lane.plate.cameraRunning = true
           lane.plate.sessionId = Number(resPlate.session_id || 0)
           lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = resPlate.message || "Khởi tạo trình nhận diện biển số thành công"
+          lane.plate.currentIp = plateIp
+          lane.plate.message =
+            resPlate.message || "Khởi tạo trình nhận diện biển số thành công"
         } else {
           this.releaseOtherPlateLanes(lane)
           const resPlate = await lane.plateApi.resetCameraState()
@@ -3193,34 +3206,34 @@ else {
     },
 
     async retryQr(lane) {
-  if (!lane.qr.cameraIp.trim()) {
-    alert("Vui lòng nhập URL QR")
-    return
-  }
-
-  try {
-    lane.loading = true
-    await this.restartQrSession(lane, "Đang quét lại QR...")
-  } catch (e) {
-    console.error("retryQr error:", e)
-    alert(e?.message || "Loi doc lai QR")
-  } finally {
-    lane.loading = false
-  }
-},
-
-    async retryPlate(lane) {
-      if (!lane.plate.cameraIp.trim()) {
-        alert("Vui lòng nhập URL Plate")
+      const qrIp = String(lane.qr.cameraIp || lane.qr.currentIp || "").trim()
+      if (!qrIp) {
+        alert("Vui lòng nhập hoặc chọn URL QR")
         return
       }
 
       try {
         lane.loading = true
+        await this.restartQrSession(lane, "Đang quét lại QR...")
+      } catch (e) {
+        console.error("retryQr error:", e)
+        alert(e?.message || "Lỗi đọc lại QR")
+      } finally {
+        lane.loading = false
+      }
+    },
 
-        
-        
+    async retryPlate(lane) {
+      const plateIp = String(
+        lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || ""
+      ).trim()
+      if (!plateIp) {
+        alert("Vui lòng nhập hoặc chọn URL Plate")
+        return
+      }
 
+      try {
+        lane.loading = true
         this.clearPlateState(lane.plate)
 
         if (!lane.plate.cameraRunning) {
