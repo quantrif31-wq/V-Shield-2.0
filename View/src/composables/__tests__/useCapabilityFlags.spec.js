@@ -20,6 +20,9 @@ describe('useCapabilityFlags', () => {
     expect(capabilityFlags.canViewReports.value).toBe(true)
     expect(capabilityFlags.canActEmergency.value).toBe(true)
     expect(capabilityFlags.canExportEvidence.value).toBe(true)
+    expect(capabilityFlags.canManageEvidenceGovernance.value).toBe(true)
+    expect(capabilityFlags.canManageIdentity.value).toBe(true)
+    expect(capabilityFlags.canViewDevices.value).toBe(true)
   })
 
   it('grants BaoVe lane and soc visibility only', () => {
@@ -54,5 +57,12 @@ describe('useCapabilityFlags', () => {
     expect(capabilityFlags.canManageFoundation.value).toBe(false)
     expect(capabilityFlags.canViewSoc.value).toBe(false)
     expect(capabilityFlags.canViewReports.value).toBe(false)
+    expect(capabilityFlags.canManageEvidenceGovernance.value).toBe(false)
+    expect(capabilityFlags.canManageIdentity.value).toBe(false)
+    expect(capabilityFlags.canViewDevices.value).toBe(false)
+    expect(capabilityFlags.canActEmergency.value).toBe(false)
+    expect(capabilityFlags.canViewOperations.value).toBe(false)
+    expect(capabilityFlags.canReleaseApproval.value).toBe(false)
+    expect(capabilityFlags.canExportEvidence.value).toBe(false)
   })
 })

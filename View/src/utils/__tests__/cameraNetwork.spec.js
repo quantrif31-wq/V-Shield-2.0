@@ -58,6 +58,7 @@ describe('cameraNetwork normalizeCameraUrl', () => {
   it('returns empty for blank input and raw value for unparseable', () => {
     expect(normalizeCameraUrl('')).toBe('')
     expect(normalizeCameraUrl('   ')).toBe('')
+    expect(normalizeCameraUrl('http://')).toBe('http://')
   })
 })
 
@@ -66,6 +67,8 @@ describe('cameraNetwork preview helpers', () => {
     expect(isKnownStreamPreviewUrl('http://10.0.0.5/video')).toBe(true)
     expect(isKnownStreamPreviewUrl('http://10.0.0.5/videofeed')).toBe(true)
     expect(isKnownStreamPreviewUrl('http://10.0.0.5/feed')).toBe(false)
+    expect(isKnownStreamPreviewUrl('http://')).toBe(false)
+    expect(isKnownStreamPreviewUrl('rtsp://x/y')).toBe(false)
   })
 
   it('builds a health probe url by stripping preview paths', () => {
@@ -73,6 +76,7 @@ describe('cameraNetwork preview helpers', () => {
     expect(buildCameraHealthProbeUrl('http://10.0.0.5/videofeed')).toBe('http://10.0.0.5/')
     expect(buildCameraHealthProbeUrl('http://10.0.0.5/misc')).toBe('http://10.0.0.5/misc')
     expect(buildCameraHealthProbeUrl('rtsp://x/y')).toBe('')
+    expect(buildCameraHealthProbeUrl('http://')).toBe('http://')
   })
 
   it('appends cache-bust only for http urls outside known preview paths', () => {
