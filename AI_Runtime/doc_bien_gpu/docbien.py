@@ -71,22 +71,22 @@ else:
 
 MODEL_PATH = os.path.join(base_path, "best.pt")
 
-CONF_THRES = 0.7
-IOU_THRES = 0.6
-IMG_SIZE = 416
+CONF_THRES = 0.35
+IOU_THRES = 0.5
+IMG_SIZE = 640
 
-STABLE_FRAMES = 2
-DETECT_EVERY_N_FRAMES = 4
-PADDING = 20
+STABLE_FRAMES = 1
+DETECT_EVERY_N_FRAMES = 2
+PADDING = 25
 
-CONFIRM_MIN_VOTES = 2
+CONFIRM_MIN_VOTES = 1
 CONFIRM_RATIO = 0.5
-OCR_COOLDOWN = 0.2
+OCR_COOLDOWN = 0.1
 
 JPEG_QUALITY = 80
 STREAM_WIDTH = 640
 STREAM_HEIGHT = 360
-MOVE_THRESHOLD = 20
+MOVE_THRESHOLD = 60
 
 LOCK_AFTER_CONFIRM = True
 API_PORT = int(os.getenv("PORT", 5002))
@@ -345,16 +345,41 @@ def is_similar_box(box1, box2, threshold=15):
     return bool(np.all(np.abs(box1 - box2) < threshold))
 
 def normalize_plate_text(text: str) -> str:
-    return text.replace(" ", "").replace("-", "").replace(".", "").upper()
+    return re.sub(r"[^A-Z0-9]", "", str(text or "").upper())
+
+def clean_and_normalize_vn_plate(raw_text: str) -> str:
+    t = normalize_plate_text(raw_text)
+    if len(t) < 6:
+        return t
+    chars = list(t)
+    c2d = {'O': '0', 'D': '0', 'Q': '0', 'I': '1', 'L': '1', 'Z': '2', 'E': '3', 'A': '4', 'S': '5', 'G': '6', 'B': '8'}
+    if len(chars) >= 2 and chars[0].isalpha() and chars[1].isdigit():
+        if chars[0] in c2d:
+            chars[0] = c2d[chars[0]]
+    if len(chars) >= 2 and chars[0].isdigit() and chars[1].isalpha():
+        if chars[1] in c2d:
+            chars[1] = c2d[chars[1]]
+    tail_len = min(5, max(4, len(chars) - 3))
+    for i in range(len(chars) - tail_len, len(chars)):
+        if chars[i] in c2d:
+            chars[i] = c2d[chars[i]]
+    return "".join(chars)
 
 def validate_plate(text):
-    text = normalize_plate_text(text)
+    if not text:
+        return False, None
+    cleaned = clean_and_normalize_vn_plate(text)
     patterns = [
-        r"^\d{2}[A-Z]{1,2}\d{4,6}$",
+        r"^\d{2}[A-Z]{1,2}\d{4,6}$",        # Oto: 30A12345, 29LD12345
+        r"^\d{2}[A-Z0-9]{2,3}\d{4,6}$",    # Xe may: 29X112345, 59MD112345, 59AA12345
+        r"^[A-Z]{2}\d{4,6}$",               # Quan su / Ngoai giao: TM1234, NG12345
+        r"^\d{2}[A-Z0-9]{1,4}\d{3,6}$"     # Fallback tong quat cho bien so hop le
     ]
     for pattern in patterns:
-        if re.match(pattern, text):
+        if re.match(pattern, cleaned):
             return True, "vn_plate"
+    if 6 <= len(cleaned) <= 11 and any(c.isdigit() for c in cleaned):
+        return True, "vn_plate_generic"
     return False, None
 
 def clear_ocr_queue():
@@ -548,36 +573,71 @@ def extract_text_from_ocr(result):
     return text, avg_conf
 
 def smart_rotate_ocr_candidates(crop):
-    rotations = [
-        crop,
-        cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE),
-        cv2.rotate(crop, cv2.ROTATE_90_COUNTERCLOCKWISE),
-        cv2.rotate(crop, cv2.ROTATE_180),
+    if crop is None or crop.size == 0:
+        return []
+
+    # Priority 1: standard upright (enhanced and raw)
+    primary_variants = [
+        enhance_plate(crop),
+        crop
     ]
 
     candidates = []
 
-    for img in rotations:
+    for img in primary_variants:
         try:
-            processed = enhance_plate(img)
-            result = ocr.ocr(processed)
+            result = ocr.ocr(img)
             text, conf = extract_text_from_ocr(result)
 
-            if text and conf > 0.45:
-                normalized = normalize_plate_text(text)
-                is_valid, _ = validate_plate(normalized)
-                score = conf * len(normalized)
+            if text and conf > 0.35:
+                cleaned = clean_and_normalize_vn_plate(text)
+                is_valid, _ = validate_plate(cleaned)
+                score = conf * len(cleaned)
                 if is_valid:
-                    score += 5
+                    score += 10.0
 
                 candidates.append({
-                    "text": str(normalized),
+                    "text": str(cleaned),
                     "conf": float(round(float(conf), 4)),
                     "valid": bool(is_valid),
                     "score": float(round(float(score), 4))
                 })
         except Exception as e:
-            print("Rotate OCR error:", e)
+            print("Primary OCR error:", e)
+
+    # If already found a valid plate with good score, return immediately (fast path!)
+    if any(c["valid"] for c in candidates):
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates[:5]
+
+    # Priority 2: secondary orientations only if primary failed
+    fallback_rotations = [
+        cv2.rotate(crop, cv2.ROTATE_180),
+        cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE),
+        cv2.rotate(crop, cv2.ROTATE_90_COUNTERCLOCKWISE),
+    ]
+
+    for img in fallback_rotations:
+        try:
+            processed = enhance_plate(img)
+            result = ocr.ocr(processed)
+            text, conf = extract_text_from_ocr(result)
+
+            if text and conf > 0.40:
+                cleaned = clean_and_normalize_vn_plate(text)
+                is_valid, _ = validate_plate(cleaned)
+                score = conf * len(cleaned)
+                if is_valid:
+                    score += 10.0
+
+                candidates.append({
+                    "text": str(cleaned),
+                    "conf": float(round(float(conf), 4)),
+                    "valid": bool(is_valid),
+                    "score": float(round(float(score), 4))
+                })
+        except Exception as e:
+            print("Fallback rotate OCR error:", e)
 
     dedup = {}
     for item in candidates:
@@ -1537,13 +1597,13 @@ def main():
                             if len(results[0].boxes) > 0:
                                 conf = float(results[0].boxes.conf[0])
 
-                                if conf > 0.75:
+                                if conf >= CONF_THRES:
                                     new_box = results[0].boxes.xyxy[0].cpu().numpy().astype(int)
 
                                     if is_similar_box(last_box, new_box):
                                         stable_count += 1
                                     else:
-                                        stable_count = 0
+                                        stable_count = 1
 
                                     last_box = new_box
                                 else:
