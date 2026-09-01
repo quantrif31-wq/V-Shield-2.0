@@ -166,6 +166,13 @@
                 >
                   Đã khóa QR, đang xác thực...
                 </div>
+                <div
+                  v-else-if="lane.qr.backendPhase === 'verified' || lane.qr.activeSessionVerifyState === 'success'"
+                  class="result-hint result-hint--ok"
+                  style="color: #10b981; font-weight: 600;"
+                >
+                  ✓ Đã xác thực: {{ lane.qr.employeeName || 'Thành công' }}
+                </div>
               </div>
               <div v-if="lane.auto.error" class="auto-error-banner">{{ lane.auto.error }}</div>
             </div>
