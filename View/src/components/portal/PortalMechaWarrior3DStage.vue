@@ -30,7 +30,7 @@ watch(() => props.activeIndex, (newVal) => {
   if (rotateTimer) clearTimeout(rotateTimer)
   rotateTimer = setTimeout(() => {
     isRotating.value = false
-  }, 850)
+  }, 1400)
 
   // Calculate shortest continuous rotational step
   let diff = newVal - lastIndex
@@ -227,19 +227,14 @@ function triggerLockOn() {
       class="pointer-events-none absolute inset-0 flex items-center justify-center z-30"
     >
       <div class="h-44 w-44 rounded-full border-2 border-red-500/80 animate-ping opacity-60"></div>
-      <div class="absolute h-60 w-60 rounded-full border border-dashed border-red-400/80 animate-spin-slow"></div>
     </div>
 
-    <!-- ── DYNAMIC HOLO-WARP WAVE & SCANLINE BURST ON ROTATION ── -->
+    <!-- ── DYNAMIC HOLO-WARP WAVE ON ROTATION ── -->
     <transition name="warp-flash">
       <div
         v-if="isRotating"
         class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center mix-blend-screen overflow-hidden"
       >
-        <div
-          class="h-80 w-80 rounded-full border-2 border-dashed animate-ping opacity-70"
-          :style="{ borderColor: currentPilot.color, boxShadow: `0 0 50px ${currentPilot.glow}` }"
-        ></div>
         <div
           class="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-white to-transparent animate-laser-sweep"
           :style="{ backgroundColor: currentPilot.color, boxShadow: `0 0 25px ${currentPilot.color}` }"
@@ -247,18 +242,18 @@ function triggerLockOn() {
       </div>
     </transition>
 
-    <!-- ── 3. 5 PILOTS 3D ROTATING CYLINDER TURNTABLE CAROUSEL ── -->
+    <!-- ── 3. 5 PILOTS 3D ROTATING CYLINDER TURNTABLE CAROUSEL (SMOOTH & CINEMATIC) ── -->
     <div
       class="relative flex-1 flex items-center justify-center pb-8 z-20 pointer-events-none"
       style="perspective: 1200px; transform-style: preserve-3d;"
     >
-      <!-- Rotating Turntable Cylinder (Revolves continuously in real 3D space) -->
+      <!-- Rotating Turntable Cylinder (1.4s smooth ease) -->
       <div
         class="carousel-turntable-cylinder relative w-[240px] h-[370px]"
         :style="{
           transform: `translateZ(-${cylinderRadius}px) rotateY(${currentAngle}deg)`,
           transformStyle: 'preserve-3d',
-          transition: 'transform 0.85s cubic-bezier(0.22, 1, 0.36, 1)'
+          transition: 'transform 1.4s cubic-bezier(0.25, 1, 0.35, 1)'
         }"
       >
         <div
@@ -272,16 +267,9 @@ function triggerLockOn() {
           }"
         >
           <div class="relative flex items-center justify-center">
-            <!-- Active Pedestal Base Ring (Only for Active Pilot) -->
-            <div
-              v-if="idx === activeIndex"
-              class="pointer-events-none absolute -bottom-3 h-12 w-48 rounded-full border border-dashed animate-spin-slow opacity-90 transition-opacity duration-700"
-              :style="{ borderColor: pilot.color, boxShadow: `0 0 35px ${pilot.glow}` }"
-            ></div>
-
             <!-- Pilot Photo Frame (Sharp & Vivid vs. Grayscale & Hidden) -->
             <div
-              class="relative rounded-2xl overflow-hidden transition-all duration-700"
+              class="relative rounded-2xl overflow-hidden transition-all duration-1000 ease-out"
               :class="[
                 idx === activeIndex
                   ? 'border-2 scale-105 opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
@@ -321,14 +309,14 @@ function triggerLockOn() {
             <!-- Active Aura Glow Flare -->
             <div
               v-if="idx === activeIndex"
-              class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-700 -z-10"
+              class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-1000 -z-10"
               :style="{ backgroundColor: pilot.color }"
             ></div>
           </div>
 
           <!-- Pilot Name Tag -->
           <div
-            class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-700 font-mono"
+            class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-1000 font-mono"
             :class="[
               idx === activeIndex
                 ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'
@@ -413,14 +401,6 @@ function triggerLockOn() {
   animation: laserScan 3s ease-in-out infinite;
 }
 
-@keyframes spinSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin-slow {
-  animation: spinSlow 20s linear infinite;
-}
-
 @keyframes laserSweep {
   0% { top: 0%; opacity: 0; }
   30% { opacity: 0.9; }
@@ -428,12 +408,12 @@ function triggerLockOn() {
   100% { top: 100%; opacity: 0; }
 }
 .animate-laser-sweep {
-  animation: laserSweep 0.65s ease-in-out forwards;
+  animation: laserSweep 0.8s ease-in-out forwards;
 }
 
 .warp-flash-enter-active,
 .warp-flash-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s ease;
 }
 .warp-flash-enter-from,
 .warp-flash-leave-to {
@@ -442,7 +422,7 @@ function triggerLockOn() {
 
 .pilot-card-3d {
   backface-visibility: hidden;
-  transition: opacity 0.7s ease, filter 0.7s ease;
+  transition: opacity 1.4s ease, filter 1.4s ease;
 }
 .carousel-turntable-cylinder {
   will-change: transform;
