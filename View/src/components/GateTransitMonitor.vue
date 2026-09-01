@@ -1643,10 +1643,10 @@ export default {
                     ""
                 )
                 qr.employeeId = ""
-                qr.employeeName = result.data.fullName || result.data.visitorName || ""
+                qr.employeeName = result.data.fullName || result.data.visitorName || result.data.subjectName || ""
               } else {
                 qr.employeeId = String(result.data.employeeId || "")
-                qr.employeeName = result.data.employeeName || ""
+                qr.employeeName = result.data.employeeName || result.data.subjectName || result.data.fullName || ""
                 qr.guestId = ""
               }
 
@@ -2558,10 +2558,10 @@ export default {
     ""
   )
   qr.employeeId = ""
-  qr.employeeName = result?.data?.fullName || result?.data?.visitorName || ""
+  qr.employeeName = result?.data?.fullName || result?.data?.visitorName || result?.data?.subjectName || ""
 } else {
             qr.employeeId = result?.data?.employeeId ? String(result.data.employeeId) : ""
-            qr.employeeName = result?.data?.employeeName || ""
+            qr.employeeName = result?.data?.employeeName || result?.data?.subjectName || result?.data?.fullName || ""
             qr.guestId = ""
           }
           const identityOverlay = this.buildQrIdentityOverlay(result?.data)

@@ -6,20 +6,20 @@ import re
 import urllib.parse
 import urllib.request
 from pyzbar import pyzbar
+from pyzbar.pyzbar import ZBarSymbol
 from threading import Thread, Lock
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-
 
 PREVIEW_WIDTH = 960
 PREVIEW_HEIGHT = 540
 CANDIDATE_REQUIRED_COUNT = 1
 CANDIDATE_WINDOW_MS = 1200
 CANDIDATE_PERSIST_MS = 1200
-RESULT_HOLD_MS = 1500
-SAME_CODE_COOLDOWN_MS = 3000
-VANISH_RESET_MS = 1500
+RESULT_HOLD_MS = 800
+SAME_CODE_COOLDOWN_MS = 1000
+VANISH_RESET_MS = 800
 IDLE_SLEEP_SECONDS = 0.008
 SCAN_TARGET_INTERVAL_SECONDS = 0.02
 BURST_SCAN_WINDOW_SECONDS = 2.5
@@ -29,7 +29,6 @@ FRAME_DECODE_BUDGET_SECONDS = 0.35
 BURST_FRAME_DECODE_BUDGET_SECONDS = 0.45
 FAST_SCALE_FACTORS = (1.0, 1.35, 1.7, 2.1)
 FULL_SCALE_FACTORS = (1.0, 1.4, 1.8, 2.4, 3.0)
-
 
 state = {
     "running": False,
@@ -66,7 +65,6 @@ latest_frame_seq = 0
 stop_flag = False
 qr_detector = cv2.QRCodeDetector()
 
-
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +93,15 @@ def enhance(img):
 def sharpen(gray):
     blurred = cv2.GaussianBlur(gray, (0, 0), 1.2)
     return cv2.addWeighted(gray, 1.7, blurred, -0.7, 0)
+
+
+def decode_qr_symbols(image):
+    """Decode QR only: avoids slow barcode-family probes on live video frames."""
+    try:
+        return pyzbar.decode(image, symbols=[ZBarSymbol.QRCODE])
+    except Exception as exc:
+        slog(f"pyzbar QR decode failed: {exc}")
+        return []
 
 
 def fit_preview(frame):
@@ -319,7 +326,7 @@ def decode_qr(frame, scan_session_id=0, deadline_at=0.0):
                     else variant
                 )
 
-                barcodes = pyzbar.decode(resized)
+                barcodes = decode_qr_symbols(resized)
                 if barcodes:
                     data = barcodes[0].data.decode(errors="ignore")
                     slog(f"decode_qr pyzbar OK: {data}")
@@ -367,7 +374,7 @@ def decode_qr_fast(frame, scan_session_id=0, deadline_at=0.0):
                 if scale != 1.0
                 else variant
             )
-            barcodes = pyzbar.decode(resized)
+            barcodes = decode_qr_symbols(resized)
             if barcodes:
                 data = barcodes[0].data.decode(errors="ignore")
                 slog(f"decode_qr_fast pyzbar OK: {data}")
@@ -386,45 +393,52 @@ def decode_live_frame(frame, allow_full=True, scan_session_id=0, deadline_at=0.0
     if should_abort_decode(scan_session_id, deadline_at):
         return None, ""
 
-    # Direct pass on original frame (catches sharp QR codes without downscale blur)
-    direct_barcodes = pyzbar.decode(frame)
+    # Never decode the raw camera frame here. A 2K/4K frame can block zbar long
+    # enough to starve the single scan worker, leaving the UI stuck at SCANNING.
+    preview = fit_preview(frame)
+    gray = cv2.cvtColor(preview, cv2.COLOR_BGR2GRAY)
+
+    # Fast QR-only pass on a bounded image size.
+    direct_barcodes = decode_qr_symbols(gray)
     if direct_barcodes:
         data = direct_barcodes[0].data.decode(errors="ignore").strip()
         if data:
             slog(f"decode_live_frame direct pyzbar OK: {data}")
             return data, "direct-pyzbar"
 
-    preview = fit_preview(frame)
     slog(f"decode_live_frame: frame={frame.shape} preview={preview.shape}")
 
-    gray = cv2.cvtColor(preview, cv2.COLOR_BGR2GRAY)
     eq = cv2.equalizeHist(gray)
     sharp = sharpen(gray)
+    ad51 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 51, 2)
+    _, th220 = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY)
+    ad31 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 4)
+    _, th180 = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
+
     quick_variants = [
+        ("adaptive-51", ad51),
+        ("screen-thresh-220", th220),
         ("preview-gray", gray),
+        ("adaptive-31", ad31),
         ("preview-eq", eq),
+        ("screen-thresh-180", th180),
         ("preview-sharp", sharp),
         ("preview-blur", cv2.GaussianBlur(eq, (3, 3), 0)),
     ]
 
-    # 1) fast whole-image pass: pyzbar + cv2 on a few grayscale variants
+    # 1) fast whole-image pass: pyzbar on a few grayscale/glare variants
     for variant_name, img in quick_variants:
         if should_abort_decode(scan_session_id, deadline_at):
             return None, ""
-        barcodes = pyzbar.decode(img)
+        barcodes = decode_qr_symbols(img)
         if barcodes:
-            data = barcodes[0].data.decode(errors="ignore")
-            slog(f"decode_live_frame pyzbar OK: {data} ({variant_name})")
-            return data, variant_name
-        decoded, _, _ = qr_detector.detectAndDecode(img)
-        if decoded:
-            data = decoded.strip()
-            slog(f"decode_live_frame cv2 OK: {data} ({variant_name})")
-            return data, variant_name
+            data = barcodes[0].data.decode(errors="ignore").strip()
+            if data:
+                slog(f"decode_live_frame pyzbar OK: {data} ({variant_name})")
+                return data, variant_name
 
-    # 2) detection-driven ROI decode: find QR boxes, crop + upscale to catch
-    #    small or partially-visible codes that the whole-image pass missed.
-    for variant_name, img in (("eq", eq), ("gray", gray)):
+    # 2) detection-driven ROI decode: find QR boxes, crop + upscale
+    for variant_name, img in (("adaptive-51", ad51), ("screen-thresh-220", th220), ("eq", eq), ("gray", gray)):
         if should_abort_decode(scan_session_id, deadline_at):
             return None, ""
         ok, points = qr_detector.detect(img)
@@ -445,7 +459,7 @@ def decode_live_frame(frame, allow_full=True, scan_session_id=0, deadline_at=0.0
                 roi_big = cv2.resize(roi, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_CUBIC)
                 decoded, _, _ = qr_detector.detectAndDecode(roi_big)
                 if not decoded:
-                    barcodes = pyzbar.decode(roi_big)
+                    barcodes = decode_qr_symbols(roi_big)
                     if barcodes:
                         decoded = barcodes[0].data.decode(errors="ignore")
                 if decoded:
