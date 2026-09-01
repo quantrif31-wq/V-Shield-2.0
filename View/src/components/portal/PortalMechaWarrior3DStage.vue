@@ -23,7 +23,45 @@ let rotateTimer = null
 
 const wheelRadius = 270
 const currentAngle = ref(-props.activeIndex * 72)
+let targetAngle = -props.activeIndex * 72
 let lastIndex = props.activeIndex
+
+let animationFrameId = null
+let animStartTime = 0
+let animStartAngle = currentAngle.value
+let animDuration = 1800
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+function animateToAngle(toAngle, duration = 1800) {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+  animStartTime = performance.now()
+  animStartAngle = currentAngle.value
+  targetAngle = toAngle
+  animDuration = duration
+
+  function step(now) {
+    const elapsed = now - animStartTime
+    const progress = Math.min(elapsed / animDuration, 1)
+    const ease = easeOutCubic(progress)
+
+    currentAngle.value = animStartAngle + (targetAngle - animStartAngle) * ease
+
+    if (progress < 1) {
+      animationFrameId = requestAnimationFrame(step)
+    } else {
+      currentAngle.value = targetAngle
+      animationFrameId = null
+    }
+  }
+
+  animationFrameId = requestAnimationFrame(step)
+}
 
 const isDragging = ref(false)
 const startX = ref(0)
@@ -32,22 +70,22 @@ const hasDragged = ref(false)
 
 watch(() => props.activeIndex, (newVal) => {
   if (isDragging.value) return
-  isRotating.value = true
-  if (rotateTimer) clearTimeout(rotateTimer)
-  rotateTimer = setTimeout(() => {
-    isRotating.value = false
-  }, 2000)
 
   // Calculate shortest continuous rotational step
   let diff = newVal - lastIndex
   if (diff > 2) diff -= 5
   if (diff < -2) diff += 5
 
-  currentAngle.value -= diff * 72
+  const newTarget = targetAngle - diff * 72
   lastIndex = newVal
+  animateToAngle(newTarget, 1800)
 })
 
 function handleDragStart(clientX) {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
   isDragging.value = true
   hasDragged.value = false
   startX.value = clientX
@@ -60,13 +98,13 @@ function handleDragMove(clientX) {
   if (Math.abs(deltaX) > 6) {
     hasDragged.value = true
   }
-  // Drag rotation sensitivity: 0.35 deg per pixel
+  // Drag sensitivity: 0.35 deg per pixel
   currentAngle.value = startAngle.value + deltaX * 0.35
+  targetAngle = currentAngle.value
 
   // Estimate active index while dragging
   const step = 72
-  let estimatedIndex = Math.round(-currentAngle.value / step) % pilots.length
-  if (estimatedIndex < 0) estimatedIndex += pilots.length
+  let estimatedIndex = (Math.round(-currentAngle.value / step) % pilots.length + pilots.length) % pilots.length
   if (estimatedIndex !== props.activeIndex) {
     emit('selectPilot', estimatedIndex)
   }
@@ -79,18 +117,17 @@ function handleDragEnd() {
   // Snap smoothly to nearest 72 deg slot
   const step = 72
   const targetSlot = Math.round(currentAngle.value / step)
-  currentAngle.value = targetSlot * step
+  const snapTarget = targetSlot * step
 
-  let finalIndex = (-targetSlot) % pilots.length
-  if (finalIndex < 0) finalIndex += pilots.length
+  let finalIndex = (-targetSlot % pilots.length + pilots.length) % pilots.length
   lastIndex = finalIndex
 
+  animateToAngle(snapTarget, 1000)
   emit('selectPilot', finalIndex)
   mechaAudio.playTargetLock()
 }
 
 function onMouseDown(e) {
-  // Prevent dragging on control buttons
   if (e.target.closest('button')) return
   handleDragStart(e.clientX)
   window.addEventListener('mousemove', onMouseMoveWindow)
@@ -125,7 +162,7 @@ function onTouchEnd() {
 }
 
 onUnmounted(() => {
-  if (rotateTimer) clearTimeout(rotateTimer)
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('mousemove', onMouseMoveWindow)
   window.removeEventListener('mouseup', onMouseUpWindow)
 })
@@ -368,8 +405,7 @@ function triggerLockOn() {
         :style="{
           transform: `translateZ(-${wheelRadius}px) rotateY(${currentAngle}deg)`,
           transformStyle: 'preserve-3d',
-          WebkitTransformStyle: 'preserve-3d',
-          transition: isDragging ? 'none' : 'transform 2.0s cubic-bezier(0.25, 1, 0.35, 1)'
+          WebkitTransformStyle: 'preserve-3d'
         }"
       >
         <!-- 5 Faces Fixed on the Circumference, Facing Outwards (Radial Tangent) -->
