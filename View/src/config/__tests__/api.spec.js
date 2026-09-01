@@ -61,4 +61,13 @@ describe('config/api', () => {
     expect(PLATE_API_BASE_URL).toBe('http://plate.local:5002/api')
     expect(PLATE_API_ORIGIN).toBe('http://plate.local:5002')
   })
+
+  it('rewrites remote v-shield.site URLs to /api when window.location is localhost', async () => {
+    import.meta.env.VITE_API_BASE_URL = 'https://v-shield.site/api'
+    import.meta.env.VITE_PLATE_API_BASE_URL = 'https://v-shield.site/api/PlateCamera'
+    vi.stubGlobal('window', { location: { protocol: 'http:', hostname: 'localhost', port: '5173' } })
+    const { API_BASE_URL, PLATE_API_BASE_URL } = await loadApi()
+    expect(API_BASE_URL).toBe('/api')
+    expect(PLATE_API_BASE_URL).toBe('/api/PlateCamera')
+  })
 })
