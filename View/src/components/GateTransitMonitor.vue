@@ -2228,15 +2228,8 @@ export default {
 
       const kickoffSessionId = qr.controlSessionId
       qr.scanKickoffBusy = true
-      qr.scanRequested = false
 
       try {
-        await this.resetLaneQrSession(lane).catch(() => {})
-        if (qr.controlSessionId !== kickoffSessionId) return
-
-        await new Promise((r) => setTimeout(r, 100))
-        if (qr.controlSessionId !== kickoffSessionId) return
-
         await this.scanLaneQrOnce(lane).catch(() => {})
         if (qr.controlSessionId !== kickoffSessionId) return
 
@@ -3035,44 +3028,16 @@ else {
       const incomingSessionId = Number(res.session_id || 0)
       const incomingIp = String(res.ip || "").trim()
 
-      const laneSessionId = Number(plate.sessionId || 0)
-      const laneCurrentIp = String(plate.currentIp || plate.cameraIp || "").trim()
-      const hasLaneSession = laneSessionId > 0
-      const hasIncomingSession = incomingSessionId > 0
-
-      if (hasLaneSession && hasIncomingSession && laneSessionId !== incomingSessionId) {
-        if (plate.cameraRunning && allowTurnOffReset) {
-          this.stopPlateLoop(lane)
-          this.hardResetPlate(plate)
-        }
-        return
-      }
-
-      if (!hasLaneSession && !plate.cameraRunning) {
-        return
-      }
-
-      if (!hasLaneSession && incomingIp && laneCurrentIp && incomingIp !== laneCurrentIp) {
-        return
-      }
-
       if (incomingSessionId > 0) {
-        if (plate.lastAppliedSessionId > 0 && incomingSessionId < plate.lastAppliedSessionId) {
-          return
-        }
-
-        if (incomingSessionId > plate.lastAppliedSessionId) {
-          plate.lastAppliedSessionId = incomingSessionId
-          plate.sessionId = incomingSessionId
-          plate.lastLockedImageSessionId = 0
-        } else if (!plate.sessionId) {
-          plate.sessionId = incomingSessionId
-        }
+        plate.sessionId = incomingSessionId
+        plate.lastAppliedSessionId = incomingSessionId
       }
 
       const incomingCameraEnabled = !!res.camera_enabled
+      if (typeof res.camera_enabled !== "undefined") {
+        plate.cameraRunning = incomingCameraEnabled
+      }
 
-      plate.cameraRunning = incomingCameraEnabled
       plate.currentIp = res.ip || plate.currentIp
       plate.confirmedPlate = res.confirmed_plate || ""
       plate.lastRawPlate = res.last_raw_plate || ""
