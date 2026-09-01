@@ -569,19 +569,26 @@ def process_candidate(payload, source_name, scan_session_id):
             state["candidate_payload"] = payload
             state["candidate_source"] = source_name
             state["candidate_seen_count"] = 1
-            slog(f"process_candidate: new payload '{payload}' count=1 src={source_name}")
 
         state["candidate_last_seen_at"] = now
         state["candidate_source"] = source_name
 
         if state["candidate_seen_count"] >= CANDIDATE_REQUIRED_COUNT:
             if payload == state.get("last_fired_payload"):
-                state["cooldown_payload"] = payload
-                state["cooldown_until"] = now + SAME_CODE_COOLDOWN_MS
-                state["candidate_seen_count"] = 1
-                slog(f"process_candidate: same code in cooldown '{payload}'")
-                set_phase_unlocked()
-                return False
+                cooldown_until = int(state.get("cooldown_until") or 0)
+                if not cooldown_until:
+                    state["cooldown_payload"] = payload
+                    state["cooldown_until"] = now + SAME_CODE_COOLDOWN_MS
+                    state["candidate_seen_count"] = 1
+                    slog(f"process_candidate: entered cooldown '{payload}'")
+                    set_phase_unlocked()
+                    return False
+                elif now < cooldown_until:
+                    set_phase_unlocked()
+                    return False
+                else:
+                    state["cooldown_payload"] = ""
+                    state["cooldown_until"] = 0
             slog(f"process_candidate: LOCKED '{payload}'")
             lock_candidate_unlocked(payload, source_name)
             return True
