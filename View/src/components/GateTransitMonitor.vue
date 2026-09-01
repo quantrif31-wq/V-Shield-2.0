@@ -3134,46 +3134,40 @@ else {
         lane.loading = true
         await this.restartQrSession(lane, "Đang quét QR từ Python...")
 
-        if (!lane.plate.cameraRunning) {
-          this.releaseOtherPlateLanes(lane)
-          this.stopPlateLoop(lane)
-          const resPlate = await lane.plateApi.turnOnCamera(plateIp)
-          if (!resPlate?.success) {
-            alert(resPlate?.message || "Không thể khởi tạo trình nhận diện biển số")
-            return
-          }
-          lane.plate.cameraRunning = true
-          lane.plate.sessionId = Number(resPlate.session_id || 0)
-          lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.currentIp = plateIp
-          lane.plate.message =
-            resPlate.message || "Khởi tạo trình nhận diện biển số thành công"
-        } else {
-          this.releaseOtherPlateLanes(lane)
-          const resPlate = await lane.plateApi.resetCameraState()
-          lane.plate.message = resPlate?.message || "Da reset Plate"
+        this.releaseOtherPlateLanes(lane)
+        this.stopPlateLoop(lane)
+        const resPlate = await lane.plateApi.turnOnCamera(plateIp)
+        if (!resPlate?.success && !resPlate?.session_id) {
+          alert(resPlate?.message || "Không thể khởi tạo trình nhận diện biển số")
+          return
+        }
+        lane.plate.cameraRunning = true
+        lane.plate.sessionId = Number(resPlate.session_id || 0)
+        lane.plate.lastAppliedSessionId = lane.plate.sessionId
+        lane.plate.currentIp = plateIp
+        lane.plate.message =
+          resPlate.message || "Khởi tạo trình nhận diện biển số thành công"
 
-          const newSessionId = Number(resPlate?.session_id || 0)
-          if (newSessionId > 0) {
-            lane.plate.sessionId = newSessionId
-            lane.plate.lastAppliedSessionId = newSessionId
-          }
+        if (lane.plate.viewUrl && !lane.plate.previewRunning) {
+          this.mountPreview(lane.plate, lane.plate.viewUrl)
         }
 
         await this.refreshPlate(lane)
         if (!lane.plate.resultTimer) this.startPlateLoop(lane)
       } catch (e) {
         console.error("readAllLane error:", e)
-        alert(e?.message || "Loi doc ca 2")
+        alert(e?.message || "Lỗi đọc cả 2")
       } finally {
         lane.loading = false
       }
     },
 
     async retryQr(lane) {
-      const qrIp = String(lane.qr.cameraIp || lane.qr.currentIp || "").trim()
+      const qrIp = String(
+        lane.qr.cameraIp || lane.qr.currentIp || lane.qr.viewUrl || ""
+      ).trim()
       if (!qrIp) {
-        alert("Vui lòng nhập hoặc chọn URL QR")
+        alert("Vui lòng chọn hoặc nhập URL QR")
         return
       }
 
@@ -3190,10 +3184,10 @@ else {
 
     async retryPlate(lane) {
       const plateIp = String(
-        lane.plate.currentIp || lane.plate.cameraIp || lane.plate.viewUrl || ""
+        lane.plate.cameraIp || lane.plate.currentIp || lane.plate.viewUrl || ""
       ).trim()
       if (!plateIp) {
-        alert("Vui lòng nhập hoặc chọn URL Plate")
+        alert("Vui lòng chọn hoặc nhập URL Plate")
         return
       }
 
@@ -3201,28 +3195,21 @@ else {
         lane.loading = true
         this.clearPlateState(lane.plate)
 
-        if (!lane.plate.cameraRunning) {
-          this.releaseOtherPlateLanes(lane)
-          this.stopPlateLoop(lane)
-          const res = await lane.plateApi.turnOnCamera(lane.plate.currentIp)
-          if (!res?.success) {
-            alert(res?.message || "Không thể khởi tạo Plate")
-            return
-          }
-          lane.plate.cameraRunning = true
-          lane.plate.sessionId = Number(res.session_id || 0)
-          lane.plate.lastAppliedSessionId = lane.plate.sessionId
-          lane.plate.message = res.message || "Khởi tạo Plate thành công"
-        } else {
-          this.releaseOtherPlateLanes(lane)
-          const res = await lane.plateApi.resetCameraState()
-          lane.plate.message = res?.message || "Đã reset Plate"
+        this.releaseOtherPlateLanes(lane)
+        this.stopPlateLoop(lane)
+        const res = await lane.plateApi.turnOnCamera(plateIp)
+        if (!res?.success && !res?.session_id) {
+          alert(res?.message || "Không thể khởi tạo Plate")
+          return
+        }
+        lane.plate.cameraRunning = true
+        lane.plate.sessionId = Number(res.session_id || 0)
+        lane.plate.lastAppliedSessionId = lane.plate.sessionId
+        lane.plate.currentIp = plateIp
+        lane.plate.message = res.message || "Khởi tạo Plate thành công"
 
-          const newSessionId = Number(res?.session_id || 0)
-          if (newSessionId > 0) {
-            lane.plate.sessionId = newSessionId
-            lane.plate.lastAppliedSessionId = newSessionId
-          }
+        if (lane.plate.viewUrl && !lane.plate.previewRunning) {
+          this.mountPreview(lane.plate, lane.plate.viewUrl)
         }
 
         await this.refreshPlate(lane)
