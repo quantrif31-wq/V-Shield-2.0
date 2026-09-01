@@ -381,17 +381,15 @@ function triggerLockOn() {
           :style="{
             transform: `rotateY(${idx * 72}deg) translateZ(${wheelRadius}px)`,
             transformStyle: 'preserve-3d',
-            WebkitTransformStyle: 'preserve-3d',
-            zIndex: idx === activeIndex ? 50 : 20
+            WebkitTransformStyle: 'preserve-3d'
           }"
         >
           <!-- 3D Card Body Wrapper (Double-Sided) -->
           <div
-            class="relative w-[195px] sm:w-[230px] h-[280px] sm:h-[330px] transition-all duration-[1600ms] ease-in-out"
+            class="relative w-[195px] sm:w-[230px] h-[280px] sm:h-[330px]"
             :style="{
               transformStyle: 'preserve-3d',
-              WebkitTransformStyle: 'preserve-3d',
-              transform: idx === activeIndex ? 'scale(1.06)' : 'scale(0.92)'
+              WebkitTransformStyle: 'preserve-3d'
             }"
           >
             <!-- ── FRONT FACE (Pilot Portrait & HUD Frame) ── -->
@@ -400,7 +398,7 @@ function triggerLockOn() {
               :class="[
                 idx === activeIndex
                   ? 'opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
-                  : 'opacity-65 hover:opacity-90'
+                  : 'opacity-70 hover:opacity-95'
               ]"
               :style="{
                 borderColor: idx === activeIndex ? pilot.color : '#1e293b',
@@ -549,4 +547,15 @@ function triggerLockOn() {
   animation: laserScan 3s ease-in-out infinite;
 }
 
+.revolving-3d-wheel {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.wheel-card-item {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+}
 </style>
