@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import site
 import cv2
@@ -1014,18 +1014,31 @@ def mjpeg_generator():
 # CAMERA CONTROL
 # =========================================================
 def open_camera(ip):
-    global current_ip
+    global current_ip, scan_active
 
     if not ip:
         update_recognition_state(success=False, message="Missing camera IP")
         return False
 
+    enabled, cur_ip, connected = get_camera_flags()
+    if enabled and cur_ip == ip and connected:
+        scan_active = True
+        update_recognition_state(
+            success=True,
+            session_id=get_session_id(),
+            camera_enabled=True,
+            camera_connected=True,
+            ip=ip,
+            scan_active=True,
+            message="Camera active"
+        )
+        return True
+
     set_camera_flags(enabled=True, ip=ip, connected=False)
     current_ip = ip
+    scan_active = True
 
-    global scan_active
     reset_recognition_state(reason="Waiting camera worker to connect...", new_session=True)
-    scan_active = False
 
     update_recognition_state(
         success=True,
@@ -1033,7 +1046,7 @@ def open_camera(ip):
         camera_enabled=True,
         camera_connected=False,
         ip=ip,
-        scan_active=False,
+        scan_active=True,
         message="Waiting camera worker to connect..."
     )
 

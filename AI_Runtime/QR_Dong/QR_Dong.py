@@ -14,19 +14,19 @@ import uvicorn
 
 PREVIEW_WIDTH = 960
 PREVIEW_HEIGHT = 540
-CANDIDATE_REQUIRED_COUNT = 2
-CANDIDATE_WINDOW_MS = 800
-CANDIDATE_PERSIST_MS = 800
+CANDIDATE_REQUIRED_COUNT = 1
+CANDIDATE_WINDOW_MS = 1200
+CANDIDATE_PERSIST_MS = 1200
 RESULT_HOLD_MS = 1500
-SAME_CODE_COOLDOWN_MS = 4000
-VANISH_RESET_MS = 2000
+SAME_CODE_COOLDOWN_MS = 3000
+VANISH_RESET_MS = 1500
 IDLE_SLEEP_SECONDS = 0.008
 SCAN_TARGET_INTERVAL_SECONDS = 0.02
-BURST_SCAN_WINDOW_SECONDS = 1.8
-FULL_SCAN_INTERVAL_SECONDS = 0.08
-BURST_FULL_SCAN_INTERVAL_SECONDS = 0.03
-FRAME_DECODE_BUDGET_SECONDS = 0.06
-BURST_FRAME_DECODE_BUDGET_SECONDS = 0.09
+BURST_SCAN_WINDOW_SECONDS = 2.5
+FULL_SCAN_INTERVAL_SECONDS = 0.06
+BURST_FULL_SCAN_INTERVAL_SECONDS = 0.02
+FRAME_DECODE_BUDGET_SECONDS = 0.35
+BURST_FRAME_DECODE_BUDGET_SECONDS = 0.45
 FAST_SCALE_FACTORS = (1.0, 1.35, 1.7, 2.1)
 FULL_SCALE_FACTORS = (1.0, 1.4, 1.8, 2.4, 3.0)
 
@@ -385,6 +385,15 @@ def decode_qr_fast(frame, scan_session_id=0, deadline_at=0.0):
 def decode_live_frame(frame, allow_full=True, scan_session_id=0, deadline_at=0.0):
     if should_abort_decode(scan_session_id, deadline_at):
         return None, ""
+
+    # Direct pass on original frame (catches sharp QR codes without downscale blur)
+    direct_barcodes = pyzbar.decode(frame)
+    if direct_barcodes:
+        data = direct_barcodes[0].data.decode(errors="ignore").strip()
+        if data:
+            slog(f"decode_live_frame direct pyzbar OK: {data}")
+            return data, "direct-pyzbar"
+
     preview = fit_preview(frame)
     slog(f"decode_live_frame: frame={frame.shape} preview={preview.shape}")
 
@@ -829,7 +838,7 @@ def api_start(data: dict):
         state["running"] = True
         state["connected"] = False
         state["frame_ready"] = False
-        reset_scan_session_unlocked(scan_enabled=False)
+        reset_scan_session_unlocked(scan_enabled=True)
         set_phase_unlocked()
 
     return {"success": True}
