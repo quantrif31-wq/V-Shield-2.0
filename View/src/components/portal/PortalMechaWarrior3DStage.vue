@@ -57,7 +57,7 @@ const pilots = [
     name: 'Phạm Ngọc Hoài Anh',
     callsign: 'DREADNOUGHT VORTEX',
     role: 'KỸ SƯ HẠ TẦNG ĐÁM MÂY & DEVOPS BẢO MẬT',
-    avatar: '/pilots/pilot_hoaianh_v6.jpg?v=6',
+    avatar: '/pilots/pilot_hoaianh_v7.jpg?v=7',
     cockpit: '/cockpits/cockpit_orange.jpg',
     cockpitFilter: 'none',
     color: '#ef4444', // Crimson Red
