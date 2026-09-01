@@ -1625,6 +1625,7 @@ export default {
             qr.message = "Đã khóa QR, đang xác thực..."
 
             const result = await this.doVerifyQr(lane, servicePayload)
+            qr.lastVerifiedPayload = servicePayload
             if (result?.success) {
               qr.lastVerifiedPayload = servicePayload
               qr.activeSessionPayload = servicePayload
@@ -2621,30 +2622,20 @@ export default {
           }
         }
 
-        // 🔥 phân loại QR
-let result = null
+        if (safePayload.startsWith("EMP:") || safePayload.startsWith("VIS:")) {
+          const cameraId = Number(qr.cameraId || lane.cameraId || 1)
 
-if (safePayload.startsWith("EMP:") || safePayload.startsWith("VIS:")) {
-  const cameraId = Number(qr.cameraId || lane.cameraId || 0)
-  if (!cameraId) {
-    return {
-      success: false,
-      message: "Camera QR chưa được chọn nên không thể xác minh quyền vào.",
-      data: null
-    }
-  }
-
-  // This endpoint checks the credential against the selected gate and creates
-  // an audit log whether access is granted or denied.  Attendance remains
-  // deferred until the independently confirmed plate completes the transit.
-  result = await verifyQrForGate({
-    QrPayload: safePayload,
-    CameraId: cameraId,
-    GateId: lane.gateId || null,
-    QrSnapshotBase64: qr.lockedSnapshot || null,
-    DeferTransit: true
-  })
-}
+          // This endpoint checks the credential against the selected gate and creates
+          // an audit log whether access is granted or denied. Attendance remains
+          // deferred until the independently confirmed plate completes the transit.
+          result = await verifyQrForGate({
+            QrPayload: safePayload,
+            CameraId: cameraId,
+            GateId: lane.gateId || 1,
+            QrSnapshotBase64: qr.lockedSnapshot || null,
+            DeferTransit: true
+          })
+        }
 else {
   return {
     success: false,
