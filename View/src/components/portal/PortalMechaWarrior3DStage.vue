@@ -30,7 +30,7 @@ watch(() => props.activeIndex, (newVal) => {
   if (rotateTimer) clearTimeout(rotateTimer)
   rotateTimer = setTimeout(() => {
     isRotating.value = false
-  }, 1800)
+  }, 1500)
 
   // Calculate shortest continuous rotational step (e.g. +1 or -1)
   let diff = newVal - lastIndex
@@ -113,7 +113,7 @@ const pilots = [
     id: 4,
     name: 'Nguyễn Quốc Việt',
     callsign: 'TEMPEST JUGGERNAUT',
-    role: 'KỸ SƯ THIẾT BỊ IOT & ỨNG DỤNG MOBILE',
+    role: 'KỸ SƯ THIẾT BI IOT & ỨNG DỤNG MOBILE',
     avatar: '/pilots/pilot_viet.jpg',
     cockpit: '/cockpits/cockpit_green.jpg',
     cockpitFilter: 'none',
@@ -129,27 +129,28 @@ const pilots = [
 const currentPilot = computed(() => pilots[props.activeIndex] || pilots[0])
 
 function getPilotStyle(index) {
-  // Continuous orbital angle on wide 3D ellipse track
+  // Continuous radial angle for 3D carousel wheel
   const angleDeg = (index * 72) + currentAngle.value
   const angleRad = (angleDeg * Math.PI) / 180
 
-  const rx = 265 // Wide horizontal spread for clear visibility of all pilots
-  const rz = 125 // Depth orbit radius
+  const rx = 245 // Horizontal spread radius
+  const rz = 150 // Depth perspective radius
 
   const x = Math.sin(angleRad) * rx
   const z = (Math.cos(angleRad) - 1) * rz
-  const yRot = -Math.sin(angleRad) * 24
+  // Radial body orientation: card turns its face outwards along the wheel perimeter (up to ±58 deg)
+  const yRot = -Math.sin(angleRad) * 58
 
-  const depthFactor = (Math.cos(angleRad) + 1) / 2 // 1.0 at front, 0.0 at back
+  const depthFactor = (Math.cos(angleRad) + 1) / 2 // 1.0 at front center, ~0.0 at back
   const isFront = index === props.activeIndex
 
-  const scale = isFront ? 1.08 : 0.72 + depthFactor * 0.18
-  const opacity = isFront ? 1.0 : 0.42 + depthFactor * 0.35
-  const zIndex = isFront ? 40 : Math.round(depthFactor * 25) + 5
+  const scale = isFront ? 1.08 : 0.70 + depthFactor * 0.20
+  const opacity = isFront ? 1.0 : 0.40 + depthFactor * 0.35
+  const zIndex = isFront ? 50 : Math.round(depthFactor * 30) + 5
 
   const filter = isFront
-    ? 'grayscale(0%) brightness(1.08) contrast(1.05) drop-shadow(0 0 30px ' + pilots[index].glow + '90)'
-    : 'grayscale(100%) brightness(' + (0.38 + depthFactor * 0.22).toFixed(2) + ') contrast(1.15) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
+    ? 'grayscale(0%) brightness(1.1) contrast(1.05) drop-shadow(0 0 35px ' + pilots[index].glow + '95)'
+    : 'grayscale(100%) brightness(' + (0.35 + depthFactor * 0.22).toFixed(2) + ') contrast(1.2) drop-shadow(0 0 10px rgba(0,0,0,0.95))'
 
   return {
     transform: `translateX(${x.toFixed(1)}px) translateZ(${z.toFixed(1)}px) rotateY(${yRot.toFixed(1)}deg) scale(${scale.toFixed(3)})`,
@@ -213,7 +214,7 @@ function triggerLockOn() {
     class="relative h-[520px] sm:h-[570px] w-full overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-[#04060a] shadow-[0_0_50px_rgba(0,0,0,0.9)] select-none flex flex-col justify-between"
     @mousemove="handleMouseMove"
     @mouseleave="handleMouseLeave"
-    style="perspective: 1200px;"
+    style="perspective: 1100px;"
   >
     <!-- ── 1. FIRST-PERSON POV COCKPIT BACKGROUNDS (SMOOTH CROSS-FADE TRANSITION) ── -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -222,7 +223,7 @@ function triggerLockOn() {
         :key="pilot.id"
         :src="pilot.cockpit"
         :alt="pilot.cockpitName"
-        class="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[1800ms] ease-in-out"
+        class="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[1500ms] ease-in-out"
         :class="pIdx === activeIndex ? 'opacity-100' : 'opacity-0'"
         :style="{
           transform: `scale(${pIdx === activeIndex ? (isOverdriveActive ? 1.12 : 1.05) : 1.0}) translate(${mouseX * -8}px, ${mouseY * -5}px)`,
@@ -233,7 +234,7 @@ function triggerLockOn() {
 
     <!-- Cockpit Ambient Tint Overlay (Smooth Color Shift) -->
     <div
-      class="pointer-events-none absolute inset-0 transition-colors duration-[1800ms] ease-in-out mix-blend-color"
+      class="pointer-events-none absolute inset-0 transition-colors duration-[1500ms] ease-in-out mix-blend-color"
       :style="{ backgroundColor: currentPilot.color, opacity: 0.28 }"
     ></div>
 
@@ -273,7 +274,7 @@ function triggerLockOn() {
     <!-- ── 3. 5 PILOTS 3D ROTATING ORBITAL TURNTABLE CAROUSEL ── -->
     <div
       class="relative flex-1 flex items-end justify-center pb-10 z-20 pointer-events-none"
-      style="perspective: 1200px;"
+      style="perspective: 1100px;"
     >
       <!-- 3D Turntable Perspective Base Platform on Floor -->
       <div
@@ -311,7 +312,7 @@ function triggerLockOn() {
         <div class="relative flex items-center justify-center">
           <!-- Pilot Photo Frame (Sharp & Vivid vs. Grayscale & Hidden) -->
           <div
-            class="relative rounded-2xl overflow-hidden transition-all duration-[1800ms] ease-in-out"
+            class="relative rounded-2xl overflow-hidden transition-all duration-[1500ms] ease-in-out"
             :class="[
               idx === activeIndex
                 ? 'border-2 shadow-[0_0_40px_rgba(0,0,0,0.95)]'
@@ -350,14 +351,14 @@ function triggerLockOn() {
           <!-- Active Aura Glow Flare -->
           <div
             v-if="idx === activeIndex"
-            class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-[1800ms] -z-10"
+            class="pointer-events-none absolute -inset-3 rounded-3xl blur-xl opacity-45 mix-blend-screen transition-all duration-[1500ms] -z-10"
             :style="{ backgroundColor: pilot.color }"
           ></div>
         </div>
 
         <!-- Pilot Name Tag -->
         <div
-          class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-[1800ms] font-mono"
+          class="mt-1.5 px-2.5 py-0.5 rounded text-center transition-all duration-[1500ms] font-mono"
           :class="[
             idx === activeIndex
               ? 'bg-[#07090e]/95 border text-white font-black scale-105 mecha-cut-tr shadow-[0_0_15px_rgba(0,0,0,0.8)]'
@@ -442,9 +443,9 @@ function triggerLockOn() {
 }
 
 .pilot-card-turntable {
-  transition: transform 1.8s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 1.8s cubic-bezier(0.4, 0, 0.2, 1),
-              filter 1.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 1.5s cubic-bezier(0.3, 0, 0.2, 1),
+              opacity 1.5s cubic-bezier(0.3, 0, 0.2, 1),
+              filter 1.5s cubic-bezier(0.3, 0, 0.2, 1);
   will-change: transform, opacity, filter;
 }
 </style>
