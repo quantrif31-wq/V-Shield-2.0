@@ -32,6 +32,44 @@ namespace API.Controllers
             _visitorQrService = visitorQrService;
         }
 
+        /// <summary>Đọc cấu hình hướng của các làn mà người dùng có quyền vận hành.</summary>
+        [HttpGet("lanes")]
+        public async Task<IActionResult> GetTransitLanes()
+        {
+            var lanes = await _context.Lanes.AsNoTracking()
+                .Where(lane => lane.IsActive && lane.GateId.HasValue)
+                .OrderBy(lane => lane.LaneId)
+                .ToListAsync();
+
+            var visible = new List<object>();
+            foreach (var lane in lanes)
+            {
+                if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, gateId: lane.GateId, requireManage: false))
+                    continue;
+                visible.Add(new { lane.LaneId, lane.GateId, lane.Name, Direction = LaneDirectionToTransitDirection(lane.Direction, null) });
+            }
+            return Ok(GateTransitApiResponse.CreateSuccess("Lấy cấu hình làn thành công.", visible));
+        }
+
+        /// <summary>Đổi hướng IN/OUT của một làn. Nhiều làn cùng hướng là hợp lệ.</summary>
+        [HttpPatch("lanes/{laneId:int}/direction")]
+        public async Task<IActionResult> UpdateTransitLaneDirection(int laneId, [FromBody] GateTransitLaneDirectionRequest request)
+        {
+            var lane = await _context.Lanes.FirstOrDefaultAsync(item => item.LaneId == laneId && item.IsActive);
+            if (lane == null || !lane.GateId.HasValue)
+                return NotFound(GateTransitApiResponse.CreateError("Không tìm thấy làn kiểm soát đang hoạt động."));
+            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskGateTransit, gateId: lane.GateId, requireManage: true))
+                return Forbid();
+
+            var direction = NormalizeTransitDirection(request?.Direction);
+            if (direction == null)
+                return BadRequest(GateTransitApiResponse.CreateError("Hướng làn chỉ nhận IN hoặc OUT."));
+
+            lane.Direction = direction == "IN" ? "Entry" : "Exit";
+            await _context.SaveChangesAsync();
+            return Ok(GateTransitApiResponse.CreateSuccess("Đã lưu hướng làn.", new { lane.LaneId, lane.GateId, Direction = direction }));
+        }
+
         /// <summary>
         /// Xác nhận thông hành đa nguồn (QR + biển số hoặc FaceID + biển số).
         /// Hướng di chuyển được lấy từ làn/cổng, không tự đảo theo số lần quét.
@@ -87,6 +125,18 @@ namespace API.Controllers
                 return Forbid();
             }
 
+            var transitSessionId = NormalizeTransitSessionId(request.TransitSessionId);
+            var transitSessionMarker = string.IsNullOrWhiteSpace(transitSessionId) ? string.Empty : $"[TRANSIT:{transitSessionId}]";
+            if (!string.IsNullOrEmpty(transitSessionMarker))
+            {
+                var existingLog = await _context.AccessLogs.AsNoTracking()
+                    .Where(log => log.Note != null && log.Note.Contains(transitSessionMarker))
+                    .OrderByDescending(log => log.LogId)
+                    .FirstOrDefaultAsync();
+                if (existingLog != null)
+                    return Ok(GateTransitApiResponse.CreateSuccess("Phiên thông hành này đã được xử lý trước đó.", new { existingLog.LogId, existingLog.ResultStatus, existingLog.CapturedLicensePlate }));
+            }
+
             var requestedDirection = NormalizeTransitDirection(request.Direction);
             if (!string.IsNullOrWhiteSpace(request.Direction) && requestedDirection == null)
             {
@@ -115,6 +165,9 @@ namespace API.Controllers
 
             try
             {
+                // Vehicle là trạng thái của phiên gửi hiện tại, không phải danh sách biển số
+                // được đăng ký cứng cho một nhân viên. EmployeeId được gán lại mỗi khi xe
+                // bắt đầu một lượt IN mới và chỉ người đó (hoặc người được ủy quyền) được OUT.
                 var samePlateVehicles = await _context.Vehicles
                     .Where(v => v.LicensePlate != null)
                     .ToListAsync();
@@ -123,11 +176,11 @@ namespace API.Controllers
                     .Where(v => NormalizeLicensePlate(v.LicensePlate) == normalizedPlate)
                     .ToList();
 
-                var currentVehicle = samePlateVehicles
-                    .FirstOrDefault(v => v.EmployeeId == request.EmployeeId);
+                var vehicle = samePlateVehicles.FirstOrDefault();
+                var parkingStatus = NormalizeParkingStatus(vehicle?.ParkingStatus);
 
                 var direction = requestedDirection
-                    ?? (currentVehicle != null && NormalizeParkingStatus(currentVehicle.ParkingStatus) == "IN" ? "OUT" : "IN");
+                    ?? (vehicle != null && parkingStatus == "IN" ? "OUT" : "IN");
 
                 async Task CaptureEvidenceAsync(AccessLog log)
                 {
@@ -155,7 +208,7 @@ namespace API.Controllers
                     RegistrationId = null,
                     ResultStatus = resultStatus,
                     IsBypass = false,
-                    Note = $"[{NormalizeCredentialType(request.CredentialType)}] {note}",
+                    Note = $"[{NormalizeCredentialType(request.CredentialType)}]{transitSessionMarker} {note}",
                     LaneNameSnapshot = lane?.Name
                 };
 
@@ -173,123 +226,89 @@ namespace API.Controllers
                     }
                 }
 
-                if (currentVehicle != null)
+                async Task<IActionResult> DenyAsync(string note, string message)
                 {
-                    var oldStatus = NormalizeParkingStatus(currentVehicle.ParkingStatus);
-                    currentVehicle.ParkingStatus = direction;
-
-                    var accessLog = CreateLog(
-                        currentVehicle.LicensePlate,
-                        "SUCCESS",
-                        $"Xác nhận {direction} thành công; trạng thái xe {oldStatus} → {direction}.");
-                    _context.AccessLogs.Add(accessLog);
-                    await _context.SaveChangesAsync();
-                    await CaptureEvidenceAsync(accessLog);
-                    await CompleteSuccessfulTransitAsync(accessLog);
-
-                    return Ok(GateTransitApiResponse.CreateSuccess(
-                        $"Đã ghi nhận {direction} và cập nhật bảng chấm công.",
-                        new
-                        {
-                            accessLog.LogId,
-                            Direction = direction,
-                            currentVehicle.VehicleId,
-                            currentVehicle.LicensePlate,
-                            currentVehicle.EmployeeId,
-                            currentVehicle.VehicleTypeId,
-                            currentVehicle.Description,
-                            currentVehicle.ParkingStatus
-                        }));
-                }
-
-                // 2. Nếu biển thuộc người khác
-                var otherVehicle = samePlateVehicles.FirstOrDefault(v =>
-                    v.EmployeeId != request.EmployeeId);
-
-                if (otherVehicle != null)
-                {
-                    var otherStatus = NormalizeParkingStatus(otherVehicle.ParkingStatus);
-                    if (direction == "OUT" || otherStatus == "IN")
-                    {
-                        var deniedLog = CreateLog(
-                            normalizedPlate,
-                            "FAILED",
-                            $"Từ chối: biển số thuộc nhân viên {otherVehicle.EmployeeId}, trạng thái {otherStatus}.");
-                        _context.AccessLogs.Add(deniedLog);
-                        await _context.SaveChangesAsync();
-                        await CaptureEvidenceAsync(deniedLog);
-                        await transaction.CommitAsync();
-
-                        return Conflict(GateTransitApiResponse.CreateError(
-                            $"Biển số không hợp lệ với nhân viên hiện tại; không ghi nhận chấm công."));
-                    }
-
-                    otherVehicle.EmployeeId = request.EmployeeId;
-                    otherVehicle.ParkingStatus = direction;
-
-                    var reassignedLog = CreateLog(
-                        otherVehicle.LicensePlate,
-                        "SUCCESS",
-                        $"Xác nhận {direction} và chuyển liên kết phương tiện sang nhân viên hiện tại.");
-                    _context.AccessLogs.Add(reassignedLog);
-                    await _context.SaveChangesAsync();
-                    await CaptureEvidenceAsync(reassignedLog);
-                    await CompleteSuccessfulTransitAsync(reassignedLog);
-
-                    return Ok(GateTransitApiResponse.CreateSuccess(
-                        $"Đã ghi nhận {direction} và cập nhật bảng chấm công.",
-                        new
-                        {
-                            reassignedLog.LogId,
-                            Direction = direction,
-                            otherVehicle.VehicleId,
-                            otherVehicle.LicensePlate,
-                            otherVehicle.EmployeeId,
-                            otherVehicle.VehicleTypeId,
-                            otherVehicle.Description,
-                            otherVehicle.ParkingStatus
-                        }));
-                }
-
-                if (direction == "OUT")
-                {
-                    var deniedLog = CreateLog(normalizedPlate, "FAILED", "Từ chối OUT: phương tiện chưa có lượt vào hợp lệ.");
+                    var deniedLog = CreateLog(normalizedPlate, "FAILED", note);
                     _context.AccessLogs.Add(deniedLog);
                     await _context.SaveChangesAsync();
                     await CaptureEvidenceAsync(deniedLog);
                     await transaction.CommitAsync();
-                    return Conflict(GateTransitApiResponse.CreateError("Không tìm thấy lượt vào của phương tiện; không ghi nhận chấm công."));
+                    return Conflict(GateTransitApiResponse.CreateError(message));
                 }
 
-                var newVehicle = new Vehicle
+                if (vehicle == null)
                 {
-                    LicensePlate = normalizedPlate,
-                    EmployeeId = request.EmployeeId,
-                    VehicleTypeId = request.VehicleTypeId,
-                    Description = request.Description,
-                    ParkingStatus = direction
-                };
+                    if (direction == "OUT")
+                        return await DenyAsync("Từ chối OUT: phương tiện chưa có lượt vào hợp lệ.", "Không tìm thấy lượt vào của phương tiện; không ghi nhận chấm công.");
 
-                _context.Vehicles.Add(newVehicle);
+                    vehicle = new Vehicle
+                    {
+                        LicensePlate = normalizedPlate,
+                        EmployeeId = request.EmployeeId,
+                        VehicleTypeId = request.VehicleTypeId,
+                        Description = request.Description,
+                        ParkingStatus = "IN"
+                    };
+                    _context.Vehicles.Add(vehicle);
+                }
+                else if (parkingStatus == "IN")
+                {
+                    if (direction != "OUT")
+                        return await DenyAsync("Từ chối IN: phương tiện đang có phiên gửi mở.", "Xe đang ở trong bãi; chỉ có thể xác nhận lượt ra.");
 
-                var newVehicleLog = CreateLog(normalizedPlate, "SUCCESS", "Thêm mới phương tiện và xác nhận IN.");
-                _context.AccessLogs.Add(newVehicleLog);
+                    var isParkedByCurrentEmployee = vehicle.EmployeeId == request.EmployeeId;
+                    var isApprovedDelegate = vehicle.EmployeeId.HasValue && await _context.VehicleDelegations
+                        .AsNoTracking()
+                        .AnyAsync(delegation => delegation.VehicleId == vehicle.VehicleId
+                            && delegation.FromEmployeeId == vehicle.EmployeeId.Value
+                            && delegation.ToEmployeeId == request.EmployeeId
+                            && delegation.Status == DelegationStatuses.Approved);
+
+                    if (!isParkedByCurrentEmployee && !isApprovedDelegate)
+                    {
+                        return await DenyAsync(
+                            $"Từ chối OUT: xe đang được gửi bởi nhân viên {vehicle.EmployeeId}; không có ủy quyền hợp lệ cho nhân viên {request.EmployeeId}.",
+                            "Biển số đang thuộc một phiên gửi của người khác; không ghi nhận chấm công.");
+                    }
+
+                    vehicle.ParkingStatus = "OUT";
+                }
+                else
+                {
+                    if (direction != "IN")
+                        return await DenyAsync("Từ chối OUT: phương tiện chưa có phiên gửi mở.", "Không tìm thấy lượt vào đang mở của phương tiện; không ghi nhận chấm công.");
+
+                    // Xe đã kết thúc lượt cũ: ai quét IN lần này là người giữ phiên mới.
+                    vehicle.EmployeeId = request.EmployeeId;
+                    vehicle.VisitorDetailId = null;
+                    vehicle.ParkingStatus = "IN";
+                    if (request.VehicleTypeId.HasValue) vehicle.VehicleTypeId = request.VehicleTypeId;
+                    if (!string.IsNullOrWhiteSpace(request.Description)) vehicle.Description = request.Description;
+                }
+
+                var accessLog = CreateLog(
+                    vehicle.LicensePlate,
+                    "SUCCESS",
+                    direction == "IN"
+                        ? $"Xác nhận IN thành công; nhân viên {request.EmployeeId} mở phiên gửi xe."
+                        : $"Xác nhận OUT thành công; kết thúc phiên gửi xe của nhân viên {vehicle.EmployeeId}.");
+                _context.AccessLogs.Add(accessLog);
                 await _context.SaveChangesAsync();
-                await CaptureEvidenceAsync(newVehicleLog);
-                await CompleteSuccessfulTransitAsync(newVehicleLog);
+                await CaptureEvidenceAsync(accessLog);
+                await CompleteSuccessfulTransitAsync(accessLog);
 
                 return Ok(GateTransitApiResponse.CreateSuccess(
-                    "Đã ghi nhận IN và tạo chấm công đầu ngày.",
+                    $"Đã ghi nhận {direction} và cập nhật bảng chấm công.",
                     new
                     {
-                        newVehicleLog.LogId,
+                        accessLog.LogId,
                         Direction = direction,
-                        newVehicle.VehicleId,
-                        newVehicle.LicensePlate,
-                        newVehicle.EmployeeId,
-                        newVehicle.VehicleTypeId,
-                        newVehicle.Description,
-                        newVehicle.ParkingStatus
+                        vehicle.VehicleId,
+                        vehicle.LicensePlate,
+                        vehicle.EmployeeId,
+                        vehicle.VehicleTypeId,
+                        vehicle.Description,
+                        vehicle.ParkingStatus
                     }));
             }
             catch (Exception ex)
@@ -338,6 +357,17 @@ namespace API.Controllers
             if (string.IsNullOrWhiteSpace(normalizedPlate))
                 return BadRequest("Biển số không hợp lệ.");
 
+            var guestSessionId = NormalizeTransitSessionId(request.TransitSessionId);
+            var guestSessionMarker = string.IsNullOrWhiteSpace(guestSessionId) ? string.Empty : $"[TRANSIT:{guestSessionId}]";
+            if (!string.IsNullOrEmpty(guestSessionMarker))
+            {
+                var existingLog = await _context.AccessLogs.AsNoTracking()
+                    .Where(log => log.Note != null && log.Note.Contains(guestSessionMarker))
+                    .OrderByDescending(log => log.LogId).FirstOrDefaultAsync();
+                if (existingLog != null)
+                    return Ok(GateTransitApiResponse.CreateSuccess("Phiên thông hành này đã được xử lý trước đó.", new { existingLog.LogId, existingLog.ResultStatus, existingLog.CapturedLicensePlate }));
+            }
+
             var vehicle = await _context.Vehicles
     .FirstOrDefaultAsync(v =>
         v.LicensePlate != null &&
@@ -373,7 +403,7 @@ namespace API.Controllers
                     EmployeeId = null,
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
-                    Note = "Thêm mới phương tiện cho khách với trạng thái IN."
+                    Note = $"{guestSessionMarker} Thêm mới phương tiện cho khách với trạng thái IN."
                 };
                 _context.AccessLogs.Add(uebaLog);
                 await _context.SaveChangesAsync();
@@ -419,7 +449,7 @@ namespace API.Controllers
                     EmployeeId = null,
                     ResultStatus = "SUCCESS",
                     IsBypass = false,
-                    Note = $"Đổi trạng thái xe của khách từ {oldStatus} sang {newStatus}."
+                    Note = $"{guestSessionMarker} Đổi trạng thái xe của khách từ {oldStatus} sang {newStatus}."
                 };
                 _context.AccessLogs.Add(uebaLog);
                 await _context.SaveChangesAsync();
@@ -781,6 +811,12 @@ namespace API.Controllers
             return null;
         }
 
+        private static string NormalizeTransitSessionId(string? sessionId)
+        {
+            var value = (sessionId ?? string.Empty).Trim();
+            return value.Length <= 100 && value.All(c => char.IsLetterOrDigit(c) || c is '-' or '_') ? value : string.Empty;
+        }
+
         private static string NormalizeCredentialType(string? credentialType) =>
             credentialType?.Trim().ToUpperInvariant() switch
             {
@@ -807,6 +843,12 @@ namespace API.Controllers
         public string? PlateCropBase64 { get; set; }
         public string? FaceSnapshotBase64 { get; set; }
         public string? QrSnapshotBase64 { get; set; }
+        public string? TransitSessionId { get; set; }
+    }
+
+    public class GateTransitLaneDirectionRequest
+    {
+        public string? Direction { get; set; }
     }
 
     public class GateTransitApiResponse

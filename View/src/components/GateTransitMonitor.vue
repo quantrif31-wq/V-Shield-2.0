@@ -348,122 +348,6 @@
         </div>
 
         <div class="ops-drawer-body">
-          <div class="drawer-settings-panel">
-            <h3 class="drawer-settings-title">Dịch vụ Python</h3>
-            <p class="drawer-settings-meta">
-              <span>QR: {{ qrApiBaseLabel }}</span>
-              <span class="drawer-settings-meta-sep">•</span>
-              <span>Biển: {{ plateApiBaseLabel }}</span>
-            </p>
-            <p class="drawer-settings-hint">
-              Bật/tắt backend tương ứng. URL stream lấy theo tab làn đang chọn (QR / Plate). Dịch vụ QR là một
-              process dùng chung cho cả hai làn.
-            </p>
-
-            <div class="settings-toggle-row">
-              <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Python đọc QR</span>
-                <span class="settings-toggle-desc">Bật/tắt endpoint /qr (camera + worker)</span>
-              </div>
-              <button
-                type="button"
-                class="toggle-switch"
-                :class="toggleSwitchClass('python_qr', qrPythonServiceOn)"
-                role="switch"
-                :aria-checked="qrPythonServiceOn"
-                :disabled="runtimeIsBusy('python_qr') || toggleIsPending('python_qr')"
-                @click="onToggleQrPython"
-              >
-                <span class="toggle-switch-knob" aria-hidden="true"></span>
-              </button>
-              <button
-                type="button"
-                class="auto-start-btn"
-                :disabled="runtimeIsBusy('python_qr') || !runtimeEnabled('python_qr')"
-                @click="toggleRuntimeAutoStart('python_qr')"
-              >
-                Tự khởi động: {{ runtimeAutoStart('python_qr') ? 'BẬT' : 'TẮT' }}
-              </button>
-            </div>
-
-            <div class="settings-toggle-row">
-              <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Python biển số</span>
-                <span class="settings-toggle-desc">API biển số (bật/tắt camera)</span>
-              </div>
-              <button
-                type="button"
-                class="toggle-switch"
-                :class="toggleSwitchClass('python_plate', platePythonServiceOn)"
-                role="switch"
-                :aria-checked="platePythonServiceOn"
-                :disabled="runtimeIsBusy('python_plate') || toggleIsPending('python_plate')"
-                @click="onTogglePlatePython"
-              >
-                <span class="toggle-switch-knob" aria-hidden="true"></span>
-              </button>
-              <button
-                type="button"
-                class="auto-start-btn"
-                :disabled="runtimeIsBusy('python_plate') || !runtimeEnabled('python_plate')"
-                @click="toggleRuntimeAutoStart('python_plate')"
-              >
-                Tự khởi động: {{ runtimeAutoStart('python_plate') ? 'BẬT' : 'TẮT' }}
-              </button>
-            </div>
-<div class="settings-toggle-row">
-              <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Cổng gateway stream go2rtc</span>
-                <span class="settings-toggle-desc">Dịch vụ stream WebRTC cho camera</span>
-              </div>
-              <button
-                type="button"
-                class="toggle-switch"
-                :class="toggleSwitchClass('go2rtc', runtimeRunning('go2rtc'))"
-                role="switch"
-                :aria-checked="runtimeRunning('go2rtc')"
-                :disabled="runtimeIsBusy('go2rtc') || toggleIsPending('go2rtc')"
-                @click="toggleRuntime('go2rtc')"
-              >
-                <span class="toggle-switch-knob" aria-hidden="true"></span>
-              </button>
-              <button
-                type="button"
-                class="auto-start-btn"
-                :disabled="runtimeIsBusy('go2rtc') || !runtimeEnabled('go2rtc')"
-                @click="toggleRuntimeAutoStart('go2rtc')"
-              >
-                Tự khởi động: {{ runtimeAutoStart('go2rtc') ? 'BẬT' : 'TẮT' }}
-              </button>
-            </div>
-
-            <div class="settings-toggle-row">
-              <div class="settings-toggle-text">
-                <span class="settings-toggle-name">Tunnel cloudflared</span>
-                <span class="settings-toggle-desc">Tunnel công khai để publish stream</span>
-              </div>
-              <button
-                type="button"
-                class="toggle-switch"
-                :class="toggleSwitchClass('cloudflared', runtimeRunning('cloudflared'))"
-                role="switch"
-                :aria-checked="runtimeRunning('cloudflared')"
-                :disabled="runtimeIsBusy('cloudflared') || toggleIsPending('cloudflared')"
-                @click="toggleRuntime('cloudflared')"
-              >
-                <span class="toggle-switch-knob" aria-hidden="true"></span>
-              </button>
-              <button
-                type="button"
-                class="auto-start-btn"
-                :disabled="runtimeIsBusy('cloudflared') || !runtimeEnabled('cloudflared')"
-                @click="toggleRuntimeAutoStart('cloudflared')"
-              >
-                Tự khởi động: {{ runtimeAutoStart('cloudflared') ? 'BẬT' : 'TẮT' }}
-              </button>
-            </div>
-          </div>
-
           <section
             class="lane-controls lane-controls--drawer"
             :class="{ ready: isLaneReady(activeOpsLane) }"
@@ -478,6 +362,31 @@
                 {{ isLaneReady(activeOpsLane) ? "Sẵn sàng xác nhận" : "Đang xử lý" }}
               </div>
             </div>
+
+            <div class="lane-direction-setting">
+              <div>
+                <label :for="`lane-direction-${activeOpsLane.id}`">Hướng thông hành</label>
+                <p>Được lưu cho riêng {{ activeOpsLane.name }}. Hai làn có thể cùng IN hoặc cùng OUT.</p>
+              </div>
+              <select
+                :id="`lane-direction-${activeOpsLane.id}`"
+                v-model="activeOpsLane.direction"
+                :disabled="activeOpsLane.directionSaving || autoActive"
+                @change="saveLaneDirection(activeOpsLane)"
+              >
+                <option value="IN">IN · Làn vào</option>
+                <option value="OUT">OUT · Làn ra</option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-drawer-secondary"
+                :disabled="activeOpsLane.directionSaving || autoActive"
+                @click="saveLaneDirection(activeOpsLane)"
+              >
+                {{ activeOpsLane.directionSaving ? 'Đang lưu...' : 'Lưu hướng' }}
+              </button>
+            </div>
+            <p v-if="activeOpsLane.directionMessage" class="lane-direction-message">{{ activeOpsLane.directionMessage }}</p>
 
             <div class="ip-row">
               <div class="ip-box">
@@ -697,9 +606,9 @@
 <script>
 import jsQR from "jsqr"
 import * as plateLane1Api from "../services/plateCameraApi"
-import * as plateLane2Api from "../services/plateCameraApi"
+import { createPlateCameraApi } from "../services/plateCameraApi"
 import axios from "axios"
-import { scanGate, scanGuest } from "../services/gateTransitApi"
+import { scanGate, scanGuest, getTransitLanes, updateTransitLaneDirection } from "../services/gateTransitApi"
 import { verifyQrForGate } from "../services/dynamicQrVerifyApi"
 import { getCameras, startPythonQrProcess, stopPythonQrProcess, startPythonPlateProcess, stopPythonPlateProcess, startPythonSimulatedCameraProcess, stopPythonSimulatedCameraProcess, getPythonProcessStatus } from "../services/cameraRuntimeApi"
 import { getRuntimeServices, updateRuntimeService, startRuntimeService, stopRuntimeService } from "../services/runtimeServiceApi"
@@ -712,7 +621,7 @@ import {
   QR_API_BASE_URL,
   QR_API_BASE_URL_LANE2
 } from "../services/dynamicQrScannerApi"
-import { PLATE_API_BASE_URL } from "../config/api"
+import { PLATE_API_BASE_URL, PLATE_API_BASE_URL_LANE2 } from "../config/api"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
 import { isSimMode, installSimulation } from "../services/simulationHarness"
 import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
@@ -721,6 +630,7 @@ import { onEntityChanged } from "../services/notificationApi"
 import DecisionDrawer from "./shared/DecisionDrawer.vue"
 import StepUpModal from "./shared/StepUpModal.vue"
 import AuditReceiptToast from "./shared/AuditReceiptToast.vue"
+const plateLane2Api = createPlateCameraApi(PLATE_API_BASE_URL_LANE2)
 function createQrModule(defaultScannerDevice) {
   return {
     cameraId: null,
@@ -846,6 +756,8 @@ function createQrModule(defaultScannerDevice) {
     backendCandidateSeenCount: 0,
     backendLockedPayload: "",
     backendLockedAt: 0,
+    backendTargetPresent: false,
+    backendEmptySinceAt: 0,
     lastVerifiedPayload: "",
 
     frameWidth: 0,
@@ -875,6 +787,7 @@ function createPlateModule() {
     lastRawPlate: "",
     scanLocked: false,
     scanActive: false,
+    confirmedAt: 0,
 
     lockedSnapshot: "",
     lockedPlateCrop: "",
@@ -914,12 +827,19 @@ function createAutoModule() {
     flashTimer: null,
     error: "",
     errorUntil: 0,
+    qrStarting: false,
+    qrStartedForSession: false,
     qrValue: "",
     qrSeenAt: 0,
     qrLostAt: 0,
+    qrLastPresentAt: 0,
+    qrEmptySinceAt: 0,
     plateValue: "",
     plateSeenAt: 0,
     plateLostAt: 0,
+    plateLastPresentAt: 0,
+    plateEmptySinceAt: 0,
+    plateExitHoldMs: 1000,
     plateCooldownUntil: 0
   }
 }
@@ -943,6 +863,9 @@ export default {
           desc: "QR trên / Biển dưới",
           gateId: 1,
           direction: "IN",
+          savedDirection: "IN",
+          directionSaving: false,
+          directionMessage: "",
           cameraId: null,
           loading: false,
           plateApi: plateLane1Api,
@@ -957,6 +880,9 @@ export default {
           desc: "QR trên / Biển dưới",
           gateId: 1,
           direction: "OUT",
+          savedDirection: "OUT",
+          directionSaving: false,
+          directionMessage: "",
           cameraId: null,
           loading: false,
           plateApi: plateLane2Api,
@@ -1018,7 +944,9 @@ export default {
 
     platePythonServiceOn() {
       const state = this.runtimeMap.python_plate
-      return state ? !!state.running : this.lanes.some((l) => l.plate.cameraRunning)
+      // The legacy status endpoint only knows lane 1.  A lane-2 runtime is
+      // still operational when its own camera pipeline is running.
+      return !!state?.running || this.lanes.some((l) => l.plate.cameraRunning)
     },
 
     qrApiBaseLabel() {
@@ -1027,7 +955,7 @@ export default {
 
     plateApiBaseLabel() {
       try {
-        return plateLane1Api.getResolvedPlateApiBaseUrl() || ""
+        return this.activeOpsLane?.plateApi?.getResolvedPlateApiBaseUrl?.() || ""
       } catch {
         return ""
       }
@@ -1090,6 +1018,7 @@ export default {
     installSimulation(this)
   }
   await this.loadCameraList()
+  await this.loadTransitLaneDirections()
   await this.fetchUserZones()
 
   this.unsubscribeSync = onEntityChanged(['AccessLog', 'LaneEvent', 'Gate', 'Camera'], () => {
@@ -1161,6 +1090,48 @@ export default {
   },
 
   methods: {
+    async loadTransitLaneDirections() {
+      try {
+        const response = await getTransitLanes()
+        const configuredLanes = response?.data?.data || response?.data || []
+        for (const lane of this.lanes) {
+          const configured = configuredLanes.find(item => Number(item.laneId ?? item.LaneId) === Number(lane.laneId))
+          const direction = String(configured?.direction ?? configured?.Direction ?? '').toUpperCase()
+          if (direction === 'IN' || direction === 'OUT') {
+            lane.direction = direction
+            lane.savedDirection = direction
+          }
+        }
+      } catch (error) {
+        console.warn('Không tải được cấu hình hướng làn', error)
+      }
+    },
+
+    async saveLaneDirection(lane) {
+      if (this.autoActive) return
+      const direction = String(lane.direction || '').toUpperCase()
+      if (!['IN', 'OUT'].includes(direction)) {
+        lane.direction = lane.savedDirection || 'IN'
+        lane.directionMessage = 'Hướng làn không hợp lệ.'
+        return
+      }
+
+      lane.directionSaving = true
+      lane.directionMessage = ''
+      try {
+        const response = await updateTransitLaneDirection(lane.laneId, direction)
+        const saved = String(response?.data?.data?.direction ?? response?.data?.data?.Direction ?? direction).toUpperCase()
+        lane.direction = saved
+        lane.savedDirection = saved
+        lane.directionMessage = `Đã lưu ${lane.name} là ${saved}.`
+      } catch (error) {
+        lane.direction = lane.savedDirection || 'IN'
+        lane.directionMessage = error?.response?.data?.message || 'Không thể lưu hướng làn.'
+      } finally {
+        lane.directionSaving = false
+      }
+    },
+
     preferMainQrStream(url) {
       const raw = String(url || "").trim()
       if (!raw) return ""
@@ -1477,7 +1448,7 @@ export default {
         this.settingsPlateBusy = true
         try {
           try {
-            await this.lanes[0].plateApi.turnOffCamera()
+            await Promise.all(this.lanes.map((lane) => lane.plateApi.turnOffCamera()))
           } catch (e) {
             console.warn("turnOffCamera", e)
           }
@@ -1519,9 +1490,11 @@ export default {
       try {
         // Bật tiến trình Python cho plate và mở camera ngay để có preview,
         // nhưng chưa thực hiện quét cho đến khi người dùng bấm nút Đọc.
-        await startPythonPlateProcess()
-        await this.waitForPlateApiReady(45000)
-        this.releaseOtherPlateLanes(lane)
+        // Lane 1 is still managed by the legacy runtime switch.  Lane 2 has
+        // its own Compose runtime, so never start/stop one lane as a side
+        // effect of operating the other.
+        if (lane.id === this.lanes[0]?.id) await startPythonPlateProcess()
+        await this.waitForPlateApiReady(lane, 45000)
         await lane.plateApi.turnOnCamera(ip)
 
         if (lane.plate.viewUrl && !lane.plate.previewRunning) {
@@ -1542,13 +1515,13 @@ export default {
       }
     },
 
-    async waitForPlateApiReady(timeoutMs = 45000) {
+    async waitForPlateApiReady(lane, timeoutMs = 45000) {
       const startedAt = Date.now()
       let lastError = null
 
       while (Date.now() - startedAt < timeoutMs) {
         try {
-          const base = plateLane1Api.getResolvedPlateApiBaseUrl() || PLATE_API_BASE_URL
+          const base = lane?.plateApi?.getResolvedPlateApiBaseUrl?.() || PLATE_API_BASE_URL
           await axios.get(`${String(base).replace(/\/+$/, "")}/health`, { timeout: 2000 })
           return
         } catch (e) {
@@ -1587,6 +1560,8 @@ export default {
           qr.backendLockedPayload = String(res.locked_payload || res.qr || "").trim()
           qr.backendLockedAt = Number(res.locked_at || 0)
           qr.backendLastDecodeAt = Number(res.locked_at || 0)
+          qr.backendTargetPresent = !!res.target_present
+          qr.backendEmptySinceAt = Number(res.empty_since_at || 0)
 
           if (!qr.sessionLocked && !qr.verifying && !qr.scanRequested) {
             const phase = String(qr.backendPhase || "idle")
@@ -1632,7 +1607,6 @@ export default {
             qr.message = "Đã khóa QR, đang xác thực..."
 
             const result = await this.doVerifyQr(lane, servicePayload)
-            qr.lastVerifiedPayload = servicePayload
             if (result?.success) {
               qr.lastVerifiedPayload = servicePayload
               qr.activeSessionPayload = servicePayload
@@ -2221,6 +2195,8 @@ export default {
       qr.backendCandidateSeenCount = 0
       qr.backendLockedPayload = ""
       qr.backendLockedAt = 0
+      qr.backendTargetPresent = false
+      qr.backendEmptySinceAt = 0
       qr.lastVerifiedPayload = ""
       qr.lastUpdate = ""
       qr.message = ""
@@ -2235,6 +2211,7 @@ export default {
 
     clearPlateState(plate) {
       plate.confirmedPlate = ""
+      plate.confirmedAt = 0
       plate.lastRawPlate = ""
       plate.scanLocked = false
       plate.scanActive = false
@@ -2267,18 +2244,6 @@ export default {
       plate.sessionId = 0
       plate.lastAppliedSessionId = 0
       this.clearPlateState(plate)
-    },
-
-    releaseOtherPlateLanes(activeLane) {
-      for (const lane of this.lanes) {
-        if (lane.id === activeLane.id) continue
-        this.stopPlateLoop(lane)
-        lane.plate.cameraRunning = false
-        lane.plate.sessionId = 0
-        lane.plate.lastAppliedSessionId = 0
-        lane.plate.lastLockedImageSessionId = 0
-        this.clearPlateState(lane.plate)
-      }
     },
 
     startQrPreviewLoop(lane) {
@@ -2623,6 +2588,7 @@ export default {
       qr.verifying = true
 
       try {
+        let result = null
         const safePayload = String(payload || "").trim()
         qr.lastVerifyAttemptPayload = safePayload
         qr.lastVerifyAttemptAt = Date.now()
@@ -2635,7 +2601,15 @@ export default {
         }
 
         if (safePayload.startsWith("EMP:") || safePayload.startsWith("VIS:")) {
-          const cameraId = Number(qr.cameraId || lane.cameraId || 1)
+          const cameraId = Number(qr.cameraId || lane.cameraId || 0)
+          const gateId = Number(lane.gateId || 0)
+          if (!cameraId || !gateId) {
+            return {
+              success: false,
+              message: "Chưa chọn đúng camera QR hoặc cổng cho làn này.",
+              data: null
+            }
+          }
 
           // This endpoint checks the credential against the selected gate and creates
           // an audit log whether access is granted or denied. Attendance remains
@@ -2643,7 +2617,7 @@ export default {
           result = await verifyQrForGate({
             QrPayload: safePayload,
             CameraId: cameraId,
-            GateId: lane.gateId || 1,
+            GateId: gateId,
             QrSnapshotBase64: qr.lockedSnapshot || null,
             DeferTransit: true
           })
@@ -2715,7 +2689,7 @@ else {
       try {
         for (const lane of this.lanes) {
           lane.auto.on = true
-          lane.auto.sessionId = Date.now()
+          lane.auto.sessionId = this.newAutoSessionId(lane)
           await this.setupAutoLaneQr(lane)
         }
         this.autoTimer = setInterval(() => {
@@ -2739,15 +2713,19 @@ else {
     },
 
     async setupAutoLaneQr(lane) {
-      if (!lane.qr.cameraIp.trim()) {
-        lane.auto.error = "Chưa cấu hình camera QR cho làn này"
-        return
-      }
+      // Plate is the session anchor. Do not consume a QR before there is a
+      // locked plate for this lane; otherwise a pedestrian QR can be paired
+      // with the next vehicle.
       try {
-        await this.restartQrSession(lane, "Tự động đang quét QR...")
+        await this.stopLaneQrScanner(lane)
       } catch (e) {
-        lane.auto.error = e?.message || "Không khởi động được quét QR"
+        console.warn("stopLaneQrScanner before auto plate", e)
       }
+      this.stopQrLoops(lane)
+      this.clearQrState(lane.qr)
+      lane.qr.cameraRunning = false
+      lane.auto.qrStarting = false
+      lane.auto.qrStartedForSession = false
     },
 
     async teardownAutoLane(lane) {
@@ -2803,15 +2781,15 @@ else {
         if (!acquired || !plate.cameraRunning) return
       }
 
-      const qrIdentity = String(qr.employeeId || qr.guestId || "").trim()
       const plateValue = String(plate.confirmedPlate || "").trim()
 
-      if (qrIdentity) {
-        if (auto.qrValue !== qrIdentity) auto.qrValue = qrIdentity
-        auto.qrSeenAt = now
-        auto.qrLostAt = 0
-      } else if (auto.qrValue) {
-        if (!auto.qrLostAt) auto.qrLostAt = now
+      // Presence is deliberately independent of a locked identity/result.
+      // A lock is evidence for this session; it is not proof that the vehicle
+      // is still in the lane. Both runtime trackers must go quiet before a
+      // completed session may be armed again.
+      if (plate.overlayBox) {
+        auto.plateLastPresentAt = now
+        auto.plateEmptySinceAt = 0
       }
 
       if (plateValue) {
@@ -2822,15 +2800,28 @@ else {
         if (!auto.plateLostAt) auto.plateLostAt = now
       }
 
-      if (auto.qrValue && auto.qrLostAt && now - auto.qrLostAt >= 2000) {
-        auto.qrValue = ""
-        auto.qrSeenAt = 0
-        auto.qrLostAt = 0
+      // A missing plate ends the whole vehicle session, regardless of
+      // whether QR was scanned or the access decision was already saved.
+      if (auto.plateValue && !plate.overlayBox) {
+        if (!auto.plateEmptySinceAt) auto.plateEmptySinceAt = now
+        if (now - auto.plateEmptySinceAt >= auto.plateExitHoldMs) {
+          this.releaseAutoSession(lane, "Biển số đã rời vùng quét")
+          return
+        }
       }
 
-      if (auto.plateValue && auto.plateLostAt && now - auto.plateLostAt >= 2000) {
-        this.releaseAutoSession(lane, "Biển số rời khỏi vùng quét")
+      if (auto.plateValue && !auto.qrStartedForSession && !auto.qrStarting) {
+        await this.startAutoQrAfterPlate(lane)
         return
+      }
+
+      const qrIdentity = String(qr.employeeId || qr.guestId || "").trim()
+      if (qrIdentity) {
+        if (auto.qrValue !== qrIdentity) auto.qrValue = qrIdentity
+        auto.qrSeenAt = now
+        auto.qrLostAt = 0
+      } else if (auto.qrValue && !auto.qrLostAt) {
+        auto.qrLostAt = now
       }
 
       if (auto.qrValue && auto.plateValue && !auto.saved && !auto.deciding) {
@@ -2840,11 +2831,34 @@ else {
       }
     },
 
+    async startAutoQrAfterPlate(lane) {
+      const auto = lane.auto
+      if (!auto.on || auto.qrStarting || auto.qrStartedForSession) return
+      if (!lane.qr.cameraIp.trim()) {
+        auto.status = "collecting"
+        auto.error = "Đã nhận biển số; chưa cấu hình camera QR"
+        return
+      }
+      auto.qrStarting = true
+      auto.status = "collecting"
+      auto.error = ""
+      try {
+        await this.restartQrSession(lane, "Đã khóa biển số, đang quét QR...")
+        auto.qrStartedForSession = true
+      } catch (e) {
+        auto.error = e?.message || "Không khởi động được quét QR sau khi nhận biển số"
+      } finally {
+        auto.qrStarting = false
+      }
+    },
+
     releaseAutoSession(lane, reason) {
       const auto = lane.auto
       if (!auto.on) return
-      auto.sessionId += 1
+      auto.sessionId = this.newAutoSessionId(lane)
       auto.saved = false
+      auto.qrStarting = false
+      auto.qrStartedForSession = false
       auto.status = "idle"
       auto.flash = ""
       auto.flashUntil = 0
@@ -2853,14 +2867,25 @@ else {
       auto.qrValue = ""
       auto.qrSeenAt = 0
       auto.qrLostAt = 0
+      auto.qrLastPresentAt = 0
+      auto.qrEmptySinceAt = 0
       auto.plateValue = ""
       auto.plateSeenAt = 0
       auto.plateLostAt = 0
+      auto.plateLastPresentAt = 0
+      auto.plateEmptySinceAt = 0
       this.clearQrState(lane.qr)
       this.clearPlateState(lane.plate)
       lane.qr.sessionLocked = false
-      this.kickoffQrScan(lane).catch(() => {})
+      this.stopLaneQrScanner(lane).catch(() => {})
+      this.stopQrLoops(lane)
+      lane.qr.cameraRunning = false
       lane.plateApi.resetCameraState().catch(() => {})
+    },
+
+    newAutoSessionId(lane) {
+      const nonce = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
+      return `gate-${lane.gateId}-lane-${lane.laneId}-${nonce}`
     },
 
     async tryAcquirePlateForLane(lane) {
@@ -2877,21 +2902,7 @@ else {
         return false
       }
 
-      const holder = this.lanes.find(
-        (x) => x.id !== lane.id && x.plate.cameraRunning && x.plate.sessionId > 0
-      )
-      if (holder) {
-        const h = holder.auto
-        const holderBusy =
-          h.plateValue ||
-          h.status === "deciding" ||
-          h.status === "decided" ||
-          (h.decidedAt && Date.now() - h.decidedAt < 1500)
-        if (holderBusy) return false
-      }
-
       try {
-        this.releaseOtherPlateLanes(lane)
         this.stopPlateLoop(lane)
         const res = await lane.plateApi.turnOnCamera(targetIp)
         if (res?.success || res?.session_id) {
@@ -2944,6 +2955,7 @@ else {
           Direction: lane.direction,
           CameraId: plate.cameraId || qr.cameraId || lane.cameraId,
           CredentialType: "QR",
+          TransitSessionId: String(auto.sessionId || this.newAutoSessionId(lane)),
           PlateSnapshotBase64: plate.lockedSnapshot || null,
           PlateCropBase64: plate.lockedPlateCrop || null,
           QrSnapshotBase64: qr.lockedSnapshot || null
@@ -3160,7 +3172,12 @@ else {
       }
 
       plate.currentIp = res.ip || plate.currentIp
-      plate.confirmedPlate = res.confirmed_plate || ""
+      const nextConfirmedPlate = String(res.confirmed_plate || "").trim()
+      if (nextConfirmedPlate && nextConfirmedPlate !== plate.confirmedPlate) {
+        plate.confirmedAt = Date.now()
+      }
+      if (!nextConfirmedPlate) plate.confirmedAt = 0
+      plate.confirmedPlate = nextConfirmedPlate
       plate.lastRawPlate = res.last_raw_plate || ""
       plate.scanLocked = !!res.scan_locked
       plate.scanActive = !!res.scan_active
@@ -3255,7 +3272,6 @@ else {
         lane.loading = true
         await this.restartQrSession(lane, "Đang quét QR từ Python...")
 
-        this.releaseOtherPlateLanes(lane)
         this.stopPlateLoop(lane)
         const resPlate = await lane.plateApi.turnOnCamera(plateIp)
         if (!resPlate?.success && !resPlate?.session_id) {
@@ -3316,7 +3332,6 @@ else {
         lane.loading = true
         this.clearPlateState(lane.plate)
 
-        this.releaseOtherPlateLanes(lane)
         this.stopPlateLoop(lane)
         const res = await lane.plateApi.turnOnCamera(plateIp)
         if (!res?.success && !res?.session_id) {
@@ -3583,7 +3598,7 @@ else {
         await enterpriseApi.recordLaneEvent({
           laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
           eventType: 'ACCESS_GRANTED',
-          direction: 'IN',
+          direction: lane.direction,
           plateText: licensePlate,
           note: reason || 'Cho qua bình thường',
         })
@@ -3601,7 +3616,7 @@ else {
         await enterpriseApi.recordLaneEvent({
           laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
           eventType: 'ACCESS_DENIED',
-          direction: 'IN',
+          direction: lane.direction,
           plateText: lane.plate.confirmedPlate || '',
           note: reason || 'Từ chối',
         })
@@ -3623,7 +3638,7 @@ else {
       const response = await enterpriseApi.recordLaneEvent({
         laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
         eventType: 'MANUAL_PASS',
-        direction: 'IN',
+        direction: lane.direction,
         plateText: plate,
         note: `[manual] ${subjectName}; subjectId=${subjectId}; reason=${reason}`,
       })
@@ -3660,7 +3675,7 @@ else {
         await enterpriseApi.recordLaneEvent({
           laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
           eventType: 'OVERRIDE',
-          direction: 'IN',
+          direction: lane.direction,
           plateText: licensePlate,
           note: `Override - ${reason} - Responsibility: ${responsibility}`,
         })
@@ -3718,7 +3733,7 @@ else {
           await enterpriseApi.recordLaneEvent({
             laneId: Number.parseInt(String(lane.id).replace(/\D/g, ''), 10) || null,
             eventType: 'ESCALATION_REQUEST',
-            direction: 'IN',
+            direction: lane.direction,
             plateText: lane.plate.confirmedPlate || '',
             note: `Yêu cầu can thiệp #${res.data?.operationalInterventionRequestId}: ${reason || 'Không có lý do'}`,
           })
@@ -4522,6 +4537,39 @@ selectCamera(cam, lane, type) {
   margin-bottom: 0;
 }
 
+.lane-direction-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.lane-direction-setting label {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lane-direction-setting p,
+.lane-direction-message {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.lane-direction-setting select {
+  min-height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0 8px;
+  background: #fff;
+  font-weight: 700;
+}
+
 .ip-box label {
   display: block;
   font-size: 12px;
@@ -5148,6 +5196,10 @@ selectCamera(cam, lane, type) {
 
   .summary-bar,
   .ip-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lane-direction-setting {
     grid-template-columns: 1fr;
   }
 

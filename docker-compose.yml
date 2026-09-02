@@ -114,12 +114,14 @@ services:
         VITE_QR_API_BASE_URL: "${VITE_QR_API_BASE_URL:-/qr-api}"
         VITE_QR_API_BASE_URL_LANE2: "${VITE_QR_API_BASE_URL_LANE2:-/qr-api-lane2}"
         VITE_PLATE_API_BASE_URL: "${VITE_PLATE_API_BASE_URL:-/plate-api/api}"
+        VITE_PLATE_API_BASE_URL_LANE2: "${VITE_PLATE_API_BASE_URL_LANE2:-/plate-api-lane2/api}"
     container_name: vshield-frontend
     environment:
       API_PROXY_BASE: "${API_PROXY_BASE:-http://api:5107}"
       QR_PROXY_BASE: "${QR_PROXY_BASE:-http://qr-runtime:8001}"
       QR_PROXY_BASE_LANE2: "${QR_PROXY_BASE_LANE2:-http://qr-runtime-lane2:8001}"
       PLATE_PROXY_BASE: "${PLATE_PROXY_BASE:-http://plate-runtime:5002}"
+      PLATE_PROXY_BASE_LANE2: "${PLATE_PROXY_BASE_LANE2:-http://plate-runtime-lane2:5002}"
       GO2RTC_PROXY_BASE: "${GO2RTC_PROXY_BASE:-http://go2rtc:1984}"
     ports:
       - "5173:80"
@@ -181,6 +183,21 @@ services:
       PORT: 5002
     ports:
       - "5002:5002"
+    restart: unless-stopped
+    profiles: ["ai-heavy"]
+
+  plate-runtime-lane2:
+    # Reuse the already-built, identical plate runtime image.  The process
+    # and its camera/session state remain fully independent per container.
+    image: v-shield-20-plate-runtime:latest
+    build:
+      context: ./AI_Runtime/doc_bien_gpu
+      dockerfile: Dockerfile
+    container_name: vshield-plate-runtime-lane2
+    environment:
+      PORT: 5002
+    ports:
+      - "5003:5002"
     restart: unless-stopped
     profiles: ["ai-heavy"]
 

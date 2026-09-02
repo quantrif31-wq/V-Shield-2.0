@@ -71,16 +71,31 @@ else:
 
 MODEL_PATH = os.path.join(base_path, "best.pt")
 
-CONF_THRES = 0.35
+# A 0.35 threshold drops valid distant/low-light Vietnamese plates before OCR
+# has a chance to validate them.  Keep the threshold configurable at runtime;
+# the OCR confirmation and single-read lock are still the final safeguards.
+CONF_THRES = float(os.getenv("LPR_CONF_THRESHOLD", "0.20"))
 IOU_THRES = 0.5
 IMG_SIZE = 640
 
-STABLE_FRAMES = 1
-DETECT_EVERY_N_FRAMES = 2
+# A detection must remain in the same position for several frames before OCR.
+# This prevents a transient box from being treated as a plate.
+# Begin OCR after two geometrically stable detections. Final acceptance still
+# needs two independent OCR votes, so a single noisy frame can never be used.
+STABLE_FRAMES = int(os.getenv("LPR_STABLE_FRAMES", "2"))
+DETECT_EVERY_N_FRAMES = 1
 PADDING = 25
 
-CONFIRM_MIN_VOTES = 1
-CONFIRM_RATIO = 0.5
+# A plate is actionable only after repeated matching OCR reads.  The defaults
+# deliberately trade a little latency for correctness at a physical gate.
+CONFIRM_MIN_VOTES = int(os.getenv("LPR_CONFIRM_MIN_VOTES", "2"))
+CONFIRM_RATIO = float(os.getenv("LPR_CONFIRM_RATIO", "0.85"))
+# A detector can occasionally crop an on-screen timestamp or other text.  Such
+# crops must never be allowed to contribute a confirmation vote just because
+# their characters happen to match a loose pattern.
+MIN_CONFIRM_OCR_CONF = float(os.getenv("LPR_MIN_CONFIRM_OCR_CONF", "0.55"))
+# Old, blurred OCR hypotheses must not indefinitely block a clear plate.
+VOTE_WINDOW_SECONDS = float(os.getenv("LPR_VOTE_WINDOW_SECONDS", "1.8"))
 OCR_COOLDOWN = 0.1
 
 JPEG_QUALITY = 80
@@ -173,6 +188,7 @@ ocr_queue = Queue(maxsize=1)
 ocr_running = False
 
 plate_votes = Counter()
+plate_vote_seen_at = {}
 confirmed_plate = None
 last_raw_plate = None
 live_candidates = []
@@ -257,6 +273,19 @@ def now_ts():
 
 def safe_counter_to_dict(counter_obj):
     return {str(k): int(v) for k, v in counter_obj.items()}
+
+
+def record_plate_vote(text):
+    """Retain only recent OCR evidence for the vehicle currently in view."""
+    now = time.monotonic()
+    expired = [key for key, seen_at in plate_vote_seen_at.items()
+               if now - seen_at > VOTE_WINDOW_SECONDS]
+    for key in expired:
+        plate_vote_seen_at.pop(key, None)
+        plate_votes.pop(key, None)
+
+    plate_votes[text] += 1
+    plate_vote_seen_at[text] = now
 
 def next_session_id():
     global session_id
@@ -369,17 +398,16 @@ def validate_plate(text):
     if not text:
         return False, None
     cleaned = clean_and_normalize_vn_plate(text)
+    # A civil Vietnamese plate always has a province code followed by at least
+    # one alphabetic series character.  Do not use a generic alpha-numeric
+    # fallback here: it made camera timestamps such as "20000101" valid plates.
     patterns = [
-        r"^\d{2}[A-Z]{1,2}\d{4,6}$",        # Oto: 30A12345, 29LD12345
-        r"^\d{2}[A-Z0-9]{2,3}\d{4,6}$",    # Xe may: 29X112345, 59MD112345, 59AA12345
-        r"^[A-Z]{2}\d{4,6}$",               # Quan su / Ngoai giao: TM1234, NG12345
-        r"^\d{2}[A-Z0-9]{1,4}\d{3,6}$"     # Fallback tong quat cho bien so hop le
+        r"^\d{2}[A-Z]{1,3}\d{4,6}$",        # 30A12345, 29LD12345, 59MD112345
+        r"^[A-Z]{2}\d{4,6}$",                # Quan su / Ngoai giao: TM1234, NG12345
     ]
     for pattern in patterns:
         if re.match(pattern, cleaned):
             return True, "vn_plate"
-    if 6 <= len(cleaned) <= 11 and any(c.isdigit() for c in cleaned):
-        return True, "vn_plate_generic"
     return False, None
 
 def clear_ocr_queue():
@@ -414,7 +442,7 @@ def image_to_base64(frame):
 def reset_recognition_state(reason="Recognition state reset", new_session=True):
     global frame_id, stable_count, last_box, last_box_center
     global last_ocr_time, ocr_running
-    global plate_votes, confirmed_plate, last_raw_plate
+    global plate_votes, plate_vote_seen_at, confirmed_plate, last_raw_plate
     global latest_jpeg, latest_raw_frame, latest_raw_frame_ts, live_candidates
     global scan_locked, scan_active, locked_frame_jpeg, locked_snapshot_b64, locked_plate_crop_b64
     global fps
@@ -433,6 +461,7 @@ def reset_recognition_state(reason="Recognition state reset", new_session=True):
     ocr_running = False
 
     plate_votes.clear()
+    plate_vote_seen_at.clear()
     confirmed_plate = None
     last_raw_plate = None
     live_candidates = []
@@ -720,9 +749,13 @@ def ocr_worker():
                 best_text = best["text"]
                 last_raw_plate = best_text
 
-                if best["valid"]:
+                # Keep weak but plausible reads visible to the operator, but
+                # only let a high-confidence, structurally valid result vote.
+                # Two such votes preserve accuracy while still locking after
+                # roughly two OCR cycles on a stable plate.
+                if best["valid"] and best["conf"] >= MIN_CONFIRM_OCR_CONF:
                     if not scan_locked:
-                        plate_votes[best_text] += 1
+                        record_plate_vote(best_text)
 
                     total = sum(plate_votes.values())
                     best_plate, best_count = plate_votes.most_common(1)[0]
@@ -762,7 +795,9 @@ def ocr_worker():
                         scan_locked=scan_locked,
                         locked_snapshot=locked_snapshot_b64,
                         locked_plate_crop=locked_plate_crop_b64,
-                        message="OCR read text but format not confirmed"
+                        message=(
+                            "OCR read text but confidence/format not confirmed"
+                        )
                     )
             else:
                 live_candidates = []
@@ -1096,9 +1131,12 @@ def open_camera(ip):
 
     set_camera_flags(enabled=True, ip=ip, connected=False)
     current_ip = ip
-    scan_active = True
 
+    # reset_recognition_state clears scan_active.  Arm recognition only after
+    # that reset, otherwise a newly selected camera connects successfully but
+    # the detection loop remains disabled forever.
     reset_recognition_state(reason="Waiting camera worker to connect...", new_session=True)
+    scan_active = True
 
     update_recognition_state(
         success=True,
@@ -1580,7 +1618,10 @@ def main():
                     frame_id += 1
                     fps_counter += 1
 
-                if scan_active and not scan_locked and connected:
+                # Keep lightweight detection alive after a confirmed read so
+                # the lane orchestrator can prove that the vehicle has left.
+                # OCR/voting remains disabled while locked.
+                if scan_active and connected:
                     detect_interval = 1 if stable_count < STABLE_FRAMES else DETECT_EVERY_N_FRAMES
 
                     if frame_id % detect_interval == 0:
@@ -1627,6 +1668,7 @@ def main():
                         if (
                             stable_count >= STABLE_FRAMES
                             and not moving_fast
+                            and not scan_locked
                             and not ocr_running
                             and ocr_queue.empty()
                             and enough_time

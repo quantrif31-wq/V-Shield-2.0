@@ -17,7 +17,10 @@ PREVIEW_HEIGHT = 540
 CANDIDATE_REQUIRED_COUNT = 1
 CANDIDATE_WINDOW_MS = 1200
 CANDIDATE_PERSIST_MS = 1200
-RESULT_HOLD_MS = 800
+# A lane orchestrator, not this isolated QR worker, owns the end of a transit
+# session.  Keep the lock until it explicitly re-arms the scanner.
+RESULT_HOLD_MS = 120000
+PRESENCE_SCAN_INTERVAL_SECONDS = 0.20
 SAME_CODE_COOLDOWN_MS = 1000
 VANISH_RESET_MS = 800
 IDLE_SLEEP_SECONDS = 0.008
@@ -52,6 +55,9 @@ state = {
     "last_fired_payload": "",
     "last_fired_at": 0,
     "last_vanish_at": 0,
+    "last_presence_at": 0,
+    "empty_since_at": 0,
+    "target_present": False,
     "cooldown_payload": "",
     "cooldown_until": 0,
     "session_active": False,
@@ -223,6 +229,9 @@ def reset_scan_session_unlocked(scan_enabled=False):
     clear_candidate_state_unlocked()
     unlock_state_unlocked()
     state["scan_enabled"] = scan_enabled
+    state["last_presence_at"] = 0
+    state["empty_since_at"] = 0
+    state["target_present"] = False
     if scan_enabled:
         mark_scan_started_unlocked()
     else:
@@ -512,6 +521,9 @@ def lock_candidate_unlocked(payload, source_name):
     state["last_fired_payload"] = payload
     state["last_fired_at"] = now_ms()
     state["last_vanish_at"] = 0
+    state["last_presence_at"] = now_ms()
+    state["empty_since_at"] = 0
+    state["target_present"] = True
     state["cooldown_payload"] = ""
     state["cooldown_until"] = 0
     state["session_active"] = True
@@ -758,20 +770,11 @@ def scan_worker():
     last_scan_started_at = 0.0
     last_full_scan_at = 0.0
     last_processed_frame_seq = 0
+    last_presence_scan_at = 0.0
 
     while not stop_flag:
         with lock:
             locked_expires_at = int(state.get("locked_expires_at") or 0)
-            if (
-                state["running"]
-                and state["locked"]
-                and locked_expires_at
-                and now_ms() >= locked_expires_at
-            ):
-                slog("scan_worker: lock hold expired -> auto rearm")
-                reset_scan_session_unlocked(scan_enabled=True)
-                set_phase_unlocked()
-
             cooldown_until = int(state.get("cooldown_until") or 0)
             if state.get("cooldown_payload") and cooldown_until and now_ms() >= cooldown_until:
                 slog("scan_worker: cooldown expired")
@@ -780,9 +783,31 @@ def scan_worker():
                 set_phase_unlocked()
 
             should_scan = state["running"] and state["scan_enabled"] and not state["locked"]
+            should_track_presence = state["running"] and state["locked"]
             scan_started_at = float(state.get("scan_started_at") or 0.0)
             scan_frame_seq = int(state.get("scan_frame_seq") or 0)
             scan_session_id = int(state.get("scan_session_id") or 0)
+
+        if should_track_presence:
+            now = time.perf_counter()
+            if now - last_presence_scan_at < PRESENCE_SCAN_INTERVAL_SECONDS:
+                time.sleep(IDLE_SLEEP_SECONDS)
+                continue
+            last_presence_scan_at = now
+            with frame_lock:
+                frame = None if latest_frame is None else latest_frame.copy()
+            if frame is not None:
+                payload, _ = decode_live_frame(frame, allow_full=False, deadline_at=now + 0.12)
+                with lock:
+                    if payload:
+                        state["target_present"] = True
+                        state["last_presence_at"] = now_ms()
+                        state["empty_since_at"] = 0
+                    elif not state.get("empty_since_at"):
+                        state["target_present"] = False
+                        state["empty_since_at"] = now_ms()
+            time.sleep(IDLE_SLEEP_SECONDS)
+            continue
 
         if not should_scan:
             last_scan_started_at = 0.0

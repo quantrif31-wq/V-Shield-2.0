@@ -171,6 +171,33 @@ namespace API.Controllers
                     ? $"Xác thực QR thành công. {userType} được phép vào khu vực."
                     : $"Từ chối. {userType} không có quyền truy cập khu vực này.";
 
+                // Gate Transit xác thực QR trước, sau đó mới chốt cùng biển số.
+                // Đây chỉ là bước kiểm tra nội bộ: không được tạo Access_Log riêng,
+                // nếu không lịch sử sẽ có một dòng QR rỗng và một dòng QR+biển số
+                // cho cùng một lượt xe.
+                if (request.DeferTransit)
+                {
+                    if (!hasAccess)
+                    {
+                        return StatusCode(403, GateTransitApiResponse.CreateError(logNote, new
+                        {
+                            EmployeeId = targetEmployeeId,
+                            VisitorDetailId = targetVisitorId,
+                            SubjectName = subjectName,
+                            GateId = gateId
+                        }));
+                    }
+
+                    return Ok(GateTransitApiResponse.CreateSuccess(logNote, new
+                    {
+                        EmployeeId = targetEmployeeId,
+                        VisitorDetailId = targetVisitorId,
+                        SubjectName = subjectName,
+                        GateId = gateId,
+                        Timestamp = DateTime.Now
+                    }));
+                }
+
                 var newLog = new AccessLog
                 {
                     Timestamp = DateTime.Now,

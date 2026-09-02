@@ -35,9 +35,16 @@ vi.mock('../../services/plateCameraApi', () => ({
   getCameraResult: vi.fn(),
   getLockedImages: vi.fn(),
   getResolvedPlateApiBaseUrl: vi.fn(() => 'http://plate.local/api'),
+  createPlateCameraApi: vi.fn(() => ({
+    turnOnCamera: vi.fn(), turnOffCamera: vi.fn(), resetCameraState: vi.fn(),
+    getCameraStatus: vi.fn(), getCameraResult: vi.fn(), getLockedImages: vi.fn(),
+    getResolvedPlateApiBaseUrl: vi.fn(() => 'http://plate.local-lane2/api'),
+  })),
 }))
-vi.mock('../../services/gateTransitApi', () => ({ scanGate: vi.fn(), scanGuest: vi.fn() }))
-vi.mock('../../services/dynamicQrVerifyApi', () => ({ verifyDynamicQr: vi.fn() }))
+vi.mock('../../services/gateTransitApi', () => ({
+  scanGate: vi.fn(), scanGuest: vi.fn(), getTransitLanes: vi.fn(), updateTransitLaneDirection: vi.fn()
+}))
+vi.mock('../../services/dynamicQrVerifyApi', () => ({ verifyQrForGate: vi.fn() }))
 vi.mock('../../services/cameraRuntimeApi', () => ({
   getCameras: vi.fn(),
   startPythonQrProcess: vi.fn(),
@@ -65,6 +72,7 @@ vi.mock('../../services/dynamicQrScannerApi', () => ({
 }))
 vi.mock('../../config/api', () => ({
   PLATE_API_BASE_URL: 'http://plate.local/api',
+  PLATE_API_BASE_URL_LANE2: 'http://plate.local-lane2/api',
   API_BASE_URL: 'http://localhost:5107/api',
   API_ORIGIN: 'http://localhost:5107'
 }))
@@ -118,7 +126,9 @@ beforeEach(() => {
   plateApi.resetCameraState.mockResolvedValue({})
   gateTransitApi.scanGate.mockResolvedValue({ data: { success: true, message: 'OK', receiptId: 'RCP-1' } })
   gateTransitApi.scanGuest.mockResolvedValue({ data: { success: true, message: 'OK', receiptId: 'RCP-G' } })
-  dynamicQrVerifyApi.verifyDynamicQr.mockResolvedValue({ success: true, message: 'Hợp lệ', data: { type: 'EMP', employeeId: 7, employeeName: 'Nguyen A' } })
+  gateTransitApi.getTransitLanes.mockResolvedValue({ data: { data: [] } })
+  gateTransitApi.updateTransitLaneDirection.mockResolvedValue({ data: { data: { direction: 'IN' } } })
+  dynamicQrVerifyApi.verifyQrForGate.mockResolvedValue({ success: true, message: 'Hợp lệ', data: { type: 'EMP', employeeId: 7, employeeName: 'Nguyen A' } })
   cameraRuntimeApi.getCameras.mockResolvedValue([])
   cameraRuntimeApi.getPythonProcessStatus.mockResolvedValue({ data: {} })
   runtimeServiceApi.getRuntimeServices.mockResolvedValue([])
@@ -196,10 +206,75 @@ describe('GateTransitMonitor', () => {
     await startBtn.trigger('click')
     await flushPromises()
     expect(wrapper.vm.autoActive).toBe(true)
-    expect(wrapper.vm.lanes[0].auto.error).toContain('Chưa cấu hình camera QR')
+    expect(wrapper.vm.lanes[0].auto.error).toBe('')
     await wrapper.vm.stopAutoMonitor()
     await flushPromises()
     expect(wrapper.vm.autoActive).toBe(false)
+  })
+
+  it('loads and persists the direction independently for each lane', async () => {
+    gateTransitApi.getTransitLanes.mockResolvedValue({ data: { data: [
+      { laneId: 1, direction: 'OUT' }, { laneId: 2, direction: 'OUT' }
+    ] } })
+    const wrapper = await mountMonitor()
+    expect(wrapper.vm.lanes.map(lane => lane.direction)).toEqual(['OUT', 'OUT'])
+
+    wrapper.vm.lanes[0].direction = 'IN'
+    await wrapper.vm.saveLaneDirection(wrapper.vm.lanes[0])
+    expect(gateTransitApi.updateTransitLaneDirection).toHaveBeenCalledWith(1, 'IN')
+    expect(wrapper.vm.lanes[0].savedDirection).toBe('IN')
+  })
+
+  it('ends a plate-anchored session after its plate stays absent for one second', async () => {
+    const wrapper = await mountMonitor()
+    const lane = wrapper.vm.lanes[0]
+    const now = Date.now()
+    wrapper.vm.autoActive = true
+    lane.auto.on = true
+    lane.auto.plateValue = '30A12345'
+    lane.auto.plateEmptySinceAt = now - lane.auto.plateExitHoldMs - 1
+    lane.plate.overlayBox = null
+    lane.plate.cameraRunning = true
+    const release = vi.spyOn(wrapper.vm, 'releaseAutoSession').mockImplementation(() => {})
+
+    await wrapper.vm.autoTick(lane)
+
+    expect(release).toHaveBeenCalledWith(lane, 'Biển số đã rời vùng quét')
+  })
+
+  it('starts the plate exit hold when a locked plate first disappears', async () => {
+    const wrapper = await mountMonitor()
+    const lane = wrapper.vm.lanes[0]
+    wrapper.vm.autoActive = true
+    lane.auto.on = true
+    lane.auto.plateValue = '30A12345'
+    lane.plate.overlayBox = null
+    lane.plate.cameraRunning = true
+
+    await wrapper.vm.autoTick(lane)
+
+    expect(lane.auto.plateEmptySinceAt).toBeGreaterThan(0)
+  })
+
+  it('starts QR recognition only after the configured lane locks a plate', async () => {
+    const wrapper = await mountMonitor()
+    const lane = wrapper.vm.lanes[0]
+    lane.qr.cameraIp = 'rtsp://qr-gate'
+    lane.qr.currentIp = 'rtsp://qr-gate'
+
+    await wrapper.vm.startAutoMonitor()
+
+    expect(dynamicQrScannerApi.startQrScanner).not.toHaveBeenCalled()
+    lane.auto.plateValue = '30A12345'
+    lane.plate.confirmedPlate = '30A12345'
+    lane.plate.cameraRunning = true
+    lane.plate.overlayBox = { x1: 1, y1: 1, x2: 2, y2: 2 }
+    await wrapper.vm.autoTick(lane)
+
+    expect(dynamicQrScannerApi.startQrScanner).toHaveBeenCalledWith('rtsp://qr-gate', 'http://qr.local:8001')
+    expect(dynamicQrScannerApi.scanQrOnce).toHaveBeenCalledWith('http://qr.local:8001')
+    expect(lane.qr.cameraRunning).toBe(true)
+    await wrapper.vm.stopAutoMonitor()
   })
 
   it('opens the ops drawer and refreshes runtime services', async () => {
@@ -457,8 +532,13 @@ describe('GateTransitMonitor', () => {
     it('verifies an employee dynamic qr', async () => {
       const wrapper = await mountMonitor()
       const lane = wrapper.vm.lanes[0]
+      lane.qr.cameraId = 10
       const result = await wrapper.vm.doVerifyQr(lane, 'EMP:abc')
-      expect(dynamicQrVerifyApi.verifyDynamicQr).toHaveBeenCalled()
+      expect(dynamicQrVerifyApi.verifyQrForGate).toHaveBeenCalledWith(expect.objectContaining({
+        CameraId: 10,
+        GateId: lane.gateId,
+        DeferTransit: true,
+      }))
       expect(result.success).toBe(true)
       expect(lane.qr.verifyData).toMatchObject({ employeeId: 7 })
     })
@@ -488,10 +568,48 @@ describe('GateTransitMonitor', () => {
   })
 
   describe('plate state', () => {
+    it('ignores a shared stale plate session for a lane without a selected camera', async () => {
+      plateApi.getCameraStatus.mockResolvedValue({
+        session_id: 88,
+        ip: 'rtsp://another-gate',
+        camera_enabled: true,
+        scan_active: true,
+        confirmed_plate: '30A-99999',
+      })
+      const wrapper = await mountMonitor()
+      const lane = wrapper.vm.lanes[0]
+
+      expect(lane.plate.cameraRunning).toBe(false)
+      expect(lane.plate.scanActive).toBe(false)
+      expect(lane.plate.confirmedPlate).toBe('')
+      expect(wrapper.vm.cameraVisualText('plate', lane)).toBe('TẮT')
+    })
+
+    it('does not apply a session belonging to another selected lane', async () => {
+      const wrapper = await mountMonitor()
+      const lane = wrapper.vm.lanes[0]
+      lane.plate.cameraIp = 'rtsp://this-gate'
+      lane.plate.currentIp = 'rtsp://this-gate'
+
+      await wrapper.vm.applyPlateRealtimeState(lane, {
+        session_id: 9,
+        ip: 'rtsp://another-gate',
+        camera_enabled: true,
+        scan_active: true,
+        confirmed_plate: '30A-99999',
+      })
+
+      expect(lane.plate.cameraRunning).toBe(false)
+      expect(lane.plate.scanActive).toBe(false)
+      expect(lane.plate.confirmedPlate).toBe('')
+    })
+
     it('applies a realtime plate state', async () => {
       const wrapper = await mountMonitor()
       const lane = wrapper.vm.lanes[0]
       lane.plate.cameraRunning = true
+      lane.plate.cameraIp = 'rtsp://plate'
+      lane.plate.currentIp = 'rtsp://plate'
       lane.plate.sessionId = 3
       lane.plate.lastAppliedSessionId = 3
       await wrapper.vm.applyPlateRealtimeState(lane, {
@@ -530,7 +648,7 @@ describe('GateTransitMonitor', () => {
       const wrapper = await mountMonitor()
       const lane = wrapper.vm.lanes[0]
       expect(wrapper.vm.cameraVisualState('qr', lane)).toBe('idle')
-      expect(wrapper.vm.cameraVisualText('qr', lane)).toBe('IDLE')
+      expect(wrapper.vm.cameraVisualText('qr', lane)).toBe('TẮT')
       lane.qr.cameraRunning = true
       lane.qr.backendPhase = 'scanning'
       expect(wrapper.vm.cameraVisualState('qr', lane)).toBe('scanning')

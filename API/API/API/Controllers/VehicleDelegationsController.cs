@@ -177,6 +177,8 @@ public class VehicleDelegationsController : ControllerBase
 
         delegation.Status = DelegationStatuses.Approved;
         delegation.RespondedAtUtc = DateTime.UtcNow;
+        // Ủy quyền đã duyệt là chuyển quyền giữ xe: người nhận trở thành chủ mới
+        // của phiên gửi và là người được phép xác nhận lượt OUT.
         delegation.Vehicle.EmployeeId = delegation.ToEmployeeId;
 
         await _context.SaveChangesAsync();

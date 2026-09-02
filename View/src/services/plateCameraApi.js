@@ -183,3 +183,27 @@ export async function getLockedImages() {
 export function getResolvedPlateApiBaseUrl() {
   return activePlateApiBaseUrl || getCandidateBaseUrls()[0] || PLATE_API_BASE_URL
 }
+
+// Each physical lane must own a separate runtime endpoint.  Do not share the
+// module-level fallback state between them, otherwise a transient lane-1
+// failure can silently send lane-2 commands to the wrong camera worker.
+export function createPlateCameraApi(baseUrl) {
+  const fixedBaseUrl = trimTrailingSlash(baseUrl)
+  const request = async (config) => {
+    try {
+      const response = await axios({ ...config, baseURL: fixedBaseUrl, timeout: DEFAULT_TIMEOUT_MS })
+      return response.data
+    } catch (error) {
+      throw normalizeError(error, [fixedBaseUrl])
+    }
+  }
+  return {
+    turnOnCamera: (ip) => request({ method: "post", url: "/camera/on", data: { ip: String(ip || "").trim() } }),
+    turnOffCamera: () => request({ method: "post", url: "/camera/off" }),
+    resetCameraState: () => request({ method: "post", url: "/camera/reset" }),
+    getCameraStatus: () => request({ method: "get", url: "/camera/status" }),
+    getCameraResult: () => request({ method: "get", url: "/camera/result" }),
+    getLockedImages: () => request({ method: "get", url: "/camera/locked-images" }),
+    getResolvedPlateApiBaseUrl: () => fixedBaseUrl,
+  }
+}

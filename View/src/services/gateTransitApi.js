@@ -15,3 +15,11 @@ export function getManualSubject(code) {
 export function getManualGates() {
   return http.get("/gate-transit/gates")
 }
+
+export function getTransitLanes() {
+  return http.get("/gate-transit/lanes")
+}
+
+export function updateTransitLaneDirection(laneId, direction) {
+  return http.patch(`/gate-transit/lanes/${encodeURIComponent(laneId)}/direction`, { direction })
+}

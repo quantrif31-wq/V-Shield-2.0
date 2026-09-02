@@ -68,4 +68,5 @@ export const API_ORIGIN = stripApiSuffix(API_BASE_URL) || (typeof window !== "un
 
 export const PLATE_API_BASE_URL = ensureServiceBaseUrl(import.meta.env.VITE_PLATE_API_BASE_URL, 5002);
 export const PLATE_API_ORIGIN = stripApiSuffix(PLATE_API_BASE_URL) || (typeof window !== "undefined" ? window.location.origin : "http://localhost:5002");
+export const PLATE_API_BASE_URL_LANE2 = ensureServiceBaseUrl(import.meta.env.VITE_PLATE_API_BASE_URL_LANE2, 5003);
 
