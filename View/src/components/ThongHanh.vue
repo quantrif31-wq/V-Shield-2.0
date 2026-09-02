@@ -1374,7 +1374,12 @@ export default {
           this.mountPreview(lane.face, lane.face.viewUrl)
         }
       } catch (e) {
-        console.error("loadStatusFace error:", e)
+        if (e?.status === 404) {
+          lane.face.cameraRunning = false
+          lane.face.cameraConnected = false
+        } else {
+          console.warn("loadStatusFace error:", e)
+        }
       }
     },
 
@@ -1662,7 +1667,7 @@ export default {
       face.message = "Đang khởi động lại nhận diện Face..."
 
       try {
-        const res = await lane.faceApi.startCamera(face.faceCameraId || lane.faceCameraId, ip, lane.laneId)
+        const res = await lane.faceApi.startCamera(face.faceCameraId || lane.faceCameraId, ip, String(lane.laneId))
         face.cameraRunning = true
         face.currentIp = ip
         face.message = res?.message || message
@@ -2001,6 +2006,7 @@ export default {
         await this.restartFaceSession(lane, "Đã khóa biển số, đang nhận diện khuôn mặt...")
         auto.faceStartedForSession = true
       } catch (e) {
+        auto.faceStartedForSession = true
         auto.error = e?.message || "Không khởi động được nhận diện Face sau khi nhận biển số"
       } finally {
         auto.faceStarting = false

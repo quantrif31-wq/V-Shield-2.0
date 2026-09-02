@@ -204,6 +204,8 @@ def _validated_lane_id(data: dict[str, Any]) -> str | None:
     lane_id = data.get("laneId")
     if lane_id is None:
         return None
+    if isinstance(lane_id, (int, float)):
+        lane_id = str(lane_id)
     if not isinstance(lane_id, str) or len(lane_id) > 128:
         raise ValueError("laneId is invalid.")
     return lane_id
