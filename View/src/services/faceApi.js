@@ -122,7 +122,7 @@ export function getCameras() {
 export async function startCamera(cameraId, ip, laneId = null) {
   const data = { ip }
   if (laneId !== null && laneId !== undefined) {
-    data.laneId = String(laneId)
+    data.laneId = laneId
   }
   try {
     return await faceRequest({

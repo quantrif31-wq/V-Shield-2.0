@@ -144,12 +144,9 @@ class CameraManager:
         return session, idempotent
 
     def stop_session(self, camera_id: str) -> CameraSession:
-        try:
-            session = self.get_session(camera_id)
-            session.stop()
-            return session
-        except CameraNotFoundError:
-            return self.ensure_session(camera_id)
+        session = self.get_session(camera_id)
+        session.stop()
+        return session
 
     def reset_session(self, camera_id: str) -> CameraSession:
         session = self.get_session(camera_id)
@@ -157,18 +154,7 @@ class CameraManager:
         return session
 
     def get_status(self, camera_id: str) -> dict[str, Any]:
-        try:
-            return self.get_session(camera_id).status()
-        except CameraNotFoundError:
-            return {
-                "success": True,
-                "camera_enabled": False,
-                "camera_connected": False,
-                "ip": "",
-                "fps": 0,
-                "message": "Camera session is stopped.",
-                "last_update": "",
-            }
+        return self.get_session(camera_id).status()
 
     def get_result(self, camera_id: str) -> dict[str, Any]:
         return self.get_session(camera_id).result(include_images=True)
