@@ -1899,6 +1899,14 @@ export default {
       lane.face.cameraRunning = false
       lane.auto.faceStarting = false
       lane.auto.faceStartedForSession = false
+      if (lane.face.cameraIp.trim()) {
+        try {
+          await this.restartFaceSession(lane, "Đang tự động nhận diện Face...")
+          lane.auto.faceStartedForSession = true
+        } catch (e) {
+          console.warn("setupAutoLaneFace error:", e)
+        }
+      }
     },
 
     async teardownAutoLane(lane) {
@@ -1941,6 +1949,17 @@ export default {
       const now = Date.now()
       const face = lane.face
       const plate = lane.plate
+
+      if (!face.cameraRunning && lane.face.cameraIp.trim() && !auto.faceStarting) {
+        auto.faceStarting = true
+        this.restartFaceSession(lane, "Đang tự động nhận diện Face...")
+          .then(() => { auto.faceStartedForSession = true })
+          .catch((e) => {
+            auto.faceStartedForSession = true
+            auto.error = e?.message || "Lỗi khởi động camera Face"
+          })
+          .finally(() => { auto.faceStarting = false })
+      }
 
       if (!plate.cameraRunning && !auto.plateValue) {
         const acquired = await this.tryAcquirePlateForLane(lane)
@@ -2607,6 +2626,9 @@ export default {
         if (viewValue) {
           this.mountPreview(lane.face, viewValue)
         }
+        if (this.autoActive) {
+          this.restartFaceSession(lane, "Đang tự động nhận diện Face...").catch(() => {})
+        }
       }
 
       if (type === "plate") {
@@ -2620,6 +2642,9 @@ export default {
         this.plateDropdownOpen[lane.id] = false
         if (viewValue) {
           this.mountPreview(lane.plate, viewValue)
+        }
+        if (this.autoActive) {
+          this.tryAcquirePlateForLane(lane)
         }
       }
     },
