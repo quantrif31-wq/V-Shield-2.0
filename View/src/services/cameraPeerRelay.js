@@ -14,6 +14,19 @@ const peers = new Map()
 
 function token() { return sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || '' }
 
+// go2rtc sends its ICE payload as the raw SDP candidate line. Browsers accept
+// an RTCIceCandidateInit, so retain JSON support too for relay/browser peers.
+export function normalizeRemoteIceCandidate(value) {
+  if (!value) return null
+  if (typeof value === 'object') return value
+  try {
+    const parsed = JSON.parse(value)
+    if (typeof parsed === 'string') return { candidate: parsed, sdpMLineIndex: 0 }
+    if (parsed && typeof parsed === 'object') return parsed
+  } catch { /* Native go2rtc candidate: "candidate:..." */ }
+  return { candidate: String(value), sdpMLineIndex: 0 }
+}
+
 async function getConnection() {
   if (connection?.state === signalR.HubConnectionState.Connected) return connection
   if (connectionPromise) return connectionPromise
@@ -27,7 +40,10 @@ async function getConnection() {
     if (!peer) return
     try {
       if (kind === 'answer') await peer.pc.setRemoteDescription({ type: 'answer', sdp: value })
-      else if (kind === 'candidate' && value) await peer.pc.addIceCandidate(JSON.parse(value))
+      else if (kind === 'candidate' && value) {
+        const candidate = normalizeRemoteIceCandidate(value)
+        if (candidate) await peer.pc.addIceCandidate(candidate)
+      }
       else if (kind === 'error') peer.onState?.('failed', value)
     } catch (error) { peer.onState?.('failed', error?.message) }
   })

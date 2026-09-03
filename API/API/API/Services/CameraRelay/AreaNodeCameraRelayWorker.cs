@@ -126,10 +126,30 @@ public sealed class AreaNodeCameraRelayWorker : BackgroundService
         if (kind is not ("offer" or "answer" or "candidate") || !_sockets.TryGetValue(sessionId, out var socket) || socket.State != WebSocketState.Open) return;
         try
         {
-            var payload = JsonSerializer.Serialize(new { type = $"webrtc/{kind}", value = value ?? string.Empty });
+            // Browsers serialize ICE candidates as an object while go2rtc's websocket
+            // protocol expects the raw "candidate:..." line. Keep SDP untouched.
+            var relayValue = kind == "candidate" ? ExtractCandidateLine(value) : value ?? string.Empty;
+            var payload = JsonSerializer.Serialize(new { type = $"webrtc/{kind}", value = relayValue });
             await socket.SendAsync(Encoding.UTF8.GetBytes(payload), WebSocketMessageType.Text, true, CancellationToken.None);
         }
         catch (Exception error) { _logger.LogDebug(error, "Could not forward camera relay signal."); }
+    }
+
+    private static string ExtractCandidateLine(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        try
+        {
+            using var document = JsonDocument.Parse(value);
+            if (document.RootElement.ValueKind == JsonValueKind.String)
+                return document.RootElement.GetString() ?? string.Empty;
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("candidate", out var candidate) &&
+                candidate.ValueKind == JsonValueKind.String)
+                return candidate.GetString() ?? string.Empty;
+        }
+        catch (JsonException) { /* go2rtc already supplied its native candidate line. */ }
+        return value;
     }
 
     private async Task ReceiveGo2RtcAsync(string sessionId, ClientWebSocket socket)
