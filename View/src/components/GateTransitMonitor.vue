@@ -939,6 +939,7 @@ export default {
       runtimeBusy: {},
       cameraRelayEnabled: false,
       cameraRelayNodeId: "",
+      cameraRelayTimer: null,
       uiTogglePending: {},
       // Decision drawer state
       decisionDrawerVisible: false,
@@ -1065,6 +1066,7 @@ export default {
   await this.loadTransitLaneDirections()
   await this.fetchUserZones()
   await this.loadCameraRelayStatus()
+  this.cameraRelayTimer = window.setInterval(() => this.loadCameraRelayStatus(), 4000)
 
   this.unsubscribeSync = onEntityChanged(['AccessLog', 'LaneEvent', 'Gate', 'Camera'], () => {
     this.fetchUserZones()
@@ -1085,6 +1087,10 @@ export default {
     if (this.autoTimer) {
       clearInterval(this.autoTimer)
       this.autoTimer = null
+    }
+    if (this.cameraRelayTimer) {
+      clearInterval(this.cameraRelayTimer)
+      this.cameraRelayTimer = null
     }
     for (const lane of this.lanes) {
       lane.qr.destroyed = true

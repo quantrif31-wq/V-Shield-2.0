@@ -110,13 +110,14 @@ public sealed class AreaNodeCameraRelayWorker : BackgroundService
         {
             await socket.ConnectAsync(new Uri($"ws://go2rtc:1984/api/ws?src={Uri.EscapeDataString(streamName)}"), CancellationToken.None);
             if (!_sockets.TryAdd(sessionId, socket)) { socket.Dispose(); return; }
+            await NotifyReadyAsync(sessionId, true, null);
             _ = ReceiveGo2RtcAsync(sessionId, socket);
         }
         catch (Exception error)
         {
             socket.Dispose();
             _logger.LogWarning(error, "Cannot open local go2rtc stream {StreamName}", streamName);
-            await NotifySignalAsync(sessionId, "error", "Không thể mở camera local.");
+            await NotifyReadyAsync(sessionId, false, "Không thể mở camera local.");
         }
     }
 
@@ -165,6 +166,14 @@ public sealed class AreaNodeCameraRelayWorker : BackgroundService
         lock (_connectionLock) connection = _connection;
         if (connection?.State == HubConnectionState.Connected)
             await connection.InvokeAsync("Signal", sessionId, kind, value);
+    }
+
+    private async Task NotifyReadyAsync(string sessionId, bool ready, string? message)
+    {
+        HubConnection? connection;
+        lock (_connectionLock) connection = _connection;
+        if (connection?.State == HubConnectionState.Connected)
+            await connection.InvokeAsync("Ready", sessionId, ready, message);
     }
 
     private async Task StopSessionAsync(string sessionId, ClientWebSocket? expectedSocket = null)

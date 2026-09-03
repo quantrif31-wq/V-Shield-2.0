@@ -62,7 +62,24 @@ public sealed class CameraRelayHub : Hub
 
         var session = _registry.CreateSession(Context.ConnectionId, nodeId, streamName);
         await Clients.Group($"camera-node_{nodeId}").SendAsync("CameraRelayStart", session.SessionId, streamName);
+        var readiness = await _registry.WaitForReadinessAsync(session.SessionId, TimeSpan.FromSeconds(7), Context.ConnectionAborted);
+        if (!readiness.Ready)
+        {
+            _registry.RemoveSession(session.SessionId);
+            await Clients.Group($"camera-node_{nodeId}").SendAsync("CameraRelayStop", session.SessionId);
+            throw new HubException(string.IsNullOrWhiteSpace(readiness.Message) ? "Không thể mở camera local." : readiness.Message);
+        }
         return new { sessionId = session.SessionId };
+    }
+
+    /// <summary>AreaNode acknowledges that its private go2rtc peer is ready before the viewer sends an SDP offer.</summary>
+    public Task Ready(string sessionId, bool ready, string? message)
+    {
+        if (!_registry.TryGetSession(sessionId, out var session) || session == null ||
+            !_registry.TryGetNodeConnection(session.NodeId, out var nodeConnectionId) || nodeConnectionId != Context.ConnectionId)
+            throw new HubException("Không có quyền xác nhận phiên camera này.");
+        _registry.CompleteReadiness(sessionId, ready, message);
+        return Task.CompletedTask;
     }
 
     public async Task Signal(string sessionId, string kind, string value)
