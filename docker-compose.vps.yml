@@ -33,6 +33,7 @@ services:
       JwtSettings__Audience: "${JWT_AUDIENCE:-VShieldClient-VPS}"
       VSHIELD_SEED_ADMIN_USERNAME: "${VSHIELD_SEED_ADMIN_USERNAME:?Set VSHIELD_SEED_ADMIN_USERNAME in your environment or .env.vps file}"
       VSHIELD_SEED_ADMIN_PASSWORD: "${VSHIELD_SEED_ADMIN_PASSWORD:?Set VSHIELD_SEED_ADMIN_PASSWORD in your environment or .env.vps file}"
+      SeedAdmin__ResetPasswordOnStartup: "true"
       VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY: "${VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY:?Set VSHIELD_EVIDENCE_EXPORT_SIGNING_KEY in your environment or .env.vps file}"
       Authentication__RequireMfaForRoles__0: "Admin"
       Authentication__RequireMfaForRoles__1: "BaoVe"
