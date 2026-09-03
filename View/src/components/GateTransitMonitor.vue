@@ -5,7 +5,7 @@
         <span class="topbar-eyebrow">GIÁM SÁT VẬN HÀNH</span>
         <h1>Điều phối cổng ra vào</h1>
         <p v-show="!topbarCompact" class="topbar-desc">
-          Theo dõi camera QR, biển số và xử lý quyết định thông hành theo từng làn.
+          Theo dõi camera {{ credentialLabel }}, biển số và xử lý quyết định thông hành theo từng làn.
         </p>
       </div>
       <div class="topbar-actions">
@@ -36,7 +36,7 @@
               <div class="cam-head">
                 <div class="cam-head-titles">
                   <span class="cam-lane-tag">{{ lane.name }}</span>
-                  <span class="cam-kind">Camera QR</span>
+                  <span class="cam-kind">{{ credentialCameraLabel }}</span>
                 </div>
                 <span class="mini-status" :class="lane.qr.previewHealthy ? 'ok' : 'wait'">
                   {{
@@ -55,7 +55,7 @@
                   :key="lane.qr.directCameraKey + '-img'"
                   :src="lane.qr.directCameraUrl"
                   class="preview-image"
-                  alt="Camera QR"
+                  :alt="credentialCameraLabel"
                 />
                 <iframe
                   v-else-if="lane.qr.previewRunning && lane.qr.directCameraUrl"
@@ -66,20 +66,31 @@
                 ></iframe>
                 <div v-else class="cam-off">
                   <span class="cam-off-dot"></span>
-                  Camera QR đang tắt
+                  {{ credentialCameraLabel }} đang tắt
                 </div>
                 <div class="cam-overlay">
                   <div
-                    v-if="lane.qr.overlayBox"
+                    v-for="(face, index) in (isFaceTransit ? lane.qr.faces : [])"
+                    :key="`${lane.id}-face-${face.id || index}`"
+                    class="face-track-box"
+                    :class="faceTrackClass(face)"
+                    :style="faceTrackStyle(face)"
+                  >
+                    <span class="face-track-label" :class="faceTrackLabelClass(face)">
+                      {{ faceTrackLabel(face) }}
+                    </span>
+                  </div>
+                  <div
+                    v-if="!isFaceTransit && lane.qr.overlayBox"
                     class="bbox-box"
                     :style="boundingStyle(lane.qr.overlayBox)"
                   ></div>
                   <div
-                    v-if="lane.qr.overlayText"
+                    v-if="!isFaceTransit && lane.qr.overlayText"
                     class="overlay-tag"
                     :style="labelStyle(lane.qr.overlayBox)"
                   >
-                    Mã QR: {{ shortText(lane.qr.overlayText, 72) }}
+                    {{ credentialLabel }}: {{ shortText(lane.qr.overlayText, 72) }}
                   </div>
                 </div>
                 <div class="cam-preview-toolbar">
@@ -88,7 +99,7 @@
                     class="cam-refresh-btn"
                     :disabled="autoActive || lane.loading || !lane.qr.cameraIp.trim()"
                     :aria-label="
-                      lane.loading ? 'Đang xử lý' : lane.qr.cameraRunning ? 'Đọc lại QR' : 'Đọc QR'
+                      lane.loading ? 'Đang xử lý' : lane.qr.cameraRunning ? `Đọc lại ${credentialLabel}` : `Đọc ${credentialLabel}`
                     "
                     @click.stop="retryQr(lane)"
                   >
@@ -152,19 +163,19 @@
                   v-else-if="lane.qr.backendPhase === 'connecting'"
                   class="result-hint result-hint--waiting"
                 >
-                  Đang kết nối camera QR...
+                  Đang kết nối {{ credentialCameraLabel }}...
                 </div>
                 <div
                   v-else-if="lane.qr.backendPhase === 'scanning'"
                   class="result-hint result-hint--waiting"
                 >
-                  Python đang quét, chưa khóa được mã.
+                  Đang quét, chưa khóa được {{ credentialLabel }}.
                 </div>
                 <div
                   v-else-if="lane.qr.backendPhase === 'locked' && lane.qr.verifying"
                   class="result-hint result-hint--seen"
                 >
-                  Đã khóa QR, đang xác thực...
+                  Đã khóa {{ credentialLabel }}, đang xác thực...
                 </div>
                 <div
                   v-else-if="lane.qr.backendPhase === 'verified' || lane.qr.activeSessionVerifyState === 'success'"
@@ -306,7 +317,7 @@
           <span class="auto-status-text">
             {{
               autoActive
-                ? "Đang tự động quét liên tục: QR + biển số, quyết định và lưu nhật ký 1 lần mỗi phiên."
+                ? `Đang tự động quét liên tục: ${credentialLabel} + biển số, quyết định và lưu nhật ký 1 lần mỗi phiên.`
                 : "Nhấn Bắt đầu để chạy nhận diện tự động. Preview camera vẫn hoạt động khi Dừng."
             }}
           </span>
@@ -355,7 +366,7 @@
             <div class="lane-head">
               <div>
                 <h2>{{ activeOpsLane.name }}</h2>
-                <p>{{ activeOpsLane.desc }}</p>
+                <p>{{ isFaceTransit ? 'FaceID trên / Biển dưới' : activeOpsLane.desc }}</p>
               </div>
 
               <div class="lane-final-status" :class="isLaneReady(activeOpsLane) ? 'ok' : 'wait'">
@@ -390,11 +401,11 @@
 
             <div class="ip-row">
               <div class="ip-box">
-                <label>URL Camera QR</label>
+                <label>URL {{ credentialCameraLabel }}</label>
                 <div class="search-box">
                   <input
                     v-model="cameraSearch[activeOpsLane.id + '-qr']"
-                    placeholder="Tìm camera QR..."
+                    :placeholder="`Tìm ${credentialCameraLabel}...`"
                     :disabled="activeOpsLane.loading"
                     @focus="qrDropdownOpen[activeOpsLane.id] = true"
                   />
@@ -443,7 +454,7 @@
               </div>
 
               <div class="summary-item">
-                <span class="label">QR</span>
+                <span class="label">{{ credentialLabel }}</span>
                 <span class="value" :class="qrStateClass(activeOpsLane.qr)">
                   {{ qrStateText(activeOpsLane.qr) }}
                 </span>
@@ -472,7 +483,7 @@
                 :disabled="activeOpsLane.loading || !activeOpsLane.qr.cameraIp.trim()"
                 @click="retryQr(activeOpsLane)"
               >
-                Đọc QR
+                Đọc {{ credentialLabel }}
               </button>
               <button
                 type="button"
@@ -488,7 +499,7 @@
                 :disabled="activeOpsLane.loading || !activeOpsLane.qr.cameraIp.trim() || !activeOpsLane.plate.cameraIp.trim()"
                 @click="readAllLane(activeOpsLane)"
               >
-                Đọc cả 2 (QR + Biển số)
+                Đọc cả 2 ({{ credentialLabel }} + Biển số)
               </button>
               <button
                 type="button"
@@ -513,7 +524,7 @@
     :subject-id="(decisionLane ? (decisionLane.qr.guestId || decisionLane.qr.employeeId || '') : '')"
     :subject-type="(decisionLane ? (decisionLane.qr.guestId ? 'GUEST' : 'EMPLOYEE') : '')"
     :plate-number="(decisionLane ? (decisionLane.plate.confirmedPlate || decisionLane.plate.lastRawPlate || '') : '')"
-    :qr-payload="(decisionLane ? (decisionLane.qr.qrPayload || decisionLane.qr.activeSessionPayload || '') : '')"
+    :qr-payload="(!isFaceTransit && decisionLane ? (decisionLane.qr.qrPayload || decisionLane.qr.activeSessionPayload || '') : '')"
     :warnings="decisionWarnings"
     :can-allow="getActionPermissions(decisionLane)['allow']"
     :can-deny="getActionPermissions(decisionLane)['deny']"
@@ -548,7 +559,7 @@
   />
 
   <!-- Simulation Harness (only with ?simulate=1 or vshield_sim=1) -->
-  <div v-if="simEnable" class="sim-panel">
+  <div v-if="simEnable && !isFaceTransit" class="sim-panel">
     <div class="sim-panel-head" @click="simState.expanded = !simState.expanded">
       <span class="sim-badge">SIM</span>
       <span>Mô phỏng auto-monitor</span>
@@ -605,6 +616,7 @@
 
 <script>
 import jsQR from "jsqr"
+import * as faceApi from "../services/faceApi"
 import * as plateLane1Api from "../services/plateCameraApi"
 import { createPlateCameraApi } from "../services/plateCameraApi"
 import axios from "axios"
@@ -764,6 +776,7 @@ function createQrModule(defaultScannerDevice) {
     frameHeight: 0,
     overlayText: "",
     overlayBox: null,
+    faces: [],
 
     alert: false,
     sessionLocked: false,
@@ -847,10 +860,18 @@ function createAutoModule() {
 export default {
   name: "VShieldGateMinimalQr",
   components: { DecisionDrawer, StepUpModal, AuditReceiptToast },
+  props: {
+    credentialMode: {
+      type: String,
+      default: "QR"
+    }
+  },
 
   data() {
     return {
       qrCanvasRefs: {},
+      qrImageRefs: {},
+      qrVideoRefs: {},
       cameras: [],
       cameraSearch: {},
       qrDropdownOpen: {},
@@ -926,6 +947,15 @@ export default {
   },
 
   computed: {
+    isFaceTransit() {
+      return String(this.credentialMode || "QR").toUpperCase() === "FACEID"
+    },
+    credentialLabel() {
+      return this.isFaceTransit ? "FaceID" : "QR"
+    },
+    credentialCameraLabel() {
+      return this.isFaceTransit ? "Camera FaceID" : "Camera QR"
+    },
     runtimeMap() {
       return this.runtimeServices.reduce((acc, item) => {
         acc[item.name] = item
@@ -992,10 +1022,10 @@ export default {
         })
       }
       // QR alert
-      if (lane.qr.alert) {
-        warnings.push({
-          severity: 'critical',
-          text: 'QR không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại.',
+        if (lane.qr.alert) {
+          warnings.push({
+            severity: 'critical',
+          text: this.isFaceTransit ? 'FaceID không hợp lệ hoặc hết thời gian nhận diện. Vui lòng kiểm tra lại.' : 'QR không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại.',
           icon: '&#9940;'
         })
       }
@@ -1003,7 +1033,7 @@ export default {
       if (lane.qr.message && lane.qr.message.includes('hết hạn')) {
         warnings.push({
           severity: 'warn',
-          text: 'Phiên QR đã hết hạn. Cần quét lại.',
+          text: this.isFaceTransit ? 'Phiên FaceID đã hết hạn. Cần quét lại.' : 'Phiên QR đã hết hạn. Cần quét lại.',
           icon: '&#9888;'
         })
       }
@@ -1178,6 +1208,9 @@ export default {
     },
 
     async startLaneQrScanner(lane, rtsp) {
+      if (this.isFaceTransit) {
+        return faceApi.startCamera(this.getFaceCameraId(lane), rtsp, this.getFaceRuntimeLaneId(lane))
+      }
       return startQrScanner(rtsp, this.getLaneQrApiBase(lane))
     },
 
@@ -1186,15 +1219,34 @@ export default {
     },
 
     async resetLaneQrSession(lane) {
+      if (this.isFaceTransit) return faceApi.resetCamera(this.getFaceCameraId(lane))
       return resetQrSession(this.getLaneQrApiBase(lane))
     },
 
     async stopLaneQrScanner(lane) {
+      if (this.isFaceTransit) {
+        // The face runtime returns 404 when a camera session has never been
+        // created.  Stopping an idle lane is intentionally a no-op.
+        if (!lane?.qr?.cameraRunning) return { success: true, skipped: true }
+        return faceApi.stopCamera(this.getFaceCameraId(lane))
+      }
       return stopQrScanner(this.getLaneQrApiBase(lane))
     },
 
     async getLaneQrScanResult(lane) {
+      if (this.isFaceTransit) return faceApi.getCameraResult(this.getFaceCameraId(lane))
       return getQrScanResult(this.getLaneQrApiBase(lane))
+    },
+
+    getFaceCameraId(lane) {
+      const laneNumber = String(lane?.laneId || "").trim()
+      if (laneNumber === "1") return "lane-1-face"
+      if (laneNumber === "2") return "lane-2-face"
+      return `lane-${String(lane?.id || "default").replace(/[^A-Za-z0-9_.-]/g, "-")}-face`
+    },
+
+    getFaceRuntimeLaneId(lane) {
+      return `lane-${String(lane?.laneId || lane?.id || "default")}`
     },
 
     setQrCanvasRef(laneId, el) {
@@ -1537,6 +1589,10 @@ export default {
     },
 
     startQrPolling(lane) {
+      if (this.isFaceTransit) {
+        this.startFacePolling(lane)
+        return
+      }
       if (lane.qr.resultTimer) return
 
       lane.qr.resultTimer = setInterval(async () => {
@@ -1660,6 +1716,75 @@ export default {
       }, 300)
     },
 
+    startFacePolling(lane) {
+      const face = lane.qr
+      if (face.resultTimer) return
+      face.resultTimer = setInterval(async () => {
+        if (!face.cameraRunning || face.pollingBusy || face.destroyed) return
+        const controlSessionId = face.controlSessionId
+        face.pollingBusy = true
+        try {
+          const result = await faceApi.getCameraResult(this.getFaceCameraId(lane))
+          if (face.controlSessionId !== controlSessionId || !result) return
+
+          face.cameraRunning = !!result.camera_enabled
+          face.backendConnected = !!result.camera_connected
+          face.backendFrameReady = !!result.camera_connected
+          face.backendTargetPresent = !!result.tracking_active
+          face.backendPhase = result.scan_locked ? "locked" : (result.tracking_active ? "scanning" : "idle")
+          // The scalar Face API flags remain neutral for an unmatched face.
+          // Read the per-face status so the operator is not left with an
+          // endless "Đang quét" message after the runtime has rejected it.
+          const faces = Array.isArray(result.faces) ? result.faces : []
+          const unmatchedFace = faces.some((item) => String(item?.status || "").toLowerCase() === "intruder")
+          face.faces = faces
+          face.backendLastCandidate = String(result.employee_id || "").trim()
+          face.backendLastSource = "FaceID"
+          face.backendLastDecodeAt = Date.now()
+          face.employeeId = String(result.employee_id || "").trim()
+          face.employeeName = face.employeeId ? `Nhân viên #${face.employeeId}` : ""
+          face.guestId = ""
+          face.personType = "EMPLOYEE"
+          face.qrPayload = ""
+          face.activeSessionPayload = face.employeeId
+          face.activeSessionVerified = !!(result.identity_confirmed && face.employeeId)
+          face.activeSessionVerifyState = face.activeSessionVerified
+            ? "success"
+            : (unmatchedFace ? "failed" : (result.tracking_active ? "waiting" : ""))
+          face.activeSessionVerifyMessage = unmatchedFace
+            ? "Khuôn mặt không khớp với mẫu FaceID đang đăng ký."
+            : String(result.message || "")
+          face.sessionLocked = !!(result.scan_locked && result.identity_confirmed && face.employeeId)
+          face.alert = !!result.alert || !!result.timeout || unmatchedFace || (!!result.scan_locked && !face.sessionLocked)
+          face.overlayText = face.employeeId ? `ID: ${face.employeeId}` : ""
+          face.overlayBox = null
+          face.message = face.sessionLocked
+            ? "Đã xác nhận FaceID"
+            : (unmatchedFace
+              ? "Khuôn mặt không khớp với mẫu FaceID đang đăng ký."
+              : String(result.message || "Đang quét FaceID"))
+          face.lastUpdate = String(result.last_update || "")
+
+          if (face.sessionLocked && !face.lockedSnapshot && !face.imgBusy) {
+            face.imgBusy = true
+            try {
+              const images = await faceApi.getLockedImages(this.getFaceCameraId(lane))
+              if (face.controlSessionId === controlSessionId && images?.scan_locked) {
+                face.lockedSnapshot = images.locked_snapshot || ""
+              }
+            } finally {
+              face.imgBusy = false
+            }
+          }
+        } catch (error) {
+          face.alert = true
+          face.message = faceApi.normalizeFaceApiError(error).message
+        } finally {
+          if (face.controlSessionId === controlSessionId) face.pollingBusy = false
+        }
+      }, 300)
+    },
+
         isLaneReady(lane) {
       return (
         lane.qr.sessionLocked &&
@@ -1743,7 +1868,7 @@ export default {
         if (state === "invalid") return "KHÔNG HỢP LỆ"
         if (qr.backendPhase === "connecting") return "ĐANG KẾT NỐI"
         if (qr.backendPhase === "locked" || qr.verifying) return "ĐANG XÁC THỰC"
-        if (qr.backendPhase === "candidate_found") return "ĐÃ THẤY MÃ"
+        if (qr.backendPhase === "candidate_found") return this.isFaceTransit ? "ĐÃ THẤY KHUÔN MẶT" : "ĐÃ THẤY MÃ"
         if (qr.cameraRunning) return "ĐANG QUÉT"
         return "TẮT"
       }
@@ -1843,6 +1968,41 @@ export default {
         left: `${Math.max(1, Math.min(80, left))}%`,
         top: `${Math.max(1, top - 6)}%`
       }
+    },
+
+    faceTrackStyle(face) {
+      const box = face?.bbox || {}
+      // Face runtime analyzes normalized 480x270 frames. Convert its pixel
+      // coordinates to the responsive preview without depending on iframe size.
+      const left = (Number(box.left) / 480) * 100
+      const top = (Number(box.top) / 270) * 100
+      const width = ((Number(box.right) - Number(box.left)) / 480) * 100
+      const height = ((Number(box.bottom) - Number(box.top)) / 270) * 100
+      if (![left, top, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return { display: "none" }
+      return {
+        left: `${Math.max(0, Math.min(100, left))}%`,
+        top: `${Math.max(0, Math.min(100, top))}%`,
+        width: `${Math.min(100, width)}%`,
+        height: `${Math.min(100, height)}%`
+      }
+    },
+
+    faceTrackClass(face) {
+      const status = String(face?.status || "").toLowerCase()
+      if (status === "confirmed") return "face-track-box--ok"
+      if (status === "intruder") return "face-track-box--deny"
+      return "face-track-box--pending"
+    },
+
+    faceTrackLabelClass(face) {
+      return this.faceTrackClass(face).replace("face-track-box", "face-track-label")
+    },
+
+    faceTrackLabel(face) {
+      const status = String(face?.status || "").toLowerCase()
+      if (status === "confirmed" && face?.employee_id) return `NV-${face.employee_id} ✓`
+      if (status === "intruder") return "Không khớp mẫu"
+      return "Đang xác minh"
     },
 
     shortText(value, max = 60) {
@@ -2205,6 +2365,7 @@ export default {
       qr.lockedSnapshot = ""
       qr.overlayText = ""
       qr.overlayBox = null
+      qr.faces = []
       qr.scanRequested = false
       qr.scanKickoffBusy = false
     },
@@ -2288,6 +2449,11 @@ export default {
     stopQrLoops(lane) {
       this.stopQrPreviewLoop(lane)
       this.stopQrSessionLoop(lane)
+      if (lane.qr.resultTimer) {
+        clearInterval(lane.qr.resultTimer)
+        lane.qr.resultTimer = null
+      }
+      lane.qr.pollingBusy = false
     },
 
     async kickoffQrScan(lane) {
@@ -2311,6 +2477,7 @@ export default {
     },
 
     async restartQrSession(lane, message = "Đang quét lại QR...") {
+      if (this.isFaceTransit) return this.restartFaceSession(lane, message)
       const qr = lane?.qr
       if (!qr?.cameraIp?.trim()) {
         throw new Error("Vui lòng nhập URL QR")
@@ -2358,6 +2525,31 @@ export default {
         }
         throw e
       }
+    },
+
+    async restartFaceSession(lane, message = "Đang quét lại FaceID...") {
+      const face = lane?.qr
+      const stream = String(face?.cameraIp || face?.currentIp || face?.viewUrl || "").trim()
+      if (!stream) throw new Error("Vui lòng chọn hoặc nhập URL camera FaceID")
+      const sessionId = (face.controlSessionId || 0) + 1
+      const wasRunning = !!face.cameraRunning
+      face.controlSessionId = sessionId
+      this.stopQrLoops(lane)
+      if (face.resultTimer) clearInterval(face.resultTimer)
+      face.resultTimer = null
+      this.clearQrState(face)
+      face.cameraIp = stream
+      face.currentIp = stream
+      face.message = "Đang khởi động FaceID..."
+      if (wasRunning) await faceApi.stopCamera(this.getFaceCameraId(lane)).catch(() => {})
+      if (face.controlSessionId !== sessionId) return
+      const result = await faceApi.startCamera(this.getFaceCameraId(lane), stream, this.getFaceRuntimeLaneId(lane))
+      if (!result?.success) throw new Error(result?.message || "Không khởi động được FaceID")
+      if (face.controlSessionId !== sessionId) return
+      face.cameraRunning = true
+      face.message = message
+      if (face.viewUrl && !face.previewRunning) this.mountPreview(face, face.viewUrl)
+      this.startFacePolling(lane)
     },
 
     checkQrSessionExpiry(lane) {
@@ -2836,17 +3028,17 @@ else {
       if (!auto.on || auto.qrStarting || auto.qrStartedForSession) return
       if (!lane.qr.cameraIp.trim()) {
         auto.status = "collecting"
-        auto.error = "Đã nhận biển số; chưa cấu hình camera QR"
+        auto.error = `Đã nhận biển số; chưa cấu hình ${this.credentialCameraLabel}`
         return
       }
       auto.qrStarting = true
       auto.status = "collecting"
       auto.error = ""
       try {
-        await this.restartQrSession(lane, "Đã khóa biển số, đang quét QR...")
+        await this.restartQrSession(lane, `Đã khóa biển số, đang quét ${this.credentialLabel}...`)
         auto.qrStartedForSession = true
       } catch (e) {
-        auto.error = e?.message || "Không khởi động được quét QR sau khi nhận biển số"
+        auto.error = e?.message || `Không khởi động được quét ${this.credentialLabel} sau khi nhận biển số`
       } finally {
         auto.qrStarting = false
       }
@@ -2935,7 +3127,7 @@ else {
       const plate = lane.plate
 
       const licensePlate = String(plate.confirmedPlate || "").trim()
-      const isGuest = !!qr.guestId
+      const isGuest = !this.isFaceTransit && !!qr.guestId
       const employeeId = Number(qr.employeeId || 0)
       const visitorDetailId = Number(qr.guestId || 0)
 
@@ -2954,11 +3146,12 @@ else {
           LaneId: lane.laneId,
           Direction: lane.direction,
           CameraId: plate.cameraId || qr.cameraId || lane.cameraId,
-          CredentialType: "QR",
+          CredentialType: this.isFaceTransit ? "FACEID" : "QR",
           TransitSessionId: String(auto.sessionId || this.newAutoSessionId(lane)),
           PlateSnapshotBase64: plate.lockedSnapshot || null,
           PlateCropBase64: plate.lockedPlateCrop || null,
-          QrSnapshotBase64: qr.lockedSnapshot || null
+          QrSnapshotBase64: this.isFaceTransit ? null : (qr.lockedSnapshot || null),
+          FaceSnapshotBase64: this.isFaceTransit ? (qr.lockedSnapshot || null) : null
         }
         if (isGuest) {
           payload.VisitorDetailId = visitorDetailId
@@ -3045,7 +3238,7 @@ else {
       if (auto.status === "deciding") return "đang quyết định"
       if (auto.status === "decided") return auto.flash === "deny" ? "từ chối" : "đã cho qua"
       if (auto.qrValue && auto.plateValue) return "đủ thông tin"
-      if (auto.qrValue) return "đã đọc QR"
+      if (auto.qrValue) return this.isFaceTransit ? "đã nhận FaceID" : "đã đọc QR"
       if (auto.plateValue) return "đã đọc biển"
       return "đang quét"
     },
@@ -3403,7 +3596,7 @@ else {
 
         async confirmLane(lane) {
   const licensePlate = String(lane.plate.confirmedPlate || "").trim()
-  const isGuest = !!lane.qr.guestId
+  const isGuest = !this.isFaceTransit && !!lane.qr.guestId
   const employeeId = Number(lane.qr.employeeId || 0)
   const visitorDetailId = Number(lane.qr.guestId || 0)
 
@@ -3431,10 +3624,11 @@ else {
       LaneId: lane.laneId,
       Direction: lane.direction,
       CameraId: lane.plate.cameraId || lane.qr.cameraId || lane.cameraId,
-      CredentialType: "QR",
+      CredentialType: this.isFaceTransit ? "FACEID" : "QR",
       PlateSnapshotBase64: lane.plate.lockedSnapshot || null,
       PlateCropBase64: lane.plate.lockedPlateCrop || null,
-      QrSnapshotBase64: lane.qr.lockedSnapshot || null
+      QrSnapshotBase64: this.isFaceTransit ? null : (lane.qr.lockedSnapshot || null),
+      FaceSnapshotBase64: this.isFaceTransit ? (lane.qr.lockedSnapshot || null) : null
     }
 
     if (isGuest) {
@@ -4801,6 +4995,40 @@ selectCamera(cam, lane, type) {
   inset: 0;
   pointer-events: none;
 }
+
+/* Same runtime tracker vocabulary as /monitoring/face-camera:
+   green = confirmed, yellow = being verified, red = no registered match. */
+.face-track-box {
+  position: absolute;
+  z-index: 4;
+  border: 2px solid #eab308;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.4);
+  transition: left 120ms linear, top 120ms linear, width 120ms linear, height 120ms linear, border-color 120ms ease;
+}
+
+.face-track-box--ok { border-color: #22c55e; }
+.face-track-box--deny { border-color: #ef4444; }
+
+.face-track-label {
+  position: absolute;
+  left: -2px;
+  top: -25px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: #fff;
+  background: rgba(234, 179, 8, 0.94);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.face-track-label--ok { background: rgba(34, 197, 94, 0.94); }
+.face-track-label--deny { background: rgba(239, 68, 68, 0.94); }
 
 .cam-preview-toolbar {
   position: absolute;

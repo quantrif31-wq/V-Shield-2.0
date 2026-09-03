@@ -45,6 +45,11 @@ vi.mock('../../services/gateTransitApi', () => ({
   scanGate: vi.fn(), scanGuest: vi.fn(), getTransitLanes: vi.fn(), updateTransitLaneDirection: vi.fn()
 }))
 vi.mock('../../services/dynamicQrVerifyApi', () => ({ verifyQrForGate: vi.fn() }))
+vi.mock('../../services/faceApi', () => ({
+  startCamera: vi.fn(), stopCamera: vi.fn(), resetCamera: vi.fn(),
+  getCameraResult: vi.fn(), getLockedImages: vi.fn(),
+  normalizeFaceApiError: vi.fn((error) => error instanceof Error ? error : new Error('FaceID error'))
+}))
 vi.mock('../../services/cameraRuntimeApi', () => ({
   getCameras: vi.fn(),
   startPythonQrProcess: vi.fn(),
@@ -96,6 +101,7 @@ vi.mock('../../stores/auth', () => ({
 const plateApi = await import('../../services/plateCameraApi')
 const gateTransitApi = await import('../../services/gateTransitApi')
 const dynamicQrVerifyApi = await import('../../services/dynamicQrVerifyApi')
+const faceApi = await import('../../services/faceApi')
 const cameraRuntimeApi = await import('../../services/cameraRuntimeApi')
 const runtimeServiceApi = await import('../../services/runtimeServiceApi')
 const dynamicQrScannerApi = await import('../../services/dynamicQrScannerApi')
@@ -140,6 +146,11 @@ beforeEach(() => {
   dynamicQrScannerApi.resetQrSession.mockResolvedValue({})
   dynamicQrScannerApi.stopQrScanner.mockResolvedValue({})
   dynamicQrScannerApi.scanQrOnce.mockResolvedValue({})
+  faceApi.startCamera.mockResolvedValue({ success: true, message: 'Face ready' })
+  faceApi.stopCamera.mockResolvedValue({ success: true })
+  faceApi.resetCamera.mockResolvedValue({ success: true })
+  faceApi.getCameraResult.mockResolvedValue({ camera_enabled: true, camera_connected: true })
+  faceApi.getLockedImages.mockResolvedValue({ scan_locked: false })
   zoneAuthorityApi.getMyZones.mockResolvedValue({ data: [{ securityZoneId: 1 }] })
   enterpriseApi.recordLaneEvent.mockResolvedValue({ data: { laneEventId: 5 } })
   enterpriseApi.recordDuressEvent.mockResolvedValue({ data: { duressEventId: 2 } })
@@ -223,6 +234,89 @@ describe('GateTransitMonitor', () => {
     await wrapper.vm.saveLaneDirection(wrapper.vm.lanes[0])
     expect(gateTransitApi.updateTransitLaneDirection).toHaveBeenCalledWith(1, 'IN')
     expect(wrapper.vm.lanes[0].savedDirection).toBe('IN')
+  })
+
+  it('uses the same automatic session flow with FaceID as the second credential', async () => {
+    const wrapper = mount(GateTransitMonitor, {
+      props: { credentialMode: 'FACEID' },
+      global: { stubs: stubComponents }
+    })
+    await flushPromises()
+    const lane = wrapper.vm.lanes[0]
+    lane.qr.cameraIp = 'rtsp://face.local/stream'
+    lane.auto.on = true
+
+    await wrapper.vm.startAutoQrAfterPlate(lane)
+
+    expect(faceApi.startCamera).toHaveBeenCalledWith('lane-1-face', 'rtsp://face.local/stream', 'lane-1')
+    expect(lane.auto.qrStartedForSession).toBe(true)
+
+    lane.qr.employeeId = '7'
+    lane.qr.sessionLocked = true
+    lane.plate.confirmedPlate = '30A12345'
+    await wrapper.vm.autoDecideSession(lane)
+
+    expect(gateTransitApi.scanGate).toHaveBeenCalledWith(expect.objectContaining({
+      CredentialType: 'FACEID', EmployeeId: 7, LicensePlate: '30A12345'
+    }))
+    await wrapper.vm.stopAutoMonitor()
+  })
+
+  it('locks a FaceID identity only after the face runtime confirms it', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(GateTransitMonitor, {
+      props: { credentialMode: 'FACEID' },
+      global: { stubs: stubComponents }
+    })
+    await flushPromises()
+    const lane = wrapper.vm.lanes[0]
+    lane.qr.cameraRunning = true
+    faceApi.getCameraResult.mockResolvedValue({
+      camera_enabled: true,
+      camera_connected: true,
+      tracking_active: true,
+      identity_confirmed: true,
+      employee_id: 7,
+      scan_locked: true,
+      message: 'Face confirmed'
+    })
+    faceApi.getLockedImages.mockResolvedValue({ scan_locked: true, locked_snapshot: 'face-evidence' })
+
+    wrapper.vm.startFacePolling(lane)
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(lane.qr.sessionLocked).toBe(true)
+    expect(lane.qr.employeeId).toBe('7')
+    expect(lane.qr.lockedSnapshot).toBe('face-evidence')
+    wrapper.unmount()
+  })
+
+  it('shows a clear FaceID mismatch instead of scanning forever for an unknown face', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(GateTransitMonitor, {
+      props: { credentialMode: 'FACEID' },
+      global: { stubs: stubComponents }
+    })
+    await flushPromises()
+    const lane = wrapper.vm.lanes[0]
+    lane.qr.cameraRunning = true
+    faceApi.getCameraResult.mockResolvedValue({
+      camera_enabled: true,
+      camera_connected: true,
+      tracking_active: true,
+      identity_confirmed: false,
+      scan_locked: false,
+      faces: [{ status: 'intruder', employee_id: null, distance: 0.5769 }]
+    })
+
+    wrapper.vm.startFacePolling(lane)
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(lane.qr.sessionLocked).toBe(false)
+    expect(lane.qr.alert).toBe(true)
+    expect(lane.qr.activeSessionVerifyState).toBe('failed')
+    expect(lane.qr.message).toContain('không khớp')
+    wrapper.unmount()
   })
 
   it('ends a plate-anchored session after its plate stays absent for one second', async () => {
