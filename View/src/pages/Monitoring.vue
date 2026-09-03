@@ -45,9 +45,15 @@
         </div>
 
         <div class="cam-preview">
+          <RemoteCameraPeer
+            v-if="shouldUseRemotePeer(cam)"
+            :node-id="cameraRelayNodeId"
+            :stream-name="remoteStreamName(cam)"
+            @state-change="onRemotePeerState(cam.cameraId, $event.state, $event.message)"
+          />
           <!-- Hiển thị img khi luồng là ảnh/frame.jpg để tràn hết 100% khung camera -->
           <img
-            v-if="isHealthy(cam.cameraId) && resolvedPreviewUrl(cam) && isImageUrl(resolvedPreviewUrl(cam))"
+            v-else-if="isHealthy(cam.cameraId) && resolvedPreviewUrl(cam) && isImageUrl(resolvedPreviewUrl(cam))"
             :src="resolvedPreviewUrl(cam)"
             class="preview"
             alt="Camera realtime stream"
@@ -123,6 +129,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { getCameras, toggleRecording } from "../services/cameraRuntimeApi"
+import http from "../services/http"
+import RemoteCameraPeer from "../components/shared/RemoteCameraPeer.vue"
 
 const cameras = ref([])
 const selectedMap = reactive({})
@@ -132,6 +140,10 @@ const previewErrorById = reactive({})
 const previewSeedById = reactive({})
 
 let autoProbeInterval = null
+let cameraRelayStatusInterval = null
+const cameraRelayEnabled = ref(false)
+const cameraRelayNodeId = ref('')
+const cameraRelayStatusResolved = ref(false)
 
 const initPreviewState = (cameraId) => {
   if (!Object.prototype.hasOwnProperty.call(previewStatusById, cameraId)) {
@@ -149,6 +161,39 @@ const normalizeUrl = (value) => {
   if (!value || typeof value !== "string") return ""
   const trimmed = value.trim()
   return trimmed || ""
+}
+
+const remoteStreamName = (camera) => {
+  const url = normalizeUrl(camera?.urlView)
+  try {
+    const parsed = new URL(url, window.location.origin)
+    const source = parsed.searchParams.get('src')
+    if (source && /^[A-Za-z0-9_-]{1,128}$/.test(source)) return source
+  } catch { /* The camera id below is the runtime's canonical go2rtc source. */ }
+  return `cam${camera?.cameraId}`
+}
+
+const shouldUseRemotePeer = (camera) =>
+  cameraRelayEnabled.value && !!cameraRelayNodeId.value && !!remoteStreamName(camera)
+
+const onRemotePeerState = (cameraId, state, message = '') => {
+  previewStatusById[cameraId] = state === 'live' ? 'online' : state === 'failed' ? 'offline' : 'checking'
+  previewErrorById[cameraId] = state === 'failed' ? message : ''
+}
+
+const loadCameraRelayStatus = async () => {
+  try {
+    const response = await http.get('/camera-relay/status')
+    const data = response?.data?.data || response?.data || {}
+    const nodes = Array.isArray(data.nodes) ? data.nodes : []
+    cameraRelayEnabled.value = data.enabled === true && nodes.length > 0
+    cameraRelayNodeId.value = cameraRelayEnabled.value ? String(nodes[0]) : ''
+  } catch {
+    cameraRelayEnabled.value = false
+    cameraRelayNodeId.value = ''
+  } finally {
+    cameraRelayStatusResolved.value = true
+  }
 }
 
 const isImageUrl = (url) => {
@@ -259,6 +304,11 @@ const checkCameraStreamHealth = async (cameraId, url) => {
 
 const probeAllActiveCameras = () => {
   activeCams.value.forEach((cam) => {
+    if (shouldUseRemotePeer(cam)) {
+      previewStatusById[cam.cameraId] = 'checking'
+      previewErrorById[cam.cameraId] = ''
+      return
+    }
     const url = normalizeUrl(cam?.urlView)
     checkCameraStreamHealth(cam.cameraId, url)
   })
@@ -268,6 +318,11 @@ const retryStream = (cameraId) => {
   const cam = cameras.value.find((c) => c.cameraId === cameraId)
   if (!cam) return
   previewSeedById[cameraId] = Date.now()
+  if (shouldUseRemotePeer(cam)) {
+    previewStatusById[cameraId] = 'checking'
+    previewErrorById[cameraId] = ''
+    return
+  }
   const url = normalizeUrl(cam?.urlView)
   checkCameraStreamHealth(cameraId, url)
 }
@@ -298,7 +353,7 @@ watch(
   () => ({ ...selectedMap }),
   () => {
     enforceSelectLimit()
-    probeAllActiveCameras()
+    if (cameraRelayStatusResolved.value) probeAllActiveCameras()
   },
   { deep: true }
 )
@@ -338,8 +393,13 @@ const toggleRec = async (event, cam) => {
   }
 }
 
-onMounted(() => {
-  loadCameras()
+onMounted(async () => {
+  await loadCameraRelayStatus()
+  await loadCameras()
+  probeAllActiveCameras()
+  cameraRelayStatusInterval = setInterval(() => {
+    loadCameraRelayStatus().then(probeAllActiveCameras)
+  }, 4000)
   // Tự động kiểm tra lại luồng mỗi 10 giây nếu có camera đang offline
   autoProbeInterval = setInterval(() => {
     activeCams.value.forEach((cam) => {
@@ -355,6 +415,7 @@ onBeforeUnmount(() => {
   if (autoProbeInterval) {
     clearInterval(autoProbeInterval)
   }
+  if (cameraRelayStatusInterval) clearInterval(cameraRelayStatusInterval)
 })
 </script>
 
