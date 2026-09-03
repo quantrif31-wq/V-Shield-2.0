@@ -47,7 +47,11 @@ async function getConnection() {
       else if (kind === 'error') peer.onState?.('failed', value)
     } catch (error) { peer.onState?.('failed', error?.message) }
   })
-  connectionPromise = connection.start().finally(() => { connectionPromise = null })
+  // SignalR start() resolves to void. Return the connected hub itself so a
+  // caller can immediately invoke OpenStream after awaiting this function.
+  connectionPromise = connection.start()
+    .then(() => connection)
+    .finally(() => { connectionPromise = null })
   return connectionPromise
 }
 
