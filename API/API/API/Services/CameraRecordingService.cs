@@ -12,8 +12,11 @@ public class CameraRecordingService : BackgroundService
     private readonly IWebHostEnvironment _env;
     private readonly Dictionary<int, RecordingProcess> _processes = new();
     private readonly object _sync = new();
-    private static readonly TimeSpan SegmentDuration = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(15);
+    // A closed MP4 is immediately seekable in every browser. Keep segments short
+    // so operators can review footage while the recorder continues running.
+    private static readonly TimeSpan SegmentDuration = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan SegmentPublishDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(15);
 
     public CameraRecordingService(IServiceScopeFactory scopeFactory, IWebHostEnvironment env)
@@ -230,9 +233,14 @@ public class CameraRecordingService : BackgroundService
             {
                 if (existingPaths.Contains(filePath)) continue;
 
-                var startedAt = TryResolveSegmentStartedAt(filePath) ?? DateTime.UtcNow;
+                // The current segment is still being written and its MP4 index
+                // does not exist yet. Publishing it produced unplayable rows.
                 var fileInfo = new FileInfo(filePath);
+                if (fileInfo.LastWriteTimeUtc > DateTime.UtcNow.Subtract(SegmentPublishDelay)) continue;
+
+                var startedAt = TryResolveSegmentStartedAt(filePath) ?? DateTime.UtcNow;
                 var duration = await ProbeDuration(filePath);
+                if (duration <= 0) continue;
 
                 var relativePath = Path.GetRelativePath(
                     Path.Combine(_env.WebRootPath, "uploads"),
@@ -244,10 +252,10 @@ public class CameraRecordingService : BackgroundService
                 {
                     CameraId = cameraId,
                     StartedAt = startedAt,
-                    EndedAt = startedAt.AddSeconds(duration > 0 ? duration : 300),
+                    EndedAt = startedAt.AddSeconds(duration),
                     FilePath = filePath,
                     FileSizeBytes = fileInfo.Length,
-                    DurationSeconds = duration > 0 ? duration : 300,
+                    DurationSeconds = duration,
                     StorageUrl = storageUrl
                 };
 
@@ -422,10 +430,10 @@ public class CameraRecordingService : BackgroundService
     {
         if (inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
         {
-            return $"-rtsp_transport tcp -timeout 8000000 -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -movflags frag_keyframe+empty_moov -frag_duration 1000000 -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
+            return $"-rtsp_transport tcp -timeout 8000000 -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -segment_format mp4 -segment_format_options movflags=+faststart -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
         }
 
-        return $"-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -frag_duration 1000000 -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
+        return $"-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -segment_format mp4 -segment_format_options movflags=+faststart -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
     }
 
     private static string TrimForLog(string? value)

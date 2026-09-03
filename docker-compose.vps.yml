@@ -82,6 +82,8 @@ services:
     volumes:
       - vshield_data_protection:/var/app/data-protection
       - vshield_mailu_data:/var/mailu-logs:ro
+      # Keep recordings outside the API container so deploys never discard them.
+      - ./runtime/uploads:/app/wwwroot/uploads
       - ./runtime/face-data/input:/app/wwwroot/uploads/VideoFace
     depends_on:
       db:
