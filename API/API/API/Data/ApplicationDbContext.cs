@@ -71,6 +71,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<VehicleType> VehicleTypes { get; set; }
 
     public virtual DbSet<AppUser> AppUsers { get; set; }
+    public DbSet<UserMonitoringPreference> UserMonitoringPreferences { get; set; }
     // Thêm vào ApplicationDbContext.cs
     public virtual DbSet<RegistrationLink> RegistrationLinks { get; set; }
     public virtual DbSet<VisitorDetail> VisitorDetails { get; set; }
@@ -462,6 +463,18 @@ public partial class ApplicationDbContext : DbContext
                   .HasForeignKey<AppUser>(u => u.EmployeeId)
                   .OnDelete(DeleteBehavior.SetNull)
                   .HasConstraintName("FK_AppUser_Employee");
+        });
+
+        modelBuilder.Entity<UserMonitoringPreference>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.SelectedCameraIdsJson).HasMaxLength(256).HasDefaultValue("[]");
+            entity.Property(e => e.UpdatedAtUtc).HasDefaultValueSql("(getutcdate())");
+            entity.HasOne(e => e.User)
+                .WithOne()
+                .HasForeignKey<UserMonitoringPreference>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_UserMonitoringPreferences_AppUsers");
         });
 
         modelBuilder.Entity<UserRefreshToken>(entity =>

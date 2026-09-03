@@ -6,32 +6,37 @@
         <p>Theo dõi camera realtime</p>
       </div>
 
-      <button class="gear-btn" @click="toggleSettings" type="button" aria-label="Mở cài đặt camera">
-        ⚙
+      <button class="gear-btn" @click="toggleSettings" type="button" aria-label="Chọn camera hiển thị">
+        <span aria-hidden="true">⚙</span>
+        <span>Chọn camera</span>
       </button>
     </div>
 
     <transition name="fade">
-      <div v-if="showSettings" class="settings-panel">
-        <h3>Chọn camera (tối đa 4)</h3>
-
-        <div class="cam-list">
-          <div v-for="cam in cameras" :key="cam.cameraId" class="cam-item">
-            <div class="cam-item-info">
-              <span>{{ cam.cameraName }}</span>
-              <label class="switch rec-toggle" title="Ghi hình liên tục">
-                <input type="checkbox" :checked="cam.isRecordingEnabled" @change="toggleRec($event, cam)" />
-                <span class="slider"></span>
-              </label>
-              <router-link :to="{ name: 'CameraArchive', params: { id: cam.cameraId } }" class="archive-link" title="Xem lưu trữ">📁</router-link>
-            </div>
-            <label class="switch">
-              <input type="checkbox" v-model="selectedMap[cam.cameraId]" />
-              <span class="slider"></span>
-            </label>
+      <section v-if="showSettings" class="settings-panel" aria-label="Bố cục camera">
+        <div class="settings-panel__head">
+          <div>
+            <h3>Bố cục camera</h3>
+            <p>Chọn tối đa 4 camera để theo dõi. Lựa chọn được lưu riêng cho tài khoản của bạn.</p>
           </div>
+          <strong>{{ selectedCameraCount }}/4 đang hiển thị</strong>
         </div>
-      </div>
+        <div class="settings-actions">
+          <button type="button" class="settings-action" @click="selectFirstFour">Chọn 4 camera đầu</button>
+          <button type="button" class="settings-action settings-action--quiet" @click="clearSelection">Bỏ chọn tất cả</button>
+        </div>
+        <div class="camera-picker">
+          <label v-for="cam in cameras" :key="cam.cameraId" class="camera-picker__item" :class="{ selected: selectedMap[cam.cameraId] }">
+            <input type="checkbox" :checked="!!selectedMap[cam.cameraId]" @change="toggleCameraSelection(cam.cameraId, $event.target.checked)" />
+            <span class="camera-picker__check" aria-hidden="true">✓</span>
+            <span class="camera-picker__name">{{ cam.cameraName }}</span>
+            <span class="camera-picker__type">{{ cam.cameraType || 'Camera' }}</span>
+            <router-link :to="{ name: 'CameraArchive', params: { id: cam.cameraId } }" class="camera-picker__archive" title="Xem lưu trữ" @click.stop>Kho lưu trữ</router-link>
+          </label>
+        </div>
+        <p v-if="preferenceSaving" class="settings-save-state">Đang lưu lựa chọn…</p>
+        <p v-else-if="preferenceError" class="settings-save-state is-error">{{ preferenceError }}</p>
+      </section>
     </transition>
 
     <div class="grid">
@@ -128,7 +133,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
-import { getCameras, toggleRecording } from "../services/cameraRuntimeApi"
+import { getCameras } from "../services/cameraRuntimeApi"
 import http from "../services/http"
 import RemoteCameraPeer from "../components/shared/RemoteCameraPeer.vue"
 
@@ -144,6 +149,11 @@ let cameraRelayStatusInterval = null
 const cameraRelayEnabled = ref(false)
 const cameraRelayNodeId = ref('')
 const cameraRelayStatusResolved = ref(false)
+const savedCameraIds = ref(null)
+const preferencesHydrated = ref(false)
+const preferenceSaving = ref(false)
+const preferenceError = ref('')
+let savePreferenceTimer = null
 
 const initPreviewState = (cameraId) => {
   if (!Object.prototype.hasOwnProperty.call(previewStatusById, cameraId)) {
@@ -180,6 +190,50 @@ const onRemotePeerState = (cameraId, state, message = '') => {
   previewStatusById[cameraId] = state === 'live' ? 'online' : state === 'failed' ? 'offline' : 'checking'
   previewErrorById[cameraId] = state === 'failed' ? message : ''
 }
+
+const selectedCameraCount = computed(() => Object.values(selectedMap).filter(Boolean).length)
+
+const loadMonitoringPreference = async () => {
+  try {
+    const response = await http.get('/monitoring-preferences')
+    const ids = response?.data?.selectedCameraIds
+    savedCameraIds.value = Array.isArray(ids) ? ids.map(Number).filter(Number.isFinite) : null
+  } catch {
+    // The camera page remains usable during a brief offline period. The next
+    // successful save stores the locally chosen layout in the database.
+    savedCameraIds.value = null
+  }
+}
+
+const saveMonitoringPreference = async () => {
+  preferenceSaving.value = true
+  preferenceError.value = ''
+  try {
+    const selectedCameraIds = Object.keys(selectedMap).filter(id => selectedMap[id]).map(Number)
+    await http.put('/monitoring-preferences', { selectedCameraIds })
+  } catch {
+    preferenceError.value = 'Không thể lưu lúc này. Lựa chọn sẽ được lưu khi bạn thay đổi lại.'
+  } finally {
+    preferenceSaving.value = false
+  }
+}
+
+const schedulePreferenceSave = () => {
+  if (!preferencesHydrated.value) return
+  if (savePreferenceTimer) clearTimeout(savePreferenceTimer)
+  savePreferenceTimer = setTimeout(saveMonitoringPreference, 350)
+}
+
+const toggleCameraSelection = (cameraId, checked) => {
+  if (checked && !selectedMap[cameraId] && selectedCameraCount.value >= 4) {
+    alert('Chỉ tối đa 4 camera')
+    return
+  }
+  selectedMap[cameraId] = checked
+}
+
+const clearSelection = () => cameras.value.forEach(camera => { selectedMap[camera.cameraId] = false })
+const selectFirstFour = () => cameras.value.forEach((camera, index) => { selectedMap[camera.cameraId] = index < 4 })
 
 const loadCameraRelayStatus = async () => {
   try {
@@ -346,7 +400,6 @@ const enforceSelectLimit = () => {
   if (selectedIds.length <= 4) return
   const overflowId = selectedIds[selectedIds.length - 1]
   selectedMap[overflowId] = false
-  alert("Chỉ tối đa 4 camera")
 }
 
 watch(
@@ -354,6 +407,7 @@ watch(
   () => {
     enforceSelectLimit()
     if (cameraRelayStatusResolved.value) probeAllActiveCameras()
+    schedulePreferenceSave()
   },
   { deep: true }
 )
@@ -366,7 +420,9 @@ const loadCameras = async () => {
 
     list.forEach((cam, index) => {
       if (!Object.prototype.hasOwnProperty.call(selectedMap, cam.cameraId)) {
-        selectedMap[cam.cameraId] = index < 4
+        selectedMap[cam.cameraId] = Array.isArray(savedCameraIds.value)
+          ? savedCameraIds.value.includes(Number(cam.cameraId))
+          : index < 4
       }
       initPreviewState(cam.cameraId)
     })
@@ -381,21 +437,11 @@ const toggleSettings = () => {
   showSettings.value = !showSettings.value
 }
 
-const toggleRec = async (event, cam) => {
-  const enabled = event.target.checked
-  try {
-    const res = await toggleRecording(cam.cameraId, enabled, null)
-    cam.isRecordingEnabled = !!res?.isRecordingEnabled
-    cam.recordingRetentionDays = Number(res?.recordingRetentionDays || cam.recordingRetentionDays || 30)
-  } catch (e) {
-    event.target.checked = !enabled
-    console.error("Lỗi bật/tắt ghi hình:", e)
-  }
-}
-
 onMounted(async () => {
   await loadCameraRelayStatus()
+  await loadMonitoringPreference()
   await loadCameras()
+  preferencesHydrated.value = true
   probeAllActiveCameras()
   cameraRelayStatusInterval = setInterval(() => {
     loadCameraRelayStatus().then(probeAllActiveCameras)
@@ -416,6 +462,7 @@ onBeforeUnmount(() => {
     clearInterval(autoProbeInterval)
   }
   if (cameraRelayStatusInterval) clearInterval(cameraRelayStatusInterval)
+  if (savePreferenceTimer) clearTimeout(savePreferenceTimer)
 })
 </script>
 
@@ -434,7 +481,11 @@ onBeforeUnmount(() => {
 }
 
 .gear-btn {
-  font-size: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
   background: var(--surface-default);
   border: 1px solid var(--border-subtle);
   padding: 8px 12px;
@@ -459,86 +510,77 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border-subtle);
 }
 
-.cam-list {
+.settings-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-panel h3 { margin: 0; font-size: 1rem; }
+.settings-panel p { margin: 5px 0 0; color: var(--text-secondary); font-size: 0.86rem; }
+.settings-panel__head strong { white-space: nowrap; color: var(--interactive-primary); font-size: 0.86rem; }
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 12px;
+}
+
+.settings-action {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font-weight: 650;
+  font-size: .82rem;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.settings-action--quiet { background: transparent; color: var(--text-secondary); }
+.settings-action:hover { background: var(--surface-hover); }
+
+.camera-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.cam-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  margin: -8px -10px;
-  border-radius: var(--radius-control);
-  transition: background var(--transition-fast);
-}
-
-.cam-item:hover {
-  background: var(--surface-hover);
-}
-
-.cam-item-info {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.rec-toggle {
-  transform: scale(0.7);
-}
-
-.archive-link {
-  font-size: 18px;
-  text-decoration: none;
+.camera-picker__item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
   cursor: pointer;
-  transition: opacity var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
-
-.archive-link:hover {
-  opacity: 0.7;
+.camera-picker__item:hover { background: var(--surface-hover); }
+.camera-picker__item.selected { border-color: var(--interactive-primary); background: color-mix(in srgb, var(--interactive-primary) 7%, var(--surface-default)); }
+.camera-picker__item input { position: absolute; opacity: 0; pointer-events: none; }
+.camera-picker__check {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  color: transparent;
+  font-size: .72rem;
 }
+.camera-picker__item.selected .camera-picker__check { color: white; background: var(--interactive-primary); border-color: var(--interactive-primary); }
+.camera-picker__name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .88rem; font-weight: 650; }
+.camera-picker__type { color: var(--text-secondary); font-size: .75rem; }
+.camera-picker__archive { color: var(--interactive-primary); text-decoration: none; font-size: .75rem; white-space: nowrap; }
+.settings-save-state { min-height: 16px; margin-top: 10px !important; font-size: .76rem !important; }
+.settings-save-state.is-error { color: var(--status-danger-text); }
 
-.switch {
-  position: relative;
-  width: 46px;
-  height: 24px;
-}
-
-.switch input {
-  display: none;
-}
-
-.slider {
-  position: absolute;
-  background: var(--interactive-disabled);
-  border-radius: 24px;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  transition: 0.3s;
-}
-
-.slider::before {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  left: 3px;
-  top: 3px;
-  background: var(--surface-default);
-  border-radius: 50%;
-  transition: 0.3s;
-}
-
-.switch input:checked + .slider {
-  background: var(--interactive-primary);
-}
-
-.switch input:checked + .slider::before {
-  transform: translateX(22px);
+@media (max-width: 760px) {
+  .camera-picker { grid-template-columns: 1fr; }
+  .settings-panel__head { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
 
 .grid {

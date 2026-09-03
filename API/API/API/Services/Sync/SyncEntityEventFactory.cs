@@ -21,7 +21,8 @@ public sealed class SyncEntityEventFactory
         nameof(ChatConversation),
         nameof(ChatParticipant),
         nameof(ChatMessage),
-        nameof(RemoteFaceEnrollmentJob)
+        nameof(RemoteFaceEnrollmentJob),
+        nameof(UserMonitoringPreference)
     ];
 
     private static readonly HashSet<string> CentralEntities =
@@ -60,7 +61,8 @@ public sealed class SyncEntityEventFactory
         nameof(AppUser),
         nameof(LeaveRequest),
         nameof(VehicleDelegation),
-        nameof(AccessLog)
+        nameof(AccessLog),
+        nameof(UserMonitoringPreference)
     ];
 
     private readonly SyncRuntimeOptions _options;

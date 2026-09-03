@@ -56,6 +56,7 @@ public class SyncEventApplier
             nameof(ChatMessage) => await ApplyChatMessageAsync(syncEvent, action, entity, cancellationToken),
             nameof(RemoteFaceEnrollmentJob) => await ApplyRemoteFaceEnrollmentJobAsync(syncEvent, action, entity, cancellationToken),
             nameof(EmployeeFaceModel) => await ApplyEmployeeFaceModelAsync(syncEvent, action, entity, cancellationToken),
+            nameof(UserMonitoringPreference) => await ApplyGenericAsync<UserMonitoringPreference>(syncEvent, action, entity, preference => preference.UserId, cancellationToken),
             _ => null
         };
     }
