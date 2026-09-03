@@ -12,9 +12,9 @@ public class CameraRecordingService : BackgroundService
     private readonly IWebHostEnvironment _env;
     private readonly Dictionary<int, RecordingProcess> _processes = new();
     private readonly object _sync = new();
-    // A closed MP4 is immediately seekable in every browser. Keep segments short
-    // so operators can review footage while the recorder continues running.
-    private static readonly TimeSpan SegmentDuration = TimeSpan.FromSeconds(10);
+    // DVR HLS: one continuous, seekable timeline per camera/day. The small fMP4
+    // pieces are implementation details; the operator sees one video timeline.
+    private const int DvrSegmentSeconds = 4;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan SegmentPublishDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(15);
@@ -49,7 +49,11 @@ public class CameraRecordingService : BackgroundService
                     lock (_sync)
                     {
                         if (_processes.TryGetValue(cam.CameraId, out var p) && p.Process != null && !p.Process.HasExited)
-                            return ValueTask.CompletedTask;
+                        {
+                            if (p.RecordingDayLocal == DateOnly.FromDateTime(DateTime.Now))
+                                return ValueTask.CompletedTask;
+                            StopRecording(cam.CameraId); // Close yesterday's DVR cleanly at day rollover.
+                        }
                     }
                     StartRecording(cam);
                     return ValueTask.CompletedTask;
@@ -75,7 +79,8 @@ public class CameraRecordingService : BackgroundService
 
     private void StartRecording(Camera cam)
     {
-        var recordsDir = Path.Combine(_env.WebRootPath, "uploads", "recordings", $"cam{cam.CameraId}");
+        var day = DateOnly.FromDateTime(DateTime.Now);
+        var recordsDir = Path.Combine(_env.WebRootPath, "uploads", "recordings", $"cam{cam.CameraId}", "dvr", day.ToString("yyyy-MM-dd"));
         Directory.CreateDirectory(recordsDir);
 
         var candidates = ResolveInputCandidates(cam).ToList();
@@ -85,12 +90,11 @@ public class CameraRecordingService : BackgroundService
             return;
         }
 
-        var outputPattern = Path.Combine(recordsDir, "%Y%m%d_%H%M%S.mp4").Replace("\\", "/");
-
-        TryStartWithCandidate(cam.CameraId, candidates, 0, outputPattern);
+        var playlistPath = Path.Combine(recordsDir, "index.m3u8").Replace("\\", "/");
+        TryStartWithCandidate(cam.CameraId, candidates, 0, playlistPath, day);
     }
 
-    private void TryStartWithCandidate(int cameraId, List<RecordingInputCandidate> candidates, int index, string outputPattern)
+    private void TryStartWithCandidate(int cameraId, List<RecordingInputCandidate> candidates, int index, string playlistPath, DateOnly recordingDayLocal)
     {
         if (index >= candidates.Count)
         {
@@ -106,7 +110,7 @@ public class CameraRecordingService : BackgroundService
 
         var psi = new ProcessStartInfo("ffmpeg")
         {
-            Arguments = BuildFfmpegArguments(candidate.InputUrl, outputPattern),
+            Arguments = BuildFfmpegArguments(candidate.InputUrl, playlistPath),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -123,7 +127,7 @@ public class CameraRecordingService : BackgroundService
                 var error = proc.StandardError.ReadToEnd();
                 Console.WriteLine($"[recording] Camera {cameraId} failed on {candidate.SourceLabel}: {TrimForLog(error)}");
                 proc.Dispose();
-                TryStartWithCandidate(cameraId, candidates, index + 1, outputPattern);
+                TryStartWithCandidate(cameraId, candidates, index + 1, playlistPath, recordingDayLocal);
                 return;
             }
 
@@ -136,7 +140,8 @@ public class CameraRecordingService : BackgroundService
                 SourceLabel = candidate.SourceLabel,
                 Candidates = candidates,
                 CandidateIndex = index,
-                OutputPattern = outputPattern,
+                OutputPattern = playlistPath,
+                RecordingDayLocal = recordingDayLocal,
                 Error = null
             };
 
@@ -148,7 +153,7 @@ public class CameraRecordingService : BackgroundService
         catch (Exception ex)
         {
             Console.WriteLine($"[recording] Camera {cameraId} start error on {candidate.SourceLabel}: {ex.Message}");
-            TryStartWithCandidate(cameraId, candidates, index + 1, outputPattern);
+            TryStartWithCandidate(cameraId, candidates, index + 1, playlistPath, recordingDayLocal);
         }
     }
 
@@ -165,7 +170,7 @@ public class CameraRecordingService : BackgroundService
 
             if (rp.Candidates != null && rp.SourceLabel != null)
             {
-                TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, rp.OutputPattern ?? "");
+                TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, rp.OutputPattern ?? "", rp.RecordingDayLocal);
             }
         }
         catch
@@ -426,14 +431,21 @@ public class CameraRecordingService : BackgroundService
         return null;
     }
 
-    private static string BuildFfmpegArguments(string inputUrl, string outputPattern)
+    private static string BuildFfmpegArguments(string inputUrl, string playlistPath)
     {
+        var segmentPattern = Path.Combine(Path.GetDirectoryName(playlistPath)!, "segment_%06d.m4s").Replace("\\", "/");
+        var codec = inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase)
+            ? "-rtsp_transport tcp -timeout 8000000 -i \"" + inputUrl + "\" -map 0:v:0 -c copy"
+            : "-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"" + inputUrl + "\" -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p";
+
+        return $"{codec} -an -sn -dn -f hls -hls_time {DvrSegmentSeconds} -hls_list_size 0 -hls_playlist_type event -hls_segment_type fmp4 -hls_fmp4_init_filename init.mp4 -hls_flags append_list+independent_segments+program_date_time+temp_file -hls_segment_filename \"{segmentPattern}\" \"{playlistPath}\"";
+
+        /* Legacy MP4 segmentation retained below for reference of old files.
         if (inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
         {
-            return $"-rtsp_transport tcp -timeout 8000000 -i \"{inputUrl}\" -map 0:v:0 -c copy -an -sn -dn -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -segment_format mp4 -segment_format_options movflags=+faststart -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
+            return string.Empty;
         }
-
-        return $"-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"{inputUrl}\" -an -sn -dn -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -flush_packets 1 -f segment -segment_time {SegmentDuration.TotalSeconds:F0} -segment_format mp4 -segment_format_options movflags=+faststart -reset_timestamps 1 -strftime 1 \"{outputPattern}\"";
+        */
     }
 
     private static string TrimForLog(string? value)
@@ -466,6 +478,7 @@ public class RecordingProcess
     public List<RecordingInputCandidate>? Candidates { get; set; }
     public int CandidateIndex { get; set; }
     public string? OutputPattern { get; set; }
+    public DateOnly RecordingDayLocal { get; set; }
 }
 
 public record RecordingInputCandidate(string InputUrl, string SourceLabel);

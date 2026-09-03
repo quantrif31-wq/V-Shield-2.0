@@ -77,6 +77,15 @@
       </article>
     </section>
 
+    <section v-if="todayDvrUrl" class="dvr-card">
+      <div>
+        <span class="summary-kicker">DVR trong ngày</span>
+        <h2>{{ activeCameraName }}</h2>
+        <p>Đang ghi liên tục. Kéo thanh thời gian để xem lại từ đầu ngày đến hiện tại.</p>
+      </div>
+      <StreamPreview :url="todayDvrUrl" :label="`DVR ${activeCameraName}`" :show-controls="true" />
+    </section>
+
     <div v-if="loading" class="empty-state">Đang tải dữ liệu lưu trữ...</div>
     <div v-else-if="segments.length === 0" class="empty-state">
       Chưa có đoạn video nào khớp bộ lọc hiện tại.
@@ -130,6 +139,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import { getArchiveSegments, getCameras } from "../services/cameraRuntimeApi"
+import StreamPreview from "../components/StreamPreview.vue"
 
 const route = useRoute()
 const pageSize = 20
@@ -188,6 +198,15 @@ const activeFilterLabel = computed(() => {
   }
   if (filters.cameraType) parts.push(filters.cameraType)
   return parts.join(" / ") || "Tất cả"
+})
+
+const activeCameraName = computed(() => cameras.value.find(item => String(item.cameraId) === filters.cameraId)?.cameraName || 'Camera đã chọn')
+const todayDvrUrl = computed(() => {
+  const cameraId = Number(filters.cameraId)
+  if (!Number.isInteger(cameraId) || cameraId <= 0) return ''
+  const now = new Date()
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  return `/uploads/recordings/cam${cameraId}/dvr/${day}/index.m3u8`
 })
 
 async function loadCameras() {
@@ -398,6 +417,18 @@ onMounted(async () => {
   font-size: 24px;
   color: var(--text-primary);
 }
+
+.dvr-card {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--surface-default) 92%, transparent);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-md);
+  border-radius: 20px;
+}
+.dvr-card h2 { margin: 3px 0; font-size: 20px; }
+.dvr-card p { margin: 0 0 14px; color: var(--text-secondary); }
+.dvr-card :deep(.stream-preview) { aspect-ratio: 16 / 9; max-height: 680px; border-radius: 14px; overflow: hidden; background: #05080d; }
 
 .segment-list {
   display: flex;
