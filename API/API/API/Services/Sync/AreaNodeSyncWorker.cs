@@ -301,9 +301,13 @@ public class AreaNodeSyncWorker : BackgroundService
             }
             else
             {
-                item.Status = "PendingSync";
+                // The central server accepted the batch but rejected this one
+                // event. Keep a durable terminal record instead of retrying it
+                // forever and blocking the rest of the offline outbox.
+                item.Status = "Rejected";
                 item.RetryCount++;
-                item.NextAttemptAtUtc = DateTime.UtcNow.AddSeconds(Math.Min(60, Math.Max(5, item.RetryCount * 5)));
+                item.DispatchedAtUtc = DateTime.UtcNow;
+                item.NextAttemptAtUtc = null;
             }
         }
 
@@ -510,6 +514,11 @@ public class AreaNodeSyncWorker : BackgroundService
                 {
                     // 1 event lỗi không được chặn sequence, tránh pull lại vô hạn.
                     _logger.LogWarning(ex, "Skipping downstream sync event {AggregateType}/{AggregateId}.", envelope.Event.AggregateType, envelope.Event.AggregateId);
+                    // A failed SaveChanges can leave an Added/Modified entity in
+                    // this long-lived sync scope. Detach it before continuing so
+                    // that one malformed historical event cannot poison every
+                    // later event or the checkpoint update.
+                    syncEventApplier.ClearTrackedChanges();
                 }
                 maxAppliedSequence = Math.Max(maxAppliedSequence, envelope.OutboxEventId);
             }

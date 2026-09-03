@@ -17,6 +17,8 @@ public class SyncEventApplier
         _db = db;
     }
 
+    public void ClearTrackedChanges() => _db.ChangeTracker.Clear();
+
     public async Task<string?> ApplyAsync(SyncEventDto syncEvent, CancellationToken cancellationToken = default)
     {
         using var document = JsonDocument.Parse(syncEvent.PayloadJson);
@@ -66,7 +68,8 @@ public class SyncEventApplier
 
         var jobId = Guid.TryParse(syncEvent.AggregateId, out var parsedGuid) ? parsedGuid : (Guid?)null;
         var existing = jobId.HasValue
-            ? await _db.RemoteFaceEnrollmentJobs.FirstOrDefaultAsync(item => item.Id == jobId.Value, cancellationToken)
+            ? _db.RemoteFaceEnrollmentJobs.Local.FirstOrDefault(item => item.Id == jobId.Value)
+              ?? await _db.RemoteFaceEnrollmentJobs.FirstOrDefaultAsync(item => item.Id == jobId.Value, cancellationToken)
             : null;
 
         if (string.Equals(action, "Delete", StringComparison.OrdinalIgnoreCase))
@@ -112,14 +115,46 @@ public class SyncEventApplier
             return syncEvent.AggregateId;
         }
 
-        // EmployeeFaceModel keyed by (EmployeeId, Version) for stable identity.
+        // The primary-key values are generated independently on each node, so an
+        // inbound model must be matched by its business key before inserting.
+        // Looking up only the active model is insufficient: archived versions
+        // carry the same employee and would otherwise violate the unique index.
         var employeeId = TryGetInt(fields, nameof(EmployeeFaceModel.EmployeeId));
-        if (existing == null && employeeId.HasValue)
+        var version = TryGetInt(fields, nameof(EmployeeFaceModel.Version));
+        if (existing == null && employeeId.HasValue && version.HasValue)
+        {
+            existing = await _db.EmployeeFaceModels
+                .FirstOrDefaultAsync(item => item.EmployeeId == employeeId.Value && item.Version == version.Value,
+                    cancellationToken);
+        }
+
+        // Older rows may not have a version. Keep a fallback for those legacy
+        // payloads, but never use it when the canonical version is available.
+        if (existing == null && employeeId.HasValue && !version.HasValue)
         {
             existing = await _db.EmployeeFaceModels
                 .Where(item => item.EmployeeId == employeeId.Value && item.Status == FaceModelLifecycleStatuses.Active)
                 .OrderByDescending(item => item.Id)
                 .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        // The central record is canonical. Before applying an inbound active
+        // version, archive any different active version that was created on
+        // this node. This preserves history and satisfies the one-active-model
+        // invariant without letting a stale local model block the sync queue.
+        var incomingStatus = TryGetString(fields, nameof(EmployeeFaceModel.Status));
+        if (employeeId.HasValue && string.Equals(incomingStatus, FaceModelLifecycleStatuses.Active, StringComparison.OrdinalIgnoreCase))
+        {
+            var activeModelsToArchive = await _db.EmployeeFaceModels
+                .Where(item => item.EmployeeId == employeeId.Value &&
+                               item.Status == FaceModelLifecycleStatuses.Active &&
+                               (existing == null || item.Id != existing.Id))
+                .ToListAsync(cancellationToken);
+            foreach (var activeModel in activeModelsToArchive)
+            {
+                activeModel.Status = FaceModelLifecycleStatuses.Archived;
+                activeModel.ArchivedAtUtc ??= DateTime.UtcNow;
+            }
         }
 
         var model = existing ?? new EmployeeFaceModel();

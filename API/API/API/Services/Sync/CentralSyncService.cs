@@ -526,6 +526,12 @@ public class CentralSyncService
         }
         catch (Exception ex)
         {
+            // Applying an event can leave a failed Added/Modified aggregate in
+            // the shared DbContext. Detach it before recording the rejection;
+            // otherwise the rejection itself fails and returns HTTP 409, which
+            // blocks every later offline event in the node's outbox.
+            _db.ChangeTracker.Clear();
+            _db.SyncInboundEvents.Attach(inbound);
             inbound.Status = "Rejected";
             inbound.FailureReason = ex.Message.Length > 240 ? ex.Message[..240] : ex.Message;
             await _db.SaveChangesAsync(cancellationToken);
