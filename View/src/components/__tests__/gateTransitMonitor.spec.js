@@ -750,6 +750,19 @@ describe('GateTransitMonitor', () => {
       expect(wrapper.vm.cameraVisualState('qr', lane)).toBe('invalid')
     })
 
+    it('shows the active scanning frame immediately for FaceID cameras', async () => {
+      const wrapper = mount(GateTransitMonitor, {
+        props: { credentialMode: 'FACEID' },
+        global: { stubs: stubComponents }
+      })
+      await flushPromises()
+      const lane = wrapper.vm.lanes[0]
+      lane.qr.cameraRunning = true
+      lane.qr.backendPhase = 'idle'
+      expect(wrapper.vm.cameraVisualState('qr', lane)).toBe('scanning')
+      expect(wrapper.vm.cameraVisualText('qr', lane)).toBe('ĐANG QUÉT')
+    })
+
     it('camera visual state for plate lanes', async () => {
       const wrapper = await mountMonitor()
       const lane = wrapper.vm.lanes[0]

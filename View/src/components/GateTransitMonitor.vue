@@ -1840,6 +1840,10 @@ export default {
         if (!qr.cameraRunning) return "idle"
         if (phase === "verified" || qr.activeSessionVerifyState === "success") return "valid"
         if (qr.alert || qr.activeSessionVerifyState === "failed" || qr.activeSessionVerifyState === "invalid") return "invalid"
+        // FaceID must show the active scanning frame as soon as its camera is
+        // running. Unlike QR, the runtime does not set tracking_active until a
+        // face is actually detected, which previously left the preview grey.
+        if (this.isFaceTransit) return "scanning"
         if (
           phase === "connecting" ||
           phase === "scanning" ||
