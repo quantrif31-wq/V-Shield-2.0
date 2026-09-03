@@ -50,8 +50,13 @@
               </div>
 
               <div class="cam-preview" :class="`state-${cameraVisualState('qr', lane)}${autoCamClass(lane)}`">
+                <RemoteCameraPeer
+                  v-if="shouldUseRemotePeer(lane.qr)"
+                  :node-id="cameraRelayNodeId"
+                  :stream-name="extractGo2RtcStreamName(lane.qr.viewUrl)"
+                />
                 <img
-                  v-if="lane.qr.previewRunning && lane.qr.directCameraUrl && isImageUrl(lane.qr.directCameraUrl)"
+                  v-else-if="lane.qr.previewRunning && lane.qr.directCameraUrl && isImageUrl(lane.qr.directCameraUrl)"
                   :key="lane.qr.directCameraKey + '-img'"
                   :src="lane.qr.directCameraUrl"
                   class="preview-image"
@@ -202,8 +207,13 @@
               </div>
 
               <div class="cam-preview" :class="`state-${cameraVisualState('plate', lane)}${autoCamClass(lane)}`">
+                <RemoteCameraPeer
+                  v-if="shouldUseRemotePeer(lane.plate)"
+                  :node-id="cameraRelayNodeId"
+                  :stream-name="extractGo2RtcStreamName(lane.plate.viewUrl)"
+                />
                 <img
-                  v-if="lane.plate.previewRunning && lane.plate.directCameraUrl && isImageUrl(lane.plate.directCameraUrl)"
+                  v-else-if="lane.plate.previewRunning && lane.plate.directCameraUrl && isImageUrl(lane.plate.directCameraUrl)"
                   :key="lane.plate.directCameraKey + '-img'"
                   :src="lane.plate.directCameraUrl"
                   class="preview-image"
@@ -634,6 +644,7 @@ import {
   QR_API_BASE_URL_LANE2
 } from "../services/dynamicQrScannerApi"
 import { PLATE_API_BASE_URL, PLATE_API_BASE_URL_LANE2 } from "../config/api"
+import http from "../services/http"
 import { normalizeCameraUrl } from "../utils/cameraNetwork"
 import { isSimMode, installSimulation } from "../services/simulationHarness"
 import { enterpriseApi, zoneAuthorityApi } from "../services/enterpriseSecurityApi"
@@ -642,6 +653,7 @@ import { onEntityChanged } from "../services/notificationApi"
 import DecisionDrawer from "./shared/DecisionDrawer.vue"
 import StepUpModal from "./shared/StepUpModal.vue"
 import AuditReceiptToast from "./shared/AuditReceiptToast.vue"
+import RemoteCameraPeer from "./shared/RemoteCameraPeer.vue"
 const plateLane2Api = createPlateCameraApi(PLATE_API_BASE_URL_LANE2)
 function createQrModule(defaultScannerDevice) {
   return {
@@ -859,7 +871,7 @@ function createAutoModule() {
 
 export default {
   name: "VShieldGateMinimalQr",
-  components: { DecisionDrawer, StepUpModal, AuditReceiptToast },
+  components: { DecisionDrawer, StepUpModal, AuditReceiptToast, RemoteCameraPeer },
   props: {
     credentialMode: {
       type: String,
@@ -925,6 +937,8 @@ export default {
       settingsCameraSimulatorBusy: false,
       runtimeServices: [],
       runtimeBusy: {},
+      cameraRelayEnabled: false,
+      cameraRelayNodeId: "",
       uiTogglePending: {},
       // Decision drawer state
       decisionDrawerVisible: false,
@@ -1050,6 +1064,7 @@ export default {
   await this.loadCameraList()
   await this.loadTransitLaneDirections()
   await this.fetchUserZones()
+  await this.loadCameraRelayStatus()
 
   this.unsubscribeSync = onEntityChanged(['AccessLog', 'LaneEvent', 'Gate', 'Camera'], () => {
     this.fetchUserZones()
@@ -1120,6 +1135,21 @@ export default {
   },
 
   methods: {
+    async loadCameraRelayStatus() {
+      try {
+        const response = await http.get('/camera-relay/status')
+        const data = response?.data?.data || response?.data || {}
+        const nodes = Array.isArray(data.nodes) ? data.nodes : []
+        this.cameraRelayEnabled = data.enabled === true && nodes.length > 0
+        this.cameraRelayNodeId = this.cameraRelayEnabled ? String(nodes[0]) : ''
+      } catch {
+        this.cameraRelayEnabled = false
+        this.cameraRelayNodeId = ''
+      }
+    },
+    shouldUseRemotePeer(module) {
+      return this.cameraRelayEnabled && !!this.cameraRelayNodeId && !!this.extractGo2RtcStreamName(module?.viewUrl)
+    },
     async loadTransitLaneDirections() {
       try {
         const response = await getTransitLanes()

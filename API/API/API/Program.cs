@@ -181,10 +181,14 @@ namespace API
             builder.Services.AddSingleton<API.Services.ChatRelay.ChatRelayNodeRegistry>();
             builder.Services.AddSingleton<API.Services.ChatRelay.AreaNodeChatRelayWorker>();
             builder.Services.AddSingleton<API.Services.ChatRelay.ChatRelayGateway>();
+            builder.Services.AddSingleton<API.Services.CameraRelay.CameraRelayRegistry>();
+            builder.Services.AddSingleton<API.Services.CameraRelay.AreaNodeCameraRelayWorker>();
             if (!builder.Environment.IsEnvironment("Testing"))
             {
                 builder.Services.AddHostedService(serviceProvider =>
                     serviceProvider.GetRequiredService<API.Services.ChatRelay.AreaNodeChatRelayWorker>());
+                builder.Services.AddHostedService(serviceProvider =>
+                    serviceProvider.GetRequiredService<API.Services.CameraRelay.AreaNodeCameraRelayWorker>());
             }
             builder.Services.AddScoped<IRoutingService, RoutingService>();
             builder.Services.AddTransient<API.Services.ImportExport.IFileParser, API.Services.ImportExport.CsvFileParser>();
@@ -548,6 +552,7 @@ namespace API
             app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
             app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
             app.MapHub<ChatRelayHub>("/hubs/chat-relay").AllowAnonymous();
+            app.MapHub<CameraRelayHub>("/hubs/camera-relay").AllowAnonymous();
             app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "v-shield-api" })).AllowAnonymous();
             app.MapGet("/health/live", () => Results.Ok(new
             {
