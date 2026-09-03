@@ -144,16 +144,6 @@ services:
       - "8555:8555"
     restart: unless-stopped
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: vshield-cloudflared
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
-    depends_on:
-      frontend:
-        condition: service_started
-    restart: unless-stopped
-    profiles: ["tunnel"]
-
   qr-runtime:
     build:
       context: ./AI_Runtime/QR_Dong

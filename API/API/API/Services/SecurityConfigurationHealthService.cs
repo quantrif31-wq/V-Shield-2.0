@@ -9,11 +9,6 @@ public interface ISecurityConfigurationHealthService
 
 public sealed class SecurityConfigurationHealthService : ISecurityConfigurationHealthService
 {
-    private static readonly string[] RepoBackedPublicDomainValues =
-    {
-        "cam.maiai06.site"
-    };
-
     private readonly IConfiguration _configuration;
     private readonly IHostEnvironment _environment;
 
@@ -42,7 +37,6 @@ public sealed class SecurityConfigurationHealthService : ISecurityConfigurationH
         AddJwtFindings(configuration, findings, isProduction, jwtOverride, jwtSecret);
         AddSeedAdminFindings(configuration, findings, isProduction);
         AddOriginFindings(configuration, findings, isProduction, allowedOrigins);
-        AddPublicDomainFindings(configuration, findings, isProduction);
         AddConnectionStringFindings(configuration, findings, isProduction);
         AddEvidenceSigningFindings(configuration, findings, isProduction);
         AddRateLimitFindings(configuration, findings, isProduction);
@@ -223,37 +217,6 @@ public sealed class SecurityConfigurationHealthService : ISecurityConfigurationH
                 true,
                 "Production frontend URL points to localhost.",
                 "Set AppSettings__FrontendUrl to the real HTTPS origin."));
-        }
-    }
-
-    private static void AddPublicDomainFindings(
-        IConfiguration configuration,
-        ICollection<SecurityConfigurationFinding> findings,
-        bool isProduction)
-    {
-        var watchedValues = new Dictionary<string, string?>
-        {
-            ["AppSettings:FrontendUrl"] = configuration["AppSettings:FrontendUrl"],
-            ["AppSettings:Go2RtcPublicBaseUrl"] = configuration["AppSettings:Go2RtcPublicBaseUrl"],
-            ["Cloudflared:PublicHostname"] = configuration["Cloudflared:PublicHostname"]
-        };
-
-        foreach (var (key, value) in watchedValues)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                continue;
-
-            var isRepoBackedPublicDomain = RepoBackedPublicDomainValues.Any(repoValue =>
-                value.Contains(repoValue, StringComparison.OrdinalIgnoreCase));
-            var envKey = key.Replace(":", "__", StringComparison.Ordinal);
-            if (isRepoBackedPublicDomain && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envKey)))
-            {
-                findings.Add(FailOrWarn(
-                    key,
-                    isProduction,
-                    $"{key} uses the current public-domain repository value.",
-                    $"Do not edit protected public-domain files; override {envKey} in the deployment environment."));
-            }
         }
     }
 

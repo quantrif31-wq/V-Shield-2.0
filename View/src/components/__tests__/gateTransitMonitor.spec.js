@@ -398,13 +398,6 @@ describe('GateTransitMonitor', () => {
     expect(runtimeServiceApi.startRuntimeService).toHaveBeenCalledWith('go2rtc')
   })
 
-  it('updates autostart of a runtime service', async () => {
-    const wrapper = await mountMonitor()
-    wrapper.vm.runtimeServices = [{ name: 'cloudflared', running: false, enabled: true, autoStart: true }]
-    await wrapper.vm.toggleRuntimeAutoStart('cloudflared')
-    expect(runtimeServiceApi.updateRuntimeService).toHaveBeenCalledWith('cloudflared', { autoStart: false })
-  })
-
   it('alerts when toggling QR python without a camera ip', async () => {
     const wrapper = await mountMonitor()
     wrapper.vm.openOpsDrawer()

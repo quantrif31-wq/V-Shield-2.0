@@ -95,6 +95,13 @@ public sealed class RuntimeOrchestrator
                 var json = File.ReadAllText(path);
                 var loaded = JsonSerializer.Deserialize<List<RuntimeServiceConfig>>(json) ?? new();
 
+                // Runtime entries are a controlled Docker service inventory.
+                // Drop retired services such as the former Cloudflare tunnel.
+                loaded = loaded
+                    .Where(item => defaults.Any(defaultItem =>
+                        defaultItem.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
                 foreach (var d in defaults)
                 {
                     var existing = loaded.FirstOrDefault(x => x.Name.Equals(d.Name, StringComparison.OrdinalIgnoreCase));
@@ -143,7 +150,6 @@ public sealed class RuntimeOrchestrator
             new RuntimeServiceConfig("python_qr", "Python doc QR", true, false, ManagedModeExternal),
             new RuntimeServiceConfig("python_plate", "Python doc bien so", true, false, ManagedModeExternal),
             new RuntimeServiceConfig("go2rtc", "Go2RTC", true, true, ManagedModeExternal),
-            new RuntimeServiceConfig("cloudflared", "Cloudflared", true, true, ManagedModeExternal),
         };
 }
 
