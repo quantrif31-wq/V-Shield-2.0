@@ -207,6 +207,27 @@ public class CameraRecordingService : BackgroundService
                 }
             }
 
+            // DVR is stored as one HLS timeline per local calendar day. Keep the
+            // current timeline intact while it is recording; remove only complete
+            // days that have passed the same camera retention policy.
+            var dvrDir = Path.Combine(dir, "dvr");
+            if (Directory.Exists(dvrDir))
+            {
+                var firstKeptDay = DateOnly.FromDateTime(DateTime.Now.AddDays(-cam.RecordingRetentionDays));
+                foreach (var dayDir in Directory.GetDirectories(dvrDir))
+                {
+                    if (DateOnly.TryParseExact(
+                            Path.GetFileName(dayDir),
+                            "yyyy-MM-dd",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None,
+                            out var recordingDay) && recordingDay < firstKeptDay)
+                    {
+                        try { Directory.Delete(dayDir, recursive: true); } catch { }
+                    }
+                }
+            }
+
             var oldSegments = await db.RecordedSegments
                 .Where(s => s.CameraId == cam.CameraId && s.StartedAt < cutoff)
                 .ToListAsync(ct);

@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -541,7 +542,16 @@ namespace API
 
                 await next();
             });
-            app.UseStaticFiles();
+            // ASP.NET's default static-file map does not include the HLS playlist
+            // and fragmented-MP4 extensions. Without these mappings the request
+            // falls through to the authenticated API fallback and appears as 401.
+            var staticContentTypes = new FileExtensionContentTypeProvider();
+            staticContentTypes.Mappings[".m3u8"] = "application/vnd.apple.mpegurl";
+            staticContentTypes.Mappings[".m4s"] = "video/iso.segment";
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                ContentTypeProvider = staticContentTypes
+            });
             app.UseCors("AllowVue");
             app.UseRateLimiter();
             app.UseAuthorization();
