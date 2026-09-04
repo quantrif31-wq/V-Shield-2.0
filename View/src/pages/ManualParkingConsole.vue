@@ -383,29 +383,26 @@ onBeforeUnmount(revokeFace)
     padding: 22px 24px;
     border-radius: 28px;
     background:
-        radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 22%),
-        linear-gradient(145deg, #0b1624 0%, #13263b 100%);
+        radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 34%),
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 28%),
+        var(--surface-default);
     color: var(--text-primary);
-    border: 1px solid rgba(125, 211, 252, 0.18);
-    box-shadow: 0 26px 54px rgba(7, 18, 31, 0.24);
-    color: #f8fafc;
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
 }
 
 .mpc-hero .page-title {
-    /* Global unified-ui typography uses !important; this operator hero has a
-       deliberately dark surface, so it must explicitly opt into inverse text. */
-    color: #f8fafc !important;
+    color: var(--text-primary) !important;
 }
 
 .mpc-hero .panel-kicker {
-    color: #67e8f9 !important;
+    color: var(--interactive-primary) !important;
 }
 
 .mpc-hero .page-subtitle {
     max-width: 760px;
     margin-top: 8px;
-    color: #cbd5e1 !important;
+    color: var(--text-secondary) !important;
 }
 
 .mpc-layout {
@@ -428,14 +425,12 @@ onBeforeUnmount(revokeFace)
 .mpc-card {
     padding: 20px;
     border-radius: 24px;
-    background:
-        radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 24%),
-        linear-gradient(180deg, #08111c 0%, #102033 100%);
-    border: 1px solid rgba(125, 211, 252, 0.16);
-    box-shadow: 0 22px 42px rgba(2, 8, 23, 0.2);
+    background: var(--surface-default);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
     display: grid;
     gap: 14px;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .mpc-card-head {
@@ -447,13 +442,13 @@ onBeforeUnmount(revokeFace)
 
 .mpc-card-head h2 {
     margin: 0;
-    color: #f8fafc;
+    color: var(--text-primary);
     font-size: 1.02rem;
 }
 
 .mpc-card .text-muted,
 .mpc-card .panel-kicker {
-    color: #a9c4d5;
+    color: var(--text-secondary);
 }
 
 .code-row {
@@ -545,12 +540,12 @@ onBeforeUnmount(revokeFace)
 
 .mpc-name {
     margin: 0;
-    color: #f8fafc;
+    color: var(--text-primary);
     font-size: 1.35rem;
 }
 
 .mpc-id-line {
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-size: 0.92rem;
     font-weight: 700;
 }
@@ -559,7 +554,7 @@ onBeforeUnmount(revokeFace)
     display: flex;
     flex-wrap: wrap;
     gap: 6px 14px;
-    color: #a9c4d5;
+    color: var(--text-secondary);
     font-size: 0.84rem;
 }
 
@@ -568,7 +563,7 @@ onBeforeUnmount(revokeFace)
     height: 44px;
     border-radius: 999px;
     border: 1px solid var(--border-subtle);
-    background: rgba(15, 23, 42, 0.74);
+    background: var(--surface-subtle);
     color: var(--text-secondary);
     font-weight: 800;
     transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
@@ -592,7 +587,7 @@ onBeforeUnmount(revokeFace)
     align-items: center;
     padding: 14px 16px;
     border-radius: 18px;
-    background: rgba(15, 23, 42, 0.62);
+    background: var(--surface-subtle);
     border: 1px solid var(--border-subtle);
 }
 
@@ -600,7 +595,7 @@ onBeforeUnmount(revokeFace)
     font-family: var(--font-mono, monospace);
     font-weight: 900;
     font-size: 1.05rem;
-    color: #f8fafc;
+    color: var(--text-primary);
     padding: 8px 14px;
     border-radius: 12px;
     background: rgba(56, 189, 248, 0.12);
@@ -608,7 +603,7 @@ onBeforeUnmount(revokeFace)
 }
 
 .parked-meta {
-    color: #a9c4d5;
+    color: var(--text-secondary);
     font-size: 0.82rem;
 }
 
@@ -621,7 +616,7 @@ onBeforeUnmount(revokeFace)
     gap: 4px;
     padding: 14px;
     border-radius: 18px;
-    background: rgba(15, 23, 42, 0.72);
+    background: var(--surface-subtle);
     border: 1px solid var(--border-subtle);
 }
 
@@ -634,24 +629,24 @@ onBeforeUnmount(revokeFace)
 }
 
 .mpc-receipt strong {
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .mpc-receipt span {
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-size: 0.88rem;
 }
 
 .mpc-empty {
     padding: 40px 24px;
     border-radius: 24px;
-    background: rgba(15, 23, 42, 0.5);
+    background: var(--surface-subtle);
     border: 1px dashed var(--border-subtle);
     display: grid;
     justify-items: center;
     gap: 10px;
     text-align: center;
-    color: #cbd5e1;
+    color: var(--text-secondary);
 }
 
 .mpc-empty-icon {
@@ -668,7 +663,7 @@ onBeforeUnmount(revokeFace)
     padding-left: 18px;
     display: grid;
     gap: 10px;
-    color: #d4e2eb;
+    color: var(--text-secondary);
     font-size: 0.88rem;
     line-height: 1.45;
 }
