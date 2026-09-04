@@ -309,6 +309,7 @@ const router = createRouter({
 
 const DYNAMIC_IMPORT_ERROR_MARKER = 'Failed to fetch dynamically imported module'
 const DYNAMIC_IMPORT_RELOAD_KEY = 'vshield:dynamic-import-reload'
+const DYNAMIC_IMPORT_RELOAD_TTL_MS = 30_000
 
 // Navigation Guard
 router.beforeEach((to, from, next) => {
@@ -385,18 +386,26 @@ router.onError((error, to) => {
   }
 
   const reloadTarget = typeof to?.fullPath === 'string' && to.fullPath ? to.fullPath : window.location.pathname
-  const lastReloadTarget = window.sessionStorage.getItem(DYNAMIC_IMPORT_RELOAD_KEY)
+  const lastReload = window.sessionStorage.getItem(DYNAMIC_IMPORT_RELOAD_KEY)
+  let lastReloadTarget = ''
+  let lastReloadAt = 0
+  try {
+    const parsed = lastReload ? JSON.parse(lastReload) : null
+    lastReloadTarget = String(parsed?.target || '')
+    lastReloadAt = Number(parsed?.at) || 0
+  } catch {
+    // Compatibility with the old string-only marker.
+    lastReloadTarget = lastReload || ''
+  }
 
-  if (lastReloadTarget === reloadTarget) {
-    // Đã thử reload target này; đặt lại khoá để lần sau thử lại, tránh kẹt vĩnh viễn.
-    window.sessionStorage.removeItem(DYNAMIC_IMPORT_RELOAD_KEY)
+  if (lastReloadTarget === reloadTarget && Date.now() - lastReloadAt < DYNAMIC_IMPORT_RELOAD_TTL_MS) {
+    // A fresh reload was already attempted.  Leave the marker in place so a
+    // second failed import cannot repeatedly replace the page while the user
+    // is reading the error boundary.
     return
   }
 
-  window.sessionStorage.setItem(DYNAMIC_IMPORT_RELOAD_KEY, reloadTarget)
-  window.setTimeout(() => {
-    window.sessionStorage.removeItem(DYNAMIC_IMPORT_RELOAD_KEY)
-  }, 3000)
+  window.sessionStorage.setItem(DYNAMIC_IMPORT_RELOAD_KEY, JSON.stringify({ target: reloadTarget, at: Date.now() }))
   window.location.assign(reloadTarget)
 })
 

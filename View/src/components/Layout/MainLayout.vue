@@ -38,11 +38,19 @@
                 <div class="content-shell unified-ui">
                     <RouteErrorBoundary>
                         <router-view v-slot="{ Component, route }">
-                            <transition name="page-fade" mode="out-in">
+                            <!--
+                              Do not use `mode="out-in"` here.  With lazy
+                              routes it removes the current page first and a
+                              delayed/failed mount leaves an empty content
+                              area.  The normal transition keeps a rendered
+                              route available while Vue completes the next
+                              navigation.
+                            -->
+                            <transition name="page-fade">
                                 <keep-alive v-if="route.meta.keepAlive">
-                                    <component :is="Component" :key="route.name" />
+                                    <component v-if="Component" :is="Component" :key="route.name" />
                                 </keep-alive>
-                                <component v-else :is="Component" :key="route.fullPath" />
+                                <component v-else-if="Component" :is="Component" :key="route.fullPath" />
                             </transition>
                         </router-view>
                     </RouteErrorBoundary>

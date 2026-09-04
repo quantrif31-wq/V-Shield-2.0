@@ -11,12 +11,14 @@ import { installRouteProgress } from './services/routeLoading'
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault()
   const target = window.location.pathname + window.location.search
-  const last = sessionStorage.getItem('vshield:preload-reload')
-  if (last === target) {
-    sessionStorage.removeItem('vshield:preload-reload')
+  const key = 'vshield:preload-reload'
+  const raw = sessionStorage.getItem(key)
+  let previous = null
+  try { previous = raw ? JSON.parse(raw) : null } catch { previous = raw ? { target: raw, at: 0 } : null }
+  if (previous?.target === target && Date.now() - Number(previous.at || 0) < 30_000) {
     return
   }
-  sessionStorage.setItem('vshield:preload-reload', target)
+  sessionStorage.setItem(key, JSON.stringify({ target, at: Date.now() }))
   window.location.assign(target)
 })
 
