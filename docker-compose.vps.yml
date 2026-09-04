@@ -1,4 +1,25 @@
 services:
+  turn:
+    image: coturn/coturn:4.6.3
+    container_name: vshield-turn
+    command:
+      - -n
+      - --log-file=stdout
+      - --realm=${TURN_REALM:?Set TURN_REALM in .env.vps}
+      - --lt-cred-mech
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SHARED_SECRET:?Set TURN_SHARED_SECRET in .env.vps}
+      - --fingerprint
+      - --no-multicast-peers
+      - --no-cli
+      - --min-port=${TURN_MIN_PORT:-49160}
+      - --max-port=${TURN_MAX_PORT:-49200}
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}:${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}/udp"
+    restart: unless-stopped
+
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: vshield-db
@@ -46,6 +67,9 @@ services:
       Security__GatewayHeadersManagedByProxy: "${SECURITY_GATEWAY_HEADERS_MANAGED_BY_PROXY:-true}"
       DataProtection__KeyRingPath: "/var/app/data-protection"
       AppSettings__FrontendUrl: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
+      Realtime__TurnUrls: "${TURN_URLS:-}"
+      Realtime__TurnSharedSecret: "${TURN_SHARED_SECRET:-}"
+      Realtime__TurnCredentialTtlSeconds: "${TURN_CREDENTIAL_TTL_SECONDS:-3600}"
       AppSettings__AllowedOrigins__0: "${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in your environment or .env.vps file}"
       AppSettings__AllowedOrigins__1: "${APP_FRONTEND_URL_ALT:-}"
       AppSettings__AllowedOrigins__2: ""

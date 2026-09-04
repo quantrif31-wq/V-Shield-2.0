@@ -1,12 +1,8 @@
 import * as signalR from '@microsoft/signalr'
 import { API_ORIGIN } from '../config/api'
+import { getIceServers } from './iceConfiguration'
 
 const AUTH_TOKEN_KEY = 'v_shield_token'
-const RTC_CONFIG = { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-] }
 
 let connection = null
 let connectionPromise = null
@@ -60,7 +56,7 @@ export async function openCameraPeer({ nodeId, streamName, onStream, onState }) 
   const response = await hub.invoke('OpenStream', nodeId, streamName)
   const sessionId = response?.sessionId
   if (!sessionId) throw new Error('Máy chủ không tạo được phiên camera.')
-  const pc = new RTCPeerConnection(RTC_CONFIG)
+  const pc = new RTCPeerConnection({ iceServers: await getIceServers() })
   const peer = { sessionId, pc, onState }
   peers.set(sessionId, peer)
   pc.ontrack = (event) => { if (event.streams?.[0]) onStream?.(event.streams[0]) }

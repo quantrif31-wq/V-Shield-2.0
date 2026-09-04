@@ -2,17 +2,7 @@ import { reactive, shallowRef, watch } from 'vue'
 import { authState } from './auth'
 import * as chatApi from '../services/chatApi'
 import { playIncomingRingtone, playOutgoingDialTone, playCallEndTone, stopAllTones } from '../services/callAudio'
-
-// Free Worldwide Google & Cloudflare STUN Servers
-const RTC_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' }
-  ]
-}
+import { getIceServers } from '../services/iceConfiguration'
 
 export const callState = reactive({
   state: 'idle', // 'idle' | 'calling' | 'incoming' | 'connected'
@@ -86,7 +76,7 @@ async function initWebRTC(callType) {
     callState.isMuted = false
     callState.isVideoOff = false
 
-    peerConnection = new RTCPeerConnection(RTC_CONFIG)
+    peerConnection = new RTCPeerConnection({ iceServers: await getIceServers() })
 
     stream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, stream)
