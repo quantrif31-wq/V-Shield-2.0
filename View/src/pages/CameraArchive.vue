@@ -69,7 +69,7 @@
       </article>
       <article class="summary-card">
         <span class="summary-kicker">DVR hôm nay</span>
-        <strong>{{ recordingDvrTimelines.length ? `${recordingDvrTimelines.length} đang ghi` : 'Không có luồng mới' }}</strong>
+        <strong>{{ dvrTimelines.length }}</strong>
       </article>
       <article class="summary-card">
         <span class="summary-kicker">Camera hiện có</span>
@@ -81,42 +81,40 @@
       </article>
     </section>
 
-    <section v-if="recordingDvrTimelines.length" class="dvr-camera-strip" aria-label="Camera đang ghi DVR">
-      <div>
-        <span class="summary-kicker">Camera đang ghi</span>
-        <p>Chọn theo tên camera để xem DVR riêng; không gom theo cổng.</p>
-      </div>
-      <div class="dvr-camera-list">
-        <button
-          v-for="timeline in recordingDvrTimelines"
-          :key="timeline.cameraId"
-          type="button"
-          class="dvr-camera-button"
-          :class="{ active: Number(filters.cameraId) === Number(timeline.cameraId) }"
-          @click="selectDvrCamera(timeline.cameraId)"
-        >
-          <span class="recording-dot" aria-hidden="true"></span>{{ timeline.cameraName }}
-        </button>
-      </div>
-    </section>
-
-    <section v-if="activeDvrCamera" class="dvr-card">
-      <div>
-        <span class="summary-kicker">DVR trong ngày</span>
-        <h2>{{ activeDvrCamera.cameraName }}</h2>
-        <p>Đang ghi liên tục cùng {{ Math.max(dvrTimelines.length - 1, 0) }} camera khác. Mở camera khác bằng bộ lọc phía trên; trình phát này luôn vào chế độ trực tiếp, chỉ tua khi bạn kéo thanh thời gian.</p>
-      </div>
-      <StreamPreview v-if="activeDvrAvailable" :key="todayDvrUrl" :url="todayDvrUrl" :label="`DVR ${activeDvrCamera.cameraName}`" :show-controls="true" dvr-mode />
-      <div v-else class="dvr-unavailable">
-        Camera này đang mất kết nối và chưa có video DVR hợp lệ để phát lại. Khi camera có luồng video thực, phần đã ghi sẽ vẫn xem được sau khi ngắt kết nối.
-      </div>
-    </section>
-    <section v-else class="dvr-selection-hint">
-      Chọn một camera trong bộ lọc chính để mở DVR liên tục và tua lại trong ngày.
+    <section v-if="dvrTimelines.length" class="segment-list dvr-list">
+      <article v-for="timeline in dvrTimelines" :key="dvrKey(timeline)" class="segment-card">
+        <div class="segment-head">
+          <div>
+            <h2>{{ timeline.cameraName }}</h2>
+            <p>DVR liên tục ngày {{ formatDvrDate(timeline.recordingDate) }}</p>
+          </div>
+          <div class="segment-badges">
+            <span class="badge">DVR</span>
+            <span v-if="timeline.isRecording" class="badge live">Đang ghi</span>
+          </div>
+        </div>
+        <div class="segment-meta">
+          <span>Thời lượng: {{ formatDuration(timeline.durationSeconds) }}</span>
+          <span>{{ timeline.segmentCount }} đoạn liên tục</span>
+        </div>
+        <StreamPreview
+          v-if="showDvrKey === dvrKey(timeline)"
+          :key="dvrKey(timeline)"
+          :url="dvrUrl(timeline)"
+          :label="`DVR ${timeline.cameraName}`"
+          :show-controls="true"
+          dvr-mode
+        />
+        <div class="segment-actions">
+          <button class="primary-btn small" @click="toggleDvr(timeline)">
+            {{ showDvrKey === dvrKey(timeline) ? 'Ẩn DVR' : 'Xem DVR' }}
+          </button>
+        </div>
+      </article>
     </section>
 
     <div v-if="loading" class="empty-state">Đang tải dữ liệu lưu trữ...</div>
-    <div v-else-if="segments.length === 0" class="empty-state">
+    <div v-else-if="segments.length === 0 && dvrTimelines.length === 0" class="empty-state">
       Chưa có đoạn video nào khớp bộ lọc hiện tại.
     </div>
 
@@ -184,6 +182,7 @@ const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
 const showVideoId = ref(null)
+const showDvrKey = ref(null)
 const dvrTimelines = ref([])
 
 const filters = reactive({
@@ -230,61 +229,18 @@ const activeFilterLabel = computed(() => {
   return parts.join(" / ") || "Tất cả"
 })
 
-const activeDvrCamera = computed(() =>
-  cameras.value.find((camera) => String(camera.cameraId) === filters.cameraId) || null
-)
-
-const activeDvrAvailable = computed(() => {
-  const cameraId = Number(activeDvrCamera.value?.cameraId)
-  return Number.isInteger(cameraId) && dvrTimelines.value.some((timeline) => Number(timeline.cameraId) === cameraId)
-})
-
-const recordingDvrTimelines = computed(() =>
-  dvrTimelines.value.filter((timeline) => timeline?.isRecording === true)
-)
-
-const todayDvrUrl = computed(() => {
-  const cameraId = Number(activeDvrCamera.value?.cameraId)
-  if (!Number.isInteger(cameraId) || cameraId <= 0) return ''
-  const now = new Date()
-  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  return `/uploads/recordings/cam${cameraId}/dvr/${day}/index.m3u8`
-})
-
 async function loadCameras() {
   const data = await getCameras()
   cameras.value = Array.isArray(data) ? data : []
-  await loadDvrTimelines()
-  await selectDefaultDvrCamera()
 }
 
 async function loadDvrTimelines() {
   try {
-    const data = await getDvrStatus()
+    const data = await getDvrStatus(buildParams())
     dvrTimelines.value = Array.isArray(data) ? data : []
   } catch (error) {
     dvrTimelines.value = []
     console.warn("Không xác định được timeline DVR:", error)
-  }
-}
-
-async function selectDefaultDvrCamera() {
-  if (filters.cameraId || cameras.value.length === 0) return
-
-  try {
-    // Recognition demo sources render a generated placeholder, not a camera
-    // transport. Never let one become the archive's automatic DVR choice.
-    const preferredTimeline = dvrTimelines.value.find((timeline) => {
-      const camera = cameras.value.find((item) => item.cameraId === timeline.cameraId)
-      return camera && !String(camera.streamUrl || '').toLowerCase().includes('demo.local')
-    }) || dvrTimelines.value[0]
-    const cameraId = Number(preferredTimeline?.cameraId)
-    if (Number.isInteger(cameraId) && cameras.value.some((camera) => camera.cameraId === cameraId)) {
-      filters.cameraId = String(cameraId)
-    }
-  } catch (error) {
-    // Archive search remains usable when DVR status is temporarily unavailable.
-    console.warn("Không xác định được camera DVR đang ghi:", error)
   }
 }
 
@@ -303,9 +259,13 @@ async function loadSegments(targetPage = 1) {
   loading.value = true
   page.value = targetPage
   showVideoId.value = null
+  showDvrKey.value = null
 
   try {
-    const res = await getArchiveSegments(buildParams(targetPage))
+    const [res] = await Promise.all([
+      getArchiveSegments(buildParams(targetPage)),
+      loadDvrTimelines()
+    ])
     segments.value = Array.isArray(res.items) ? res.items : []
     total.value = Number(res.total || 0)
   } catch (error) {
@@ -324,7 +284,6 @@ async function resetFilters() {
   filters.search = ""
   filters.from = ""
   filters.to = ""
-  await selectDefaultDvrCamera()
   loadSegments(1)
 }
 
@@ -332,12 +291,10 @@ function toggleVideo(segmentId) {
   showVideoId.value = showVideoId.value === segmentId ? null : segmentId
 }
 
-function selectDvrCamera(cameraId) {
-  const normalized = String(cameraId)
-  if (filters.cameraId === normalized) return
-  filters.cameraId = normalized
-  void loadSegments(1)
-}
+function dvrKey(timeline) { return `dvr-${timeline.cameraId}-${timeline.recordingDate}` }
+function dvrUrl(timeline) { return `/uploads/recordings/cam${timeline.cameraId}/dvr/${timeline.recordingDate}/index.m3u8` }
+function formatDvrDate(value) { return value ? new Date(`${value}T00:00:00`).toLocaleDateString('vi-VN') : 'Không rõ ngày' }
+function toggleDvr(timeline) { const key = dvrKey(timeline); showDvrKey.value = showDvrKey.value === key ? null : key }
 
 function formatDate(value) {
   if (!value) return "Không rõ"
@@ -365,7 +322,6 @@ watch(
   () => route.params.id,
   async (nextId) => {
     filters.cameraId = normalizeRouteCameraId(nextId)
-    await selectDefaultDvrCamera()
     loadSegments(1)
   }
 )

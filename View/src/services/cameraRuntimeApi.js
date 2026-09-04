@@ -86,8 +86,10 @@ export async function getArchiveSegments(params) {
     return res.data
 }
 
-export async function getDvrStatus() {
-    const res = await http.get('/camera-runtime/archive/dvr-status')
+export async function getDvrStatus(params) {
+    const res = params
+        ? await http.get('/camera-runtime/archive/dvr-status', { params })
+        : await http.get('/camera-runtime/archive/dvr-status')
     return res.data
 }
 

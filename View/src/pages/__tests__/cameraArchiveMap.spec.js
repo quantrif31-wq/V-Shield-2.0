@@ -76,18 +76,18 @@ describe('CameraArchive', () => {
     expect(cameraRuntimeApi.getArchiveSegments).toHaveBeenLastCalledWith(expect.objectContaining({ cameraId: 2 }))
   })
 
-  it('opens the newest active DVR when the archive is opened without a camera id', async () => {
+  it('keeps the all-camera filter and lists each matching DVR by camera name', async () => {
     hoisted.route.params = {}
     cameraRuntimeApi.getCameras.mockResolvedValue([{ cameraId: 1, cameraName: 'cam1' }])
-    cameraRuntimeApi.getDvrStatus.mockResolvedValue([{ cameraId: 1, cameraName: 'cam1', segmentCount: 12 }])
+    cameraRuntimeApi.getDvrStatus.mockResolvedValue([{ cameraId: 1, cameraName: 'cam1', recordingDate: '2026-09-04', segmentCount: 12, durationSeconds: 48 }])
     cameraRuntimeApi.getArchiveSegments.mockResolvedValue({ items: [], total: 0 })
 
     const wrapper = mount(CameraArchive)
     await flushPromises()
 
-    expect(wrapper.find('select').element.value).toBe('1')
-    expect(wrapper.text()).toContain('DVR trong ngày')
+    expect(wrapper.find('select').element.value).toBe('')
+    expect(wrapper.text()).toContain('DVR liên tục ngày')
     expect(wrapper.text()).toContain('cam1')
-    expect(cameraRuntimeApi.getArchiveSegments).toHaveBeenLastCalledWith(expect.objectContaining({ cameraId: 1 }))
+    expect(cameraRuntimeApi.getArchiveSegments).toHaveBeenLastCalledWith(expect.not.objectContaining({ cameraId: expect.anything() }))
   })
 })

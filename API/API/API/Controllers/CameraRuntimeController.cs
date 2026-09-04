@@ -296,87 +296,97 @@ namespace API.Controllers
         // Expose only timelines that already contain media so archive entry points
         // can open a useful camera immediately instead of a blank "all cameras" view.
         [HttpGet("archive/dvr-status")]
-        public async Task<IActionResult> GetDvrStatus()
+        public async Task<IActionResult> GetDvrStatus(
+            [FromQuery] int? cameraId,
+            [FromQuery] int? gateId,
+            [FromQuery] string? cameraType,
+            [FromQuery] string? search,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to)
         {
-            var today = DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd");
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var firstDay = DateOnly.FromDateTime((from ?? today.ToDateTime(TimeOnly.MinValue)).Date);
+            var lastDay = DateOnly.FromDateTime((to ?? today.ToDateTime(TimeOnly.MaxValue)).Date);
+            if (lastDay < firstDay) return Ok(Array.Empty<DvrStatusItem>());
+
             var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-            var cameras = await _context.Cameras
+            var cameraQuery = _context.Cameras
                 .AsNoTracking()
+                .Include(camera => camera.Gate)
+                .AsQueryable();
+            if (cameraId.HasValue) cameraQuery = cameraQuery.Where(camera => camera.CameraId == cameraId.Value);
+            if (gateId.HasValue) cameraQuery = cameraQuery.Where(camera => camera.GateId == gateId.Value);
+            if (!string.IsNullOrWhiteSpace(cameraType))
+                cameraQuery = cameraQuery.Where(camera => camera.CameraType == cameraType.Trim());
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                cameraQuery = cameraQuery.Where(camera =>
+                    camera.CameraName.Contains(term) ||
+                    (camera.CameraType != null && camera.CameraType.Contains(term)) ||
+                    (camera.Gate != null && camera.Gate.GateName.Contains(term)) ||
+                    (camera.Gate != null && camera.Gate.Location != null && camera.Gate.Location.Contains(term)));
+            }
+
+            var cameras = await cameraQuery
                 .Select(camera => new { camera.CameraId, camera.CameraName })
                 .ToListAsync();
 
             var items = new List<DvrStatusItem>();
             foreach (var camera in cameras)
             {
-                var playlistPath = Path.Combine(
+                var dvrRoot = Path.Combine(
                     webRoot,
                     "uploads",
                     "recordings",
                     $"cam{camera.CameraId}",
-                    "dvr",
-                    today,
-                    "index.m3u8");
-                if (!System.IO.File.Exists(playlistPath))
-                {
-                    continue;
-                }
+                    "dvr");
+                if (!Directory.Exists(dvrRoot)) continue;
 
-                var segmentCount = 0;
-                var durationSeconds = 0d;
-                string? initFileName = null;
-                try
+                foreach (var dayDirectory in Directory.GetDirectories(dvrRoot))
                 {
-                    foreach (var line in System.IO.File.ReadLines(playlistPath))
+                    if (!DateOnly.TryParseExact(Path.GetFileName(dayDirectory), "yyyy-MM-dd", out var recordingDay) ||
+                        recordingDay < firstDay || recordingDay > lastDay)
+                        continue;
+
+                    var playlistPath = Path.Combine(dayDirectory, "index.m3u8");
+                    if (!System.IO.File.Exists(playlistPath)) continue;
+
+                    var segmentCount = 0;
+                    var durationSeconds = 0d;
+                    string? initFileName = null;
+                    try
                     {
-                        if (line.StartsWith("#EXTINF:", StringComparison.Ordinal) &&
-                            double.TryParse(
-                                line[8..].TrimEnd(','),
-                                System.Globalization.NumberStyles.Float,
-                                System.Globalization.CultureInfo.InvariantCulture,
-                                out var duration) && duration > 0.01)
+                        foreach (var line in System.IO.File.ReadLines(playlistPath))
                         {
-                            segmentCount += 1;
-                            durationSeconds += duration;
-                        }
-                        else if (line.StartsWith("#EXT-X-MAP:URI=\"", StringComparison.Ordinal))
-                        {
-                            var value = line[16..];
-                            var end = value.IndexOf('"');
-                            if (end > 0) initFileName = value[..end];
+                            if (line.StartsWith("#EXTINF:", StringComparison.Ordinal) &&
+                                double.TryParse(line[8..].TrimEnd(','), System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture, out var duration) && duration > 0.01)
+                            {
+                                segmentCount += 1;
+                                durationSeconds += duration;
+                            }
+                            else if (line.StartsWith("#EXT-X-MAP:URI=\"", StringComparison.Ordinal))
+                            {
+                                var value = line[16..];
+                                var end = value.IndexOf('"');
+                                if (end > 0) initFileName = value[..end];
+                            }
                         }
                     }
-                }
-                catch
-                {
-                    continue;
-                }
+                    catch { continue; }
 
-                var initPath = string.IsNullOrWhiteSpace(initFileName)
-                    ? null
-                    : Path.Combine(Path.GetDirectoryName(playlistPath)!, initFileName);
-                if (segmentCount == 0 || string.IsNullOrWhiteSpace(initPath) ||
-                    !System.IO.File.Exists(initPath) || new FileInfo(initPath).Length == 0)
-                {
-                    continue;
+                    var initPath = string.IsNullOrWhiteSpace(initFileName) ? null : Path.Combine(dayDirectory, initFileName);
+                    if (segmentCount == 0 || string.IsNullOrWhiteSpace(initPath) || !System.IO.File.Exists(initPath) || new FileInfo(initPath).Length == 0)
+                        continue;
+
+                    var lastMediaAtUtc = Directory.EnumerateFiles(dayDirectory, "*.m4s", SearchOption.TopDirectoryOnly)
+                        .Select(path => System.IO.File.GetLastWriteTimeUtc(path)).DefaultIfEmpty(DateTime.MinValue).Max();
+                    var isRecording = recordingDay == today && lastMediaAtUtc >= DateTime.UtcNow.AddSeconds(-15);
+
+                    items.Add(new DvrStatusItem(camera.CameraId, camera.CameraName, recordingDay, segmentCount,
+                        durationSeconds, lastMediaAtUtc, isRecording));
                 }
-
-                // index.m3u8 is republished even for an old timeline. Use the
-                // newest media fragment to distinguish an active recording
-                // from a camera that only has history available for playback.
-                var lastMediaAtUtc = Directory
-                    .EnumerateFiles(Path.GetDirectoryName(playlistPath)!, "*.m4s", SearchOption.TopDirectoryOnly)
-                    .Select(path => System.IO.File.GetLastWriteTimeUtc(path))
-                    .DefaultIfEmpty(DateTime.MinValue)
-                    .Max();
-                var isRecording = lastMediaAtUtc >= DateTime.UtcNow.AddSeconds(-15);
-
-                items.Add(new DvrStatusItem(
-                    camera.CameraId,
-                    camera.CameraName,
-                    segmentCount,
-                    durationSeconds,
-                    lastMediaAtUtc,
-                    isRecording));
             }
 
             return Ok(items.OrderByDescending(item => item.UpdatedAtUtc));
@@ -907,6 +917,7 @@ namespace API.Controllers
         private sealed record DvrStatusItem(
             int CameraId,
             string CameraName,
+            DateOnly RecordingDate,
             int SegmentCount,
             double DurationSeconds,
             DateTime UpdatedAtUtc,
