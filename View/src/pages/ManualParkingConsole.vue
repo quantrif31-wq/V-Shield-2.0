@@ -393,17 +393,19 @@ onBeforeUnmount(revokeFace)
 }
 
 .mpc-hero .page-title {
-    color: #f8fafc;
+    /* Global unified-ui typography uses !important; this operator hero has a
+       deliberately dark surface, so it must explicitly opt into inverse text. */
+    color: #f8fafc !important;
 }
 
 .mpc-hero .panel-kicker {
-    color: #67e8f9;
+    color: #67e8f9 !important;
 }
 
 .mpc-hero .page-subtitle {
     max-width: 760px;
     margin-top: 8px;
-    color: #cbd5e1;
+    color: #cbd5e1 !important;
 }
 
 .mpc-layout {
