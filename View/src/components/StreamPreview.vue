@@ -105,6 +105,7 @@ const dvrDuration = ref(0)
 const dvrPosition = ref(0)
 let hlsInstance = null
 let dvrTimelineRequest = 0
+let dvrTimelineTimer = null
 
 const dvrTimelineReady = computed(() => dvrDuration.value > 0)
 
@@ -191,6 +192,10 @@ const destroyHls = () => {
 
 const resetState = () => {
     dvrTimelineRequest += 1
+    if (dvrTimelineTimer) {
+        clearInterval(dvrTimelineTimer)
+        dvrTimelineTimer = null
+    }
     destroyHls()
     resetVideoElement()
     errorMessage.value = ''
@@ -229,6 +234,13 @@ const loadDvrPlaylistTimeline = async () => {
     } catch {
         // hls.js can still supply the timeline through LEVEL_LOADED.
     }
+}
+
+const startDvrTimelineRefresh = () => {
+    if (!props.dvrMode || dvrTimelineTimer) return
+    dvrTimelineTimer = setInterval(() => {
+        void loadDvrPlaylistTimeline()
+    }, 3000)
 }
 
 const syncDvrPosition = () => {
@@ -305,6 +317,7 @@ const attachHlsPreview = async () => {
     errorMessage.value = ''
     isLoading.value = true
     void loadDvrPlaylistTimeline()
+    startDvrTimelineRefresh()
 
     if (element.canPlayType('application/vnd.apple.mpegurl')) {
         element.src = resolvedUrl.value

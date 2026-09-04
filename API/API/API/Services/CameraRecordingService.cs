@@ -27,6 +27,13 @@ public class CameraRecordingService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.WhenAll(
+            RunRecorderLoop(stoppingToken),
+            RunDvrPublisherLoop(stoppingToken));
+    }
+
+    private async Task RunRecorderLoop(CancellationToken stoppingToken)
+    {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -63,7 +70,6 @@ public class CameraRecordingService : BackgroundService
                         StopRecording(id);
                 }
 
-                PublishDvrTimelines();
                 await ScanAndRecordSegments(db, stoppingToken);
                 await CleanupOldRecordings(db, stoppingToken);
             }
@@ -222,6 +228,26 @@ public class CameraRecordingService : BackgroundService
         {
             // The next recorder loop retries. Do not block camera recording for
             // a transient file-system race.
+        }
+    }
+
+    // The seekable day playlist is operator-facing and must progress even
+    // while slow historical MP4 indexing or cleanup is running elsewhere.
+    private async Task RunDvrPublisherLoop(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                PublishDvrTimelines();
+            }
+            catch when (!stoppingToken.IsCancellationRequested)
+            {
+                // Keep the last atomically-published manifest; retry on the
+                // next tick if a source playlist is being rotated.
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
         }
     }
 

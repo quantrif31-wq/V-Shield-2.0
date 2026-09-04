@@ -550,7 +550,20 @@ namespace API
             staticContentTypes.Mappings[".m4s"] = "video/iso.segment";
             app.UseStaticFiles(new StaticFileOptions
             {
-                ContentTypeProvider = staticContentTypes
+                ContentTypeProvider = staticContentTypes,
+                OnPrepareResponse = context =>
+                {
+                    // A DVR playlist changes throughout the day. Never allow
+                    // a browser or proxy to reuse an older manifest after a
+                    // camera reconnect; completed .m4s fragments remain safe
+                    // to cache normally.
+                    if (context.File.Name.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+                        context.Context.Response.Headers.Pragma = "no-cache";
+                        context.Context.Response.Headers.Expires = "0";
+                    }
+                }
             });
             app.UseCors("AllowVue");
             app.UseRateLimiter();
