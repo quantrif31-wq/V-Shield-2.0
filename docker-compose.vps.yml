@@ -6,6 +6,7 @@ services:
       - -n
       - --log-file=stdout
       - --realm=${TURN_REALM:?Set TURN_REALM in .env.vps}
+      - --external-ip=${TURN_EXTERNAL_IP:?Set TURN_EXTERNAL_IP in .env.vps}
       - --lt-cred-mech
       - --use-auth-secret
       - --static-auth-secret=${TURN_SHARED_SECRET:?Set TURN_SHARED_SECRET in .env.vps}
