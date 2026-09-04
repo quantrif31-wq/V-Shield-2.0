@@ -525,7 +525,10 @@ public class CameraRecordingService : BackgroundService
 
         if (streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase))
         {
-            internalPreviewUrl = "http://frontend/qr-api/qr/frame.jpg";
+            // A snapshot is suitable for an <img> preview but cannot be a DVR
+            // source. The QR runtime exposes the same frames as continuous
+            // multipart MJPEG specifically for recording.
+            internalPreviewUrl = "http://frontend/qr-api/qr/stream";
             return true;
         }
 
