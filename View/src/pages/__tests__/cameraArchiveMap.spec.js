@@ -12,7 +12,7 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('../../services/socApi', () => ({ socApi: { getAlarm: vi.fn() } }))
-vi.mock('../../services/cameraRuntimeApi', () => ({ getArchiveSegments: vi.fn(), getCameras: vi.fn() }))
+vi.mock('../../services/cameraRuntimeApi', () => ({ getArchiveSegments: vi.fn(), getCameras: vi.fn(), getDvrStatus: vi.fn() }))
 
 const socApi = (await import('../../services/socApi')).socApi
 const cameraRuntimeApi = await import('../../services/cameraRuntimeApi')
@@ -20,7 +20,10 @@ const cameraRuntimeApi = await import('../../services/cameraRuntimeApi')
 const IncidentMapPage = (await import('../IncidentMapPage.vue')).default
 const CameraArchive = (await import('../CameraArchive.vue')).default
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  cameraRuntimeApi.getDvrStatus.mockResolvedValue([])
+})
 
 describe('IncidentMapPage', () => {
   it('shows a hint when no alarm is selected', () => {
@@ -71,5 +74,20 @@ describe('CameraArchive', () => {
     await wrapper.findAll('button').find((b) => b.text() === 'Đặt lại').trigger('click')
     await flushPromises()
     expect(cameraRuntimeApi.getArchiveSegments).toHaveBeenLastCalledWith(expect.objectContaining({ cameraId: 2 }))
+  })
+
+  it('opens the newest active DVR when the archive is opened without a camera id', async () => {
+    hoisted.route.params = {}
+    cameraRuntimeApi.getCameras.mockResolvedValue([{ cameraId: 1, cameraName: 'cam1' }])
+    cameraRuntimeApi.getDvrStatus.mockResolvedValue([{ cameraId: 1, cameraName: 'cam1', segmentCount: 12 }])
+    cameraRuntimeApi.getArchiveSegments.mockResolvedValue({ items: [], total: 0 })
+
+    const wrapper = mount(CameraArchive)
+    await flushPromises()
+
+    expect(wrapper.find('select').element.value).toBe('1')
+    expect(wrapper.text()).toContain('DVR trong ngày')
+    expect(wrapper.text()).toContain('cam1')
+    expect(cameraRuntimeApi.getArchiveSegments).toHaveBeenLastCalledWith(expect.objectContaining({ cameraId: 1 }))
   })
 })

@@ -86,6 +86,11 @@ export async function getArchiveSegments(params) {
     return res.data
 }
 
+export async function getDvrStatus() {
+    const res = await http.get('/camera-runtime/archive/dvr-status')
+    return res.data
+}
+
 function normalizeComparableUrl(url) {
     return normalizeCameraUrl(url || "").trim().toLowerCase()
 }

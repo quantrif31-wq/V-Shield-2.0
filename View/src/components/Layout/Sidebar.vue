@@ -404,7 +404,7 @@ const navGroups = ref([
                 taskKey: 'monitoring',
             },
             {
-                path: '/camera-archive/0',
+                path: '/camera-archive',
                 label: 'Lưu trữ camera',
                 hint: 'Xem lại bản ghi hình cũ',
                 icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><path d="M12 11v5"/><path d="M9 14l3 3 3-3"/></svg>',

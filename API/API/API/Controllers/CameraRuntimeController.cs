@@ -21,12 +21,18 @@ namespace API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IWebHostEnvironment _environment;
 
-        public CameraRuntimeController(ApplicationDbContext context, IConfiguration configuration, IHttpClientFactory httpClientFactory)
+        public CameraRuntimeController(
+            ApplicationDbContext context,
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
+            _environment = environment;
         }
 
         // ================= GET ALL =================
@@ -284,6 +290,61 @@ namespace API.Controllers
                 .ToListAsync();
 
             return Ok(new { total, page, pageSize, items });
+        }
+
+        // A DVR recording is one HLS timeline rather than a row per short file.
+        // Expose only timelines that already contain media so archive entry points
+        // can open a useful camera immediately instead of a blank "all cameras" view.
+        [HttpGet("archive/dvr-status")]
+        public async Task<IActionResult> GetDvrStatus()
+        {
+            var today = DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd");
+            var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var cameras = await _context.Cameras
+                .AsNoTracking()
+                .Select(camera => new { camera.CameraId, camera.CameraName })
+                .ToListAsync();
+
+            var items = new List<DvrStatusItem>();
+            foreach (var camera in cameras)
+            {
+                var playlistPath = Path.Combine(
+                    webRoot,
+                    "uploads",
+                    "recordings",
+                    $"cam{camera.CameraId}",
+                    "dvr",
+                    today,
+                    "index.m3u8");
+                if (!System.IO.File.Exists(playlistPath))
+                {
+                    continue;
+                }
+
+                var segmentCount = 0;
+                try
+                {
+                    segmentCount = System.IO.File.ReadLines(playlistPath)
+                        .Count(line => line.StartsWith("#EXTINF:", StringComparison.Ordinal));
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (segmentCount == 0)
+                {
+                    continue;
+                }
+
+                items.Add(new DvrStatusItem(
+                    camera.CameraId,
+                    camera.CameraName,
+                    segmentCount,
+                    System.IO.File.GetLastWriteTimeUtc(playlistPath)));
+            }
+
+            return Ok(items.OrderByDescending(item => item.UpdatedAtUtc));
         }
 
         // ================= LIST RECORDED SEGMENTS =================
@@ -807,5 +868,11 @@ namespace API.Controllers
 
             return "127.0.0.1";
         }
+
+        private sealed record DvrStatusItem(
+            int CameraId,
+            string CameraName,
+            int SegmentCount,
+            DateTime UpdatedAtUtc);
     }
 }

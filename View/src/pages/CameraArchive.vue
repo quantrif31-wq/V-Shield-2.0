@@ -145,7 +145,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue"
 import { useRoute } from "vue-router"
-import { getArchiveSegments, getCameras } from "../services/cameraRuntimeApi"
+import { getArchiveSegments, getCameras, getDvrStatus } from "../services/cameraRuntimeApi"
 import StreamPreview from "../components/StreamPreview.vue"
 
 const route = useRoute()
@@ -222,6 +222,22 @@ const todayDvrUrl = computed(() => {
 async function loadCameras() {
   const data = await getCameras()
   cameras.value = Array.isArray(data) ? data : []
+  await selectDefaultDvrCamera()
+}
+
+async function selectDefaultDvrCamera() {
+  if (filters.cameraId || cameras.value.length === 0) return
+
+  try {
+    const timelines = await getDvrStatus()
+    const cameraId = Number(Array.isArray(timelines) ? timelines[0]?.cameraId : 0)
+    if (Number.isInteger(cameraId) && cameras.value.some((camera) => camera.cameraId === cameraId)) {
+      filters.cameraId = String(cameraId)
+    }
+  } catch (error) {
+    // Archive search remains usable when DVR status is temporarily unavailable.
+    console.warn("Không xác định được camera DVR đang ghi:", error)
+  }
 }
 
 function buildParams(targetPage = 1) {
@@ -253,13 +269,14 @@ async function loadSegments(targetPage = 1) {
   }
 }
 
-function resetFilters() {
+async function resetFilters() {
   filters.cameraId = normalizeRouteCameraId(route.params.id)
   filters.gateId = ""
   filters.cameraType = ""
   filters.search = ""
   filters.from = ""
   filters.to = ""
+  await selectDefaultDvrCamera()
   loadSegments(1)
 }
 
@@ -291,8 +308,9 @@ function formatBytes(bytes) {
 
 watch(
   () => route.params.id,
-  (nextId) => {
+  async (nextId) => {
     filters.cameraId = normalizeRouteCameraId(nextId)
+    await selectDefaultDvrCamera()
     loadSegments(1)
   }
 )

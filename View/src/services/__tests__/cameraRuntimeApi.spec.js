@@ -78,6 +78,8 @@ describe('cameraRuntimeApi recording and archive', () => {
     expect(http.get).toHaveBeenCalledWith('/camera-runtime/1/recorded-segments', { params: { page: 1 } })
     await cameraRuntimeApi.getArchiveSegments({ from: 'x' })
     expect(http.get).toHaveBeenCalledWith('/camera-runtime/archive/segments', { params: { from: 'x' } })
+    await cameraRuntimeApi.getDvrStatus()
+    expect(http.get).toHaveBeenCalledWith('/camera-runtime/archive/dvr-status')
   })
 })
 
