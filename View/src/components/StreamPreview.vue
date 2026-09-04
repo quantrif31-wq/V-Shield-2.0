@@ -461,10 +461,14 @@ onActivated(() => {
 }
 
 .dvr-transport {
+    position: absolute;
+    right: 12px;
+    bottom: 54px;
+    left: 12px;
+    z-index: 3;
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 12px;
     padding: 10px 12px;
     border: 1px solid rgba(20, 184, 166, 0.45);
     border-radius: 12px;
@@ -490,6 +494,19 @@ onActivated(() => {
 .dvr-transport.pending { border-color: rgba(148, 163, 184, 0.5); }
 
 .dvr-scrubber { flex: 1; min-width: 80px; accent-color: #22c55e; }
+
+@media (max-width: 640px) {
+    .dvr-transport {
+        right: 8px;
+        bottom: 48px;
+        left: 8px;
+        gap: 6px;
+        padding: 8px;
+    }
+
+    .dvr-transport span { font-size: 10px; }
+    .dvr-transport button { padding: 4px 6px; }
+}
 
 /* Fullscreen mode */
 .stream-preview:fullscreen {
