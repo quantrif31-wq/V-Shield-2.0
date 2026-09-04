@@ -483,6 +483,9 @@ object DemoApiService : ApiService {
     override suspend fun refresh(request: RefreshTokenRequest): Response<LoginData> =
         Response.success(demoLoginData(DEMO_USERNAME))
 
+    override suspend fun getRealtimeIceConfiguration(): Response<RealtimeIceConfiguration> =
+        Response.success(RealtimeIceConfiguration())
+
     override suspend fun getMyProfile(): Response<EmployeeInfo> =
         Response.success(employees.first())
 

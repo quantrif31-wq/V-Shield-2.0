@@ -90,6 +90,16 @@ data class MarkReadResponse(
     @SerializedName("readCount") val readCount: Int?
 )
 
+data class RealtimeIceConfiguration(
+    @SerializedName("iceServers") val iceServers: List<RealtimeIceServer> = emptyList()
+)
+
+data class RealtimeIceServer(
+    @SerializedName("urls") val urls: List<String> = emptyList(),
+    @SerializedName("username") val username: String? = null,
+    @SerializedName("credential") val credential: String? = null
+)
+
 // SignalR hub message types
 data class SignalRInvocation(
     val type: Int,

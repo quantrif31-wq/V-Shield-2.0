@@ -459,6 +459,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val isVideo = type == "video"
                 val manager = ensureWebRtcManager()
                 manager.initialize()
+                configureIceServers(manager)
                 if (!manager.createPeerConnection()) {
                     _uiState.value = _uiState.value.copy(callState = ChatCallState.Idle, callError = "Không thể khởi tạo kết nối thoại")
                     closeWebRtc()
@@ -532,6 +533,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 val manager = ensureWebRtcManager()
                 manager.initialize()
+                configureIceServers(manager)
                 manager.createPeerConnection()
                 manager.setupLocalMedia(enableVideo = isVideo)
 
@@ -709,6 +711,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         return manager
+    }
+
+    private suspend fun configureIceServers(manager: WebRTCManager) {
+        try {
+            val response = RetrofitClient.apiService.getRealtimeIceConfiguration()
+            val iceServers = response.body()?.iceServers.orEmpty()
+                .filter { it.urls.isNotEmpty() }
+                .map { WebRTCManager.IceServerConfig(it.urls, it.username, it.credential) }
+            manager.updateIceServers(iceServers)
+        } catch (error: Throwable) {
+            // A STUN-only fallback still permits same-network calls when central is unavailable.
+            android.util.Log.w("ChatViewModel", "Cannot load TURN configuration: ${error.message}")
+        }
     }
 
     private fun closeWebRtc() {

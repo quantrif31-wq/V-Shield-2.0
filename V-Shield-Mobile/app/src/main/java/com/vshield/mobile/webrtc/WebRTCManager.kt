@@ -75,11 +75,40 @@ class WebRTCManager(private val context: Context) {
     private val pendingIceCandidates = CopyOnWriteArrayList<IceCandidate>()
     private var isRemoteDescriptionSet = false
 
-    private val iceServers = listOf(
+    private var iceServers = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer()
+    )
+
+    fun updateIceServers(servers: List<IceServerConfig>) {
+        if (peerConnection != null || servers.isEmpty()) return
+
+        val configured = servers.flatMap { server ->
+            server.urls.filter { it.isNotBlank() }.mapNotNull { url ->
+                try {
+                    val builder = PeerConnection.IceServer.builder(url)
+                    server.username?.takeIf { it.isNotBlank() }?.let(builder::setUsername)
+                    server.credential?.takeIf { it.isNotBlank() }?.let(builder::setPassword)
+                    builder.createIceServer()
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Ignoring invalid ICE server $url: ${e.message}")
+                    null
+                }
+            }
+        }
+
+        if (configured.isNotEmpty()) {
+            iceServers = configured
+            Log.i(TAG, "Loaded ${configured.size} ICE server(s) from V-Shield")
+        }
+    }
+
+    data class IceServerConfig(
+        val urls: List<String>,
+        val username: String? = null,
+        val credential: String? = null
     )
 
     fun initialize() {

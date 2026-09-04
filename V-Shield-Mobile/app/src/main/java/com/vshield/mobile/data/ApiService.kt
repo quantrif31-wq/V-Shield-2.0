@@ -11,6 +11,9 @@ interface ApiService {
     @POST("api/auth/refresh")
     suspend fun refresh(@Body request: RefreshTokenRequest): Response<LoginResponse>
 
+    @GET("api/realtime/ice-configuration")
+    suspend fun getRealtimeIceConfiguration(): Response<RealtimeIceConfiguration>
+
     @GET("api/employees/me")
     suspend fun getMyProfile(): Response<EmployeeInfo>
 
