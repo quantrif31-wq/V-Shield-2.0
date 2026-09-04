@@ -391,6 +391,13 @@ public class CameraRecordingService : BackgroundService
 
             foreach (var filePath in Directory.GetFiles(camDir, "*.mp4", SearchOption.AllDirectories))
             {
+                // fMP4 init files under dvr/ belong to the continuous HLS
+                // timeline. They are not standalone evidence clips. Scanning
+                // thousands of these as MP4 clips blocks the recorder loop and
+                // leaves the published DVR index stale while video continues
+                // arriving in its active session.
+                if (IsDvrInternalFile(camDir, filePath)) continue;
+
                 if (existingPaths.Contains(filePath)) continue;
 
                 // The current segment is still being written and its MP4 index
@@ -425,6 +432,14 @@ public class CameraRecordingService : BackgroundService
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private static bool IsDvrInternalFile(string cameraDirectory, string filePath)
+    {
+        var relative = Path.GetRelativePath(cameraDirectory, filePath);
+        var firstSeparator = relative.IndexOf(Path.DirectorySeparatorChar);
+        var firstDirectory = firstSeparator >= 0 ? relative[..firstSeparator] : relative;
+        return string.Equals(firstDirectory, "dvr", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<double> ProbeDuration(string filePath)
@@ -485,6 +500,15 @@ public class CameraRecordingService : BackgroundService
         var candidates = new List<RecordingInputCandidate>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // demo.local is a routing marker for the recognition screens, not a
+        // video transport. Do not turn an AI preview/placeholder into a fake
+        // DVR recording. Physical cameras continue below using their direct
+        // RTSP/go2rtc sources.
+        if (IsSyntheticRecognitionSource(cam.StreamUrl))
+        {
+            return candidates;
+        }
+
         void AddCandidate(string? inputUrl, string sourceLabel)
         {
             if (string.IsNullOrWhiteSpace(inputUrl)) return;
@@ -494,16 +518,7 @@ public class CameraRecordingService : BackgroundService
             candidates.Add(new RecordingInputCandidate(trimmed, sourceLabel));
         }
 
-        if (TryBuildInternalPreviewUrl(cam.StreamUrl, out var internalPreviewUrl))
-        {
-            AddCandidate(internalPreviewUrl, "internal-preview");
-        }
-        else
-        {
-            // Demo stream URLs are routing markers, not resolvable RTSP hosts.
-            // Real camera URLs remain the first direct recording candidate.
-            AddCandidate(cam.StreamUrl, "stream-url");
-        }
+        AddCandidate(cam.StreamUrl, "stream-url");
 
         if (TryGetGo2RtcSource(cam.UrlView, out var src) && src != null)
         {
@@ -515,30 +530,10 @@ public class CameraRecordingService : BackgroundService
         return candidates;
     }
 
-    private static bool TryBuildInternalPreviewUrl(string? streamUrl, out string? internalPreviewUrl)
+    private static bool IsSyntheticRecognitionSource(string? streamUrl)
     {
-        internalPreviewUrl = null;
-        if (string.IsNullOrWhiteSpace(streamUrl))
-        {
-            return false;
-        }
-
-        if (streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase))
-        {
-            // A snapshot is suitable for an <img> preview but cannot be a DVR
-            // source. The QR runtime exposes the same frames as continuous
-            // multipart MJPEG specifically for recording.
-            internalPreviewUrl = "http://frontend/qr-api/qr/stream";
-            return true;
-        }
-
-        if (streamUrl.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase))
-        {
-            internalPreviewUrl = "http://frontend/plate-api/api/camera/stream";
-            return true;
-        }
-
-        return false;
+        return streamUrl?.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase) == true ||
+               streamUrl?.Equals("rtsp://demo.local/plate", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private static string? RewriteContainerLocalUrl(string? inputUrl)

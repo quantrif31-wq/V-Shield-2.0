@@ -9,7 +9,6 @@ from pyzbar import pyzbar
 from pyzbar.pyzbar import ZBarSymbol
 from threading import Thread, Lock
 from fastapi import FastAPI, Response
-from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -941,38 +940,6 @@ def api_frame_jpg():
             "Expires": "0",
         },
     )
-
-
-def preview_mjpeg_generator():
-    """Continuous preview used by the evidence recorder.
-
-    frame.jpg is deliberately a one-shot snapshot for the UI. Feeding that URL
-    to ffmpeg produces one zero-second frame, not a DVR recording. This stream
-    reuses the same preview frame but emits multipart MJPEG continuously.
-    """
-    while True:
-        frame = build_preview_frame()
-        ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-        if ok:
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-            )
-        time.sleep(0.04)
-
-
-@app.get("/qr/stream")
-def api_stream():
-    return StreamingResponse(
-        preview_mjpeg_generator(),
-        media_type="multipart/x-mixed-replace; boundary=frame",
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-        },
-    )
-
 
 def main():
     global stop_flag

@@ -249,7 +249,13 @@ async function selectDefaultDvrCamera() {
   if (filters.cameraId || cameras.value.length === 0) return
 
   try {
-    const cameraId = Number(dvrTimelines.value[0]?.cameraId)
+    // Recognition demo sources render a generated placeholder, not a camera
+    // transport. Never let one become the archive's automatic DVR choice.
+    const preferredTimeline = dvrTimelines.value.find((timeline) => {
+      const camera = cameras.value.find((item) => item.cameraId === timeline.cameraId)
+      return camera && !String(camera.streamUrl || '').toLowerCase().includes('demo.local')
+    }) || dvrTimelines.value[0]
+    const cameraId = Number(preferredTimeline?.cameraId)
     if (Number.isInteger(cameraId) && cameras.value.some((camera) => camera.cameraId === cameraId)) {
       filters.cameraId = String(cameraId)
     }
