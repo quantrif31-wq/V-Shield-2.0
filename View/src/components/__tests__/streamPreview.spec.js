@@ -164,6 +164,30 @@ describe('StreamPreview.vue', () => {
     expect(wrapper.vm.errorMessage).toContain('HLS')
   })
 
+  it('always shows a seek bar for DVR and derives its range from the HLS manifest', async () => {
+    global.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined)
+    global.HTMLMediaElement.prototype.pause = vi.fn()
+    global.HTMLMediaElement.prototype.load = vi.fn()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('#EXTM3U\n#EXTINF:4.0,\nsegment-1.m4s\n#EXTINF:4.0,\nsegment-2.m4s'),
+    }))
+    const HlsMock = vi.fn().mockImplementation(function () {
+      return { on: vi.fn(), loadSource: vi.fn(), attachMedia: vi.fn(), destroy: vi.fn() }
+    })
+    HlsMock.isSupported = () => true
+    HlsMock.Events = { ERROR: 'error', MANIFEST_PARSED: 'manifest' }
+    global.window.Hls = HlsMock
+
+    const wrapper = mount(StreamPreview, { props: { url: 'http://camera.local/dvr/index.m3u8', dvrMode: true } })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('.dvr-transport').exists()).toBe(true)
+    expect(wrapper.find('.dvr-scrubber').attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('.dvr-transport').text()).toContain('00:08')
+  })
+
   it('fails gracefully when hls.js is unsupported', async () => {
     global.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined)
     global.HTMLMediaElement.prototype.pause = vi.fn()

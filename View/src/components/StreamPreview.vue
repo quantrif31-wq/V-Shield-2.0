@@ -49,20 +49,21 @@
             <p>{{ errorMessage || 'URL này cần một bridge để chuyển sang định dạng trình duyệt phát được.' }}</p>
         </div>
 
-        <div v-if="dvrMode && playerMode === 'hls' && dvrDuration > 0" class="dvr-transport">
-            <button type="button" @click="seekDvr(0)">Đầu ngày</button>
+        <div v-if="dvrMode && playerMode === 'hls'" class="dvr-transport" :class="{ pending: !dvrTimelineReady }">
+            <button type="button" :disabled="!dvrTimelineReady" @click="seekDvr(0)">Đầu ngày</button>
             <input
                 class="dvr-scrubber"
                 type="range"
                 min="0"
-                :max="dvrDuration"
+                :max="Math.max(dvrDuration, 1)"
                 step="1"
                 :value="dvrPosition"
+                :disabled="!dvrTimelineReady"
                 aria-label="Tua DVR"
                 @input="seekDvr(Number($event.target.value))"
             />
-            <span>{{ formatDvrTime(dvrPosition) }} / {{ formatDvrTime(dvrDuration) }}</span>
-            <button type="button" @click="goLive">Trực tiếp</button>
+            <span>{{ dvrTimelineReady ? `${formatDvrTime(dvrPosition)} / ${formatDvrTime(dvrDuration)}` : 'Đang nạp timeline…' }}</span>
+            <button type="button" :disabled="!dvrTimelineReady" @click="goLive">Trực tiếp</button>
         </div>
 
         <div v-if="isLoading" class="preview-overlay">Đang tải stream...</div>
@@ -103,6 +104,9 @@ const isLoading = ref(false)
 const dvrDuration = ref(0)
 const dvrPosition = ref(0)
 let hlsInstance = null
+let dvrTimelineRequest = 0
+
+const dvrTimelineReady = computed(() => dvrDuration.value > 0)
 
 // Stream is considered ready when it has loaded successfully without errors
 const isStreamReady = computed(() => {
@@ -186,6 +190,7 @@ const destroyHls = () => {
 }
 
 const resetState = () => {
+    dvrTimelineRequest += 1
     destroyHls()
     resetVideoElement()
     errorMessage.value = ''
@@ -199,6 +204,30 @@ const updateDvrTimeline = (duration) => {
     const safeDuration = Number(duration)
     if (Number.isFinite(safeDuration) && safeDuration > 0) {
         dvrDuration.value = Math.floor(safeDuration)
+    }
+}
+
+const loadDvrPlaylistTimeline = async () => {
+    if (!props.dvrMode || !resolvedUrl.value) return
+
+    const requestId = ++dvrTimelineRequest
+    try {
+        // HLS event playlists are open-ended while recording. Some hls.js
+        // versions therefore omit media.duration, although all seekable
+        // segments are already listed in the manifest. Sum EXTINF ourselves.
+        const response = await fetch(resolvedUrl.value, { cache: 'no-store' })
+        if (!response.ok) return
+        const manifest = await response.text()
+        const duration = manifest
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith('#EXTINF:'))
+            .reduce((total, line) => total + (Number.parseFloat(line.slice(8)) || 0), 0)
+
+        if (requestId === dvrTimelineRequest) {
+            updateDvrTimeline(duration)
+        }
+    } catch {
+        // hls.js can still supply the timeline through LEVEL_LOADED.
     }
 }
 
@@ -275,6 +304,7 @@ const attachHlsPreview = async () => {
     resetVideoElement()
     errorMessage.value = ''
     isLoading.value = true
+    void loadDvrPlaylistTimeline()
 
     if (element.canPlayType('application/vnd.apple.mpegurl')) {
         element.src = resolvedUrl.value
@@ -431,18 +461,15 @@ onActivated(() => {
 }
 
 .dvr-transport {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 10px;
+    margin: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(20, 184, 166, 0.45);
     border-radius: 12px;
-    background: rgba(15, 23, 42, 0.86);
+    background: #0f1d2d;
     color: #e2e8f0;
-    backdrop-filter: blur(8px);
     font-size: 12px;
     font-weight: 700;
 }
@@ -457,6 +484,10 @@ onActivated(() => {
     font: inherit;
     white-space: nowrap;
 }
+
+.dvr-transport button:disabled,
+.dvr-scrubber:disabled { opacity: 0.55; cursor: wait; }
+.dvr-transport.pending { border-color: rgba(148, 163, 184, 0.5); }
 
 .dvr-scrubber { flex: 1; min-width: 80px; accent-color: #22c55e; }
 
