@@ -322,17 +322,40 @@ namespace API.Controllers
                 }
 
                 var segmentCount = 0;
+                var durationSeconds = 0d;
+                string? initFileName = null;
                 try
                 {
-                    segmentCount = System.IO.File.ReadLines(playlistPath)
-                        .Count(line => line.StartsWith("#EXTINF:", StringComparison.Ordinal));
+                    foreach (var line in System.IO.File.ReadLines(playlistPath))
+                    {
+                        if (line.StartsWith("#EXTINF:", StringComparison.Ordinal) &&
+                            double.TryParse(
+                                line[8..].TrimEnd(','),
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out var duration) && duration > 0.01)
+                        {
+                            segmentCount += 1;
+                            durationSeconds += duration;
+                        }
+                        else if (line.StartsWith("#EXT-X-MAP:URI=\"", StringComparison.Ordinal))
+                        {
+                            var value = line[16..];
+                            var end = value.IndexOf('"');
+                            if (end > 0) initFileName = value[..end];
+                        }
+                    }
                 }
                 catch
                 {
                     continue;
                 }
 
-                if (segmentCount == 0)
+                var initPath = string.IsNullOrWhiteSpace(initFileName)
+                    ? null
+                    : Path.Combine(Path.GetDirectoryName(playlistPath)!, initFileName);
+                if (segmentCount == 0 || string.IsNullOrWhiteSpace(initPath) ||
+                    !System.IO.File.Exists(initPath) || new FileInfo(initPath).Length == 0)
                 {
                     continue;
                 }
@@ -341,6 +364,7 @@ namespace API.Controllers
                     camera.CameraId,
                     camera.CameraName,
                     segmentCount,
+                    durationSeconds,
                     System.IO.File.GetLastWriteTimeUtc(playlistPath)));
             }
 
@@ -873,6 +897,7 @@ namespace API.Controllers
             int CameraId,
             string CameraName,
             int SegmentCount,
+            double DurationSeconds,
             DateTime UpdatedAtUtc);
     }
 }

@@ -87,7 +87,10 @@
         <h2>{{ activeDvrCamera.cameraName }}</h2>
         <p>Ghi liên tục trong ngày. Dùng thanh thời gian để tua lại hoặc chọn “Trực tiếp” để về hiện tại.</p>
       </div>
-      <StreamPreview :url="todayDvrUrl" :label="`DVR ${activeDvrCamera.cameraName}`" :show-controls="true" dvr-mode />
+      <StreamPreview v-if="activeDvrAvailable" :url="todayDvrUrl" :label="`DVR ${activeDvrCamera.cameraName}`" :show-controls="true" dvr-mode />
+      <div v-else class="dvr-unavailable">
+        Camera này đang mất kết nối và chưa có video DVR hợp lệ để phát lại. Khi camera có luồng video thực, phần đã ghi sẽ vẫn xem được sau khi ngắt kết nối.
+      </div>
     </section>
     <section v-else class="dvr-selection-hint">
       Chọn một camera trong bộ lọc chính để mở DVR liên tục và tua lại trong ngày.
@@ -162,6 +165,7 @@ const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
 const showVideoId = ref(null)
+const dvrTimelines = ref([])
 
 const filters = reactive({
   cameraId: normalizeRouteCameraId(route.params.id),
@@ -211,6 +215,11 @@ const activeDvrCamera = computed(() =>
   cameras.value.find((camera) => String(camera.cameraId) === filters.cameraId) || null
 )
 
+const activeDvrAvailable = computed(() => {
+  const cameraId = Number(activeDvrCamera.value?.cameraId)
+  return Number.isInteger(cameraId) && dvrTimelines.value.some((timeline) => Number(timeline.cameraId) === cameraId)
+})
+
 const todayDvrUrl = computed(() => {
   const cameraId = Number(activeDvrCamera.value?.cameraId)
   if (!Number.isInteger(cameraId) || cameraId <= 0) return ''
@@ -222,15 +231,25 @@ const todayDvrUrl = computed(() => {
 async function loadCameras() {
   const data = await getCameras()
   cameras.value = Array.isArray(data) ? data : []
+  await loadDvrTimelines()
   await selectDefaultDvrCamera()
+}
+
+async function loadDvrTimelines() {
+  try {
+    const data = await getDvrStatus()
+    dvrTimelines.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    dvrTimelines.value = []
+    console.warn("Không xác định được timeline DVR:", error)
+  }
 }
 
 async function selectDefaultDvrCamera() {
   if (filters.cameraId || cameras.value.length === 0) return
 
   try {
-    const timelines = await getDvrStatus()
-    const cameraId = Number(Array.isArray(timelines) ? timelines[0]?.cameraId : 0)
+    const cameraId = Number(dvrTimelines.value[0]?.cameraId)
     if (Number.isInteger(cameraId) && cameras.value.some((camera) => camera.cameraId === cameraId)) {
       filters.cameraId = String(cameraId)
     }
@@ -457,7 +476,9 @@ onMounted(async () => {
 .dvr-card h2 { margin: 3px 0; font-size: 20px; }
 .dvr-card p { margin: 0 0 14px; color: var(--text-secondary); }
 .dvr-card :deep(.stream-preview) { aspect-ratio: 16 / 9; max-height: 680px; border-radius: 14px; overflow: hidden; background: #05080d; }
-.dvr-selection-hint { margin-bottom: 18px; padding: 16px 20px; color: var(--text-secondary); background: color-mix(in srgb, var(--surface-default) 92%, transparent); border: 1px dashed var(--border-default); border-radius: 16px; }
+.dvr-selection-hint,
+.dvr-unavailable { margin-bottom: 18px; padding: 16px 20px; color: var(--text-secondary); background: color-mix(in srgb, var(--surface-default) 92%, transparent); border: 1px dashed var(--border-default); border-radius: 16px; }
+.dvr-unavailable { margin-top: 14px; border-color: color-mix(in srgb, var(--status-warning-text) 45%, var(--border-default)); }
 
 .segment-list {
   display: flex;
