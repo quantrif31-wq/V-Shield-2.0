@@ -162,6 +162,14 @@ const subject = ref(null)
 const actionTitle = ref('')
 const actionMsg = ref('')
 const actionTone = ref('')
+// Keep one idempotency marker while an operator retries the same manual
+// action. If the browser loses the response after the API commits, the retry
+// returns the original result instead of opening a second parking session.
+const checkinTransitSessionId = ref('')
+const checkoutTransitSessionId = ref('')
+
+const newTransitSessionId = () =>
+    globalThis.crypto?.randomUUID?.() || `manual-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 const initials = computed(() => {
     if (!subject.value) return ''
@@ -186,6 +194,8 @@ const resetAll = () => {
     actionTitle.value = ''
     actionMsg.value = ''
     actionTone.value = ''
+    checkinTransitSessionId.value = ''
+    checkoutTransitSessionId.value = ''
 }
 
 const fetchFaceImage = async (data) => {
@@ -268,6 +278,7 @@ const checkoutVehicle = async (vehicle) => {
     actionTitle.value = ''
     actionMsg.value = ''
     actionTone.value = ''
+    checkoutTransitSessionId.value ||= newTransitSessionId()
     try {
         let res
         if (subject.value.subjectType === 'employee') {
@@ -279,6 +290,7 @@ const checkoutVehicle = async (vehicle) => {
                 CameraId: null,
                 CredentialType: 'MANUAL',
                 EmployeeId: Number(subject.value.subjectId),
+                TransitSessionId: checkoutTransitSessionId.value,
             })
         } else {
             res = await scanGuest({
@@ -289,12 +301,14 @@ const checkoutVehicle = async (vehicle) => {
                 CredentialType: 'MANUAL',
                 VisitorDetailId: Number(subject.value.subjectId),
                 QrPayload: '',
+                TransitSessionId: checkoutTransitSessionId.value,
             })
         }
         const ok = Boolean(res.data?.success)
         actionTone.value = ok ? 'tone-ok' : 'tone-err'
         actionTitle.value = ok ? 'Đã lấy xe ra' : 'Không thể lấy xe'
         actionMsg.value = res.data?.message || (ok ? 'Xe đã được xác nhận ra khỏi bãi.' : 'Xử lý thất bại.')
+        if (ok) checkoutTransitSessionId.value = ''
         await refreshSubject()
     } catch (error) {
         actionTone.value = 'tone-err'
@@ -316,6 +330,7 @@ const checkinNewVehicle = async () => {
     actionTitle.value = ''
     actionMsg.value = ''
     actionTone.value = ''
+    checkinTransitSessionId.value ||= newTransitSessionId()
     try {
         let res
         if (subject.value.subjectType === 'employee') {
@@ -327,6 +342,7 @@ const checkinNewVehicle = async () => {
                 CameraId: null,
                 CredentialType: 'MANUAL',
                 EmployeeId: Number(subject.value.subjectId),
+                TransitSessionId: checkinTransitSessionId.value,
             })
         } else {
             res = await scanGuest({
@@ -337,13 +353,17 @@ const checkinNewVehicle = async () => {
                 CredentialType: 'MANUAL',
                 VisitorDetailId: Number(subject.value.subjectId),
                 QrPayload: '',
+                TransitSessionId: checkinTransitSessionId.value,
             })
         }
         const ok = Boolean(res.data?.success)
         actionTone.value = ok ? 'tone-ok' : 'tone-err'
         actionTitle.value = ok ? 'Đã gửi xe' : 'Không thể gửi xe'
         actionMsg.value = res.data?.message || (ok ? 'Xe đã được ghi nhận vào bãi.' : 'Xử lý thất bại.')
-        if (ok) plateNumber.value = ''
+        if (ok) {
+            plateNumber.value = ''
+            checkinTransitSessionId.value = ''
+        }
         await refreshSubject()
     } catch (error) {
         actionTone.value = 'tone-err'
