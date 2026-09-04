@@ -125,9 +125,7 @@ namespace API.Controllers
                 GateId = request.GateId,
                 CameraType = string.IsNullOrWhiteSpace(cameraType) ? null : cameraType,
                 StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl,
-                // Recording starts automatically when this camera has a source.
-                // Do not allow a create payload to silently opt it out.
-                IsRecordingEnabled = true,
+                IsRecordingEnabled = request.IsRecordingEnabled ?? HasRecordableInput(streamUrl, null),
                 RecordingRetentionDays = request.RecordingRetentionDays ?? 30
             };
 
@@ -170,9 +168,8 @@ namespace API.Controllers
             cam.GateId = request.GateId;
             cam.StreamUrl = string.IsNullOrWhiteSpace(streamUrl) ? null : streamUrl;
             cam.UrlView = await BuildCameraViewUrl(cam.StreamUrl, cam.CameraId);
-            // Recording is always-on for every camera in the inventory. Keep
-            // the legacy field true so old clients display the real policy.
-            cam.IsRecordingEnabled = true;
+            if (request.IsRecordingEnabled.HasValue)
+                cam.IsRecordingEnabled = request.IsRecordingEnabled.Value;
             if (request.RecordingRetentionDays.HasValue)
                 cam.RecordingRetentionDays = request.RecordingRetentionDays.Value;
 
@@ -211,9 +208,9 @@ namespace API.Controllers
             if (cam == null)
                 return NotFound("Camera không tồn tại");
 
-            // The legacy endpoint remains for retention configuration, but
-            // cannot stop automatic evidence recording.
-            cam.IsRecordingEnabled = true;
+            cam.IsRecordingEnabled = HasRecordableInput(cam.StreamUrl, cam.UrlView)
+                ? true
+                : request.Enabled;
             if (request.RetentionDays.HasValue)
                 cam.RecordingRetentionDays = request.RetentionDays.Value;
 

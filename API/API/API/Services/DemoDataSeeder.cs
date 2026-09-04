@@ -3408,6 +3408,8 @@ public static class DemoDataSeeder
     {
         const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         return string.Concat(Enumerable.Range(0, 32)
-            .Select(index => alphabet[(employeeId * 17 + index * 11) % alphabet.Length]));
+            // Imported/offline data can contain negative IDs. Normalize the
+            // modulo result before indexing instead of crashing application startup.
+            .Select(index => alphabet[(int)(((long)employeeId * 17 + index * 11) % alphabet.Length + alphabet.Length) % alphabet.Length]));
     }
 }
