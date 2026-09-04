@@ -1143,9 +1143,7 @@ namespace API
                 {
                     yaml.AppendLine($"    - {candidate}");
                 }
-                yaml.AppendLine("  ice_servers:");
-                yaml.AppendLine("    - urls:");
-                yaml.AppendLine("        - stun:stun.l.google.com:19302");
+                AppendStartupWebRtcIceServers(yaml, config);
 
                 var yamlPath = ResolveStartupGo2RtcYamlPath(config);
                 var yamlDirectory = Path.GetDirectoryName(yamlPath);
@@ -1212,6 +1210,35 @@ namespace API
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(value => !string.IsNullOrWhiteSpace(value));
         }
+
+        private static void AppendStartupWebRtcIceServers(StringBuilder yaml, IConfiguration configuration)
+        {
+            yaml.AppendLine("  ice_servers:");
+            yaml.AppendLine("    - urls:");
+            yaml.AppendLine("        - stun:stun.l.google.com:19302");
+
+            var turnUrls = (configuration["Go2Rtc:TurnUrls"] ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(url => Uri.TryCreate(url, UriKind.Absolute, out _))
+                .ToArray();
+            var turnUsername = configuration["Go2Rtc:TurnUsername"]?.Trim();
+            var turnCredential = configuration["Go2Rtc:TurnCredential"]?.Trim();
+            if (turnUrls.Length == 0 || string.IsNullOrWhiteSpace(turnUsername) || string.IsNullOrWhiteSpace(turnCredential))
+            {
+                return;
+            }
+
+            yaml.AppendLine("    - urls:");
+            foreach (var turnUrl in turnUrls)
+            {
+                yaml.AppendLine($"        - {QuoteStartupYaml(turnUrl)}");
+            }
+            yaml.AppendLine($"      username: {QuoteStartupYaml(turnUsername)}");
+            yaml.AppendLine($"      credential: {QuoteStartupYaml(turnCredential)}");
+        }
+
+        private static string QuoteStartupYaml(string value) =>
+            $"\"{value.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
 
         private static bool IsStartupDirectWebStream(string streamUrl) =>
             streamUrl.Equals("rtsp://demo.local/qr", StringComparison.OrdinalIgnoreCase) ||
