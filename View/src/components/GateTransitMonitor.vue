@@ -1239,15 +1239,6 @@ export default {
       )
     },
 
-    getEffectiveFaceStream(lane) {
-      // The browser can display a go2rtc stream, but the Face runtime runs
-      // inside Docker and must consume a browser-independent RTSP endpoint.
-      // Reusing go2rtc gives both preview and recognition one camera source.
-      const streamName = this.extractGo2RtcStreamName(lane?.qr?.viewUrl || "")
-      if (streamName) return `rtsp://go2rtc:8554/${encodeURIComponent(streamName)}`
-      return this.getEffectiveQrStream(lane)
-    },
-
     getLaneQrApiBase(lane) {
       return lane?.id === "lane2" ? QR_API_BASE_URL_LANE2 : QR_API_BASE_URL
     },
@@ -2578,7 +2569,7 @@ export default {
 
     async restartFaceSession(lane, message = "Đang quét lại FaceID...") {
       const face = lane?.qr
-      const stream = String(this.getEffectiveFaceStream(lane) || "").trim()
+      const stream = String(face?.cameraIp || face?.currentIp || face?.viewUrl || "").trim()
       if (!stream) throw new Error("Vui lòng chọn hoặc nhập URL camera FaceID")
       const sessionId = (face.controlSessionId || 0) + 1
       const wasRunning = !!face.cameraRunning

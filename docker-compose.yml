@@ -227,8 +227,8 @@ services:
       retries: 10
       start_period: 60s
     networks:
-      # Face recognition consumes the already-connected go2rtc relay instead
-      # of opening a second, fragile direct connection to each LAN camera.
+      # Gives FaceID the same outbound LAN access as the other AI runtimes.
+      # Its input remains the camera's direct RTSP URL, never go2rtc.
       - default
       - face-backend
     restart: unless-stopped
