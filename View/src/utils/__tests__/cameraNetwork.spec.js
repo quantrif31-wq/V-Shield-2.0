@@ -26,6 +26,7 @@ describe('cameraNetwork URL classifiers', () => {
   it('detects hls and browser video urls only over http(s)', () => {
     expect(isHlsCameraUrl('http://10.0.0.1/hls/stream.m3u8')).toBe(true)
     expect(isHlsCameraUrl('http://10.0.0.1/index.m3u8?x=1')).toBe(true)
+    expect(isHlsCameraUrl('/uploads/recordings/cam1/dvr/2026-09-04/index.m3u8')).toBe(true)
     expect(isHlsCameraUrl('rtsp://x/stream.m3u8')).toBe(false)
     expect(isBrowserVideoCameraUrl('http://10.0.0.1/clip.mp4')).toBe(true)
     expect(isBrowserVideoCameraUrl('http://10.0.0.1/clip.webm')).toBe(true)

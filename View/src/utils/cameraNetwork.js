@@ -8,7 +8,9 @@ export const isHttpCameraUrl = (url) => HTTP_CAMERA_PROTOCOL_REGEX.test(url || "
 export const isRtspCameraUrl = (url) => RTSP_CAMERA_PROTOCOL_REGEX.test(url || "")
 export const isHlsCameraUrl = (url) => {
   const value = (url || "").trim()
-  return isHttpCameraUrl(value) && HLS_CAMERA_PATH_REGEX.test(value)
+  // DVR files are same-origin paths (/uploads/...), while configured network
+  // cameras normally use absolute HTTP URLs. Both are browser-playable HLS.
+  return (isHttpCameraUrl(value) || value.startsWith('/')) && HLS_CAMERA_PATH_REGEX.test(value)
 }
 export const isBrowserVideoCameraUrl = (url) => {
   const value = (url || "").trim()
