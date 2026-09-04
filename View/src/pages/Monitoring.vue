@@ -293,14 +293,19 @@ const getStatusLabel = (cameraId) => {
   return 'MẤT TÍN HIỆU'
 }
 
-const checkCameraStreamHealth = async (cameraId, url) => {
+const checkCameraStreamHealth = async (cameraId, url, { silent = false } = {}) => {
   if (!url) {
     previewStatusById[cameraId] = 'off'
     previewErrorById[cameraId] = 'Camera chưa cấu hình URL xem trực tiếp'
     return
   }
 
-  previewStatusById[cameraId] = 'checking'
+  // A background probe must not unmount an already-playing preview. Changing
+  // online -> checking makes the v-if replace the iframe/image every poll and
+  // produces a visible flash even when the camera is healthy.
+  if (!silent || !isHealthy(cameraId)) {
+    previewStatusById[cameraId] = 'checking'
+  }
 
   try {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
@@ -356,7 +361,7 @@ const checkCameraStreamHealth = async (cameraId, url) => {
   }
 }
 
-const probeAllActiveCameras = () => {
+const probeAllActiveCameras = ({ silent = false } = {}) => {
   activeCams.value.forEach((cam) => {
     if (shouldUseRemotePeer(cam)) {
       previewStatusById[cam.cameraId] = 'checking'
@@ -364,7 +369,7 @@ const probeAllActiveCameras = () => {
       return
     }
     const url = normalizeUrl(cam?.urlView)
-    checkCameraStreamHealth(cam.cameraId, url)
+    checkCameraStreamHealth(cam.cameraId, url, { silent })
   })
 }
 
@@ -444,7 +449,9 @@ onMounted(async () => {
   preferencesHydrated.value = true
   probeAllActiveCameras()
   cameraRelayStatusInterval = setInterval(() => {
-    loadCameraRelayStatus().then(probeAllActiveCameras)
+    // Relay status is configuration-level state. Re-checking every active
+    // preview here would recreate healthy iframe/image elements repeatedly.
+    void loadCameraRelayStatus()
   }, 4000)
   // Tự động kiểm tra lại luồng mỗi 10 giây nếu có camera đang offline
   autoProbeInterval = setInterval(() => {
