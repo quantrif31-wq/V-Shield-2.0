@@ -46,6 +46,9 @@ services:
       Go2Rtc__WebRtcCandidates: "${GO2RTC_WEBRTC_CANDIDATES:-}"
       Go2Rtc__WebRtcPort: "${GO2RTC_WEBRTC_PORT:-8555}"
       Go2Rtc__StreamMode: "${GO2RTC_STREAM_MODE:-webrtc}"
+      Go2Rtc__TurnUrls: "${TURN_URLS:-}"
+      Go2Rtc__TurnUsername: "${TURN_GO2RTC_USERNAME:-}"
+      Go2Rtc__TurnCredential: "${TURN_GO2RTC_CREDENTIAL:-}"
       AiServices__PlateBaseUrl: "${PLATE_SERVICE_URL:-http://plate-runtime:5002/api}"
       AiServices__FaceCameraBaseUrl: "${FACE_SERVICE_URL:-http://face-runtime:5001/api}"
       Authentication__DemoBypassMfa: "${AUTH_DEMO_BYPASS_MFA:-true}"
@@ -142,6 +145,7 @@ services:
       - "1984:1984"
       - "8554:8554"
       - "8555:8555"
+      - "8555:8555/udp"
     restart: unless-stopped
 
   qr-runtime:

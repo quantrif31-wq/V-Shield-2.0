@@ -514,9 +514,7 @@ namespace API.Controllers
                 {
                     yaml.AppendLine($"    - {candidate}");
                 }
-                yaml.AppendLine("  ice_servers:");
-                yaml.AppendLine("    - urls:");
-                yaml.AppendLine("        - stun:stun.l.google.com:19302");
+                AppendWebRtcIceServers(yaml);
 
 
                 // ===== PATH =====
@@ -930,6 +928,36 @@ namespace API.Controllers
 
             return "127.0.0.1";
         }
+
+        private void AppendWebRtcIceServers(StringBuilder yaml)
+        {
+            yaml.AppendLine("  ice_servers:");
+            yaml.AppendLine("    - urls:");
+            yaml.AppendLine("        - stun:stun.l.google.com:19302");
+
+            var turnUrls = (_configuration["Go2Rtc:TurnUrls"] ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(url => Uri.TryCreate(url, UriKind.Absolute, out _))
+                .ToArray();
+            var turnUsername = _configuration["Go2Rtc:TurnUsername"]?.Trim();
+            var turnCredential = _configuration["Go2Rtc:TurnCredential"]?.Trim();
+
+            if (turnUrls.Length == 0 || string.IsNullOrWhiteSpace(turnUsername) || string.IsNullOrWhiteSpace(turnCredential))
+            {
+                return;
+            }
+
+            yaml.AppendLine("    - urls:");
+            foreach (var turnUrl in turnUrls)
+            {
+                yaml.AppendLine($"        - {QuoteYaml(turnUrl)}");
+            }
+            yaml.AppendLine($"      username: {QuoteYaml(turnUsername)}");
+            yaml.AppendLine($"      credential: {QuoteYaml(turnCredential)}");
+        }
+
+        private static string QuoteYaml(string value) =>
+            $"\"{value.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
 
         private sealed record DvrStatusItem(
             int CameraId,
