@@ -17,45 +17,31 @@
         </select>
       </div>
 
-      <div class="maf-tabs">
-        <button :class="['maf-tab', { active: tab === 'employee' }]" :disabled="busy" @click="switchTab('employee')">Nhân viên</button>
-        <button :class="['maf-tab', { active: tab === 'visitor' }]" :disabled="busy" @click="switchTab('visitor')">Khách</button>
+      <div class="form-group">
+        <label>Nhận dạng người qua cổng</label>
+        <div class="search-box">
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="form-control"
+            placeholder="Nhập tên, mã nhân viên hoặc thông tin khách..."
+            :disabled="busy || !!subject"
+            @input="onUnifiedSearch"
+          />
+          <div v-if="searchResults.length" class="dropdown">
+            <div v-for="item in searchResults" :key="`${item.subjectType}-${item.id}`" class="dropdown-item" @click="pickSubject(item)">
+              <div class="maf-result-title">
+                <strong>{{ item.fullName }}</strong>
+                <span class="maf-result-type" :class="item.subjectType">{{ item.subjectType === 'employee' ? 'Nhân viên' : 'Khách' }}</span>
+              </div>
+              <div class="text-muted" style="font-size:12px;">{{ item.detail }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-if="!subject && searchQuery.length >= 2 && !searching && !searchResults.length" class="text-muted" style="margin-top:6px;font-size:13px;">
+          Không tìm thấy nhân viên hoặc khách phù hợp.
+        </div>
       </div>
-
-      <!-- Employee: name search + QR code -->
-      <template v-if="tab === 'employee'">
-        <div class="form-group">
-          <label>Tên hoặc mã nhân viên</label>
-          <div class="search-box">
-            <input v-model="empQ" type="text" class="form-control" placeholder="Gõ tên hoặc mã NV..." :disabled="busy" @input="onEmpSearch" />
-            <div v-if="empResults.length" class="dropdown">
-              <div v-for="e in empResults" :key="e.employeeId" class="dropdown-item" @click="pickEmp(e)">
-                <strong>{{ e.fullName || e.name }}</strong>
-                <div class="text-muted" style="font-size:12px;">Mã: {{ e.employeeId }} &middot; {{ e.department || '' }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <!-- Visitor: name search only -->
-      <template v-if="tab === 'visitor'">
-        <div class="form-group">
-          <label>Tên khách</label>
-          <div class="search-box">
-            <input v-model="visQ" type="text" class="form-control" placeholder="Gõ tên khách..." :disabled="busy" @input="onVisSearch" />
-            <div v-if="visResults.length" class="dropdown">
-              <div v-for="v in visResults" :key="v.visitorDetailId" class="dropdown-item" @click="pickVis(v)">
-                <strong>{{ v.fullName }}</strong>
-                <div class="text-muted" style="font-size:12px;">SĐT: {{ v.guestPhone || '—' }} &middot; Host: {{ v.hostEmployeeName || '—' }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-if="!subject && visQ.length >= 2 && !visLoading && !visResults.length" class="text-muted" style="margin-top:6px;font-size:13px;">
-          Không tìm thấy khách phù hợp.
-        </div>
-      </template>
 
         <!-- Subject card (photo + info) -->
       <div v-if="subject" class="maf-photo-card" :class="photoClass">
@@ -104,16 +90,11 @@ import http from '../services/http'
 
 const gates = ref([])
 const gateId = ref('')
-const tab = ref('employee')
 const busy = ref(false)
 const errorMsg = ref('')
-
-const empQ = ref('')
-const empResults = ref([])
-
-const visQ = ref('')
-const visResults = ref([])
-const visLoading = ref(false)
+const searchQuery = ref('')
+const searchResults = ref([])
+const searching = ref(false)
 
 const subject = ref(null)
 const faceImg = ref('')
@@ -128,10 +109,10 @@ const initials = computed(() => {
   const parts = (s.displayName || '').split(/\s+/)
   return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || '').toUpperCase()
 })
-const idLabel = computed(() => tab.value === 'employee' ? 'Mã NV' : 'Mã KH')
+const idLabel = computed(() => subject.value?.subjectType === 'employee' ? 'Mã NV' : 'Mã KH')
 const extraInfo = computed(() => {
   const s = subject.value; if (!s) return ''
-  return tab.value === 'employee' ? (s.department || '') : `SĐT: ${s.guestPhone || '—'} · Host: ${s.hostEmployeeName || '—'}`
+  return s.subjectType === 'employee' ? (s.department || '') : `SĐT: ${s.guestPhone || '—'} · Host: ${s.hostEmployeeName || '—'}`
 })
 const photoClass = computed(() => {
   if (resultOk.value === null) return ''
@@ -143,47 +124,46 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => { if (faceImg.value) URL.revokeObjectURL(faceImg.value) })
 
-function switchTab(t) {
-  tab.value = t; clearSubject(); resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
+async function onUnifiedSearch() {
+  const q = searchQuery.value?.trim()
+  if (!q || q.length < 2) { searchResults.value = []; return }
+  searching.value = true
+  try {
+    const [employees, visitors] = await Promise.all([
+      getEmployees({ name: q, pageSize: 10 }).catch(() => ({ data: [] })),
+      getVisitorDirectory({ query: q, pageSize: 10, registrationStatus: 'Approved' }).catch(() => ({ data: { items: [] } })),
+    ])
+    const employeeItems = (employees.data?.items || employees.data || []).filter(Boolean).map(e => ({
+      subjectType: 'employee', id: e.employeeId, fullName: e.fullName || e.name || 'Không rõ tên',
+      detail: `Mã NV: ${e.employeeId}${e.department ? ` · ${e.department}` : ''}`, raw: e,
+    }))
+    const visitorItems = (visitors.data?.items || []).filter(Boolean).map(v => ({
+      subjectType: 'visitor', id: v.visitorDetailId, fullName: v.fullName || 'Không rõ tên',
+      detail: `Khách · SĐT: ${v.guestPhone || '—'} · Host: ${v.hostEmployeeName || '—'}`, raw: v,
+    }))
+    searchResults.value = [...employeeItems, ...visitorItems]
+  } finally {
+    searching.value = false
+  }
 }
 
-function onEmpSearch() {
-  const q = empQ.value?.trim()
-  if (!q || q.length < 2) { empResults.value = []; return }
-  getEmployees({ name: q, pageSize: 10 }).then(r => {
-    empResults.value = (r.data?.items || r.data || []).filter(Boolean)
-  }).catch(() => { empResults.value = [] })
-}
-
-async function pickEmp(e) {
-  empResults.value = []
-  empQ.value = e.fullName || e.name || ''
-  subject.value = { displayName: e.fullName || e.name, idValue: e.employeeId, employeeId: e.employeeId, department: e.department, faceImageUrl: e.faceImageUrl }
+async function pickSubject(item) {
+  searchResults.value = []
+  searchQuery.value = item.fullName
+  const isEmployee = item.subjectType === 'employee'
+  const data = item.raw
+  subject.value = isEmployee
+    ? { subjectType: 'employee', displayName: data.fullName || data.name, idValue: data.employeeId, employeeId: data.employeeId, department: data.department, faceImageUrl: data.faceImageUrl }
+    : { subjectType: 'visitor', displayName: data.fullName, idValue: data.visitorDetailId, visitorDetailId: data.visitorDetailId, guestPhone: data.guestPhone, hostEmployeeName: data.hostEmployeeName, idCardNumber: data.idCardNumber }
   resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
-  if (e?.faceImageUrl && !e.faceImageUrl.startsWith('http')) {
-    try { const r = await getProtectedFaceImage(e.employeeId); faceImg.value = URL.createObjectURL(r.data) } catch { faceImg.value = '' }
+  if (isEmployee && data?.faceImageUrl && !data.faceImageUrl.startsWith('http')) {
+    try { const r = await getProtectedFaceImage(data.employeeId); faceImg.value = URL.createObjectURL(r.data) } catch { faceImg.value = '' }
   } else { faceImg.value = '' }
-}
-
-function onVisSearch() {
-  const q = visQ.value?.trim()
-  if (!q || q.length < 2) { visResults.value = []; return }
-  visLoading.value = true
-  getVisitorDirectory({ query: q, pageSize: 10, registrationStatus: 'Approved' }).then(r => {
-    visResults.value = (r.data?.items || []).filter(Boolean)
-  }).catch(() => { visResults.value = [] }).finally(() => { visLoading.value = false })
-}
-
-function pickVis(v) {
-  visResults.value = []
-  visQ.value = v.fullName || ''
-  subject.value = { displayName: v.fullName, idValue: v.visitorDetailId, visitorDetailId: v.visitorDetailId, guestPhone: v.guestPhone, hostEmployeeName: v.hostEmployeeName, idCardNumber: v.idCardNumber }
-  resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
 }
 
 function clearSubject() {
   if (faceImg.value) { URL.revokeObjectURL(faceImg.value); faceImg.value = '' }
-  subject.value = null; empQ.value = ''; empResults.value = []; visQ.value = ''; visResults.value = []
+  subject.value = null; searchQuery.value = ''; searchResults.value = []
   resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
 }
 
@@ -213,15 +193,14 @@ function fullReset() {
 <style scoped>
 .maf-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
 .maf-header-icon { font-size: 2rem; }
-.maf-tabs { display: flex; border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
-.maf-tab { flex: 1; padding: 10px; border: none; background: var(--surface-subtle); font-weight: 700; cursor: pointer; font-size: 14px; transition: background var(--transition-fast), color var(--transition-fast); }
-.maf-tab:hover:not(:disabled):not(.active) { background: var(--surface-hover); }
-.maf-tab.active { background: var(--accent-primary); color: var(--text-on-interactive); }
-.maf-tab:disabled { opacity: .5; cursor: not-allowed; }
 .search-box { position: relative; }
 .dropdown { position: absolute; background: var(--surface-default); border: 1px solid var(--border-subtle); border-radius: 8px; width: 100%; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-sm); }
 .dropdown-item { padding: 10px; cursor: pointer; font-size: 14px; transition: background var(--transition-fast); }
 .dropdown-item:hover { background: var(--surface-hover); }
+.maf-result-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.maf-result-type { flex: 0 0 auto; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.maf-result-type.employee { color: #075985; background: #e0f2fe; }
+.maf-result-type.visitor { color: #166534; background: #dcfce7; }
 
 .maf-photo-card { display: flex; align-items: center; gap: 14px; padding: 1rem; background: var(--surface-subtle); border: 3px solid var(--border-subtle); border-radius: 16px; margin-top: .75rem; position: relative; transition: border-color .25s, box-shadow .25s; }
 .maf-photo-card.border-ok { border-color: var(--status-success-text); box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
