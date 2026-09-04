@@ -35,9 +35,6 @@ public class CameraRecordingService : BackgroundService
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var cameras = await db.Cameras
                     .Where(c =>
-                        c.IsRecordingEnabled &&
-                        c.StreamUrl != "rtsp://demo.local/qr" &&
-                        c.StreamUrl != "rtsp://demo.local/plate" &&
                         (!string.IsNullOrWhiteSpace(c.StreamUrl) || !string.IsNullOrWhiteSpace(c.UrlView)))
                     .ToListAsync(stoppingToken);
 

@@ -25,7 +25,9 @@ public partial class Camera
     [StringLength(500)]
     public string? UrlView { get; set; }
 
-    public bool IsRecordingEnabled { get; set; }
+    // Camera recording is an always-on platform policy. The flag is retained
+    // for API compatibility and historical data, but new cameras start enabled.
+    public bool IsRecordingEnabled { get; set; } = true;
 
     public int RecordingRetentionDays { get; set; } = 30;
 
