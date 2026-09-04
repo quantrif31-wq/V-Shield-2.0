@@ -461,7 +461,7 @@ export default {
 
         if (!this.cameraRunning) {
           this.stopResultLoop()
-          const res = await startCamera(this.activeCameraId, ip, this.laneId)
+          const res = await startCamera(this.activeCameraId, this.getRuntimeFaceStream(ip), this.laneId)
           this.clearFaceServiceError()
           if (!res?.success) { alert(res?.message || "Không thể bắt đầu"); return }
           this.cameraRunning = true
@@ -785,6 +785,19 @@ export default {
       }
       if (!browserUrl) throw new Error("Camera chưa có URL preview.")
       this.mountDirectPreview(browserUrl)
+    },
+
+    getRuntimeFaceStream(fallbackUrl = '') {
+      const selected = (this.allCameras || []).find(camera => camera.cameraName === this.cameraSearch)
+      const viewUrl = String(selected?.urlView || '').trim()
+      try {
+        const parsed = new URL(viewUrl, window.location.origin)
+        const streamName = String(parsed.searchParams.get('src') || '').trim()
+        // Browser playback and FaceID must share the same go2rtc source.
+        // The container cannot reliably open the LAN camera URL directly.
+        if (streamName) return `rtsp://go2rtc:8554/${encodeURIComponent(streamName)}`
+      } catch { /* The selected camera may not be a go2rtc stream. */ }
+      return String(fallbackUrl || '').trim()
     },
 
     buildDirectCameraUrl(inputUrl) {

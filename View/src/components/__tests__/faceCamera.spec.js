@@ -399,6 +399,23 @@ describe('FaceCamera.vue', () => {
       wrapper.vm.stopResultLoop()
     })
 
+    it('starts FaceID through go2rtc when the selected camera has a relay preview', async () => {
+      mocks.cameraRuntimeApi.getCameras.mockResolvedValue([
+        cam(1, 'CAM1', { urlView: 'http://go2rtc/stream.html?src=cam1' })
+      ])
+      const wrapper = await mountComponent()
+      wrapper.vm.cameraSearch = 'CAM1'
+      wrapper.vm.cameraIp = 'rtsp://camera-lan/stream'
+      wrapper.vm.activeGateName = 'Cổng A'
+
+      await wrapper.vm.handleStartOrReset()
+
+      expect(mocks.faceApi.startCamera).toHaveBeenCalledWith(
+        'monitoring-face-camera', 'rtsp://go2rtc:8554/cam1', null
+      )
+      wrapper.vm.stopResultLoop()
+    })
+
     it('fails to start when result not successful', async () => {
       mocks.faceApi.startCamera.mockResolvedValue({ success: false, message: 'no' })
       const wrapper = await mountComponent()
