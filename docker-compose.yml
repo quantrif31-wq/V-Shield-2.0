@@ -207,7 +207,10 @@ services:
       FACE_DETECTOR_MODEL: /data/face-models/face_detection_yunet_2023mar.onnx
       FACE_EMBEDDER_MODEL: /data/face-models/face_recognition_sface_2021dec.onnx
       FACE_LANDMARKER_MODEL: /data/face-models/face_landmarker.task
-      FACE_PREFER_GPU: "true"
+      # The local host has no NVIDIA driver.  Prefer CPU by default so the
+      # ONNX provider cannot crash during model initialization; deployments
+      # with a GPU can still explicitly set FACE_PREFER_GPU=true in .env.
+      FACE_PREFER_GPU: "${FACE_PREFER_GPU:-false}"
       FACE_GPU_DEVICE_ID: "0"
       FACE_THRESHOLD: "${FACE_THRESHOLD:-0.35}"
     volumes:
@@ -224,6 +227,9 @@ services:
       retries: 10
       start_period: 60s
     networks:
+      # Face recognition consumes the already-connected go2rtc relay instead
+      # of opening a second, fragile direct connection to each LAN camera.
+      - default
       - face-backend
     restart: unless-stopped
     profiles: ["ai-heavy"]

@@ -841,6 +841,15 @@ describe('GateTransitMonitor', () => {
       expect(wrapper.vm.getEffectiveQrStream(lane)).toBe('go2rtc:cam1')
     })
 
+    it('sends FaceID through the internal go2rtc RTSP relay', async () => {
+      const wrapper = await mountMonitor()
+      const lane = wrapper.vm.lanes[0]
+      lane.qr.cameraIp = 'rtsp://camera-lan/stream'
+      lane.qr.viewUrl = 'http://go2rtc/stream.html?src=cam1'
+
+      expect(wrapper.vm.getEffectiveFaceStream(lane)).toBe('rtsp://go2rtc:8554/cam1')
+    })
+
     it('builds direct camera url with mse mode', async () => {
       const wrapper = await mountMonitor()
       const url = wrapper.vm.buildDirectCameraUrl('http://go2rtc/stream.html?src=cam1')

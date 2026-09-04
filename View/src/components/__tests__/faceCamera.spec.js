@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     getCameraStatus: vi.fn(),
     getCameraResult: vi.fn(),
     getLockedImages: vi.fn(),
+    getCameras: vi.fn(),
     normalizeFaceApiError: vi.fn(),
     shouldStopFacePolling: vi.fn(),
   },
@@ -89,6 +90,7 @@ beforeEach(() => {
   mocks.faceApi.getCameraStatus.mockResolvedValue(defaultStatus())
   mocks.faceApi.getCameraResult.mockResolvedValue(defaultStatus())
   mocks.faceApi.getLockedImages.mockResolvedValue({})
+  mocks.faceApi.getCameras.mockResolvedValue({ sessions: [{ cameraId: 'monitoring-face-camera' }] })
   mocks.faceApi.startCamera.mockResolvedValue({ success: true, message: 'START' })
   mocks.faceApi.stopCamera.mockResolvedValue({ message: 'STOP' })
   mocks.faceApi.resetCamera.mockResolvedValue({ message: 'RESET' })
@@ -135,6 +137,13 @@ describe('FaceCamera.vue', () => {
       expect(mocks.faceGateApi.getFaceIntruders).toHaveBeenCalled()
       expect(wrapper.vm.gates).toHaveLength(2)
       expect(wrapper.vm.allCameras).toHaveLength(2)
+    })
+
+    it('does not poll a FaceID session that has never been created', async () => {
+      mocks.faceApi.getCameras.mockResolvedValue({ sessions: [] })
+      const wrapper = await mountComponent()
+      expect(mocks.faceApi.getCameraStatus).not.toHaveBeenCalled()
+      expect(wrapper.vm.message).toContain('Chưa khởi động')
     })
 
     it('starts result loop on mount when camera is running', async () => {

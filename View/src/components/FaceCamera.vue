@@ -166,6 +166,7 @@ import {
   getCameraStatus,
   getCameraResult,
   getLockedImages,
+  getCameras as getFaceCameraSessions,
   normalizeFaceApiError,
   shouldStopFacePolling
 } from "../services/faceApi"
@@ -303,7 +304,7 @@ export default {
   async mounted() {
     this.destroyed = false
     await Promise.all([this.loadGates(), this.loadAllCameras()])
-    await this.loadCurrentStatus()
+    await this.restoreCurrentFaceSession()
     if (this.cameraRunning) this.startResultLoop()
     await this.loadIntruders("")
     this.startIntruderLoop()
@@ -513,6 +514,24 @@ export default {
         if (this.currentIp && !this.previewRunning) {
           this.mountDirectPreview(this.currentIp)
         }
+      } catch (e) {
+        this.handleFaceServiceError(e, { polling: true })
+      }
+    },
+
+    async restoreCurrentFaceSession() {
+      try {
+        const inventory = await getFaceCameraSessions()
+        const sessions = Array.isArray(inventory?.sessions) ? inventory.sessions : []
+        const exists = sessions.some(session => String(session?.cameraId) === this.activeCameraId)
+        if (!exists) {
+          // A Face session is created only after the operator starts it. Do
+          // not poll a made-up camera ID and turn an idle screen into a 404.
+          this.hardResetUiState()
+          this.message = "Chưa khởi động phiên FaceID."
+          return
+        }
+        await this.loadCurrentStatus()
       } catch (e) {
         this.handleFaceServiceError(e, { polling: true })
       }
