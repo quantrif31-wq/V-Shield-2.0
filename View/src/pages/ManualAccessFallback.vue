@@ -86,6 +86,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { getGates } from '../services/deviceManagementApi'
 import { getAll as getEmployees, getProtectedFaceImage } from '../services/employeeApi'
 import { getVisitorDirectory } from '../services/guestProfileApi'
+import { getManualSubject } from '../services/gateTransitApi'
 import http from '../services/http'
 
 const gates = ref([])
@@ -126,9 +127,32 @@ onBeforeUnmount(() => { if (faceImg.value) URL.revokeObjectURL(faceImg.value) })
 
 async function onUnifiedSearch() {
   const q = searchQuery.value?.trim()
-  if (!q || q.length < 2) { searchResults.value = []; return }
+  if (!q) { searchResults.value = []; return }
   searching.value = true
   try {
+    // IDs and QR payloads are exact credentials, including short values such
+    // as employee "1". Resolve them first instead of treating them as names.
+    const isDirectCredential = /^\d+$/.test(q) || /^(EMP|VIS):/i.test(q)
+    if (isDirectCredential) {
+      const response = await getManualSubject(q)
+      const data = response.data?.data
+      if (!response.data?.success || !data) {
+        searchResults.value = []
+        return
+      }
+      searchResults.value = [{
+        subjectType: data.subjectType,
+        id: data.subjectId,
+        fullName: data.fullName || 'Không rõ tên',
+        detail: data.subjectType === 'employee'
+          ? `Mã NV: ${data.subjectId}${data.departmentName ? ` · ${data.departmentName}` : ''}`
+          : `Khách · SĐT: ${data.guestPhone || '—'} · Host: ${data.hostEmployeeName || '—'}`,
+        raw: data,
+        resolved: true,
+      }]
+      return
+    }
+    if (q.length < 2) { searchResults.value = []; return }
     const [employees, visitors] = await Promise.all([
       getEmployees({ name: q, pageSize: 10 }).catch(() => ({ data: [] })),
       getVisitorDirectory({ query: q, pageSize: 10, registrationStatus: 'Approved' }).catch(() => ({ data: { items: [] } })),
@@ -142,6 +166,9 @@ async function onUnifiedSearch() {
       detail: `Khách · SĐT: ${v.guestPhone || '—'} · Host: ${v.hostEmployeeName || '—'}`, raw: v,
     }))
     searchResults.value = [...employeeItems, ...visitorItems]
+  } catch {
+    // A non-existent short code is a normal operator input, not an application error.
+    searchResults.value = []
   } finally {
     searching.value = false
   }
@@ -153,8 +180,8 @@ async function pickSubject(item) {
   const isEmployee = item.subjectType === 'employee'
   const data = item.raw
   subject.value = isEmployee
-    ? { subjectType: 'employee', displayName: data.fullName || data.name, idValue: data.employeeId, employeeId: data.employeeId, department: data.department, faceImageUrl: data.faceImageUrl }
-    : { subjectType: 'visitor', displayName: data.fullName, idValue: data.visitorDetailId, visitorDetailId: data.visitorDetailId, guestPhone: data.guestPhone, hostEmployeeName: data.hostEmployeeName, idCardNumber: data.idCardNumber }
+    ? { subjectType: 'employee', displayName: data.fullName || data.name, idValue: data.employeeId || data.subjectId, employeeId: data.employeeId || data.subjectId, department: data.department || data.departmentName, faceImageUrl: data.faceImageUrl }
+    : { subjectType: 'visitor', displayName: data.fullName, idValue: data.visitorDetailId || data.subjectId, visitorDetailId: data.visitorDetailId || data.subjectId, guestPhone: data.guestPhone, hostEmployeeName: data.hostEmployeeName, idCardNumber: data.idCardNumber }
   resultOk.value = null; resultMsg.value = ''; errorMsg.value = ''
   if (isEmployee && data?.faceImageUrl && !data.faceImageUrl.startsWith('http')) {
     try { const r = await getProtectedFaceImage(data.employeeId); faceImg.value = URL.createObjectURL(r.data) } catch { faceImg.value = '' }

@@ -538,7 +538,12 @@ namespace API.Controllers
         [HttpGet("manual-subject/{code}")]
         public async Task<IActionResult> GetManualSubject(string code)
         {
-            if (!await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskParking, requireManage: false))
+            // This resolver is shared by the manual parking desk and the
+            // QR-monitor fallback desk. Both only read the person identity;
+            // each subsequent action still applies its own task permission.
+            var canUseParking = await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskParking, requireManage: false);
+            var canUseManualGate = await _scopeService.CanAccessAsync(User, UserOperationalScopeService.TaskQrAccess, requireManage: false);
+            if (!canUseParking && !canUseManualGate)
                 return Forbid();
 
             if (string.IsNullOrWhiteSpace(code))

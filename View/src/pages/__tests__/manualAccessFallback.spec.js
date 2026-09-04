@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../services/deviceManagementApi', () => ({ getGates: vi.fn() }))
 vi.mock('../../services/employeeApi', () => ({ getAll: vi.fn(), getProtectedFaceImage: vi.fn() }))
 vi.mock('../../services/guestProfileApi', () => ({ getVisitorDirectory: vi.fn() }))
+vi.mock('../../services/gateTransitApi', () => ({ getManualSubject: vi.fn() }))
 vi.mock('../../services/http', () => ({ default: { post: vi.fn() } }))
 
 const devices = await import('../../services/deviceManagementApi')
 const employees = await import('../../services/employeeApi')
 const visitors = await import('../../services/guestProfileApi')
+const gateTransitApi = await import('../../services/gateTransitApi')
 const http = (await import('../../services/http')).default
 const ManualAccessFallback = (await import('../ManualAccessFallback.vue')).default
 
@@ -37,12 +39,25 @@ describe('ManualAccessFallback', () => {
     expect(wrapper.text()).toContain('Khách')
   })
 
-  it('does not query either directory for a one-character value', async () => {
+  it('does not query either directory for a one-character name', async () => {
     const wrapper = await mountPage()
     await wrapper.find('.search-box input').setValue('A')
     await flushPromises()
     expect(employees.getAll).not.toHaveBeenCalled()
     expect(visitors.getVisitorDirectory).not.toHaveBeenCalled()
+  })
+
+  it('resolves a one-digit employee code directly', async () => {
+    gateTransitApi.getManualSubject.mockResolvedValue({
+      data: { success: true, data: { subjectType: 'employee', subjectId: 1, fullName: 'Nhân viên Một' } },
+    })
+    const wrapper = await mountPage()
+    await wrapper.find('.search-box input').setValue('1')
+    await flushPromises()
+
+    expect(gateTransitApi.getManualSubject).toHaveBeenCalledWith('1')
+    expect(wrapper.findAll('.dropdown-item')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Nhân viên Một')
   })
 
   it('selects an employee without a manual type switch', async () => {
