@@ -52,6 +52,7 @@
 </template>
 
 <script setup>
+import HlsLibrary from 'hls.js'
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue'
 import { isBrowserVideoCameraUrl, isHlsCameraUrl, isHttpCameraUrl, isRtspCameraUrl } from '../utils/cameraNetwork'
 
@@ -71,10 +72,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['ready', 'error'])
-
-const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js'
-
-let hlsScriptPromise
 
 const videoRef = ref(null)
 const containerRef = ref(null)
@@ -188,27 +185,9 @@ const handleEnded = async () => {
 }
 
 const ensureHlsLibrary = async () => {
-    if (window.Hls) return window.Hls
-
-    if (!hlsScriptPromise) {
-        hlsScriptPromise = new Promise((resolve, reject) => {
-            const existing = document.querySelector(`script[src="${HLS_SCRIPT_SRC}"]`)
-            if (existing) {
-                existing.addEventListener('load', () => resolve(window.Hls), { once: true })
-                existing.addEventListener('error', () => reject(new Error('Không tải được HLS player.')), { once: true })
-                return
-            }
-
-            const script = document.createElement('script')
-            script.src = HLS_SCRIPT_SRC
-            script.async = true
-            script.onload = () => resolve(window.Hls)
-            script.onerror = () => reject(new Error('Không tải được HLS player.'))
-            document.head.appendChild(script)
-        })
-    }
-
-    return hlsScriptPromise
+    // The player is bundled with V-Shield. An external CDN is blocked by the
+    // application's CSP and makes DVR playback depend on the internet.
+    return window.Hls || HlsLibrary
 }
 
 const attachVideoPreview = async () => {
