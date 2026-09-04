@@ -63,6 +63,7 @@ public class CameraRecordingService : BackgroundService
                         StopRecording(id);
                 }
 
+                PublishDvrTimelines();
                 await ScanAndRecordSegments(db, stoppingToken);
                 await CleanupOldRecordings(db, stoppingToken);
             }
@@ -80,6 +81,11 @@ public class CameraRecordingService : BackgroundService
         var recordsDir = Path.Combine(_env.WebRootPath, "uploads", "recordings", $"cam{cam.CameraId}", "dvr", day.ToString("yyyy-MM-dd"));
         Directory.CreateDirectory(recordsDir);
 
+        // Older releases wrote ffmpeg directly into index.m3u8. Preserve that
+        // timeline before new recorder attempts begin, then treat index.m3u8 as
+        // an atomically-published read model only.
+        PreserveLegacyTimeline(recordsDir);
+
         var candidates = ResolveInputCandidates(cam).ToList();
         if (candidates.Count == 0)
         {
@@ -87,11 +93,12 @@ public class CameraRecordingService : BackgroundService
             return;
         }
 
-        var playlistPath = Path.Combine(recordsDir, "index.m3u8").Replace("\\", "/");
-        TryStartWithCandidate(cam.CameraId, candidates, 0, playlistPath, day);
+        var sessionId = $"{DateTime.UtcNow:HHmmssfff}_{Guid.NewGuid():N}";
+        var playlistPath = Path.Combine(recordsDir, $"session_{sessionId}.m3u8").Replace("\\", "/");
+        TryStartWithCandidate(cam.CameraId, candidates, 0, playlistPath, day, sessionId);
     }
 
-    private void TryStartWithCandidate(int cameraId, List<RecordingInputCandidate> candidates, int index, string playlistPath, DateOnly recordingDayLocal)
+    private void TryStartWithCandidate(int cameraId, List<RecordingInputCandidate> candidates, int index, string playlistPath, DateOnly recordingDayLocal, string sessionId)
     {
         if (index >= candidates.Count)
         {
@@ -107,7 +114,7 @@ public class CameraRecordingService : BackgroundService
 
         var psi = new ProcessStartInfo("ffmpeg")
         {
-            Arguments = BuildFfmpegArguments(candidate.InputUrl, playlistPath),
+            Arguments = BuildFfmpegArguments(candidate.InputUrl, playlistPath, sessionId),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -124,7 +131,7 @@ public class CameraRecordingService : BackgroundService
                 var error = proc.StandardError.ReadToEnd();
                 Console.WriteLine($"[recording] Camera {cameraId} failed on {candidate.SourceLabel}: {TrimForLog(error)}");
                 proc.Dispose();
-                TryStartWithCandidate(cameraId, candidates, index + 1, playlistPath, recordingDayLocal);
+                TryStartWithCandidate(cameraId, candidates, index + 1, playlistPath, recordingDayLocal, sessionId);
                 return;
             }
 
@@ -139,6 +146,7 @@ public class CameraRecordingService : BackgroundService
                 CandidateIndex = index,
                 OutputPattern = playlistPath,
                 RecordingDayLocal = recordingDayLocal,
+                SessionId = sessionId,
                 Error = null
             };
 
@@ -150,7 +158,7 @@ public class CameraRecordingService : BackgroundService
         catch (Exception ex)
         {
             Console.WriteLine($"[recording] Camera {cameraId} start error on {candidate.SourceLabel}: {ex.Message}");
-            TryStartWithCandidate(cameraId, candidates, index + 1, playlistPath, recordingDayLocal);
+            TryStartWithCandidate(cameraId, candidates, index + 1, playlistPath, recordingDayLocal, sessionId);
         }
     }
 
@@ -167,7 +175,7 @@ public class CameraRecordingService : BackgroundService
 
             if (rp.Candidates != null && rp.SourceLabel != null)
             {
-                TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, rp.OutputPattern ?? "", rp.RecordingDayLocal);
+                TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, rp.OutputPattern ?? "", rp.RecordingDayLocal, rp.SessionId ?? Guid.NewGuid().ToString("N"));
             }
         }
         catch
@@ -184,6 +192,135 @@ public class CameraRecordingService : BackgroundService
             try { rp.Process.Dispose(); } catch { }
         }
         _processes.Remove(cameraId);
+    }
+
+    private static void PreserveLegacyTimeline(string recordsDir)
+    {
+        var legacyPath = Path.Combine(recordsDir, "legacy.m3u8");
+        var publishedPath = Path.Combine(recordsDir, "index.m3u8");
+        if (File.Exists(legacyPath) || !File.Exists(publishedPath)) return;
+
+        try
+        {
+            File.Copy(publishedPath, legacyPath, overwrite: false);
+        }
+        catch
+        {
+            // The next recorder loop retries. Do not block camera recording for
+            // a transient file-system race.
+        }
+    }
+
+    // index.m3u8 is never a direct ffmpeg output. It is a stable, atomically
+    // replaced day timeline assembled from completed/current recording sessions.
+    // A failed reconnect can therefore leave only an ignored empty session and
+    // can never truncate the evidence already visible to the archive player.
+    private void PublishDvrTimelines()
+    {
+        var recordingsRoot = Path.Combine(_env.WebRootPath, "uploads", "recordings");
+        if (!Directory.Exists(recordingsRoot)) return;
+
+        foreach (var dvrDir in Directory.GetDirectories(recordingsRoot, "dvr", SearchOption.AllDirectories))
+        {
+            foreach (var dayDir in Directory.GetDirectories(dvrDir))
+            {
+                try
+                {
+                    PublishDvrTimeline(dayDir);
+                }
+                catch
+                {
+                    // A playlist can be mid-write while ffmpeg rolls a segment.
+                    // Keep the previous atomically-published version until the
+                    // following loop rather than serving a partial manifest.
+                }
+            }
+        }
+    }
+
+    private static void PublishDvrTimeline(string recordsDir)
+    {
+        var outputPath = Path.Combine(recordsDir, "index.m3u8");
+        var sources = Directory.GetFiles(recordsDir, "*.m3u8")
+            .Where(path => !string.Equals(Path.GetFileName(path), "index.m3u8", StringComparison.OrdinalIgnoreCase))
+            .Where(path => string.Equals(Path.GetFileName(path), "legacy.m3u8", StringComparison.OrdinalIgnoreCase)
+                || Path.GetFileName(path).StartsWith("session_", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(path => string.Equals(Path.GetFileName(path), "legacy.m3u8", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (sources.Count == 0) return;
+
+        var merged = new List<string>
+        {
+            "#EXTM3U",
+            "#EXT-X-VERSION:7",
+            "#EXT-X-TARGETDURATION:10",
+            "#EXT-X-PLAYLIST-TYPE:EVENT",
+            "#EXT-X-INDEPENDENT-SEGMENTS"
+        };
+        var publishedSessionCount = 0;
+
+        foreach (var sourcePath in sources)
+        {
+            var lines = File.ReadAllLines(sourcePath);
+            if (!HasPlayableMedia(lines, recordsDir)) continue;
+
+            if (publishedSessionCount > 0)
+                merged.Add("#EXT-X-DISCONTINUITY");
+
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line) ||
+                    line.StartsWith("#EXTM3U", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-VERSION", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-TARGETDURATION", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-MEDIA-SEQUENCE", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-PLAYLIST-TYPE", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-INDEPENDENT-SEGMENTS", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-ENDLIST", StringComparison.Ordinal) ||
+                    line.StartsWith("#EXT-X-DISCONTINUITY", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                merged.Add(line);
+            }
+
+            publishedSessionCount += 1;
+        }
+
+        if (publishedSessionCount == 0) return;
+
+        var tempPath = outputPath + ".tmp";
+        File.WriteAllLines(tempPath, merged);
+        File.Move(tempPath, outputPath, overwrite: true);
+    }
+
+    private static bool HasPlayableMedia(IEnumerable<string> lines, string recordsDir)
+    {
+        var snapshot = lines.ToList();
+        var hasTimedSegment = snapshot
+            .Where(line => line.StartsWith("#EXTINF:", StringComparison.Ordinal))
+            .Select(line => double.TryParse(
+                line[8..].TrimEnd(','),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var duration) ? duration : 0)
+            .Any(duration => duration > 0.01);
+        if (!hasTimedSegment) return false;
+
+        var mapLine = snapshot.LastOrDefault(line => line.StartsWith("#EXT-X-MAP:", StringComparison.Ordinal));
+        if (string.IsNullOrWhiteSpace(mapLine)) return false;
+        var marker = "URI=\"";
+        var start = mapLine.IndexOf(marker, StringComparison.Ordinal);
+        if (start < 0) return false;
+        start += marker.Length;
+        var end = mapLine.IndexOf('"', start);
+        if (end <= start) return false;
+
+        var initPath = Path.Combine(recordsDir, mapLine[start..end]);
+        return File.Exists(initPath) && new FileInfo(initPath).Length > 0;
     }
 
     private async Task CleanupOldRecordings(ApplicationDbContext db, CancellationToken ct)
@@ -449,14 +586,15 @@ public class CameraRecordingService : BackgroundService
         return null;
     }
 
-    private static string BuildFfmpegArguments(string inputUrl, string playlistPath)
+    private static string BuildFfmpegArguments(string inputUrl, string playlistPath, string sessionId)
     {
-        var segmentPattern = Path.Combine(Path.GetDirectoryName(playlistPath)!, "segment_%06d.m4s").Replace("\\", "/");
+        var segmentPattern = Path.Combine(Path.GetDirectoryName(playlistPath)!, $"segment_{sessionId}_%06d.m4s").Replace("\\", "/");
+        var initFileName = $"init_{sessionId}.mp4";
         var codec = inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase)
             ? "-rtsp_transport tcp -timeout 8000000 -i \"" + inputUrl + "\" -map 0:v:0 -c copy"
             : "-fflags nobuffer -flags low_delay -rw_timeout 8000000 -i \"" + inputUrl + "\" -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p";
 
-        return $"{codec} -an -sn -dn -f hls -hls_time {DvrSegmentSeconds} -hls_list_size 0 -hls_playlist_type event -hls_segment_type fmp4 -hls_fmp4_init_filename init.mp4 -hls_flags append_list+independent_segments+program_date_time+temp_file -hls_segment_filename \"{segmentPattern}\" \"{playlistPath}\"";
+        return $"{codec} -an -sn -dn -f hls -hls_time {DvrSegmentSeconds} -hls_list_size 0 -hls_playlist_type event -hls_segment_type fmp4 -hls_fmp4_init_filename {initFileName} -hls_flags independent_segments+program_date_time+temp_file -hls_segment_filename \"{segmentPattern}\" \"{playlistPath}\"";
 
         /* Legacy MP4 segmentation retained below for reference of old files.
         if (inputUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
@@ -497,6 +635,7 @@ public class RecordingProcess
     public int CandidateIndex { get; set; }
     public string? OutputPattern { get; set; }
     public DateOnly RecordingDayLocal { get; set; }
+    public string? SessionId { get; set; }
 }
 
 public record RecordingInputCandidate(string InputUrl, string SourceLabel);
