@@ -22,6 +22,8 @@ public sealed class RealtimeIceController(IConfiguration configuration) : Contro
         var servers = new List<object> { new { urls = DefaultStunUrls } };
         var turnUrls = SplitUrls(configuration["Realtime:TurnUrls"]);
         var sharedSecret = configuration["Realtime:TurnSharedSecret"]?.Trim();
+        var staticUsername = configuration["Realtime:TurnUsername"]?.Trim();
+        var staticCredential = configuration["Realtime:TurnCredential"]?.Trim();
 
         if (turnUrls.Length > 0 && !string.IsNullOrWhiteSpace(sharedSecret))
         {
@@ -29,6 +31,12 @@ public sealed class RealtimeIceController(IConfiguration configuration) : Contro
             var username = $"{DateTimeOffset.UtcNow.AddSeconds(ttl).ToUnixTimeSeconds()}:{User.FindFirst("sub")?.Value ?? "viewer"}";
             var password = Convert.ToBase64String(HMACSHA1.HashData(Encoding.UTF8.GetBytes(sharedSecret), Encoding.UTF8.GetBytes(username)));
             servers.Add(new { urls = turnUrls, username, credential = password });
+        }
+        else if (turnUrls.Length > 0 && !string.IsNullOrWhiteSpace(staticUsername) && !string.IsNullOrWhiteSpace(staticCredential))
+        {
+            // Area nodes receive a scoped long-lived TURN credential from central.
+            // The central instance itself always uses short-lived HMAC credentials above.
+            servers.Add(new { urls = turnUrls, username = staticUsername, credential = staticCredential });
         }
 
         return Ok(new { iceServers = servers });
