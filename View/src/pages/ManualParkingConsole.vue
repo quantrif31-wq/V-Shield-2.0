@@ -195,7 +195,10 @@ const fetchFaceImage = async (data) => {
             data.faceUrl = url
             return
         }
-        if (data.subjectId) {
+        // Do not call the protected-image route for an employee without an
+        // enrolled image. A missing image is normal and should show initials,
+        // not generate a distracting 404 in the operator console.
+        if (url && data.subjectId) {
             try {
                 const blob = await getProtectedFaceImage(data.subjectId)
                 data.faceUrl = URL.createObjectURL(blob.data)

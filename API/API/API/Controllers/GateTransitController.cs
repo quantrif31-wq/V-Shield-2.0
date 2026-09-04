@@ -214,8 +214,20 @@ namespace API.Controllers
 
                 async Task CompleteSuccessfulTransitAsync(AccessLog log)
                 {
-                    await _zoneTransitService.ProcessAccessLogAsync(log.LogId);
+                    // Parking admission is the primary transaction.  Zone/attendance
+                    // derivation must never roll back an already valid IN/OUT record:
+                    // a transient schedule or zone configuration fault used to surface
+                    // as HTTP 500 in the manual kiosk after the vehicle had been saved.
                     await transaction.CommitAsync();
+                    try
+                    {
+                        await _zoneTransitService.ProcessAccessLogAsync(log.LogId);
+                    }
+                    catch
+                    {
+                        // Zone and attendance reconciliation is recoverable from the
+                        // persisted access log; keep the gate/parking decision intact.
+                    }
                     try
                     {
                         await _uebaService.AnalyzeAccessLogAsync(log);
