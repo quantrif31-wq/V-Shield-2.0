@@ -1,277 +1,94 @@
 <template>
-    <div class="page-container animate-in">
-        <header class="page-header bento-header">
-            <div class="greeting">
-                <h1 class="page-title">Chuyển nhượng xe</h1>
-                <p class="page-subtitle">Ủy quyền xe cho nhân viên khác</p>
+    <div class="transfer-page page-container animate-in">
+        <header class="transfer-header">
+            <div>
+                <p class="eyebrow">QUẢN LÝ PHƯƠNG TIỆN</p>
+                <h1 class="page-title">Chuyển quyền xe</h1>
+                <p class="page-subtitle">Ủy quyền nhận xe cho đồng nghiệp, với trạng thái rõ ràng ở từng bước.</p>
+            </div>
+            <div class="transfer-summary" aria-label="Tóm tắt yêu cầu">
+                <div><strong>{{ pendingIncoming }}</strong><span>Chờ bạn duyệt</span></div>
+                <div><strong>{{ pendingOutgoing }}</strong><span>Đang chờ phản hồi</span></div>
             </div>
         </header>
 
-        <div class="bento-tabs" style="display: flex; gap: 4px; background: var(--bg-surface); padding: 4px; border-radius: 14px; margin-bottom: 20px; max-width: 500px;">
-            <button v-for="tab in tabs" :key="tab.key" class="tab-btn" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
+        <nav class="transfer-tabs" aria-label="Điều hướng chuyển quyền xe">
+            <button v-for="tab in tabs" :key="tab.key" class="tab-btn" :class="{ active: activeTab === tab.key }" :data-tab="tab.key" type="button" @click="activeTab = tab.key">
                 {{ tab.label }}
+                <span v-if="tab.key === 'incoming' && pendingIncoming" class="tab-count">{{ pendingIncoming }}</span>
             </button>
-        </div>
+        </nav>
 
-        <!-- Tab: Ủy quyền xe -->
-        <div v-if="activeTab === 'grant'" class="bento-card">
-            <h3 style="margin: 0 0 16px;">Ủy quyền xe của bạn</h3>
-            <div v-if="myVehicles.length === 0" class="empty-layout">
-                <p>Bạn không có xe nào trong bãi để ủy quyền.</p>
-            </div>
-            <form v-else @submit.prevent="submitDelegation" class="modal-form-grid">
-                <div class="input-pane">
-                    <label>Chọn xe</label>
-                    <select v-model="delegationForm.vehicleId" class="sleek-select" required>
-                        <option value="" disabled>-- Chọn xe --</option>
-                        <option v-for="v in myVehicles" :key="v.vehicleId" :value="v.vehicleId">
-                            {{ v.licensePlate }} {{ v.description ? '- ' + v.description : '' }}
-                        </option>
+        <section v-if="activeTab === 'grant'" class="grant-layout">
+            <div class="transfer-panel">
+                <div class="panel-intro"><span class="panel-intro__icon" aria-hidden="true">↗</span><div><h2>Ủy quyền một xe đang trong bãi</h2><p>Người nhận cần xác nhận yêu cầu trước khi có quyền lấy xe ra.</p></div></div>
+                <div v-if="myVehicles.length === 0" class="empty-state"><span aria-hidden="true">⌁</span><h3>Không có xe để ủy quyền</h3><p>Chỉ xe đang ở trong bãi mới có thể chuyển quyền nhận xe.</p></div>
+                <form v-else class="transfer-form" @submit.prevent="submitDelegation">
+                    <div class="form-step"><span>1</span><div><label for="transfer-vehicle">Chọn xe</label><p>Chọn phương tiện bạn muốn giao quyền nhận.</p></div></div>
+                    <select id="transfer-vehicle" v-model="delegationForm.vehicleId" class="form-control" required>
+                        <option value="" disabled>Chọn biển số xe</option><option v-for="vehicle in myVehicles" :key="vehicle.vehicleId" :value="vehicle.vehicleId">{{ vehicle.licensePlate }}{{ vehicle.description ? ' · ' + vehicle.description : '' }}</option>
                     </select>
-                </div>
-                <div class="input-pane">
-                    <label>Nhân viên nhận xe</label>
-                    <div class="combo-box-wrapper">
-                        <input v-model="employeeSearch" type="text" class="sleek-input" placeholder="Tìm theo tên..." @input="searchEmployees" @focus="showEmpDropdown = true" />
-                        <transition name="dropdown">
-                            <div v-if="showEmpDropdown && employeeResults.length > 0" class="combo-dropdown">
-                                <div v-for="emp in employeeResults" :key="emp.employeeId" class="combo-option" @mousedown.prevent="selectEmployee(emp)">
-                                    <span>{{ emp.fullName }} <span class="text-muted">({{ emp.departmentName || '—' }})</span></span>
-                                </div>
-                            </div>
-                        </transition>
-                    </div>
-                    <div v-if="selectedEmployee" class="selected-employee">
-                        Đã chọn: <strong>{{ selectedEmployee.fullName }}</strong>
-                    </div>
-                </div>
-                <div class="input-pane">
-                    <label>Lý do</label>
-                    <textarea v-model="delegationForm.reason" class="sleek-input" rows="2" placeholder="Lý do ủy quyền..."></textarea>
-                </div>
-                <div v-if="grantError" class="error-box"><span>{{ grantError }}</span></div>
-                <div v-if="grantSuccess" class="success-box"><span>{{ grantSuccess }}</span></div>
-                <button type="submit" class="btn btn-primary" :disabled="grantSaving">
-                    <span v-if="grantSaving" class="spinner-sm"></span> Gửi yêu cầu
-                </button>
-            </form>
-        </div>
+                    <div v-if="selectedVehicle" class="vehicle-preview"><span class="vehicle-preview__plate">{{ selectedVehicle.licensePlate }}</span><span>{{ selectedVehicle.description || 'Xe đang trong bãi' }}</span></div>
 
-        <!-- Tab: Yêu cầu đến -->
-        <div v-if="activeTab === 'incoming'" class="bento-card">
-            <h3 style="margin: 0 0 16px;">Yêu cầu ủy quyền đến bạn</h3>
-            <div v-if="incomingLoading" class="empty-layout"><div class="spinner-lg"></div></div>
-            <div v-else-if="incomingList.length === 0" class="empty-layout"><p>Không có yêu cầu nào.</p></div>
-            <div v-else class="sleek-table-container">
-                <table class="sleek-table">
-                    <thead><tr><th>Người gửi</th><th>Biển số</th><th>Lý do</th><th>Ngày gửi</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                    <tbody>
-                        <tr v-for="d in incomingList" :key="d.vehicleDelegationId" class="table-row">
-                            <td>{{ d.fromEmployeeName }}</td>
-                            <td><strong>{{ d.licensePlate }}</strong></td>
-                            <td class="text-muted">{{ d.reason || '—' }}</td>
-                            <td class="text-muted">{{ formatDate(d.requestedAtUtc) }}</td>
-                            <td>{{ statusLabel(d.status) }}</td>
-                            <td>
-                                <div v-if="d.status === 'Pending'" style="display: flex; gap: 8px;">
-                                    <button class="btn btn-sm btn-primary" @click="doApprove(d.vehicleDelegationId)">Đồng ý</button>
-                                    <button class="btn btn-sm btn-danger" @click="doReject(d.vehicleDelegationId)">Từ chối</button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    <div class="form-step"><span>2</span><div><label for="employee-search">Chọn người nhận</label><p>Tìm theo họ tên, sau đó chọn đúng nhân viên.</p></div></div>
+                    <div class="employee-picker"><input id="employee-search" v-model="employeeSearch" class="form-control" type="text" autocomplete="off" placeholder="Nhập tên nhân viên..." @input="searchEmployees" @focus="showEmpDropdown = true" />
+                        <div v-if="showEmpDropdown && employeeResults.length" class="employee-results"><button v-for="employee in employeeResults" :key="employee.employeeId" class="employee-option" type="button" @mousedown.prevent="selectEmployee(employee)"><span class="employee-avatar">{{ employeeInitials(employee.fullName) }}</span><span><strong>{{ employee.fullName }}</strong><small>{{ employee.departmentName || 'Chưa có phòng ban' }}</small></span></button></div>
+                    </div>
+                    <div v-if="selectedEmployee" class="selected-person"><span class="employee-avatar">{{ employeeInitials(selectedEmployee.fullName) }}</span><span><small>NGƯỜI NHẬN ĐƯỢC CHỌN</small><strong>{{ selectedEmployee.fullName }}</strong><em>{{ selectedEmployee.departmentName || 'Nhân sự nội bộ' }}</em></span><button type="button" aria-label="Bỏ chọn người nhận" @click="clearEmployee">×</button></div>
 
-        <!-- Tab: Yêu cầu đi -->
-        <div v-if="activeTab === 'outgoing'" class="bento-card">
-            <h3 style="margin: 0 0 16px;">Yêu cầu bạn đã gửi</h3>
-            <div v-if="outgoingLoading" class="empty-layout"><div class="spinner-lg"></div></div>
-            <div v-else-if="outgoingList.length === 0" class="empty-layout"><p>Bạn chưa gửi yêu cầu nào.</p></div>
-            <div v-else class="sleek-table-container">
-                <table class="sleek-table">
-                    <thead><tr><th>Người nhận</th><th>Biển số</th><th>Lý do</th><th>Ngày gửi</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                    <tbody>
-                        <tr v-for="d in outgoingList" :key="d.vehicleDelegationId" class="table-row">
-                            <td>{{ d.toEmployeeName }}</td>
-                            <td><strong>{{ d.licensePlate }}</strong></td>
-                            <td class="text-muted">{{ d.reason || '—' }}</td>
-                            <td class="text-muted">{{ formatDate(d.requestedAtUtc) }}</td>
-                            <td>{{ statusLabel(d.status) }}</td>
-                            <td>
-                                <button v-if="d.status === 'Pending'" class="btn btn-sm btn-secondary" @click="doRevoke(d.vehicleDelegationId)">Hủy</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                    <div class="form-step"><span>3</span><div><label for="transfer-reason">Ghi chú ủy quyền <em>(không bắt buộc)</em></label><p>Giúp người nhận hiểu mục đích chuyển quyền.</p></div></div>
+                    <textarea id="transfer-reason" v-model="delegationForm.reason" class="form-control" rows="3" placeholder="Ví dụ: Nhờ nhận xe thay vào cuối ca hôm nay"></textarea>
+                    <div v-if="grantError" class="form-message form-message--error" role="alert">{{ grantError }}</div><div v-if="grantSuccess" class="form-message form-message--success" role="status">{{ grantSuccess }}</div>
+                    <button class="submit-button" type="submit" :disabled="grantSaving"><span v-if="grantSaving" class="spinner-sm"></span><span v-else aria-hidden="true">→</span>{{ grantSaving ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu ủy quyền' }}</button>
+                </form>
             </div>
-        </div>
+            <aside class="transfer-guide"><div class="transfer-guide__badge">QUY TRÌNH AN TOÀN</div><ol><li><span>01</span><p>Bạn chọn xe đang ở trong bãi.</p></li><li><span>02</span><p>Người nhận xác nhận yêu cầu.</p></li><li><span>03</span><p>Quyền nhận xe được kích hoạt sau khi duyệt.</p></li></ol><p class="transfer-guide__tip">Quyền xe không tự chuyển nếu người nhận chưa đồng ý.</p></aside>
+        </section>
+
+        <section v-else class="request-section">
+            <div class="request-heading"><div><h2>{{ activeTab === 'incoming' ? 'Yêu cầu cần bạn xử lý' : 'Yêu cầu bạn đã gửi' }}</h2><p>{{ activeTab === 'incoming' ? 'Xác nhận đúng người trước khi cho phép nhận xe.' : 'Theo dõi phản hồi của người được ủy quyền.' }}</p></div><button class="refresh-list" type="button" :disabled="isListLoading" @click="refreshActiveList">↻ Làm mới</button></div>
+            <div v-if="isListLoading" class="request-skeleton"><span></span><span></span></div>
+            <div v-else-if="activeList.length === 0" class="empty-state empty-state--list"><span aria-hidden="true">⌁</span><h3>{{ activeTab === 'incoming' ? 'Chưa có yêu cầu cần xử lý' : 'Bạn chưa gửi yêu cầu nào' }}</h3><p>{{ activeTab === 'incoming' ? 'Khi có người ủy quyền xe cho bạn, yêu cầu sẽ xuất hiện tại đây.' : 'Bạn có thể bắt đầu bằng cách chọn tab “Ủy quyền xe”.' }}</p></div>
+            <div v-else class="request-list"><article v-for="item in activeList" :key="item.vehicleDelegationId" class="request-card"><div class="request-card__person"><span class="employee-avatar employee-avatar--large">{{ employeeInitials(activeTab === 'incoming' ? item.fromEmployeeName : item.toEmployeeName) }}</span><div><small>{{ activeTab === 'incoming' ? 'NGƯỜI ỦY QUYỀN' : 'NGƯỜI ĐƯỢC ỦY QUYỀN' }}</small><h3>{{ activeTab === 'incoming' ? item.fromEmployeeName : item.toEmployeeName }}</h3><p>{{ formatDate(item.requestedAtUtc) }}</p></div></div><div class="request-card__vehicle"><small>BIỂN SỐ XE</small><strong>{{ item.licensePlate }}</strong><p>{{ item.reason || 'Không kèm ghi chú' }}</p></div><div class="request-card__actions"><span class="status-pill" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span><div v-if="activeTab === 'incoming' && item.status === 'Pending'" class="action-buttons"><button class="approve-button" type="button" @click="doApprove(item.vehicleDelegationId)">Đồng ý</button><button class="reject-button" type="button" @click="doReject(item.vehicleDelegationId)">Từ chối</button></div><button v-else-if="activeTab === 'outgoing' && item.status === 'Pending'" class="revoke-button" type="button" @click="doRevoke(item.vehicleDelegationId)">Hủy yêu cầu</button></div></article></div>
+        </section>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { authState } from '../stores/auth'
 import { getByEmployeeId } from '../services/vehicleApi'
 import { getAll as getAllEmployees } from '../services/employeeApi'
-import { createDelegation, getOutgoing, getIncoming, approveDelegation, rejectDelegation, revokeDelegation } from '../services/vehicleDelegationApi'
+import { approveDelegation, createDelegation, getIncoming, getOutgoing, rejectDelegation, revokeDelegation } from '../services/vehicleDelegationApi'
 
-const tabs = [
-    { key: 'grant', label: 'Ủy quyền xe' },
-    { key: 'incoming', label: 'Yêu cầu đến' },
-    { key: 'outgoing', label: 'Yêu cầu đi' },
-]
-const activeTab = ref('grant')
-
-const myVehicles = ref([])
-const delegationForm = ref({ vehicleId: '', reason: '' })
-const employeeSearch = ref('')
-const employeeResults = ref([])
-const showEmpDropdown = ref(false)
-const selectedEmployee = ref(null)
-const grantError = ref('')
-const grantSuccess = ref('')
-const grantSaving = ref(false)
-
-const incomingList = ref([])
-const incomingLoading = ref(false)
-const outgoingList = ref([])
-const outgoingLoading = ref(false)
-
+const tabs = [{ key: 'grant', label: 'Ủy quyền xe' }, { key: 'incoming', label: 'Yêu cầu đến' }, { key: 'outgoing', label: 'Yêu cầu đã gửi' }]
+const activeTab = ref('grant'); const myVehicles = ref([]); const delegationForm = ref({ vehicleId: '', reason: '' }); const employeeSearch = ref(''); const employeeResults = ref([]); const showEmpDropdown = ref(false); const selectedEmployee = ref(null); const grantError = ref(''); const grantSuccess = ref(''); const grantSaving = ref(false); const incomingList = ref([]); const incomingLoading = ref(false); const outgoingList = ref([]); const outgoingLoading = ref(false)
 let empSearchTimer = null
-
-function formatDate(d) {
-    if (!d) return '—'
-    return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-function statusLabel(s) {
-    const map = { Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Đã từ chối', Revoked: 'Đã hủy' }
-    return map[s] || s
-}
-
-function selectEmployee(emp) {
-    selectedEmployee.value = emp
-    employeeSearch.value = emp.fullName
-    showEmpDropdown.value = false
-}
-
-async function searchEmployees() {
-    if (empSearchTimer) clearTimeout(empSearchTimer)
-    if (!employeeSearch.value.trim()) { employeeResults.value = []; return }
-    empSearchTimer = setTimeout(async () => {
-        try {
-            const res = await getAllEmployees({ search: employeeSearch.value.trim() })
-            employeeResults.value = (res.data || []).filter(e => e.employeeId !== authState.user?.employeeId)
-        } catch { employeeResults.value = [] }
-    }, 300)
-}
-
-async function submitDelegation() {
-    if (!selectedEmployee.value) { grantError.value = 'Vui lòng chọn nhân viên nhận xe.'; return }
-    grantError.value = ''
-    grantSuccess.value = ''
-    grantSaving.value = true
-    try {
-        await createDelegation({
-            vehicleId: parseInt(delegationForm.value.vehicleId),
-            toEmployeeId: selectedEmployee.value.employeeId,
-            reason: delegationForm.value.reason || null,
-        })
-        grantSuccess.value = 'Đã gửi yêu cầu ủy quyền.'
-        delegationForm.value = { vehicleId: '', reason: '' }
-        selectedEmployee.value = null
-        employeeSearch.value = ''
-        await loadVehicles()
-        await loadOutgoing()
-    } catch (e) {
-        grantError.value = e.response?.data?.message || 'Không thể gửi yêu cầu.'
-    } finally {
-        grantSaving.value = false
-    }
-}
-
-async function loadVehicles() {
-    try {
-        const res = await getByEmployeeId(authState.user?.employeeId)
-        myVehicles.value = (res.data || []).filter(v => v.parkingStatus === 'IN')
-    } catch { myVehicles.value = [] }
-}
-
-async function loadIncoming() {
-    incomingLoading.value = true
-    try {
-        const res = await getIncoming()
-        incomingList.value = res.data || []
-    } catch { incomingList.value = [] }
-    finally { incomingLoading.value = false }
-}
-
-async function loadOutgoing() {
-    outgoingLoading.value = true
-    try {
-        const res = await getOutgoing()
-        outgoingList.value = res.data || []
-    } catch { outgoingList.value = [] }
-    finally { outgoingLoading.value = false }
-}
-
-async function doApprove(id) {
-    try {
-        await approveDelegation(id)
-        await loadIncoming()
-        await loadOutgoing()
-    } catch (e) {
-        alert(e.response?.data?.message || 'Lỗi khi duyệt.')
-    }
-}
-
-async function doReject(id) {
-    if (!confirm('Từ chối yêu cầu này?')) return
-    try {
-        await rejectDelegation(id, { reason: null })
-        await loadIncoming()
-    } catch (e) {
-        alert(e.response?.data?.message || 'Lỗi khi từ chối.')
-    }
-}
-
-async function doRevoke(id) {
-    if (!confirm('Hủy yêu cầu này?')) return
-    try {
-        await revokeDelegation(id)
-        await loadOutgoing()
-    } catch (e) {
-        alert(e.response?.data?.message || 'Lỗi khi hủy.')
-    }
-}
-
-onMounted(() => {
-    loadVehicles()
-    loadIncoming()
-    loadOutgoing()
-})
+const selectedVehicle = computed(() => myVehicles.value.find((item) => String(item.vehicleId) === String(delegationForm.value.vehicleId)))
+const pendingIncoming = computed(() => incomingList.value.filter((item) => item.status === 'Pending').length); const pendingOutgoing = computed(() => outgoingList.value.filter((item) => item.status === 'Pending').length); const activeList = computed(() => activeTab.value === 'incoming' ? incomingList.value : outgoingList.value); const isListLoading = computed(() => activeTab.value === 'incoming' ? incomingLoading.value : outgoingLoading.value)
+const formatDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Chưa rõ thời gian'
+const statusLabel = (value) => ({ Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Đã từ chối', Revoked: 'Đã hủy' }[value] || value)
+const statusClass = (value) => ({ Pending: 'status-pill--pending', Approved: 'status-pill--approved', Rejected: 'status-pill--rejected', Revoked: 'status-pill--revoked' }[value] || '')
+const employeeInitials = (name) => (name || '?').trim().split(/\s+/).filter(Boolean).slice(-2).map((part) => part[0]).join('').toUpperCase()
+function selectEmployee(employee) { selectedEmployee.value = employee; employeeSearch.value = employee.fullName; showEmpDropdown.value = false }
+function clearEmployee() { selectedEmployee.value = null; employeeSearch.value = ''; employeeResults.value = [] }
+async function searchEmployees() { if (empSearchTimer) clearTimeout(empSearchTimer); selectedEmployee.value = null; if (!employeeSearch.value.trim()) { employeeResults.value = []; return }; empSearchTimer = setTimeout(async () => { try { const response = await getAllEmployees({ search: employeeSearch.value.trim() }); employeeResults.value = (response.data || []).filter((item) => item.employeeId !== authState.user?.employeeId); showEmpDropdown.value = true } catch { employeeResults.value = [] } }, 300) }
+async function submitDelegation() { if (!selectedEmployee.value) { grantError.value = 'Vui lòng chọn nhân viên nhận xe từ danh sách gợi ý.'; return }; grantError.value = ''; grantSuccess.value = ''; grantSaving.value = true; try { await createDelegation({ vehicleId: parseInt(delegationForm.value.vehicleId), toEmployeeId: selectedEmployee.value.employeeId, reason: delegationForm.value.reason || null }); grantSuccess.value = 'Đã gửi yêu cầu ủy quyền. Người nhận cần xác nhận để hoàn tất.'; delegationForm.value = { vehicleId: '', reason: '' }; clearEmployee(); await loadVehicles(); await loadOutgoing() } catch (error) { grantError.value = error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.' } finally { grantSaving.value = false } }
+async function loadVehicles() { try { const response = await getByEmployeeId(authState.user?.employeeId); myVehicles.value = (response.data || []).filter((item) => item.parkingStatus === 'IN') } catch { myVehicles.value = [] } }
+async function loadIncoming() { incomingLoading.value = true; try { const response = await getIncoming(); incomingList.value = response.data || [] } catch { incomingList.value = [] } finally { incomingLoading.value = false } }
+async function loadOutgoing() { outgoingLoading.value = true; try { const response = await getOutgoing(); outgoingList.value = response.data || [] } catch { outgoingList.value = [] } finally { outgoingLoading.value = false } }
+const refreshActiveList = () => activeTab.value === 'incoming' ? loadIncoming() : loadOutgoing()
+async function doApprove(id) { try { await approveDelegation(id); await Promise.all([loadIncoming(), loadOutgoing(), loadVehicles()]) } catch (error) { alert(error.response?.data?.message || 'Lỗi khi duyệt yêu cầu.') } }
+async function doReject(id) { if (!confirm('Từ chối yêu cầu này?')) return; try { await rejectDelegation(id, { reason: null }); await loadIncoming() } catch (error) { alert(error.response?.data?.message || 'Lỗi khi từ chối yêu cầu.') } }
+async function doRevoke(id) { if (!confirm('Hủy yêu cầu này?')) return; try { await revokeDelegation(id); await loadOutgoing() } catch (error) { alert(error.response?.data?.message || 'Lỗi khi hủy yêu cầu.') } }
+onMounted(() => { loadVehicles(); loadIncoming(); loadOutgoing() })
 </script>
 
 <style scoped>
-.bento-tabs .tab-btn {
-    flex: 1; padding: 10px 16px; border-radius: 12px; border: none; background: transparent;
-    color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
-}
-.bento-tabs .tab-btn.active {
-    background: var(--bg-surface-raised); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-}
-.bento-tabs .tab-btn:hover { color: var(--text-primary); }
-.combo-box-wrapper { position: relative; }
-.combo-dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
-    background: var(--bg-surface-raised); border: 1px solid var(--border-color);
-    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto;
-}
-.combo-option { padding: 10px 14px; cursor: pointer; font-size: 0.9rem; }
-.combo-option:hover { background: rgba(84,196,211,0.08); }
-.selected-employee { margin-top: 8px; font-size: 0.85rem; color: var(--text-secondary); }
-.success-box { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 10px 14px; color: #22c55e; font-size: 0.85rem; }
-.btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 8px; }
+.transfer-page { max-width: 1180px; margin: 0 auto; padding-bottom: 36px; }.transfer-header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:24px; }.eyebrow { margin:0 0 7px; color:var(--accent-primary,#07838a); font-size:.72rem; font-weight:800; letter-spacing:.12em; }.page-title { margin:0; }.page-subtitle { margin:7px 0 0; color:var(--text-secondary); }.transfer-summary { display:flex; overflow:hidden; border:1px solid var(--border-color); border-radius:15px; background:var(--bg-card,#fff); box-shadow:0 9px 20px rgba(19,55,74,.05); }.transfer-summary div { display:flex; flex-direction:column; min-width:116px; padding:11px 15px; }.transfer-summary div + div { border-left:1px solid var(--border-color); }.transfer-summary strong { color:var(--text-primary); font-size:1.1rem; }.transfer-summary span { margin-top:3px; color:var(--text-secondary); font-size:.68rem; font-weight:700; }
+.transfer-tabs { display:flex; gap:5px; width:fit-content; max-width:100%; margin-bottom:20px; padding:5px; overflow-x:auto; border:1px solid var(--border-color); border-radius:15px; background:var(--bg-card,#fff); }.tab-btn { display:flex; align-items:center; gap:8px; white-space:nowrap; padding:10px 15px; border:0; border-radius:10px; background:transparent; color:var(--text-secondary); font:inherit; font-size:.86rem; font-weight:750; cursor:pointer; transition:.2s ease; }.tab-btn:hover { color:var(--text-primary); }.tab-btn.active { color:#087c80; background:#e3f4f3; box-shadow:inset 0 0 0 1px rgba(8,124,128,.12); }.tab-icon { display:grid; width:20px; height:20px; place-items:center; border-radius:7px; background:rgba(8,124,128,.1); font-size:.9rem; }.tab-count { display:grid; min-width:18px; height:18px; place-items:center; border-radius:50%; background:#d95950; color:#fff; font-size:.64rem; }
+.grant-layout { display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:20px; align-items:start; }.transfer-panel,.transfer-guide,.request-section { border:1px solid var(--border-color); border-radius:20px; background:var(--bg-card,#fff); box-shadow:0 12px 28px rgba(19,55,74,.06); }.transfer-panel { overflow:hidden; }.panel-intro { display:flex; gap:13px; padding:24px 26px; background:linear-gradient(105deg,#eefafa,#f8fffe); border-bottom:1px solid var(--border-color); }.panel-intro__icon { display:grid; flex:0 0 auto; width:37px; height:37px; place-items:center; border-radius:12px; background:#0b8888; color:#fff; font-size:1.2rem; font-weight:800; }.panel-intro h2,.request-heading h2 { margin:0; color:var(--text-primary); font-size:1.06rem; }.panel-intro p,.request-heading p { margin:4px 0 0; color:var(--text-secondary); font-size:.83rem; line-height:1.45; }.transfer-form { display:grid; gap:12px; padding:25px 26px 27px; }.form-step { display:flex; gap:10px; margin-top:7px; }.form-step > span { display:grid; flex:0 0 auto; width:24px; height:24px; place-items:center; border-radius:50%; background:#e2f3f2; color:#087c80; font-size:.73rem; font-weight:900; }.form-step label { display:block; color:var(--text-primary); font-size:.88rem; font-weight:800; }.form-step p { margin:3px 0 0; color:var(--text-secondary); font-size:.76rem; }.form-step em { color:var(--text-secondary); font-size:.72rem; font-style:normal; font-weight:500; }.form-control { width:100%; box-sizing:border-box; min-height:43px; padding:10px 12px; border:1px solid var(--border-color); border-radius:11px; outline:0; background:var(--bg-surface,#f7fafb); color:var(--text-primary); font:inherit; font-size:.88rem; transition:.18s ease; }.form-control:focus { border-color:#0c9795; background:var(--bg-card,#fff); box-shadow:0 0 0 3px rgba(12,151,149,.12); }.vehicle-preview { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; background:#f4faf9; color:var(--text-secondary); font-size:.78rem; }.vehicle-preview__plate { padding:4px 7px; border:1px solid #9ccbc7; border-radius:6px; background:#fff; color:#075e64; font-weight:850; letter-spacing:.04em; }.employee-picker { position:relative; }.employee-results { position:absolute; z-index:4; top:calc(100% + 6px); right:0; left:0; max-height:220px; overflow:auto; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card,#fff); box-shadow:0 14px 30px rgba(12,47,63,.18); }.employee-option { display:flex; align-items:center; width:100%; gap:10px; padding:10px 12px; border:0; border-bottom:1px solid var(--border-color); background:transparent; color:var(--text-primary); text-align:left; cursor:pointer; }.employee-option:last-child { border-bottom:0; }.employee-option:hover { background:#edf9f8; }.employee-option strong,.employee-option small { display:block; }.employee-option strong { font-size:.85rem; }.employee-option small { margin-top:2px; color:var(--text-secondary); font-size:.72rem; }.employee-avatar { display:grid; flex:0 0 auto; width:29px; height:29px; place-items:center; border-radius:10px; background:#dceff2; color:#126b83; font-size:.68rem; font-weight:850; }.selected-person { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #a7dcd7; border-radius:12px; background:#f1fbfa; }.selected-person small,.selected-person strong,.selected-person em { display:block; }.selected-person small { color:#397973; font-size:.62rem; font-weight:800; letter-spacing:.07em; }.selected-person strong { margin-top:2px; color:var(--text-primary); font-size:.85rem; }.selected-person em { margin-top:2px; color:var(--text-secondary); font-size:.72rem; font-style:normal; }.selected-person button { margin-left:auto; width:26px; height:26px; border:0; border-radius:50%; background:#d7ecea; color:#357772; cursor:pointer; font-size:1.15rem; }.form-message { padding:11px 13px; border-radius:10px; font-size:.82rem; }.form-message--error { border:1px solid #efc3bf; background:#fff4f3; color:#be433b; }.form-message--success { border:1px solid #afdfcb; background:#f0fcf6; color:#137a52; }.submit-button { display:flex; align-items:center; justify-content:center; gap:9px; min-height:45px; margin-top:6px; border:0; border-radius:12px; background:linear-gradient(100deg,#087e82,#0a9b91); color:#fff; font:inherit; font-size:.9rem; font-weight:800; cursor:pointer; box-shadow:0 9px 17px rgba(8,126,130,.2); transition:.2s ease; }.submit-button:hover:not(:disabled) { transform:translateY(-1px); filter:brightness(1.04); }.submit-button:disabled { opacity:.65; cursor:wait; }
+.transfer-guide { padding:23px; background:linear-gradient(150deg,#073e50,#0a6972); color:#fff; }.transfer-guide__badge { display:inline-flex; padding:5px 8px; border-radius:999px; background:rgba(165,249,229,.16); color:#a7f2df; font-size:.61rem; font-weight:850; letter-spacing:.07em; }.transfer-guide ol { display:grid; gap:19px; margin:25px 0; padding:0; list-style:none; }.transfer-guide li { display:flex; gap:10px; }.transfer-guide li > span { display:grid; flex:0 0 auto; width:25px; height:25px; place-items:center; border:1px solid rgba(190,255,242,.34); border-radius:8px; color:#bdf9e9; font-size:.65rem; font-weight:850; }.transfer-guide li p { margin:3px 0 0; color:rgba(255,255,255,.8); font-size:.81rem; line-height:1.45; }.transfer-guide__tip { margin:0; padding-top:16px; border-top:1px solid rgba(255,255,255,.15); color:#b3eae1; font-size:.76rem; line-height:1.55; }
+.request-section { padding:24px; }.request-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding-bottom:20px; border-bottom:1px solid var(--border-color); }.refresh-list,.revoke-button,.reject-button,.approve-button { border-radius:10px; font:inherit; font-size:.78rem; font-weight:800; cursor:pointer; }.refresh-list { padding:9px 12px; border:1px solid var(--border-color); background:var(--bg-card,#fff); color:var(--text-primary); }.refresh-list:disabled { opacity:.55; cursor:wait; }.request-list { display:grid; gap:12px; margin-top:18px; }.request-card { display:grid; grid-template-columns:minmax(190px,1fr) minmax(150px,.7fr) auto; align-items:center; gap:20px; padding:17px; border:1px solid var(--border-color); border-radius:15px; background:var(--bg-surface,#f9fbfb); }.request-card__person { display:flex; align-items:center; gap:11px; min-width:0; }.employee-avatar--large { width:38px; height:38px; border-radius:12px; }.request-card small { color:var(--text-secondary); font-size:.64rem; font-weight:800; letter-spacing:.07em; }.request-card h3 { margin:3px 0; overflow-wrap:anywhere; color:var(--text-primary); font-size:.9rem; }.request-card p { margin:0; color:var(--text-secondary); font-size:.74rem; }.request-card__vehicle strong { display:block; width:fit-content; margin:5px 0; padding:4px 7px; border:1px solid #b5c9cf; border-radius:6px; background:#fff; color:#164a5d; font-size:.83rem; letter-spacing:.04em; }.request-card__actions { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }.status-pill { display:inline-flex; padding:5px 9px; border-radius:999px; font-size:.68rem; font-weight:850; }.status-pill--pending { background:#fff2cf; color:#966215; }.status-pill--approved { background:#ddf7eb; color:#137957; }.status-pill--rejected { background:#ffebe9; color:#bd4e46; }.status-pill--revoked { background:#e9eef1; color:#64727a; }.action-buttons { display:flex; gap:7px; }.approve-button { padding:8px 11px; border:1px solid #087e82; background:#087e82; color:#fff; }.reject-button,.revoke-button { padding:8px 11px; border:1px solid #d6dde0; background:#fff; color:#607078; }.reject-button:hover,.revoke-button:hover { border-color:#cb706a; color:#bd4e46; }.empty-state { display:grid; justify-items:center; padding:42px 22px; text-align:center; }.empty-state > span { display:grid; width:38px; height:38px; place-items:center; border-radius:13px; background:#e5f3f2; color:#087e82; font-size:1.2rem; }.empty-state h3 { margin:12px 0 5px; color:var(--text-primary); font-size:.96rem; }.empty-state p { max-width:360px; margin:0; color:var(--text-secondary); font-size:.82rem; line-height:1.55; }.empty-state--list { padding:54px 22px 38px; }.request-skeleton { display:grid; gap:12px; margin-top:18px; }.request-skeleton span { height:76px; border-radius:15px; background:linear-gradient(100deg,var(--bg-surface,#edf4f4) 35%,rgba(255,255,255,.7) 50%,var(--bg-surface,#edf4f4) 65%); background-size:200% 100%; animation:shimmer 1.3s infinite; } @keyframes shimmer { to { background-position:-200% 0; } }
+@media (max-width:900px) { .grant-layout { grid-template-columns:1fr; }.transfer-guide { display:none; }.request-card { grid-template-columns:1fr auto; }.request-card__vehicle { grid-column:1 / 2; }.request-card__actions { grid-column:2; grid-row:1 / 3; } } @media (max-width:620px) { .transfer-header { align-items:flex-start; flex-direction:column; }.transfer-summary { width:100%; }.transfer-summary div { flex:1; }.transfer-tabs { width:100%; box-sizing:border-box; }.request-section { padding:18px; }.request-heading { align-items:flex-start; flex-direction:column; }.request-card { grid-template-columns:1fr; gap:13px; }.request-card__vehicle,.request-card__actions { grid-column:auto; grid-row:auto; }.request-card__actions { align-items:flex-start; }.panel-intro,.transfer-form { padding-right:18px; padding-left:18px; } }
 </style>

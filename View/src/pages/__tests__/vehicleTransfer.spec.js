@@ -37,10 +37,10 @@ describe('VehicleTransfer', () => {
     const wrapper = mount(VehicleTransfer)
     await flushPromises()
 
-    await wrapper.findAll('.tab-btn').find((b) => b.text() === 'Yêu cầu đến').trigger('click')
+    await wrapper.find('[data-tab="incoming"]').trigger('click')
     await flushPromises()
-    expect(wrapper.find('tbody').text()).toContain('A')
-    expect(wrapper.find('tbody').text()).toContain('29A-2')
+    expect(wrapper.find('.request-list').text()).toContain('A')
+    expect(wrapper.find('.request-list').text()).toContain('29A-2')
   })
 
   it('creates a delegation with a selected vehicle and employee', async () => {
@@ -57,7 +57,7 @@ describe('VehicleTransfer', () => {
     await flushPromises()
     vi.advanceTimersByTime(300)
     await flushPromises()
-    await wrapper.find('.combo-option').trigger('mousedown')
+    await wrapper.find('.employee-option').trigger('mousedown')
 
     delegationApi.createDelegation.mockResolvedValue({})
     await wrapper.find('form').trigger('submit')
@@ -71,7 +71,7 @@ describe('VehicleTransfer', () => {
     delegationApi.getOutgoing.mockResolvedValue({ data: [] })
     const wrapper = mount(VehicleTransfer)
     await flushPromises()
-    await wrapper.findAll('.tab-btn').find((b) => b.text() === 'Yêu cầu đến').trigger('click')
+    await wrapper.find('[data-tab="incoming"]').trigger('click')
     await flushPromises()
 
     delegationApi.approveDelegation.mockResolvedValue({})
