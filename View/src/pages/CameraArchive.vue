@@ -69,7 +69,7 @@
       </article>
       <article class="summary-card">
         <span class="summary-kicker">DVR hôm nay</span>
-        <strong>{{ dvrCameras.length }}</strong>
+        <strong>{{ activeDvrCamera ? 'Sẵn sàng' : 'Chọn camera' }}</strong>
       </article>
       <article class="summary-card">
         <span class="summary-kicker">Camera hiện có</span>
@@ -81,24 +81,16 @@
       </article>
     </section>
 
-    <section v-if="selectedDvrCamera" class="dvr-card">
+    <section v-if="activeDvrCamera" class="dvr-card">
       <div>
         <span class="summary-kicker">DVR trong ngày</span>
-        <h2>{{ selectedDvrCamera.cameraName }}</h2>
-        <p>Timeline ghi liên tục. Kéo thanh thời gian để xem lại từ đầu ngày đến hiện tại.</p>
+        <h2>{{ activeDvrCamera.cameraName }}</h2>
+        <p>Ghi liên tục trong ngày. Dùng thanh thời gian để tua lại hoặc chọn “Trực tiếp” để về hiện tại.</p>
       </div>
-      <div class="dvr-camera-picker" aria-label="Chọn camera DVR">
-        <button
-          v-for="camera in dvrCameras"
-          :key="camera.cameraId"
-          class="dvr-camera-button"
-          :class="{ active: camera.cameraId === selectedDvrCamera.cameraId }"
-          @click="selectedDvrCameraId = camera.cameraId"
-        >
-          {{ camera.cameraName }}
-        </button>
-      </div>
-      <StreamPreview :url="todayDvrUrl" :label="`DVR ${selectedDvrCamera.cameraName}`" :show-controls="true" />
+      <StreamPreview :url="todayDvrUrl" :label="`DVR ${activeDvrCamera.cameraName}`" :show-controls="true" dvr-mode />
+    </section>
+    <section v-else class="dvr-selection-hint">
+      Chọn một camera trong bộ lọc chính để mở DVR liên tục và tua lại trong ngày.
     </section>
 
     <div v-if="loading" class="empty-state">Đang tải dữ liệu lưu trữ...</div>
@@ -170,7 +162,6 @@ const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
 const showVideoId = ref(null)
-const selectedDvrCameraId = ref(null)
 
 const filters = reactive({
   cameraId: normalizeRouteCameraId(route.params.id),
@@ -216,25 +207,12 @@ const activeFilterLabel = computed(() => {
   return parts.join(" / ") || "Tất cả"
 })
 
-const dvrCameras = computed(() => {
-  const normalizedSearch = filters.search.trim().toLocaleLowerCase('vi-VN')
-  return cameras.value.filter((camera) => {
-    if (filters.cameraId && String(camera.cameraId) !== filters.cameraId) return false
-    if (filters.gateId && String(camera.gateId || '') !== filters.gateId) return false
-    if (filters.cameraType && String(camera.cameraType || '') !== filters.cameraType) return false
-    if (!normalizedSearch) return true
-    return [camera.cameraName, camera.cameraType, camera.gateName, camera.gateLocation]
-      .some((value) => String(value || '').toLocaleLowerCase('vi-VN').includes(normalizedSearch))
-  })
-})
-
-const selectedDvrCamera = computed(() => {
-  const selected = dvrCameras.value.find((camera) => camera.cameraId === selectedDvrCameraId.value)
-  return selected || dvrCameras.value[0] || null
-})
+const activeDvrCamera = computed(() =>
+  cameras.value.find((camera) => String(camera.cameraId) === filters.cameraId) || null
+)
 
 const todayDvrUrl = computed(() => {
-  const cameraId = Number(selectedDvrCamera.value?.cameraId)
+  const cameraId = Number(activeDvrCamera.value?.cameraId)
   if (!Number.isInteger(cameraId) || cameraId <= 0) return ''
   const now = new Date()
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -244,10 +222,6 @@ const todayDvrUrl = computed(() => {
 async function loadCameras() {
   const data = await getCameras()
   cameras.value = Array.isArray(data) ? data : []
-  const routeCameraId = Number(filters.cameraId)
-  selectedDvrCameraId.value = cameras.value.some((camera) => camera.cameraId === routeCameraId)
-    ? routeCameraId
-    : cameras.value[0]?.cameraId || null
 }
 
 function buildParams(targetPage = 1) {
@@ -319,7 +293,6 @@ watch(
   () => route.params.id,
   (nextId) => {
     filters.cameraId = normalizeRouteCameraId(nextId)
-    selectedDvrCameraId.value = Number(filters.cameraId) || cameras.value[0]?.cameraId || null
     loadSegments(1)
   }
 )
@@ -466,9 +439,7 @@ onMounted(async () => {
 .dvr-card h2 { margin: 3px 0; font-size: 20px; }
 .dvr-card p { margin: 0 0 14px; color: var(--text-secondary); }
 .dvr-card :deep(.stream-preview) { aspect-ratio: 16 / 9; max-height: 680px; border-radius: 14px; overflow: hidden; background: #05080d; }
-.dvr-camera-picker { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
-.dvr-camera-button { border: 1px solid var(--border-default); border-radius: 999px; padding: 7px 11px; background: var(--surface-default); color: var(--text-primary); cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; }
-.dvr-camera-button.active { border-color: var(--accent-primary); background: var(--status-info-bg); color: var(--status-info-text); }
+.dvr-selection-hint { margin-bottom: 18px; padding: 16px 20px; color: var(--text-secondary); background: color-mix(in srgb, var(--surface-default) 92%, transparent); border: 1px dashed var(--border-default); border-radius: 16px; }
 
 .segment-list {
   display: flex;
