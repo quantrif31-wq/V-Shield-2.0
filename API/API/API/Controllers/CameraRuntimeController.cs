@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using API.Data;
 using API.Models;
 using API.DTOs;
@@ -22,17 +23,20 @@ namespace API.Controllers
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IWebHostEnvironment _environment;
+        private readonly IMemoryCache _memoryCache;
 
         public CameraRuntimeController(
             ApplicationDbContext context,
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            IMemoryCache memoryCache)
         {
             _context = context;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _environment = environment;
+            _memoryCache = memoryCache;
         }
 
         // ================= GET ALL =================
@@ -306,6 +310,14 @@ namespace API.Controllers
             var lastDay = DateOnly.FromDateTime((to ?? today.ToDateTime(TimeOnly.MaxValue)).Date);
             if (lastDay < firstDay) return Ok(Array.Empty<DvrStatusItem>());
 
+            // Reading an HLS manifest is cheap, but walking every .m4s file
+            // is not when a camera has been recording all day. A tiny cache
+            // coalesces concurrent page loads without making the live status
+            // stale for operators.
+            var cacheKey = $"camera-dvr-status:{cameraId}:{gateId}:{cameraType}:{search}:{firstDay:yyyy-MM-dd}:{lastDay:yyyy-MM-dd}";
+            if (_memoryCache.TryGetValue(cacheKey, out IReadOnlyList<DvrStatusItem>? cachedItems))
+                return Ok(cachedItems);
+
             var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
             var cameraQuery = _context.Cameras
                 .AsNoTracking()
@@ -377,8 +389,14 @@ namespace API.Controllers
                     if (segmentCount == 0 || string.IsNullOrWhiteSpace(initPath) || !System.IO.File.Exists(initPath) || new FileInfo(initPath).Length == 0)
                         continue;
 
-                    var lastMediaAtUtc = Directory.EnumerateFiles(dayDirectory, "*.m4s", SearchOption.TopDirectoryOnly)
-                        .Select(path => System.IO.File.GetLastWriteTimeUtc(path)).DefaultIfEmpty(DateTime.MinValue).Max();
+                    // ffmpeg updates its session manifest whenever it closes
+                    // a media segment. Looking at these few manifests is both
+                    // sufficient for the live flag and avoids enumerating all
+                    // media chunks (which can be thousands per camera/day).
+                    var lastMediaAtUtc = Directory.EnumerateFiles(dayDirectory, "session_*.m3u8", SearchOption.TopDirectoryOnly)
+                        .Select(System.IO.File.GetLastWriteTimeUtc)
+                        .DefaultIfEmpty(DateTime.MinValue)
+                        .Max();
                     var isRecording = recordingDay == today && lastMediaAtUtc >= DateTime.UtcNow.AddSeconds(-15);
 
                     items.Add(new DvrStatusItem(camera.CameraId, camera.CameraName, recordingDay, segmentCount,
@@ -386,7 +404,9 @@ namespace API.Controllers
                 }
             }
 
-            return Ok(items.OrderByDescending(item => item.UpdatedAtUtc));
+            var result = items.OrderByDescending(item => item.UpdatedAtUtc).ToList();
+            _memoryCache.Set(cacheKey, result, TimeSpan.FromSeconds(3));
+            return Ok(result);
         }
 
         // ================= LIST RECORDED SEGMENTS =================

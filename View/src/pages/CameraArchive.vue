@@ -184,6 +184,7 @@ const page = ref(1)
 const showVideoId = ref(null)
 const showDvrKey = ref(null)
 const dvrTimelines = ref([])
+let archiveRequestId = 0
 
 const filters = reactive({
   cameraId: normalizeRouteCameraId(route.params.id),
@@ -234,12 +235,16 @@ async function loadCameras() {
   cameras.value = Array.isArray(data) ? data : []
 }
 
-async function loadDvrTimelines() {
+async function loadDvrTimelines(params, requestId) {
   try {
-    const data = await getDvrStatus(buildParams())
-    dvrTimelines.value = Array.isArray(data) ? data : []
+    const data = await getDvrStatus(params)
+    // A user can change a filter while this filesystem-backed request is in
+    // flight. Ignore its late response instead of replacing fresh results.
+    if (requestId === archiveRequestId) {
+      dvrTimelines.value = Array.isArray(data) ? data : []
+    }
   } catch (error) {
-    dvrTimelines.value = []
+    if (requestId === archiveRequestId) dvrTimelines.value = []
     console.warn("Không xác định được timeline DVR:", error)
   }
 }
@@ -256,25 +261,32 @@ function buildParams(targetPage = 1) {
 }
 
 async function loadSegments(targetPage = 1) {
+  const requestId = ++archiveRequestId
+  const params = buildParams(targetPage)
   loading.value = true
   page.value = targetPage
   showVideoId.value = null
   showDvrKey.value = null
+  dvrTimelines.value = []
 
   try {
-    const [res] = await Promise.all([
-      getArchiveSegments(buildParams(targetPage)),
-      loadDvrTimelines()
-    ])
+    // Do not make the paged archive wait for a filesystem scan of DVR
+    // manifests. The video list can be used immediately; DVR cards fill in
+    // as soon as their independent request is ready.
+    const res = await getArchiveSegments(params)
+    if (requestId !== archiveRequestId) return
     segments.value = Array.isArray(res.items) ? res.items : []
     total.value = Number(res.total || 0)
   } catch (error) {
+    if (requestId !== archiveRequestId) return
     console.error("Không tải được kho lưu trữ:", error)
     segments.value = []
     total.value = 0
   } finally {
-    loading.value = false
+    if (requestId === archiveRequestId) loading.value = false
   }
+
+  void loadDvrTimelines(params, requestId)
 }
 
 async function resetFilters() {
@@ -327,8 +339,9 @@ watch(
 )
 
 onMounted(async () => {
-  await loadCameras()
-  await loadSegments(1)
+  // Camera metadata has no dependency on the first archive page. Load both
+  // concurrently to remove one full request from the initial render path.
+  await Promise.all([loadCameras(), loadSegments(1)])
 })
 </script>
 
