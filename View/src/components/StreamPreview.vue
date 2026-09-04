@@ -106,6 +106,7 @@ const dvrPosition = ref(0)
 let hlsInstance = null
 let dvrTimelineRequest = 0
 let dvrTimelineTimer = null
+const DVR_LIVE_EDGE_MARGIN_SECONDS = 2
 
 const dvrTimelineReady = computed(() => dvrDuration.value > 0)
 
@@ -257,7 +258,21 @@ const seekDvr = async (position) => {
     try { await element.play() } catch { /* controls remain usable */ }
 }
 
-const goLive = () => seekDvr(Math.max(0, dvrDuration.value - 1))
+const goLive = async () => {
+    const element = videoRef.value
+    if (!element) return
+
+    // The end of an open EVENT playlist is not a playable instant yet. Stay a
+    // small distance behind it so the browser has a complete fragment to play.
+    const seekableEnd = element.seekable?.length
+        ? element.seekable.end(element.seekable.length - 1)
+        : 0
+    const timelineEnd = Math.max(seekableEnd, dvrDuration.value, Number(element.duration) || 0)
+    const livePosition = Math.max(0, timelineEnd - DVR_LIVE_EDGE_MARGIN_SECONDS)
+    element.currentTime = livePosition
+    dvrPosition.value = Math.floor(livePosition)
+    try { await element.play() } catch { /* controls remain usable */ }
+}
 
 const formatDvrTime = (seconds) => {
     const safe = Math.max(0, Math.floor(Number(seconds) || 0))
@@ -320,6 +335,7 @@ const attachHlsPreview = async () => {
     startDvrTimelineRefresh()
 
     if (element.canPlayType('application/vnd.apple.mpegurl')) {
+        element.addEventListener('loadedmetadata', () => { void goLive() }, { once: true })
         element.src = resolvedUrl.value
         try {
             await element.play()
@@ -343,6 +359,7 @@ const attachHlsPreview = async () => {
             lowLatencyMode: false,
             liveDurationInfinity: false,
             backBufferLength: 60,
+            startPosition: -1,
         })
 
         hlsInstance.on(Hls.Events.ERROR, (_, data) => {
@@ -360,11 +377,7 @@ const attachHlsPreview = async () => {
         }
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, async () => {
             updateDvrTimeline(hlsInstance?.levels?.[0]?.details?.totalduration)
-            try {
-                await element.play()
-            } catch {
-                // Browser autoplay can fail silently; controls remain available.
-            }
+            await goLive()
         })
     } catch (error) {
         handleError(error instanceof Error ? error.message : 'Không tải được HLS player.')
