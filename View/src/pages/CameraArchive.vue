@@ -69,7 +69,7 @@
       </article>
       <article class="summary-card">
         <span class="summary-kicker">DVR hôm nay</span>
-        <strong>{{ activeDvrCamera ? 'Sẵn sàng' : 'Chọn camera' }}</strong>
+        <strong>{{ dvrTimelines.length ? `${dvrTimelines.length} camera` : 'Chưa có dữ liệu' }}</strong>
       </article>
       <article class="summary-card">
         <span class="summary-kicker">Camera hiện có</span>
@@ -85,9 +85,9 @@
       <div>
         <span class="summary-kicker">DVR trong ngày</span>
         <h2>{{ activeDvrCamera.cameraName }}</h2>
-        <p>Ghi liên tục trong ngày. Dùng thanh thời gian để tua lại hoặc chọn “Trực tiếp” để về hiện tại.</p>
+        <p>Đang ghi liên tục cùng {{ Math.max(dvrTimelines.length - 1, 0) }} camera khác. Mở camera khác bằng bộ lọc phía trên; trình phát này luôn vào chế độ trực tiếp, chỉ tua khi bạn kéo thanh thời gian.</p>
       </div>
-      <StreamPreview v-if="activeDvrAvailable" :url="todayDvrUrl" :label="`DVR ${activeDvrCamera.cameraName}`" :show-controls="true" dvr-mode />
+      <StreamPreview v-if="activeDvrAvailable" :key="todayDvrUrl" :url="todayDvrUrl" :label="`DVR ${activeDvrCamera.cameraName}`" :show-controls="true" dvr-mode />
       <div v-else class="dvr-unavailable">
         Camera này đang mất kết nối và chưa có video DVR hợp lệ để phát lại. Khi camera có luồng video thực, phần đã ghi sẽ vẫn xem được sau khi ngắt kết nối.
       </div>

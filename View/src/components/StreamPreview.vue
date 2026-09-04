@@ -106,6 +106,7 @@ const dvrPosition = ref(0)
 let hlsInstance = null
 let dvrTimelineRequest = 0
 let dvrTimelineTimer = null
+let dvrLiveStartPending = false
 const DVR_LIVE_EDGE_MARGIN_SECONDS = 2
 
 const dvrTimelineReady = computed(() => dvrDuration.value > 0)
@@ -203,6 +204,7 @@ const resetState = () => {
     isLoading.value = false
     dvrDuration.value = 0
     dvrPosition.value = 0
+    dvrLiveStartPending = false
 }
 
 const updateDvrTimeline = (duration) => {
@@ -231,6 +233,7 @@ const loadDvrPlaylistTimeline = async () => {
 
         if (requestId === dvrTimelineRequest) {
             updateDvrTimeline(duration)
+            void startAtDvrLiveEdge()
         }
     } catch {
         // hls.js can still supply the timeline through LEVEL_LOADED.
@@ -272,6 +275,21 @@ const goLive = async () => {
     element.currentTime = livePosition
     dvrPosition.value = Math.floor(livePosition)
     try { await element.play() } catch { /* controls remain usable */ }
+}
+
+// The first HLS callback can arrive before the browser exposes a seekable
+// range.  Starting there puts an EVENT DVR at second 0 instead of at the
+// current camera frame.  Wait until either the manifest duration or browser
+// range is known, then make one (and only one) initial jump to live.
+const startAtDvrLiveEdge = async () => {
+    if (!dvrLiveStartPending) return
+    const element = videoRef.value
+    const hasSeekableRange = Boolean(element?.seekable?.length)
+    const hasTimeline = dvrDuration.value > 0 || Number(element?.duration) > 0
+    if (!hasSeekableRange && !hasTimeline) return
+
+    dvrLiveStartPending = false
+    await goLive()
 }
 
 const formatDvrTime = (seconds) => {
@@ -331,11 +349,12 @@ const attachHlsPreview = async () => {
     resetVideoElement()
     errorMessage.value = ''
     isLoading.value = true
+    dvrLiveStartPending = Boolean(props.dvrMode)
     void loadDvrPlaylistTimeline()
     startDvrTimelineRefresh()
 
     if (element.canPlayType('application/vnd.apple.mpegurl')) {
-        element.addEventListener('loadedmetadata', () => { void goLive() }, { once: true })
+        element.addEventListener('loadedmetadata', () => { void startAtDvrLiveEdge() }, { once: true })
         element.src = resolvedUrl.value
         try {
             await element.play()
@@ -373,11 +392,12 @@ const attachHlsPreview = async () => {
         if (Hls.Events.LEVEL_LOADED) {
             hlsInstance.on(Hls.Events.LEVEL_LOADED, (_, data) => {
                 updateDvrTimeline(data?.details?.totalduration)
+                void startAtDvrLiveEdge()
             })
         }
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, async () => {
             updateDvrTimeline(hlsInstance?.levels?.[0]?.details?.totalduration)
-            await goLive()
+            await startAtDvrLiveEdge()
         })
     } catch (error) {
         handleError(error instanceof Error ? error.message : 'Không tải được HLS player.')
