@@ -93,9 +93,15 @@ public class CameraRecordingService : BackgroundService
             return;
         }
 
+        var (playlistPath, sessionId) = CreateSession(recordsDir);
+        TryStartWithCandidate(cam.CameraId, candidates, 0, playlistPath, day, sessionId);
+    }
+
+    private static (string PlaylistPath, string SessionId) CreateSession(string recordsDir)
+    {
         var sessionId = $"{DateTime.UtcNow:HHmmssfff}_{Guid.NewGuid():N}";
         var playlistPath = Path.Combine(recordsDir, $"session_{sessionId}.m3u8").Replace("\\", "/");
-        TryStartWithCandidate(cam.CameraId, candidates, 0, playlistPath, day, sessionId);
+        return (playlistPath, sessionId);
     }
 
     private void TryStartWithCandidate(int cameraId, List<RecordingInputCandidate> candidates, int index, string playlistPath, DateOnly recordingDayLocal, string sessionId)
@@ -173,9 +179,17 @@ public class CameraRecordingService : BackgroundService
             rp.Error = TrimForLog(stderr);
             Console.WriteLine($"[recording] Camera {rp.CameraId} recorder exited from {rp.SourceLabel ?? "unknown"}: {rp.Error}");
 
-            if (rp.Candidates != null && rp.SourceLabel != null)
+            if (rp.Candidates != null)
             {
-                TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, rp.OutputPattern ?? "", rp.RecordingDayLocal, rp.SessionId ?? Guid.NewGuid().ToString("N"));
+                // A process that already wrote media must never restart into
+                // its old playlist. Keep that session immutable and start the
+                // reconnect as a new same-day session for the merged DVR.
+                var recordsDir = Path.GetDirectoryName(rp.OutputPattern ?? string.Empty);
+                if (!string.IsNullOrWhiteSpace(recordsDir))
+                {
+                    var (playlistPath, sessionId) = CreateSession(recordsDir);
+                    TryStartWithCandidate(rp.CameraId, rp.Candidates, rp.CandidateIndex + 1, playlistPath, rp.RecordingDayLocal, sessionId);
+                }
             }
         }
         catch
@@ -378,6 +392,11 @@ public class CameraRecordingService : BackgroundService
         var recordingsRoot = Path.Combine(_env.WebRootPath, "uploads", "recordings");
         if (!Directory.Exists(recordingsRoot)) return;
 
+        // Legacy MP4 indexing is best-effort work. It must never delay the
+        // current HLS/DVR publisher; a large historical folder is processed in
+        // small slices over later passes.
+        var scanDeadlineUtc = DateTime.UtcNow.AddSeconds(1);
+
         var existingPaths = new HashSet<string>(
             await db.RecordedSegments.Select(s => s.FilePath).ToListAsync(ct),
             StringComparer.OrdinalIgnoreCase
@@ -385,12 +404,14 @@ public class CameraRecordingService : BackgroundService
 
         foreach (var camDir in Directory.GetDirectories(recordingsRoot))
         {
+            if (DateTime.UtcNow >= scanDeadlineUtc) break;
             var dirName = Path.GetFileName(camDir);
             if (!dirName.StartsWith("cam", StringComparison.OrdinalIgnoreCase)) continue;
             if (!int.TryParse(dirName.AsSpan(3), out var cameraId)) continue;
 
             foreach (var filePath in Directory.GetFiles(camDir, "*.mp4", SearchOption.AllDirectories))
             {
+                if (DateTime.UtcNow >= scanDeadlineUtc) break;
                 // fMP4 init files under dvr/ belong to the continuous HLS
                 // timeline. They are not standalone evidence clips. Scanning
                 // thousands of these as MP4 clips blocks the recorder loop and
@@ -406,7 +427,7 @@ public class CameraRecordingService : BackgroundService
                 if (fileInfo.LastWriteTimeUtc > DateTime.UtcNow.Subtract(SegmentPublishDelay)) continue;
 
                 var startedAt = TryResolveSegmentStartedAt(filePath) ?? DateTime.UtcNow;
-                var duration = await ProbeDuration(filePath);
+                var duration = await ProbeDuration(filePath, ct);
                 if (duration <= 0) continue;
 
                 var relativePath = Path.GetRelativePath(
@@ -442,7 +463,7 @@ public class CameraRecordingService : BackgroundService
         return string.Equals(firstDirectory, "dvr", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<double> ProbeDuration(string filePath)
+    private static async Task<double> ProbeDuration(string filePath, CancellationToken ct)
     {
         try
         {
@@ -456,8 +477,15 @@ public class CameraRecordingService : BackgroundService
             };
             using var proc = new Process { StartInfo = psi };
             proc.Start();
-            var output = await proc.StandardOutput.ReadToEndAsync();
-            await proc.WaitForExitAsync();
+            var outputTask = proc.StandardOutput.ReadToEndAsync();
+            var exitTask = proc.WaitForExitAsync(ct);
+            var completedTask = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(1), ct));
+            if (completedTask != exitTask)
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { }
+                return 0;
+            }
+            var output = await outputTask;
             if (double.TryParse(output.Trim(), System.Globalization.NumberStyles.Any,
                 System.Globalization.CultureInfo.InvariantCulture, out var dur))
                 return dur;
