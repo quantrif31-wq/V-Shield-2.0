@@ -69,7 +69,7 @@
       </article>
       <article class="summary-card">
         <span class="summary-kicker">DVR hôm nay</span>
-        <strong>{{ dvrTimelines.length ? `${dvrTimelines.length} camera` : 'Chưa có dữ liệu' }}</strong>
+        <strong>{{ recordingDvrTimelines.length ? `${recordingDvrTimelines.length} đang ghi` : 'Không có luồng mới' }}</strong>
       </article>
       <article class="summary-card">
         <span class="summary-kicker">Camera hiện có</span>
@@ -79,6 +79,25 @@
         <span class="summary-kicker">Đang lọc</span>
         <strong>{{ activeFilterLabel }}</strong>
       </article>
+    </section>
+
+    <section v-if="recordingDvrTimelines.length" class="dvr-camera-strip" aria-label="Camera đang ghi DVR">
+      <div>
+        <span class="summary-kicker">Camera đang ghi</span>
+        <p>Chọn theo tên camera để xem DVR riêng; không gom theo cổng.</p>
+      </div>
+      <div class="dvr-camera-list">
+        <button
+          v-for="timeline in recordingDvrTimelines"
+          :key="timeline.cameraId"
+          type="button"
+          class="dvr-camera-button"
+          :class="{ active: Number(filters.cameraId) === Number(timeline.cameraId) }"
+          @click="selectDvrCamera(timeline.cameraId)"
+        >
+          <span class="recording-dot" aria-hidden="true"></span>{{ timeline.cameraName }}
+        </button>
+      </div>
     </section>
 
     <section v-if="activeDvrCamera" class="dvr-card">
@@ -220,6 +239,10 @@ const activeDvrAvailable = computed(() => {
   return Number.isInteger(cameraId) && dvrTimelines.value.some((timeline) => Number(timeline.cameraId) === cameraId)
 })
 
+const recordingDvrTimelines = computed(() =>
+  dvrTimelines.value.filter((timeline) => timeline?.isRecording === true)
+)
+
 const todayDvrUrl = computed(() => {
   const cameraId = Number(activeDvrCamera.value?.cameraId)
   if (!Number.isInteger(cameraId) || cameraId <= 0) return ''
@@ -307,6 +330,13 @@ async function resetFilters() {
 
 function toggleVideo(segmentId) {
   showVideoId.value = showVideoId.value === segmentId ? null : segmentId
+}
+
+function selectDvrCamera(cameraId) {
+  const normalized = String(cameraId)
+  if (filters.cameraId === normalized) return
+  filters.cameraId = normalized
+  void loadSegments(1)
 }
 
 function formatDate(value) {
@@ -471,6 +501,62 @@ onMounted(async () => {
   color: var(--text-primary);
 }
 
+.dvr-camera-strip {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 15px 18px;
+  background: color-mix(in srgb, var(--surface-default) 92%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+}
+
+.dvr-camera-strip p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.dvr-camera-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.dvr-camera-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 8px 11px;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  background: var(--surface-default);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.dvr-camera-button:hover,
+.dvr-camera-button.active {
+  color: var(--brand-strong);
+  background: color-mix(in srgb, var(--brand-soft) 65%, var(--surface-default));
+  border-color: var(--brand-strong);
+}
+
+.recording-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  background: #16a34a;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+}
+
 .dvr-card {
   margin-bottom: 18px;
   padding: 18px 20px;
@@ -485,6 +571,10 @@ onMounted(async () => {
 .dvr-selection-hint,
 .dvr-unavailable { margin-bottom: 18px; padding: 16px 20px; color: var(--text-secondary); background: color-mix(in srgb, var(--surface-default) 92%, transparent); border: 1px dashed var(--border-default); border-radius: 16px; }
 .dvr-unavailable { margin-top: 14px; border-color: color-mix(in srgb, var(--status-warning-text) 45%, var(--border-default)); }
+
+@media (max-width: 780px) {
+  .dvr-camera-strip { grid-template-columns: 1fr; }
+}
 
 .segment-list {
   display: flex;

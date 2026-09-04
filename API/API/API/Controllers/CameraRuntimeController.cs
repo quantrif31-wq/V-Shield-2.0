@@ -360,12 +360,23 @@ namespace API.Controllers
                     continue;
                 }
 
+                // index.m3u8 is republished even for an old timeline. Use the
+                // newest media fragment to distinguish an active recording
+                // from a camera that only has history available for playback.
+                var lastMediaAtUtc = Directory
+                    .EnumerateFiles(Path.GetDirectoryName(playlistPath)!, "*.m4s", SearchOption.TopDirectoryOnly)
+                    .Select(path => System.IO.File.GetLastWriteTimeUtc(path))
+                    .DefaultIfEmpty(DateTime.MinValue)
+                    .Max();
+                var isRecording = lastMediaAtUtc >= DateTime.UtcNow.AddSeconds(-15);
+
                 items.Add(new DvrStatusItem(
                     camera.CameraId,
                     camera.CameraName,
                     segmentCount,
                     durationSeconds,
-                    System.IO.File.GetLastWriteTimeUtc(playlistPath)));
+                    lastMediaAtUtc,
+                    isRecording));
             }
 
             return Ok(items.OrderByDescending(item => item.UpdatedAtUtc));
@@ -898,6 +909,7 @@ namespace API.Controllers
             string CameraName,
             int SegmentCount,
             double DurationSeconds,
-            DateTime UpdatedAtUtc);
+            DateTime UpdatedAtUtc,
+            bool IsRecording);
     }
 }
