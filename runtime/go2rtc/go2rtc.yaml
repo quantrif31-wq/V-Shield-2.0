@@ -8,9 +8,13 @@ streams:
     - ffmpeg:rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=0#video=mjpeg
     - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=0
   cam11:
-    - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=0#transport=tcp
-    - ffmpeg:rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=0#video=mjpeg
-    - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=0
+    - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
+    - ffmpeg:rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
+    - rtsp://admin:L2E8D067@192.168.137.17:554/cam/realmonitor?channel=1&subtype=1
+  cam12:
+    - rtsp://admin:L24460D0@192.168.137.223:554/cam/realmonitor?channel=1&subtype=1#transport=tcp
+    - ffmpeg:rtsp://admin:L24460D0@192.168.137.223:554/cam/realmonitor?channel=1&subtype=1#video=mjpeg
+    - rtsp://admin:L24460D0@192.168.137.223:554/cam/realmonitor?channel=1&subtype=1
 api:
   origin: "*"
 webrtc:
@@ -18,3 +22,8 @@ webrtc:
   ice_servers:
     - urls:
         - stun:stun.l.google.com:19302
+    - urls:
+        - "turn:v-shield.site:3478?transport=udp"
+        - "turn:v-shield.site:3478?transport=tcp"
+      username: "1820067963:go2rtc-local"
+      credential: "HbuIOGDEMzPcOr2n9/OHZuYBvPQ="
