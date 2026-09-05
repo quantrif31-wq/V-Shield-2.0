@@ -8,6 +8,8 @@ vi.mock('../../services/vehicleApi', () => ({ getByEmployeeId: vi.fn() }))
 vi.mock('../../services/employeeApi', () => ({ getAll: vi.fn() }))
 vi.mock('../../services/vehicleDelegationApi', () => ({
   createDelegation: vi.fn(),
+  createOwnershipRequest: vi.fn(),
+  getAvailableForOwnershipRequest: vi.fn(),
   getOutgoing: vi.fn(),
   getIncoming: vi.fn(),
   approveDelegation: vi.fn(),

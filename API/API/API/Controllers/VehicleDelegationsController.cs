@@ -56,6 +56,7 @@ public class VehicleDelegationsController : ControllerBase
             VehicleId = request.VehicleId,
             FromEmployeeId = fromEmployeeId.Value,
             ToEmployeeId = request.ToEmployeeId,
+            RequestedByEmployeeId = fromEmployeeId.Value,
             Reason = request.Reason?.Trim(),
             Status = DelegationStatuses.Pending,
             RequestedAtUtc = DateTime.UtcNow
@@ -75,6 +76,65 @@ public class VehicleDelegationsController : ControllerBase
         return Ok(delegation);
     }
 
+    [HttpPost("ownership-requests")]
+    public async Task<IActionResult> RequestOwnership([FromBody] RequestOwnershipRequest request)
+    {
+        var requesterId = _permissionService.GetCurrentEmployeeId(User);
+        if (!requesterId.HasValue)
+            return BadRequest(new { message = "Tai khoan hien tai chua lien ket nhan vien." });
+
+        var vehicle = await _context.Vehicles.Include(item => item.Employee)
+            .FirstOrDefaultAsync(item => item.VehicleId == request.VehicleId);
+        if (vehicle == null || !vehicle.EmployeeId.HasValue)
+            return NotFound(new { message = "Khong tim thay xe co chu so huu de xin chuyen nhuong." });
+        if (vehicle.ParkingStatus != "IN")
+            return BadRequest(new { message = "Chi co the xin chuyen nhuong xe dang o trong bai." });
+        if (vehicle.EmployeeId == requesterId.Value)
+            return BadRequest(new { message = "Ban da la chu so huu hien tai cua xe nay." });
+
+        var pending = await _context.VehicleDelegations.AnyAsync(item =>
+            item.VehicleId == vehicle.VehicleId && item.Status == DelegationStatuses.Pending);
+        if (pending)
+            return Conflict(new { message = "Xe nay dang co yeu cau chuyen nhuong cho duyet." });
+
+        var ownershipRequest = new VehicleDelegation
+        {
+            VehicleId = vehicle.VehicleId,
+            FromEmployeeId = vehicle.EmployeeId.Value,
+            ToEmployeeId = requesterId.Value,
+            RequestedByEmployeeId = requesterId.Value,
+            Reason = request.Reason?.Trim(),
+            Status = DelegationStatuses.Pending,
+            RequestedAtUtc = DateTime.UtcNow
+        };
+        _context.VehicleDelegations.Add(ownershipRequest);
+        await _context.SaveChangesAsync();
+
+        var requester = await _context.Employees.FindAsync(requesterId.Value);
+        await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Created",
+            "Yêu cầu xin chuyển nhượng xe",
+            $"{requester?.FullName ?? "Một nhân viên"} xin nhận quyền sở hữu xe {vehicle.LicensePlate}.",
+            "VehicleDelegation", ownershipRequest.VehicleDelegationId.ToString(), "/vehicle-transfer");
+
+        return Ok(ownershipRequest);
+    }
+
+    [HttpGet("available-for-ownership-request")]
+    public async Task<IActionResult> GetAvailableForOwnershipRequest()
+    {
+        var employeeId = _permissionService.GetCurrentEmployeeId(User);
+        if (!employeeId.HasValue)
+            return BadRequest(new { message = "Tai khoan hien tai chua lien ket nhan vien." });
+
+        var data = await _context.Vehicles.AsNoTracking()
+            .Where(vehicle => vehicle.ParkingStatus == "IN" && vehicle.EmployeeId.HasValue && vehicle.EmployeeId != employeeId.Value)
+            .Include(vehicle => vehicle.Employee)
+            .OrderBy(vehicle => vehicle.LicensePlate)
+            .Select(vehicle => new { vehicle.VehicleId, vehicle.LicensePlate, vehicle.Description, ownerName = vehicle.Employee!.FullName })
+            .ToListAsync();
+        return Ok(data);
+    }
+
     [HttpGet("outgoing")]
     public async Task<IActionResult> GetOutgoing()
     {
@@ -84,7 +144,8 @@ public class VehicleDelegationsController : ControllerBase
 
         var data = await _context.VehicleDelegations
             .AsNoTracking()
-            .Where(d => d.FromEmployeeId == employeeId.Value)
+            .Where(d => d.RequestedByEmployeeId == employeeId.Value ||
+                (d.RequestedByEmployeeId == null && d.FromEmployeeId == employeeId.Value))
             .Include(d => d.Vehicle)
             .Include(d => d.ToEmployee)
             .OrderByDescending(d => d.RequestedAtUtc)
@@ -95,6 +156,8 @@ public class VehicleDelegationsController : ControllerBase
                 licensePlate = d.Vehicle.LicensePlate,
                 d.ToEmployeeId,
                 toEmployeeName = d.ToEmployee.FullName,
+                d.RequestedByEmployeeId,
+                requestKind = d.RequestedByEmployeeId == d.ToEmployeeId ? "OwnershipRequest" : "TransferOffer",
                 d.Reason,
                 d.Status,
                 d.RequestedAtUtc,
@@ -114,7 +177,8 @@ public class VehicleDelegationsController : ControllerBase
 
         var data = await _context.VehicleDelegations
             .AsNoTracking()
-            .Where(d => d.ToEmployeeId == employeeId.Value)
+            .Where(d => (d.RequestedByEmployeeId == d.ToEmployeeId && d.FromEmployeeId == employeeId.Value) ||
+                ((d.RequestedByEmployeeId == null || d.RequestedByEmployeeId == d.FromEmployeeId) && d.ToEmployeeId == employeeId.Value))
             .Include(d => d.Vehicle)
             .Include(d => d.FromEmployee)
             .OrderByDescending(d => d.RequestedAtUtc)
@@ -125,6 +189,8 @@ public class VehicleDelegationsController : ControllerBase
                 licensePlate = d.Vehicle.LicensePlate,
                 d.FromEmployeeId,
                 fromEmployeeName = d.FromEmployee.FullName,
+                d.RequestedByEmployeeId,
+                requestKind = d.RequestedByEmployeeId == d.ToEmployeeId ? "OwnershipRequest" : "TransferOffer",
                 d.Reason,
                 d.Status,
                 d.RequestedAtUtc,
@@ -175,7 +241,10 @@ public class VehicleDelegationsController : ControllerBase
             return NotFound(new { message = "Khong tim thay yeu cau chuyen nhuong." });
 
         var currentEmployeeId = _permissionService.GetCurrentEmployeeId(User);
-        if (delegation.ToEmployeeId != currentEmployeeId)
+        var approvalEmployeeId = delegation.RequestedByEmployeeId == delegation.ToEmployeeId
+            ? delegation.FromEmployeeId
+            : delegation.ToEmployeeId;
+        if (approvalEmployeeId != currentEmployeeId)
             return Forbid();
 
         if (delegation.Status != DelegationStatuses.Pending)
@@ -217,7 +286,10 @@ public class VehicleDelegationsController : ControllerBase
             return NotFound(new { message = "Khong tim thay yeu cau chuyen nhuong." });
 
         var currentEmployeeId = _permissionService.GetCurrentEmployeeId(User);
-        if (delegation.ToEmployeeId != currentEmployeeId)
+        var approvalEmployeeId = delegation.RequestedByEmployeeId == delegation.ToEmployeeId
+            ? delegation.FromEmployeeId
+            : delegation.ToEmployeeId;
+        if (approvalEmployeeId != currentEmployeeId)
             return Forbid();
 
         if (delegation.Status != DelegationStatuses.Pending)
@@ -251,7 +323,7 @@ public class VehicleDelegationsController : ControllerBase
             return NotFound(new { message = "Khong tim thay yeu cau chuyen nhuong." });
 
         var currentEmployeeId = _permissionService.GetCurrentEmployeeId(User);
-        if (delegation.FromEmployeeId != currentEmployeeId)
+        if ((delegation.RequestedByEmployeeId ?? delegation.FromEmployeeId) != currentEmployeeId)
             return Forbid();
 
         if (delegation.Status != DelegationStatuses.Pending)
@@ -265,5 +337,6 @@ public class VehicleDelegationsController : ControllerBase
     }
 
     public sealed record CreateDelegationRequest(int VehicleId, int ToEmployeeId, string? Reason);
+    public sealed record RequestOwnershipRequest(int VehicleId, string? Reason);
     public sealed record RejectDelegationRequest(string? Reason);
 }

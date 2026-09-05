@@ -15,6 +15,10 @@ public class VehicleDelegation
 
     public int ToEmployeeId { get; set; }
 
+    // Người tạo yêu cầu. Null is retained for requests created before the
+    // ownership-request workflow was introduced; those are owner proposals.
+    public int? RequestedByEmployeeId { get; set; }
+
     [MaxLength(500)]
     public string? Reason { get; set; }
 

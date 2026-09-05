@@ -45,6 +45,23 @@
             <aside class="transfer-guide"><div class="transfer-guide__badge">QUY TRÌNH AN TOÀN</div><ol><li><span>01</span><p>Bạn chọn xe đang ở trong bãi.</p></li><li><span>02</span><p>Người nhận xác nhận yêu cầu.</p></li><li><span>03</span><p>Hệ thống đổi chủ xe sang người nhận.</p></li></ol><p class="transfer-guide__tip">Xe không đổi chủ nếu người nhận chưa đồng ý.</p></aside>
         </section>
 
+        <section v-else-if="activeTab === 'request'" class="grant-layout">
+            <div class="transfer-panel">
+                <div class="panel-intro"><span class="panel-intro__icon" aria-hidden="true">?</span><div><h2>Xin chuyển nhượng phương tiện</h2><p>Gửi yêu cầu đến chủ hiện tại. Xe chỉ đổi chủ sau khi chủ xe xác nhận.</p></div></div>
+                <div v-if="requestVehicles.length === 0" class="empty-state"><span aria-hidden="true">⌁</span><h3>Chưa có xe nào để xin chuyển nhượng</h3><p>Danh sách chỉ gồm xe của người khác đang ở trong bãi.</p></div>
+                <form v-else class="transfer-form" @submit.prevent="submitOwnershipRequest">
+                    <div class="form-step"><span>1</span><div><label for="request-vehicle">Chọn xe muốn nhận</label><p>Chọn xe đang trong bãi và đang thuộc một chủ khác.</p></div></div>
+                    <select id="request-vehicle" v-model="ownershipRequestForm.vehicleId" class="form-control" required><option value="" disabled>Chọn biển số xe</option><option v-for="vehicle in requestVehicles" :key="vehicle.vehicleId" :value="vehicle.vehicleId">{{ vehicle.licensePlate }} · Chủ hiện tại: {{ vehicle.ownerName }}</option></select>
+                    <div v-if="requestedVehicle" class="vehicle-preview"><span class="vehicle-preview__plate">{{ requestedVehicle.licensePlate }}</span><span>Chủ hiện tại: {{ requestedVehicle.ownerName }}</span></div>
+                    <div class="form-step"><span>2</span><div><label for="ownership-request-reason">Lý do xin chuyển nhượng <em>(không bắt buộc)</em></label><p>Chủ xe sẽ xem và quyết định xác nhận hoặc từ chối.</p></div></div>
+                    <textarea id="ownership-request-reason" v-model="ownershipRequestForm.reason" class="form-control" rows="3" placeholder="Ví dụ: Tôi sẽ tiếp nhận phương tiện cho ca tối"></textarea>
+                    <div v-if="requestError" class="form-message form-message--error" role="alert">{{ requestError }}</div><div v-if="requestSuccess" class="form-message form-message--success" role="status">{{ requestSuccess }}</div>
+                    <button class="submit-button" type="submit" :disabled="requestSaving"><span v-if="requestSaving" class="spinner-sm"></span><span v-else aria-hidden="true">→</span>{{ requestSaving ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu xin chuyển nhượng' }}</button>
+                </form>
+            </div>
+            <aside class="transfer-guide"><div class="transfer-guide__badge">QUY TRÌNH AN TOÀN</div><ol><li><span>01</span><p>Bạn chọn xe của người khác.</p></li><li><span>02</span><p>Chủ hiện tại xem yêu cầu.</p></li><li><span>03</span><p>Chủ xác nhận để xe đổi sang bạn.</p></li></ol><p class="transfer-guide__tip">Bạn không có quyền lấy xe ra khi chủ hiện tại chưa duyệt.</p></aside>
+        </section>
+
         <section v-else class="request-section">
             <div class="request-heading"><div><h2>{{ activeTab === 'incoming' ? 'Yêu cầu cần bạn xử lý' : 'Yêu cầu bạn đã gửi' }}</h2><p>{{ activeTab === 'incoming' ? 'Chỉ xác nhận khi bạn đồng ý trở thành chủ mới của xe.' : 'Theo dõi phản hồi của người được đề nghị nhận xe.' }}</p></div><button class="refresh-list" type="button" :disabled="isListLoading" @click="refreshActiveList">↻ Làm mới</button></div>
             <div v-if="isListLoading" class="request-skeleton"><span></span><span></span></div>
@@ -59,12 +76,13 @@ import { computed, onMounted, ref } from 'vue'
 import { authState } from '../stores/auth'
 import { getByEmployeeId } from '../services/vehicleApi'
 import { getAll as getAllEmployees } from '../services/employeeApi'
-import { approveDelegation, createDelegation, getIncoming, getOutgoing, rejectDelegation, revokeDelegation } from '../services/vehicleDelegationApi'
+import { approveDelegation, createDelegation, createOwnershipRequest, getAvailableForOwnershipRequest, getIncoming, getOutgoing, rejectDelegation, revokeDelegation } from '../services/vehicleDelegationApi'
 
-const tabs = [{ key: 'grant', label: 'Chuyển nhượng xe' }, { key: 'incoming', label: 'Yêu cầu đến' }, { key: 'outgoing', label: 'Yêu cầu đã gửi' }]
-const activeTab = ref('grant'); const myVehicles = ref([]); const delegationForm = ref({ vehicleId: '', reason: '' }); const employeeSearch = ref(''); const employeeResults = ref([]); const showEmpDropdown = ref(false); const selectedEmployee = ref(null); const grantError = ref(''); const grantSuccess = ref(''); const grantSaving = ref(false); const incomingList = ref([]); const incomingLoading = ref(false); const outgoingList = ref([]); const outgoingLoading = ref(false)
+const tabs = [{ key: 'grant', label: 'Chuyển nhượng xe' }, { key: 'request', label: 'Xin chuyển nhượng' }, { key: 'incoming', label: 'Yêu cầu đến' }, { key: 'outgoing', label: 'Yêu cầu đã gửi' }]
+const activeTab = ref('grant'); const myVehicles = ref([]); const requestVehicles = ref([]); const delegationForm = ref({ vehicleId: '', reason: '' }); const ownershipRequestForm = ref({ vehicleId: '', reason: '' }); const employeeSearch = ref(''); const employeeResults = ref([]); const showEmpDropdown = ref(false); const selectedEmployee = ref(null); const grantError = ref(''); const grantSuccess = ref(''); const grantSaving = ref(false); const requestError = ref(''); const requestSuccess = ref(''); const requestSaving = ref(false); const incomingList = ref([]); const incomingLoading = ref(false); const outgoingList = ref([]); const outgoingLoading = ref(false)
 let empSearchTimer = null
 const selectedVehicle = computed(() => myVehicles.value.find((item) => String(item.vehicleId) === String(delegationForm.value.vehicleId)))
+const requestedVehicle = computed(() => requestVehicles.value.find((item) => String(item.vehicleId) === String(ownershipRequestForm.value.vehicleId)))
 const pendingIncoming = computed(() => incomingList.value.filter((item) => item.status === 'Pending').length); const pendingOutgoing = computed(() => outgoingList.value.filter((item) => item.status === 'Pending').length); const activeList = computed(() => activeTab.value === 'incoming' ? incomingList.value : outgoingList.value); const isListLoading = computed(() => activeTab.value === 'incoming' ? incomingLoading.value : outgoingLoading.value)
 const formatDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Chưa rõ thời gian'
 const statusLabel = (value) => ({ Pending: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Đã từ chối', Revoked: 'Đã hủy' }[value] || value)
@@ -74,14 +92,16 @@ function selectEmployee(employee) { selectedEmployee.value = employee; employeeS
 function clearEmployee() { selectedEmployee.value = null; employeeSearch.value = ''; employeeResults.value = [] }
 async function searchEmployees() { if (empSearchTimer) clearTimeout(empSearchTimer); selectedEmployee.value = null; if (!employeeSearch.value.trim()) { employeeResults.value = []; return }; empSearchTimer = setTimeout(async () => { try { const response = await getAllEmployees({ search: employeeSearch.value.trim() }); employeeResults.value = (response.data || []).filter((item) => item.employeeId !== authState.user?.employeeId); showEmpDropdown.value = true } catch { employeeResults.value = [] } }, 300) }
 async function submitDelegation() { if (!selectedEmployee.value) { grantError.value = 'Vui lòng chọn người nhận chuyển nhượng từ danh sách gợi ý.'; return }; grantError.value = ''; grantSuccess.value = ''; grantSaving.value = true; try { await createDelegation({ vehicleId: parseInt(delegationForm.value.vehicleId), toEmployeeId: selectedEmployee.value.employeeId, reason: delegationForm.value.reason || null }); grantSuccess.value = 'Đã gửi yêu cầu chuyển nhượng. Người nhận cần xác nhận để trở thành chủ mới.'; delegationForm.value = { vehicleId: '', reason: '' }; clearEmployee(); await loadVehicles(); await loadOutgoing() } catch (error) { grantError.value = error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.' } finally { grantSaving.value = false } }
+async function submitOwnershipRequest() { requestError.value = ''; requestSuccess.value = ''; requestSaving.value = true; try { await createOwnershipRequest({ vehicleId: parseInt(ownershipRequestForm.value.vehicleId), reason: ownershipRequestForm.value.reason || null }); requestSuccess.value = 'Đã gửi yêu cầu. Chủ xe cần xác nhận để chuyển quyền sở hữu sang bạn.'; ownershipRequestForm.value = { vehicleId: '', reason: '' }; await Promise.all([loadRequestVehicles(), loadOutgoing()]) } catch (error) { requestError.value = error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.' } finally { requestSaving.value = false } }
 async function loadVehicles() { try { const response = await getByEmployeeId(authState.user?.employeeId); myVehicles.value = (response.data || []).filter((item) => item.parkingStatus === 'IN') } catch { myVehicles.value = [] } }
+async function loadRequestVehicles() { try { const response = await getAvailableForOwnershipRequest(); requestVehicles.value = response.data || [] } catch { requestVehicles.value = [] } }
 async function loadIncoming() { incomingLoading.value = true; try { const response = await getIncoming(); incomingList.value = response.data || [] } catch { incomingList.value = [] } finally { incomingLoading.value = false } }
 async function loadOutgoing() { outgoingLoading.value = true; try { const response = await getOutgoing(); outgoingList.value = response.data || [] } catch { outgoingList.value = [] } finally { outgoingLoading.value = false } }
 const refreshActiveList = () => activeTab.value === 'incoming' ? loadIncoming() : loadOutgoing()
 async function doApprove(id) { try { await approveDelegation(id); await Promise.all([loadIncoming(), loadOutgoing(), loadVehicles()]) } catch (error) { alert(error.response?.data?.message || 'Lỗi khi duyệt yêu cầu.') } }
 async function doReject(id) { if (!confirm('Từ chối yêu cầu này?')) return; try { await rejectDelegation(id, { reason: null }); await loadIncoming() } catch (error) { alert(error.response?.data?.message || 'Lỗi khi từ chối yêu cầu.') } }
 async function doRevoke(id) { if (!confirm('Hủy yêu cầu này?')) return; try { await revokeDelegation(id); await loadOutgoing() } catch (error) { alert(error.response?.data?.message || 'Lỗi khi hủy yêu cầu.') } }
-onMounted(() => { loadVehicles(); loadIncoming(); loadOutgoing() })
+onMounted(() => { loadVehicles(); loadRequestVehicles(); loadIncoming(); loadOutgoing() })
 </script>
 
 <style scoped>
