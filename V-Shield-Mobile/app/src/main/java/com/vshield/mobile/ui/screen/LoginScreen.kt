@@ -57,7 +57,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.vshield.mobile.BuildConfig
 import com.vshield.mobile.security.BiometricType
 import com.vshield.mobile.security.toDisplayText
 import com.vshield.mobile.ui.component.ErrorDialog
@@ -75,20 +74,14 @@ fun LoginScreen(
     val activity = LocalContext.current as? FragmentActivity
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var username by remember { mutableStateOf(uiState.lastUsername.takeIf { !it.isNullOrBlank() } ?: "nhanvien1") }
-    var password by remember { mutableStateOf("Staff@123") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var mfaCode by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var biometricSelection by remember(uiState.showBiometricSetupDialog, uiState.biometricCapabilities) {
         mutableStateOf(
             uiState.enabledBiometricTypes.ifEmpty { uiState.biometricCapabilities.map { it.type }.toSet() }
         )
-    }
-
-    LaunchedEffect(uiState.lastUsername) {
-        if (username.isBlank() && !uiState.lastUsername.isNullOrBlank()) {
-            username = uiState.lastUsername.orEmpty()
-        }
     }
 
     LaunchedEffect(uiState.isLoggedIn) {
@@ -318,24 +311,22 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (!BuildConfig.BYPASS_MFA) {
-                        OutlinedTextField(
-                            value = mfaCode,
-                            onValueChange = { mfaCode = it.filter(Char::isDigit).take(6) },
-                            label = { Text("Mã xác thực 2 lớp (MFA)") },
-                            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
-                            supportingText = {
-                                Text("Nhập 6 chữ số từ ứng dụng Authenticator nếu tài khoản đang bật MFA.")
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.NumberPassword,
-                                imeAction = ImeAction.Done
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
+                    OutlinedTextField(
+                        value = mfaCode,
+                        onValueChange = { mfaCode = it.filter(Char::isDigit).take(6) },
+                        label = { Text("Mã xác thực 2 lớp (MFA)") },
+                        leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
+                        supportingText = {
+                            Text("Nhập 6 chữ số từ ứng dụng Authenticator nếu tài khoản đang bật MFA.")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.NumberPassword,
+                            imeAction = ImeAction.Done
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
 
                     if (uiState.hasBiometricHardware) {
                         Spacer(modifier = Modifier.height(10.dp))

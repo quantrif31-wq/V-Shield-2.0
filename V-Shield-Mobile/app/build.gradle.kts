@@ -11,12 +11,11 @@ android {
         applicationId = "com.vshield.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "2.0.1"
+        versionCode = 4
+        versionName = "2.0.2"
 
         buildConfigField("String", "API_BASE_URL", "\"https://v-shield.site\"")
         buildConfigField("Boolean", "DEMO_MODE", "false")
-        buildConfigField("Boolean", "BYPASS_MFA", "true")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
