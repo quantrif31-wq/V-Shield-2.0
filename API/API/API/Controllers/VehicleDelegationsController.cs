@@ -127,7 +127,7 @@ public class VehicleDelegationsController : ControllerBase
             return BadRequest(new { message = "Tai khoan hien tai chua lien ket nhan vien." });
 
         var normalizedSearch = search?.Trim();
-        var query = _context.Vehicles.AsNoTracking()
+        IQueryable<Vehicle> query = _context.Vehicles.AsNoTracking()
             .Where(vehicle => vehicle.ParkingStatus == "IN" && vehicle.EmployeeId.HasValue && vehicle.EmployeeId != employeeId.Value)
             .Include(vehicle => vehicle.Employee);
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
