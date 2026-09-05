@@ -63,6 +63,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             secureStorage.isBiometricEnabled() &&
             (authRepository.hasRestorableSession() || hasOfflineSession)
 
+        // A prior successful MFA login may leave a valid access token on disk.
+        // When quick login is enabled, never restore that token directly at a
+        // fresh app launch: require the phone's biometric/device credential,
+        // then exchange the retained refresh token for a new access token.
+        if (hasBiometricSession) {
+            authRepository.lockSession(keepRefreshToken = true)
+        }
+
         val hasToken = authRepository.hasActiveAccessToken()
         if (hasToken) {
             authRepository.restoreAccessToken()
@@ -113,14 +121,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     // Auto-remember the account: if the phone has a device lock
                     // (PIN/pattern/password) or biometric, enable quick login so the
                     // next launch only asks for the phone's unlock method.
-                    val autoEnabled = if (capabilities.isNotEmpty() && hasRestorableSession) {
+                    if (capabilities.isNotEmpty() && hasRestorableSession) {
                         secureStorage.enableBiometricForSession(
                             username = username,
                             types = capabilities.map { it.type }.toSet()
                         )
-                        true
-                    } else {
-                        false
                     }
 
                     com.vshield.mobile.service.VShieldBackgroundService.start(getApplication())
