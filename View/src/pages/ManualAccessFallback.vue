@@ -83,10 +83,9 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { getGates } from '../services/deviceManagementApi'
 import { getAll as getEmployees, getProtectedFaceImage } from '../services/employeeApi'
 import { getVisitorDirectory } from '../services/guestProfileApi'
-import { getManualSubject } from '../services/gateTransitApi'
+import { getManualGates, getManualSubject } from '../services/gateTransitApi'
 import http from '../services/http'
 
 const gates = ref([])
@@ -121,7 +120,19 @@ const photoClass = computed(() => {
 })
 
 onMounted(async () => {
-  try { const r = await getGates(); gates.value = r.data || [] } catch (e) { console.error(e) }
+  try {
+    // This is an operational QR fallback screen, not device management. The
+    // gate-transit endpoint is authorized for the guard's operating scope and
+    // returns the standard { success, data } envelope.
+    const response = await getManualGates()
+    gates.value = Array.isArray(response.data?.data) ? response.data.data : []
+  } catch (error) {
+    gates.value = []
+    errorMsg.value = error.response?.status === 403
+      ? 'Tài khoản hiện tại chưa được cấp quyền sử dụng cổng nào.'
+      : 'Không thể tải danh sách cổng. Vui lòng thử lại.'
+    console.error('Không thể tải danh sách cổng thủ công.', error)
+  }
 })
 onBeforeUnmount(() => { if (faceImg.value) URL.revokeObjectURL(faceImg.value) })
 

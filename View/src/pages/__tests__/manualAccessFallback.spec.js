@@ -1,13 +1,11 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../services/deviceManagementApi', () => ({ getGates: vi.fn() }))
 vi.mock('../../services/employeeApi', () => ({ getAll: vi.fn(), getProtectedFaceImage: vi.fn() }))
 vi.mock('../../services/guestProfileApi', () => ({ getVisitorDirectory: vi.fn() }))
-vi.mock('../../services/gateTransitApi', () => ({ getManualSubject: vi.fn() }))
+vi.mock('../../services/gateTransitApi', () => ({ getManualGates: vi.fn(), getManualSubject: vi.fn() }))
 vi.mock('../../services/http', () => ({ default: { post: vi.fn() } }))
 
-const devices = await import('../../services/deviceManagementApi')
 const employees = await import('../../services/employeeApi')
 const visitors = await import('../../services/guestProfileApi')
 const gateTransitApi = await import('../../services/gateTransitApi')
@@ -17,7 +15,7 @@ const ManualAccessFallback = (await import('../ManualAccessFallback.vue')).defau
 beforeEach(() => vi.clearAllMocks())
 
 async function mountPage() {
-  devices.getGates.mockResolvedValue({ data: [{ gateId: 1, gateName: 'Cổng A' }] })
+  gateTransitApi.getManualGates.mockResolvedValue({ data: { success: true, data: [{ gateId: 1, gateName: 'Cổng A' }] } })
   const wrapper = mount(ManualAccessFallback)
   await flushPromises()
   return wrapper
