@@ -289,6 +289,9 @@ public class CentralSyncService
             var employees = await _db.Employees.ToListAsync(cancellationToken);
             results.AddRange(employees.Select(item => BuildSyntheticEnvelope(item, item.EmployeeId.ToString(), item.PrimarySiteId.HasValue ? "Site" : null, item.PrimarySiteId, node)));
 
+            var employeeQrs = await _db.EmployeeDynamicQrs.ToListAsync(cancellationToken);
+            results.AddRange(employeeQrs.Select(item => BuildSyntheticEnvelope(item, item.Id.ToString(), null, null, node)));
+
             var vehicles = await _db.Vehicles.ToListAsync(cancellationToken);
             results.AddRange(vehicles.Select(item => BuildSyntheticEnvelope(item, item.VehicleId.ToString(), item.SiteId.HasValue ? "Site" : null, item.SiteId, node)));
 
@@ -338,6 +341,12 @@ public class CentralSyncService
 
             var employees = await _db.Employees.Where(item => item.PrimarySiteId == siteId.Value).ToListAsync(cancellationToken);
             results.AddRange(employees.Select(item => BuildSyntheticEnvelope(item, item.EmployeeId.ToString(), "Site", siteId.Value, node)));
+
+            var employeeIds = employees.Select(item => item.EmployeeId).ToList();
+            var employeeQrs = employeeIds.Count == 0
+                ? new List<EmployeeDynamicQr>()
+                : await _db.EmployeeDynamicQrs.Where(item => employeeIds.Contains(item.EmployeeId)).ToListAsync(cancellationToken);
+            results.AddRange(employeeQrs.Select(item => BuildSyntheticEnvelope(item, item.Id.ToString(), "Site", siteId.Value, node)));
 
             var vehicles = await _db.Vehicles.Where(item => item.SiteId == siteId.Value).ToListAsync(cancellationToken);
             results.AddRange(vehicles.Select(item => BuildSyntheticEnvelope(item, item.VehicleId.ToString(), "Site", siteId.Value, node)));

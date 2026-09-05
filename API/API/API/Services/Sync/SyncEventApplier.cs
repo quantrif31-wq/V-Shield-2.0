@@ -35,6 +35,8 @@ public class SyncEventApplier
             nameof(Visit) => await ApplyVisitAsync(syncEvent, action, entity, cancellationToken),
             nameof(Employee) => await ApplyGenericAsync<Employee>(syncEvent, action, entity, employee => employee.EmployeeId, cancellationToken,
                 lookup: async fields => await FindEmployeeAsync(fields, cancellationToken)),
+            nameof(EmployeeDynamicQr) => await ApplyGenericAsync<EmployeeDynamicQr>(syncEvent, action, entity, qr => qr.Id, cancellationToken,
+                lookup: async fields => await FindEmployeeDynamicQrAsync(fields, cancellationToken)),
             nameof(Vehicle) => await ApplyGenericAsync<Vehicle>(syncEvent, action, entity, vehicle => vehicle.VehicleId, cancellationToken,
                 lookup: async fields => await FindVehicleAsync(fields, cancellationToken)),
             nameof(WatchlistEntry) => await ApplyGenericAsync<WatchlistEntry>(syncEvent, action, entity, entry => entry.WatchlistEntryId, cancellationToken,
@@ -427,6 +429,19 @@ public class SyncEventApplier
         }
 
         return null;
+    }
+
+    private async Task<EmployeeDynamicQr?> FindEmployeeDynamicQrAsync(
+        Dictionary<string, JsonElement> fields,
+        CancellationToken cancellationToken)
+    {
+        if (TryGetInt(fields, nameof(EmployeeDynamicQr.EmployeeId)) is not { } employeeId)
+        {
+            return null;
+        }
+
+        return await _db.EmployeeDynamicQrs
+            .FirstOrDefaultAsync(item => item.EmployeeId == employeeId, cancellationToken);
     }
 
     private async Task<Vehicle?> FindVehicleAsync(Dictionary<string, JsonElement> fields, CancellationToken cancellationToken)
