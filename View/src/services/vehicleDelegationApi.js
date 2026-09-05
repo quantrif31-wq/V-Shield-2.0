@@ -2,7 +2,7 @@ import http from './http'
 
 export const createDelegation = (data) => http.post('/vehicle-delegations', data)
 export const createOwnershipRequest = (data) => http.post('/vehicle-delegations/ownership-requests', data)
-export const getAvailableForOwnershipRequest = () => http.get('/vehicle-delegations/available-for-ownership-request')
+export const getAvailableForOwnershipRequest = (search) => http.get('/vehicle-delegations/available-for-ownership-request', { params: { search } })
 export const getOutgoing = () => http.get('/vehicle-delegations/outgoing')
 export const getIncoming = () => http.get('/vehicle-delegations/incoming')
 export const getAllDelegations = () => http.get('/vehicle-delegations')

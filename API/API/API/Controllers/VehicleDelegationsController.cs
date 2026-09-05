@@ -120,16 +120,22 @@ public class VehicleDelegationsController : ControllerBase
     }
 
     [HttpGet("available-for-ownership-request")]
-    public async Task<IActionResult> GetAvailableForOwnershipRequest()
+    public async Task<IActionResult> GetAvailableForOwnershipRequest([FromQuery] string? search)
     {
         var employeeId = _permissionService.GetCurrentEmployeeId(User);
         if (!employeeId.HasValue)
             return BadRequest(new { message = "Tai khoan hien tai chua lien ket nhan vien." });
 
-        var data = await _context.Vehicles.AsNoTracking()
+        var normalizedSearch = search?.Trim();
+        var query = _context.Vehicles.AsNoTracking()
             .Where(vehicle => vehicle.ParkingStatus == "IN" && vehicle.EmployeeId.HasValue && vehicle.EmployeeId != employeeId.Value)
-            .Include(vehicle => vehicle.Employee)
+            .Include(vehicle => vehicle.Employee);
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+            query = query.Where(vehicle => vehicle.LicensePlate.Contains(normalizedSearch) || vehicle.Employee!.FullName.Contains(normalizedSearch));
+
+        var data = await query
             .OrderBy(vehicle => vehicle.LicensePlate)
+            .Take(5)
             .Select(vehicle => new { vehicle.VehicleId, vehicle.LicensePlate, vehicle.Description, ownerName = vehicle.Employee!.FullName })
             .ToListAsync();
         return Ok(data);
