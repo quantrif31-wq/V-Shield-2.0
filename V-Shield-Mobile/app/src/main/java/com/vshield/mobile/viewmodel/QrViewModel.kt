@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.time.Instant
 
 data class QrUiState(
@@ -33,6 +34,7 @@ class QrViewModel(application: Application) : AndroidViewModel(application) {
 
     private var refreshJob: Job? = null
     private var countdownJob: Job? = null
+    private var offlineConfigRefreshedForSession = false
 
     fun startQrRefresh() {
         refreshJob?.cancel()
@@ -53,8 +55,9 @@ class QrViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun fetchQr() {
         try {
             val response = RetrofitClient.apiService.getMyQr()
-            if (response.isSuccessful && response.body()?.success == true) {
-                val data = response.body()!!.data!!
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                val data = body.data
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     qrData = data,
@@ -65,12 +68,61 @@ class QrViewModel(application: Application) : AndroidViewModel(application) {
                     error = null
                 )
                 startCountdown()
+                refreshOfflineConfigFromServer()
             } else {
-                fallbackToOfflineQr(response.body()?.message ?: "Không thể tạo mã QR trực tuyến.")
+                showOnlineQrFailure(
+                    body?.message ?: "Không thể tạo mã QR trực tuyến (HTTP ${response.code()})."
+                )
             }
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             fallbackToOfflineQr("Đang dùng mã QR ngoại tuyến vì kết nối máy chủ tạm thời gián đoạn.")
+        } catch (e: Exception) {
+            showOnlineQrFailure("Không thể đồng bộ mã QR với máy chủ. Vui lòng đăng nhập lại hoặc thử lại.")
         }
+    }
+
+    /**
+     * QR offline must use the same secret currently held by the central server.
+     * Refresh it once after a verified online QR, avoiding a network call on every
+     * five-second QR refresh while replacing stale config after a server re-seed.
+     */
+    private fun refreshOfflineConfigFromServer() {
+        if (offlineConfigRefreshedForSession) return
+        offlineConfigRefreshedForSession = true
+
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.apiService.getMyOfflineQrBootstrap()
+                val payload = response.body()?.data
+                if (response.isSuccessful && response.body()?.success == true && payload != null) {
+                    secureStorage.saveOfflineQrConfig(
+                        com.vshield.mobile.security.OfflineQrConfig(
+                            employeeId = payload.employeeId,
+                            employeeName = payload.employeeName,
+                            secretKey = payload.secretKey,
+                            timeStepSeconds = payload.timeStepSeconds,
+                            digits = payload.digits
+                        )
+                    )
+                } else {
+                    offlineConfigRefreshedForSession = false
+                }
+            } catch (_: Exception) {
+                offlineConfigRefreshedForSession = false
+            }
+        }
+    }
+
+    private fun showOnlineQrFailure(message: String) {
+        countdownJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            qrData = null,
+            remainingSeconds = 0,
+            isOfflineMode = false,
+            statusMessage = null,
+            error = message
+        )
     }
 
     private fun fallbackToOfflineQr(message: String) {
