@@ -3,8 +3,8 @@
         <header class="transfer-header">
             <div>
                 <p class="eyebrow">QUẢN LÝ PHƯƠNG TIỆN</p>
-                <h1 class="page-title">Chuyển quyền xe</h1>
-                <p class="page-subtitle">Ủy quyền nhận xe cho đồng nghiệp, với trạng thái rõ ràng ở từng bước.</p>
+                <h1 class="page-title">Chuyển nhượng phương tiện</h1>
+                <p class="page-subtitle">Người nhận xác nhận để trở thành chủ mới của xe, kể cả khi xe đang trong bãi.</p>
             </div>
             <div class="transfer-summary" aria-label="Tóm tắt yêu cầu">
                 <div><strong>{{ pendingIncoming }}</strong><span>Chờ bạn duyệt</span></div>
@@ -12,7 +12,7 @@
             </div>
         </header>
 
-        <nav class="transfer-tabs" aria-label="Điều hướng chuyển quyền xe">
+        <nav class="transfer-tabs" aria-label="Điều hướng chuyển nhượng phương tiện">
             <button v-for="tab in tabs" :key="tab.key" class="tab-btn" :class="{ active: activeTab === tab.key }" :data-tab="tab.key" type="button" @click="activeTab = tab.key">
                 {{ tab.label }}
                 <span v-if="tab.key === 'incoming' && pendingIncoming" class="tab-count">{{ pendingIncoming }}</span>
@@ -21,10 +21,10 @@
 
         <section v-if="activeTab === 'grant'" class="grant-layout">
             <div class="transfer-panel">
-                <div class="panel-intro"><span class="panel-intro__icon" aria-hidden="true">↗</span><div><h2>Ủy quyền một xe đang trong bãi</h2><p>Người nhận cần xác nhận yêu cầu trước khi có quyền lấy xe ra.</p></div></div>
-                <div v-if="myVehicles.length === 0" class="empty-state"><span aria-hidden="true">⌁</span><h3>Không có xe để ủy quyền</h3><p>Chỉ xe đang ở trong bãi mới có thể chuyển quyền nhận xe.</p></div>
+                <div class="panel-intro"><span class="panel-intro__icon" aria-hidden="true">↗</span><div><h2>Chuyển nhượng xe đang trong bãi</h2><p>Người nhận phải xác nhận; khi duyệt, họ trở thành chủ mới và có quyền lấy xe ra.</p></div></div>
+                <div v-if="myVehicles.length === 0" class="empty-state"><span aria-hidden="true">⌁</span><h3>Không có xe để chuyển nhượng</h3><p>Chỉ xe đang ở trong bãi mới có thể tạo yêu cầu chuyển nhượng.</p></div>
                 <form v-else class="transfer-form" @submit.prevent="submitDelegation">
-                    <div class="form-step"><span>1</span><div><label for="transfer-vehicle">Chọn xe</label><p>Chọn phương tiện bạn muốn giao quyền nhận.</p></div></div>
+                    <div class="form-step"><span>1</span><div><label for="transfer-vehicle">Chọn xe</label><p>Chọn phương tiện muốn chuyển chủ sở hữu.</p></div></div>
                     <select id="transfer-vehicle" v-model="delegationForm.vehicleId" class="form-control" required>
                         <option value="" disabled>Chọn biển số xe</option><option v-for="vehicle in myVehicles" :key="vehicle.vehicleId" :value="vehicle.vehicleId">{{ vehicle.licensePlate }}{{ vehicle.description ? ' · ' + vehicle.description : '' }}</option>
                     </select>
@@ -34,22 +34,22 @@
                     <div class="employee-picker"><input id="employee-search" v-model="employeeSearch" class="form-control" type="text" autocomplete="off" placeholder="Nhập tên nhân viên..." @input="searchEmployees" @focus="showEmpDropdown = true" />
                         <div v-if="showEmpDropdown && employeeResults.length" class="employee-results"><button v-for="employee in employeeResults" :key="employee.employeeId" class="employee-option" type="button" @mousedown.prevent="selectEmployee(employee)"><span class="employee-avatar">{{ employeeInitials(employee.fullName) }}</span><span><strong>{{ employee.fullName }}</strong><small>{{ employee.departmentName || 'Chưa có phòng ban' }}</small></span></button></div>
                     </div>
-                    <div v-if="selectedEmployee" class="selected-person"><span class="employee-avatar">{{ employeeInitials(selectedEmployee.fullName) }}</span><span><small>NGƯỜI NHẬN ĐƯỢC CHỌN</small><strong>{{ selectedEmployee.fullName }}</strong><em>{{ selectedEmployee.departmentName || 'Nhân sự nội bộ' }}</em></span><button type="button" aria-label="Bỏ chọn người nhận" @click="clearEmployee">×</button></div>
+                    <div v-if="selectedEmployee" class="selected-person"><span class="employee-avatar">{{ employeeInitials(selectedEmployee.fullName) }}</span><span><small>CHỦ MỚI ĐƯỢC CHỌN</small><strong>{{ selectedEmployee.fullName }}</strong><em>{{ selectedEmployee.departmentName || 'Nhân sự nội bộ' }}</em></span><button type="button" aria-label="Bỏ chọn người nhận" @click="clearEmployee">×</button></div>
 
-                    <div class="form-step"><span>3</span><div><label for="transfer-reason">Ghi chú ủy quyền <em>(không bắt buộc)</em></label><p>Giúp người nhận hiểu mục đích chuyển quyền.</p></div></div>
-                    <textarea id="transfer-reason" v-model="delegationForm.reason" class="form-control" rows="3" placeholder="Ví dụ: Nhờ nhận xe thay vào cuối ca hôm nay"></textarea>
+                    <div class="form-step"><span>3</span><div><label for="transfer-reason">Ghi chú chuyển nhượng <em>(không bắt buộc)</em></label><p>Giúp người nhận hiểu mục đích chuyển chủ sở hữu.</p></div></div>
+                    <textarea id="transfer-reason" v-model="delegationForm.reason" class="form-control" rows="3" placeholder="Ví dụ: Chuyển xe cho người phụ trách ca chiều"></textarea>
                     <div v-if="grantError" class="form-message form-message--error" role="alert">{{ grantError }}</div><div v-if="grantSuccess" class="form-message form-message--success" role="status">{{ grantSuccess }}</div>
-                    <button class="submit-button" type="submit" :disabled="grantSaving"><span v-if="grantSaving" class="spinner-sm"></span><span v-else aria-hidden="true">→</span>{{ grantSaving ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu ủy quyền' }}</button>
+                    <button class="submit-button" type="submit" :disabled="grantSaving"><span v-if="grantSaving" class="spinner-sm"></span><span v-else aria-hidden="true">→</span>{{ grantSaving ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu chuyển nhượng' }}</button>
                 </form>
             </div>
-            <aside class="transfer-guide"><div class="transfer-guide__badge">QUY TRÌNH AN TOÀN</div><ol><li><span>01</span><p>Bạn chọn xe đang ở trong bãi.</p></li><li><span>02</span><p>Người nhận xác nhận yêu cầu.</p></li><li><span>03</span><p>Quyền nhận xe được kích hoạt sau khi duyệt.</p></li></ol><p class="transfer-guide__tip">Quyền xe không tự chuyển nếu người nhận chưa đồng ý.</p></aside>
+            <aside class="transfer-guide"><div class="transfer-guide__badge">QUY TRÌNH AN TOÀN</div><ol><li><span>01</span><p>Bạn chọn xe đang ở trong bãi.</p></li><li><span>02</span><p>Người nhận xác nhận yêu cầu.</p></li><li><span>03</span><p>Hệ thống đổi chủ xe sang người nhận.</p></li></ol><p class="transfer-guide__tip">Xe không đổi chủ nếu người nhận chưa đồng ý.</p></aside>
         </section>
 
         <section v-else class="request-section">
-            <div class="request-heading"><div><h2>{{ activeTab === 'incoming' ? 'Yêu cầu cần bạn xử lý' : 'Yêu cầu bạn đã gửi' }}</h2><p>{{ activeTab === 'incoming' ? 'Xác nhận đúng người trước khi cho phép nhận xe.' : 'Theo dõi phản hồi của người được ủy quyền.' }}</p></div><button class="refresh-list" type="button" :disabled="isListLoading" @click="refreshActiveList">↻ Làm mới</button></div>
+            <div class="request-heading"><div><h2>{{ activeTab === 'incoming' ? 'Yêu cầu cần bạn xử lý' : 'Yêu cầu bạn đã gửi' }}</h2><p>{{ activeTab === 'incoming' ? 'Chỉ xác nhận khi bạn đồng ý trở thành chủ mới của xe.' : 'Theo dõi phản hồi của người được đề nghị nhận xe.' }}</p></div><button class="refresh-list" type="button" :disabled="isListLoading" @click="refreshActiveList">↻ Làm mới</button></div>
             <div v-if="isListLoading" class="request-skeleton"><span></span><span></span></div>
-            <div v-else-if="activeList.length === 0" class="empty-state empty-state--list"><span aria-hidden="true">⌁</span><h3>{{ activeTab === 'incoming' ? 'Chưa có yêu cầu cần xử lý' : 'Bạn chưa gửi yêu cầu nào' }}</h3><p>{{ activeTab === 'incoming' ? 'Khi có người ủy quyền xe cho bạn, yêu cầu sẽ xuất hiện tại đây.' : 'Bạn có thể bắt đầu bằng cách chọn tab “Ủy quyền xe”.' }}</p></div>
-            <div v-else class="request-list"><article v-for="item in activeList" :key="item.vehicleDelegationId" class="request-card"><div class="request-card__person"><span class="employee-avatar employee-avatar--large">{{ employeeInitials(activeTab === 'incoming' ? item.fromEmployeeName : item.toEmployeeName) }}</span><div><small>{{ activeTab === 'incoming' ? 'NGƯỜI ỦY QUYỀN' : 'NGƯỜI ĐƯỢC ỦY QUYỀN' }}</small><h3>{{ activeTab === 'incoming' ? item.fromEmployeeName : item.toEmployeeName }}</h3><p>{{ formatDate(item.requestedAtUtc) }}</p></div></div><div class="request-card__vehicle"><small>BIỂN SỐ XE</small><strong>{{ item.licensePlate }}</strong><p>{{ item.reason || 'Không kèm ghi chú' }}</p></div><div class="request-card__actions"><span class="status-pill" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span><div v-if="activeTab === 'incoming' && item.status === 'Pending'" class="action-buttons"><button class="approve-button" type="button" @click="doApprove(item.vehicleDelegationId)">Đồng ý</button><button class="reject-button" type="button" @click="doReject(item.vehicleDelegationId)">Từ chối</button></div><button v-else-if="activeTab === 'outgoing' && item.status === 'Pending'" class="revoke-button" type="button" @click="doRevoke(item.vehicleDelegationId)">Hủy yêu cầu</button></div></article></div>
+            <div v-else-if="activeList.length === 0" class="empty-state empty-state--list"><span aria-hidden="true">⌁</span><h3>{{ activeTab === 'incoming' ? 'Chưa có yêu cầu cần xử lý' : 'Bạn chưa gửi yêu cầu nào' }}</h3><p>{{ activeTab === 'incoming' ? 'Khi có người đề nghị chuyển nhượng xe, yêu cầu sẽ xuất hiện tại đây.' : 'Bạn có thể bắt đầu bằng tab “Chuyển nhượng xe”.' }}</p></div>
+            <div v-else class="request-list"><article v-for="item in activeList" :key="item.vehicleDelegationId" class="request-card"><div class="request-card__person"><span class="employee-avatar employee-avatar--large">{{ employeeInitials(activeTab === 'incoming' ? item.fromEmployeeName : item.toEmployeeName) }}</span><div><small>{{ activeTab === 'incoming' ? 'CHỦ XE HIỆN TẠI' : 'NGƯỜI NHẬN CHUYỂN NHƯỢNG' }}</small><h3>{{ activeTab === 'incoming' ? item.fromEmployeeName : item.toEmployeeName }}</h3><p>{{ formatDate(item.requestedAtUtc) }}</p></div></div><div class="request-card__vehicle"><small>BIỂN SỐ XE</small><strong>{{ item.licensePlate }}</strong><p>{{ item.reason || 'Không kèm ghi chú' }}</p></div><div class="request-card__actions"><span class="status-pill" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span><div v-if="activeTab === 'incoming' && item.status === 'Pending'" class="action-buttons"><button class="approve-button" type="button" @click="doApprove(item.vehicleDelegationId)">Nhận quyền sở hữu</button><button class="reject-button" type="button" @click="doReject(item.vehicleDelegationId)">Từ chối</button></div><button v-else-if="activeTab === 'outgoing' && item.status === 'Pending'" class="revoke-button" type="button" @click="doRevoke(item.vehicleDelegationId)">Hủy yêu cầu</button></div></article></div>
         </section>
     </div>
 </template>
@@ -61,7 +61,7 @@ import { getByEmployeeId } from '../services/vehicleApi'
 import { getAll as getAllEmployees } from '../services/employeeApi'
 import { approveDelegation, createDelegation, getIncoming, getOutgoing, rejectDelegation, revokeDelegation } from '../services/vehicleDelegationApi'
 
-const tabs = [{ key: 'grant', label: 'Ủy quyền xe' }, { key: 'incoming', label: 'Yêu cầu đến' }, { key: 'outgoing', label: 'Yêu cầu đã gửi' }]
+const tabs = [{ key: 'grant', label: 'Chuyển nhượng xe' }, { key: 'incoming', label: 'Yêu cầu đến' }, { key: 'outgoing', label: 'Yêu cầu đã gửi' }]
 const activeTab = ref('grant'); const myVehicles = ref([]); const delegationForm = ref({ vehicleId: '', reason: '' }); const employeeSearch = ref(''); const employeeResults = ref([]); const showEmpDropdown = ref(false); const selectedEmployee = ref(null); const grantError = ref(''); const grantSuccess = ref(''); const grantSaving = ref(false); const incomingList = ref([]); const incomingLoading = ref(false); const outgoingList = ref([]); const outgoingLoading = ref(false)
 let empSearchTimer = null
 const selectedVehicle = computed(() => myVehicles.value.find((item) => String(item.vehicleId) === String(delegationForm.value.vehicleId)))
@@ -73,7 +73,7 @@ const employeeInitials = (name) => (name || '?').trim().split(/\s+/).filter(Bool
 function selectEmployee(employee) { selectedEmployee.value = employee; employeeSearch.value = employee.fullName; showEmpDropdown.value = false }
 function clearEmployee() { selectedEmployee.value = null; employeeSearch.value = ''; employeeResults.value = [] }
 async function searchEmployees() { if (empSearchTimer) clearTimeout(empSearchTimer); selectedEmployee.value = null; if (!employeeSearch.value.trim()) { employeeResults.value = []; return }; empSearchTimer = setTimeout(async () => { try { const response = await getAllEmployees({ search: employeeSearch.value.trim() }); employeeResults.value = (response.data || []).filter((item) => item.employeeId !== authState.user?.employeeId); showEmpDropdown.value = true } catch { employeeResults.value = [] } }, 300) }
-async function submitDelegation() { if (!selectedEmployee.value) { grantError.value = 'Vui lòng chọn nhân viên nhận xe từ danh sách gợi ý.'; return }; grantError.value = ''; grantSuccess.value = ''; grantSaving.value = true; try { await createDelegation({ vehicleId: parseInt(delegationForm.value.vehicleId), toEmployeeId: selectedEmployee.value.employeeId, reason: delegationForm.value.reason || null }); grantSuccess.value = 'Đã gửi yêu cầu ủy quyền. Người nhận cần xác nhận để hoàn tất.'; delegationForm.value = { vehicleId: '', reason: '' }; clearEmployee(); await loadVehicles(); await loadOutgoing() } catch (error) { grantError.value = error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.' } finally { grantSaving.value = false } }
+async function submitDelegation() { if (!selectedEmployee.value) { grantError.value = 'Vui lòng chọn người nhận chuyển nhượng từ danh sách gợi ý.'; return }; grantError.value = ''; grantSuccess.value = ''; grantSaving.value = true; try { await createDelegation({ vehicleId: parseInt(delegationForm.value.vehicleId), toEmployeeId: selectedEmployee.value.employeeId, reason: delegationForm.value.reason || null }); grantSuccess.value = 'Đã gửi yêu cầu chuyển nhượng. Người nhận cần xác nhận để trở thành chủ mới.'; delegationForm.value = { vehicleId: '', reason: '' }; clearEmployee(); await loadVehicles(); await loadOutgoing() } catch (error) { grantError.value = error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.' } finally { grantSaving.value = false } }
 async function loadVehicles() { try { const response = await getByEmployeeId(authState.user?.employeeId); myVehicles.value = (response.data || []).filter((item) => item.parkingStatus === 'IN') } catch { myVehicles.value = [] } }
 async function loadIncoming() { incomingLoading.value = true; try { const response = await getIncoming(); incomingList.value = response.data || [] } catch { incomingList.value = [] } finally { incomingLoading.value = false } }
 async function loadOutgoing() { outgoingLoading.value = true; try { const response = await getOutgoing(); outgoingList.value = response.data || [] } catch { outgoingList.value = [] } finally { outgoingLoading.value = false } }

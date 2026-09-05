@@ -37,13 +37,19 @@ public class VehicleDelegationsController : ControllerBase
         if (vehicle.EmployeeId != fromEmployeeId.Value)
             return BadRequest(new { message = "Ban khong phai chu so huu xe nay." });
         if (vehicle.ParkingStatus != "IN")
-            return BadRequest(new { message = "Xe khong o trong bai, khong the uy quyen." });
+            return BadRequest(new { message = "Xe khong o trong bai, khong the tao yeu cau chuyen nhuong." });
+        if (request.ToEmployeeId == fromEmployeeId.Value)
+            return BadRequest(new { message = "Nguoi nhan chuyen nhuong phai la nguoi khac chu xe hien tai." });
+
+        var recipientExists = await _context.Employees.AnyAsync(employee => employee.EmployeeId == request.ToEmployeeId);
+        if (!recipientExists)
+            return NotFound(new { message = "Khong tim thay nguoi nhan chuyen nhuong." });
 
         var activeDelegation = await _context.VehicleDelegations.AnyAsync(d =>
             d.VehicleId == request.VehicleId &&
             d.Status == DelegationStatuses.Pending);
         if (activeDelegation)
-            return Conflict(new { message = "Xe nay dang co yeu cau uy quyen pending." });
+            return Conflict(new { message = "Xe nay dang co yeu cau chuyen nhuong cho duyet." });
 
         var delegation = new VehicleDelegation
         {
@@ -61,8 +67,8 @@ public class VehicleDelegationsController : ControllerBase
         var fromEmployee = await _context.Employees.FindAsync(fromEmployeeId.Value);
         var fromName = fromEmployee?.FullName ?? "";
         await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Created",
-            "Yêu cầu điều xe mới",
-            $"{fromName} muốn điều xe {vehicle.LicensePlate} cho bạn.",
+            "Yêu cầu chuyển nhượng xe mới",
+            $"{fromName} muốn chuyển quyền sở hữu xe {vehicle.LicensePlate} cho bạn.",
             "VehicleDelegation", delegation.VehicleDelegationId.ToString(),
             "/vehicle-transfer");
 
@@ -166,7 +172,7 @@ public class VehicleDelegationsController : ControllerBase
             .FirstOrDefaultAsync(d => d.VehicleDelegationId == id);
 
         if (delegation == null)
-            return NotFound(new { message = "Khong tim thay yeu cau uy quyen." });
+            return NotFound(new { message = "Khong tim thay yeu cau chuyen nhuong." });
 
         var currentEmployeeId = _permissionService.GetCurrentEmployeeId(User);
         if (delegation.ToEmployeeId != currentEmployeeId)
@@ -174,11 +180,16 @@ public class VehicleDelegationsController : ControllerBase
 
         if (delegation.Status != DelegationStatuses.Pending)
             return BadRequest(new { message = "Yeu cau khong o trang thai cho duyet." });
+        if (delegation.Vehicle.ParkingStatus != "IN")
+            return Conflict(new { message = "Xe da roi bai, khong the hoan tat chuyen nhuong cua phien gui nay." });
+        if (delegation.Vehicle.EmployeeId != delegation.FromEmployeeId)
+            return Conflict(new { message = "Chu so huu xe da thay doi; yeu cau chuyen nhuong nay khong con hieu luc." });
 
         delegation.Status = DelegationStatuses.Approved;
         delegation.RespondedAtUtc = DateTime.UtcNow;
-        // Ủy quyền đã duyệt là chuyển quyền giữ xe: người nhận trở thành chủ mới
-        // của phiên gửi và là người được phép xác nhận lượt OUT.
+        // Chuyển nhượng chỉ hoàn tất khi người nhận đồng ý.  Từ thời điểm này
+        // Vehicle.EmployeeId là chủ mới, bao gồm cả quyền xác nhận lượt OUT
+        // của phiên gửi đang mở. Bản ghi VehicleDelegation chỉ còn vai trò lịch sử.
         delegation.Vehicle.EmployeeId = delegation.ToEmployeeId;
 
         await _context.SaveChangesAsync();
@@ -189,13 +200,13 @@ public class VehicleDelegationsController : ControllerBase
         if (delegationWithNav != null)
         {
             await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Approved",
-                "Yêu cầu điều xe đã được chấp nhận",
-                $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã chấp nhận điều xe {delegationWithNav.Vehicle?.LicensePlate}.",
+                "Chuyển nhượng xe đã hoàn tất",
+                $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã xác nhận chuyển quyền sở hữu xe {delegationWithNav.Vehicle?.LicensePlate}.",
                 "VehicleDelegation", id.ToString(),
                 "/vehicle-transfer");
         }
 
-        return Ok(new { message = "Da chap thuan uy quyen xe." });
+        return Ok(new { message = "Da chap thuan chuyen nhuong va cap nhat chu so huu xe." });
     }
 
     [HttpPatch("{id}/reject")]
@@ -203,7 +214,7 @@ public class VehicleDelegationsController : ControllerBase
     {
         var delegation = await _context.VehicleDelegations.FindAsync(id);
         if (delegation == null)
-            return NotFound(new { message = "Khong tim thay yeu cau uy quyen." });
+            return NotFound(new { message = "Khong tim thay yeu cau chuyen nhuong." });
 
         var currentEmployeeId = _permissionService.GetCurrentEmployeeId(User);
         if (delegation.ToEmployeeId != currentEmployeeId)
@@ -223,13 +234,13 @@ public class VehicleDelegationsController : ControllerBase
         if (delegationWithNav != null)
         {
             await _notificationService.NotifyEventAsync("Approval.VehicleDelegation.Rejected",
-                "Yêu cầu điều xe bị từ chối",
-                $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã từ chối điều xe {delegationWithNav.Vehicle?.LicensePlate}.",
+                "Chuyển nhượng xe bị từ chối",
+                $"{delegationWithNav.ToEmployee?.FullName ?? "Người nhận"} đã từ chối nhận quyền sở hữu xe {delegationWithNav.Vehicle?.LicensePlate}.",
                 "VehicleDelegation", id.ToString(),
                 "/vehicle-transfer");
         }
 
-        return Ok(new { message = "Da tu choi uy quyen xe." });
+        return Ok(new { message = "Da tu choi yeu cau chuyen nhuong xe." });
     }
 
     [HttpPatch("{id}/revoke")]
@@ -237,7 +248,7 @@ public class VehicleDelegationsController : ControllerBase
     {
         var delegation = await _context.VehicleDelegations.FindAsync(id);
         if (delegation == null)
-            return NotFound(new { message = "Khong tim thay yeu cau uy quyen." });
+            return NotFound(new { message = "Khong tim thay yeu cau chuyen nhuong." });
 
         var currentEmployeeId = _permissionService.GetCurrentEmployeeId(User);
         if (delegation.FromEmployeeId != currentEmployeeId)
@@ -250,7 +261,7 @@ public class VehicleDelegationsController : ControllerBase
         delegation.RespondedAtUtc = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        return Ok(new { message = "Da huy yeu cau uy quyen." });
+        return Ok(new { message = "Da huy yeu cau chuyen nhuong." });
     }
 
     public sealed record CreateDelegationRequest(int VehicleId, int ToEmployeeId, string? Reason);

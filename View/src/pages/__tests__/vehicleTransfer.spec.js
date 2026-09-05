@@ -75,7 +75,7 @@ describe('VehicleTransfer', () => {
     await flushPromises()
 
     delegationApi.approveDelegation.mockResolvedValue({})
-    await wrapper.findAll('button').find((b) => b.text() === 'Đồng ý').trigger('click')
+    await wrapper.findAll('button').find((b) => b.text() === 'Nhận quyền sở hữu').trigger('click')
     await flushPromises()
     expect(delegationApi.approveDelegation).toHaveBeenCalledWith(2)
   })

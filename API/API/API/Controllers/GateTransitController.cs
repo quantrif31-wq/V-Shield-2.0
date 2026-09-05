@@ -268,15 +268,10 @@ namespace API.Controllers
                     if (direction != "OUT")
                         return await DenyAsync("Từ chối IN: phương tiện đang có phiên gửi mở.", "Xe đang ở trong bãi; chỉ có thể xác nhận lượt ra.");
 
-                    var isParkedByCurrentEmployee = vehicle.EmployeeId == request.EmployeeId;
-                    var isApprovedDelegate = vehicle.EmployeeId.HasValue && await _context.VehicleDelegations
-                        .AsNoTracking()
-                        .AnyAsync(delegation => delegation.VehicleId == vehicle.VehicleId
-                            && delegation.FromEmployeeId == vehicle.EmployeeId.Value
-                            && delegation.ToEmployeeId == request.EmployeeId
-                            && delegation.Status == DelegationStatuses.Approved);
-
-                    if (!isParkedByCurrentEmployee && !isApprovedDelegate)
+                    // A completed transfer updates Vehicle.EmployeeId. The current owner is
+                    // therefore the only person permitted to close this parking session;
+                    // an approved historical transfer must never act as a standing delegate.
+                    if (vehicle.EmployeeId != request.EmployeeId)
                     {
                         return await DenyAsync(
                             $"Từ chối OUT: xe đang được gửi bởi nhân viên {vehicle.EmployeeId}; không có ủy quyền hợp lệ cho nhân viên {request.EmployeeId}.",
