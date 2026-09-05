@@ -35,8 +35,7 @@ public class SyncEventApplier
             nameof(Visit) => await ApplyVisitAsync(syncEvent, action, entity, cancellationToken),
             nameof(Employee) => await ApplyGenericAsync<Employee>(syncEvent, action, entity, employee => employee.EmployeeId, cancellationToken,
                 lookup: async fields => await FindEmployeeAsync(fields, cancellationToken)),
-            nameof(EmployeeDynamicQr) => await ApplyGenericAsync<EmployeeDynamicQr>(syncEvent, action, entity, qr => qr.Id, cancellationToken,
-                lookup: async fields => await FindEmployeeDynamicQrAsync(fields, cancellationToken)),
+            nameof(EmployeeDynamicQr) => await ApplyEmployeeDynamicQrAsync(syncEvent, action, entity, cancellationToken),
             nameof(Vehicle) => await ApplyGenericAsync<Vehicle>(syncEvent, action, entity, vehicle => vehicle.VehicleId, cancellationToken,
                 lookup: async fields => await FindVehicleAsync(fields, cancellationToken)),
             nameof(WatchlistEntry) => await ApplyGenericAsync<WatchlistEntry>(syncEvent, action, entity, entry => entry.WatchlistEntryId, cancellationToken,
@@ -442,6 +441,34 @@ public class SyncEventApplier
 
         return await _db.EmployeeDynamicQrs
             .FirstOrDefaultAsync(item => item.EmployeeId == employeeId, cancellationToken);
+    }
+
+    private async Task<string?> ApplyEmployeeDynamicQrAsync(
+        SyncEventDto syncEvent,
+        string action,
+        JsonElement entity,
+        CancellationToken cancellationToken)
+    {
+        var fields = entity.ValueKind == JsonValueKind.Object
+            ? entity.EnumerateObject().ToDictionary(item => item.Name, item => item.Value, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        var employeeId = TryGetInt(fields, nameof(EmployeeDynamicQr.EmployeeId));
+
+        // QR secrets are child records. An area node can legitimately be scoped
+        // to fewer employees than central; do not let a missing parent cause a
+        // foreign-key exception that aborts the whole bootstrap cycle.
+        if (employeeId is > 0 && !await _db.Employees.AnyAsync(item => item.EmployeeId == employeeId.Value, cancellationToken))
+        {
+            return syncEvent.AggregateId;
+        }
+
+        return await ApplyGenericAsync<EmployeeDynamicQr>(
+            syncEvent,
+            action,
+            entity,
+            qr => qr.Id,
+            cancellationToken,
+            lookup: async values => await FindEmployeeDynamicQrAsync(values, cancellationToken));
     }
 
     private async Task<Vehicle?> FindVehicleAsync(Dictionary<string, JsonElement> fields, CancellationToken cancellationToken)
